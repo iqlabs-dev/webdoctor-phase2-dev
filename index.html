@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WebDoctor Dev — Buy Credits (Test)</title>
+  <body style="font-family:sans-serif;padding:24px;">
+    <h1>Buy Credits (Test)</h1>
+    <p>Enter your email, pick a pack, and you’ll be redirected to Stripe Checkout (TEST).</p>
+
+    <form id="buy-credits">
+      <input type="email" id="buyer-email" placeholder="your@email.com" required />
+      <button type="button" data-price="PRICE_ID_10">Buy 10 Credits</button>
+      <button type="button" data-price="PRICE_ID_25">Buy 25 Credits</button>
+      <button type="button" data-price="PRICE_ID_50">Buy 50 Credits</button>
+    </form>
+
+    <script>
+      const form=document.getElementById('buy-credits');
+      form.addEventListener('click',async e=>{
+        const btn=e.target.closest('button[data-price]');
+        if(!btn)return;
+        const email=document.getElementById('buyer-email').value.trim();
+        if(!email){alert('Enter your email');return;}
+        const priceId=btn.getAttribute('data-price');
+        const res=await fetch('/.netlify/functions/create-checkout-session',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({priceId,email})
+        });
+        const data=await res.json();
+        if(data.url)window.location.href=data.url;
+        else alert(data.error||'Could not start checkout');
+      });
+    </script>
+  </body>
+</html>
