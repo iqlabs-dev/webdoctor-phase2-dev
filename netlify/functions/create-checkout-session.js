@@ -7,34 +7,59 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function handler(event) {
-  try {
-    const { priceId, email } = JSON.parse(event.body);
+const PRICE_TO_CREDITS = {
+  [process.env.PRICE_ID_10]: 10,
+  [process.env.PRICE_ID_25]: 25,
+  [process.env.PRICE_ID_50]: 50
+};
 
-    // Create a new Stripe Checkout session
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  try {
+    const { priceId, email } = JSON.parse(event.body || "{}");
+
+    // Validate inputs
+    if (!priceId || !email) {
+      return { statusCode: 400, body: "Missing priceId or email" };
+    }
+
+    const price = process.env[priceId];
+    if (!price) {
+      return { statusCode: 400, body: "Invalid priceId" };
+    }
+
+    const credits = PRICE_TO_CREDITS[price] || 0;
+
+    // Create the Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: email,
-      line_items: [{ price: process.env[priceId], quantity: 1 }],
+      line_items: [{ price, quantity: 1 }],
       success_url: `${process.env.SITE_URL}/public/thanks.html`,
       cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
+      metadata: { email, credits: String(credits) }
     });
 
-    // Log transaction to Supabase
-    await supabase.from("transactions").insert([
-      { email, price_id: priceId, status: "created", stripe_id: session.id },
-    ]);
+    // Pre-log transaction to Supabase (optional early record)
+    await supabase.from("transactions").insert({
+      user_email: email.toLowerCase(),
+      stripe_session_id: session.id,
+      credits_purchased: credits
+    });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ url: session.url }),
+      body: JSON.stringify({ url: session.url })
     };
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
+      body: JSON.stringify({ error: error.message })
     };
   }
 }
