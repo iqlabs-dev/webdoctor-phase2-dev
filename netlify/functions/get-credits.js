@@ -1,6 +1,7 @@
 // netlify/functions/get-credits.js
 import { createClient } from "@supabase/supabase-js";
 
+// Create Supabase client using your secure environment variables
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -8,25 +9,39 @@ const supabase = createClient(
 );
 
 export default async function handler(event) {
-  // only allow POST
+  console.log("➡️ Incoming request to get-credits");
+
+  // Allow only POST
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method Not Allowed" }),
+    };
   }
 
-  // read email from body
-  let email = "";
+  // Parse request body
+  let email;
   try {
     const body = JSON.parse(event.body || "{}");
-    email = (body.email || "").toLowerCase();
+    email = (body.email || "").trim().toLowerCase();
   } catch (err) {
-    return { statusCode: 400, body: "Bad JSON" };
+    console.error("❌ JSON parse error", err);
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Invalid JSON body" }),
+    };
   }
 
   if (!email) {
-    return { statusCode: 400, body: "Email required" };
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Email is required" }),
+    };
   }
 
-  // look up user in supabase
+  console.log(`🔍 Looking up credits for: ${email}`);
+
+  // Query Supabase for the user's credits
   const { data, error } = await supabase
     .from("users")
     .select("credits")
@@ -34,12 +49,17 @@ export default async function handler(event) {
     .maybeSingle();
 
   if (error) {
-    console.error("get-credits supabase error", error);
-    return { statusCode: 500, body: "Database error" };
+    console.error("❌ Supabase query error:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Database lookup failed" }),
+    };
   }
 
-  // if no row, treat as 0
+  // Return 0 if no record found
   const credits = data?.credits ?? 0;
+
+  console.log(`✅ Found ${credits} credits for ${email}`);
 
   return {
     statusCode: 200,
