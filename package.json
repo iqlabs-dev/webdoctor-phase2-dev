@@ -1,9 +1,11 @@
 {
   "name": "webdoctor-phase2-dev",
-  "private": true,
-  "type": "module",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "stripe": "^14.0.0"
+    "node-fetch": "^3.3.2",
+    "@supabase/supabase-js": "^2.43.1",
+    "stripe": "^14.24.0"
   }
 }
