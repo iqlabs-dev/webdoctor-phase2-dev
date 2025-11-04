@@ -1,6 +1,8 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import fetch from "node-fetch";
 
+// Initialize Stripe and Supabase
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -9,98 +11,91 @@ const supabase = createClient(
 );
 
 export async function handler(event) {
-  // 1️⃣ Verify this really came from Stripe
+  // Verify Stripe signature
   const sig = event.headers["stripe-signature"];
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  // Handle Netlify’s base64 encoding
-  const body = event.isBase64Encoded
-    ? Buffer.from(event.body, "base64").toString("utf8")
-    : event.body;
-
   let stripeEvent;
   try {
+    const body = event.isBase64Encoded
+      ? Buffer.from(event.body, "base64").toString("utf8")
+      : event.body;
     stripeEvent = stripe.webhooks.constructEvent(body, sig, secret);
   } catch (err) {
     console.error("❌ Webhook verification failed:", err.message);
     return { statusCode: 400, body: `Webhook error: ${err.message}` };
   }
 
-  // 2️⃣ Only react to successful checkout events
+  // Only process successful checkout sessions
   if (stripeEvent.type !== "checkout.session.completed") {
     return { statusCode: 200, body: "Ignored event" };
   }
 
   const session = stripeEvent.data.object;
 
-  // 3️⃣ Extract metadata we sent from the checkout session
+  // Extract metadata and email
   const email =
-    (session.metadata && session.metadata.email) ||
-    (session.customer_details && session.customer_details.email) ||
-    "";
-  const credits = parseInt(
-    (session.metadata && session.metadata.credits) || "0",
-    10
-  );
+    session.metadata?.email ||
+    session.customer_details?.email ||
+    null;
 
-  if (!email || !credits) {
-    console.warn("⚠️ Missing email or credits:", session.id);
-    return { statusCode: 200, body: "No email or credits" };
+  const credits = parseInt(session.metadata?.credits || "0", 10);
+  const normalizedEmail = email ? email.toLowerCase() : null;
+
+  if (!normalizedEmail || !credits) {
+    console.warn("⚠️ Missing email or credits in session:", session.id);
+    return { statusCode: 200, body: "No email or credits provided" };
   }
 
-  const normalizedEmail = email.toLowerCase();
+  console.log(`✅ Payment success for ${normalizedEmail}, ${credits} credits`);
 
-  // 4️⃣ Upsert user in Supabase
+  // Update or insert user in Supabase
   try {
-    // Check if the user already exists
-    const { data: existing, error: findErr } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("users")
       .select("id, credits")
       .eq("email", normalizedEmail)
-      .maybeSingle();
+      .single();
 
-    if (findErr) {
-      console.error("❌ Supabase lookup error:", findErr);
-      return { statusCode: 500, body: "DB lookup error" };
+    if (lookupError && lookupError.code !== "PGRST116") {
+      console.error("Supabase lookup error:", lookupError);
+      throw lookupError;
     }
 
     if (existing) {
-      // Update: add credits to their balance
-      const newTotal = (existing.credits || 0) + credits;
-      const { error: updateErr } = await supabase
+      const newCredits = (existing.credits || 0) + credits;
+      await supabase
         .from("users")
-        .update({ credits: newTotal })
-        .eq("id", existing.id);
-      if (updateErr) {
-        console.error("❌ Supabase update error:", updateErr);
-        return { statusCode: 500, body: "DB update error" };
-      }
+        .update({ credits: newCredits })
+        .eq("email", normalizedEmail);
+      console.log(`💰 Updated ${normalizedEmail} to ${newCredits} credits`);
     } else {
-      // Insert: new user
-      const { error: insertErr } = await supabase.from("users").insert({
+      await supabase.from("users").insert({
         email: normalizedEmail,
         credits,
       });
-      if (insertErr) {
-        console.error("❌ Supabase insert error:", insertErr);
-        return { statusCode: 500, body: "DB insert error" };
-      }
+      console.log(`✨ New user added: ${normalizedEmail} (${credits} credits)`);
     }
-
-    // 5️⃣ Log transaction in transactions table
-    const { error: txErr } = await supabase.from("transactions").insert({
-      user_email: normalizedEmail,
-      stripe_session_id: session.id,
-      credits_purchased: credits,
-    });
-    if (txErr) {
-      console.warn("⚠️ Could not insert into transactions:", txErr);
-    }
-
-    console.log(`✅ Webhook processed: ${normalizedEmail} (+${credits} credits)`);
-    return { statusCode: 200, body: "ok" };
   } catch (err) {
-    console.error("❌ Unexpected webhook error:", err);
-    return { statusCode: 500, body: "Unexpected error" };
+    console.error("❌ Supabase error:", err);
+    return { statusCode: 500, body: "Database update failed" };
   }
+
+  // Send confirmation email (fire-and-forget)
+  try {
+    const siteUrl = process.env.SITE_URL || "https://your-site-url.netlify.app";
+    await fetch(`${siteUrl}/.netlify/functions/send-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: normalizedEmail,
+        credits,
+      }),
+    });
+    console.log(`📧 Confirmation email queued for ${normalizedEmail}`);
+  } catch (err) {
+    console.error("⚠️ Email send failed:", err.message);
+  }
+
+  return { statusCode: 200, body: "ok" };
 }
