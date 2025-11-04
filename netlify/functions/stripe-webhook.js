@@ -9,66 +9,67 @@ const supabase = createClient(
 );
 
 export async function handler(event) {
-  // Stripe needs the raw body to verify the signature
+  // 1) verify this really came from Stripe
   const sig = event.headers["stripe-signature"];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  const buf = Buffer.from(
-    event.body,
-    event.isBase64Encoded ? "base64" : "utf8"
-  );
+  const body = event.isBase64Encoded
+    ? Buffer.from(event.body, "base64")
+    : Buffer.from(event.body || "");
 
   let stripeEvent;
   try {
-    stripeEvent = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
+    stripeEvent = stripe.webhooks.constructEvent(body, sig, secret);
   } catch (err) {
-    return { statusCode: 400, body: `Webhook Error: ${err.message}` };
+    return { statusCode: 400, body: `Webhook error: ${err.message}` };
+  }
+
+  // 2) we only care about successful checkouts
+  if (stripeEvent.type !== "checkout.session.completed") {
+    return { statusCode: 200, body: "ignored" };
+  }
+
+  const session = stripeEvent.data.object;
+
+  // we added these when we created the checkout session
+  const email =
+    (session.metadata?.email ||
+      session.customer_details?.email ||
+      "").toLowerCase();
+  const credits = parseInt(session.metadata?.credits || "0", 10);
+
+  if (!email || !credits) {
+    return { statusCode: 200, body: "no email or credits" };
   }
 
   try {
-    if (stripeEvent.type === "checkout.session.completed") {
-      const s = stripeEvent.data.object;
+    // 3) check if user exists
+    const { data: existing } = await supabase
+      .from("users")
+      .select("credits")
+      .eq("email", email)
+      .maybeSingle();
 
-      // from create-checkout-session metadata
-      const email =
-        (s.metadata?.email || s.customer_details?.email || "").toLowerCase();
-      const credits = parseInt(s.metadata?.credits || "0", 10);
-
-      if (email && credits > 0) {
-        // 1) Upsert credits in users table
-        const { error: upsertErr } = await supabase
-          .from("users")
-          .upsert({ email, credits }, { onConflict: "email", ignoreDuplicates: false })
-          .select(); // ensures upsert happens on free plan
-
-        if (upsertErr) throw upsertErr;
-
-        // If user existed, increment credits
-        const { data: existing } = await supabase
-          .from("users")
-          .select("credits")
-          .eq("email", email)
-          .maybeSingle();
-
-        if (existing && existing.credits !== credits) {
-          await supabase
-            .from("users")
-            .update({ credits: existing.credits + credits })
-            .eq("email", email);
-        }
-
-        // 2) Log transaction (matches your existing columns)
-        const { error: txErr } = await supabase.from("transactions").insert({
-          user_email: email,
-          stripe_session_id: s.id,
-          credits_purchased: credits
-        });
-        if (txErr) throw txErr;
-      }
+    if (existing) {
+      // update credits
+      await supabase
+        .from("users")
+        .update({ credits: (existing.credits || 0) + credits })
+        .eq("email", email);
+    } else {
+      // create user with credits
+      await supabase.from("users").insert({ email, credits });
     }
 
-    return { statusCode: 200, body: "ok" };
+    // 4) log the transaction
+    await supabase.from("transactions").insert({
+      user_email: email,
+      stripe_session_id: session.id,
+      credits_purchased: credits
+    });
+
+    return { statusCode: 200, body: "✅ credits added" };
   } catch (err) {
-    return { statusCode: 500, body: `Handler Error: ${err.message}` };
+    return { statusCode: 500, body: `Supabase error: ${err.message}` };
   }
 }
