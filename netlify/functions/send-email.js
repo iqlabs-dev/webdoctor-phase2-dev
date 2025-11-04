@@ -20,7 +20,7 @@ export const handler = async (event) => {
     }
 
     // you verified a sender in SendGrid, use that address here
-    const fromEmail = "YOUR_VERIFIED_SENDER@YOURDOMAIN.com";
+    const fromEmail = "djesther@outlook.com";
 
     const msg = {
       personalizations: [
