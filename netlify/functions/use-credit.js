@@ -8,28 +8,36 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-export default async function handler(event) {
+export async function handler(event) {
+  // only allow POST
   if (event.httpMethod !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Method not allowed. Use POST." }),
+    };
   }
 
   try {
     const { email, amount } = JSON.parse(event.body || "{}");
 
     if (!email) {
-      return Response.json({ error: "email is required" }, { status: 400 });
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "email is required" }),
+      };
     }
 
     const useAmount = Number.isFinite(amount) ? Number(amount) : 1;
     if (useAmount <= 0) {
-      return Response.json(
-        { error: "amount must be positive" },
-        { status: 400 }
-      );
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "amount must be positive" }),
+      };
     }
 
     const normalizedEmail = email.toLowerCase();
 
+    // get user
     const { data: user, error: userErr } = await supabase
       .from("users")
       .select("id, credits")
@@ -38,35 +46,39 @@ export default async function handler(event) {
 
     if (userErr) {
       console.error("Supabase fetch error:", userErr);
-      return Response.json({ error: "db error" }, { status: 500 });
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "db error" }),
+      };
     }
 
     if (!user) {
-      return Response.json(
-        {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
           email: normalizedEmail,
           success: false,
           message: "No credits for this email",
-        },
-        { status: 200 }
-      );
+        }),
+      };
     }
 
     const currentCredits = user.credits || 0;
     if (currentCredits < useAmount) {
-      return Response.json(
-        {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
           email: normalizedEmail,
           success: false,
           message: "Not enough credits",
           credits: currentCredits,
-        },
-        { status: 200 }
-      );
+        }),
+      };
     }
 
     const newCredits = currentCredits - useAmount;
 
+    // update user
     const { error: updateErr } = await supabase
       .from("users")
       .update({ credits: newCredits })
@@ -74,26 +86,33 @@ export default async function handler(event) {
 
     if (updateErr) {
       console.error("Supabase update error:", updateErr);
-      return Response.json({ error: "db update error" }, { status: 500 });
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "db update error" }),
+      };
     }
 
+    // log the deduction
     await supabase.from("transactions").insert({
       user_email: normalizedEmail,
       stripe_session_id: null,
       credits_purchased: -useAmount,
     });
 
-    return Response.json(
-      {
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
         email: normalizedEmail,
         success: true,
         message: "Credit(s) used",
         credits: newCredits,
-      },
-      { status: 200 }
-    );
+      }),
+    };
   } catch (err) {
     console.error("use-credit error:", err);
-    return new Response("Server error", { status: 500 });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "server error" }),
+    };
   }
 }
