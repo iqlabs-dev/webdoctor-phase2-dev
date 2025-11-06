@@ -1,397 +1,435 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>WebDoctor — Scan. Diagnose. Revive.</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="WebDoctor runs full website health scans for performance, SEO, mobile, accessibility, and security — then emails a clean, client-ready report instantly." />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css" integrity="sha512-PVQkN0r75RY11qpCwHktGv8z7cPSEEFQ27Nf3o9u4Eq/ym4bi/3MPN0+B2kyk3w0UWETgBbQnkRUrA+72yt7Zg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <style>
-    :root {
-      --bg: #020617;
-      --bg-soft: rgba(2, 6, 23, 0.4);
-      --card: #0f172a;
-      --card-soft: rgba(15, 23, 42, 0.65);
-      --fg: #e2e8f0;
-      --muted: #94a3b8;
-      --accent: #14b8a6;
-      --danger: #f43f5e;
-      --radius-lg: 1.25rem;
-      --radius-md: 0.9rem;
-      --radius-sm: 0.5rem;
-      --shadow: 0 22px 45px rgba(0,0,0,0.35);
-      --max: 1120px;
-    }
-    body {
-      background: radial-gradient(circle at top, #0f172a 0%, #020617 55%, #020617 100%);
-      color: var(--fg);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.6;
-    }
-    a { color: inherit; text-decoration: none; }
-    .shell { max-width: var(--max); margin: 0 auto; padding: 0 1.5rem; }
-    header {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(2, 6, 23, 0.76);
-      backdrop-filter: saturate(180%) blur(14px);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-    }
-    .nav {
-      display: flex; align-items: center; justify-content: space-between;
-      height: 4.25rem;
-    }
-    .nav-left { display: flex; align-items: center; gap: 1.3rem; }
-    .brand {
-      font-weight: 700; font-size: 1.05rem;
-      letter-spacing: -.01em;
-      display: flex; align-items: center; gap: .45rem;
-    }
-    .brand-dot {
-      width: 10px; height: 10px; border-radius: 9999px;
-      background: linear-gradient(135deg, #14b8a6, #0ea5e9);
-      box-shadow: 0 0 15px rgba(20, 184, 166, .6);
-    }
-    .nav-links { display: flex; gap: 1rem; font-size: .85rem; color: var(--muted); }
-    .nav-links a { padding: .4rem .6rem; border-radius: .5rem; }
-    .nav-links a:hover { background: rgba(15, 23, 42, .45); color: #fff; }
-    .nav-actions { display: flex; gap: .75rem; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      padding: .55rem 1rem;
-      border-radius: .6rem;
-      font-weight: 600; font-size: .8rem;
-      line-height: 1.2;
-      transition: transform .12s ease-out, box-shadow .12s ease-out;
-      cursor: pointer;
-      border: 1px solid transparent;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #14b8a6 0%, #0ea5e9 85%);
-      color: #020617;
-      box-shadow: 0 18px 45px rgba(14, 165, 233, .35);
-    }
-    .btn-primary:hover { transform: translateY(-1px); }
-    .btn-muted {
-      background: rgba(15, 23, 42, .6);
-      border-color: rgba(148, 163, 184, .1);
-      color: #e2e8f0;
-    }
-    /* hero */
-    .hero {
-      padding: 4rem 0 3rem;
-      display: grid; grid-template-columns: 1.05fr .95fr; gap: 3.25rem;
-      align-items: center;
-    }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: .4rem;
-      background: rgba(20, 184, 166, .12);
-      color: #bae6fd;
-      border: 1px solid rgba(45, 212, 191, .25);
-      border-radius: 9999px;
-      padding: .35rem .7rem .35rem .4rem;
-      font-size: .65rem; font-weight: 500;
-      margin-bottom: 1.25rem;
-    }
-    h1 {
-      font-size: clamp(2.45rem, 3.1vw, 3.1rem);
-      line-height: 1.04;
-      letter-spacing: -.032em;
-      margin-bottom: 1.3rem;
-    }
-    .hero-lead {
-      color: var(--muted);
-      max-width: 34rem;
-    }
-    .hero-actions {
-      display: flex; gap: 1rem; margin-top: 1.7rem; flex-wrap: wrap;
-    }
-    .hero-small {
-      margin-top: .8rem;
-      font-size: .7rem;
-      color: #94a3b8;
-    }
-    .hero-frame {
-      background: radial-gradient(circle, rgba(15, 23, 42, 0.4), rgba(2,6,23,0));
-      border: 1px solid rgba(148, 163, 184, 0.04);
-      border-radius: 1.1rem;
-      padding: 1rem;
-    }
-    /* badges row */
-    .badges {
-      display: flex; gap: 1.25rem; align-items: center;
-      margin-top: 2.2rem;
-      font-size: .65rem;
-    }
-    .badge-pill {
-      display: inline-flex; align-items: center; gap: .35rem;
-      background: rgba(15, 23, 42, .35);
-      padding: .4rem .65rem;
-      border-radius: 9999px;
-      border: 1px solid rgba(148, 163, 184, .05);
-    }
-    .bullet-row { margin-top: 1.8rem; }
-    .bullet-row ul { list-style: disc; margin-left: 1.1rem; color: #cbd5f5; }
-    /* pricing */
-    .section { padding: 4.5rem 0; }
-    .section-title { font-size: 1.4rem; margin-bottom: .35rem; }
-    .section-sub { color: var(--muted); margin-bottom: 2rem; }
-    .pricing-grid {
-      display: grid; gap: 1.4rem;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    }
-    .plan {
-      background: rgba(15, 23, 42, .6);
-      border: 1px solid rgba(148, 163, 184, .03);
-      border-radius: 1rem;
-      padding: 1.25rem 1.15rem 1.15rem;
-      display: flex; flex-direction: column;
-      gap: .75rem;
-      min-height: 210px;
-    }
-    .plan.highlight {
-      background: radial-gradient(circle at top, rgba(20, 184, 166, .22), rgba(15, 23, 42, .4));
-      border-color: rgba(45, 212, 191, .35);
-      box-shadow: 0 18px 50px rgba(20, 184, 166, .2);
-    }
-    .plan small { color: var(--muted); font-size: .65rem; }
-    .price { font-size: 1.4rem; font-weight: 700; }
-    .plan ul { list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: .4rem; font-size: .7rem; }
-    .plan li { color: #e2e8f0; }
-    .plan button, .plan a { margin-top: auto; }
-    .fairuse {
-      margin-top: 1.35rem;
-      background: rgba(15, 23, 42, .4);
-      border: 1px solid rgba(148, 163, 184, .03);
-      border-radius: .85rem;
-      padding: .8rem 1rem;
-      font-size: .68rem;
-      color: #cbd5f5;
-    }
-    /* trust/footer */
-    footer {
-      border-top: 1px solid rgba(148, 163, 184, .08);
-      padding: 2.5rem 0 3.5rem;
-      text-align: center;
-      color: #64748b;
-      font-size: .65rem;
-    }
-    .trust-row {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      margin-bottom: 1.1rem;
-    }
-    .trust-pill {
-      display: flex; gap: .35rem; align-items: center;
-      background: rgba(15, 23, 42, .5);
-      border: 1px solid rgba(148, 163, 184, .05);
-      border-radius: 9999px;
-      padding: .4rem .75rem;
-      font-size: .6rem;
-      color: #e2e8f0;
-    }
-    @media (max-width: 960px) {
-      .hero { grid-template-columns: 1fr; }
-      .nav-links { display: none; }
-    }
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebDoctor — Scan. Diagnose. Revive.</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta name="description" content="WebDoctor delivers a concise, human‑verified website health report: performance, SEO, mobile, accessibility, security — with clear priorities.">
+<style>
+:root{--bg-top:#0A0F14;--bg-bot:#0F1822;--ink:#E9EEF2;--ink-soft:#CFE1EE;--muted:#9FB1BF;--line:#1E2C3A;--panel:#0F1821;--teal:#00BFA5;--teal-lite:#43E1BF}
+*{box-sizing:border-box}html,body{height:100%;scroll-behavior:smooth}
+body{margin:0;font-family:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 100%);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+.section{padding:92px 0}
+.small{font-size:14px;color:var(--muted)}
+.btn{display:inline-flex;gap:10px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;border:1px solid transparent;text-decoration:none;font-weight:700;cursor:pointer;line-height:1;transition:filter .2s, transform .12s ease}
+.btn:hover{transform:translateY(-1px)}.btn.primary{background:var(--teal);color:#012a22}.btn.primary:hover{filter:brightness(1.05)}.btn.ghost{border:1px solid var(--line);color:var(--ink);background:transparent}.btn.ghost:hover{border-color:var(--teal);color:var(--teal-lite)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(6px);background:linear-gradient(180deg,rgba(10,15,20,.88),rgba(15,24,34,.72));border-bottom:1px solid rgba(30,44,58,.6)}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:74px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px;font-size:20px;color:var(--ink)}.brand .dot{width:12px;height:12px;border-radius:999px;background:var(--teal)}
+.navlinks{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.navlinks a{color:var(--ink-soft);text-decoration:none;font-weight:600;padding:6px 8px;border-radius:8px;position:relative}
+.navlinks a:hover{color:var(--teal-lite);background:rgba(0,191,165,.08)}
+.hero{padding:108px 0 88px}.hero .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:42px;align-items:center}
+.hero h1{font-size:44px;line-height:1.12;letter-spacing:.2px}.hero p.lead{font-size:18px;line-height:1.65;color:var(--ink-soft);margin:12px 0 26px}
+.badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.badge{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:6px 10px}
+.trustbar{padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.trustbar .row{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center}.trustbar .item{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
+.hiw .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.step{padding:20px}.step b{display:block;margin-bottom:6px}
+.pricing .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{padding:18px;display:flex;flex-direction:column}
+.card h3{margin:0 0 6px}.price{font-size:34px;font-weight:800;margin-top:8px}
+.card ul{margin:12px 0 0 18px}.card li{margin:6px 0;color:#D6E7F0}
+.faq .wrap{max-width:820px}.faq h2{text-align:center;margin-bottom:26px}.faq details{border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.35);transition:.25s}.faq details+details{margin-top:14px}
+.faq summary{background:#101821;color:#F2F7FA;padding:16px 20px;border-radius:12px;font-weight:600;font-size:17px;line-height:1.45;letter-spacing:.15px;cursor:pointer;list-style:none;display:flex;gap:10px;align-items:flex-start;transition:color .25s,background .25s}
+.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'›';font-weight:700;font-size:18px;margin-left:auto;transition:transform .25s,color .25s;opacity:.9}
+.faq summary:hover{background:#142433;color:var(--teal-lite)}.faq summary:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,191,165,.45)}
+.faq details[open]{border-color:rgba(0,191,165,.55);box-shadow:0 0 10px rgba(0,191,165,.15)}.faq details[open] summary{color:var(--teal)}.faq details[open] summary:after{transform:rotate(90deg);color:var(--teal-lite)}
+.faq .a{opacity:0;transform:translateY(-4px);max-height:0;overflow:hidden;border-top:1px solid var(--line);transition:opacity .28s ease,transform .28s ease,max-height .35s ease}
+.faq details[open] .a{opacity:1;transform:translateY(0);max-height:640px;padding-top:12px}.faq .a{color:#D6E7F0;margin:12px 22px;font-size:15.5px;line-height:1.65}
+.trustpanel .col{padding:18px}
+.footer{padding:40px 0;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center;background:linear-gradient(180deg, rgba(15,24,34,.9), rgba(10,15,20,1))}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}.reveal.is-in{opacity:1;transform:translateY(0)}
+/* Email links in TEAL */
+a[href^="mailto:"]{color:var(--teal-lite);text-decoration:none}
+a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
+/* Modal */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:24px}
+.modal.in{display:flex}
+.modal .inner{max-width:1100px;width:100%}
+.modal .chrome{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.modal .chrome h3{margin:0;font-size:18px;color:#DAF6EF}
+.modal .body{border:1px solid var(--line);background:#0B141B;border-radius:16px;overflow:hidden;position:relative}
+.modal iframe{display:block;width:100%;height:80vh;border:0}
+.modal .actions{display:flex;gap:10px;margin-top:12px}
+/* Fallback notice */
+.fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px}
+.fallback .box{border:1px solid var(--teal);border-radius:14px;padding:16px 18px;background:rgba(0,191,165,.06);color:#DFF8F2;font-weight:600;text-align:center}
+</style>
 </head>
 <body>
+<header class="header"><div class="wrap nav">
+  <div class="brand"><span class="dot"></span><span>WebDoctor</span></div>
+  <nav class="navlinks">
+    <a href="#hiw" class="hide-sm">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#trust">Trust</a>
+    <a class="btn primary" href="https://tally.so/r/medJ2k" target="_blank" rel="noopener">Start Free Scan</a>
+  </nav>
+</div></header>
 
-<header>
-  <div class="shell">
-    <div class="nav">
-      <div class="nav-left">
-        <div class="brand">
-          <span class="brand-dot"></span>
-          WebDoctor
-        </div>
-        <div class="nav-links">
-          <a href="#how">How it works</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#faq">FAQ</a>
-          <a href="#trust">Trust</a>
-        </div>
-      </div>
-      <div class="nav-actions">
-        <a href="#pricing" class="btn btn-muted">View plans</a>
-        <a href="<!-- TODO: Stripe revive trial link -->" class="btn btn-primary">Start Free 5-Day Revive Trial</a>
-      </div>
-    </div>
-  </div>
-</header>
+<section class="hero" id="top"><div class="wrap">
+  <div class="grid">
+    <div class="reveal">
+      <span class="badge">🩺 Early Access</span>
+<h1>Scan. Diagnose. Revive.<br>Clarity on what matters most-and what to fix first.</h1>
+<h2 style="font-weight:700;margin-top:8px;color:#CFE1EE;font-size:22px">
+  Performance · SEO · Mobile · Accessibility · Security
+</h2>
+<p class="lead">A complete website health check — built for web agencies. WebDoctor scans performance, SEO, mobile, accessibility, and security, then delivers a clear, client-ready report showing exactly what to fix first.</p>
 
-<main>
-  <!-- HERO -->
-  <section class="shell hero" id="top">
-    <div>
-      <div class="eyebrow">
-        <span style="width:6px;height:6px;border-radius:9999px;background:#22d3ee;box-shadow:0 0 14px rgba(34,211,238,.9);"></span>
-        Early Access · Automated reports · Email delivery
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+        <a class="btn primary" href="https://tally.so/r/medJ2k" target="_blank" rel="noopener">Start Free Scan</a>
+        <a class="btn ghost" href="#pricing">Buy Credits</a>
       </div>
-      <h1>Scan. Diagnose. Revive.</h1>
-      <p class="hero-lead">
-        Performance, SEO, mobile, accessibility, and security — in one report. WebDoctor scans your site and emails a clean, client-ready PDF instantly.
-      </p>
-      <div class="hero-actions">
-        <a href="<!-- TODO: Stripe revive trial link -->" class="btn btn-primary">Start Free 5-Day Revive Trial</a>
-        <a href="#pricing" class="btn btn-muted">View Plans</a>
-        <a href="<!-- TODO: link to sample report PDF -->" class="btn btn-muted" style="gap:.4rem;">
-          View Sample Report →
-        </a>
-      </div>
-      <p class="hero-small">
-        Full-depth access during trial · Reports are generated and emailed instantly · Cancel anytime
-      </p>
-
       <div class="badges">
-        <div class="badge-pill">✓ Human-reviewed logic</div>
-        <div class="badge-pill">✓ No logins required (reports via email)</div>
-        <div class="badge-pill">✓ Agency-friendly</div>
+        <span class="badge">✓ Human‑Reviewed</span>
+        <span class="badge">✓ No Logins Required</span>
+        <span class="badge">✓ Agency‑Friendly</span>
       </div>
     </div>
-    <div class="hero-frame">
-      <p style="font-size:.7rem;color:var(--muted);margin-bottom:.4rem;">Why WebDoctor</p>
-      <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:.5rem;font-size:.7rem;">
-        <li><strong>Instant insight:</strong> Scan any website, results emailed instantly.</li>
-        <li><strong>Client-ready reports:</strong> Branded PDF results you can forward straight to clients.</li>
-        <li><strong>Actionable priorities:</strong> Ranked fixes so teams know exactly where to start.</li>
-      </ul>
-      <p style="margin-top:1.2rem;font-size:.6rem;color:#94a3b8;">
-        No data stored or resold. Assisted by OpenAI. Every report human-aligned. Reports are emailed instantly.
-      </p>
-    </div>
-  </section>
-
-  <!-- HOW IT WORKS -->
-  <section class="shell section" id="how">
-    <h2 class="section-title">How it works</h2>
-    <p class="section-sub">3 steps, no friction.</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1.2rem;">
-      <div class="plan">
-        <h3 style="font-size:.9rem;">1. Enter the website</h3>
-        <p style="color:var(--muted);font-size:.68rem;">Tell WebDoctor what to scan — no login needed.</p>
-      </div>
-      <div class="plan">
-        <h3 style="font-size:.9rem;">2. WebDoctor runs the scan</h3>
-        <p style="color:var(--muted);font-size:.68rem;">Performance, SEO, mobile, accessibility, security.</p>
-      </div>
-      <div class="plan">
-        <h3 style="font-size:.9rem;">3. Report emailed instantly</h3>
-        <p style="color:var(--muted);font-size:.68rem;">You get a clean PDF report in your inbox — ready for clients.</p>
+    <div class="reveal">
+      <div style="display:flex;gap:12px;justify-content:flex-end;align-items:center;height:100%">
+        <button id="openPreview" class="btn ghost">View Sample Report</button>
       </div>
     </div>
-  </section>
-
-  <!-- PRICING -->
-  <section class="shell section" id="pricing">
-    <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
-    <p class="section-sub">Choose the depth you need. All plans include instant emailed reports.</p>
-
-    <div class="pricing-grid">
-      <!-- FREE TRIAL -->
-      <article class="plan">
-        <h3 style="font-size:.85rem;">Revive Free Trial</h3>
-        <p style="color:var(--muted);font-size:.65rem;">“See how deep WebDoctor can go.”</p>
-        <p class="price">$0 / 5 days</p>
-        <ul>
-          <li>Full-depth access for 5 days</li>
-          <li>Up to 10 reports</li>
-          <li>Reports emailed instantly</li>
-          <li>Card required</li>
-        </ul>
-        <a href="<!-- TODO: Stripe revive trial link -->" class="btn btn-primary" style="margin-top:1rem;">Start Free Trial</a>
-      </article>
-
-      <!-- SCAN -->
-      <article class="plan">
-        <h3 style="font-size:.85rem;">Scan</h3>
-        <p style="color:var(--muted);font-size:.65rem;">“Check your site’s vital signs.”</p>
-        <p class="price">$14.95 / mo</p>
-        <ul>
-          <li>Essential performance & SEO overview</li>
-          <li>≈ 50 reports / mo (soft)</li>
-          <li>Summary PDF — emailed instantly</li>
-        </ul>
-        <a href="<!-- TODO: Stripe scan plan link -->" class="btn btn-muted" style="margin-top:1rem;">Subscribe – Scan</a>
-      </article>
-
-      <!-- DIAGNOSE -->
-      <article class="plan highlight">
-        <h3 style="font-size:.85rem;">Diagnose</h3>
-        <p style="color:var(--muted);font-size:.65rem;">“Understand what’s wrong — and why.”</p>
-        <p class="price">$29.95 / mo</p>
-        <ul>
-          <li>Everything in Scan + technical & SEO diagnostics</li>
-          <li>UX & accessibility metrics</li>
-          <li>≈ 150 reports / mo (soft)</li>
-          <li>Full diagnostic PDF — emailed instantly</li>
-        </ul>
-        <a href="<!-- TODO: Stripe diagnose plan link -->" class="btn btn-primary" style="margin-top:1rem;">Subscribe – Diagnose</a>
-      </article>
-
-      <!-- REVIVE -->
-      <article class="plan">
-        <h3 style="font-size:.85rem;">Revive</h3>
-        <p style="color:var(--muted);font-size:.65rem;">“Get expert-level fixes and a full recovery plan.”</p>
-        <p class="price">$49.95 / mo</p>
-        <ul>
-          <li>All 20-point matrix + fix guide</li>
-          <li>AI recommendations + priority support</li>
-          <li>White-label report option</li>
-          <li>≈ 300 reports / mo (soft)</li>
-          <li>Report package — emailed instantly</li>
-        </ul>
-        <a href="<!-- TODO: Stripe revive plan link -->" class="btn btn-muted" style="margin-top:1rem;">Subscribe – Revive</a>
-      </article>
-
-      <!-- ENTERPRISE -->
-      <article class="plan">
-        <h3 style="font-size:.85rem;">Enterprise / Custom +</h3>
-        <p style="color:var(--muted);font-size:.65rem;">“Unlimited scale for agencies & platforms.”</p>
-        <p class="price">Talk to us</p>
-        <ul>
-          <li>Unlimited depth & API access</li>
-          <li>Managed SLA</li>
-          <li>Private branding</li>
-        </ul>
-        <a href="mailto:hello@webdoctor.tech?subject=Enterprise%20WebDoctor" class="btn btn-muted" style="margin-top:1rem;">Contact Us</a>
-      </article>
-    </div>
-
-    <div class="fairuse">
-      <strong>Fair-Use Policy:</strong> Run as many scans as you need — each plan unlocks deeper insight. If you exceed normal use, WebDoctor may slow scans slightly or bill $1 per extra report. No surprises.
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section class="shell section" id="faq">
-    <h2 class="section-title">FAQ</h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2rem;">
-      <div class="plan">
-        <h3 style="font-size:.8rem;">Are reports really emailed instantly?</h3>
-        <p style="font-size:.67rem;color:var(--muted);">Yes. Once the scan finishes, WebDoctor generates the PDF and emails it to you immediately.</p>
-      </div>
-      <div class="plan">
-        <h3 style="font-size:.8rem;">What happens if I go over the soft cap?</h3>
-        <p style="font-size:.67rem;color:var(--muted);">We’ll either slow scans (1 per 10s) or charge $1/report over 2× your plan’s cap — exactly like the pricing model.</p>
-      </div>
-      <div class="plan">
-        <h3 style="font-size:.8rem;">Can I upgrade anytime?</h3>
-        <p style="font-size:.67rem;color:var(--muted);">Yes. Upgrading applies immediately via Stripe, and your Supabase record is updated automatically.</p>
-      </div>
-    </div>
-  </section>
-</main>
-
-<!-- TRUST / FOOTER -->
-<footer id="trust">
-  <div class="trust-row">
-    <div class="trust-pill">🔒 No data stored or resold.</div>
-    <div class="trust-pill">🤖 Assisted by OpenAI — every report human-aligned.</div>
-    <div class="trust-pill">📨 Reports are generated and emailed instantly.</div>
-    <a href="/trust" class="trust-pill">Read Trust & Security →</a>
   </div>
-  <p>© 2025 WebDoctor — All Rights Reserved — Made in New Zealand.</p>
-</footer>
+</div></section>
 
-</body>
-</html>
+<section class="section" id="why"><div class="wrap">
+  <h2 class="reveal">Why WebDoctor</h2>
+  <div class="reveal small" style="margin-top:6px;max-width:820px">
+    <ul style="margin:10px 0 0 18px">
+      <li><b>Instant insight:</b> Scan any website instantly - no installs, no logins.</li>
+      <li><b>Client-ready reports:</b> Branded PDF results agencies can send straight to clients.</li>
+      <li><b>Actionable priorities:</b> Ranked fixes so teams know exactly where to start.</li>
+    </ul>
+  </div>
+</div></section>
+
+
+<section class="trustbar"><div class="wrap"><div class="row reveal">
+  <div class="item">🔒 <span>No data stored or resold. <a href="#trust" style="color:var(--teal-lite);text-decoration:none">Read Trust</a></span></div>
+  <div class="item">🧠 <span>Assisted by OpenAI · Every report human‑reviewed</span></div>
+  <div class="item">⏱ <span>Delivery within 24 hours (often sooner)</span></div>
+</div></div></section>
+
+<section class="section hiw" id="hiw"><div class="wrap">
+  <h2 class="reveal">How it works</h2>
+  <p class="small reveal">A fast, honest workflow — built for designers, studios, and busy founders.</p>
+  <div class="steps">
+    <div class="panel step reveal"><b>1) Submit URL</b><span class="small">No logins required. Optional notes welcome.</span></div>
+    <div class="panel step reveal"><b>2) Scan + Verify</b><span class="small">Automated checks + human review to reduce false alarms.</span></div>
+    <div class="panel step reveal"><b>3) PDF in 24h</b><span class="small">Clear priorities, impact notes, and quick actions.</span></div>
+  </div>
+</div></section>
+
+<section class="section pricing" id="pricing">
+  <style>
+    /* --- Local style tweaks for pricing cards --- */
+    .pricing .grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 800px) {
+      .pricing .grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .pricing .panel.card {
+      border: 1px solid rgba(0, 255, 200, 0.1);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      background-color: #0f1115;
+    }
+    .pricing .panel.card:hover {
+      border-color: rgba(0, 255, 200, 0.4);
+      box-shadow: 0 0 15px rgba(0, 255, 200, 0.15);
+      transform: translateY(-2px);
+    }
+    .pricing .price {
+      font-weight: 700;
+      font-size: 1.4rem;
+      margin-bottom: 0.3rem;
+    }
+    .pricing .subtitle {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e5e5e5;
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+    }
+    .pricing .note {
+      opacity: 0.75;
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+    }
+    .pricing ul {
+      margin: 0.5rem 0 1rem;
+    }
+  </style>
+
+  <div class="wrap">
+    <h2 class="reveal">Pricing</h2>
+    <p class="small reveal">
+      Each report uses <b>1 credit.</b> During <b>Early Access</b>, credits never expire and you’ll receive priority access to upcoming automation and white-label features.
+      Perfect for designers, studios, and agencies validating their workflow.
+    </p>
+
+    <div class="grid">
+      <!-- Starter Pack -->
+      <div class="panel card reveal">
+        <h3>10 WebDoctor Credits</h3>
+        <p class="price">$9.99 USD</p>
+        <p class="subtitle">Starter Pack — for individual designers or testers</p>
+        <ul>
+          <li>1 credit = 1 full scan / report</li>
+          <li>Credits never expire <em>(Early Access benefit)</em></li>
+          <li>Report delivered by email within 24 hours</li>
+        </ul>
+        <a class="btn primary" style="margin-top:auto;"
+           href="https://webdoctortech.gumroad.com/l/credits10"
+           target="_blank" rel="noopener"
+           aria-label="Purchase the 10-credit Starter Pack">Get Starter Pack</a>
+        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
+      </div>
+
+      <!-- Studio Pack -->
+      <div class="panel card reveal">
+        <h3>25 WebDoctor Credits</h3>
+        <p class="price">$19.99 USD</p>
+        <p class="subtitle">Studio Pack — for small studios or growing teams</p>
+        <ul>
+          <li>Everything in Starter Pack</li>
+          <li>Optional white-label branding</li>
+          <li>Priority support during Early Access</li>
+        </ul>
+        <a class="btn primary" style="margin-top:auto;"
+           href="https://webdoctortech.gumroad.com/l/credits25"
+           target="_blank" rel="noopener"
+           aria-label="Purchase the 25-credit Studio Pack">Get Studio Pack</a>
+        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
+      </div>
+
+      <!-- Agency Pack -->
+      <div class="panel card reveal">
+        <h3>50 WebDoctor Credits</h3>
+        <p class="price">$29.99 USD</p>
+        <p class="subtitle">Agency Pack — for agencies and frequent users</p>
+        <ul>
+          <li>Everything in Studio Pack</li>
+          <li>White-label ready for client delivery</li>
+          <li>Early feature access and partner listing opportunities</li>
+        </ul>
+        <a class="btn primary" style="margin-top:auto;"
+           href="https://webdoctortech.gumroad.com/l/credits50"
+           target="_blank" rel="noopener"
+           aria-label="Purchase the 50-credit Agency Pack">Get Agency Pack</a>
+        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+<section class="section faq" id="faq"><div class="wrap">
+  <h2 class="reveal">FAQ</h2>
+  <details class="reveal">
+  <summary>What is WebDoctor?</summary>
+  <div class="a">WebDoctor is an AI-assisted website health scan built for agencies, studios and developers. It checks performance, SEO, mobile, accessibility, and security - then deliveres a branded, client-ready PDF highlighting what to fix first.</div>
+</details>
+  <details class="reveal"><summary>Is delivery really within 24 hours?</summary><div class="a">Yes - and often sooner. Every scan includes a brief human review to verify results and ensure your report is accurate and presentation-ready.</div></details>
+  <details class="reveal"><summary>What exactly is included in the PDF report?</summary><div class="a">Your report includes a single WebDoctor Score plus clear findings across performance, SEO, mobile, accessibility, and security—each with priority, impact notes, and quick actions.</div></details>
+  <details class="reveal"><summary>What do you need from me to start?</summary><div class="a">Just your website URL - No logins required. You can optionally add notes or share temporary access later if you'd like us to check restricted pages.</div></details>
+  <details class="reveal"><summary>How is the WebDoctor score calculated?</summary><div class="a">We use a proprietary 20‑point weighted health model that blends automated checks with human verification. It filters out false alarms and focuses on fixes that make the biggest impact.</div></details>
+  <details class="reveal"><summary>Do you store or reuse my data?</summary><div class="a">No. We only retain what’s needed to generate your report and provide short‑term support. We never resell or reuse data, and you can request deletion at any time.</div></details>
+  <details class="reveal"><summary>Is this powered by AI?</summary><div class="a">Yes — WebDoctor uses OpenAI technology to assist with analysis and summaries. Every report is then human‑reviewed for clarity, accuracy and context before delivery.</div></details>
+  <details class="reveal"><summary>Can agencies white‑label the report?</summary><div class="a">Yes. White‑label options are available during early access — tell us your brand name and we’ll format accordingly.</div></details>
+  <details class="reveal"><summary>Do credits expire? How does pricing work?</summary><div class="a">Each report uses one credit. Credits don’t expire during Early Access and each pack includes full delivery within 24 hours plus all Early Access benefits.</div></details>
+</div></section>
+
+<section class="section trust" id="trust">
+  <style>
+    /* --- Local style for Trust, Privacy & Verification --- */
+    .trust {
+      background-color: #0f1115;
+      padding: 3rem 0;
+      border-top: 1px solid rgba(0, 255, 200, 0.1);
+    }
+.trust .wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  color: #d8e3e6;
+  font-size: 0.95rem;      /* unified with FAQ body */
+  line-height: 1.55;
+}
+
+.trust h2 {
+  font-size: 1.5rem;       /* slightly reduced for hierarchy balance */
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: #ffffff;
+}
+
+.trust h3 {
+  font-size: 1rem;         /* consistent with FAQ subhead scale */
+  font-weight: 600;
+  color: #00e0b8;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.trust ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 1.25rem 0;
+}
+
+.trust ul li {
+  margin: 0.25rem 0;
+}
+
+.trust a {
+  color: #00e0b8;
+  text-decoration: none;
+}
+
+.trust a:hover {
+  text-decoration: underline;
+}
+
+.trust .summary {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-top: 2rem;
+  border: 1px solid rgba(0, 255, 200, 0.1);
+}
+
+.trust .footer-line {
+  text-align: center;
+  opacity: 0.8;
+  margin-top: 2rem;
+  font-size: 0.85rem;
+}
+
+    }
+  </style>
+
+  <div class="wrap">
+    <h2>Trust, Privacy &amp; Verification</h2>
+    <p>
+      WebDoctor is built <em>privacy-first</em>. No logins. No tracking cookies. 
+      No stored content — just a clean scan and a clear report.
+    </p>
+
+    <h3>🔒 Privacy &amp; Security at a Glance</h3>
+    <ul>
+      <li>No logins, cookies, or personal data collected.</li>
+      <li>Website content is never stored — reports are generated, delivered, then securely deleted.</li>
+      <li>All traffic uses HTTPS encryption.</li>
+      <li>AI analysis is used responsibly and always reviewed by a human.</li>
+      <li>Each report includes a unique Scan ID and timestamp for verification.</li>
+    </ul>
+
+    <h3>🧾 Verification &amp; Contact</h3>
+    <ul>
+      <li>Verify a report: <a href="mailto:verify@webdoctor.tech">verify@webdoctor.tech</a></li>
+      <li>Privacy questions: <a href="mailto:privacy@webdoctor.tech">privacy@webdoctor.tech</a></li>
+      <li>Security contact: <a href="mailto:security@webdoctor.tech">security@webdoctor.tech</a></li>
+    </ul>
+
+    <div class="summary">
+      <h3>📜 Summary</h3>
+      <ul>
+        <li>No logins required to run a scan.</li>
+        <li>Only public pages you specify are read.</li>
+        <li>Temporary scan data is deleted after delivery.</li>
+        <li>Full Privacy Policy available on request.</li>
+      </ul>
+    </div>
+
+ 
+  </div>
+</section>
+
+
+<footer class="footer"><div class="wrap">
+  © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+</div></footer>
+
+<!-- Report Preview Modal (LIVE IFRAME + FALLBACK + cleanup) -->
+<div class="modal" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+  <div class="inner">
+    <div class="chrome">
+      <h3 id="reportTitle">Sample Report (Preview)</h3>
+      <div class="actions">
+        <a class="btn ghost" href="#" id="btnBack">◀ Back</a>
+      </div>
+    </div>
+    <div class="body">
+      <iframe id="reportFrame" src="Report%20Template%20V2.html" title="WebDoctor Sample Report"
+              sandbox="allow-same-origin allow-scripts allow-popups"
+              referrerpolicy="no-referrer"></iframe>
+      <div id="fallback" class="fallback" aria-live="polite">
+        <div class="box">⚠️ Preview unavailable — click <b>Back</b> and then open the full report from the main page.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Reveal on scroll
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('is-in');io.unobserve(e.target);}})},{threshold:0.18});
+revealEls.forEach(el=>io.observe(el));
+
+// Modal open/close
+const modal = document.getElementById('reportModal');
+const open1 = document.getElementById('openPreview');
+const backBtn = document.getElementById('btnBack');
+function openModal(){ modal.classList.add('in'); document.body.style.overflow='hidden'; }
+function closeModal(){ modal.classList.remove('in'); document.body.style.overflow=''; }
+open1?.addEventListener('click', openModal);
+backBtn?.addEventListener('click', (e)=>{ e.preventDefault(); closeModal(); });
+modal?.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classList.contains('in')) closeModal(); });
+
+// Fallback logic for iframe + in-iframe cleanup
+(function(){
+  const frame = document.getElementById('reportFrame');
+  const fallback = document.getElementById('fallback');
+  let shown = false;
+  const timer = setTimeout(()=>{ if (!shown) { fallback.style.display = 'flex'; } }, 2000);
+  frame.addEventListener('load', ()=>{
+    shown = true;
+    clearTimeout(timer);
+    fallback.style.display = 'none';
+    try {
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      if (doc) {
+        const killByText = (txt)=>{
+          const lc = txt.toLowerCase();
+          doc.querySelectorAll('a,button').forEach(el=>{
+            const t = (el.textContent||'').trim().toLowerCase();
+            if (t === lc) { el.remove(); }
+          });
+        };
+        ['Back','← Back','◀ Back'].forEach(killByText);
+        doc.querySelectorAll('a,button').forEach(el=>{
+          const t = (el.textContent||'').trim().toLowerCase();
+          const href = (el.getAttribute('href')||'').toLowerCase();
+          if (t.includes('start free scan') || t.includes('request scan') || href.includes('tally.so') || href.includes('gumroad.com')) {
+            el.remove();
+          }
+        });
+      }
+    } catch(e) { /* same-origin only; ignore if blocked */ }
+  });
+  frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
+})();
+</script>
+</body></html>
