@@ -127,86 +127,121 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
 
 <section id="pricing" class="pricing-section">
   <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
-  <p class="section-sub">Choose the depth you need. All plans include instant emailed reports.</p>
+  <p class="section-sub">Simple monthly plans. Reports are emailed instantly.</p>
 
   <div class="pricing-grid">
     <!-- SCAN -->
     <article class="pricing-card">
-      <h3 class="plan-name">Scan</h3>
-      <p class="plan-tagline">“Check your site’s vital signs.”</p>
-      <p class="plan-price">$14.95 <span>/ month</span></p>
-      <ul class="plan-features">
-        <li>Essential performance &amp; SEO overview</li>
+      <h3>Scan</h3>
+      <p class="price">$14.95 <span>/ month</span></p>
+      <p class="subtitle">For freelancers and site owners.</p>
+      <ul class="features">
+        <li>Performance & SEO overview</li>
         <li>Includes <strong>250 reports / month</strong></li>
         <li>$1 per extra report after 250</li>
-        <li>Summary PDF — <strong>emailed instantly</strong></li>
+        <li>PDF report emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Scan link -->" class="btn btn-primary w-full">Subscribe – Scan</a>
+      <p class="note">Fair-use protection enabled.</p>
     </article>
 
     <!-- DIAGNOSE -->
     <article class="pricing-card pricing-card--featured">
-      <h3 class="plan-name">Diagnose</h3>
-      <p class="plan-tagline">“Understand what’s wrong — and why.”</p>
-      <p class="plan-price">$29.95 <span>/ month</span></p>
-      <ul class="plan-features">
-        <li>Everything in Scan + technical &amp; SEO diagnostics</li>
-        <li>UX &amp; accessibility metrics</li>
+      <h3>Diagnose</h3>
+      <p class="price">$29.95 <span>/ month</span></p>
+      <p class="subtitle">Best for agencies & marketers.</p>
+      <ul class="features">
+        <li>Everything in Scan + technical & SEO diagnostics</li>
         <li>Includes <strong>500 reports / month</strong></li>
         <li>$1 per extra report after 500</li>
-        <li>Full diagnostic PDF — <strong>emailed instantly</strong></li>
+        <li>Full diagnostic PDF emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Diagnose link -->" class="btn btn-primary w-full">Subscribe – Diagnose</a>
+      <p class="note">Most popular</p>
     </article>
 
     <!-- REVIVE -->
     <article class="pricing-card">
-      <h3 class="plan-name">Revive</h3>
-      <p class="plan-tagline">“Get expert-level fixes and a full recovery plan.”</p>
-      <p class="plan-price">$49.95 <span>/ month</span></p>
-      <ul class="plan-features">
-        <li>All 20-point matrix + step-by-step fix guide</li>
-        <li>AI recommendations &amp; priority support</li>
-        <li>White-label report option for agencies</li>
+      <h3>Revive</h3>
+      <p class="price">$49.95 <span>/ month</span></p>
+      <p class="subtitle">For studios & high-volume users.</p>
+      <ul class="features">
+        <li>20-point matrix + fix guide</li>
+        <li>White-label option for agencies</li>
         <li>Includes <strong>1,000 reports / month</strong></li>
         <li>$1 per extra report after 1,000</li>
-        <li>Professional report package — <strong>emailed instantly</strong></li>
       </ul>
       <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
+      <p class="note">Priority support included.</p>
     </article>
   </div>
-
   <style>
 .pricing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+  max-width: 1080px;
+  margin: 0 auto;
 }
 .pricing-card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: rgba(13, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.08);
   border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
+  padding: 1.5rem 1.5rem 1.25rem;
+  box-shadow: 0 18px 45px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
 }
-.pricing-card:hover {
-  border-color: rgba(20, 184, 166, 0.4);
-  transform: translateY(-2px);
+.pricing-card--featured {
+  border: 1px solid rgba(20, 184, 166, 0.5);
+  box-shadow: 0 20px 50px rgba(20, 184, 166, 0.15);
+}
+.price {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+.price span {
+  font-size: .7rem;
+  color: #94a3b8;
+  font-weight: 400;
+}
+.subtitle {
+  font-size: .7rem;
+  color: #94a3b8;
+}
+.features {
+  list-style: disc;
+  margin-left: 1.15rem;
+  margin-top: .5rem;
+  margin-bottom: 1rem;
+  font-size: .7rem;
+  gap: .25rem;
+}
+.features li {
+  margin-bottom: .25rem;
+}
+.note {
+  font-size: .6rem;
+  color: #94a3b8;
+  margin-top: .5rem;
+}
+.btn.w-full {
+  width: 100%;
+  text-align: center;
+  margin-top: .35rem;
 }
 </style>
 
 
-  <!-- fair use -->
   <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
     Fair-use protection ensures consistent service for all users and prevents automated abuse.
   </p>
-
-  <!-- enterprise contact -->
   <p class="text-center small" style="margin-top:0.4rem; opacity:0.75;">
     Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
   </p>
 </section>
+
 
 
 
