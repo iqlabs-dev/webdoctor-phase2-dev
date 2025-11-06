@@ -32,7 +32,7 @@ export async function handler(event) {
 
     // --- create Stripe Checkout session ---
 const session = await stripe.checkout.sessions.create({
-  mode: "payment",
+mode: "subscription",
   payment_method_types: ["card"],
   customer_email: email,
   line_items: [
