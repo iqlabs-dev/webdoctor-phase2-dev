@@ -125,68 +125,68 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   </div>
 </div></section>
 
-<section class="section pricing" id="pricing">
-  <div class="wrap">
-    <h2 class="reveal">Pricing — Hybrid Fair-Use</h2>
-    <p class="small" style="margin-bottom:1.5rem;">
-      Choose the depth you need. All plans include instant emailed reports.
-    </p>
+<section id="pricing" class="pricing-section">
+  <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
+  <p class="section-sub">Choose the depth you need. All plans include instant emailed reports.</p>
 
-    <div class="steps pricing-steps">
-      <!-- SCAN -->
-      <div class="panel step reveal">
-        <h3>Scan</h3>
-        <p class="small" style="margin-bottom:0.75rem;">“Check your site’s vital signs.”</p>
-        <p><b>$14.95 / month</b></p>
-        <ul style="margin:0.75rem 0 1rem 1.1rem;">
-          <li>Essential performance &amp; SEO overview</li>
-          <li>≈ 50 reports / month (soft)</li>
-          <li>Summary PDF — <b>emailed instantly</b></li>
-        </ul>
-        <a href="<!-- TODO: Stripe Scan link -->" class="link">Subscribe – Scan</a>
-      </div>
+  <div class="pricing-grid">
+    <!-- SCAN -->
+    <article class="pricing-card">
+      <h3 class="plan-name">Scan</h3>
+      <p class="plan-tagline">“Check your site’s vital signs.”</p>
+      <p class="plan-price">$14.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>Essential performance &amp; SEO overview</li>
+        <li>Includes <strong>250 reports / month</strong></li>
+        <li>$1 per extra report after 250</li>
+        <li>Summary PDF — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Scan link -->" class="btn btn-primary w-full">Subscribe – Scan</a>
+    </article>
 
-      <!-- DIAGNOSE -->
-      <div class="panel step reveal">
-        <h3>Diagnose</h3>
-        <p class="small" style="margin-bottom:0.75rem;">“Understand what’s wrong — and why.”</p>
-        <p><b>$29.95 / month</b></p>
-        <ul style="margin:0.75rem 0 1rem 1.1rem;">
-          <li>Everything in Scan + technical &amp; SEO diagnostics</li>
-          <li>UX &amp; accessibility metrics</li>
-          <li>≈ 150 reports / month (soft)</li>
-          <li>Full diagnostic PDF — <b>emailed instantly</b></li>
-        </ul>
-        <a href="<!-- TODO: Stripe Diagnose link -->" class="link">Subscribe – Diagnose</a>
-      </div>
+    <!-- DIAGNOSE -->
+    <article class="pricing-card pricing-card--featured">
+      <h3 class="plan-name">Diagnose</h3>
+      <p class="plan-tagline">“Understand what’s wrong — and why.”</p>
+      <p class="plan-price">$29.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>Everything in Scan + technical &amp; SEO diagnostics</li>
+        <li>UX &amp; accessibility metrics</li>
+        <li>Includes <strong>500 reports / month</strong></li>
+        <li>$1 per extra report after 500</li>
+        <li>Full diagnostic PDF — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Diagnose link -->" class="btn btn-primary w-full">Subscribe – Diagnose</a>
+    </article>
 
-      <!-- REVIVE -->
-      <div class="panel step reveal">
-        <h3>Revive</h3>
-        <p class="small" style="margin-bottom:0.75rem;">“Get expert-level fixes and a full recovery plan.”</p>
-        <p><b>$49.95 / month</b></p>
-        <ul style="margin:0.75rem 0 1rem 1.1rem;">
-          <li>All 20-point matrix + step-by-step fix guide</li>
-          <li>AI recommendations &amp; priority support</li>
-          <li>White-label report option for agencies</li>
-          <li>≈ 300 reports / month (soft)</li>
-          <li>Professional report package — <b>emailed instantly</b></li>
-        </ul>
-        <a href="<!-- TODO: Stripe Revive link -->" class="link">Subscribe – Revive</a>
-      </div>
-    </div>
-
-    <!-- fair use -->
-    <p class="small" style="margin-top:1.25rem; text-align:center; opacity:0.75;">
-      Fair-use: if you exceed normal use, WebDoctor may slow scans slightly or bill $1 per extra report. No surprises.
-    </p>
-
-    <!-- enterprise -->
-    <p class="small" style="margin-top:0.5rem; text-align:center; opacity:0.7;">
-      Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:var(--teal-lite, #14b8a6);">Contact us</a> for custom / enterprise access.
-    </p>
+    <!-- REVIVE -->
+    <article class="pricing-card">
+      <h3 class="plan-name">Revive</h3>
+      <p class="plan-tagline">“Get expert-level fixes and a full recovery plan.”</p>
+      <p class="plan-price">$49.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>All 20-point matrix + step-by-step fix guide</li>
+        <li>AI recommendations &amp; priority support</li>
+        <li>White-label report option for agencies</li>
+        <li>Includes <strong>1,000 reports / month</strong></li>
+        <li>$1 per extra report after 1,000</li>
+        <li>Professional report package — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
+    </article>
   </div>
+
+  <!-- fair use -->
+  <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
+    Fair-use protection ensures consistent service for all users and prevents automated abuse.
+  </p>
+
+  <!-- enterprise contact -->
+  <p class="text-center small" style="margin-top:0.4rem; opacity:0.75;">
+    Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
+  </p>
 </section>
+
 
 
 
