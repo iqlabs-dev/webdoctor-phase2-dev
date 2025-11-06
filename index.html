@@ -430,22 +430,23 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classLi
     } catch(e) { /* same-origin only; ignore if blocked */ }
   });
   frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
-</script>
+</script> <!-- 👈 Close the previous script here (this was missing) -->
 
 <!-- ✅ WebDoctor Subscribe Button (HTML, not inside script) -->
 <div style="text-align:center; margin: 60px 0;">
-  <button 
-    onclick="startCheckout('price_1SQ4knHrtPY0HwDpFHfxNdoZ')" 
-    style="background: linear-gradient(90deg,#00e0c6,#0099cc);
-           color:white;
-           border:none;
-           padding:18px 32px;
-           font-size:18px;
-           font-family:'Montserrat',sans-serif;
-           border-radius:12px;
-           cursor:pointer;
-           transition:transform 0.2s ease;
-           box-shadow:0 4px 20px rgba(0,224,198,0.2);">
+  <button
+    onclick="startCheckout('price_1SQ4knHrtPY0HwDpFHfxNdoZ')"
+    style="background: linear-gradient(90deg, #00e0c6, #0099cc);
+           color: white;
+           border: none;
+           padding: 18px 32px;
+           font-size: 18px;
+           font-family: 'Montserrat', sans-serif;
+           border-radius: 12px;
+           cursor: pointer;
+           margin-top: 40px;
+           box-shadow: 0 4px 20px rgba(0, 224, 198, 0.2);
+           transition: transform 0.2s ease;">
     Subscribe to SCAN — $14.95 / month
   </button>
 </div>
@@ -462,7 +463,7 @@ async function startCheckout(plan) {
     const data = await response.json();
 
     if (data.url) {
-      window.location.href = data.url; // redirect to Stripe Checkout
+      window.location.href = data.url; // Redirect to Stripe Checkout
     } else {
       alert('Error starting checkout: ' + JSON.stringify(data));
     }
@@ -472,5 +473,6 @@ async function startCheckout(plan) {
   }
 }
 </script>
+
 </body>
 </html>
