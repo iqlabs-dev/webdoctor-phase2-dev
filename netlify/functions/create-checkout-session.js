@@ -31,23 +31,25 @@ export async function handler(event) {
     const credits = PRICE_TO_CREDITS[price] || 0;
 
     // --- create Stripe Checkout session ---
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      customer_email: email,
-      line_items: [
-        {
-          price,
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        supabase_user_id: "demo-user-001", // placeholder
-        price_id: price,                   // pass actual price for webhook
-      },
-      success_url: `${process.env.SITE_URL}/public/thanks.html`,
-      cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
-    });
+  const session = await stripe.checkout.sessions.create({
+  mode: "payment",
+  payment_method_types: ["card"],
+  customer_email: email,
+  line_items: [
+    {
+      price: process.env.PRICE_ID_SCAN, // use your Scan price for testing
+      quantity: 1,
+    },
+  ],
+  metadata: {
+    supabase_user_id: "demo-user-001",
+    test_value: "metadata_success_check",
+    price_id: process.env.PRICE_ID_SCAN,
+  },
+  success_url: `${process.env.SITE_URL}/public/thanks.html`,
+  cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
+});
+
 
     // Optional: Log pre-transaction to Supabase
     const supabase = createClient(
