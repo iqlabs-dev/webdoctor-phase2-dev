@@ -125,6 +125,45 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   </div>
 </div></section>
 
+<!-- TRUST BAR -->
+<section class="trustbar">
+  <div class="wrap">
+    <div class="row reveal">
+      <div class="item">
+        <span>🔒 No data stored or resold.</span>
+        <a href="#trust" style="color:var(--teal-lite); text-decoration:none;">Read Trust</a>
+      </div>
+      <div class="item">
+        <span>🤖 Assisted by OpenAI — every report human-reviewed.</span>
+      </div>
+      <div class="item">
+        <span>📨 Reports are emailed instantly.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section hiw" id="hiw">
+  <div class="wrap">
+    <h2 class="reveal">How it works</h2>
+    <p class="small reveal">A fast, honest workflow — built for designers, studios, and busy founders.</p>
+    <div class="steps">
+      <div class="panel step reveal">
+        <b>1) Submit URL</b> <span class="small">No logins required. Optional notes welcome.</span>
+      </div>
+      <div class="panel step reveal">
+        <b>2) Scan + Verify</b> <span class="small">Automated checks + human review to reduce false alarms.</span>
+      </div>
+      <div class="panel step reveal">
+        <b>3) PDF in 24h</b> <span class="small">Clear priorities, impact notes, and quick actions.</span>
+        <!-- if you want to update this later to "PDF emailed instantly", do it here -->
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
 <section id="pricing" class="pricing-section">
   <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
   <p class="section-sub">Simple monthly plans. Reports are emailed instantly.</p>
@@ -136,7 +175,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
       <p class="price">$14.95 <span>/ month</span></p>
       <p class="subtitle">For freelancers and site owners.</p>
       <ul class="features">
-        <li>Performance & SEO overview</li>
+        <li>Performance &amp; SEO overview</li>
         <li>Includes <strong>250 reports / month</strong></li>
         <li>$1 per extra report after 250</li>
         <li>PDF report emailed instantly</li>
@@ -149,9 +188,10 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     <article class="pricing-card pricing-card--featured">
       <h3>Diagnose</h3>
       <p class="price">$29.95 <span>/ month</span></p>
-      <p class="subtitle">Best for agencies & marketers.</p>
+      <p class="subtitle">Best for agencies &amp; marketers.</p>
       <ul class="features">
-        <li>Everything in Scan + technical & SEO diagnostics</li>
+        <li>Everything in Scan + technical &amp; SEO diagnostics</li>
+        <li>UX &amp; accessibility metrics</li>
         <li>Includes <strong>500 reports / month</strong></li>
         <li>$1 per extra report after 500</li>
         <li>Full diagnostic PDF emailed instantly</li>
@@ -164,83 +204,115 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     <article class="pricing-card">
       <h3>Revive</h3>
       <p class="price">$49.95 <span>/ month</span></p>
-      <p class="subtitle">For studios & high-volume users.</p>
+      <p class="subtitle">For studios &amp; high-volume users.</p>
       <ul class="features">
-        <li>20-point matrix + fix guide</li>
-        <li>White-label option for agencies</li>
+        <li>20-point matrix + step-by-step fix guide</li>
+        <li>AI recommendations &amp; priority support</li>
+        <li>White-label report option for agencies</li>
         <li>Includes <strong>1,000 reports / month</strong></li>
         <li>$1 per extra report after 1,000</li>
+        <li>Professional report package — emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
       <p class="note">Priority support included.</p>
     </article>
   </div>
+
+  <!-- styling for pricing cards -->
   <style>
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  max-width: 1080px;
-  margin: 0 auto;
-}
-.pricing-card {
-  background: rgba(13, 23, 42, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 1rem;
-  padding: 1.5rem 1.5rem 1.25rem;
-  box-shadow: 0 18px 45px rgba(0,0,0,0.25);
-  display: flex;
-  flex-direction: column;
-  gap: .6rem;
-}
-.pricing-card--featured {
-  border: 1px solid rgba(20, 184, 166, 0.5);
-  box-shadow: 0 20px 50px rgba(20, 184, 166, 0.15);
-}
-.price {
-  font-size: 1.35rem;
-  font-weight: 700;
-}
-.price span {
-  font-size: .7rem;
-  color: #94a3b8;
-  font-weight: 400;
-}
-.subtitle {
-  font-size: .7rem;
-  color: #94a3b8;
-}
-.features {
-  list-style: disc;
-  margin-left: 1.15rem;
-  margin-top: .5rem;
-  margin-bottom: 1rem;
-  font-size: .7rem;
-  gap: .25rem;
-}
-.features li {
-  margin-bottom: .25rem;
-}
-.note {
-  font-size: .6rem;
-  color: #94a3b8;
-  margin-top: .5rem;
-}
-.btn.w-full {
-  width: 100%;
-  text-align: center;
-  margin-top: .35rem;
-}
-</style>
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    .pricing-card {
+      background: rgba(13, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.08);
+      border-radius: 1rem;
+      padding: 1.5rem 1.5rem 1.25rem;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+    .pricing-card--featured {
+      border: 1px solid rgba(20, 184, 166, 0.5);
+      box-shadow: 0 20px 50px rgba(20, 184, 166, 0.15);
+    }
+    .price {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+    .price span {
+      font-size: .7rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+    .subtitle {
+      font-size: .7rem;
+      color: #94a3b8;
+    }
+    .features {
+      list-style: disc;
+      margin-left: 1.15rem;
+      margin-top: .5rem;
+      margin-bottom: 1rem;
+      font-size: .7rem;
+    }
+    .features li {
+      margin-bottom: .25rem;
+    }
+    .note {
+      font-size: .6rem;
+      color: #94a3b8;
+      margin-top: .5rem;
+    }
+    .btn.w-full {
+      width: 100%;
+      text-align: center;
+      margin-top: .35rem;
+    }
+  </style>
 
-
+  <!-- fair use -->
   <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
     Fair-use protection ensures consistent service for all users and prevents automated abuse.
   </p>
+  <!-- enterprise contact -->
   <p class="text-center small" style="margin-top:0.4rem; opacity:0.75;">
     Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
   </p>
 </section>
+
+<!-- FAQ (keep your existing FAQ content if it differs) -->
+<section id="faq" class="section faq">
+  <div class="wrap">
+    <h2>FAQ</h2>
+    <div class="faq-row">
+      <div class="faq-item">
+        <button class="faq-title">Are reports emailed instantly?</button>
+        <div class="faq-body">
+          <p>Yes. Once WebDoctor completes the scan, your PDF is generated and emailed right away.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-title">What happens if I go over my monthly reports?</button>
+        <div class="faq-body">
+          <p>You can keep scanning — WebDoctor will just charge $1 per extra report after your included amount.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-title">Can I upgrade plans?</button>
+        <div class="faq-body">
+          <p>Yes. You can move to a higher plan and your Stripe billing and usage in Supabase will update automatically.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
 
 
