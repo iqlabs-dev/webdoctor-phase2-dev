@@ -431,5 +431,45 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classLi
   });
   frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
 })();
+<!-- WebDoctor Subscribe Button -->
+<div style="text-align:center; margin: 60px 0;">
+  <button 
+    onclick="startCheckout('price_1SQ4knHrtPY0HwDpFHfxNdoZ')" 
+    style="background: linear-gradient(90deg, #00e0c6, #0099cc);
+           border: none;
+           color: white;
+           padding: 14px 32px;
+           font-size: 18px;
+           font-family: 'Montserrat', sans-serif;
+           border-radius: 12px;
+           cursor: pointer;
+           box-shadow: 0 0 20px rgba(0, 200, 255, 0.2);
+           transition: transform 0.2s ease;">
+    Subscribe to SCAN — $14.95 / month
+  </button>
+</div>
+
 </script>
+<script>
+async function startCheckout(plan) {
+  try {
+    const response = await fetch('/.netlify/functions/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priceId: plan })
+    });
+    const data = await response.json();
+
+    if (data.url) {
+      window.location.href = data.url; // redirect to Stripe Checkout
+    } else {
+      alert('Error starting checkout: ' + JSON.stringify(data));
+    }.
+  } catch (err) {
+    console.error(err);
+    alert('Checkout failed — see console for details.');
+  }
+}
+</script>
+
 </body></html>
