@@ -2,15 +2,12 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 const PRICE_TO_CREDITS = {
-  [process.env.PRICE_ID_10]: 10,
-  [process.env.PRICE_ID_25]: 25,
-  [process.env.PRICE_ID_50]: 50
+  [process.env.PRICE_ID_SCAN]: 50,
+  [process.env.PRICE_ID_DIAGNOSE]: 150,
+  [process.env.PRICE_ID_REVIVE]: 300,
+  [process.env.PRICE_ID_ENTERPRISE]: 999999,
 };
 
 export async function handler(event) {
@@ -21,7 +18,7 @@ export async function handler(event) {
   try {
     const { priceId, email } = JSON.parse(event.body || "{}");
 
-    // Validate inputs
+    // --- validate ---
     if (!priceId || !email) {
       return { statusCode: 400, body: "Missing priceId or email" };
     }
@@ -33,40 +30,46 @@ export async function handler(event) {
 
     const credits = PRICE_TO_CREDITS[price] || 0;
 
-// Create the Stripe Checkout session
-const session = await stripe.checkout.sessions.create({
-  metadata: {
-    supabase_user_id: "demo-user-001",
-    price_id: process.env.PRICE_ID_SCAN   // hard-coded for now
-  },
-  mode: "payment",
-  payment_method_types: ["card"],
-  customer_email: email,
-  line_items: [
-    { price: process.env.PRICE_ID_SCAN, quantity: 1 },
-  ],
-  success_url: `${process.env.SITE_URL}/public/thanks.html`,
-  cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
-});
+    // --- create Stripe Checkout session ---
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: email,
+      line_items: [
+        {
+          price,
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        supabase_user_id: "demo-user-001", // placeholder
+        price_id: price,                   // pass actual price for webhook
+      },
+      success_url: `${process.env.SITE_URL}/public/thanks.html`,
+      cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
+    });
 
+    // Optional: Log pre-transaction to Supabase
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
 
-
-    // Pre-log transaction to Supabase (optional early record)
     await supabase.from("transactions").insert({
       user_email: email.toLowerCase(),
       stripe_session_id: session.id,
-      credits_purchased: credits
+      credits_purchased: credits,
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ url: session.url })
+      body: JSON.stringify({ url: session.url }),
     };
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ error: error.message }),
     };
   }
 }
