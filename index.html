@@ -125,113 +125,65 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   </div>
 </div></section>
 
-<section class="section pricing" id="pricing">
-  <style>
-    /* --- Local style tweaks for pricing cards --- */
-    .pricing .grid {
-      display: grid;
-      gap: 1.5rem;
-    }
-    @media (min-width: 800px) {
-      .pricing .grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
+<section id="pricing" class="pricing-section">
+  <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
+  <p class="section-sub">Choose the depth you need. All plans include instant emailed reports.</p>
 
-    .pricing .panel.card {
-      border: 1px solid rgba(0, 255, 200, 0.1);
-      border-radius: 12px;
-      transition: all 0.3s ease;
-      background-color: #0f1115;
-    }
-    .pricing .panel.card:hover {
-      border-color: rgba(0, 255, 200, 0.4);
-      box-shadow: 0 0 15px rgba(0, 255, 200, 0.15);
-      transform: translateY(-2px);
-    }
-    .pricing .price {
-      font-weight: 700;
-      font-size: 1.4rem;
-      margin-bottom: 0.3rem;
-    }
-    .pricing .subtitle {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e5e5e5;
-      margin-top: 0.25rem;
-      margin-bottom: 0.75rem;
-    }
-    .pricing .note {
-      opacity: 0.75;
-      font-size: 0.9rem;
-      margin-top: 0.75rem;
-    }
-    .pricing ul {
-      margin: 0.5rem 0 1rem;
-    }
-  </style>
+  <div class="pricing-grid">
+    <!-- SCAN -->
+    <article class="pricing-card">
+      <h3 class="plan-name">Scan</h3>
+      <p class="plan-tagline">“Check your site’s vital signs.”</p>
+      <p class="plan-price">$14.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>Essential performance & SEO overview</li>
+        <li>≈ 50 reports / month (soft)</li>
+        <li>Summary PDF — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Scan link -->" class="btn btn-primary w-full">Subscribe – Scan</a>
+    </article>
 
-  <div class="wrap">
-    <h2 class="reveal">Pricing</h2>
-    <p class="small reveal">
-      Each report uses <b>1 credit.</b> During <b>Early Access</b>, credits never expire and you’ll receive priority access to upcoming automation and white-label features.
-      Perfect for designers, studios, and agencies validating their workflow.
-    </p>
+    <!-- DIAGNOSE -->
+    <article class="pricing-card pricing-card--featured">
+      <h3 class="plan-name">Diagnose</h3>
+      <p class="plan-tagline">“Understand what’s wrong — and why.”</p>
+      <p class="plan-price">$29.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>Everything in Scan + technical & SEO diagnostics</li>
+        <li>UX & accessibility metrics</li>
+        <li>≈ 150 reports / month (soft)</li>
+        <li>Full diagnostic PDF — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Diagnose link -->" class="btn btn-primary w-full">Subscribe – Diagnose</a>
+    </article>
 
-    <div class="grid">
-      <!-- Starter Pack -->
-      <div class="panel card reveal">
-        <h3>10 WebDoctor Credits</h3>
-        <p class="price">$9.99 USD</p>
-        <p class="subtitle">Starter Pack — for individual designers or testers</p>
-        <ul>
-          <li>1 credit = 1 full scan / report</li>
-          <li>Credits never expire <em>(Early Access benefit)</em></li>
-          <li>Report delivered by email within 24 hours</li>
-        </ul>
-        <a class="btn primary" style="margin-top:auto;"
-           href="https://webdoctortech.gumroad.com/l/credits10"
-           target="_blank" rel="noopener"
-           aria-label="Purchase the 10-credit Starter Pack">Get Starter Pack</a>
-        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
-      </div>
-
-      <!-- Studio Pack -->
-      <div class="panel card reveal">
-        <h3>25 WebDoctor Credits</h3>
-        <p class="price">$19.99 USD</p>
-        <p class="subtitle">Studio Pack — for small studios or growing teams</p>
-        <ul>
-          <li>Everything in Starter Pack</li>
-          <li>Optional white-label branding</li>
-          <li>Priority support during Early Access</li>
-        </ul>
-        <a class="btn primary" style="margin-top:auto;"
-           href="https://webdoctortech.gumroad.com/l/credits25"
-           target="_blank" rel="noopener"
-           aria-label="Purchase the 25-credit Studio Pack">Get Studio Pack</a>
-        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
-      </div>
-
-      <!-- Agency Pack -->
-      <div class="panel card reveal">
-        <h3>50 WebDoctor Credits</h3>
-        <p class="price">$29.99 USD</p>
-        <p class="subtitle">Agency Pack — for agencies and frequent users</p>
-        <ul>
-          <li>Everything in Studio Pack</li>
-          <li>White-label ready for client delivery</li>
-          <li>Early feature access and partner listing opportunities</li>
-        </ul>
-        <a class="btn primary" style="margin-top:auto;"
-           href="https://webdoctortech.gumroad.com/l/credits50"
-           target="_blank" rel="noopener"
-           aria-label="Purchase the 50-credit Agency Pack">Get Agency Pack</a>
-        <p class="note"><em>No subscriptions. No expiry. Credits roll over during Early Access.</em></p>
-      </div>
-    </div>
+    <!-- REVIVE -->
+    <article class="pricing-card">
+      <h3 class="plan-name">Revive</h3>
+      <p class="plan-tagline">“Get expert-level fixes and a full recovery plan.”</p>
+      <p class="plan-price">$49.95 <span>/ month</span></p>
+      <ul class="plan-features">
+        <li>All 20-point matrix + step-by-step fix guide</li>
+        <li>AI recommendations & priority support</li>
+        <li>White-label report option for agencies</li>
+        <li>≈ 300 reports / month (soft)</li>
+        <li>Professional report package — <strong>emailed instantly</strong></li>
+      </ul>
+      <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
+    </article>
   </div>
+
+  <!-- fair use -->
+  <p class="fairuse text-muted" style="margin-top:1rem; font-size:0.75rem; text-align:center;">
+    Fair-use: if you exceed normal use, WebDoctor may slow scans slightly or bill $1 per extra report. No surprises.
+  </p>
+
+  <!-- enterprise contact -->
+  <p class="text-center" style="margin-top:0.5rem; font-size:0.75rem; color:#94a3b8;">
+    Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
+  </p>
 </section>
+
 
 
 
