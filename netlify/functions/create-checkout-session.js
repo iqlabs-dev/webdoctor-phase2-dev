@@ -35,16 +35,25 @@ export async function handler(event) {
 
 // Create the Stripe Checkout session
 const session = await stripe.checkout.sessions.create({
+metadata: {
+  supabase_user_id: "demo-user-001",
+  price_id: price   // <-- this uses the actual Stripe price you picked above
+},
+
+  },
   mode: "payment",
   payment_method_types: ["card"],
-  metadata: {
-    credits: String(credits),   // ← use the dynamic value you already calculated
-  },
   customer_email: email,
-  line_items: [{ price, quantity: 1 }],
+  line_items: [
+    {
+      price: price,
+      quantity: 1,
+    },
+  ],
   success_url: `${process.env.SITE_URL}/public/thanks.html`,
   cancel_url: `${process.env.SITE_URL}/public/cancelled.html`,
 });
+
 
 
     // Pre-log transaction to Supabase (optional early record)
