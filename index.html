@@ -239,19 +239,23 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     }
     /* Add this at the end of your existing style block */
 
+/* spacing for the section */
 .pricing-section {
   padding-top: 4rem;
   padding-bottom: 5rem;
 }
 
+/* base card hover */
 .pricing-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .pricing-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(20, 184, 166, 0.5); /* 👈 add this */
 }
+
 </style>
 
 
