@@ -37,8 +37,8 @@ const session = await stripe.checkout.sessions.create({
   customer_email: email,
   line_items: [
     {
-      // use a real Stripe price from your env for testing
-      price: process.env.PRICE_ID_SCAN,
+      // ✅ Use your actual PRICE_ID, not product ID
+      price: process.env.PRICE_ID_SCAN, 
       quantity: 1,
     },
   ],
