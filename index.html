@@ -176,6 +176,27 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     </article>
   </div>
 
+  <style>
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+.pricing-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+.pricing-card:hover {
+  border-color: rgba(20, 184, 166, 0.4);
+  transform: translateY(-2px);
+}
+</style>
+
+
   <!-- fair use -->
   <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
     Fair-use protection ensures consistent service for all users and prevents automated abuse.
