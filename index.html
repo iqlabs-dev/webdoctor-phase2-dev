@@ -206,11 +206,17 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
 
-  /* featured (middle) card – faint teal by default */
-  .pricing-card.pricing-card--featured {
-    border: 1px solid rgba(20, 184, 166, 0.6);
-    box-shadow: 0 10px 35px rgba(20, 184, 166, 0.15);
-  }
+.pricing-card.pricing-card--featured {
+  border: 1px solid rgba(20, 184, 166, 0.6);
+  box-shadow: none; /* remove always-on glow */
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.pricing-card.pricing-card--featured:hover {
+  transform: translateY(-4px);
+  border: 1px solid rgba(20, 184, 166, 0.85);
+  box-shadow: 0 25px 60px rgba(20, 184, 166, 0.35);
+}
+
 
   /* prices / text */
   .price {
