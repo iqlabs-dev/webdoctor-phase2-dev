@@ -124,161 +124,140 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     <div class="panel step reveal"><b>3) PDF in 24h</b><span class="small">Clear priorities, impact notes, and quick actions.</span></div>
   </div>
 </div></section>
-<section id="pricing" class="pricing-section">
-  <h2 class="section-title">Pricing — Hybrid Fair-Use</h2>
-  <p class="section-sub">Simple monthly plans. Reports are emailed instantly.</p>
+<section class="section pricing" id="pricing">
+  <style>
+    /* --- Local style tweaks for pricing cards --- */
+    .pricing .grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+    @media (min-width: 800px) {
+      .pricing .grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
 
-  <div class="pricing-grid">
-    <!-- SCAN -->
-    <article class="pricing-card">
-      <h3>Scan</h3>
-      <p class="price">$14.95 <span>/ month</span></p>
-      <p class="subtitle">For freelancers and site owners.</p>
-      <ul class="features">
-        <li>Performance &amp; SEO overview</li>
-        <li>Includes <strong>250 reports / month</strong></li>
-        <li>$1 per extra report after 250</li>
-        <li>PDF report emailed instantly</li>
-      </ul>
-      <a href="<!-- TODO: Stripe Scan link -->" class="btn btn-primary w-full">Subscribe – Scan</a>
-      <p class="note">Fair-use protection enabled.</p>
-    </article>
+    .pricing .panel.card {
+      border: 1px solid rgba(0, 255, 200, 0.1);
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      background-color: #0f1115;
+    }
+    .pricing .panel.card:hover {
+      border-color: rgba(0, 255, 200, 0.4);
+      box-shadow: 0 0 15px rgba(0, 255, 200, 0.15);
+      transform: translateY(-2px);
+    }
+    .pricing .price {
+      font-weight: 700;
+      font-size: 1.4rem;
+      margin-bottom: 0.3rem;
+      text-align: center;
+    }
+    .pricing .subtitle {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #e5e5e5;
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+      text-align: center;
+    }
+    .pricing .note {
+      opacity: 0.75;
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+      text-align: center;
+    }
+    .pricing ul {
+      margin: 0.5rem 0 1rem;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+    .pricing .features {
+      padding-left: 1.25rem;
+    }
 
-    <!-- DIAGNOSE -->
-    <article class="pricing-card pricing-card--featured">
-      <h3>Diagnose</h3>
-      <p class="price">$29.95 <span>/ month</span></p>
-      <p class="subtitle">Best for agencies &amp; marketers.</p>
-      <ul class="features">
-        <li>Everything in Scan + technical &amp; SEO diagnostics</li>
-        <li>UX &amp; accessibility metrics</li>
-        <li>Includes <strong>500 reports / month</strong></li>
-        <li>$1 per extra report after 500</li>
-        <li>Full diagnostic PDF emailed instantly</li>
-      </ul>
-      <a href="<!-- TODO: Stripe Diagnose link -->" class="btn btn-primary w-full">Subscribe – Diagnose</a>
-      <p class="note">Most popular</p>
-    </article>
+    /* Button styling */
+    .pricing .btn {
+      background-color: #14b8a6;
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      width: 100%;
+      text-align: center;
+      transition: background-color 0.3s;
+    }
 
-    <!-- REVIVE -->
-    <article class="pricing-card">
-      <h3>Revive</h3>
-      <p class="price">$49.95 <span>/ month</span></p>
-      <p class="subtitle">For studios &amp; high-volume users.</p>
-      <ul class="features">
-        <li>20-point matrix + step-by-step fix guide</li>
-        <li>AI recommendations &amp; priority support</li>
-        <li>White-label report option for agencies</li>
-        <li>Includes <strong>1,000 reports / month</strong></li>
-        <li>$1 per extra report after 1,000</li>
-        <li>Professional report package — emailed instantly</li>
-      </ul>
-      <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
-      <p class="note">Priority support included.</p>
-    </article>
+    .pricing .btn:hover {
+      background-color: #0d9f8d;
+    }
+
+    /* Mobile responsiveness for button text */
+    .pricing .btn.primary {
+      padding: 1rem 1.25rem;
+    }
+  </style>
+
+  <div class="wrap">
+    <h2 class="reveal">Pricing</h2>
+    <p class="small reveal">
+      Each report uses <b>1 credit.</b> During <b>Early Access</b>, credits never expire and you’ll receive priority access to upcoming automation and white-label features.
+      Perfect for designers, studios, and agencies validating their workflow.
+    </p>
+
+    <div class="grid">
+      <!-- Starter Pack -->
+      <div class="panel card reveal">
+        <h3>Scan</h3>
+        <p class="price">$14.95 <span>/ month</span></p>
+        <p class="subtitle">For freelancers and site owners</p>
+        <ul>
+          <li>Performance & SEO overview</li>
+          <li>Includes <strong>250 reports / month</strong></li>
+          <li>$1 per extra report after 250</li>
+          <li>PDF report emailed instantly</li>
+        </ul>
+        <a class="btn primary" href="<!-- TODO: Stripe Scan link -->" target="_blank" rel="noopener" aria-label="Subscribe to Scan">Subscribe – Scan</a>
+        <p class="note">Fair-use protection enabled.</p>
+      </div>
+
+      <!-- Studio Pack -->
+      <div class="panel card reveal">
+        <h3>Diagnose</h3>
+        <p class="price">$29.95 <span>/ month</span></p>
+        <p class="subtitle">Best for agencies & marketers</p>
+        <ul>
+          <li>Everything in Scan + technical & SEO diagnostics</li>
+          <li>UX & accessibility metrics</li>
+          <li>Includes <strong>500 reports / month</strong></li>
+          <li>$1 per extra report after 500</li>
+          <li>Full diagnostic PDF emailed instantly</li>
+        </ul>
+        <a class="btn primary" href="<!-- TODO: Stripe Diagnose link -->" target="_blank" rel="noopener" aria-label="Subscribe to Diagnose">Subscribe – Diagnose</a>
+        <p class="note">Most popular</p>
+      </div>
+
+      <!-- Agency Pack -->
+      <div class="panel card reveal">
+        <h3>Revive</h3>
+        <p class="price">$49.95 <span>/ month</span></p>
+        <p class="subtitle">For studios & high-volume users</p>
+        <ul>
+          <li>20-point matrix + step-by-step fix guide</li>
+          <li>AI recommendations & priority support</li>
+          <li>White-label report option for agencies</li>
+          <li>Includes <strong>1,000 reports / month</strong></li>
+          <li>$1 per extra report after 1,000</li>
+          <li>Professional report package — emailed instantly</li>
+        </ul>
+        <a class="btn primary" href="<!-- TODO: Stripe Revive link -->" target="_blank" rel="noopener" aria-label="Subscribe to Revive">Subscribe – Revive</a>
+        <p class="note">Priority support included.</p>
+      </div>
+    </div>
   </div>
-
-  <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
-    Hybrid Fair-Use means we provide generous report limits (250, 500, 1000 per month) to ensure <strong>consistent service</strong> for all users. If you exceed those limits, WebDoctor may slow down scans slightly or charge $1 per extra report. No surprises.
-  </p>
-
-  <p class="text-center small" style="margin-top:0.4rem; opacity:0.75;">
-    Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
-  </p>
 </section>
-
-<style>
-  .pricing-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem;
-    max-width: 1080px;
-    margin: 0 auto;
-  }
-
-  .pricing-card {
-    background: rgba(13, 23, 42, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.08);
-    border-radius: 1rem;
-    padding: 1.5rem 1.5rem 1.25rem;
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  }
-
-  .pricing-card--featured {
-    border: 1px solid rgba(20, 184, 166, 0.6);
-    box-shadow: none;
-  }
-
-  .pricing-card--featured:hover {
-    transform: translateY(-4px);
-    border: 1px solid rgba(20, 184, 166, 0.85);
-    box-shadow: 0 25px 60px rgba(20, 184, 166, 0.35);
-  }
-
-  .price {
-    font-size: 1.35rem;
-    font-weight: 700;
-  }
-
-  .price span {
-    font-size: .7rem;
-    color: #94a3b8;
-    font-weight: 400;
-  }
-
-  .subtitle {
-    font-size: .7rem;
-    color: #94a3b8;
-  }
-
-  .features {
-    list-style: disc;
-    margin-left: 1.15rem;
-    margin-top: .5rem;
-    margin-bottom: 1rem;
-    font-size: .7rem;
-  }
-
-  .features li {
-    margin-bottom: .25rem;
-  }
-
-  .note {
-    font-size: .6rem;
-    color: #94a3b8;
-    margin-top: .5rem;
-  }
-
-  .btn.w-full {
-    width: 100%;
-    text-align: center;
-    margin-top: .35rem;
-  }
-
-  .pricing-section {
-    padding-top: 4rem;
-    padding-bottom: 5rem;
-  }
-
-  .pricing-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(20, 184, 166, 0.5);
-  }
-
-  #pricing .pricing-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(20, 184, 166, 0.5);
-  }
-</style>
-</section>
-
-
 
 <section class="section faq" id="faq"><div class="wrap">
   <h2 class="reveal">FAQ</h2>
