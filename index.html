@@ -135,7 +135,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
       <p class="price">$14.95 <span>/ month</span></p>
       <p class="subtitle">For freelancers and site owners.</p>
       <ul class="features">
-        <li>Performance & SEO overview</li>
+        <li>Performance &amp; SEO overview</li>
         <li>Includes <strong>250 reports / month</strong></li>
         <li>$1 per extra report after 250</li>
         <li>PDF report emailed instantly</li>
@@ -148,10 +148,10 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     <article class="pricing-card pricing-card--featured">
       <h3>Diagnose</h3>
       <p class="price">$29.95 <span>/ month</span></p>
-      <p class="subtitle">Best for agencies & marketers.</p>
+      <p class="subtitle">Best for agencies &amp; marketers.</p>
       <ul class="features">
-        <li>Everything in Scan + technical & SEO diagnostics</li>
-        <li>UX & accessibility metrics</li>
+        <li>Everything in Scan + technical &amp; SEO diagnostics</li>
+        <li>UX &amp; accessibility metrics</li>
         <li>Includes <strong>500 reports / month</strong></li>
         <li>$1 per extra report after 500</li>
         <li>Full diagnostic PDF emailed instantly</li>
@@ -164,10 +164,10 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     <article class="pricing-card">
       <h3>Revive</h3>
       <p class="price">$49.95 <span>/ month</span></p>
-      <p class="subtitle">For studios & high-volume users.</p>
+      <p class="subtitle">For studios &amp; high-volume users.</p>
       <ul class="features">
         <li>20-point matrix + step-by-step fix guide</li>
-        <li>AI recommendations & priority support</li>
+        <li>AI recommendations &amp; priority support</li>
         <li>White-label report option for agencies</li>
         <li>Includes <strong>1,000 reports / month</strong></li>
         <li>$1 per extra report after 1,000</li>
@@ -178,15 +178,16 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     </article>
   </div>
 
-  <!-- Hybrid Fair-Use Notice -->
-  <p class="fairuse-text small">Hybrid Fair-Use means we provide generous report limits (250, 500, 1000 per month) to ensure “consistent service” for all users. If you exceed those limits, WebDoctor may slow down scans slightly or charge $1 per extra report. No surprises.</p>
+  <p class="fairuse-text small" style="margin-top:1rem; text-align:center;">
+    Hybrid Fair-Use means we provide generous report limits (250, 500, 1000 per month) to ensure <strong>consistent service</strong> for all users. If you exceed those limits, WebDoctor may slow down scans slightly or charge $1 per extra report. No surprises.
+  </p>
 
-  <!-- Enterprise Contact -->
-  <p class="text-center small">Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.</p>
+  <p class="text-center small" style="margin-top:0.4rem; opacity:0.75;">
+    Larger agency or platform? <a href="mailto:hello@webdoctor.tech" style="color:#14b8a6;">Contact us</a> for custom / enterprise access.
+  </p>
 </section>
 
 <style>
-  /* Layout */
   .pricing-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -195,7 +196,6 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     margin: 0 auto;
   }
 
-  /* Base card */
   .pricing-card {
     background: rgba(13, 23, 42, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.08);
@@ -208,110 +208,74 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
 
+  .pricing-card--featured {
+    border: 1px solid rgba(20, 184, 166, 0.6);
+    box-shadow: none;
+  }
+
+  .pricing-card--featured:hover {
+    transform: translateY(-4px);
+    border: 1px solid rgba(20, 184, 166, 0.85);
+    box-shadow: 0 25px 60px rgba(20, 184, 166, 0.35);
+  }
+
+  .price {
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+
+  .price span {
+    font-size: .7rem;
+    color: #94a3b8;
+    font-weight: 400;
+  }
+
+  .subtitle {
+    font-size: .7rem;
+    color: #94a3b8;
+  }
+
+  .features {
+    list-style: disc;
+    margin-left: 1.15rem;
+    margin-top: .5rem;
+    margin-bottom: 1rem;
+    font-size: .7rem;
+  }
+
+  .features li {
+    margin-bottom: .25rem;
+  }
+
+  .note {
+    font-size: .6rem;
+    color: #94a3b8;
+    margin-top: .5rem;
+  }
+
+  .btn.w-full {
+    width: 100%;
+    text-align: center;
+    margin-top: .35rem;
+  }
+
+  .pricing-section {
+    padding-top: 4rem;
+    padding-bottom: 5rem;
+  }
+
   .pricing-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(20, 184, 166, 0.5);
   }
 
-  /* Featured card */
-  .pricing-card--featured {
-    border: 1px solid rgba(20, 184, 166, 0.6);
-  }
-
-  .pricing-card--featured:hover {
-    border: 1px solid rgba(20, 184, 166, 0.85);
-    box-shadow: 0 25px 60px rgba(20, 184, 166, 0.35);
-  }
-
-  /* Prices */
-  .price {
-    font-size: 1.35rem;
-    font-weight: 700;
-    margin-bottom: 0.3rem;
-  }
-
-  .price span {
-    font-size: 0.7rem;
-    color: #94a3b8;
-    font-weight: 400;
-  }
-
-  /* Subtitles */
-  .subtitle {
-    font-size: 1rem;
-    color: #94a3b8;
-    margin-top: 0.25rem;
-    margin-bottom: 0.75rem;
-    font-weight: 600;
-  }
-
-  /* Features */
-  .features {
-    list-style: disc;
-    margin-left: 1.5rem;
-    margin-top: 0.5rem;
-    margin-bottom: 1rem;
-    font-size: 0.7rem;
-  }
-
-  .features li {
-    margin-bottom: 0.25rem;
-  }
-
-  .note {
-    font-size: 0.7rem;
-    color: #94a3b8;
-    margin-top: 0.75rem;
-  }
-
-  /* Buttons */
-  .btn.w-full {
-    width: 100%;
-    text-align: center;
-    margin-top: 1rem;
-    background-color: #14b8a6;
-    color: white;
-    padding: 10px;
-    font-weight: bold;
-    border: none;
-    border-radius: 0.5rem;
-    text-transform: uppercase;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
-
-  .btn.w-full:hover {
-    background-color: #0d9f8d;
-  }
-
-  /* Fair-use Text */
-  .fairuse-text {
-    font-size: 0.8rem;
-    margin-top: 1.5rem;
-    text-align: center;
-  }
-
-  /* Enterprise Contact */
-  .text-center.small {
-    margin-top: 1.5rem;
-    opacity: 0.75;
-  }
-
-  .text-center a {
-    color: #14b8a6;
-  }
-
-  /* Footer */
-  section {
-    padding-top: 4rem;
-    padding-bottom: 5rem;
+  #pricing .pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(20, 184, 166, 0.5);
   }
 </style>
-
-
-
 </section>
 
 
