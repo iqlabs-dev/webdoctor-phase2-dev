@@ -200,6 +200,25 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
       background-color: #0d9488;
       transform: translateY(-1px);
     }
+    /* Align all Subscribe buttons evenly across cards */
+.pricing .grid {
+  display: grid;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.pricing .panel.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.pricing .btn.primary {
+  margin-top: auto;
+  align-self: stretch;
+}
+
   </style>
 
   <div class="wrap">
