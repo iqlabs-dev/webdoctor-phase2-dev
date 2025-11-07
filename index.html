@@ -130,16 +130,17 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   <h2 class="section-title" style="text-align: center;">Pricing — Hybrid Fair-Use</h2>
   <p class="section-sub" style="text-align: center;">Simple monthly plans. Reports are emailed instantly.</p>
 
-  <p class="section-info" style="text-align: center; margin-top: 1.25rem; opacity: .75; font-size: .9rem;">
+  <!-- Hybrid Fair-Use Explanation -->
+  <p class="section-info" style="text-align: center; max-width: 1080px; margin: 1.25rem auto; opacity: .75; font-size: .9rem;">
     Hybrid Fair-Use means we provide generous report limits (250, 500, 1,000 per month) to ensure **consistent service** for all users. If you exceed those limits, WebDoctor may slow down scans slightly or charge $1 per extra report. No surprises.
   </p>
 
   <div class="pricing-grid">
     <!-- SCAN -->
     <article class="pricing-card">
-      <h3>Scan</h3>
-      <p class="price">$14.95 <span>/ month</span></p>
-      <p class="subtitle">For freelancers and site owners.</p>
+      <h3 style="font-size: 1.6rem; text-align: center;">Scan</h3>
+      <p class="price" style="font-size: 1.5rem; text-align: center;">$14.95 <span>/ month</span></p>
+      <p class="subtitle" style="font-size: 1rem; text-align: center;">For freelancers and site owners.</p>
       <ul class="features">
         <li>Performance &amp; SEO overview</li>
         <li>Includes <strong>250 reports / month</strong></li>
@@ -147,14 +148,14 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
         <li>PDF report emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Scan link -->" class="btn btn-primary w-full">Subscribe – Scan</a>
-      <p class="note">Fair-use protection enabled.</p>
+      <p class="note" style="text-align: center;">Fair-use protection enabled.</p>
     </article>
 
     <!-- DIAGNOSE -->
     <article class="pricing-card pricing-card--featured">
-      <h3>Diagnose</h3>
-      <p class="price">$29.95 <span>/ month</span></p>
-      <p class="subtitle">Best for agencies &amp; marketers.</p>
+      <h3 style="font-size: 1.6rem; text-align: center;">Diagnose</h3>
+      <p class="price" style="font-size: 1.5rem; text-align: center;">$29.95 <span>/ month</span></p>
+      <p class="subtitle" style="font-size: 1rem; text-align: center;">Best for agencies &amp; marketers.</p>
       <ul class="features">
         <li>Everything in Scan + technical &amp; SEO diagnostics</li>
         <li>UX &amp; accessibility metrics</li>
@@ -163,14 +164,14 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
         <li>Full diagnostic PDF emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Diagnose link -->" class="btn btn-primary w-full">Subscribe – Diagnose</a>
-      <p class="note">Most popular</p>
+      <p class="note" style="text-align: center;">Most popular</p>
     </article>
 
     <!-- REVIVE -->
     <article class="pricing-card">
-      <h3>Revive</h3>
-      <p class="price">$49.95 <span>/ month</span></p>
-      <p class="subtitle">For studios &amp; high-volume users.</p>
+      <h3 style="font-size: 1.6rem; text-align: center;">Revive</h3>
+      <p class="price" style="font-size: 1.5rem; text-align: center;">$49.95 <span>/ month</span></p>
+      <p class="subtitle" style="font-size: 1rem; text-align: center;">For studios &amp; high-volume users.</p>
       <ul class="features">
         <li>20-point matrix + step-by-step fix guide</li>
         <li>AI recommendations &amp; priority support</li>
@@ -180,7 +181,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
         <li>Professional report package — emailed instantly</li>
       </ul>
       <a href="<!-- TODO: Stripe Revive link -->" class="btn btn-primary w-full">Subscribe – Revive</a>
-      <p class="note">Priority support included.</p>
+      <p class="note" style="text-align: center;">Priority support included.</p>
     </article>
   </div>
 
@@ -210,6 +211,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
       flex-direction: column;
       gap: .6rem;
       transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      text-align: center; /* Center all text in the cards */
     }
 
     .pricing-card.pricing-card--featured {
@@ -226,32 +228,35 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
 
     /* prices / text */
     .price {
-      font-size: 1.35rem;
+      font-size: 1.6rem;
       font-weight: 700;
+      text-align: center;
     }
     .price span {
-      font-size: .7rem;
+      font-size: 1rem;
       color: #94a3b8;
       font-weight: 400;
     }
     .subtitle {
-      font-size: .7rem;
+      font-size: 1rem;
       color: #94a3b8;
+      text-align: center;
     }
     .features {
       list-style: disc;
       margin-left: 1.15rem;
       margin-top: .5rem;
       margin-bottom: 1rem;
-      font-size: .7rem;
+      font-size: .8rem;
     }
     .features li {
       margin-bottom: .25rem;
     }
     .note {
-      font-size: .6rem;
+      font-size: .75rem;
       color: #94a3b8;
       margin-top: .5rem;
+      text-align: center;
     }
     .btn.w-full {
       width: 100%;
@@ -279,8 +284,8 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
       border: 1px solid rgba(20, 184, 166, 0.5);
     }
   </style>
-
 </section>
+
 
 <section class="section faq" id="faq"><div class="wrap">
   <h2 class="reveal">FAQ</h2>
