@@ -126,89 +126,91 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
 </div></section>
 <section class="section pricing" id="pricing">
   <style>
-    /* --- Local style tweaks for pricing cards --- */
     .pricing .grid {
       display: grid;
       gap: 1.5rem;
+      justify-content: center;
     }
     @media (min-width: 800px) {
       .pricing .grid {
         grid-template-columns: repeat(3, 1fr);
+        max-width: 1000px;
+        margin: 0 auto;
       }
     }
 
     .pricing .panel.card {
       border: 1px solid rgba(0, 255, 200, 0.1);
       border-radius: 12px;
-      transition: all 0.3s ease;
       background-color: #0f1115;
+      transition: all 0.3s ease;
+      padding: 1.75rem 1.5rem;
     }
     .pricing .panel.card:hover {
       border-color: rgba(0, 255, 200, 0.4);
       box-shadow: 0 0 15px rgba(0, 255, 200, 0.15);
       transform: translateY(-2px);
     }
+
+    .pricing h2 {
+      text-align: center;
+      margin-bottom: 0.75rem;
+    }
+    .pricing p.small {
+      text-align: center;
+      margin-bottom: 2rem;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
     .pricing .price {
       font-weight: 700;
       font-size: 1.4rem;
-      margin-bottom: 0.3rem;
-      text-align: center;
+      margin-bottom: 0.25rem;
     }
     .pricing .subtitle {
       font-size: 1rem;
       font-weight: 600;
       color: #e5e5e5;
-      margin-top: 0.25rem;
       margin-bottom: 0.75rem;
-      text-align: center;
     }
     .pricing .note {
       opacity: 0.75;
       font-size: 0.9rem;
       margin-top: 0.75rem;
-      text-align: center;
     }
     .pricing ul {
-      margin: 0.5rem 0 1rem;
-      font-size: 0.9rem;
-      text-align: left;
-    }
-    .pricing .features {
-      padding-left: 1.25rem;
+      margin: 0.5rem 0 1.5rem;
     }
 
-    /* Button styling */
-    .pricing .btn {
-      background-color: #14b8a6;
-      color: white;
-      font-weight: bold;
-      font-size: 1rem;
-      border-radius: 0.5rem;
-      padding: 0.75rem 1.5rem;
+    .pricing .btn.primary {
+      display: block;
       width: 100%;
       text-align: center;
-      transition: background-color 0.3s;
+      background-color: #14b8a6;
+      color: #fff;
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      text-decoration: none;
+      transition: background-color 0.3s ease, transform 0.2s ease;
     }
-
-    .pricing .btn:hover {
-      background-color: #0d9f8d;
-    }
-
-    /* Mobile responsiveness for button text */
-    .pricing .btn.primary {
-      padding: 1rem 1.25rem;
+    .pricing .btn.primary:hover {
+      background-color: #0d9488;
+      transform: translateY(-1px);
     }
   </style>
 
   <div class="wrap">
-    <h2 class="reveal">Pricing</h2>
-    <p class="small reveal">
+    <h2>Pricing — Hybrid Fair-Use</h2>
+    <p class="small">
       Simple monthly plans with generous scan limits. Reports are emailed instantly. Extra scans are just $1 each.
     </p>
 
     <div class="grid">
-      <!-- Starter Pack -->
-      <div class="panel card reveal">
+      <!-- Scan -->
+      <div class="panel card">
         <h3>Scan</h3>
         <p class="price">$14.95 <span>/ month</span></p>
         <p class="subtitle">For freelancers and site owners</p>
@@ -218,12 +220,11 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 250</li>
           <li>PDF report emailed instantly</li>
         </ul>
-        <a class="btn primary" href="<!-- TODO: Stripe Scan link -->" target="_blank" rel="noopener" aria-label="Subscribe to Scan">Subscribe – Scan</a>
-        <p class="note">Fair-use protection enabled.</p>
+        <a class="btn primary" href="#">Subscribe – Scan</a>
       </div>
 
-      <!-- Studio Pack -->
-      <div class="panel card reveal">
+      <!-- Diagnose -->
+      <div class="panel card">
         <h3>Diagnose</h3>
         <p class="price">$29.95 <span>/ month</span></p>
         <p class="subtitle">Best for agencies & marketers</p>
@@ -234,12 +235,11 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 500</li>
           <li>Full diagnostic PDF emailed instantly</li>
         </ul>
-        <a class="btn primary" href="<!-- TODO: Stripe Diagnose link -->" target="_blank" rel="noopener" aria-label="Subscribe to Diagnose">Subscribe – Diagnose</a>
-        <p class="note">Most popular</p>
+        <a class="btn primary" href="#">Subscribe – Diagnose</a>
       </div>
 
-      <!-- Agency Pack -->
-      <div class="panel card reveal">
+      <!-- Revive -->
+      <div class="panel card">
         <h3>Revive</h3>
         <p class="price">$49.95 <span>/ month</span></p>
         <p class="subtitle">For studios & high-volume users</p>
@@ -251,12 +251,12 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 1,000</li>
           <li>Professional report package — emailed instantly</li>
         </ul>
-        <a class="btn primary" href="<!-- TODO: Stripe Revive link -->" target="_blank" rel="noopener" aria-label="Subscribe to Revive">Subscribe – Revive</a>
-        <p class="note">Priority support included.</p>
+        <a class="btn primary" href="#">Subscribe – Revive</a>
       </div>
     </div>
   </div>
 </section>
+
 
 <section class="section faq" id="faq"><div class="wrap">
   <h2 class="reveal">FAQ</h2>
