@@ -1,11 +1,26 @@
 // netlify/functions/stripe-webhook.js
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 
+// 1) Stripe + Supabase clients
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const PRICE_ID_SCAN = process.env.PRICE_ID_SCAN;
-const PRICE_ID_DIAGNOSE = process.env.PRICE_ID_DIAGNOSE;
-const PRICE_ID_REVIVE = process.env.PRICE_ID_REVIVE;
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// 2) Your Stripe price IDs from env
+const PRICE_ID_SCAN = process.env.PRICE_ID_SCAN;         // 250 reports
+const PRICE_ID_DIAGNOSE = process.env.PRICE_ID_DIAGNOSE; // 500 reports
+const PRICE_ID_REVIVE = process.env.PRICE_ID_REVIVE;     // 1000 reports
+
+// 3) Credit mapping (adjust numbers here if plans change)
+const PLAN_CREDITS = {
+  [PRICE_ID_SCAN]: 250,
+  [PRICE_ID_DIAGNOSE]: 500,
+  [PRICE_ID_REVIVE]: 1000
+};
 
 export default async (request, context) => {
   // Stripe signature from headers
@@ -36,27 +51,86 @@ export default async (request, context) => {
       const session = event.data.object;
       console.log('✅ Checkout session completed:', session.id);
 
-      // if you passed price_id in metadata from Checkout:
-      const priceId = session.metadata?.price_id;
+      // customer email (we'll use this to tie to user)
+      const customerEmail = session.customer_details?.email;
+      if (!customerEmail) {
+        console.log('⚠️ No customer email on session, cannot store subscription.');
+      }
 
-      if (priceId) {
-        if (priceId === PRICE_ID_SCAN) {
-          console.log('→ add SCAN credits');
-        } else if (priceId === PRICE_ID_DIAGNOSE) {
-          console.log('→ add DIAGNOSE credits');
-        } else if (priceId === PRICE_ID_REVIVE) {
-          console.log('→ add REVIVE credits');
+      // try to get price id from metadata first (best case)
+      let priceId = session.metadata?.price_id;
+
+      // if not in metadata, try to pull line items (needs expand on your checkout session)
+      if (!priceId && session?.line_items?.data?.length) {
+        priceId = session.line_items.data[0]?.price?.id;
+      }
+
+      // figure out credits from the price id
+      const creditsToAdd = priceId ? PLAN_CREDITS[priceId] || 0 : 0;
+
+      // 3a) write subscription record
+      if (customerEmail) {
+        const { error: subError } = await supabase.from('subscriptions').insert({
+          email: customerEmail,
+          price_id: priceId || null,
+          status: 'active',
+          stripe_session_id: session.id,
+          created_at: new Date().toISOString()
+        });
+
+        if (subError) {
+          console.error('❌ Supabase insert (subscriptions) failed:', subError.message);
         } else {
-          console.log('⚠️ unknown price id', priceId);
+          console.log('✅ Subscription saved for', customerEmail);
+        }
+      }
+
+      // 3b) add credits to user (simple version: upsert by email)
+      if (customerEmail && creditsToAdd > 0) {
+        // check if user already has credits
+        const { data: existing, error: fetchErr } = await supabase
+          .from('credits')
+          .select('email, credits')
+          .eq('email', customerEmail)
+          .maybeSingle();
+
+        if (fetchErr) {
+          console.error('❌ Could not fetch existing credits:', fetchErr.message);
+        } else if (existing) {
+          // update (add to existing)
+          const newTotal = (existing.credits || 0) + creditsToAdd;
+          const { error: updateErr } = await supabase
+            .from('credits')
+            .update({ credits: newTotal })
+            .eq('email', customerEmail);
+
+          if (updateErr) {
+            console.error('❌ Failed to update credits:', updateErr.message);
+          } else {
+            console.log(`✅ Credits updated for ${customerEmail} → ${newTotal}`);
+          }
+        } else {
+          // insert new credits row
+          const { error: creditErr } = await supabase.from('credits').insert({
+            email: customerEmail,
+            credits: creditsToAdd,
+            created_at: new Date().toISOString()
+          });
+
+          if (creditErr) {
+            console.error('❌ Failed to create credits row:', creditErr.message);
+          } else {
+            console.log(`✅ Credits created for ${customerEmail} → ${creditsToAdd}`);
+          }
         }
       } else {
-        console.log('⚠️ no price_id in metadata, will need to expand line items later');
+        console.log('ℹ️ No credits added (no email or no matching price id).');
       }
     } else {
       console.log('Unhandled event type:', event.type);
     }
 
-    // 4) IMPORTANT: return a Fetch API Response (your 502 was because this was missing)
+    // 4) return a response so Stripe knows we got it
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
