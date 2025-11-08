@@ -600,19 +600,23 @@ modal.style.display = "flex";
 const email = await new Promise((resolve) => {
   emailSubmit.onclick = () => {
     if (emailInput.value.trim() === "") return alert("Please enter your email.");
-    success.style.display = 'flex';
-setTimeout(() => {
-  success.style.display = 'none';
-}, 1200);
 
-    modal.style.display = "none";
-    resolve(emailInput.value.trim());
+    success.style.display = 'flex';
+
+    // wait for tick, THEN close modal and resolve
+    setTimeout(() => {
+      success.style.display = 'none';
+      modal.style.display = "none";
+      resolve(emailInput.value.trim());
+    }, 700); // 0.7s is enough
   };
+
   emailCancel.onclick = () => {
     modal.style.display = "none";
     resolve(null);
   };
 });
+
 
 if (!email) return;
 
