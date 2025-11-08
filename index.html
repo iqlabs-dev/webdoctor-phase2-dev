@@ -616,6 +616,8 @@ setTimeout(() => {
 
 if (!email) return;
 
+await new Promise((r) => setTimeout(r, 700));
+
   const response = await fetch('/.netlify/functions/create-checkout-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
