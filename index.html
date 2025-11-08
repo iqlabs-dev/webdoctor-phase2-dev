@@ -605,11 +605,11 @@ const email = await new Promise((resolve) => {
     success.style.display = 'flex';
 
     // wait for tick, THEN close modal and resolve
-    setTimeout(() => {
-      success.style.display = 'none';
-      modal.style.display = "none";
-      resolve(emailInput.value.trim());
-    }, 1500); // 0.7s is enough
+setTimeout(() => {
+  success.style.display = 'none';
+  resolve(emailInput.value.trim());
+}, 1500);
+
   };
 
   emailCancel.onclick = () => {
@@ -621,7 +621,7 @@ const email = await new Promise((resolve) => {
 
 if (!email) return;
 
-await new Promise((r) => setTimeout(r, 700));
+
 
   const response = await fetch('/.netlify/functions/create-checkout-session', {
     method: 'POST',
