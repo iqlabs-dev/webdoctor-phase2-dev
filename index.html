@@ -450,6 +450,23 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   opacity: 0.7;
   pointer-events: none;
 }
+.modal-success {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  font-size: 3rem;
+  color: #00BFA6;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  animation: fadeInOut 1.2s ease;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: scale(0.8); }
+  20% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
 
 
     }
@@ -575,12 +592,19 @@ const modal = document.getElementById("emailModal");
 const emailInput = document.getElementById("emailInput");
 const emailSubmit = document.getElementById("emailSubmit");
 const emailCancel = document.getElementById("emailCancel");
+const success = document.getElementById("emailSuccess");
+
 
 modal.style.display = "flex";
 
 const email = await new Promise((resolve) => {
   emailSubmit.onclick = () => {
     if (emailInput.value.trim() === "") return alert("Please enter your email.");
+    success.style.display = 'flex';
+setTimeout(() => {
+  success.style.display = 'none';
+}, 1200);
+
     modal.style.display = "none";
     resolve(emailInput.value.trim());
   };
