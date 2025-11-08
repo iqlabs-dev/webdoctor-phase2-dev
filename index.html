@@ -609,7 +609,7 @@ const email = await new Promise((resolve) => {
       success.style.display = 'none';
       modal.style.display = "none";
       resolve(emailInput.value.trim());
-    }, 700); // 0.7s is enough
+    }, 1500); // 0.7s is enough
   };
 
   emailCancel.onclick = () => {
