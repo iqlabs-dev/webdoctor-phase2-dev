@@ -429,6 +429,27 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   font-size: 1rem;
   text-align: center;
 }
+/* success check */
+.modal-success {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #00bfa6;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+  color: #fff;
+  font-size: 1.6rem;
+  font-weight: 700;
+  box-shadow: 0 0 20px rgba(0,191,166,0.4);
+}
+
+/* loading state */
+#emailSubmit.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
 
 
     }
@@ -592,6 +613,7 @@ document.getElementById('revive-btn').addEventListener('click', () => handleChec
 <!-- Email Modal -->
 <div id="emailModal" class="modal">
   <div class="modal-content">
+    <div id="emailSuccess" class="modal-success">✓</div>
     <h2>Start Your WebDoctor Subscription</h2>
     <p>Enter your email to begin checkout.<br>
        You’ll be redirected to a secure Stripe page to confirm your plan — 
