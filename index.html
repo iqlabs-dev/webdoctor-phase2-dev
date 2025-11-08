@@ -237,7 +237,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 250</li>
           <li>PDF report emailed instantly</li>
         </ul>
-        <a class="btn primary" href="#">Subscribe – Scan</a>
+        <button id="scan-btn" class="btn primary">Scan</button>
       </div>
 
       <!-- Diagnose -->
@@ -252,7 +252,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 500</li>
           <li>Full diagnostic PDF emailed instantly</li>
         </ul>
-        <a class="btn primary" href="#">Subscribe – Diagnose</a>
+        <button id="diagnose-btn" class="btn primary">Diagnose</button>
       </div>
 
       <!-- Revive -->
@@ -268,7 +268,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
           <li>$1 per extra report after 1,000</li>
           <li>Professional report package — emailed instantly</li>
         </ul>
-        <a class="btn primary" href="#">Subscribe – Revive</a>
+        <button id="revive-btn" class="btn primary">Revive</button>
       </div>
       <p style="text-align:center; font-family:'Montserrat', sans-serif; font-size:15px; color:#6CAFB7; margin-top:20px;">
   <em>Need something tailored?</em> Email 
@@ -479,4 +479,28 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classLi
   frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
 })();
 </script>
+<script>
+async function handleCheckout(priceId) {
+  const email = prompt("Enter your email to continue:");
+  if (!email) return;
+
+  const response = await fetch('/.netlify/functions/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ priceId, email })
+  });
+
+  const data = await response.json();
+  if (data.url) {
+    window.location.href = data.url;
+  } else {
+    alert('Checkout failed. Please try again.');
+  }
+}
+
+document.getElementById('scan-btn').addEventListener('click', () => handleCheckout('PRICE_ID_SCAN'));
+document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
+document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
+</script>
+
 </body></html>
