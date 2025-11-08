@@ -459,7 +459,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   line-height: 52px;
   font-weight: bold;
   margin-bottom: 1rem;
-  animation: fadeInOut 1.2s ease;
+
 }
 
 @keyframes fadeInOut {
@@ -606,9 +606,9 @@ const email = await new Promise((resolve) => {
 
     // wait for tick, THEN close modal and resolve
 setTimeout(() => {
-  success.style.display = 'none';
   resolve(emailInput.value.trim());
 }, 1500);
+
 
   };
 
