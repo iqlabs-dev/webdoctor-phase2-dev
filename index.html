@@ -362,6 +362,74 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   margin-top: 2rem;
   font-size: 0.85rem;
 }
+/* --- Email Modal --- */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  justify-content: center;
+  align-items: center;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.modal-content {
+  background: linear-gradient(160deg, #0c1012 0%, #10181a 100%);
+  border: 1px solid #1e2426;
+  border-radius: 10px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 420px;
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(0,255,255,0.15);
+}
+
+.modal h2 {
+  margin-bottom: 0.75rem;
+  color: #00bfa6;
+}
+
+.modal p {
+  font-size: 0.95rem;
+  opacity: 0.85;
+  margin-bottom: 1.2rem;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.modal-buttons button {
+  flex: 1;
+  margin: 0 0.5rem;
+  padding: 0.7rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#emailSubmit { background: #00bfa6; color: #fff; }
+#emailCancel { background: #333; color: #ccc; }
+
+#emailSubmit:hover { background: #00d8b3; }
+#emailCancel:hover { background: #444; }
+
+#emailInput {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 6px;
+  border: none;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
 
     }
   </style>
@@ -398,6 +466,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
         <li>Full Privacy Policy available on request.</li>
       </ul>
     </div>
+    
 
  
   </div>
@@ -481,8 +550,26 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classLi
 </script>
 <script>
 async function handleCheckout(priceId) {
-  const email = prompt("Enter your email to continue:");
-  if (!email) return;
+const modal = document.getElementById("emailModal");
+const emailInput = document.getElementById("emailInput");
+const emailSubmit = document.getElementById("emailSubmit");
+const emailCancel = document.getElementById("emailCancel");
+
+modal.style.display = "flex";
+
+const email = await new Promise((resolve) => {
+  emailSubmit.onclick = () => {
+    if (emailInput.value.trim() === "") return alert("Please enter your email.");
+    modal.style.display = "none";
+    resolve(emailInput.value.trim());
+  };
+  emailCancel.onclick = () => {
+    modal.style.display = "none";
+    resolve(null);
+  };
+});
+
+if (!email) return;
 
   const response = await fetch('/.netlify/functions/create-checkout-session', {
     method: 'POST',
@@ -502,5 +589,19 @@ document.getElementById('scan-btn').addEventListener('click', () => handleChecko
 document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
 document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
 </script>
+<!-- Email Modal -->
+<div id="emailModal" class="modal">
+  <div class="modal-content">
+    <h2>Start Your WebDoctor Subscription</h2>
+    <p>Enter your email to begin checkout.<br>
+       You’ll be redirected to a secure Stripe page to confirm your plan — 
+       your account will be credited instantly after payment.</p>
+    <input type="email" id="emailInput" placeholder="you@example.com" required>
+    <div class="modal-buttons">
+      <button id="emailSubmit">Continue →</button>
+      <button id="emailCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 
 </body></html>
