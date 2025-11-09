@@ -1,2 +1,5 @@
 [functions]
   node_bundler = "esbuild"
+
+[functions."cleanup-expired-trials"]
+  schedule = "0 3 * * *"
