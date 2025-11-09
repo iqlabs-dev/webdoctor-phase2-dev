@@ -81,7 +81,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
 
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
 <div class="cta-group" style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-  <a href="#scan" class="btn primary">Free 5-Day Trial</a>
+<a href="#scan" class="btn primary" id="free-trial-btn">Free 5-Day Trial</a>
   <span style="color:#94a3b8; font-size:0.9rem;">Experience all Revive features — cancel anytime.</span>
 </div>
 
@@ -678,5 +678,50 @@ document.getElementById('revive-btn').addEventListener('click', () => handleChec
     </div>
   </div>
 </div>
+<script>
+// ----- FREE TRIAL BUTTON -----
+async function handleFreeTrial() {
+  const modal = document.getElementById("emailModal");
+  const emailInput = document.getElementById("emailInput");
+  const emailSubmit = document.getElementById("emailSubmit");
+  const emailCancel = document.getElementById("emailCancel");
+  const success = document.getElementById("emailSuccess");
+
+  modal.style.display = "flex";
+
+  const email = await new Promise((resolve) => {
+    emailSubmit.onclick = () => {
+      if (!emailInput.value.trim()) return;
+      success.style.display = 'flex';
+      setTimeout(() => resolve(emailInput.value.trim()), 900);
+    };
+    emailCancel.onclick = () => {
+      modal.style.display = "none";
+      resolve(null);
+    };
+  });
+
+  if (!email) return;
+
+  await fetch('/.netlify/functions/create-free-trial', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+
+  modal.style.display = "none";
+  success.style.display = "none";
+  emailInput.value = "";
+
+  alert('✅ 5-day Revive trial activated.');
+}
+
+document.getElementById('free-trial-btn')
+  .addEventListener('click', (e) => {
+    e.preventDefault();
+    handleFreeTrial();
+  });
+</script>
+
 
 </body></html>
