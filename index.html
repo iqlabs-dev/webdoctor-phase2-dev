@@ -546,6 +546,7 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
 </div></footer>
 
+
 <!-- Report Preview Modal (LIVE IFRAME + FALLBACK + cleanup) -->
 <div class="modal" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
   <div class="inner">
@@ -566,13 +567,29 @@ a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
   </div>
 </div>
 
+<!-- shared email modal (used by checkout AND trial) -->
+<div id="emailModal" class="modal">
+  <div class="modal-content">
+    <div id="emailSuccess" class="modal-success">✓</div>
+    <h2>Start Your WebDoctor Subscription</h2>
+    <p>Enter your email to begin checkout.<br>
+       You’ll be redirected to a secure Stripe page to confirm your plan — 
+       your account will be credited instantly after payment.</p>
+    <input type="email" id="emailInput" placeholder="you@example.com" required>
+    <div class="modal-buttons">
+      <button id="emailSubmit">Continue →</button>
+      <button id="emailCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // Reveal on scroll
 const revealEls = document.querySelectorAll('.reveal');
 const io = new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('is-in');io.unobserve(e.target);}})},{threshold:0.18});
 revealEls.forEach(el=>io.observe(el));
 
-// Modal open/close
+// Report preview modal open/close
 const modal = document.getElementById('reportModal');
 const open1 = document.getElementById('openPreview');
 const backBtn = document.getElementById('btnBack');
@@ -616,42 +633,33 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classLi
   });
   frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
 })();
-</script>
-<script>
+
+// STRIPE CHECKOUT FLOW (Scan / Diagnose / Revive)
 async function handleCheckout(priceId) {
-const modal = document.getElementById("emailModal");
-const emailInput = document.getElementById("emailInput");
-const emailSubmit = document.getElementById("emailSubmit");
-const emailCancel = document.getElementById("emailCancel");
-const success = document.getElementById("emailSuccess");
+  const modal = document.getElementById("emailModal");
+  const emailInput = document.getElementById("emailInput");
+  const emailSubmit = document.getElementById("emailSubmit");
+  const emailCancel = document.getElementById("emailCancel");
+  const success = document.getElementById("emailSuccess");
 
+  modal.style.display = "flex";
 
-modal.style.display = "flex";
+  const email = await new Promise((resolve) => {
+    emailSubmit.onclick = () => {
+      if (emailInput.value.trim() === "") return alert("Please enter your email.");
+      success.style.display = 'flex';
+      setTimeout(() => {
+        resolve(emailInput.value.trim());
+      }, 900);
+    };
 
-const email = await new Promise((resolve) => {
-  emailSubmit.onclick = () => {
-    if (emailInput.value.trim() === "") return alert("Please enter your email.");
+    emailCancel.onclick = () => {
+      modal.style.display = "none";
+      resolve(null);
+    };
+  });
 
-    success.style.display = 'flex';
-
-    // wait for tick, THEN close modal and resolve
-setTimeout(() => {
-  resolve(emailInput.value.trim());
-}, 900);
-
-
-  };
-
-  emailCancel.onclick = () => {
-    modal.style.display = "none";
-    resolve(null);
-  };
-});
-
-
-if (!email) return;
-
-
+  if (!email) return;
 
   const response = await fetch('/.netlify/functions/create-checkout-session', {
     method: 'POST',
@@ -670,25 +678,7 @@ if (!email) return;
 document.getElementById('scan-btn').addEventListener('click', () => handleCheckout('PRICE_ID_SCAN'));
 document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
 document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
-</script>
-<!-- Email Modal -->
-<div id="emailModal" class="modal">
-  <div class="modal-content">
-    <div id="emailSuccess" class="modal-success">✓</div>
-    <h2>Start Your WebDoctor Subscription</h2>
-    <p>Enter your email to begin checkout.<br>
-       You’ll be redirected to a secure Stripe page to confirm your plan — 
-       your account will be credited instantly after payment.</p>
-    <input type="email" id="emailInput" placeholder="you@example.com" required>
-    <div class="modal-buttons">
-      <button id="emailSubmit">Continue →</button>
-      <button id="emailCancel">Cancel</button>
-    </div>
-  </div>
-</div>
-<script>
-// ----- FREE TRIAL BUTTON -----
-<script>
+
 // ----- FREE TRIAL BUTTON -----
 async function handleFreeTrial() {
   const modal = document.getElementById("emailModal");
@@ -698,6 +688,7 @@ async function handleFreeTrial() {
   const success = document.getElementById("emailSuccess");
   const btn = document.getElementById("free-trial-btn");
 
+  // open modal
   modal.style.display = "flex";
 
   const email = await new Promise((resolve) => {
@@ -727,18 +718,15 @@ async function handleFreeTrial() {
   success.style.display = "none";
   emailInput.value = "";
 
-  // if the backend said this email already had a trial
   if (data.reused) {
     alert('You’ve already used your 5-day trial on this email.');
     btn.textContent = 'Trial already used';
     btn.disabled = true;
     btn.style.opacity = '0.65';
-    // remember in browser
     localStorage.setItem('webdoctor_trial_used', '1');
     return;
   }
 
-  // new trial created
   alert('✅ 5-day Revive trial activated.');
   btn.textContent = 'Trial active';
   btn.disabled = true;
@@ -746,7 +734,7 @@ async function handleFreeTrial() {
   localStorage.setItem('webdoctor_trial_used', '1');
 }
 
-// on page load, if we’ve already used a trial on this browser, reflect it
+// on page load, reflect stored state
 document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('free-trial-btn');
   if (!btn) return;
@@ -758,12 +746,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// click handler for free trial
 document.getElementById('free-trial-btn')
   .addEventListener('click', (e) => {
     e.preventDefault();
     handleFreeTrial();
   });
+</script>
 
-  </script>
+</body>
+</html>
 
-</body></html>
