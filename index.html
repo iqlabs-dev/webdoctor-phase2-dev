@@ -703,7 +703,7 @@ async function handleFreeTrial() {
 
   if (!email) return;
 
-  await fetch('/.netlify/functions/create-free-trial', {
+ await fetch('/.netlify/functions/create_free_trial', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
