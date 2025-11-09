@@ -13,7 +13,15 @@ body{margin:0;font-family:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,s
 .section{padding:92px 0}
 .small{font-size:14px;color:var(--muted)}
 .btn{display:inline-flex;gap:10px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;border:1px solid transparent;text-decoration:none;font-weight:700;cursor:pointer;line-height:1;transition:filter .2s, transform .12s ease}
-.btn:hover{transform:translateY(-1px)}.btn.primary{background:var(--teal);color:#012a22}.btn.primary:hover{filter:brightness(1.05)}.btn.ghost{border:1px solid var(--line);color:var(--ink);background:transparent}.btn.ghost:hover{border-color:var(--teal);color:var(--teal-lite)}
+.btn:hover{transform:translateY(-1px)}.btn.primary{background:var(--teal);color:#012a22}
+.btn.primary:hover{filter:brightness(1.05)}
+
+#free-trial-btn:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+
+.btn.ghost{border:1px solid var(--line);color:var(--ink);background:transparent}.btn.ghost:hover{border-color:var(--teal);color:var(--teal-lite)}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 .header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(6px);background:linear-gradient(180deg,rgba(10,15,20,.88),rgba(15,24,34,.72));border-bottom:1px solid rgba(30,44,58,.6)}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:74px}
@@ -680,12 +688,15 @@ document.getElementById('revive-btn').addEventListener('click', () => handleChec
 </div>
 <script>
 // ----- FREE TRIAL BUTTON -----
+<script>
+// ----- FREE TRIAL BUTTON -----
 async function handleFreeTrial() {
   const modal = document.getElementById("emailModal");
   const emailInput = document.getElementById("emailInput");
   const emailSubmit = document.getElementById("emailSubmit");
   const emailCancel = document.getElementById("emailCancel");
   const success = document.getElementById("emailSuccess");
+  const btn = document.getElementById("free-trial-btn");
 
   modal.style.display = "flex";
 
@@ -703,25 +714,56 @@ async function handleFreeTrial() {
 
   if (!email) return;
 
- await fetch('/.netlify/functions/create_free_trial', {
+  const res = await fetch('/.netlify/functions/create_free_trial', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
   });
 
+  const data = await res.json().catch(() => ({}));
+
+  // close modal + reset UI
   modal.style.display = "none";
   success.style.display = "none";
   emailInput.value = "";
 
+  // if the backend said this email already had a trial
+  if (data.reused) {
+    alert('You’ve already used your 5-day trial on this email.');
+    btn.textContent = 'Trial already used';
+    btn.disabled = true;
+    btn.style.opacity = '0.65';
+    // remember in browser
+    localStorage.setItem('webdoctor_trial_used', '1');
+    return;
+  }
+
+  // new trial created
   alert('✅ 5-day Revive trial activated.');
+  btn.textContent = 'Trial active';
+  btn.disabled = true;
+  btn.style.opacity = '0.65';
+  localStorage.setItem('webdoctor_trial_used', '1');
 }
+
+// on page load, if we’ve already used a trial on this browser, reflect it
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('free-trial-btn');
+  if (!btn) return;
+  const used = localStorage.getItem('webdoctor_trial_used');
+  if (used === '1') {
+    btn.textContent = 'Trial active';
+    btn.disabled = true;
+    btn.style.opacity = '0.65';
+  }
+});
 
 document.getElementById('free-trial-btn')
   .addEventListener('click', (e) => {
     e.preventDefault();
     handleFreeTrial();
   });
-</script>
 
+  </script>
 
 </body></html>
