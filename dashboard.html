@@ -49,27 +49,32 @@ box.innerHTML = reports.length
 
     }
 
-    // 3. run scan (placeholder for now)
-    document.getElementById('run-scan').onclick = async () => {
-      const url = document.getElementById('scan-url').value;
-      alert('Scan placeholder for ' + url);
-    };
-    async function emailReport(id) {
-  const to = prompt('Send report to which email?');
-  if (!to) return;
+    // 3. run scan  
+document.getElementById('run-scan').onclick = async () => {
+  const url = document.getElementById('scan-url').value.trim();
+  if (!url) return alert('Enter a website URL');
 
-  const res = await fetch('/.netlify/functions/email-report', {
+  const { data: { session } } = await supa.auth.getSession();
+
+  const res = await fetch('/.netlify/functions/generate-report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ report_id: id, to_email: to })
+    body: JSON.stringify({
+      url,
+      user_id: session.user.id
+    })
   });
 
+  const json = await res.json();
+
   if (res.ok) {
-    alert('Report sent.');
+    alert('Scan completed and saved!');
+    loadReports();
   } else {
-    alert('Error sending report.');
+    alert('Error: ' + (json.error || 'scan failed'));
   }
-}
+};
+
 
   </script>
 </body>
