@@ -1,3 +1,4 @@
+// netlify/functions/generate-report.js
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -5,48 +6,64 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// in phase 2 we keep it simple: fixed template + a few replacements
+// simple starter template – we can replace with your big report HTML later
 const TEMPLATE = `
 <!doctype html>
 <html>
-<head><meta charset="utf-8"><title>WebDoctor Report</title></head>
-<body>
+<head>
+  <meta charset="utf-8">
+  <title>WebDoctor Report</title>
+</head>
+<body style="font-family: Arial, sans-serif;">
   <h1>WebDoctor Health Report</h1>
-  <p>Site: {{url}}</p>
-  <p>Date: {{date}}</p>
-  <p>Score: {{score}}</p>
-  <p>Summary: {{summary}}</p>
+  <p><strong>Site:</strong> {{url}}</p>
+  <p><strong>Date:</strong> {{date}}</p>
+  <p><strong>Score:</strong> {{score}}</p>
+  <p><strong>Summary:</strong> {{summary}}</p>
 </body>
 </html>
 `;
 
 export const handler = async (event) => {
+  // this is the JSON you sent from index.html
   const { email, url } = JSON.parse(event.body || '{}');
 
-  const now = new Date().toISOString().split('T')[0];
-  const score = 78; // phase 2 = mock
+  if (!email) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'email required' })
+    };
+  }
+
+  // fake data for now
+  const today = new Date().toISOString().split('T')[0];
+  const score = 78;
   const summary = 'Overall healthy, main issues in performance and SEO.';
 
+  // fill in the template
   const html = TEMPLATE
     .replace('{{url}}', url || 'https://example.com')
-    .replace('{{date}}', now)
-    .replace('{{score}}', score)
+    .replace('{{date}}', today)
+    .replace('{{score}}', String(score))
     .replace('{{summary}}', summary);
 
-  // store in Supabase so we can see it later
+  // save it to Supabase reports table
   const { error } = await supabase.from('reports').insert({
     email,
-    url,
+    url: url || null,
     html,
-    score,
+    score
   });
 
   if (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: error.message })
+    };
   }
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: true, html })
+    body: JSON.stringify({ ok: true })
   };
 };

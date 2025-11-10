@@ -718,6 +718,14 @@ async function handleFreeTrial() {
   success.style.display = "none";
   emailInput.value = "";
 
+  await fetch('/.netlify/functions/generate-report', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, url: 'https://example.com' })
+
+});
+
+
   if (data.reused) {
     alert('You’ve already used your 5-day trial on this email.');
     btn.textContent = 'Trial already used';
