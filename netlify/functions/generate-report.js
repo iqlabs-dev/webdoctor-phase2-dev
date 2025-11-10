@@ -262,13 +262,14 @@ export const handler = async (event) => {
     };
   }
 
-  const { email, url } = JSON.parse(event.body || '{}');
-  if (!email) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'email required' })
-    };
-  }
+const { url, user_id } = JSON.parse(event.body || '{}');
+if (!user_id) {
+  return {
+    statusCode: 400,
+    body: JSON.stringify({ error: 'user_id required' })
+  };
+}
+
 
   // fake values for now
   const siteUrl = url || 'https://example.com';
@@ -283,22 +284,22 @@ export const handler = async (event) => {
     .replace(/{{\s*score\s*}}/g, String(score))
     .replace(/{{\s*summary\s*}}/g, summary);
 
-  // save to Supabase
-  try {
-    await supabase.from('reports').insert([
-      {
-        email: email.toLowerCase(),
-        url: siteUrl,
-        html,
-        score,
-      }
-    ]);
-  } catch (e) {
-    console.error('supabase insert error', e.message);
+// save to Supabase (using user_id now)
+try {
+  await supabase.from('reports').insert([{
+    user_id,
+    url: siteUrl,
+    score,
+    summary,
+    html
+  }]);
+} catch (e) {
+  console.error('Supabase insert error:', e.message);
+}
+
   }
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ ok: true })
-  };
+return {
+  statusCode: 200,
+  body: JSON.stringify({ ok: true, html })
 };
