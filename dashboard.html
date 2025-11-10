@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WebDoctor Dashboard</title>
+</head>
+<body>
+  <h2>Welcome to WebDoctor</h2>
+  <div>
+    <input id="scan-url" placeholder="https://website.com">
+    <button id="run-scan">Run Scan</button>
+  </div>
+
+  <h3>My Reports</h3>
+  <div id="reports-list"></div>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    const supa = supabase.createClient(
+      'https://arqlambmnbrgjcvwiand.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU'
+    );
+
+    // 1. check session
+    (async () => {
+      const { data } = await supa.auth.getSession();
+      if (!data.session) {
+        window.location = '/login.html';
+      } else {
+        loadReports();
+      }
+    })();
+
+    // 2. load reports
+    async function loadReports() {
+      const { data: reports } = await supa
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      const box = document.getElementById('reports-list');
+      box.innerHTML = reports.length
+        ? reports.map(r => `<div>${r.url} — Score: ${r.score || '-'}</div>`).join('')
+        : 'No reports yet.';
+    }
+
+    // 3. run scan (placeholder for now)
+    document.getElementById('run-scan').onclick = async () => {
+      const url = document.getElementById('scan-url').value;
+      alert('Scan placeholder for ' + url);
+    };
+  </script>
+</body>
+</html>
