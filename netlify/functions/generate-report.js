@@ -1,31 +1,31 @@
-// netlify/functions/generate-report.js
+// /netlify/functions/generate-report.js
 import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Netlify ESM: recreate __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// simple starter template – we can replace with your big report HTML later
-const TEMPLATE = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>WebDoctor Report</title>
-</head>
-<body style="font-family: Arial, sans-serif;">
-  <h1>WebDoctor Health Report</h1>
-  <p><strong>Site:</strong> {{url}}</p>
-  <p><strong>Date:</strong> {{date}}</p>
-  <p><strong>Score:</strong> {{score}}</p>
-  <p><strong>Summary:</strong> {{summary}}</p>
-</body>
-</html>
-`;
+// make sure this name matches the file in the same folder
+// e.g. /netlify/functions/Report Template V3.html
+const templatePath = path.resolve(__dirname, 'Report Template V3.html');
+const TEMPLATE = fs.readFileSync(templatePath, 'utf8');
 
 export const handler = async (event) => {
-  // this is the JSON you sent from index.html
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'method not allowed' })
+    };
+  }
+
   const { email, url } = JSON.parse(event.body || '{}');
 
   if (!email) {
@@ -35,31 +35,33 @@ export const handler = async (event) => {
     };
   }
 
-  // fake data for now
-  const today = new Date().toISOString().split('T')[0];
+  // placeholder data for now
+  const siteUrl = url || 'https://example.com';
   const score = 78;
-  const summary = 'Overall healthy, main issues in performance and SEO.';
+  const summary = 'Overall healthy — main issues in performance and SEO.';
+  const today = new Date().toISOString().split('T')[0];
 
-  // fill in the template
+  // swap the placeholders that you added in Report Template V3.html
   const html = TEMPLATE
-    .replace('{{url}}', url || 'https://example.com')
-    .replace('{{date}}', today)
-    .replace('{{score}}', String(score))
-    .replace('{{summary}}', summary);
+    .replace(/{{\s*url\s*}}/g, siteUrl)
+    .replace(/{{\s*score\s*}}/g, String(score))
+    .replace(/{{\s*summary\s*}}/g, summary)
+    .replace(/{{\s*date\s*}}/g, today);
 
-  // save it to Supabase reports table
-  const { error } = await supabase.from('reports').insert({
-    email,
-    url: url || null,
-    html,
-    score
-  });
-
-  if (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+  // store a copy in Supabase
+  try {
+    await supabase.from('reports').insert([
+      {
+        email: email.toLowerCase(),
+        url: siteUrl,
+        score,
+        summary,
+        html,
+        created_at: new Date().toISOString()
+      }
+    ]);
+  } catch (err) {
+    console.error('supabase insert error', err.message);
   }
 
   return {
