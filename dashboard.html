@@ -38,9 +38,15 @@
         .select('*')
         .order('created_at', { ascending: false });
       const box = document.getElementById('reports-list');
-      box.innerHTML = reports.length
-        ? reports.map(r => `<div>${r.url} — Score: ${r.score || '-'}</div>`).join('')
-        : 'No reports yet.';
+box.innerHTML = reports.length
+  ? reports.map(r => `
+      <div>
+        ${r.url} — Score: ${r.score || '-'}
+        <button onclick="emailReport('${r.id}')">Email</button>
+      </div>
+    `).join('')
+  : 'No reports yet.';
+
     }
 
     // 3. run scan (placeholder for now)
@@ -48,6 +54,23 @@
       const url = document.getElementById('scan-url').value;
       alert('Scan placeholder for ' + url);
     };
+    async function emailReport(id) {
+  const to = prompt('Send report to which email?');
+  if (!to) return;
+
+  const res = await fetch('/.netlify/functions/email-report', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ report_id: id, to_email: to })
+  });
+
+  if (res.ok) {
+    alert('Report sent.');
+  } else {
+    alert('Error sending report.');
+  }
+}
+
   </script>
 </body>
 </html>
