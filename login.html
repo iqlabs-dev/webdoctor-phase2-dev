@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>WebDoctor Login</title>
+</head>
+<body>
+  <h2>Login to WebDoctor</h2>
+  <input id="email" placeholder="you@example.com">
+  <button id="login">Send login link</button>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://arqlambmnbrgjcvwiand.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU';
+    const supa = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    document.getElementById('login').onclick = async () => {
+      const email = document.getElementById('email').value;
+      await supa.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: 'https://deluxe-sherbet-c8ac68.netlify.app/dashboard.html'
+        }
+      });
+      alert('Check your email for the link.');
+    };
+  </script>
+</body>
+</html>
