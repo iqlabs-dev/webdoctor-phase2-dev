@@ -63,15 +63,15 @@ export const handler = async (event) => {
 
   // try to save
   try {
-    const { error } = await supabase.from('reports').insert([
-      {
-        user_id,
-        url: siteUrl,
-        score,
-        summary,
-        html
-      }
-    ]);
+const { error } = await supabase.from('reports').insert([
+  {
+    user_id,
+    url: siteUrl,
+    score,
+    html
+  }
+]);
+
 
     if (error) {
       console.error('Supabase insert error:', error);
