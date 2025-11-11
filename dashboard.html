@@ -32,22 +32,38 @@
     })();
 
     // 2. load reports
-    async function loadReports() {
-      const { data: reports } = await supa
-        .from('reports')
-        .select('*')
-        .order('created_at', { ascending: false });
-      const box = document.getElementById('reports-list');
-box.innerHTML = reports.length
-  ? reports.map(r => `
-      <div>
-        ${r.url} — Score: ${r.score || '-'}
-        <button onclick="emailReport('${r.id}')">Email</button>
-      </div>
-    `).join('')
-  : 'No reports yet.';
+async function loadReports() {
+  const { data: reports, error } = await supa
+    .from('reports')
+    .select('*')
+    .order('created_at', { ascending: false });
 
-    }
+  if (error) {
+    console.error('Error loading reports:', error.message);
+    document.getElementById('reports-list').innerText = 'Error loading reports.';
+    return;
+  }
+
+  const box = document.getElementById('reports-list');
+
+  if (!reports || reports.length === 0) {
+    box.innerHTML = 'No reports yet.';
+    return;
+  }
+
+  box.innerHTML = reports
+    .map(
+      (r) => `
+      <div style="margin-bottom: 6px; border-bottom: 1px solid #ddd; padding: 6px 0;">
+        <strong>${r.url}</strong><br>
+        Score: ${r.score || '-'}<br>
+        <button onclick="viewReport('${r.id}')">View Report</button>
+      </div>
+    `
+    )
+    .join('');
+}
+
 
 // 3. run scan
 document.getElementById('run-scan').onclick = async () => {
