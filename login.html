@@ -1,79 +1,90 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>WebDoctor — Sign In</title>
+  <meta charset="utf-8" />
+  <title>WebDoctor Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
-      font-family: "Montserrat", Arial, sans-serif;
-      background: #f0f4f5;
       margin: 0;
-      padding: 0;
+      background: #e6edf0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       justify-content: center;
-      height: 100vh;
+      align-items: center;
     }
-    .wd-login-box {
+    .shell {
       background: #fff;
-      padding: 40px 30px;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
-      width: 380px;
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(0,0,0,0.06);
+      padding: 28px 28px 18px;
+      width: min(420px, 92vw);
       text-align: center;
     }
-    .wd-login-box h1 {
-      font-size: 22px;
-      margin-bottom: 6px;
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
       color: #0f172a;
     }
-    .wd-login-box p {
-      color: #475569;
-      font-size: 13px;
-      margin-bottom: 24px;
+    p {
+      margin: 0 0 18px;
+      color: #64748b;
+      font-size: 0.9rem;
     }
-    .wd-footer {
-      position: absolute;
-      bottom: 16px;
-      width: 100%;
-      text-align: center;
-      font-size: 11px;
+    footer {
+      margin-top: 24px;
+      font-size: 0.7rem;
       color: #94a3b8;
     }
   </style>
-</head>
-<body>
-  <div class="wd-login-box">
-    <h1>Welcome to WebDoctor</h1>
-    <p>Sign in to access your dashboard and scan reports.</p>
-    <div id="sign-in"></div>
-  </div>
-
-  <div class="wd-footer">
-    © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
-  </div>
-
-  <!-- Clerk Authentication -->
+  <!-- 1) load clerk browser sdk -->
   <script
     async
     crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"
     src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
   </script>
-
   <script>
+    // put your real publishable key here
+    window.CLERK_PUBLISHABLE_KEY = "pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk";
+
+    // remember trial intent from ?trial=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("trial") === "1") {
+      localStorage.setItem("webdoctor_trial_intent", "1");
+    }
+
+    // 2) init clerk when sdk loads
     window.addEventListener("load", async () => {
-      await Clerk.load();
+      await window.Clerk.load();
 
-      // Mount sign-in widget
-      Clerk.mountSignIn(document.getElementById("sign-in"));
+      // if already signed in, go straight to dashboard
+      if (window.Clerk.user) {
+        window.location.href = "/dashboard.html";
+        return;
+      }
 
-      // If already signed in, redirect to dashboard
-      Clerk.addListener(({ user }) => {
-        if (user) window.location.href = "/dashboard.html";
+      // mount sign in ui
+      const mountEl = document.getElementById("clerk-signin");
+      window.Clerk.mountSignIn(mountEl, {
+        // after successful sign in, go to dashboard
+        afterSignInUrl: "/dashboard.html",
+        afterSignUpUrl: "/dashboard.html"
       });
     });
   </script>
+</head>
+<body>
+  <div class="shell">
+    <h1>Welcome to WebDoctor</h1>
+    <p>Sign in to access your dashboard and scan reports.</p>
+    <!-- clerk puts the form right here -->
+    <div id="clerk-signin"></div>
+  </div>
+
+  <footer>
+    © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+  </footer>
 </body>
 </html>
