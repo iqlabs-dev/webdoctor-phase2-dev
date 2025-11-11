@@ -1,3 +1,4 @@
+// /netlify/functions/check-trial.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -6,17 +7,26 @@ const supabase = createClient(
 );
 
 export default async (req) => {
-  const { email } = await req.json();
+  try {
+    const body = await req.json();
+    const { email } = body;
 
-  const { data, error } = await supabase
-    .from("users")
-    .select("trial_active, trial_credits")
-    .eq("email", email)
-    .single();
+    if (!email) {
+      return new Response(JSON.stringify({ trial_active: false }), { status: 200 });
+    }
 
-  if (error || !data) {
+    const { data, error } = await supabase
+      .from("users")
+      .select("trial_active, trial_credits")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error || !data) {
+      return new Response(JSON.stringify({ trial_active: false }), { status: 200 });
+    }
+
+    return new Response(JSON.stringify(data), { status: 200 });
+  } catch (err) {
     return new Response(JSON.stringify({ trial_active: false }), { status: 200 });
   }
-
-  return new Response(JSON.stringify(data), { status: 200 });
 };
