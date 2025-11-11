@@ -71,8 +71,10 @@ document.getElementById('run-scan').onclick = async () => {
     alert('Scan completed and saved!');
     loadReports();
   } else {
-    alert('Error: ' + (json.error || 'scan failed'));
+    const text = await res.text(); // read the full response
+    alert('Full response:\n' + text);
   }
+
 };
 
 
