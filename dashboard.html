@@ -94,6 +94,25 @@ document.getElementById('run-scan').onclick = async () => {
     alert('Full response:\n' + text);
   }
 };
+async function viewReport(id) {
+  // open window first so popup isn't blocked
+  const win = window.open('', '_blank');
+
+  const { data, error } = await supa
+    .from('reports')
+    .select('html')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    win.document.write('Error loading report: ' + error.message);
+    win.document.close();
+    return;
+  }
+
+  win.document.write(data.html);
+  win.document.close();
+}
 
 
 
