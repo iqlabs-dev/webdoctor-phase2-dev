@@ -1,121 +1,263 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8" />
   <title>WebDoctor Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: "Montserrat", Arial, sans-serif;
+      background: #f4f5f7;
+      margin: 0;
+      padding: 0;
+      color: #0f172a;
+    }
+    .wd-topbar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 14px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .wd-topbar h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .wd-shell {
+      max-width: 980px;
+      margin: 26px auto;
+      padding: 0 16px 40px;
+    }
+    .wd-panel {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px 16px 8px;
+      margin-bottom: 18px;
+    }
+    .wd-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      color: #94a3b8;
+    }
+    #scan-url {
+      width: 70%;
+      max-width: 460px;
+      padding: 7px 9px;
+      border: 1px solid #cbd5f5;
+      border-radius: 8px;
+      font-family: inherit;
+    }
+    #run-scan {
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      margin-left: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    #run-scan:hover {
+      background: #0d5f58;
+    }
+    .report-row {
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .report-meta {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .report-actions button {
+      margin-left: 6px;
+    }
+    .wd-btn-sm {
+      background: #fff;
+      border: 1px solid #cbd5f5;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .wd-footer {
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 40px;
+    }
+  </style>
 </head>
 <body>
-  <h2>Welcome to WebDoctor</h2>
-  <div>
-    <input id="scan-url" placeholder="https://website.com">
-    <button id="run-scan">Run Scan</button>
+  <div class="wd-topbar">
+    <h2>WebDoctor Dashboard</h2>
+    <div>
+      <span id="user-email" style="font-size:12px;color:#64748b;margin-right:10px;"></span>
+      <button class="wd-btn-sm" onclick="Clerk.signOut({ redirectUrl: '/login.html' })">Logout</button>
+    </div>
   </div>
 
-  <h3>My Reports</h3>
-  <div id="reports-list"></div>
+  <div class="wd-shell">
+    <div class="wd-panel">
+      <div class="wd-label">Run a new scan</div>
+      <input id="scan-url" placeholder="https://website.com" />
+      <button id="run-scan">Run Scan</button>
+    </div>
 
+    <div class="wd-panel">
+      <div class="wd-label">My Reports</div>
+      <div id="reports-list">Loading...</div>
+    </div>
+  </div>
+
+  <div class="wd-footer">
+    © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+  </div>
+
+  <!-- Clerk -->
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="YOUR_PUBLISHABLE_KEY_HERE"
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
+  </script>
+
+  <!-- Supabase (for fetching/saving reports) -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
   <script>
+    // TODO: replace with your real Supabase values
     const supa = supabase.createClient(
       'https://arqlambmnbrgjcvwiand.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU'
     );
 
-    // 1. check session
-    (async () => {
-      const { data } = await supa.auth.getSession();
-      if (!data.session) {
-        window.location = '/login.html';
-      } else {
-        loadReports();
+    let currentUser = null;
+
+    window.addEventListener("load", async () => {
+      await Clerk.load();
+
+      // If not signed in, send to login
+      if (!Clerk.user) {
+        Clerk.redirectToSignIn();
+        return;
       }
-    })();
 
-    // 2. load reports
-async function loadReports() {
-  const { data: reports, error } = await supa
-    .from('reports')
-    .select('*')
-    .order('created_at', { ascending: false });
+      currentUser = Clerk.user;
+      document.getElementById('user-email').innerText =
+        currentUser.primaryEmailAddress?.emailAddress || '';
 
-  if (error) {
-    console.error('Error loading reports:', error.message);
-    document.getElementById('reports-list').innerText = 'Error loading reports.';
-    return;
-  }
+      // load reports for this user
+      loadReports();
 
-  const box = document.getElementById('reports-list');
+      // hook up run scan
+      document.getElementById('run-scan').onclick = runScan;
+    });
 
-  if (!reports || reports.length === 0) {
-    box.innerHTML = 'No reports yet.';
-    return;
-  }
+    async function loadReports() {
+      const userId = currentUser.id; // Clerk user id
 
-  box.innerHTML = reports
-    .map(
-      (r) => `
-      <div style="margin-bottom: 6px; border-bottom: 1px solid #ddd; padding: 6px 0;">
-        <strong>${r.url}</strong><br>
-        Score: ${r.score || '-'}<br>
-        <button onclick="viewReport('${r.id}')">View Report</button>
-      </div>
-    `
-    )
-    .join('');
-}
+      const { data, error } = await supa
+        .from('reports')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
+      const box = document.getElementById('reports-list');
 
-// 3. run scan
-document.getElementById('run-scan').onclick = async () => {
-  const url = document.getElementById('scan-url').value.trim();
-  if (!url) return alert('Enter a website URL');
+      if (error) {
+        console.error(error);
+        box.innerText = 'Error loading reports.';
+        return;
+      }
 
-  const { data: { session } } = await supa.auth.getSession();
+      if (!data || data.length === 0) {
+        box.innerText = 'No reports yet.';
+        return;
+      }
 
-  const res = await fetch('/.netlify/functions/generate-report', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      url,
-      user_id: session.user.id,
-      email: session.user.email
-    })
-  });
+      box.innerHTML = data.map(r => `
+        <div class="report-row">
+          <div>
+            <div><strong>${r.url}</strong></div>
+            <div class="report-meta">${r.report_id || ''} · ${new Date(r.created_at).toLocaleString()}</div>
+          </div>
+          <div class="report-actions">
+            <button class="wd-btn-sm" onclick="viewReport('${r.id}')">View</button>
+            <button class="wd-btn-sm" onclick="emailReport('${r.id}')">Email</button>
+          </div>
+        </div>
+      `).join('');
+    }
 
-  const text = await res.text();       // read body ONCE
-  let json;
-  try { json = JSON.parse(text); } catch (e) { json = null; }
+    async function runScan() {
+      const url = document.getElementById('scan-url').value.trim();
+      if (!url) return alert('Enter a website URL');
 
-  if (res.ok) {
-    alert('Scan completed and saved!');
-    loadReports();
-  } else {
-    // show EXACT error from function
-    alert('Full response:\n' + text);
-  }
-};
-async function viewReport(id) {
-  // open window first so popup isn't blocked
-  const win = window.open('', '_blank');
+      // call your Netlify function to generate & save report
+      const res = await fetch('/.netlify/functions/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          user_id: currentUser.id,
+          email: currentUser.primaryEmailAddress?.emailAddress
+        })
+      });
 
-  const { data, error } = await supa
-    .from('reports')
-    .select('html')
-    .eq('id', id)
-    .single();
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch (e) {}
 
-  if (error) {
-    win.document.write('Error loading report: ' + error.message);
-    win.document.close();
-    return;
-  }
+      if (res.ok) {
+        alert('Scan completed and saved!');
+        loadReports();
+      } else {
+        alert('Error: ' + text);
+      }
+    }
 
-  win.document.write(data.html);
-  win.document.close();
-}
+    // open report in a new tab using stored HTML
+    async function viewReport(id) {
+      const win = window.open('', '_blank');
 
+      const { data, error } = await supa
+        .from('reports')
+        .select('html')
+        .eq('id', id)
+        .single();
 
+      if (error) {
+        win.document.write('Error loading report: ' + error.message);
+        win.document.close();
+        return;
+      }
 
+      win.document.write(data.html);
+      win.document.close();
+    }
+
+    // email report via your existing Netlify function
+    async function emailReport(id) {
+      const to = prompt('Send report to which email?');
+      if (!to) return;
+
+      const res = await fetch('/.netlify/functions/email-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: id, to })
+      });
+
+      if (res.ok) alert('Report sent!');
+      else alert('Error sending report.');
+    }
   </script>
 </body>
 </html>
