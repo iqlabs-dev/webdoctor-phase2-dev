@@ -118,9 +118,18 @@
             A complete website health check — built for web agencies. WebDoctor scans performance, SEO, mobile,
             accessibility, and security, then delivers a clear, client-ready report showing exactly what to fix first.
           </p>
-          <div class="cta-group" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-            <button id="start-trial" class="btn primary">Start Free 3-Day Trial</button>
-            <span style="color:#94a3b8;font-size:.9rem;">Experience all Revive features — cancel anytime.</span>
+<div class="cta-group" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+  <button id="start-trial" class="btn primary">Start Free 3-Day Trial</button>
+
+  <script>
+    document.getElementById("start-trial").addEventListener("click", () => {
+      window.location.href = "https://model-fawn-32.clerk.accounts.dev/sign-up?redirect_url=https://deluxe-sherbet-c8ac68.netlify.app/dashboard.html";
+    });
+  </script>
+
+  <span style="color:#94a3b8;font-size:.9rem;">Experience all Revive features — cancel anytime.</span>
+</div>
+
           </div>
           <div class="badges">
             <span class="badge">✓ Instant Reports</span>
