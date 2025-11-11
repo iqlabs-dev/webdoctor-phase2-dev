@@ -57,13 +57,16 @@
     src="https://model-fawn-32.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
   </script>
 </head>
-
 <body>
   <div class="card" id="dash">
-    <h1>WebDoctor Dashboard</h1>
-    <p id="welcome" style="margin-bottom:1.5rem;">Checking your account…</p>
-    <p id="trial" class="muted">Trial status: loading…</p>
+    <h1 style="margin-bottom:.5rem;">WebDoctor Dashboard</h1>
+    <p id="welcome" style="margin-bottom:1.5rem;">Checking your account...</p>
+    <p id="trial" class="muted">Trial status: loading...</p>
+
+    <button id="run-scan" class="btn" style="margin-right:.5rem;">Run scan</button>
     <button class="btn" onclick="window.location.href='/'">Back to site</button>
+
+    <p id="scan-status" class="muted"></p>
   </div>
 
   <script>
@@ -74,17 +77,17 @@
       // 2. Get logged-in user
       const user = window.Clerk.user;
 
-      // 3. If no user, send back home
+      // 3. If no user, send back to home
       if (!user) {
         window.location.href = "/";
         return;
       }
 
-      // 4. Display user email
+      // 4. Show user email
       document.getElementById("welcome").innerText =
         "Welcome, " + (user.primaryEmailAddress?.emailAddress || "WebDoctor user");
 
-      // 5. Check trial in Supabase (through Netlify function)
+      // 5. Check trial in Supabase (via Netlify function)
       try {
         const res = await fetch("/.netlify/functions/check-trial", {
           method: "POST",
@@ -100,7 +103,7 @@
           document.getElementById("trial").innerText =
             "Trial active ✅ – " + (data.trial_credits ?? 5) + " scans remaining";
         } else {
-          document.getElementById("trial").innerText = "No trial yet – activating…";
+          document.getElementById("trial").innerText = "No trial yet – activating...";
 
           await fetch("/.netlify/functions/activate-trial", {
             method: "POST",
@@ -117,6 +120,34 @@
         document.getElementById("trial").innerText =
           "Could not reach trial service.";
       }
+
+      // 6. Hook up Run Scan
+      const runBtn = document.getElementById("run-scan");
+      const scanStatus = document.getElementById("scan-status");
+
+      runBtn.addEventListener("click", async () => {
+        scanStatus.innerText = "Running scan...";
+
+        const res = await fetch("/.netlify/functions/run-scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.primaryEmailAddress.emailAddress
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+          scanStatus.innerText =
+            "Scan completed. Remaining scans: " + data.remaining;
+          // update main trial line too
+          document.getElementById("trial").innerText =
+            "Trial active ✅ – " + data.remaining + " scans remaining";
+        } else {
+          scanStatus.innerText = "Scan failed: " + data.reason;
+        }
+      });
     });
   </script>
 </body>
