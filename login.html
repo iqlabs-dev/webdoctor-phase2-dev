@@ -8,83 +8,102 @@
     body {
       margin: 0;
       background: #e6edf0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       display: flex;
-      flex-direction: column;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-direction: column;
     }
     .shell {
       background: #fff;
       border-radius: 18px;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.06);
-      padding: 28px 28px 18px;
-      width: min(420px, 92vw);
+      box-shadow: 0 18px 45px rgba(0,0,0,0.05);
+      width: min(420px, 94vw);
+      padding: 28px 28px 16px;
       text-align: center;
     }
-    h1 {
-      margin: 0 0 6px;
-      font-size: 1.25rem;
-      color: #0f172a;
-    }
-    p {
-      margin: 0 0 18px;
-      color: #64748b;
-      font-size: 0.9rem;
+    h1 { margin: 0 0 6px; font-size: 1.15rem; color: #0f172a; }
+    p  { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
+    #error-box {
+      display: none;
+      background: #fee2e2;
+      color: #b91c1c;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      margin-top: 10px;
+      text-align: left;
     }
     footer {
-      margin-top: 24px;
       font-size: 0.7rem;
       color: #94a3b8;
     }
   </style>
-  <!-- 1) load clerk browser sdk -->
+
+  <!-- Clerk script (browser) -->
   <script
-    async
-    crossorigin="anonymous"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
-  </script>
-  <script>
-    // put your real publishable key here
-    window.CLERK_PUBLISHABLE_KEY = "pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk";
-
-    // remember trial intent from ?trial=1
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("trial") === "1") {
-      localStorage.setItem("webdoctor_trial_intent", "1");
-    }
-
-    // 2) init clerk when sdk loads
-    window.addEventListener("load", async () => {
-      await window.Clerk.load();
-
-      // if already signed in, go straight to dashboard
-      if (window.Clerk.user) {
-        window.location.href = "/dashboard.html";
-        return;
-      }
-
-      // mount sign in ui
-      const mountEl = document.getElementById("clerk-signin");
-      window.Clerk.mountSignIn(mountEl, {
-        // after successful sign in, go to dashboard
-        afterSignInUrl: "/dashboard.html",
-        afterSignUpUrl: "/dashboard.html"
-      });
-    });
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+    data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"  <!-- 👈 put your Clerk publishable key here -->
+    crossorigin="anonymous">
   </script>
 </head>
 <body>
   <div class="shell">
     <h1>Welcome to WebDoctor</h1>
     <p>Sign in to access your dashboard and scan reports.</p>
-    <!-- clerk puts the form right here -->
+    <!-- Clerk will render into this -->
     <div id="clerk-signin"></div>
+    <div id="error-box"></div>
   </div>
 
-  <footer>
-    © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
-  </footer>
+  <footer>© 2025 WebDoctor — All Rights Reserved — Made in New Zealand.</footer>
+
+  <script>
+    // remember intent from ?trial=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("trial") === "1") {
+      localStorage.setItem("webdoctor_trial_intent", "1");
+    }
+
+    // wait for Clerk script to actually load
+    (async function initClerk() {
+      const errBox = document.getElementById("error-box");
+
+      // Clerk injects window.Clerk after script finishes
+      // we'll poll a tiny bit
+      let tries = 0;
+      while (!window.Clerk && tries < 40) { // ~2s
+        await new Promise(r => setTimeout(r, 50));
+        tries++;
+      }
+
+      if (!window.Clerk) {
+        errBox.style.display = "block";
+        errBox.textContent = "Could not load authentication. Check Clerk publishable key.";
+        return;
+      }
+
+      try {
+        await window.Clerk.load();
+
+        // already signed in? go straight to dashboard
+        if (window.Clerk.user) {
+          window.location.href = "/dashboard.html";
+          return;
+        }
+
+        // show sign-in UI
+        window.Clerk.mountSignIn(document.getElementById("clerk-signin"), {
+          afterSignInUrl: "/dashboard.html",
+          afterSignUpUrl: "/dashboard.html",
+        });
+      } catch (e) {
+        errBox.style.display = "block";
+        errBox.textContent = "Auth error: " + (e?.message || e);
+      }
+    })();
+  </script>
 </body>
 </html>
