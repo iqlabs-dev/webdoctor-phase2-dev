@@ -14,18 +14,17 @@ export default async (req) => {
       return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
     }
 
-    // 1) get user from the SAME table as activate-trial: "users"
+    // 1) get user from the SAME table as activate-trial: "trials"
     const { data: user, error } = await supabase
-      .from("users")
+      .from("trials") // 👈 changed
       .select("trial_active, trial_credits")
       .eq("email", email)
       .maybeSingle();
 
     // 2) if no row, auto-create one like activate-trial did
     if (error || !user) {
-      // create + give 5 scans
       const { data: created, error: createError } = await supabase
-        .from("users")
+        .from("trials") // 👈 changed
         .upsert(
           {
             email,
@@ -45,11 +44,11 @@ export default async (req) => {
         );
       }
 
-      // treat this first run as the *first scan*, so deduct 1
+      // deduct first scan
       const newCredits = (created.trial_credits || 5) - 1;
 
       await supabase
-        .from("users")
+        .from("trials") // 👈 changed
         .update({ trial_credits: newCredits })
         .eq("email", email);
 
@@ -78,7 +77,7 @@ export default async (req) => {
     const newCredits = (user.trial_credits || 0) - 1;
 
     const { error: updateError } = await supabase
-      .from("users")
+      .from("trials") // 👈 changed
       .update({ trial_credits: newCredits })
       .eq("email", email);
 

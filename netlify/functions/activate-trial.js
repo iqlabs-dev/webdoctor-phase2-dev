@@ -16,7 +16,7 @@ export default async (req) => {
     }
 
     const { data, error } = await supabase
-      .from("users")
+      .from("trials")            // 👈 changed from "users" to "trials"
       .upsert(
         {
           email,
