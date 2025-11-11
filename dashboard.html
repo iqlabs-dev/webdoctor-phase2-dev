@@ -1,200 +1,114 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8" />
   <title>WebDoctor Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap">
+  <style>
+    body {
+      font-family: "Montserrat", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1rem;
+      padding: 2rem 2.5rem;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    .btn {
+      background: #22c55e;
+      color: #020617;
+      border: none;
+      border-radius: 9999px;
+      padding: .5rem 1.25rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 1.25rem;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: .8rem;
+      margin-top: .75rem;
+    }
+  </style>
+
+  <!-- Clerk -->
+  <script
+    async
+    crossorigin="anonymous"
+    data-clerk-publishable-key="YOUR-CLERK-PUBLISHABLE-KEY"
+    src="https://model-fawn-32.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
+  </script>
 </head>
 <body>
-  <h2>Welcome to WebDoctor</h2>
-
-  <div>
-    <input id="scan-url" placeholder="https://website.com">
-    <button id="run-scan">Run Scan</button>
+  <div class="card" id="dash">
+    <h1 style="margin-bottom:.5rem;">WebDoctor Dashboard</h1>
+    <p id="welcome" style="margin-bottom:1.5rem;">Checking your account…</p>
+    <p id="trial" class="muted">Trial status: loading…</p>
+    <button class="btn" onclick="window.location.href='/'">Back to site</button>
   </div>
 
-  <h3>My Reports</h3>
-  <div id="reports-list"></div>
-
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest"></script>
-
   <script>
-    // Initialize Supabase + Clerk
-    const supa = supabase.createClient(
-      'https://arqlambmnbrgjcvwiand.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU'
-    );
-
-    let currentUser = null;
-    let currentPlan = null;
-
     window.addEventListener("load", async () => {
-      await Clerk.load();
-      if (!Clerk.user) {
-        Clerk.redirectToSignIn();
+      // wait for Clerk to load
+      await window.Clerk.load();
+
+      const user = window.Clerk.user;
+
+      if (!user) {
+        // no user → send back to home
+        window.location.href = "/";
         return;
       }
 
-      currentUser = Clerk.user;
-      currentPlan = await ensureUserPlan();
-      loadReports();
-      document.getElementById('run-scan').onclick = runScan;
-    });
+      // show user email
+      document.getElementById("welcome").innerText =
+        "Welcome, " + (user.primaryEmailAddress?.emailAddress || "WebDoctor user");
 
-    // --------------------------------------------------------
-    // Ensure User Plan (3-day, 5-report trial)
-    // --------------------------------------------------------
-    async function ensureUserPlan() {
-      const userId = currentUser.id;
+      // STEP 2 (backend): check trial in Netlify → Supabase
+      // this will work once you create /.netlify/functions/check-trial
+      try {
+        const res = await fetch("/.netlify/functions/check-trial", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: user.primaryEmailAddress.emailAddress
+          })
+        });
+        const data = await res.json();
+        if (data.trial_active) {
+          document.getElementById("trial").innerText =
+            "Trial active ✅ – " + (data.trial_credits ?? 5) + " scans remaining";
+        } else {
+          document.getElementById("trial").innerText =
+            "No trial yet – activating…";
 
-      const { data, error } = await supa
-        .from('user_plans')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error('plan load error', error);
-        return null;
-      }
-
-      if (!data) {
-        const now = new Date();
-        const trialEnds = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
-
-        const { error: insErr } = await supa
-          .from('user_plans')
-          .insert({
-            user_id: userId,
-            plan: 'trial',
-            trial_started_at: now.toISOString(),
-            trial_ends_at: trialEnds.toISOString(),
-            reports_quota: 5,  // 👈 sets 5-scan trial
+          // call activate
+          await fetch("/.netlify/functions/activate-trial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: user.primaryEmailAddress.emailAddress
+            })
           });
 
-        if (insErr) console.error('plan insert err', insErr);
-
-        return {
-          user_id: userId,
-          plan: 'trial',
-          trial_started_at: now.toISOString(),
-          trial_ends_at: trialEnds.toISOString(),
-          reports_quota: 5,
-          reports_used: 0
-        };
-      }
-
-      return data;
-    }
-
-    // --------------------------------------------------------
-    // Load Reports
-    // --------------------------------------------------------
-    async function loadReports() {
-      const { data: reports, error } = await supa
-        .from('reports')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading reports:', error.message);
-        document.getElementById('reports-list').innerText = 'Error loading reports.';
-        return;
-      }
-
-      const box = document.getElementById('reports-list');
-      if (!reports || reports.length === 0) {
-        box.innerHTML = 'No reports yet.';
-        return;
-      }
-
-      box.innerHTML = reports
-        .map(
-          (r) => `
-        <div style="margin-bottom:6px; border-bottom:1px solid #ddd; padding:6px 0;">
-          <strong>${r.url}</strong><br>
-          Score: ${r.score || '-'}<br>
-          <button onclick="viewReport('${r.id}')">View Report</button>
-        </div>
-      `
-        )
-        .join('');
-    }
-
-    // --------------------------------------------------------
-    // Run Scan
-    // --------------------------------------------------------
-    async function runScan() {
-      const now = new Date();
-
-      // Trial checks
-      if (currentPlan.plan === 'trial') {
-        if (currentPlan.trial_ends_at && now > new Date(currentPlan.trial_ends_at)) {
-          alert('Your trial has ended. Please subscribe to continue.');
-          return;
+          document.getElementById("trial").innerText =
+            "Trial active ✅ – 5 scans remaining";
         }
-
-        if ((currentPlan.reports_used || 0) >= (currentPlan.reports_quota || 5)) {
-          alert('You have used all 5 trial scans. Please upgrade to continue.');
-          return;
-        }
+      } catch (err) {
+        document.getElementById("trial").innerText =
+          "Could not reach trial service.";
       }
-
-      const url = document.getElementById('scan-url').value.trim();
-      if (!url) return alert('Enter a website URL');
-
-      const res = await fetch('/.netlify/functions/generate-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          user_id: currentUser.id,
-          email: currentUser.primaryEmailAddress?.emailAddress
-        })
-      });
-
-      const text = await res.text();
-      let json;
-      try { json = JSON.parse(text); } catch (e) {}
-
-      if (res.ok) {
-        // Update usage count
-        const newUsed = (currentPlan.reports_used || 0) + 1;
-        await supa
-          .from('user_plans')
-          .update({
-            reports_used: newUsed,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', currentUser.id);
-
-        currentPlan.reports_used = newUsed;
-        alert('Scan completed and saved!');
-        loadReports();
-      } else {
-        alert('Error: ' + text);
-      }
-    }
-
-    // --------------------------------------------------------
-    // View Report
-    // --------------------------------------------------------
-    async function viewReport(reportId) {
-      const { data, error } = await supa
-        .from('reports')
-        .select('html')
-        .eq('id', reportId)
-        .maybeSingle();
-
-      if (error || !data) {
-        alert('Error loading report.');
-        return;
-      }
-
-      const reportWindow = window.open('', '_blank');
-      reportWindow.document.write(data.html);
-      reportWindow.document.close();
-    }
+    });
   </script>
 </body>
 </html>
