@@ -761,6 +761,15 @@ document.getElementById('free-trial-btn')
     handleFreeTrial();
   });
 </script>
+<script>
+  (async () => {
+    const user = await window.Clerk.user;
+    if (user) {
+      // user is already signed in, send them to dashboard
+      window.location.href = '/dashboard.html';
+    }
+  })();
+</script>
 
 </body>
 </html>
