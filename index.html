@@ -1,705 +1,390 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WebDoctor — Scan. Diagnose. Revive.</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
-<meta name="description" content="WebDoctor delivers a concise, human‑verified website health report: performance, SEO, mobile, accessibility, security — with clear priorities.">
-<style>
-:root{--bg-top:#0A0F14;--bg-bot:#0F1822;--ink:#E9EEF2;--ink-soft:#CFE1EE;--muted:#9FB1BF;--line:#1E2C3A;--panel:#0F1821;--teal:#00BFA5;--teal-lite:#43E1BF}
-*{box-sizing:border-box}html,body{height:100%;scroll-behavior:smooth}
-body{margin:0;font-family:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 100%);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
-.section{padding:92px 0}
-.small{font-size:14px;color:var(--muted)}
-.btn{display:inline-flex;gap:10px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;border:1px solid transparent;text-decoration:none;font-weight:700;cursor:pointer;line-height:1;transition:filter .2s, transform .12s ease}
-.btn:hover{transform:translateY(-1px)}.btn.primary{background:var(--teal);color:#012a22}
-.btn.primary:hover{filter:brightness(1.05)}
-
-#free-trial-btn:disabled {
-  cursor: not-allowed;
-  filter: saturate(0.6);
-}
-
-.btn.ghost{border:1px solid var(--line);color:var(--ink);background:transparent}.btn.ghost:hover{border-color:var(--teal);color:var(--teal-lite)}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-.header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(6px);background:linear-gradient(180deg,rgba(10,15,20,.88),rgba(15,24,34,.72));border-bottom:1px solid rgba(30,44,58,.6)}
-.nav{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:74px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px;font-size:20px;color:var(--ink)}.brand .dot{width:12px;height:12px;border-radius:999px;background:var(--teal)}
-.navlinks{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-.navlinks a{color:var(--ink-soft);text-decoration:none;font-weight:600;padding:6px 8px;border-radius:8px;position:relative}
-.navlinks a:hover{color:var(--teal-lite);background:rgba(0,191,165,.08)}
-.hero{padding:108px 0 88px}.hero .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:42px;align-items:center}
-.hero h1{font-size:44px;line-height:1.12;letter-spacing:.2px}.hero p.lead{font-size:18px;line-height:1.65;color:var(--ink-soft);margin:12px 0 26px}
-.badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.badge{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:6px 10px}
-.trustbar{padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.trustbar .row{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center}.trustbar .item{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
-.hiw .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.step{padding:20px}.step b{display:block;margin-bottom:6px}
-.pricing .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.card{padding:18px;display:flex;flex-direction:column}
-.card h3{margin:0 0 6px}.price{font-size:34px;font-weight:800;margin-top:8px}
-.card ul{margin:12px 0 0 18px}.card li{margin:6px 0;color:#D6E7F0}
-.faq .wrap{max-width:820px}.faq h2{text-align:center;margin-bottom:26px}.faq details{border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.35);transition:.25s}.faq details+details{margin-top:14px}
-.faq summary{background:#101821;color:#F2F7FA;padding:16px 20px;border-radius:12px;font-weight:600;font-size:17px;line-height:1.45;letter-spacing:.15px;cursor:pointer;list-style:none;display:flex;gap:10px;align-items:flex-start;transition:color .25s,background .25s}
-.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'›';font-weight:700;font-size:18px;margin-left:auto;transition:transform .25s,color .25s;opacity:.9}
-.faq summary:hover{background:#142433;color:var(--teal-lite)}.faq summary:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(0,191,165,.45)}
-.faq details[open]{border-color:rgba(0,191,165,.55);box-shadow:0 0 10px rgba(0,191,165,.15)}.faq details[open] summary{color:var(--teal)}.faq details[open] summary:after{transform:rotate(90deg);color:var(--teal-lite)}
-.faq .a{opacity:0;transform:translateY(-4px);max-height:0;overflow:hidden;border-top:1px solid var(--line);transition:opacity .28s ease,transform .28s ease,max-height .35s ease}
-.faq details[open] .a{opacity:1;transform:translateY(0);max-height:640px;padding-top:12px}.faq .a{color:#D6E7F0;margin:12px 22px;font-size:15.5px;line-height:1.65}
-.trustpanel .col{padding:18px}
-.footer{padding:40px 0;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center;background:linear-gradient(180deg, rgba(15,24,34,.9), rgba(10,15,20,1))}
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}.reveal.is-in{opacity:1;transform:translateY(0)}
-/* Email links in TEAL */
-a[href^="mailto:"]{color:var(--teal-lite);text-decoration:none}
-a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
-/* Modal */
-.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:24px}
-.modal.in{display:flex}
-.modal .inner{max-width:1100px;width:100%}
-.modal .chrome{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.modal .chrome h3{margin:0;font-size:18px;color:#DAF6EF}
-.modal .body{border:1px solid var(--line);background:#0B141B;border-radius:16px;overflow:hidden;position:relative}
-.modal iframe{display:block;width:100%;height:80vh;border:0}
-.modal .actions{display:flex;gap:10px;margin-top:12px}
-/* Fallback notice */
-.fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px}
-.fallback .box{border:1px solid var(--teal);border-radius:14px;padding:16px 18px;background:rgba(0,191,165,.06);color:#DFF8F2;font-weight:600;text-align:center}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebDoctor — Scan. Diagnose. Revive.</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <meta name="description" content="WebDoctor delivers a concise, human-verified website health report: performance, SEO, mobile, accessibility, security — with clear priorities.">
+  <style>
+    :root{--bg-top:#0A0F14;--bg-bot:#0F1822;--ink:#E9EEF2;--ink-soft:#CFE1EE;--muted:#9FB1BF;--line:#1E2C3A;--panel:#0F1821;--teal:#00BFA5;--teal-lite:#43E1BF}
+    *{box-sizing:border-box}
+    html,body{height:100%;scroll-behavior:smooth}
+    body{margin:0;font-family:'Montserrat',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 100%);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+    .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+    .section{padding:92px 0}
+    .small{font-size:14px;color:var(--muted)}
+    .btn{display:inline-flex;gap:10px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;border:1px solid transparent;text-decoration:none;font-weight:700;cursor:pointer;line-height:1;transition:filter .2s, transform .12s ease}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.primary{background:var(--teal);color:#012a22}
+    .btn.primary:hover{filter:brightness(1.05)}
+    #free-trial-btn:disabled{cursor:not-allowed;filter:saturate(0.6)}
+    .btn.ghost{border:1px solid var(--line);color:var(--ink);background:transparent}
+    .btn.ghost:hover{border-color:var(--teal);color:var(--teal-lite)}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    .header{position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(6px);background:linear-gradient(180deg,rgba(10,15,20,.88),rgba(15,24,34,.72));border-bottom:1px solid rgba(30,44,58,.6)}
+    .nav{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:74px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px;font-size:20px;color:var(--ink)}
+    .brand .dot{width:12px;height:12px;border-radius:999px;background:var(--teal)}
+    .navlinks{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .navlinks a{color:var(--ink-soft);text-decoration:none;font-weight:600;padding:6px 8px;border-radius:8px;position:relative}
+    .navlinks a:hover{color:var(--teal-lite);background:rgba(0,191,165,.08)}
+    .hero{padding:108px 0 88px}
+    .hero .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:42px;align-items:center}
+    .hero h1{font-size:44px;line-height:1.12;letter-spacing:.2px}
+    .hero p.lead{font-size:18px;line-height:1.65;color:var(--ink-soft);margin:12px 0 26px}
+    .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .badge{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:999px;padding:6px 10px}
+    .trustbar{padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .trustbar .row{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center}
+    .trustbar .item{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
+    .hiw .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .step{padding:20px}
+    .step b{display:block;margin-bottom:6px}
+    .pricing .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .card{padding:18px;display:flex;flex-direction:column}
+    .card h3{margin:0 0 6px}
+    .price{font-size:34px;font-weight:800;margin-top:8px}
+    .card ul{margin:12px 0 0 18px}
+    .card li{margin:6px 0;color:#D6E7F0}
+    .faq .wrap{max-width:820px}
+    .faq h2{text-align:center;margin-bottom:26px}
+    .faq details{border:1px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:0 4px 14px rgba(0,0,0,.35);transition:.25s}
+    .faq details+details{margin-top:14px}
+    .faq summary{background:#101821;color:#F2F7FA;padding:16px 20px;border-radius:12px;font-weight:600;font-size:17px;line-height:1.45;letter-spacing:.15px;cursor:pointer;list-style:none;display:flex;gap:10px;align-items:flex-start;transition:color .25s,background .25s}
+    .faq summary::-webkit-details-marker{display:none}
+    .faq summary:after{content:'›';font-weight:700;font-size:18px;margin-left:auto;transition:transform .25s,color .25s;opacity:.9}
+    .faq summary:hover{background:#142433;color:var(--teal-lite)}
+    .faq details[open]{border-color:rgba(0,191,165,.55);box-shadow:0 0 10px rgba(0,191,165,.15)}
+    .faq details[open] summary{color:var(--teal)}
+    .faq details[open] summary:after{transform:rotate(90deg);color:var(--teal-lite)}
+    .faq .a{opacity:0;transform:translateY(-4px);max-height:0;overflow:hidden;border-top:1px solid var(--line);transition:opacity .28s ease,transform .28s ease,max-height .35s ease}
+    .faq details[open] .a{opacity:1;transform:translateY(0);max-height:640px;padding-top:12px}
+    .faq .a{color:#D6E7F0;margin:12px 22px;font-size:15.5px;line-height:1.65}
+    .footer{padding:40px 0;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center;background:linear-gradient(180deg, rgba(15,24,34,.9), rgba(10,15,20,1))}
+    .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+    .reveal.is-in{opacity:1;transform:translateY(0)}
+    a[href^="mailto:"]{color:var(--teal-lite);text-decoration:none}
+    a[href^="mailto:"]:hover{color:var(--teal);text-decoration:underline}
+    /* pricing tweaks from your version */
+    .pricing .panel.card{border:1px solid rgba(0,255,200,.1);border-radius:12px;background:#0f1115;transition:.3s;padding:1.75rem 1.5rem;display:flex;flex-direction:column;justify-content:space-between;height:100%}
+    .pricing .panel.card:hover{border-color:rgba(0,255,200,.4);box-shadow:0 0 15px rgba(0,255,200,.15);transform:translateY(-2px)}
+    .pricing .btn.primary{display:block;width:100%;text-align:center;background:#14b8a6;color:#fff;font-weight:700;border-radius:6px;padding:.75rem 1rem;text-decoration:none;transition:.2s;text-transform:uppercase;font-size:1rem;letter-spacing:.5px}
+    /* trust section */
+    .trust{background:#0f1115;padding:3rem 0;border-top:1px solid rgba(0,255,200,.1)}
+    .trust .wrap{max-width:900px;margin:0 auto;color:#d8e3e6;font-size:.95rem;line-height:1.55}
+    .trust h2{font-size:1.5rem;font-weight:700;margin-bottom:.75rem;color:#fff}
+    .trust h3{font-size:1rem;font-weight:600;color:#00e0b8;margin-top:1.5rem;margin-bottom:.5rem}
+    .trust ul{list-style:none;padding-left:0;margin:0 0 1.25rem 0}
+    .trust ul li{margin:.25rem 0}
+    .trust .summary{background:rgba(255,255,255,.03);border-radius:10px;padding:1rem 1.25rem;margin-top:2rem;border:1px solid rgba(0,255,200,.1)}
+    /* modals */
+    .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:24px}
+    .modal.in{display:flex}
+    .modal .inner{max-width:1100px;width:100%}
+    .modal .chrome{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .modal .body{border:1px solid var(--line);background:#0B141B;border-radius:16px;overflow:hidden;position:relative}
+    .modal iframe{display:block;width:100%;height:80vh;border:0}
+    .fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px}
+    .fallback .box{border:1px solid var(--teal);border-radius:14px;padding:16px 18px;background:rgba(0,191,165,.06);color:#DFF8F2;font-weight:600;text-align:center}
+  </style>
 </head>
 <body>
-<header class="header"><div class="wrap nav">
-  <div class="brand"><span class="dot"></span><span>WebDoctor</span></div>
-  <nav class="navlinks">
-    <a href="#hiw" class="hide-sm">How it works</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <a href="#trust">Trust</a>
 
-  </nav>
-</div></header>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="wrap nav">
+      <div class="brand"><span class="dot"></span><span>WebDoctor</span></div>
+      <nav class="navlinks">
+        <a href="#hiw" class="hide-sm">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+        <a href="#trust">Trust</a>
+      </nav>
+    </div>
+  </header>
 
-<section class="hero" id="top"><div class="wrap">
-  <div class="grid">
-    <div class="reveal">
-      <span class="badge">🩺 Early Access</span>
-<h1>Scan. Diagnose. Revive.<br>Clarity on what matters most-and what to fix first.</h1>
-<h2 style="font-weight:700;margin-top:8px;color:#CFE1EE;font-size:22px">
-  Performance · SEO · Mobile · Accessibility · Security
-</h2>
-<p class="lead">A complete website health check — built for web agencies. WebDoctor scans performance, SEO, mobile, accessibility, and security, then delivers a clear, client-ready report showing exactly what to fix first.</p>
-
-   <div class="cta-group" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-  <button id="start-trial" class="btn-primary">Start Free 3-Day Trial</button>
-  <span style="color:#94a3b8;font-size:0.9rem;">Experience all Revive features — cancel anytime.</span>
-</div>
-
-      </div>
-      <div class="badges">
-        <span class="badge">✓ Instant Reports</span>
-        <span class="badge">✓ No Logins Required</span>
-        <span class="badge">✓ Agency‑Friendly</span>
-        <span class="badge">✓ Fair-Use Protected</span>
-        <span class="badge">✓ Secure & Private</span>
-        <span class="badge">✓ Made in New Zealand</span>
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="grid">
+        <div class="reveal">
+          <span class="badge">🩺 Early Access</span>
+          <h1>Scan. Diagnose. Revive.<br>Clarity on what matters most-and what to fix first.</h1>
+          <h2 style="font-weight:700;margin-top:8px;color:#CFE1EE;font-size:22px">
+            Performance · SEO · Mobile · Accessibility · Security
+          </h2>
+          <p class="lead">
+            A complete website health check — built for web agencies. WebDoctor scans performance, SEO, mobile,
+            accessibility, and security, then delivers a clear, client-ready report showing exactly what to fix first.
+          </p>
+          <div class="cta-group" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+            <button id="start-trial" class="btn primary">Start Free 3-Day Trial</button>
+            <span style="color:#94a3b8;font-size:.9rem;">Experience all Revive features — cancel anytime.</span>
+          </div>
+          <div class="badges">
+            <span class="badge">✓ Instant Reports</span>
+            <span class="badge">✓ No Logins Required</span>
+            <span class="badge">✓ Agency-Friendly</span>
+            <span class="badge">✓ Fair-Use Protected</span>
+            <span class="badge">✓ Secure & Private</span>
+            <span class="badge">✓ Made in New Zealand</span>
+          </div>
+        </div>
       </div>
     </div>
+  </section>
+
+  <!-- WHY -->
+  <section class="trustbar" id="why-webdoctor">
+    <div class="wrap">
+      <h2 style="text-align:center; margin-bottom:1rem;">Why WebDoctor</h2>
+      <div class="row reveal" style="justify-content:center; text-align:center; gap:1.5rem;">
+        <div class="item">⚡ <strong>Instant insight:</strong> Scan any website in seconds — no installs, no logins.</div>
+        <div class="item">📄 <strong>Client-ready reports:</strong> Branded PDFs agencies can send straight to clients.</div>
+        <div class="item">🩺 <strong>Actionable priorities:</strong> Ranked fixes so teams know exactly where to start.</div>
       </div>
     </div>
-  </div>
-</div></section>
+  </section>
 
-<section class="trustbar" id="why-webdoctor">
-  <div class="wrap">
-    <h2 style="text-align:center; margin-bottom:1rem;">Why WebDoctor</h2>
-    <div class="row reveal" style="justify-content:center; text-align:center; gap:1.5rem;">
-      <div class="item">⚡ <strong>Instant insight:</strong> Scan any website in seconds — no installs, no logins.</div>
-      <div class="item">📄 <strong>Client-ready reports:</strong> Branded PDFs agencies can send straight to clients.</div>
-      <div class="item">🩺 <strong>Actionable priorities:</strong> Ranked fixes so teams know exactly where to start.</div>
+  <!-- HOW IT WORKS -->
+  <section class="section hiw" id="hiw">
+    <div class="wrap">
+      <h2 class="reveal">How it works</h2>
+      <p class="small reveal">A fast, honest workflow — built for designers, studios, and busy founders.</p>
+      <div class="steps">
+        <div class="panel step reveal"><b>1) Submit URL</b><span class="small">No logins required. Optional notes welcome.</span></div>
+        <div class="panel step reveal"><b>2) Scan + Verify</b><span class="small">Automated checks + human review to reduce false alarms.</span></div>
+        <div class="panel step reveal"><b>3) Instant Report</b><span class="small">Your diagnostic report is generated and emailed within seconds.</span></div>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 
+  <!-- PRICING -->
+  <section class="section pricing" id="pricing">
+    <div class="wrap">
+      <h2>Pricing — Hybrid Fair-Use</h2>
+      <p class="small">
+        Simple monthly plans with fair scan limits to keep system performance consistent and prevent abuse. Reports are emailed instantly, and extra scans are just $1 each.
+      </p>
 
+      <div class="grid">
+        <div class="panel card">
+          <h3>Scan</h3>
+          <p class="price">$14.95 <span>/ month</span></p>
+          <p class="subtitle">For freelancers and site owners</p>
+          <ul>
+            <li>Performance &amp; SEO overview</li>
+            <li>Includes <strong>250 reports / month</strong></li>
+            <li>$1 per extra report after 250</li>
+            <li>PDF report emailed instantly</li>
+          </ul>
+          <button id="scan-btn" class="btn primary">Scan</button>
+        </div>
 
-<section class="section hiw" id="hiw"><div class="wrap">
-  <h2 class="reveal">How it works</h2>
-  <p class="small reveal">A fast, honest workflow — built for designers, studios, and busy founders.</p>
-  <div class="steps">
-    <div class="panel step reveal"><b>1) Submit URL</b><span class="small">No logins required. Optional notes welcome.</span></div>
-    <div class="panel step reveal"><b>2) Scan + Verify</b><span class="small">Automated checks + human review to reduce false alarms.</span></div>
-    <div class="panel step reveal"><b>3) Instant Report</b><span class="small">Your diagnostic report is generated and emailed within seconds.</span></div>
-  </div>
-</div></section>
-<section class="section pricing" id="pricing">
-  <style>
-    .pricing .grid {
-      display: grid;
-      gap: 1.5rem;
-      justify-content: center;
-    }
-    @media (min-width: 800px) {
-      .pricing .grid {
-        grid-template-columns: repeat(3, 1fr);
-        max-width: 1000px;
-        margin: 0 auto;
-      }
-    }
+        <div class="panel card">
+          <h3>Diagnose</h3>
+          <p class="price">$29.95 <span>/ month</span></p>
+          <p class="subtitle">Best for agencies &amp; marketers</p>
+          <ul>
+            <li>Everything in Scan + technical &amp; SEO diagnostics</li>
+            <li>UX &amp; accessibility metrics</li>
+            <li>Includes <strong>500 reports / month</strong></li>
+            <li>$1 per extra report after 500</li>
+            <li>Full diagnostic PDF emailed instantly</li>
+          </ul>
+          <button id="diagnose-btn" class="btn primary">Diagnose</button>
+        </div>
 
-    .pricing .panel.card {
-      border: 1px solid rgba(0, 255, 200, 0.1);
-      border-radius: 12px;
-      background-color: #0f1115;
-      transition: all 0.3s ease;
-      padding: 1.75rem 1.5rem;
-    }
-    .pricing .panel.card:hover {
-      border-color: rgba(0, 255, 200, 0.4);
-      box-shadow: 0 0 15px rgba(0, 255, 200, 0.15);
-      transform: translateY(-2px);
-    }
-
-    .pricing h2 {
-      text-align: center;
-      margin-bottom: 0.75rem;
-    }
-    .pricing p.small {
-      text-align: center;
-      margin-bottom: 2rem;
-      max-width: 700px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .pricing .price {
-      font-weight: 700;
-      font-size: 1.4rem;
-      margin-bottom: 0.25rem;
-    }
-    .pricing .subtitle {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #e5e5e5;
-      margin-bottom: 0.75rem;
-    }
-    .pricing .note {
-      opacity: 0.75;
-      font-size: 0.9rem;
-      margin-top: 0.75rem;
-    }
-    .pricing ul {
-      margin: 0.5rem 0 1.5rem;
-    }
-
-    .pricing .btn.primary {
-      display: block;
-      width: 100%;
-      text-align: center;
-      background-color: #14b8a6;
-      color: #fff;
-      font-weight: 700;
-      border-radius: 6px;
-      padding: 0.75rem 1rem;
-      text-decoration: none;
-      transition: background-color 0.3s ease, transform 0.2s ease;
-    }
-    .pricing .btn.primary:hover {
-      background-color: #0d9488;
-      transform: translateY(-1px);
-    }
-    /* Align all Subscribe buttons evenly across cards */
-.pricing .grid {
-  display: grid;
-  gap: 1.5rem;
-  justify-content: center;
-}
-
-.pricing .panel.card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  height: 100%;
-}
-
-.pricing .btn.primary {
-  margin-top: auto;
-  align-self: stretch;
-  
-}
-.pricing .btn.primary {
-  display: block;
-  width: 100%;
-  text-align: center;
-  background-color: #14b8a6;
-  color: #fff;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  text-decoration: none;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  text-transform: uppercase;
-  font-size: 1rem;
-  letter-spacing: 0.5px;
-}
-
-}
-
-}
-
-
-  </style>
-
-  <div class="wrap">
-    <h2>Pricing — Hybrid Fair-Use</h2>
-    <p class="small">
-      Simple monthly plans with fair scan limits to keep system performance consistent and prevent abuse. Reports are emailed instantly, and extra scans are just $1 each.
-    </p>
-
-    <div class="grid">
-      
-      <!-- Scan -->
-      <div class="panel card">
-        <h3>Scan</h3>
-        <p class="price">$14.95 <span>/ month</span></p>
-        <p class="subtitle">For freelancers and site owners</p>
-        <ul>
-          <li>Performance & SEO overview</li>
-          <li>Includes <strong>250 reports / month</strong></li>
-          <li>$1 per extra report after 250</li>
-          <li>PDF report emailed instantly</li>
-        </ul>
-        <button id="scan-btn" class="btn primary">Scan</button>
+        <div class="panel card">
+          <h3>Revive</h3>
+          <p class="price">$49.95 <span>/ month</span></p>
+          <p class="subtitle">For studios &amp; high-volume users</p>
+          <ul>
+            <li>20-point matrix + step-by-step fix guide</li>
+            <li>AI recommendations &amp; priority support</li>
+            <li>White-label report option for agencies</li>
+            <li>Includes <strong>1,000 reports / month</strong></li>
+            <li>$1 per extra report after 1,000</li>
+            <li>Professional report package — emailed instantly</li>
+          </ul>
+          <button id="revive-btn" class="btn primary">Revive</button>
+        </div>
       </div>
 
-      <!-- Diagnose -->
-      <div class="panel card">
-        <h3>Diagnose</h3>
-        <p class="price">$29.95 <span>/ month</span></p>
-        <p class="subtitle">Best for agencies & marketers</p>
-        <ul>
-          <li>Everything in Scan + technical & SEO diagnostics</li>
-          <li>UX & accessibility metrics</li>
-          <li>Includes <strong>500 reports / month</strong></li>
-          <li>$1 per extra report after 500</li>
-          <li>Full diagnostic PDF emailed instantly</li>
-        </ul>
-        <button id="diagnose-btn" class="btn primary">Diagnose</button>
-      </div>
-
-      <!-- Revive -->
-      <div class="panel card">
-        <h3>Revive</h3>
-        <p class="price">$49.95 <span>/ month</span></p>
-        <p class="subtitle">For studios & high-volume users</p>
-        <ul>
-          <li>20-point matrix + step-by-step fix guide</li>
-          <li>AI recommendations & priority support</li>
-          <li>White-label report option for agencies</li>
-          <li>Includes <strong>1,000 reports / month</strong></li>
-          <li>$1 per extra report after 1,000</li>
-          <li>Professional report package — emailed instantly</li>
-        </ul>
-        <button id="revive-btn" class="btn primary">Revive</button>
-      </div>
-      <p style="text-align:center; font-family:'Montserrat', sans-serif; font-size:15px; color:#6CAFB7; margin-top:20px;">
-  <em>Need something tailored?</em> Email 
-  <a href="mailto:pricing@webdoctor.tech" style="color:#6CAFB7; text-decoration:none; font-weight:600;">
-    pricing@webdoctor.tech
-  </a>
-</p>
-
+      <p style="text-align:center; font-size:15px; color:#6CAFB7; margin-top:20px;">
+        <em>Need something tailored?</em>
+        <a href="mailto:pricing@webdoctor.tech" style="color:#6CAFB7; text-decoration:none; font-weight:600;">pricing@webdoctor.tech</a>
+      </p>
     </div>
-  </div>
-</section>
+  </section>
 
+  <!-- FAQ -->
+  <section class="section faq" id="faq">
+    <div class="wrap">
+      <h2 class="reveal">FAQ</h2>
+      <details class="reveal">
+        <summary>What is WebDoctor?</summary>
+        <div class="a">WebDoctor is an AI-assisted website health scan built for agencies, studios, and site owners. It checks performance, SEO, mobile, accessibility, and security — then delivers a branded, client-ready PDF highlighting what to fix first.</div>
+      </details>
+      <details class="reveal">
+        <summary>How fast will I receive my report?</summary>
+        <div class="a">Reports are delivered instantly — generated and emailed within seconds after submission.</div>
+      </details>
+      <details class="reveal">
+        <summary>What exactly is included in the PDF report?</summary>
+        <div class="a">WebDoctor is an AI-assisted website health scan built for agencies, studios, and site owners. It checks performance, SEO, mobile, accessibility, and security — then delivers an instant diagnostic report. Higher-tier plans include branded, client-ready PDFs and advanced insights.</div>
+      </details>
+      <details class="reveal">
+        <summary>What do you need from me to start?</summary>
+        <div class="a">Just your website URL — no logins or setup required.</div>
+      </details>
+      <details class="reveal">
+        <summary>How is the WebDoctor score calculated?</summary>
+        <div class="a">The score is based on WebDoctor’s proprietary 20-point weighted model.</div>
+      </details>
+      <details class="reveal">
+        <summary>Do you store or reuse my data?</summary>
+        <div class="a">No. WebDoctor doesn’t permanently store or reuse any data.</div>
+      </details>
+      <details class="reveal">
+        <summary>Can agencies white-label the report?</summary>
+        <div class="a">Yes — Diagnose and Revive plans include optional white-label delivery.</div>
+      </details>
+    </div>
+  </section>
 
-<section class="section faq" id="faq"><div class="wrap">
-  <h2 class="reveal">FAQ</h2>
-  <details class="reveal">
-  <summary>What is WebDoctor?</summary>
-  <div class="a">WebDoctor is an AI-assisted website health scan built for agencies, studios, and site owners. It checks performance, SEO, mobile, accessibility, and security — then delivers a branded, client-ready PDF highlighting what to fix first.</div>
-</details>
-  <details class="reveal"><summary>How fast will I receive my report?</summary><div class="a">Reports are delivered instantly — generated and emailed within seconds after submission.</div></details>
-  <details class="reveal"><summary>What exactly is included in the PDF report?</summary><div class="a">WebDoctor is an AI-assisted website health scan built for agencies, studios, and site owners. It checks performance, SEO, mobile, accessibility, and security — then delivers an instant diagnostic report. Higher-tier plans include branded, client-ready PDFs and advanced insights.</div></details>
-  <details class="reveal"><summary>What do you need from me to start?</summary><div class="a">Just your website URL — no logins or setup required. You can optionally add notes or temporary access if you'd like us to verify restricted pages.</div></details>
-  <details class="reveal"><summary>How is the WebDoctor score calculated?</summary><div class="a">The score is based on WebDoctor’s proprietary 20-point weighted model that blends automated checks with AI and human review. It filters out false alarms and focuses on the fixes that make the biggest difference.</div></details>
-  <details class="reveal"><summary>Do you store or reuse my data?</summary><div class="a">No. WebDoctor doesn’t permanently store or reuse any data. Temporary information is used only to generate your report and is automatically cleared after processing.</div></details>
-  <details class="reveal"><summary>Is this powered by AI?</summary><div class="a">Yes — WebDoctor uses OpenAI technology to analyze and summarize results. Reports are refined to ensure they’re accurate, clear, and easy to act on.</div></details>
-  <details class="reveal"><summary>Can agencies white‑label the report?</summary><div class="a">Yes. The Diagnose and Revive plans include optional white-label delivery. Add your agency name or logo, and reports will be generated automatically in your format.</div></details>
-  <details class="reveal"><summary>How does pricing and fair-use work?</summary><div class="a">Your monthly plan includes generous report limits — 250, 500, or 1,000 per month depending on your tier. If you exceed those limits, WebDoctor may slow scans slightly or charge $1 per extra report. This fair-use system keeps performance consistent for everyone.</div></details>
-</div></section>
+  <!-- TRUST -->
+  <section class="section trust" id="trust">
+    <div class="wrap">
+      <h2>Trust, Privacy &amp; Verification</h2>
+      <p>WebDoctor is built <em>privacy-first</em>. No logins. No tracking cookies. No stored content — just a clean scan and a clear report.</p>
 
-<section class="section trust" id="trust">
-  <style>
-    /* --- Local style for Trust, Privacy & Verification --- */
-    .trust {
-      background-color: #0f1115;
-      padding: 3rem 0;
-      border-top: 1px solid rgba(0, 255, 200, 0.1);
-    }
-.trust .wrap {
-  max-width: 900px;
-  margin: 0 auto;
-  color: #d8e3e6;
-  font-size: 0.95rem;      /* unified with FAQ body */
-  line-height: 1.55;
-}
-
-.trust h2 {
-  font-size: 1.5rem;       /* slightly reduced for hierarchy balance */
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  color: #ffffff;
-}
-
-.trust h3 {
-  font-size: 1rem;         /* consistent with FAQ subhead scale */
-  font-weight: 600;
-  color: #00e0b8;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.trust ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0 0 1.25rem 0;
-}
-
-.trust ul li {
-  margin: 0.25rem 0;
-}
-
-.trust a {
-  color: #00e0b8;
-  text-decoration: none;
-}
-
-.trust a:hover {
-  text-decoration: underline;
-}
-
-.trust .summary {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  margin-top: 2rem;
-  border: 1px solid rgba(0, 255, 200, 0.1);
-}
-
-.trust .footer-line {
-  text-align: center;
-  opacity: 0.8;
-  margin-top: 2rem;
-  font-size: 0.85rem;
-}
-/* --- Email Modal --- */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
-  justify-content: center;
-  align-items: center;
-  font-family: 'Montserrat', sans-serif;
-}
-
-.modal-content {
-  background: linear-gradient(160deg, #0c1012 0%, #10181a 100%);
-  border: 1px solid #1e2426;
-  border-radius: 10px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 420px;
-  color: #fff;
-  text-align: center;
-  box-shadow: 0 0 25px rgba(0,255,255,0.15);
-}
-
-.modal h2 {
-  margin-bottom: 0.75rem;
-  color: #00bfa6;
-}
-
-.modal p {
-  font-size: 0.95rem;
-  opacity: 0.85;
-  margin-bottom: 1.2rem;
-  line-height: 1.5;
-}
-
-.modal-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
-}
-
-.modal-buttons button {
-  flex: 1;
-  margin: 0 0.5rem;
-  padding: 0.7rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-#emailSubmit { background: #00bfa6; color: #fff; }
-#emailCancel { background: #333; color: #ccc; }
-
-#emailSubmit:hover { background: #00d8b3; }
-#emailCancel:hover { background: #444; }
-
-#emailInput {
-  width: 100%;
-  padding: 0.8rem;
-  border-radius: 6px;
-  border: none;
-  margin-top: 0.5rem;
-  font-size: 1rem;
-  text-align: center;
-}
-/* success check */
-.modal-success {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #00bfa6;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 1rem auto;
-  color: #fff;
-  font-size: 1.6rem;
-  font-weight: 700;
-  box-shadow: 0 0 20px rgba(0,191,166,0.4);
-}
-
-/* loading state */
-#emailSubmit.loading {
-  opacity: 0.7;
-  pointer-events: none;
-}
-.modal-success {
-  display: none;
-  justify-content: center;
-  align-items: center;
-  font-size: 3rem;
-  color: #fff;
-  line-height: 52px;
-  font-weight: bold;
-  margin-bottom: 1rem;
-
-}
-
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: scale(0.8); }
-  20% { opacity: 1; transform: scale(1); }
-  80% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(0.8); }
-}
-
-
-    }
-  </style>
-
-  <div class="wrap">
-    <h2>Trust, Privacy &amp; Verification</h2>
-    <p>
-      WebDoctor is built <em>privacy-first</em>. No logins. No tracking cookies. 
-      No stored content — just a clean scan and a clear report.
-    </p>
-
-    <h3>🔒 Privacy &amp; Security at a Glance</h3>
-    <ul>
-      <li>No logins, cookies, or personal data collected.</li>
-      <li>Website content is never stored — reports are generated, delivered, then securely deleted.</li>
-      <li>All traffic uses HTTPS encryption.</li>
-      <li>AI analysis is used responsibly and always reviewed by a human.</li>
-      <li>Each report includes a unique Scan ID and timestamp for verification.</li>
-    </ul>
-
-    <h3>🧾 Verification &amp; Contact</h3>
-    <ul>
-      <li>Verify a report: <a href="mailto:verify@webdoctor.tech">verify@webdoctor.tech</a></li>
-      <li>Privacy questions: <a href="mailto:privacy@webdoctor.tech">privacy@webdoctor.tech</a></li>
-      <li>Security contact: <a href="mailto:security@webdoctor.tech">security@webdoctor.tech</a></li>
-    </ul>
-
-    <div class="summary">
-      <h3>📜 Summary</h3>
+      <h3>🔒 Privacy &amp; Security at a Glance</h3>
       <ul>
-        <li>No logins required to run a scan.</li>
-        <li>Only public pages you specify are read.</li>
-        <li>Temporary scan data is deleted after delivery.</li>
-        <li>Full Privacy Policy available on request.</li>
+        <li>No logins, cookies, or personal data collected.</li>
+        <li>Website content is never stored — reports are generated, delivered, then securely deleted.</li>
+        <li>All traffic uses HTTPS encryption.</li>
+        <li>Each report includes a unique Scan ID and timestamp for verification.</li>
       </ul>
-    </div>
-    
 
- 
-  </div>
-</section>
+      <h3>🧾 Verification &amp; Contact</h3>
+      <ul>
+        <li>Verify a report: <a href="mailto:verify@webdoctor.tech">verify@webdoctor.tech</a></li>
+        <li>Privacy questions: <a href="mailto:privacy@webdoctor.tech">privacy@webdoctor.tech</a></li>
+        <li>Security contact: <a href="mailto:security@webdoctor.tech">security@webdoctor.tech</a></li>
+      </ul>
 
-
-<footer class="footer"><div class="wrap">
-  © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
-</div></footer>
-
-
-<!-- Report Preview Modal (LIVE IFRAME + FALLBACK + cleanup) -->
-<div class="modal" id="reportModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-  <div class="inner">
-    <div class="chrome">
-      <h3 id="reportTitle">Sample Report (Preview)</h3>
-      <div class="actions">
-        <a class="btn ghost" href="#" id="btnBack">◀ Back</a>
+      <div class="summary">
+        <h3>📜 Summary</h3>
+        <ul>
+          <li>No logins required to run a scan.</li>
+          <li>Only public pages you specify are read.</li>
+          <li>Temporary scan data is deleted after delivery.</li>
+          <li>Full Privacy Policy available on request.</li>
+        </ul>
       </div>
     </div>
-    <div class="body">
-      <iframe id="reportFrame" src="Report%20Template%20V2.html" title="WebDoctor Sample Report"
-              sandbox="allow-same-origin allow-scripts allow-popups"
-              referrerpolicy="no-referrer"></iframe>
-      <div id="fallback" class="fallback" aria-live="polite">
-        <div class="box">⚠️ Preview unavailable — click <b>Back</b> and then open the full report from the main page.</div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="wrap">
+      © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+    </div>
+  </footer>
+
+  <!-- SHARED MODAL -->
+  <div id="emailModal" class="modal">
+    <div class="modal-content">
+      <div id="emailSuccess" class="modal-success">✓</div>
+      <h2>Start Your WebDoctor Subscription</h2>
+      <p>Enter your email to begin checkout.<br>
+        You’ll be redirected to a secure Stripe page to confirm your plan.</p>
+      <input type="email" id="emailInput" placeholder="you@example.com" required>
+      <div class="modal-buttons">
+        <button id="emailSubmit">Continue →</button>
+        <button id="emailCancel">Cancel</button>
       </div>
     </div>
   </div>
-</div>
 
-<!-- shared email modal (used by checkout AND trial) -->
-<div id="emailModal" class="modal">
-  <div class="modal-content">
-    <div id="emailSuccess" class="modal-success">✓</div>
-    <h2>Start Your WebDoctor Subscription</h2>
-    <p>Enter your email to begin checkout.<br>
-       You’ll be redirected to a secure Stripe page to confirm your plan — 
-       your account will be credited instantly after payment.</p>
-    <input type="email" id="emailInput" placeholder="you@example.com" required>
-    <div class="modal-buttons">
-      <button id="emailSubmit">Continue →</button>
-      <button id="emailCancel">Cancel</button>
-    </div>
-  </div>
-</div>
+  <!-- SCRIPTS -->
+  <script>
+    // reveal
+    const revealEls = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){
+          e.target.classList.add('is-in');
+          io.unobserve(e.target);
+        }
+      });
+    },{threshold:0.18});
+    revealEls.forEach(el=>io.observe(el));
 
-<script>
-// Reveal on scroll
-const revealEls = document.querySelectorAll('.reveal');
-const io = new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('is-in');io.unobserve(e.target);}})},{threshold:0.18});
-revealEls.forEach(el=>io.observe(el));
+    // pricing → email → stripe (stubbed)
+    async function handleCheckout(priceId) {
+      const modal = document.getElementById("emailModal");
+      const emailInput = document.getElementById("emailInput");
+      const emailSubmit = document.getElementById("emailSubmit");
+      const emailCancel = document.getElementById("emailCancel");
+      const success = document.getElementById("emailSuccess");
 
-// Report preview modal open/close
-const modal = document.getElementById('reportModal');
-const open1 = document.getElementById('openPreview');
-const backBtn = document.getElementById('btnBack');
-function openModal(){ modal.classList.add('in'); document.body.style.overflow='hidden'; }
-function closeModal(){ modal.classList.remove('in'); document.body.style.overflow=''; }
-open1?.addEventListener('click', openModal);
-backBtn?.addEventListener('click', (e)=>{ e.preventDefault(); closeModal(); });
-modal?.addEventListener('click', (e)=>{ if(e.target===modal) closeModal(); });
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal.classList.contains('in')) closeModal(); });
+      modal.style.display = "flex";
 
-// Fallback logic for iframe + in-iframe cleanup
-(function(){
-  const frame = document.getElementById('reportFrame');
-  const fallback = document.getElementById('fallback');
-  let shown = false;
-  const timer = setTimeout(()=>{ if (!shown) { fallback.style.display = 'flex'; } }, 2000);
-  frame.addEventListener('load', ()=>{
-    shown = true;
-    clearTimeout(timer);
-    fallback.style.display = 'none';
-    try {
-      const doc = frame.contentDocument || frame.contentWindow.document;
-      if (doc) {
-        const killByText = (txt)=>{
-          const lc = txt.toLowerCase();
-          doc.querySelectorAll('a,button').forEach(el=>{
-            const t = (el.textContent||'').trim().toLowerCase();
-            if (t === lc) { el.remove(); }
-          });
+      const email = await new Promise((resolve) => {
+        emailSubmit.onclick = () => {
+          if (emailInput.value.trim() === "") return alert("Please enter your email.");
+          success.style.display = 'flex';
+          setTimeout(() => resolve(emailInput.value.trim()), 900);
         };
-        ['Back','← Back','◀ Back'].forEach(killByText);
-        doc.querySelectorAll('a,button').forEach(el=>{
-          const t = (el.textContent||'').trim().toLowerCase();
-          const href = (el.getAttribute('href')||'').toLowerCase();
-          if (t.includes('start free scan') || t.includes('request scan') || href.includes('tally.so') || href.includes('gumroad.com')) {
-            el.remove();
-          }
-        });
+        emailCancel.onclick = () => {
+          modal.style.display = "none";
+          resolve(null);
+        };
+      });
+
+      if (!email) return;
+
+      const response = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, email })
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Checkout failed. Please try again.');
       }
-    } catch(e) { /* same-origin only; ignore if blocked */ }
-  });
-  frame.addEventListener('error', ()=>{ clearTimeout(timer); fallback.style.display = 'flex'; });
-})();
-
-// STRIPE CHECKOUT FLOW (Scan / Diagnose / Revive)
-async function handleCheckout(priceId) {
-  const modal = document.getElementById("emailModal");
-  const emailInput = document.getElementById("emailInput");
-  const emailSubmit = document.getElementById("emailSubmit");
-  const emailCancel = document.getElementById("emailCancel");
-  const success = document.getElementById("emailSuccess");
-
-  modal.style.display = "flex";
-
-  const email = await new Promise((resolve) => {
-    emailSubmit.onclick = () => {
-      if (emailInput.value.trim() === "") return alert("Please enter your email.");
-      success.style.display = 'flex';
-      setTimeout(() => {
-        resolve(emailInput.value.trim());
-      }, 900);
-    };
-
-    emailCancel.onclick = () => {
-      modal.style.display = "none";
-      resolve(null);
-    };
-  });
-
-  if (!email) return;
-
-  const response = await fetch('/.netlify/functions/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ priceId, email })
-  });
-
-  const data = await response.json();
-  if (data.url) {
-    window.location.href = data.url;
-  } else {
-    alert('Checkout failed. Please try again.');
-  }
-}
-
-document.getElementById('scan-btn').addEventListener('click', () => handleCheckout('PRICE_ID_SCAN'));
-document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
-document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
-
-<script>
-  // Redirect trial button → Clerk login with ?trial=1 flag
-  document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("start-trial");
-    if (!btn) return;
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.location.href = "/login.html?trial=1";
-    });
-  });
-</script>
-
-<script>
-  (async () => {
-    const user = await window.Clerk.user;
-    if (user) {
-      // if user is already signed in, send them to dashboard
-      window.location.href = '/dashboard.html';
     }
-  })();
-</script>
+
+    document.getElementById('scan-btn').addEventListener('click', () => handleCheckout('PRICE_ID_SCAN'));
+    document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
+    document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
+
+    // trial → send to Clerk login with ?trial=1
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("start-trial");
+      if (!btn) return;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.location.href = "/login.html?trial=1";
+      });
+    });
+  </script>
+
+  <!-- optional: if Clerk is present on this page, bounce signed-in users -->
+  <script>
+    (async () => {
+      if (window.Clerk && window.Clerk.user) {
+        // already signed in → go to dashboard
+        window.location.href = '/dashboard.html';
+      }
+    })();
+  </script>
 
 </body>
 </html>
-
