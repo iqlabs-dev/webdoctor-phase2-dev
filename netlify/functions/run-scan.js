@@ -14,17 +14,17 @@ export default async (req) => {
       return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
     }
 
-    // 1) get user from the SAME table as activate-trial: "trials"
+    // 1) Get user from "trials" table (same as activate-trial)
     const { data: user, error } = await supabase
-      .from("trials") // 👈 changed
+      .from("trials")
       .select("trial_active, trial_credits")
       .eq("email", email)
       .maybeSingle();
 
-    // 2) if no row, auto-create one like activate-trial did
+    // 2) If no user, auto-create and start trial
     if (error || !user) {
       const { data: created, error: createError } = await supabase
-        .from("trials") // 👈 changed
+        .from("trials")
         .upsert(
           {
             email,
@@ -44,11 +44,10 @@ export default async (req) => {
         );
       }
 
-      // deduct first scan
       const newCredits = (created.trial_credits || 5) - 1;
 
       await supabase
-        .from("trials") // 👈 changed
+        .from("trials")
         .update({ trial_credits: newCredits })
         .eq("email", email);
 
@@ -58,7 +57,7 @@ export default async (req) => {
       );
     }
 
-    // 3) user exists — enforce trial rules
+    // 3) Enforce trial rules
     if (!user.trial_active) {
       return new Response(
         JSON.stringify({ ok: false, reason: "trial not active" }),
@@ -68,16 +67,19 @@ export default async (req) => {
 
     if ((user.trial_credits || 0) <= 0) {
       return new Response(
-        JSON.stringify({ ok: false, reason: "no credits" }),
+        JSON.stringify({
+          ok: false,
+          reason: "no credits left — please upgrade for more scans",
+        }),
         { status: 403 }
       );
     }
 
-    // 4) deduct 1
+    // 4) Deduct 1 credit
     const newCredits = (user.trial_credits || 0) - 1;
 
     const { error: updateError } = await supabase
-      .from("trials") // 👈 changed
+      .from("trials")
       .update({ trial_credits: newCredits })
       .eq("email", email);
 
@@ -88,13 +90,16 @@ export default async (req) => {
       );
     }
 
+    // 5) Return success + remaining credits
     return new Response(
       JSON.stringify({ ok: true, remaining: newCredits }),
       { status: 200 }
     );
+
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, reason: "server error" }), {
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ ok: false, reason: "server error" }),
+      { status: 500 }
+    );
   }
 };
