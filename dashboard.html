@@ -4,51 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WebDoctor Dashboard</title>
-
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap">
-
   <style>
-    body {
-      font-family: "Montserrat", sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .card {
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 1rem;
-      padding: 2rem 2.5rem;
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
-    }
-    h1 {
-      margin-bottom: 0.5rem;
-      font-weight: 600;
-      color: #22c55e;
-    }
-    .btn {
-      background: #22c55e;
-      color: #020617;
-      border: none;
-      border-radius: 9999px;
-      padding: 0.6rem 1.25rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 1.25rem;
-    }
-    .muted {
-      color: #94a3b8;
-      font-size: 0.85rem;
-      margin-top: 0.75rem;
-    }
+    body { font-family: "Montserrat", sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .card { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.2); border-radius:1rem; padding:2rem 2.5rem; max-width:560px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.25); }
+    h1 { margin-bottom:.5rem; font-weight:600; color:#22c55e; }
+    .btn { background:#22c55e; color:#020617; border:none; border-radius:9999px; padding:.6rem 1.25rem; font-weight:600; cursor:pointer; margin-top:1rem; }
+    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; }
+    .input { width:100%; background:rgba(15,23,42,.3); border:1px solid rgba(148,163,184,.3); border-radius:.75rem; padding:.5rem .75rem; color:#e2e8f0; margin-top:1rem; }
+    pre { text-align:left; background:rgba(2,6,23,.35); border:1px solid rgba(148,163,184,.15); border-radius:.75rem; padding:1rem; margin-top:1rem; font-size:.75rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
   </style>
-
   <!-- Clerk -->
   <script
     async
@@ -59,103 +24,104 @@
 </head>
 <body>
   <div class="card" id="dash">
-    <h1 style="margin-bottom:.5rem;">WebDoctor Dashboard</h1>
-    <p id="welcome" style="margin-bottom:1.5rem;">Checking your account...</p>
-    <p id="trial" class="muted">Trial status: loading...</p>
+    <h1>WebDoctor Dashboard</h1>
+    <p id="welcome" class="muted" style="margin-bottom:.75rem;">Loading account…</p>
+    <p id="trial" class="muted">Trial status: loading…</p>
 
-    <button id="run-scan" class="btn" style="margin-right:.5rem;">Run scan</button>
-    <button class="btn" onclick="window.location.href='/'">Back to site</button>
+    <input id="site-url" class="input" type="text" placeholder="Enter site URL to scan (e.g. https://example.com)" />
+
+    <div style="margin-top:1rem;">
+      <button id="run-scan" class="btn" style="margin-right:.5rem;">Run scan</button>
+      <button class="btn" onclick="window.location.href='/'">Back to site</button>
+    </div>
 
     <p id="scan-status" class="muted"></p>
+    <pre id="scan-output" style="display:none;"></pre>
   </div>
 
   <script>
-    window.addEventListener("load", async () => {
-      // 1. Load Clerk
-      await window.Clerk.load();
+    async function init() {
+      try {
+        await window.Clerk.load();
+      } catch (e) {
+        document.getElementById("welcome").innerText = "Auth failed to load.";
+        return;
+      }
 
-      // 2. Get logged-in user
-      const user = window.Clerk.user;
-
-      // 3. If no user, send back to home
+      const user = window.Clerk?.user;
       if (!user) {
         window.location.href = "/";
         return;
       }
 
-      // 4. Show user email
-      document.getElementById("welcome").innerText =
-        "Welcome, " + (user.primaryEmailAddress?.emailAddress || "WebDoctor user");
+      const email = user.primaryEmailAddress?.emailAddress || "";
+      document.getElementById("welcome").innerText = "Welcome, " + (email || "WebDoctor user");
 
-      // 5. Check trial in Supabase (via Netlify function)
+      // Check trial
       try {
-        const res = await fetch("/.netlify/functions/check-trial", {
+        const r = await fetch("/.netlify/functions/check-trial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.primaryEmailAddress.emailAddress
-          })
+          body: JSON.stringify({ email })
         });
-
-        const data = await res.json();
-
-        if (data.trial_active) {
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – " + (data.trial_credits ?? 5) + " scans remaining";
+        const d = await r.json();
+        if (d.trial_active) {
+          document.getElementById("trial").innerText = "Trial active ✅ – " + (d.trial_credits ?? 5) + " scans remaining";
         } else {
-          document.getElementById("trial").innerText = "No trial yet – activating...";
-
+          document.getElementById("trial").innerText = "No trial yet – activating…";
           await fetch("/.netlify/functions/activate-trial", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: user.primaryEmailAddress.emailAddress
-            })
+            body: JSON.stringify({ email })
           });
-
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – 5 scans remaining";
+          document.getElementById("trial").innerText = "Trial active ✅ – 5 scans remaining";
         }
-      } catch (err) {
-        document.getElementById("trial").innerText =
-          "Could not reach trial service.";
+      } catch {
+        document.getElementById("trial").innerText = "Could not reach trial service.";
       }
 
-      // 6. Hook up Run Scan
+      // Run scan
       const runBtn = document.getElementById("run-scan");
       const scanStatus = document.getElementById("scan-status");
+      const scanOutput = document.getElementById("scan-output");
+      const siteUrl = document.getElementById("site-url");
 
       runBtn.addEventListener("click", async () => {
-        scanStatus.innerText = "Running scan...";
+        const urlVal = (siteUrl.value || "").trim();
+        if (!urlVal) {
+          scanStatus.innerText = "Please enter a URL first.";
+          return;
+        }
+
+        scanStatus.innerText = "Running scan on " + urlVal + " …";
+        scanOutput.style.display = "none"; scanOutput.innerText = "";
 
         const res = await fetch("/.netlify/functions/run-scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.primaryEmailAddress.emailAddress
-          })
+          body: JSON.stringify({ email, url: urlVal })
         });
 
         const data = await res.json();
 
-   if (data.ok) {
-  scanStatus.innerText =
-    "Scan completed. Remaining scans: " + data.remaining +
-    (data.saved ? " — saved to history." : "");
-
-  document.getElementById("trial").innerText =
-    "Trial active ✅ – " + data.remaining + " scans remaining";
-
-  if (data.report) {
-    scanOutput.style.display = "block";
-    scanOutput.innerText = JSON.stringify(data.report, null, 2);
-  }
-} else {
-  scanStatus.innerText = "Scan failed: " + data.reason;
-}
-
+        if (data.ok) {
+          scanStatus.innerText = "Scan completed. Remaining scans: " + data.remaining + (data.saved ? " — saved to history." : "");
+          document.getElementById("trial").innerText = "Trial active ✅ – " + data.remaining + " scans remaining";
+          if (data.report) {
+            scanOutput.style.display = "block";
+            scanOutput.innerText = JSON.stringify(data.report, null, 2);
+          }
+        } else {
+          scanStatus.innerText = "Scan failed: " + data.reason;
+        }
       });
-    });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
   </script>
 </body>
 </html>
