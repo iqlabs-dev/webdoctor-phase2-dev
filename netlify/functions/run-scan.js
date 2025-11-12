@@ -1,4 +1,3 @@
-// /netlify/functions/run-scan.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -14,14 +13,14 @@ export default async (req) => {
       return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
     }
 
-    // 1) Get user from "trials" table (same as activate-trial)
+    // 1) Get trial row
     const { data: user, error } = await supabase
       .from("trials")
       .select("trial_active, trial_credits")
       .eq("email", email)
       .maybeSingle();
 
-    // 2) If no user, auto-create and start trial
+    // 2) Auto-create if missing
     if (error || !user) {
       const { data: created, error: createError } = await supabase
         .from("trials")
@@ -57,7 +56,7 @@ export default async (req) => {
       );
     }
 
-    // 3) Enforce trial rules
+    // 3) Enforce trial
     if (!user.trial_active) {
       return new Response(
         JSON.stringify({ ok: false, reason: "trial not active" }),
@@ -75,7 +74,7 @@ export default async (req) => {
       );
     }
 
-    // 4) Deduct 1 credit
+    // 4) Deduct 1
     const newCredits = (user.trial_credits || 0) - 1;
 
     const { error: updateError } = await supabase
@@ -90,12 +89,10 @@ export default async (req) => {
       );
     }
 
-    // 5) Return success + remaining credits
     return new Response(
       JSON.stringify({ ok: true, remaining: newCredits }),
       { status: 200 }
     );
-
   } catch (err) {
     return new Response(
       JSON.stringify({ ok: false, reason: "server error" }),

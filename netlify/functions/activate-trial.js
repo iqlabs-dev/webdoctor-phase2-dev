@@ -1,4 +1,3 @@
-// /netlify/functions/activate-trial.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -16,7 +15,7 @@ export default async (req) => {
     }
 
     const { data, error } = await supabase
-      .from("trials")            // 👈 changed from "users" to "trials"
+      .from("trials")
       .upsert(
         {
           email,
