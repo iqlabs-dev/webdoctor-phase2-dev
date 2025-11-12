@@ -10,11 +10,10 @@
     .card { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.2); border-radius:1rem; padding:2rem 2.5rem; max-width:560px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.25); }
     h1 { margin-bottom:.5rem; font-weight:600; color:#22c55e; }
     .btn { background:#22c55e; color:#020617; border:none; border-radius:9999px; padding:.6rem 1.25rem; font-weight:600; cursor:pointer; margin-top:1rem; }
-    .btn.secondary { background:#1f2937; color:#e2e8f0; }
-    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; min-height:1.2em; }
+    .btn.secondary { background:#0b1220; color:#e2e8f0; border:1px solid rgba(148,163,184,.35); }
+    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; }
     .input { width:100%; background:rgba(15,23,42,.3); border:1px solid rgba(148,163,184,.3); border-radius:.75rem; padding:.5rem .75rem; color:#e2e8f0; margin-top:1rem; }
     pre { text-align:left; background:rgba(2,6,23,.35); border:1px solid rgba(148,163,184,.15); border-radius:.75rem; padding:1rem; margin-top:1rem; font-size:.75rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
-    .row { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; }
   </style>
 
   <!-- Auth0 SPA SDK -->
@@ -23,12 +22,13 @@
 <body>
   <div class="card" id="dash">
     <h1>WebDoctor Dashboard</h1>
+
     <p id="welcome" class="muted" style="margin-bottom:.75rem;">Loading account…</p>
     <p id="trial" class="muted">Trial status: loading…</p>
 
     <input id="site-url" class="input" type="text" placeholder="Enter site URL to scan (e.g. https://example.com)" />
 
-    <div class="row" style="margin-top:1rem;">
+    <div style="margin-top:1rem; display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap;">
       <button id="run-scan" class="btn">Run scan</button>
       <button class="btn secondary" onclick="window.location.href='/'">Back to site</button>
       <button id="signin" class="btn" style="display:none;">Sign in</button>
@@ -40,81 +40,60 @@
   </div>
 
   <script>
-    // ---------- CONFIG ----------
+    // ---------- AUTH0 CONFIG ----------
     const AUTH0_DOMAIN   = "dev-mdzcq81p4qo6pgka.us.auth0.com";
     const AUTH0_CLIENTID = "FDz2oGtEq0Di2p9OcPGwR9gOIyeVzgWM";
     const REDIRECT_URI   = window.location.origin + "/dashboard.html";
-    // ----------------------------
 
     let auth0Client = null;
 
-    async function initAuth0() {
+    async function initAuth() {
       auth0Client = await auth0.createAuth0Client({
         domain: AUTH0_DOMAIN,
         clientId: AUTH0_CLIENTID,
         authorizationParams: { redirect_uri: REDIRECT_URI },
-        cacheLocation: "localstorage", // survive hard refresh / incognito better
+        cacheLocation: "localstorage" // survive hard refresh + Incognito better
       });
 
-      // Handle the Auth0 redirect callback (after login)
+      // Handle login redirect once
       const params = new URLSearchParams(window.location.search);
       if (params.has("code") && params.has("state")) {
         try {
           await auth0Client.handleRedirectCallback();
         } catch (e) {
-          console.error("Auth0 callback error:", e);
+          console.error("Auth0 handleRedirectCallback error:", e);
         } finally {
-          // Clean up the URL
           window.history.replaceState({}, document.title, REDIRECT_URI);
         }
       }
     }
 
-    async function ensureSignedIn() {
+    async function ensureSigned() {
       const welcome = document.getElementById("welcome");
       const trial   = document.getElementById("trial");
       const signIn  = document.getElementById("signin");
-      const logout  = document.getElementById("logout");
+      const logOut  = document.getElementById("logout");
 
       const isAuth = await auth0Client.isAuthenticated();
+
       if (!isAuth) {
         welcome.innerText = "You're signed out.";
-        trial.innerText = "Please sign in to continue.";
+        trial.innerText   = "Please sign in to continue.";
         signIn.style.display = "inline-block";
-        logout.style.display = "none";
-        signIn.onclick = () => auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: REDIRECT_URI }});
+        logOut.style.display = "none";
         return null;
       }
 
       const user = await auth0Client.getUser();
-      const email = user?.email || "unknown";
-      welcome.innerText = `Welcome, ${email}`;
+      const email = user?.email || "WebDoctor user";
+      welcome.innerText = "Welcome, " + email;
       signIn.style.display = "none";
-      logout.style.display = "inline-block";
-      logout.onclick = () => auth0Client.logout({ logoutParams: { returnTo: window.location.origin }});
+      logOut.style.display = "inline-block";
       return email;
     }
 
-    async function init() {
-      const welcome = document.getElementById("welcome");
-      const trial   = document.getElementById("trial");
-      const runBtn  = document.getElementById("run-scan");
-      const scanStatus = document.getElementById("scan-status");
-      const scanOutput = document.getElementById("scan-output");
-      const siteUrl    = document.getElementById("site-url");
-
-      try {
-        await initAuth0();
-      } catch (e) {
-        console.error(e);
-        welcome.innerText = "Auth failed to load.";
-        return;
-      }
-
-      const email = await ensureSignedIn();
-      if (!email) return; // not signed in
-
-      // ---- Trial check ----
+    async function checkOrActivateTrial(email) {
+      const trial = document.getElementById("trial");
       try {
         const r = await fetch("/.netlify/functions/check-trial", {
           method: "POST",
@@ -137,49 +116,64 @@
         console.error(e);
         trial.innerText = "Could not reach trial service.";
       }
+    }
 
-      // ---- Run Scan ----
-      runBtn.addEventListener("click", async () => {
+    async function wireUI(email) {
+      const runBtn     = document.getElementById("run-scan");
+      const scanStatus = document.getElementById("scan-status");
+      const scanOutput = document.getElementById("scan-output");
+      const siteUrl    = document.getElementById("site-url");
+
+      document.getElementById("signin").onclick = () =>
+        auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: REDIRECT_URI }});
+
+      document.getElementById("logout").onclick = () =>
+        auth0Client.logout({ logoutParams: { returnTo: window.location.origin }});
+
+      runBtn.onclick = async () => {
         const urlVal = (siteUrl.value || "").trim();
-        if (!urlVal) {
-          scanStatus.innerText = "Please enter a URL first.";
-          return;
-        }
+        if (!urlVal) { scanStatus.innerText = "Please enter a URL first."; return; }
 
         scanStatus.innerText = `Running scan on ${urlVal}…`;
-        scanOutput.style.display = "none";
-        scanOutput.innerText = "";
+        scanOutput.style.display = "none"; scanOutput.innerText = "";
 
-        try {
-          const res = await fetch("/.netlify/functions/run-scan", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, url: urlVal })
-          });
-          const data = await res.json();
+        const res = await fetch("/.netlify/functions/run-scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, url: urlVal })
+        });
 
-          if (data.ok) {
-            scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
-            trial.innerText = `Trial active ✅ – ${data.remaining} scans remaining`;
-            if (data.report) {
-              scanOutput.style.display = "block";
-              scanOutput.innerText = JSON.stringify(data.report, null, 2);
-            }
-          } else {
-            scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
+        const data = await res.json();
+        if (data.ok) {
+          scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
+          document.getElementById("trial").innerText =
+            `Trial active ✅ – ${data.remaining} scans remaining`;
+          if (data.report) {
+            scanOutput.style.display = "block";
+            scanOutput.innerText = JSON.stringify(data.report, null, 2);
           }
-        } catch (e) {
-          console.error(e);
-          scanStatus.innerText = "Scan failed: network error.";
+        } else {
+          scanStatus.innerText = "Scan failed: " + (data.reason || "unknown");
         }
-      });
+      };
     }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
-    } else {
-      init();
-    }
+    // ---------- BOOT ----------
+    (async () => {
+      try {
+        await initAuth();
+      } catch (e) {
+        console.error(e);
+        document.getElementById("welcome").innerText = "Auth failed to load.";
+        return;
+      }
+
+      const email = await ensureSigned();
+      if (!email) return;                // not signed in yet
+
+      await checkOrActivateTrial(email); // trial state
+      await wireUI(email);               // handlers
+    })();
   </script>
 </body>
 </html>
