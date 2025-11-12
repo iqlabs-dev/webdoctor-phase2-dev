@@ -67,7 +67,7 @@
     </form>
   </div>
 
-  <script type="module">
+    <script type="module">
     import { supabase, getSessionUser } from "/public/auth.js";
 
     // Already signed in? Go straight to dashboard
@@ -82,20 +82,32 @@
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       errBox.style.display = "none";
+
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value;
 
-      // Sign in or sign up if not existing
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      // 1) Try sign in with password
+      let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+      // 2) If sign-in fails, auto-create account with password
       if (error) {
-        // Try auto-signup fallback
-        const { error: signupError } = await supabase.auth.signUp({ email, password });
+        const { error: signupError } = await supabase.auth.signUpWithPassword({
+          email,
+          password
+        });
+
         if (signupError) {
           errBox.textContent = signupError.message || "Sign-in failed.";
           errBox.style.display = "block";
           return;
         }
       }
+
+      // 3) Success — redirect
+      window.location.replace("/dashboard.html");
+    });
+  </script>
+
 
       // Success — redirect
       window.location.replace("/dashboard.html");
