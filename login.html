@@ -13,97 +13,93 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 1.5rem;
-      flex-direction: column;
     }
-    .shell {
+    .card {
       background: #fff;
       border-radius: 18px;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.05);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.06);
       width: min(420px, 94vw);
-      padding: 28px 28px 16px;
+      padding: 28px;
       text-align: center;
     }
     h1 { margin: 0 0 6px; font-size: 1.15rem; color: #0f172a; }
-    p  { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
-    #error-box {
-      display: none;
-      background: #fee2e2;
-      color: #b91c1c;
-      padding: 8px 10px;
-      border-radius: 10px;
-      font-size: 0.75rem;
-      margin-top: 10px;
-      text-align: left;
+    p { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
+    input {
+      width: 100%;
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      border: 1px solid #cbd5e1;
+      margin: 0.4rem 0;
+      background: #f8fafc;
     }
-    footer {
-      font-size: 0.7rem;
-      color: #94a3b8;
+    button {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border-radius: 9999px;
+      border: 0;
+      background: #16a34a;
+      color: #03120a;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.6rem;
+    }
+    .err {
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.8rem;
+      display: none;
+      margin-top: 0.6rem;
     }
   </style>
-
-  <!-- Clerk script (browser) -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-    data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"  <!-- 👈 put your Clerk publishable key here -->
-    crossorigin="anonymous">
-  </script>
 </head>
 <body>
-  <div class="shell">
+  <div class="card">
     <h1>Welcome to WebDoctor</h1>
-    <p>Sign in to access your dashboard and scan reports.</p>
-    <!-- Clerk will render into this -->
-    <div id="clerk-signin"></div>
-    <div id="error-box"></div>
+    <p>Sign in to access your dashboard.</p>
+
+    <form id="login-form">
+      <input id="email" type="email" placeholder="Email address" autocomplete="email" required />
+      <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
+      <button type="submit">Continue</button>
+      <div id="err" class="err"></div>
+    </form>
   </div>
 
-  <footer>© 2025 WebDoctor — All Rights Reserved — Made in New Zealand.</footer>
+  <script type="module">
+    import { supabase, getSessionUser } from "/public/auth.js";
 
-  <script>
-    // remember intent from ?trial=1
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("trial") === "1") {
-      localStorage.setItem("webdoctor_trial_intent", "1");
+    // Already signed in? Go straight to dashboard
+    const already = await getSessionUser();
+    if (already) {
+      window.location.replace("/dashboard.html");
     }
 
-    // wait for Clerk script to actually load
-    (async function initClerk() {
-      const errBox = document.getElementById("error-box");
+    const form = document.getElementById("login-form");
+    const errBox = document.getElementById("err");
 
-      // Clerk injects window.Clerk after script finishes
-      // we'll poll a tiny bit
-      let tries = 0;
-      while (!window.Clerk && tries < 40) { // ~2s
-        await new Promise(r => setTimeout(r, 50));
-        tries++;
-      }
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errBox.style.display = "none";
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
 
-      if (!window.Clerk) {
-        errBox.style.display = "block";
-        errBox.textContent = "Could not load authentication. Check Clerk publishable key.";
-        return;
-      }
-
-      try {
-        await window.Clerk.load();
-
-        // already signed in? go straight to dashboard
-        if (window.Clerk.user) {
-          window.location.href = "/dashboard.html";
+      // Sign in or sign up if not existing
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        // Try auto-signup fallback
+        const { error: signupError } = await supabase.auth.signUp({ email, password });
+        if (signupError) {
+          errBox.textContent = signupError.message || "Sign-in failed.";
+          errBox.style.display = "block";
           return;
         }
-
-        // show sign-in UI
-        window.Clerk.mountSignIn(document.getElementById("clerk-signin"), {
-          afterSignInUrl: "/dashboard.html",
-          afterSignUpUrl: "/dashboard.html",
-        });
-      } catch (e) {
-        errBox.style.display = "block";
-        errBox.textContent = "Auth error: " + (e?.message || e);
       }
-    })();
+
+      // Success — redirect
+      window.location.replace("/dashboard.html");
+    });
   </script>
 </body>
 </html>

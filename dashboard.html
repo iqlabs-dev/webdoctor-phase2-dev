@@ -1,89 +1,92 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
   <title>WebDoctor Dashboard</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family:"Montserrat",sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
-    .card { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.2); border-radius:1rem; padding:2rem 2.5rem; max-width:560px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.25); }
-    h1 { margin-bottom:.5rem; font-weight:600; color:#22c55e; }
-    .btn { background:#22c55e; color:#020617; border:none; border-radius:9999px; padding:.6rem 1.25rem; font-weight:600; cursor:pointer; margin-top:1rem; }
-    .btn.secondary { background:#0b1220; color:#e2e8f0; border:1px solid rgba(148,163,184,.35); }
-    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; }
-    .input { width:100%; background:rgba(15,23,42,.3); border:1px solid rgba(148,163,184,.3); border-radius:.75rem; padding:.5rem .75rem; color:#e2e8f0; margin-top:1rem; }
-    pre { text-align:left; background:rgba(2,6,23,.35); border:1px solid rgba(148,163,184,.15); border-radius:.75rem; padding:1rem; margin-top:1rem; font-size:.75rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
-  </style>
-
- 
-   <!-- ✅ Auth0 SDK -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.6.3/dist/auth0-spa-js.production.js"
-    onload="console.log('✅ Auth0 SDK loaded');"
-    crossorigin="anonymous">
-  </script>
-
-  <!-- ✅ WebDoctor Auth0 + Dashboard Logic -->
-  <script>
-    const AUTH0_DOMAIN = "dev-mdzcq81p4qo6pgka.us.auth0.com";
-    const AUTH0_CLIENT_ID = "FDz2oGtEq0Di2p9OcPGwR9gOIyeVzgWM";
-    const REDIRECT_URI = window.location.origin + "/dashboard.html";
-
-    let auth0Client;
-
-    async function initAuth() {
-      try {
-        // Create Auth0 client
-        auth0Client = await createAuth0Client({
-          domain: AUTH0_DOMAIN,
-          clientId: AUTH0_CLIENT_ID,
-          authorizationParams: { redirect_uri: REDIRECT_URI },
-          cacheLocation: "localstorage" // survive refresh/incognito
-        });
-
-        // Handle redirect callback
-        const query = window.location.search;
-        if (query.includes("code=") && query.includes("state=")) {
-          await auth0Client.handleRedirectCallback();
-          window.history.replaceState({}, document.title, REDIRECT_URI);
-        }
-
-        // Check authentication
-        const isAuthenticated = await auth0Client.isAuthenticated();
-        const welcome = document.getElementById("welcome");
-        const trial = document.getElementById("trial");
-        const logoutBtn = document.getElementById("logout");
-
-        if (!isAuthenticated) {
-          welcome.innerText = "Please sign in to continue.";
-          trial.innerText = "Trial status: not active.";
-
-          const signInBtn = document.createElement("button");
-          signInBtn.className = "btn";
-          signInBtn.style.marginLeft = ".5rem";
-          signInBtn.innerText = "Sign In";
-          signInBtn.onclick = () => auth0Client.loginWithRedirect();
-          document.querySelector("#dash div[style*='margin-top']").appendChild(signInBtn);
-          return;
-        }
-
-        // Logged in
-        const user = await auth0Client.getUser();
-        welcome.innerText = `Welcome, ${user.email}`;
-        trial.innerText = "Trial active ✅ – 5 scans remaining";
-
-        logoutBtn.style.display = "inline-block";
-        logoutBtn.onclick = () =>
-          auth0Client.logout({ logoutParams: { returnTo: window.location.origin } });
-
-      } catch (err) {
-        console.error("❌ Auth0 load error:", err);
-        document.getElementById("welcome").innerText = "Auth failed to load.";
-      }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
+    .card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 16px;
+      padding: 28px;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+    }
+    .btn {
+      background: #22c55e;
+      color: #04140a;
+      border: none;
+      border-radius: 9999px;
+      padding: 0.6rem 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: 0.9rem;
+    }
+    input {
+      width: 100%;
+      background: rgba(2, 6, 23, 0.4);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      padding: 0.55rem 0.8rem;
+      color: #e2e8f0;
+      margin: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>WebDoctor Dashboard</h2>
+    <p id="welcome" class="muted">Checking session…</p>
+    <input id="site-url" type="text" placeholder="Enter site URL (https://example.com)" />
+    <div style="display:flex;gap:.5rem;justify-content:center">
+      <button id="run" class="btn">Run scan</button>
+      <button id="logout" class="btn" style="background:#ef4444;color:#fff">Sign out</button>
+    </div>
+    <p id="status" class="muted" style="margin-top:10px;"></p>
+  </div>
 
-    document.addEventListener("DOMContentLoaded", initAuth);
+  <script type="module">
+    import { requireAuthed, signOut } from "/public/auth.js";
+
+    const user = await requireAuthed("/login.html");
+    if (!user) throw new Error("Redirecting…");
+
+    document.getElementById("welcome").textContent = `Welcome, ${user.email || "user"}`;
+
+    document.getElementById("logout").onclick = () => signOut();
+
+    document.getElementById("run").onclick = async () => {
+      const url = document.getElementById("site-url").value.trim();
+      const status = document.getElementById("status");
+      if (!url) {
+        status.textContent = "Please enter a URL.";
+        return;
+      }
+      status.textContent = "Running scan…";
+      const res = await fetch("/.netlify/functions/run-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, url }),
+      });
+      const data = await res.json();
+      status.textContent = data?.ok
+        ? "Scan complete."
+        : "Scan failed: " + (data?.reason || "unknown");
+    };
   </script>
 </body>
 </html>
