@@ -16,13 +16,14 @@
   </style>
 
   <!-- Clerk -->
-  <script
-    async
-    crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
-    onload="window.Clerk.load()"
-  ></script>
+<!-- ✅ Clerk loader (robust) -->
+<script
+  async
+  crossorigin="anonymous"
+  data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"
+  src="https://model-fawn-32.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
+</script>
+
 </head>
 <body>
   <div class="card" id="dash">
@@ -41,76 +42,117 @@
     <pre id="scan-output" style="display:none;"></pre>
   </div>
 
+ 
   <script>
-    async function initDashboard() {
-      const welcome = document.getElementById("welcome");
-      const trial = document.getElementById("trial");
-      try {
-        // Wait for Clerk to be ready
-        await window.Clerk.load({ standardBrowser: true });
-        const user = window.Clerk.user;
-        if (!user) throw new Error("no user");
-        const email = user.primaryEmailAddress?.emailAddress || "unknown";
-        welcome.innerText = `Welcome, ${email}`;
+  async function waitForClerkReady() {
+    for (let i = 0; i < 80; i++) { // wait up to ~8s
+      if (window.Clerk && typeof window.Clerk.load === "function") return;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error("Clerk script not available");
+  }
 
-        // Trial check
-        const res = await fetch("/.netlify/functions/check-trial", {
+  async function init() {
+    const welcome = document.getElementById("welcome");
+    const trial = document.getElementById("trial");
+
+    try {
+      await waitForClerkReady();
+      await window.Clerk.load();
+    } catch (e) {
+      welcome.innerText = "Auth failed to load.";
+      console.error(e);
+      return;
+    }
+
+    const user = window.Clerk.user;
+    if (!user) {
+      welcome.innerText = "You're signed out.";
+      trial.innerText = "Please sign in to continue.";
+
+      let btn = document.getElementById("signin");
+      if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "signin";
+        btn.className = "btn";
+        btn.style.marginLeft = ".5rem";
+        btn.innerText = "Sign in";
+        document.querySelector("#dash div[style*='margin-top']").appendChild(btn);
+      }
+      btn.onclick = () => window.Clerk.openSignIn({ redirectUrl: window.location.pathname });
+      return;
+    }
+
+    const email = user.primaryEmailAddress?.emailAddress || "unknown";
+    welcome.innerText = `Welcome, ${email}`;
+
+    // Trial check
+    try {
+      const r = await fetch("/.netlify/functions/check-trial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const d = await r.json();
+      if (d.trial_active) {
+        trial.innerText = `Trial active ✅ – ${d.trial_credits ?? 5} scans remaining`;
+      } else {
+        trial.innerText = "No trial yet – activating…";
+        await fetch("/.netlify/functions/activate-trial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email })
         });
-        const d = await res.json();
-        if (d.trial_active) {
-          trial.innerText = `Trial active ✅ — ${d.trial_credits ?? 5} scans remaining`;
-        } else {
-          trial.innerText = "No trial yet — activating…";
-          await fetch("/.netlify/functions/activate-trial", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email })
-          });
-          trial.innerText = "Trial active ✅ — 5 scans remaining";
-        }
-
-        // Scan logic
-        const runBtn = document.getElementById("run-scan");
-        const scanStatus = document.getElementById("scan-status");
-        const scanOutput = document.getElementById("scan-output");
-        const siteUrl = document.getElementById("site-url");
-
-        runBtn.addEventListener("click", async () => {
-          const urlVal = siteUrl.value.trim();
-          if (!urlVal) return (scanStatus.innerText = "Please enter a URL first.");
-
-          scanStatus.innerText = `Running scan on ${urlVal}…`;
-          scanOutput.style.display = "none"; scanOutput.innerText = "";
-
-          const r = await fetch("/.netlify/functions/run-scan", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, url: urlVal })
-          });
-
-          const data = await r.json();
-          if (data.ok) {
-            scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
-            trial.innerText = `Trial active ✅ — ${data.remaining} scans remaining`;
-            if (data.report) {
-              scanOutput.style.display = "block";
-              scanOutput.innerText = JSON.stringify(data.report, null, 2);
-            }
-          } else {
-            scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
-          }
-        });
-
-      } catch (err) {
-        console.error("Auth failed:", err);
-        welcome.innerText = "Auth failed to load.";
+        trial.innerText = "Trial active ✅ – 5 scans remaining";
       }
+    } catch {
+      trial.innerText = "Could not reach trial service.";
     }
 
-    document.addEventListener("DOMContentLoaded", initDashboard);
-  </script>
+    // Run Scan
+    const runBtn = document.getElementById("run-scan");
+    const scanStatus = document.getElementById("scan-status");
+    const scanOutput = document.getElementById("scan-output");
+    const siteUrl = document.getElementById("site-url");
+
+    runBtn.addEventListener("click", async () => {
+      const urlVal = siteUrl.value.trim();
+      if (!urlVal) {
+        scanStatus.innerText = "Please enter a URL first.";
+        return;
+      }
+
+      scanStatus.innerText = `Running scan on ${urlVal}…`;
+      scanOutput.style.display = "none";
+      scanOutput.innerText = "";
+
+      const res = await fetch("/.netlify/functions/run-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, url: urlVal })
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
+        trial.innerText = `Trial active ✅ – ${data.remaining} scans remaining`;
+        if (data.report) {
+          scanOutput.style.display = "block";
+          scanOutput.innerText = JSON.stringify(data.report, null, 2);
+        }
+      } else {
+        scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
+      }
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+</script>
+
 </body>
 </html>
