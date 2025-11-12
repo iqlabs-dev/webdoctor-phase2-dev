@@ -67,51 +67,50 @@
     </form>
   </div>
 
-    <script type="module">
+  <!-- IMPORTANT: this script tag must not be self-closing -->
+  <script type="module">
     import { supabase, getSessionUser } from "/public/auth.js";
 
-    // Already signed in? Go straight to dashboard
-    const already = await getSessionUser();
-    if (already) {
-      window.location.replace("/dashboard.html");
-    }
-
-    const form = document.getElementById("login-form");
-    const errBox = document.getElementById("err");
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      errBox.style.display = "none";
-
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value;
-
-      // 1) Try sign in with password
-      let { error } = await supabase.auth.signInWithPassword({ email, password });
-
-      // 2) If sign-in fails, auto-create account with password
-      if (error) {
-        const { error: signupError } = await supabase.auth.signUpWithPassword({
-          email,
-          password
-        });
-
-        if (signupError) {
-          errBox.textContent = signupError.message || "Sign-in failed.";
-          errBox.style.display = "block";
-          return;
-        }
+    // Wrap everything so we don't leak top-level await issues
+    (async () => {
+      // Already signed in? Go straight to dashboard
+      const already = await getSessionUser();
+      if (already) {
+        window.location.replace("/dashboard.html");
+        return;
       }
 
-      // 3) Success — redirect
-      window.location.replace("/dashboard.html");
-    });
-  </script>
+      const form = document.getElementById("login-form");
+      const errBox = document.getElementById("err");
 
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errBox.style.display = "none";
 
-      // Success — redirect
-      window.location.replace("/dashboard.html");
-    });
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        // 1) Try sign in with password
+        let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+        // 2) If sign-in fails, auto-create account with password
+        if (error) {
+          const { error: signupError } = await supabase.auth.signUpWithPassword({
+            email,
+            password,
+          });
+
+          if (signupError) {
+            errBox.textContent = signupError.message || "Sign-in failed.";
+            errBox.style.display = "block";
+            return;
+          }
+        }
+
+        // 3) Success — redirect
+        window.location.replace("/dashboard.html");
+      });
+    })();
   </script>
 </body>
 </html>
