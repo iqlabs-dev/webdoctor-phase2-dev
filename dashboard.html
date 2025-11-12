@@ -6,7 +6,7 @@
   <title>WebDoctor Dashboard</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap">
   <style>
-    body { font-family:"Montserrat",sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    body { font-family: "Montserrat", sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
     .card { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.2); border-radius:1rem; padding:2rem 2.5rem; max-width:560px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.25); }
     h1 { margin-bottom:.5rem; font-weight:600; color:#22c55e; }
     .btn { background:#22c55e; color:#020617; border:none; border-radius:9999px; padding:.6rem 1.25rem; font-weight:600; cursor:pointer; margin-top:1rem; }
@@ -15,13 +15,14 @@
     pre { text-align:left; background:rgba(2,6,23,.35); border:1px solid rgba(148,163,184,.15); border-radius:.75rem; padding:1rem; margin-top:1rem; font-size:.75rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
   </style>
 
-  <!-- Clerk (keep your real publishable key here) -->
+  <!-- Clerk -->
   <script
     async
     crossorigin="anonymous"
     data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"
-    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
-  </script>
+    src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+    onload="window.Clerk.load()"
+  ></script>
 </head>
 <body>
   <div class="card" id="dash">
@@ -34,8 +35,6 @@
     <div style="margin-top:1rem;">
       <button id="run-scan" class="btn" style="margin-right:.5rem;">Run scan</button>
       <button class="btn" onclick="window.location.href='/'">Back to site</button>
-      <!-- Manual fallback (in case popups are blocked) -->
-      <button id="signin" class="btn" style="margin-left:.5rem; display:none;">Sign in</button>
     </div>
 
     <p id="scan-status" class="muted"></p>
@@ -43,113 +42,75 @@
   </div>
 
   <script>
-    async function boot() {
+    async function initDashboard() {
+      const welcome = document.getElementById("welcome");
+      const trial = document.getElementById("trial");
       try {
-        await window.Clerk.load();
-      } catch (e) {
-        document.getElementById("welcome").innerText = "Auth failed to load.";
-        return;
-      }
+        // Wait for Clerk to be ready
+        await window.Clerk.load({ standardBrowser: true });
+        const user = window.Clerk.user;
+        if (!user) throw new Error("no user");
+        const email = user.primaryEmailAddress?.emailAddress || "unknown";
+        welcome.innerText = `Welcome, ${email}`;
 
-      // Manual fallback button
-      const signBtn = document.getElementById("signin");
-      if (signBtn) {
-        signBtn.onclick = () =>
-          window.Clerk.openSignIn({
-            afterSignInUrl: "/dashboard.html",
-            afterSignUpUrl: "/dashboard.html"
-          });
-      }
-
-      const sessionUser = window.Clerk.user;
-
-      // If no user, open Clerk and stop; we'll come back to /dashboard.html after sign-in
-      if (!sessionUser) {
-        if (signBtn) signBtn.style.display = "inline-block";
-        window.Clerk.openSignIn({
-          afterSignInUrl: "/dashboard.html",
-          afterSignUpUrl: "/dashboard.html"
-        });
-        return;
-      }
-
-      // From here on, user is authenticated
-      const email = sessionUser.primaryEmailAddress?.emailAddress || "";
-      document.getElementById("welcome").innerText =
-        "Welcome, " + (email || "WebDoctor user");
-
-      // ---- Trial check / activation
-      try {
-        const r = await fetch("/.netlify/functions/check-trial", {
+        // Trial check
+        const res = await fetch("/.netlify/functions/check-trial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email })
         });
-        const d = await r.json();
-
+        const d = await res.json();
         if (d.trial_active) {
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – " + (d.trial_credits ?? 5) + " scans remaining";
+          trial.innerText = `Trial active ✅ — ${d.trial_credits ?? 5} scans remaining`;
         } else {
-          document.getElementById("trial").innerText = "No trial yet – activating…";
+          trial.innerText = "No trial yet — activating…";
           await fetch("/.netlify/functions/activate-trial", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email })
           });
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – 5 scans remaining";
-        }
-      } catch {
-        document.getElementById("trial").innerText =
-          "Could not reach trial service.";
-      }
-
-      // ---- Run scan
-      const runBtn = document.getElementById("run-scan");
-      const scanStatus = document.getElementById("scan-status");
-      const scanOutput = document.getElementById("scan-output");
-      const siteUrl = document.getElementById("site-url");
-
-      runBtn.addEventListener("click", async () => {
-        const urlVal = (siteUrl.value || "").trim();
-        if (!urlVal) {
-          scanStatus.innerText = "Please enter a URL first.";
-          return;
+          trial.innerText = "Trial active ✅ — 5 scans remaining";
         }
 
-        scanStatus.innerText = "Running scan on " + urlVal + " …";
-        scanOutput.style.display = "none";
-        scanOutput.innerText = "";
+        // Scan logic
+        const runBtn = document.getElementById("run-scan");
+        const scanStatus = document.getElementById("scan-status");
+        const scanOutput = document.getElementById("scan-output");
+        const siteUrl = document.getElementById("site-url");
 
-        const res = await fetch("/.netlify/functions/run-scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, url: urlVal })
+        runBtn.addEventListener("click", async () => {
+          const urlVal = siteUrl.value.trim();
+          if (!urlVal) return (scanStatus.innerText = "Please enter a URL first.");
+
+          scanStatus.innerText = `Running scan on ${urlVal}…`;
+          scanOutput.style.display = "none"; scanOutput.innerText = "";
+
+          const r = await fetch("/.netlify/functions/run-scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, url: urlVal })
+          });
+
+          const data = await r.json();
+          if (data.ok) {
+            scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
+            trial.innerText = `Trial active ✅ — ${data.remaining} scans remaining`;
+            if (data.report) {
+              scanOutput.style.display = "block";
+              scanOutput.innerText = JSON.stringify(data.report, null, 2);
+            }
+          } else {
+            scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
+          }
         });
 
-        const data = await res.json();
-
-        if (data.ok) {
-          scanStatus.innerText =
-            "Scan completed. Remaining scans: " + data.remaining + (data.saved ? " — saved to history." : "");
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – " + data.remaining + " scans remaining";
-          if (data.report) {
-            scanOutput.style.display = "block";
-            scanOutput.innerText = JSON.stringify(data.report, null, 2);
-          }
-        } else {
-          scanStatus.innerText = "Scan failed: " + (data.reason || "unknown error");
-        }
-      });
+      } catch (err) {
+        console.error("Auth failed:", err);
+        welcome.innerText = "Auth failed to load.";
+      }
     }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", boot);
-    } else {
-      boot();
-    }
+    document.addEventListener("DOMContentLoaded", initDashboard);
   </script>
 </body>
 </html>
