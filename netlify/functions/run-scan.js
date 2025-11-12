@@ -14,17 +14,17 @@ export default async (req) => {
       return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
     }
 
-    // 1) Get trial row
-    const { data: user, error } = await supabase
-      .from("trials")
+    // ✅ STEP 1: Check or create user in "users" table
+    let { data: user, error } = await supabase
+      .from("users")
       .select("trial_active, trial_credits")
       .eq("email", email)
       .maybeSingle();
 
-    // 2) Auto-create if missing (and treat as first scan)
-    if (error || !user) {
+    // auto-create user if not exists
+    if (!user) {
       const { data: created, error: createError } = await supabase
-        .from("trials")
+        .from("users")
         .upsert(
           {
             email,
@@ -39,28 +39,15 @@ export default async (req) => {
 
       if (createError || !created) {
         return new Response(
-          JSON.stringify({ ok: false, reason: "user not found" }),
-          { status: 404 }
+          JSON.stringify({ ok: false, reason: "user creation failed" }),
+          { status: 500 }
         );
       }
 
-      const newCredits = (created.trial_credits || 5) - 1;
-
-      await supabase
-        .from("trials")
-        .update({ trial_credits: newCredits })
-        .eq("email", email);
-
-      const report = buildFakeReport(url);
-      await saveReport({ email, url: report.scanned_url, report, credits_after: newCredits });
-
-      return new Response(
-        JSON.stringify({ ok: true, remaining: newCredits, saved: true, report }),
-        { status: 200 }
-      );
+      user = created;
     }
 
-    // 3) Enforce trial
+    // ✅ STEP 2: Validate active trial and credits
     if (!user.trial_active) {
       return new Response(
         JSON.stringify({ ok: false, reason: "trial not active" }),
@@ -70,72 +57,47 @@ export default async (req) => {
 
     if ((user.trial_credits || 0) <= 0) {
       return new Response(
-        JSON.stringify({
-          ok: false,
-          reason: "no credits left — please upgrade for more scans",
-        }),
+        JSON.stringify({ ok: false, reason: "no credits" }),
         { status: 403 }
       );
     }
 
-    // 4) Deduct 1
+    // ✅ STEP 3: Deduct credit
     const newCredits = (user.trial_credits || 0) - 1;
 
-    const { error: updateError } = await supabase
-      .from("trials")
+    await supabase
+      .from("users")
       .update({ trial_credits: newCredits })
       .eq("email", email);
 
-    if (updateError) {
-      return new Response(
-        JSON.stringify({ ok: false, reason: "update failed" }),
-        { status: 500 }
-      );
-    }
+    // ✅ STEP 4: Mock scan data (placeholder output)
+    const mockReport = {
+      url,
+      timestamp: new Date().toISOString(),
+      performance: Math.floor(Math.random() * 20) + 80,
+      accessibility: Math.floor(Math.random() * 20) + 75,
+      seo: Math.floor(Math.random() * 20) + 70,
+      notes: "Mock scan completed successfully. Real API integration coming next phase."
+    };
 
-    // 5) Save report row
-    const report = buildFakeReport(url);
-    await saveReport({ email, url: report.scanned_url, report, credits_after: newCredits });
+    // ✅ STEP 5: Save report (optional — create table 'reports')
+    await supabase.from("reports").insert([
+      { email, url, report: mockReport, created_at: new Date().toISOString() },
+    ]);
 
-    // 6) Return success
+    // ✅ STEP 6: Return response
     return new Response(
-      JSON.stringify({ ok: true, remaining: newCredits, saved: true, report }),
+      JSON.stringify({
+        ok: true,
+        remaining: newCredits,
+        report: mockReport,
+      }),
       { status: 200 }
     );
-
   } catch (err) {
-    return new Response(
-      JSON.stringify({ ok: false, reason: "server error" }),
-      { status: 500 }
-    );
+    console.error("run-scan error:", err);
+    return new Response(JSON.stringify({ ok: false, reason: "server error" }), {
+      status: 500,
+    });
   }
 };
-
-// ---- helpers ----
-
-async function saveReport({ email, url, report, credits_after }) {
-  // Don’t throw if this fails — we already deducted a credit.
-  await supabase.from("reports").insert({
-    email,
-    url,
-    report,
-    credits_after
-  });
-}
-
-function buildFakeReport(url) {
-  const safeUrl = (url || "").trim() || "https://example.com";
-  return {
-    scanned_url: safeUrl,
-    score: 84,
-    issues: [
-      { type: "seo",         message: "Missing meta description",          severity: "medium" },
-      { type: "performance", message: "Large hero image (>200KB)",         severity: "low"    }
-    ],
-    recommendations: [
-      "Add a meta description under 155 characters.",
-      "Compress hero image and enable lazy loading."
-    ],
-    scanned_at: new Date().toISOString()
-  };
-}
