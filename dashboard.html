@@ -6,22 +6,19 @@
   <title>WebDoctor Dashboard</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap">
   <style>
-    body { font-family: "Montserrat", sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    body { font-family:"Montserrat",sans-serif; background:#0f172a; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
     .card { background:rgba(15,23,42,.7); border:1px solid rgba(148,163,184,.2); border-radius:1rem; padding:2rem 2.5rem; max-width:560px; width:100%; text-align:center; box-shadow:0 4px 24px rgba(0,0,0,.25); }
     h1 { margin-bottom:.5rem; font-weight:600; color:#22c55e; }
     .btn { background:#22c55e; color:#020617; border:none; border-radius:9999px; padding:.6rem 1.25rem; font-weight:600; cursor:pointer; margin-top:1rem; }
-    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; }
+    .btn.secondary { background:#1f2937; color:#e2e8f0; }
+    .muted { color:#94a3b8; font-size:.85rem; margin-top:.5rem; min-height:1.2em; }
     .input { width:100%; background:rgba(15,23,42,.3); border:1px solid rgba(148,163,184,.3); border-radius:.75rem; padding:.5rem .75rem; color:#e2e8f0; margin-top:1rem; }
     pre { text-align:left; background:rgba(2,6,23,.35); border:1px solid rgba(148,163,184,.15); border-radius:.75rem; padding:1rem; margin-top:1rem; font-size:.75rem; white-space:pre-wrap; word-break:break-word; max-height:260px; overflow-y:auto; }
+    .row { display:flex; gap:.5rem; justify-content:center; flex-wrap:wrap; }
   </style>
 
-  <!-- Clerk (robust loader) -->
-  <script
-    async
-    crossorigin="anonymous"
-    data-clerk-publishable-key="pk_test_bW9kZWwtZmF3bi0zMi5jbGVyay5hY2NvdW50cy5kZXYk"
-    src="https://model-fawn-32.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
-  </script>
+  <!-- Auth0 SPA SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@auth0/auth0-spa-js@2.6.3/dist/auth0-spa-js.production.js"></script>
 </head>
 <body>
   <div class="card" id="dash">
@@ -31,11 +28,11 @@
 
     <input id="site-url" class="input" type="text" placeholder="Enter site URL to scan (e.g. https://example.com)" />
 
-    <!-- Stable actions row -->
-    <div id="actions" style="margin-top:1rem;">
-      <button id="run-scan" class="btn" style="margin-right:.5rem;">Run scan</button>
-      <button class="btn" onclick="window.location.href='/'">Back to site</button>
-      <!-- Sign in/out buttons are injected here as needed -->
+    <div class="row" style="margin-top:1rem;">
+      <button id="run-scan" class="btn">Run scan</button>
+      <button class="btn secondary" onclick="window.location.href='/'">Back to site</button>
+      <button id="signin" class="btn" style="display:none;">Sign in</button>
+      <button id="logout" class="btn secondary" style="display:none;">Log out</button>
     </div>
 
     <p id="scan-status" class="muted"></p>
@@ -43,70 +40,81 @@
   </div>
 
   <script>
-    async function waitForClerkReady() {
-      for (let i = 0; i < 80; i++) { // wait up to ~8s
-        if (window.Clerk && typeof window.Clerk.load === "function") return;
-        await new Promise(r => setTimeout(r, 100));
+    // ---------- CONFIG ----------
+    const AUTH0_DOMAIN   = "dev-mdzcq81p4qo6pgka.us.auth0.com";
+    const AUTH0_CLIENTID = "FDz2oGtEq0Di2p9OcPGwR9gOIyeVzgWM";
+    const REDIRECT_URI   = window.location.origin + "/dashboard.html";
+    // ----------------------------
+
+    let auth0Client = null;
+
+    async function initAuth0() {
+      auth0Client = await auth0.createAuth0Client({
+        domain: AUTH0_DOMAIN,
+        clientId: AUTH0_CLIENTID,
+        authorizationParams: { redirect_uri: REDIRECT_URI },
+        cacheLocation: "localstorage", // survive hard refresh / incognito better
+      });
+
+      // Handle the Auth0 redirect callback (after login)
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("code") && params.has("state")) {
+        try {
+          await auth0Client.handleRedirectCallback();
+        } catch (e) {
+          console.error("Auth0 callback error:", e);
+        } finally {
+          // Clean up the URL
+          window.history.replaceState({}, document.title, REDIRECT_URI);
+        }
       }
-      throw new Error("Clerk script not available");
+    }
+
+    async function ensureSignedIn() {
+      const welcome = document.getElementById("welcome");
+      const trial   = document.getElementById("trial");
+      const signIn  = document.getElementById("signin");
+      const logout  = document.getElementById("logout");
+
+      const isAuth = await auth0Client.isAuthenticated();
+      if (!isAuth) {
+        welcome.innerText = "You're signed out.";
+        trial.innerText = "Please sign in to continue.";
+        signIn.style.display = "inline-block";
+        logout.style.display = "none";
+        signIn.onclick = () => auth0Client.loginWithRedirect({ authorizationParams: { redirect_uri: REDIRECT_URI }});
+        return null;
+      }
+
+      const user = await auth0Client.getUser();
+      const email = user?.email || "unknown";
+      welcome.innerText = `Welcome, ${email}`;
+      signIn.style.display = "none";
+      logout.style.display = "inline-block";
+      logout.onclick = () => auth0Client.logout({ logoutParams: { returnTo: window.location.origin }});
+      return email;
     }
 
     async function init() {
       const welcome = document.getElementById("welcome");
-      const trial = document.getElementById("trial");
-      const actions = document.getElementById("actions");
+      const trial   = document.getElementById("trial");
+      const runBtn  = document.getElementById("run-scan");
+      const scanStatus = document.getElementById("scan-status");
+      const scanOutput = document.getElementById("scan-output");
+      const siteUrl    = document.getElementById("site-url");
 
       try {
-        await waitForClerkReady();
-        await window.Clerk.load();
+        await initAuth0();
       } catch (e) {
-        welcome.innerText = "Auth failed to load.";
         console.error(e);
+        welcome.innerText = "Auth failed to load.";
         return;
       }
 
-      const user = window.Clerk.user;
+      const email = await ensureSignedIn();
+      if (!email) return; // not signed in
 
-      // Not signed in → show Sign in, stop here
-      if (!user) {
-        welcome.innerText = "You're signed out.";
-        trial.innerText = "Please sign in to continue.";
-
-        let inBtn = document.getElementById("signin");
-        if (!inBtn) {
-          inBtn = document.createElement("button");
-          inBtn.id = "signin";
-          inBtn.className = "btn";
-          inBtn.style.marginLeft = ".5rem";
-          inBtn.innerText = "Sign in";
-          actions.appendChild(inBtn);
-        }
-        inBtn.onclick = async () => {
-          await window.Clerk.openSignIn({ redirectUrl: window.location.pathname });
-          setTimeout(() => window.location.reload(), 250);
-        };
-        return;
-      }
-
-      // Signed in → welcome + Sign out button
-      const email = user.primaryEmailAddress?.emailAddress || "unknown";
-      welcome.innerText = `Welcome, ${email}`;
-
-      let outBtn = document.getElementById("signout");
-      if (!outBtn) {
-        outBtn = document.createElement("button");
-        outBtn.id = "signout";
-        outBtn.className = "btn";
-        outBtn.style.marginLeft = ".5rem";
-        outBtn.innerText = "Sign out";
-        actions.appendChild(outBtn);
-      }
-      outBtn.onclick = async () => {
-        await window.Clerk.signOut();
-        window.location.reload();
-      };
-
-      // Trial check
+      // ---- Trial check ----
       try {
         const r = await fetch("/.netlify/functions/check-trial", {
           method: "POST",
@@ -125,18 +133,14 @@
           });
           trial.innerText = "Trial active ✅ – 5 scans remaining";
         }
-      } catch {
+      } catch (e) {
+        console.error(e);
         trial.innerText = "Could not reach trial service.";
       }
 
-      // Run Scan
-      const runBtn = document.getElementById("run-scan");
-      const scanStatus = document.getElementById("scan-status");
-      const scanOutput = document.getElementById("scan-output");
-      const siteUrl = document.getElementById("site-url");
-
+      // ---- Run Scan ----
       runBtn.addEventListener("click", async () => {
-        const urlVal = siteUrl.value.trim();
+        const urlVal = (siteUrl.value || "").trim();
         if (!urlVal) {
           scanStatus.innerText = "Please enter a URL first.";
           return;
@@ -146,23 +150,27 @@
         scanOutput.style.display = "none";
         scanOutput.innerText = "";
 
-        const res = await fetch("/.netlify/functions/run-scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, url: urlVal })
-        });
+        try {
+          const res = await fetch("/.netlify/functions/run-scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, url: urlVal })
+          });
+          const data = await res.json();
 
-        const data = await res.json();
-
-        if (data.ok) {
-          scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
-          trial.innerText = `Trial active ✅ – ${data.remaining} scans remaining`;
-          if (data.report) {
-            scanOutput.style.display = "block";
-            scanOutput.innerText = JSON.stringify(data.report, null, 2);
+          if (data.ok) {
+            scanStatus.innerText = `Scan completed. Remaining scans: ${data.remaining}`;
+            trial.innerText = `Trial active ✅ – ${data.remaining} scans remaining`;
+            if (data.report) {
+              scanOutput.style.display = "block";
+              scanOutput.innerText = JSON.stringify(data.report, null, 2);
+            }
+          } else {
+            scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
           }
-        } else {
-          scanStatus.innerText = `Scan failed: ${data.reason || "unknown"}`;
+        } catch (e) {
+          console.error(e);
+          scanStatus.innerText = "Scan failed: network error.";
         }
       });
     }
