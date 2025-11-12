@@ -1,3 +1,4 @@
+// /netlify/functions/run-scan.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -7,7 +8,7 @@ const supabase = createClient(
 
 export default async (req) => {
   try {
-    const { email } = await req.json();
+    const { email, url } = await req.json();
 
     if (!email) {
       return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
@@ -20,7 +21,7 @@ export default async (req) => {
       .eq("email", email)
       .maybeSingle();
 
-    // 2) Auto-create if missing
+    // 2) Auto-create if missing (and treat as first scan)
     if (error || !user) {
       const { data: created, error: createError } = await supabase
         .from("trials")
@@ -50,8 +51,11 @@ export default async (req) => {
         .update({ trial_credits: newCredits })
         .eq("email", email);
 
+      const report = buildFakeReport(url);
+      await saveReport({ email, url: report.scanned_url, report, credits_after: newCredits });
+
       return new Response(
-        JSON.stringify({ ok: true, remaining: newCredits }),
+        JSON.stringify({ ok: true, remaining: newCredits, saved: true, report }),
         { status: 200 }
       );
     }
@@ -89,10 +93,16 @@ export default async (req) => {
       );
     }
 
+    // 5) Save report row
+    const report = buildFakeReport(url);
+    await saveReport({ email, url: report.scanned_url, report, credits_after: newCredits });
+
+    // 6) Return success
     return new Response(
-      JSON.stringify({ ok: true, remaining: newCredits }),
+      JSON.stringify({ ok: true, remaining: newCredits, saved: true, report }),
       { status: 200 }
     );
+
   } catch (err) {
     return new Response(
       JSON.stringify({ ok: false, reason: "server error" }),
@@ -100,3 +110,32 @@ export default async (req) => {
     );
   }
 };
+
+// ---- helpers ----
+
+async function saveReport({ email, url, report, credits_after }) {
+  // Don’t throw if this fails — we already deducted a credit.
+  await supabase.from("reports").insert({
+    email,
+    url,
+    report,
+    credits_after
+  });
+}
+
+function buildFakeReport(url) {
+  const safeUrl = (url || "").trim() || "https://example.com";
+  return {
+    scanned_url: safeUrl,
+    score: 84,
+    issues: [
+      { type: "seo",         message: "Missing meta description",          severity: "medium" },
+      { type: "performance", message: "Large hero image (>200KB)",         severity: "low"    }
+    ],
+    recommendations: [
+      "Add a meta description under 155 characters.",
+      "Compress hero image and enable lazy loading."
+    ],
+    scanned_at: new Date().toISOString()
+  };
+}

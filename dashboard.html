@@ -138,15 +138,22 @@
 
         const data = await res.json();
 
-        if (data.ok) {
-          scanStatus.innerText =
-            "Scan completed. Remaining scans: " + data.remaining;
-          // update main trial line too
-          document.getElementById("trial").innerText =
-            "Trial active ✅ – " + data.remaining + " scans remaining";
-        } else {
-          scanStatus.innerText = "Scan failed: " + data.reason;
-        }
+   if (data.ok) {
+  scanStatus.innerText =
+    "Scan completed. Remaining scans: " + data.remaining +
+    (data.saved ? " — saved to history." : "");
+
+  document.getElementById("trial").innerText =
+    "Trial active ✅ – " + data.remaining + " scans remaining";
+
+  if (data.report) {
+    scanOutput.style.display = "block";
+    scanOutput.innerText = JSON.stringify(data.report, null, 2);
+  }
+} else {
+  scanStatus.innerText = "Scan failed: " + data.reason;
+}
+
       });
     });
   </script>
