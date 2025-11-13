@@ -313,18 +313,18 @@
   </div>
 
   <!-- SCRIPTS -->
-  <script>
+   <script>
     // reveal animation
     const revealEls = document.querySelectorAll('.reveal');
-    const io = new IntersectionObserver((entries)=>{
-      entries.forEach(e=>{
-        if(e.isIntersecting){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
           e.target.classList.add('is-in');
           io.unobserve(e.target);
         }
       });
-    },{threshold:0.18});
-    revealEls.forEach(el=>io.observe(el));
+    }, { threshold: 0.18 });
+    revealEls.forEach(el => io.observe(el));
 
     // Stripe price IDs (TEST)
     const PRICE_ID_SCAN     = 'price_1SQ4knHrtPY0HwDpFHfxNdoZ';
@@ -394,24 +394,17 @@
       }
     }
 
-// Stripe Price IDs (LIVE/TEST from your Stripe dashboard)
-const PRICE_ID_SCAN     = 'price_1SQ4knHrtPY0HwDpFHfxNdoZ';
-const PRICE_ID_DIAGNOSE = 'price_1SQ4oZHrtPY0HwDpjLOnlC5k';
-const PRICE_ID_REVIVE   = 'price_1SQ4qUHrtPY0HwDpSDWJDBpb';
+    // Attach buttons → open modal → call Netlify function with correct price
+    document.getElementById('scan-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_SCAN));
 
-// Attach buttons → open modal → call Netlify function with correct price
-document.getElementById('scan-btn')
-  .addEventListener('click', () => handleCheckout(PRICE_ID_SCAN));
+    document.getElementById('diagnose-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_DIAGNOSE));
 
-document.getElementById('diagnose-btn')
-  .addEventListener('click', () => handleCheckout(PRICE_ID_DIAGNOSE));
+    document.getElementById('revive-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_REVIVE));
 
-document.getElementById('revive-btn')
-  .addEventListener('click', () => handleCheckout(PRICE_ID_REVIVE));
-
-
-
-    // trial → send to Supabase login with ?trial=1
+    // trial → send to login with ?trial=1
     document.addEventListener("DOMContentLoaded", () => {
       const btn = document.getElementById("start-trial");
       if (!btn) return;
@@ -421,6 +414,7 @@ document.getElementById('revive-btn')
       });
     });
   </script>
+
 
 </body>
 </html>
