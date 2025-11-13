@@ -14,6 +14,7 @@
       align-items: center;
       justify-content: center;
     }
+
     .card {
       background: #fff;
       border-radius: 18px;
@@ -22,8 +23,10 @@
       padding: 28px;
       text-align: center;
     }
+
     h1 { margin: 0 0 6px; font-size: 1.15rem; color: #0f172a; }
     p  { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
+
     input {
       width: 100%;
       padding: 0.65rem 0.8rem;
@@ -32,6 +35,7 @@
       margin: 0.4rem 0;
       background: #f8fafc;
     }
+
     button {
       width: 100%;
       padding: 0.7rem 1rem;
@@ -41,8 +45,10 @@
       cursor: pointer;
       margin-top: 0.6rem;
     }
+
     .primary { background: #16a34a; color: #03120a; }
     .secondary { background: #0f172a; color: #e5e7eb; }
+
     .err {
       background: #fee2e2;
       color: #991b1b;
@@ -52,6 +58,7 @@
       display: none;
       margin-top: 0.6rem;
     }
+
     .ok {
       background: #dcfce7;
       color: #166534;
@@ -61,8 +68,18 @@
       display: none;
       margin-top: 0.6rem;
     }
+
+    .back-link {
+      display: block;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #64748b;
+      text-decoration: underline;
+      cursor: pointer;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>Welcome to WebDoctor</h1>
@@ -76,8 +93,11 @@
       <div id="err" class="err"></div>
       <div id="ok" class="ok"></div>
     </form>
+
+    <a href="/" class="back-link">← Back to WebDoctor main site</a>
   </div>
 
+  <!-- Auth protection + login logic -->
   <script type="module" src="/assets/js/auth-guard.js"></script>
   <script type="module" src="/assets/js/login.js"></script>
 </body>
