@@ -78,15 +78,18 @@
     .trust ul{list-style:none;padding-left:0;margin:0 0 1.25rem 0}
     .trust ul li{margin:.25rem 0}
     .trust .summary{background:rgba(255,255,255,.03);border-radius:10px;padding:1rem 1.25rem;margin-top:2rem;border:1px solid rgba(0,255,200,.1)}
-    /* modals */
+    /* modals (kept for Stripe email capture) */
     .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.86);display:none;align-items:center;justify-content:center;padding:24px}
     .modal.in{display:flex}
-    .modal .inner{max-width:1100px;width:100%}
-    .modal .chrome{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-    .modal .body{border:1px solid var(--line);background:#0B141B;border-radius:16px;overflow:hidden;position:relative}
-    .modal iframe{display:block;width:100%;height:80vh;border:0}
-    .fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:24px}
-    .fallback .box{border:1px solid var(--teal);border-radius:14px;padding:16px 18px;background:rgba(0,191,165,.06);color:#DFF8F2;font-weight:600;text-align:center}
+    .modal-content{max-width:420px;width:100%;background:#0B141B;border-radius:16px;border:1px solid var(--line);padding:24px 20px;color:#E9EEF2;box-shadow:0 24px 60px rgba(0,0,0,.65)}
+    .modal h2{margin:0 0 8px;font-size:20px}
+    .modal p{margin:0 0 16px;font-size:14px;color:var(--ink-soft)}
+    .modal input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0f1722;color:#E9EEF2;margin-bottom:14px;font-size:14px}
+    .modal-buttons{display:flex;gap:10px;justify-content:flex-end}
+    .modal-buttons button{flex:1;padding:10px 12px;border-radius:999px;border:0;font-weight:700;cursor:pointer}
+    #emailSubmit{background:var(--teal);color:#012a22}
+    #emailCancel{background:#111827;color:#E5E7EB}
+    .modal-success{width:32px;height:32px;border-radius:999px;border:2px solid var(--teal-lite);display:none;align-items:center;justify-content:center;margin:0 auto 10px auto;color:var(--teal-lite);font-weight:700}
   </style>
 </head>
 <body>
@@ -110,7 +113,7 @@
       <div class="grid">
         <div class="reveal">
           <span class="badge">🩺 Early Access</span>
-          <h1>Scan. Diagnose. Revive.<br>Clarity on what matters most-and what to fix first.</h1>
+          <h1>Scan. Diagnose. Revive.<br>Clarity on what matters most—and what to fix first.</h1>
           <h2 style="font-weight:700;margin-top:8px;color:#CFE1EE;font-size:22px">
             Performance · SEO · Mobile · Accessibility · Security
           </h2>
@@ -118,27 +121,18 @@
             A complete website health check — built for web agencies. WebDoctor scans performance, SEO, mobile,
             accessibility, and security, then delivers a clear, client-ready report showing exactly what to fix first.
           </p>
-<div class="cta-group" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-  <button id="start-trial" class="btn primary">Start Free 3-Day Trial</button>
-
-  <script>
-    document.getElementById("start-trial").addEventListener("click", () => {
-      window.location.href = "https://model-fawn-32.clerk.accounts.dev/sign-up?redirect_url=https://deluxe-sherbet-c8ac68.netlify.app/dashboard.html";
-    });
-  </script>
-
-  <span style="color:#94a3b8;font-size:.9rem;">Experience all Revive features — cancel anytime.</span>
-</div>
-
+          <div class="cta-group" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+            <button id="start-trial" class="btn primary">Start Free 3-Day Trial</button>
+            <span style="color:#94a3b8;font-size:.9rem;">Experience all Revive features — cancel anytime.</span>
           </div>
-          <div class="badges">
-            <span class="badge">✓ Instant Reports</span>
-            <span class="badge">✓ No Logins Required</span>
-            <span class="badge">✓ Agency-Friendly</span>
-            <span class="badge">✓ Fair-Use Protected</span>
-            <span class="badge">✓ Secure & Private</span>
-            <span class="badge">✓ Made in New Zealand</span>
-          </div>
+        </div>
+        <div class="badges">
+          <span class="badge">✓ Instant Reports</span>
+          <span class="badge">✓ No Logins Required</span>
+          <span class="badge">✓ Agency-Friendly</span>
+          <span class="badge">✓ Fair-Use Protected</span>
+          <span class="badge">✓ Secure & Private</span>
+          <span class="badge">✓ Made in New Zealand</span>
         </div>
       </div>
     </div>
@@ -320,7 +314,7 @@
 
   <!-- SCRIPTS -->
   <script>
-    // reveal
+    // reveal animation
     const revealEls = document.querySelectorAll('.reveal');
     const io = new IntersectionObserver((entries)=>{
       entries.forEach(e=>{
@@ -332,21 +326,34 @@
     },{threshold:0.18});
     revealEls.forEach(el=>io.observe(el));
 
-    // pricing → email → stripe (stubbed)
+    // Stripe price IDs (TEST)
+    const PRICE_ID_SCAN     = 'price_1SQ4knHrtPY0HwDpFHfxNdoZ';
+    const PRICE_ID_DIAGNOSE = 'price_1SQ4oZHrtPY0HwDpjLOnlC5k';
+    const PRICE_ID_REVIVE   = 'price_1SQ4qUHrtPY0HwDpSDWJDBpb';
+
+    // pricing → email → Stripe checkout
     async function handleCheckout(priceId) {
-      const modal = document.getElementById("emailModal");
-      const emailInput = document.getElementById("emailInput");
+      const modal       = document.getElementById("emailModal");
+      const emailInput  = document.getElementById("emailInput");
       const emailSubmit = document.getElementById("emailSubmit");
       const emailCancel = document.getElementById("emailCancel");
-      const success = document.getElementById("emailSuccess");
+      const success     = document.getElementById("emailSuccess");
+
+      // reset UI
+      success.style.display = 'none';
+      emailInput.value = '';
 
       modal.style.display = "flex";
 
       const email = await new Promise((resolve) => {
         emailSubmit.onclick = () => {
-          if (emailInput.value.trim() === "") return alert("Please enter your email.");
+          const v = emailInput.value.trim();
+          if (!v) {
+            alert("Please enter your email.");
+            return;
+          }
           success.style.display = 'flex';
-          setTimeout(() => resolve(emailInput.value.trim()), 900);
+          setTimeout(() => resolve(v), 700);
         };
         emailCancel.onclick = () => {
           modal.style.display = "none";
@@ -356,25 +363,45 @@
 
       if (!email) return;
 
-      const response = await fetch('/.netlify/functions/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId, email })
-      });
+      try {
+        const response = await fetch('/.netlify/functions/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priceId, email })
+        });
 
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Checkout failed. Please try again.');
+        const text = await response.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          console.error('Non-JSON response from checkout function:', text);
+          alert('Stripe error. Please try again.');
+          modal.style.display = "none";
+          return;
+        }
+
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          alert('Checkout failed. Please try again.');
+          modal.style.display = "none";
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Network error. Please try again.');
+        modal.style.display = "none";
       }
     }
 
-    document.getElementById('scan-btn').addEventListener('click', () => handleCheckout('PRICE_ID_SCAN'));
-    document.getElementById('diagnose-btn').addEventListener('click', () => handleCheckout('PRICE_ID_DIAGNOSE'));
-    document.getElementById('revive-btn').addEventListener('click', () => handleCheckout('PRICE_ID_REVIVE'));
+    document.getElementById('scan-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_SCAN));
+    document.getElementById('diagnose-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_DIAGNOSE));
+    document.getElementById('revive-btn')
+      .addEventListener('click', () => handleCheckout(PRICE_ID_REVIVE));
 
-    // trial → send to Clerk login with ?trial=1
+    // trial → send to Supabase login with ?trial=1
     document.addEventListener("DOMContentLoaded", () => {
       const btn = document.getElementById("start-trial");
       if (!btn) return;
@@ -383,16 +410,6 @@
         window.location.href = "/login.html?trial=1";
       });
     });
-  </script>
-
-  <!-- optional: if Clerk is present on this page, bounce signed-in users -->
-  <script>
-    (async () => {
-      if (window.Clerk && window.Clerk.user) {
-        // already signed in → go to dashboard
-        window.location.href = '/dashboard.html';
-      }
-    })();
   </script>
 
 </body>
