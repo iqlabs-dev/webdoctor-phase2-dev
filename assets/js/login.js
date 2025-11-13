@@ -19,7 +19,7 @@ const showOk = (msg) => {
   errBox.style.display = 'none';
 };
 
-// Sign in
+// ---------- SIGN IN ----------
 form?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -41,7 +41,7 @@ form?.addEventListener('submit', async (e) => {
   window.location.href = 'dashboard.html';
 });
 
-// Create account
+// ---------- CREATE ACCOUNT ----------
 signupBtn?.addEventListener('click', async () => {
   if (!errBox || !okBox) return;
 
@@ -56,11 +56,42 @@ signupBtn?.addEventListener('click', async () => {
     return;
   }
 
-  const { error } = await supabase.auth.signUp({ email, password });
+  // 1) Sign up user
+  const { data, error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
     showErr(error.message || 'Sign-up failed.');
     return;
+  }
+
+  const user = data?.user;
+  if (!user) {
+    showErr('Sign-up failed: no user returned.');
+    return;
+  }
+
+  // 2) Build trial dates (3-day trial)
+  const now = new Date();
+  const trialDays = 3;
+
+  const trialStart = now.toISOString().slice(0, 10);
+  const end = new Date(now);
+  end.setDate(end.getDate() + trialDays);
+  const trialEnd = end.toISOString().slice(0, 10);
+
+  // 3) Insert profile row
+  const { error: profileError } = await supabase.from('profiles').insert({
+    user_id: user.id,
+    email,
+    trial_start: trialStart,
+    trial_end: trialEnd,
+    credits: 0,
+    subscription_status: 'trial'
+  });
+
+  if (profileError) {
+    // still let them through, but show warning
+    console.error('Profile insert error:', profileError);
   }
 
   showOk('Account created. Redirecting to dashboard…');
