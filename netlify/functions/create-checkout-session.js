@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Map the keys from index.html → real Stripe Price IDs
+// Map the keys coming from the frontend → actual Stripe Price IDs from env
 const PRICE_MAP = {
   PRICE_ID_SCAN: process.env.PRICE_ID_SCAN,
   PRICE_ID_DIAGNOSE: process.env.PRICE_ID_DIAGNOSE,
@@ -12,22 +12,33 @@ const PRICE_MAP = {
 
 export default async (request, context) => {
   if (request.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response('Invalid JSON', { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  const { priceId, email } = body; // priceId = 'PRICE_ID_SCAN' etc
+  const { priceId, email } = body; // priceId will be 'PRICE_ID_SCAN', etc
   const realPriceId = PRICE_MAP[priceId];
 
+  console.log('Checkout request:', { priceId, realPriceId, email });
+
   if (!realPriceId) {
-    console.error('Unknown priceId key:', priceId);
-    return new Response('Unknown priceId', { status: 400 });
+    console.error('Unknown or missing realPriceId for key:', priceId);
+    return new Response(JSON.stringify({ error: 'Unknown plan' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -50,6 +61,9 @@ export default async (request, context) => {
     });
   } catch (err) {
     console.error('Error creating checkout session:', err);
-    return new Response('Stripe error', { status: 500 });
+    return new Response(JSON.stringify({ error: 'Stripe error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 };
