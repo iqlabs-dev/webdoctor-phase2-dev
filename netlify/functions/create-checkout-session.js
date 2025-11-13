@@ -3,67 +3,64 @@ import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Map the keys coming from the frontend → actual Stripe Price IDs from env
-const PRICE_MAP = {
-  PRICE_ID_SCAN: process.env.PRICE_ID_SCAN,
-  PRICE_ID_DIAGNOSE: process.env.PRICE_ID_DIAGNOSE,
-  PRICE_ID_REVIVE: process.env.PRICE_ID_REVIVE,
-};
+const SITE_URL =
+  process.env.SITE_URL || 'https://deluxe-sherbet-c8ac68.netlify.app';
 
-export default async (request, context) => {
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+export default async (event, context) => {
+  // Only allow POST
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: 'Method Not Allowed',
+    };
   }
 
+  // Parse JSON body safely
   let body;
   try {
-    body = await request.json();
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    body = JSON.parse(event.body || '{}');
+  } catch (e) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Invalid JSON body' }),
+    };
   }
 
-  const { priceId, email } = body; // priceId will be 'PRICE_ID_SCAN', etc
-  const realPriceId = PRICE_MAP[priceId];
+  const { priceId, email } = body;
 
-  console.log('Checkout request:', { priceId, realPriceId, email });
-
-  if (!realPriceId) {
-    console.error('Unknown or missing realPriceId for key:', priceId);
-    return new Response(JSON.stringify({ error: 'Unknown plan' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  // Basic validation
+  if (!priceId || !email) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Missing priceId or email' }),
+    };
   }
 
   try {
+    // Create Stripe Checkout Session (subscription mode)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      customer_email: email || undefined,
+      payment_method_types: ['card'],
+      customer_email: email,
       line_items: [
         {
-          price: realPriceId,
+          price: priceId,   // <-- we trust the priceId sent from the front-end
           quantity: 1,
         },
       ],
-      success_url: `${process.env.SITE_URL}/thanks.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SITE_URL}/index.html`,
+      success_url: `${SITE_URL}/thanks.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${SITE_URL}#pricing`,
     });
 
-    return new Response(JSON.stringify({ url: session.url }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ url: session.url }),
+    };
   } catch (err) {
-    console.error('Error creating checkout session:', err);
-    return new Response(JSON.stringify({ error: 'Stripe error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error('Stripe checkout error:', err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Stripe error' }),
+    };
   }
 };
