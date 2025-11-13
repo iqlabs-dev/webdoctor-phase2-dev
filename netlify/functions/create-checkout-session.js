@@ -6,45 +6,41 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const SITE_URL =
   process.env.SITE_URL || 'https://deluxe-sherbet-c8ac68.netlify.app';
 
-export default async (event, context) => {
+export default async (request, context) => {
   // Only allow POST
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: 'Method Not Allowed',
-    };
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
-  // Parse JSON body safely
+  // Parse JSON body safely (Netlify v2 style)
   let body;
   try {
-    body = JSON.parse(event.body || '{}');
-  } catch (e) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Invalid JSON body' }),
-    };
+    body = await request.json();
+  } catch (err) {
+    console.error('JSON parse error in create-checkout-session:', err);
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
-  const { priceId, email } = body;
+  const { priceId, email } = body || {};
 
-  // Basic validation
   if (!priceId || !email) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'Missing priceId or email' }),
-    };
+    return new Response(
+      JSON.stringify({ error: 'Missing priceId or email' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
-    // Create Stripe Checkout Session (subscription mode)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: email,
       line_items: [
         {
-          price: priceId,   // <-- we trust the priceId sent from the front-end
+          price: priceId, // we pass the exact price ID from the front end
           quantity: 1,
         },
       ],
@@ -52,15 +48,15 @@ export default async (event, context) => {
       cancel_url: `${SITE_URL}#pricing`,
     });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ url: session.url }),
-    };
+    return new Response(
+      JSON.stringify({ url: session.url }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Stripe error' }),
-    };
+    return new Response(
+      JSON.stringify({ error: 'Stripe error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 };

@@ -394,12 +394,22 @@
       }
     }
 
-    document.getElementById('scan-btn')
-      .addEventListener('click', () => handleCheckout(PRICE_ID_SCAN));
-    document.getElementById('diagnose-btn')
-      .addEventListener('click', () => handleCheckout(PRICE_ID_DIAGNOSE));
-    document.getElementById('revive-btn')
-      .addEventListener('click', () => handleCheckout(PRICE_ID_REVIVE));
+// Stripe Price IDs (LIVE/TEST from your Stripe dashboard)
+const PRICE_ID_SCAN     = 'price_1SQ4knHrtPY0HwDpFHfxNdoZ';
+const PRICE_ID_DIAGNOSE = 'price_1SQ4oZHrtPY0HwDpjLOnlC5k';
+const PRICE_ID_REVIVE   = 'price_1SQ4qUHrtPY0HwDpSDWJDBpb';
+
+// Attach buttons → open modal → call Netlify function with correct price
+document.getElementById('scan-btn')
+  .addEventListener('click', () => handleCheckout(PRICE_ID_SCAN));
+
+document.getElementById('diagnose-btn')
+  .addEventListener('click', () => handleCheckout(PRICE_ID_DIAGNOSE));
+
+document.getElementById('revive-btn')
+  .addEventListener('click', () => handleCheckout(PRICE_ID_REVIVE));
+
+
 
     // trial → send to Supabase login with ?trial=1
     document.addEventListener("DOMContentLoaded", () => {
