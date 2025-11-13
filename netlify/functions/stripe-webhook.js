@@ -1,107 +1,150 @@
-// netlify/functions/stripe-webhook.js
+// /netlify/functions/stripe-webhook.js
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// --- Stripe + Supabase clients ---
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Stripe + Supabase clients
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2024-06-20', // or latest in your Stripe dashboard
+});
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- Price IDs from env (same ones you already use) ---
+// your Stripe price IDs (from Netlify env)
 const PRICE_ID_SCAN = process.env.PRICE_ID_SCAN;
 const PRICE_ID_DIAGNOSE = process.env.PRICE_ID_DIAGNOSE;
 const PRICE_ID_REVIVE = process.env.PRICE_ID_REVIVE;
 
-// Map Stripe price → plan key used in profiles.subscription_status
-const PRICE_TO_PLAN = {
-  [PRICE_ID_SCAN]: 'scan',
-  [PRICE_ID_DIAGNOSE]: 'diagnose',
-  [PRICE_ID_REVIVE]: 'revive'
+// map plans → credits
+const PLAN_CREDITS = {
+  [PRICE_ID_SCAN]: 250,
+  [PRICE_ID_DIAGNOSE]: 500,
+  [PRICE_ID_REVIVE]: 1000,
 };
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+// helper: upsert user_credits row
+async function addCreditsForCustomer(stripeCustomerId, priceId) {
+  const creditsToAdd = PLAN_CREDITS[priceId];
+  if (!creditsToAdd) {
+    console.log('Unknown priceId, skipping credits:', priceId);
+    return;
+  }
 
+  // 1) get Stripe customer to read email
+  const customer = await stripe.customers.retrieve(stripeCustomerId);
+  const email = customer.email;
+
+  if (!email) {
+    console.error('Customer has no email, cannot map to Supabase');
+    return;
+  }
+
+  // 2) upsert row in user_credits by email
+  const { data, error } = await supabase
+    .from('user_credits')
+    .upsert(
+      {
+        email,
+        stripe_customer_id: stripeCustomerId,
+        // if new row, start with creditsToAdd; if existing, we’ll bump below
+        credits: creditsToAdd,
+        plan: priceId,
+      },
+      { onConflict: 'email' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting user_credits:', error);
+    return;
+  }
+
+  // 3) if row already existed, increment credits instead of overwriting
+  if (data && data.id) {
+    const { error: updateError } = await supabase.rpc('increment_credits', {
+      p_email: email,
+      p_amount: creditsToAdd,
+    });
+
+    if (updateError) {
+      // fallback: do a direct update if RPC not created yet
+      console.warn('increment_credits RPC missing or failed, using direct update:', updateError);
+
+      const { error: directUpdateError } = await supabase
+        .from('user_credits')
+        .update({
+          credits: (data.credits || 0) + creditsToAdd,
+          stripe_customer_id: stripeCustomerId,
+          plan: priceId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('email', email);
+
+      if (directUpdateError) {
+        console.error('Direct update of user_credits failed:', directUpdateError);
+      }
+    }
+  }
+}
+
+// Netlify function handler
 export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
   let event;
 
-  // Read raw body for Stripe signature verification
-  const body = await request.text();
-
   try {
-    event = stripe.webhooks.constructEvent(body, sig, WEBHOOK_SECRET);
+    const rawBody = await request.text();
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
-    console.error('❌ Error verifying Stripe webhook:', err.message);
+    console.error('Webhook signature verification failed:', err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // We only care about successful checkout sessions right now
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
+  try {
+    switch (event.type) {
+      // handle checkout sessions for one-off payments or first subscription
+      case 'checkout.session.completed': {
+        const session = event.data.object;
 
-    try {
-      // 1) Work out the customer email
-      const email =
-        session.customer_details?.email ||
-        session.metadata?.email ||
-        session.client_reference_id ||
-        null;
+        // customer & line items
+        const customerId = session.customer;
 
-      // 2) Get the price ID from the line item
-      const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-        expand: ['line_items.data.price']
-      });
+        // Expand line_items to find the price ID
+        const lineItems = await stripe.checkout.sessions.listLineItems(
+          session.id,
+          { limit: 1 }
+        );
 
-      const lineItem = fullSession.line_items?.data?.[0];
-      const priceId = lineItem?.price?.id || session.metadata?.price_id || null;
-
-      const status = 'active';
-
-      if (!email || !priceId) {
-        console.error('⚠️ Missing email or priceId in checkout.session.completed', {
-          email,
-          priceId
-        });
-      } else {
-        // 3) Insert into public.subscriptions (what you already have working)
-        const { error: subError } = await supabase.from('subscriptions').insert({
-          email,
-          price_id: priceId,
-          status,
-          stripe_session_id: session.id,
-          stripe_payment_intent: session.payment_intent || null
-        });
-
-        if (subError) {
-          console.error('❌ Supabase insert into subscriptions failed:', subError);
-        }
-
-        // 4) Update profiles.subscription_status based on plan
-        const planKey = PRICE_TO_PLAN[priceId] || 'active';
-
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ subscription_status: planKey })
-          .eq('email', email);
-
-        if (profileError) {
-          console.error('❌ Supabase update profiles.subscription_status failed:', profileError);
-        } else {
-          console.log(
-            `✅ Updated profile for ${email} to subscription_status='${planKey}'`
-          );
-        }
+        const priceId = lineItems.data[0]?.price?.id;
+        await addCreditsForCustomer(customerId, priceId);
+        break;
       }
-    } catch (err) {
-      console.error('❌ Error handling checkout.session.completed:', err);
-      // We still return 200 so Stripe doesn’t keep retrying indefinitely
+
+      // handle recurring subscription invoices
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object;
+        const customerId = invoice.customer;
+
+        const priceId =
+          invoice.lines?.data?.[0]?.price?.id ||
+          invoice.lines?.data?.[0]?.plan?.id;
+
+        await addCreditsForCustomer(customerId, priceId);
+        break;
+      }
+
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
+
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
+  } catch (err) {
+    console.error('Error processing webhook:', err);
+    return new Response('Webhook handler error', { status: 500 });
   }
-
-  // You can add more handlers (invoice.paid, customer.subscription.deleted, etc.) later
-
-  return new Response(JSON.stringify({ received: true }), { status: 200 });
 };
