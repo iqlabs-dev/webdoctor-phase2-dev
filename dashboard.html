@@ -7,144 +7,88 @@
   <style>
     body {
       margin: 0;
+      background: #0f172a;
       min-height: 100vh;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: #020617;
-      color: #e5e7eb;
       display: flex;
       align-items: center;
       justify-content: center;
     }
+
     .card {
-      background: #020617;
+      background: #1e293b;
       border-radius: 18px;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.7);
-      width: min(560px, 94vw);
       padding: 28px;
+      width: min(460px, 94vw);
       text-align: center;
-      border: 1px solid #111827;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
     }
-    h1 { margin: 0 0 8px; font-size: 1.4rem; }
-    p  { margin: 0 0 18px; font-size: 0.9rem; color: #9ca3af; }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 1.3rem;
+      color: #e2e8f0;
+    }
+
+    .sub {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+
     input {
       width: 100%;
-      padding: 0.7rem 0.9rem;
+      padding: 0.65rem 0.8rem;
       border-radius: 12px;
-      border: 1px solid #1f2937;
+      border: 1px solid #334155;
       margin: 0.4rem 0 1rem;
-      background: #020617;
-      color: #e5e7eb;
+      background: #0f172a;
+      color: #e2e8f0;
     }
-    input::placeholder { color: #4b5563; }
-    .btn-row {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
+
     button {
-      flex: 1;
+      width: 48%;
       padding: 0.7rem 1rem;
       border-radius: 9999px;
       border: 0;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
-      font-size: 0.9rem;
     }
-    .primary { background: #16a34a; color: #03120a; }
-    .danger  { background: #b91c1c; color: #fee2e2; }
-    .msg-ok {
-      margin-top: 0.4rem;
-      font-size: 0.8rem;
-      color: #4ade80;
-      display: none;
+
+    .green {
+      background: #16a34a;
+      color: #03120a;
     }
-    .msg-err {
-      margin-top: 0.4rem;
-      font-size: 0.8rem;
-      color: #fca5a5;
-      display: none;
+
+    .red {
+      background: #dc2626;
+      color: #fef2f2;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
     }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>WebDoctor Dashboard</h1>
-    <p id="status">Checking session…</p>
+    <div class="sub" id="user-email">Loading...</div>
 
-    <input id="site-url" placeholder="Enter site URL (https://example.com)" />
+    <input id="site-url" type="text" placeholder="Enter site URL (https://example.com)" />
 
-    <div class="btn-row">
-      <button id="run-btn" class="primary">Run scan</button>
-      <button id="signout-btn" class="danger">Sign out</button>
+    <div class="row">
+      <button class="green" id="run-scan">Run scan</button>
+      <button class="red" id="logout-btn">Sign out</button>
     </div>
-
-    <div id="ok"  class="msg-ok"></div>
-    <div id="err" class="msg-err"></div>
   </div>
 
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-    // TODO: copy these EXACT values from login.html
-    const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
-      },
-    });
-
-    const statusEl  = document.getElementById("status");
-    const runBtn    = document.getElementById("run-btn");
-    const signoutBtn= document.getElementById("signout-btn");
-    const urlInput  = document.getElementById("site-url");
-    const okBox     = document.getElementById("ok");
-    const errBox    = document.getElementById("err");
-
-    const showOk = (m) => {
-      okBox.textContent = m;
-      okBox.style.display = "block";
-      errBox.style.display = "none";
-    };
-    const showErr = (m) => {
-      errBox.textContent = m;
-      errBox.style.display = "block";
-      okBox.style.display = "none";
-    };
-
-    (async () => {
-      // 1) Check session with SAME client as login.html
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        // Not logged in → go back to login
-        window.location.replace("/login.html");
-        return;
-      }
-
-      statusEl.textContent = `Logged in as ${session.user.email}`;
-    })();
-
-    // Dummy scan handler for now (keeps existing button functional without breaking)
-    runBtn.addEventListener("click", async () => {
-      const siteUrl = urlInput.value.trim();
-      if (!siteUrl) {
-        showErr("Enter a site URL first.");
-        return;
-      }
-
-      // Placeholder: you can wire this to your Netlify function later.
-      showOk(`Scan queued for ${siteUrl} (placeholder).`);
-    });
-
-    // Sign out
-    signoutBtn.addEventListener("click", async () => {
-      await supabase.auth.signOut();
-      window.location.replace("/login.html");
-    });
-  </script>
+  <!-- Auth protection + dashboard logic -->
+  <script type="module" src="/assets/js/auth-guard.js"></script>
+  <script type="module" src="/assets/js/dashboard.js"></script>
 </body>
 </html>
