@@ -23,7 +23,7 @@
       text-align: center;
     }
     h1 { margin: 0 0 6px; font-size: 1.15rem; color: #0f172a; }
-    p { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
+    p  { margin: 0 0 16px; color: #64748b; font-size: 0.9rem; }
     input {
       width: 100%;
       padding: 0.65rem 0.8rem;
@@ -37,15 +37,24 @@
       padding: 0.7rem 1rem;
       border-radius: 9999px;
       border: 0;
-      background: #16a34a;
-      color: #03120a;
       font-weight: 700;
       cursor: pointer;
       margin-top: 0.6rem;
     }
+    .primary { background: #16a34a; color: #03120a; }
+    .secondary { background: #0f172a; color: #e5e7eb; }
     .err {
       background: #fee2e2;
       color: #991b1b;
+      border-radius: 10px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.8rem;
+      display: none;
+      margin-top: 0.6rem;
+    }
+    .ok {
+      background: #dcfce7;
+      color: #166534;
       border-radius: 10px;
       padding: 0.6rem 0.8rem;
       font-size: 0.8rem;
@@ -57,57 +66,100 @@
 <body>
   <div class="card">
     <h1>Welcome to WebDoctor</h1>
-    <p>Sign in to access your dashboard.</p>
+    <p>Sign in or create an account to access your dashboard.</p>
 
     <form id="login-form">
       <input id="email" type="email" placeholder="Email address" autocomplete="email" required />
       <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
-      <button type="submit">Continue</button>
+      <button type="submit" class="primary">Sign in</button>
+      <button type="button" id="signup-btn" class="secondary">Create account</button>
       <div id="err" class="err"></div>
+      <div id="ok" class="ok"></div>
     </form>
   </div>
 
-  <!-- IMPORTANT: this script tag must not be self-closing -->
   <script type="module">
-    import { supabase, getSessionUser } from "/public/auth.js";
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    // Wrap everything so we don't leak top-level await issues
+    // TODO: put your real values here
+    const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";      // <- change this
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";                // <- change this
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+    });
+
+    const errBox = document.getElementById("err");
+    const okBox  = document.getElementById("ok");
+    const showErr = (msg) => {
+      errBox.textContent = msg;
+      errBox.style.display = "block";
+      okBox.style.display = "none";
+    };
+    const showOk = (msg) => {
+      okBox.textContent = msg;
+      okBox.style.display = "block";
+      errBox.style.display = "none";
+    };
+
     (async () => {
-      // Already signed in? Go straight to dashboard
-      const already = await getSessionUser();
-      if (already) {
+      // If already logged in, go straight to dashboard
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
         window.location.replace("/dashboard.html");
         return;
       }
 
       const form = document.getElementById("login-form");
-      const errBox = document.getElementById("err");
+      const signupBtn = document.getElementById("signup-btn");
 
+      // Sign in
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         errBox.style.display = "none";
+        okBox.style.display = "none";
 
         const email = document.getElementById("email").value.trim();
         const password = document.getElementById("password").value;
 
-        // 1) Try sign in with password
-        let { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-        // 2) If sign-in fails, auto-create account with password
         if (error) {
-          const { error: signupError } = await supabase.auth.signUpWithPassword({
-            email,
-            password,
-          });
-
-          if (signupError) {
-            errBox.textContent = signupError.message || "Sign-in failed.";
-            errBox.style.display = "block";
-            return;
-          }
+          showErr(error.message || "Sign-in failed.");
+          return;
         }
 
-        // 3) Success — redirect
+        window.location.replace("/dashboard.html");
+      });
+
+      // Explicit create-account action
+      signupBtn.addEventListener("click", async () => {
+        errBox.style.display = "none";
+        okBox.style.display = "none";
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        if (!email || !password) {
+          showErr("Enter email and password first.");
+          return;
+        }
+
+        const { error } = await supabase.auth.signUpWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          showErr(error.message || "Sign-up failed.");
+          return;
+        }
+
+        showOk("Account created. Redirecting to dashboard…");
         window.location.replace("/dashboard.html");
       });
     })();
