@@ -27,12 +27,21 @@ const PLAN_LIMITS = {
 async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
   const monthlyLimit = PLAN_LIMITS[priceId] ?? null;
 
+  // work out a simple status string based on plan
+  let subscriptionStatus = null;
+  if (priceId === PRICE_ID_SCAN) subscriptionStatus = 'scan';
+  if (priceId === PRICE_ID_DIAGNOSE) subscriptionStatus = 'diagnose';
+  if (priceId === PRICE_ID_REVIVE) subscriptionStatus = 'revive';
+
   const { error } = await supabase
     .from('profiles')
     .update({
       plan_price_id: priceId,
       monthly_limit: monthlyLimit,
-      reports_used: 0 // reset count on new / changed subscription
+      reports_used: 0,       // reset count on new / changed subscription
+      subscription_status: subscriptionStatus,
+      trial_start: null,     // clear 3-day trial when paid sub is active
+      trial_end: null
     })
     .eq('stripe_customer_id', stripeCustomerId);
 
@@ -40,6 +49,7 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
     console.error('Error updating profile with plan limit:', error);
   }
 }
+
 
 export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
