@@ -1,6 +1,7 @@
 // netlify/functions/stripe-webhook.js
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -81,7 +82,7 @@ export default async (request, context) => {
         // 1) Make sure a profile row exists for this email
         const { data: existingProfile, error: selectError } = await supabase
           .from('profiles')
-          .select('user_id')
+          .select('email')
           .eq('email', customerEmail)
           .maybeSingle();
 
@@ -90,10 +91,13 @@ export default async (request, context) => {
         }
 
         if (!existingProfile) {
-          // No profile yet → create one
+          // No profile yet → create one with a new uuid
+          const newUserId = crypto.randomUUID();
+
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
+              user_id_uuid: newUserId,     // matches your table column name
               email: customerEmail,
               stripe_customer_id: customerId,
               credits: 0,
