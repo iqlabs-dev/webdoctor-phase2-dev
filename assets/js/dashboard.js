@@ -1,12 +1,19 @@
+// /assets/js/dashboard.js
 import { supabase } from './supabaseClient.js';
 
 // Load user + trial info
 (async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session }
+  } = await supabase.auth.getSession();
+
   const emailBox = document.querySelector('#user-email');
   const trialBox = document.querySelector('#trial-info');
 
   if (!session) return;
+
+  // expose current user id for scan.js (Phase 2.6)
+  window.currentUserId = session.user.id;
 
   if (emailBox) {
     emailBox.textContent = `Logged in as ${session.user.email}`;
@@ -34,9 +41,12 @@ import { supabase } from './supabaseClient.js';
 
     if (profile.subscription_status === 'trial') {
       if (daysLeft > 0) {
-        trialBox.textContent = `Trial: ${daysLeft} day${daysLeft === 1 ? '' : 's'} remaining`;
+        trialBox.textContent = `Trial: ${daysLeft} day${
+          daysLeft === 1 ? '' : 's'
+        } remaining`;
       } else {
-        trialBox.textContent = 'Trial expired — upgrade required after Phase 2 Stripe integration.';
+        trialBox.textContent =
+          'Trial expired — upgrade required after Phase 2 Stripe integration.';
       }
     } else {
       trialBox.textContent = `Plan: ${profile.subscription_status}`;
@@ -45,12 +55,12 @@ import { supabase } from './supabaseClient.js';
 })();
 
 // Sign out
-document.querySelector('#logout-btn')?.addEventListener('click', async () => {
-  await supabase.auth.signOut();
-  window.location.href = 'login.html';
-});
+document
+  .querySelector('#logout-btn')
+  ?.addEventListener('click', async () => {
+    await supabase.auth.signOut();
+    window.location.href = 'login.html';
+  });
 
-// Placeholder for the Run Scan button
-document.querySelector('#run-scan')?.addEventListener('click', () => {
-  alert('Scan trigger placeholder — Phase 2.5/3 feature');
-});
+// NOTE: Run Scan click handler is now in /assets/js/scan.js
+// (no more placeholder alert here)
