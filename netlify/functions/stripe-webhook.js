@@ -38,9 +38,9 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
     .update({
       plan_price_id: priceId,
       monthly_limit: monthlyLimit,
-      reports_used: 0,       // reset count on new / changed subscription
+      reports_used: 0,            // reset count on new / changed subscription
       subscription_status: subscriptionStatus,
-      trial_start: null,     // clear 3-day trial when paid sub is active
+      trial_start: null,          // clear 3-day trial when paid sub is active
       trial_end: null
     })
     .eq('stripe_customer_id', stripeCustomerId);
@@ -49,7 +49,6 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
     console.error('Error updating profile with plan limit:', error);
   }
 }
-
 
 export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
@@ -79,11 +78,42 @@ export default async (request, context) => {
 
         if (!customerId || !subscriptionId || !customerEmail) break;
 
-        // 1) Save stripe_customer_id on correct profile (match by email)
-        await supabase
+        // 1) Make sure a profile row exists for this email
+        const { data: existingProfile, error: selectError } = await supabase
           .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('email', customerEmail);
+          .select('user_id')
+          .eq('email', customerEmail)
+          .maybeSingle();
+
+        if (selectError) {
+          console.error('Error looking up profile by email:', selectError);
+        }
+
+        if (!existingProfile) {
+          // No profile yet → create one
+          const { error: insertError } = await supabase
+            .from('profiles')
+            .insert({
+              email: customerEmail,
+              stripe_customer_id: customerId,
+              credits: 0,
+              subscription_status: null
+            });
+
+          if (insertError) {
+            console.error('Error inserting new profile:', insertError);
+          }
+        } else {
+          // Profile exists → just attach stripe_customer_id
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ stripe_customer_id: customerId })
+            .eq('email', customerEmail);
+
+          if (updateError) {
+            console.error('Error updating existing profile:', updateError);
+          }
+        }
 
         // 2) Look up subscription → get price → apply plan limit
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -121,7 +151,8 @@ export default async (request, context) => {
           .update({
             plan_price_id: null,
             monthly_limit: null,
-            reports_used: 0
+            reports_used: 0,
+            subscription_status: null
           })
           .eq('stripe_customer_id', customerId);
 
