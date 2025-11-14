@@ -322,8 +322,14 @@ export const handler = async (event) => {
     };
   }
 
+  // return HTML as well so dashboard can show the report
   return {
     statusCode: 200,
-    body: JSON.stringify({ ok: true, report_id: reportId })
+    body: JSON.stringify({
+      ok: true,
+      report_id: reportId,
+      html
+    })
   };
 };
+

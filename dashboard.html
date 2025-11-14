@@ -96,6 +96,34 @@
       <button class="red" id="logout-btn">Sign out</button>
     </div>
 
+    <!-- Report preview + PDF download -->
+    <section id="report-section" style="margin-top: 24px; display: none; text-align: left;">
+      <h2 style="margin: 0 0 8px; font-size: 1rem; color: #e2e8f0;">
+        Latest WebDoctor report
+      </h2>
+      <p style="margin: 0 0 12px; font-size: 0.8rem; color: #94a3b8;">
+        This is a live preview of your most recent scan. Use the button below to download the PDF.
+      </p>
+
+      <!-- On-screen preview -->
+      <div id="report-preview"
+           style="border-radius: 16px; overflow: hidden; max-height: 520px; background:#0b1120;
+                  box-shadow: 0 18px 45px rgba(0,0,0,0.45);">
+      </div>
+
+      <!-- Actions -->
+      <div style="margin-top: 12px;">
+        <a id="download-pdf-link"
+           href="#"
+           target="_blank"
+           style="display:inline-block; padding: 8px 16px; border-radius:999px;
+                  background:#22c55e; color:#022c22; font-weight:600; font-size:0.85rem;
+                  text-decoration:none;">
+          Download PDF
+        </a>
+      </div>
+    </section>
+
     <a href="/" class="back-link">← Back to WebDoctor main site</a>
   </div>
 

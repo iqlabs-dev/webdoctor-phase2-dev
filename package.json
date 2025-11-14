@@ -6,6 +6,8 @@
   "dependencies": {
     "node-fetch": "^3.3.2",
     "@supabase/supabase-js": "^2.43.1",
-    "stripe": "^14.24.0"
+    "stripe": "^14.24.0",
+    "@sparticuz/chromium": "^119.0.0",
+    "puppeteer-core": "^22.0.0"
   }
 }
