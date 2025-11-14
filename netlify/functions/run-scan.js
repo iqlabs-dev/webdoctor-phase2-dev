@@ -1,103 +1,168 @@
 // /netlify/functions/run-scan.js
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export default async (req) => {
-  try {
-    const { email, url } = await req.json();
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!email) {
-      return new Response(JSON.stringify({ ok: false, reason: "no email" }), { status: 400 });
-    }
+function normaliseUrl(raw) {
+  if (!raw) return '';
+  let url = raw.trim();
 
-    // ✅ STEP 1: Check or create user in "users" table
-    let { data: user, error } = await supabase
-      .from("users")
-      .select("trial_active, trial_credits")
-      .eq("email", email)
-      .maybeSingle();
-
-    // auto-create user if not exists
-    if (!user) {
-      const { data: created, error: createError } = await supabase
-        .from("users")
-        .upsert(
-          {
-            email,
-            trial_active: true,
-            trial_start: new Date().toISOString(),
-            trial_credits: 5,
-          },
-          { onConflict: "email" }
-        )
-        .select()
-        .maybeSingle();
-
-      if (createError || !created) {
-        return new Response(
-          JSON.stringify({ ok: false, reason: "user creation failed" }),
-          { status: 500 }
-        );
-      }
-
-      user = created;
-    }
-
-    // ✅ STEP 2: Validate active trial and credits
-    if (!user.trial_active) {
-      return new Response(
-        JSON.stringify({ ok: false, reason: "trial not active" }),
-        { status: 403 }
-      );
-    }
-
-    if ((user.trial_credits || 0) <= 0) {
-      return new Response(
-        JSON.stringify({ ok: false, reason: "no credits" }),
-        { status: 403 }
-      );
-    }
-
-    // ✅ STEP 3: Deduct credit
-    const newCredits = (user.trial_credits || 0) - 1;
-
-    await supabase
-      .from("users")
-      .update({ trial_credits: newCredits })
-      .eq("email", email);
-
-    // ✅ STEP 4: Mock scan data (placeholder output)
-    const mockReport = {
-      url,
-      timestamp: new Date().toISOString(),
-      performance: Math.floor(Math.random() * 20) + 80,
-      accessibility: Math.floor(Math.random() * 20) + 75,
-      seo: Math.floor(Math.random() * 20) + 70,
-      notes: "Mock scan completed successfully. Real API integration coming next phase."
-    };
-
-    // ✅ STEP 5: Save report (optional — create table 'reports')
-    await supabase.from("reports").insert([
-      { email, url, report: mockReport, created_at: new Date().toISOString() },
-    ]);
-
-    // ✅ STEP 6: Return response
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        remaining: newCredits,
-        report: mockReport,
-      }),
-      { status: 200 }
-    );
-  } catch (err) {
-    console.error("run-scan error:", err);
-    return new Response(JSON.stringify({ ok: false, reason: "server error" }), {
-      status: 500,
-    });
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
   }
+
+  return url.replace(/\s+/g, '');
+}
+
+function basicHtmlChecks(html) {
+  const metrics = {};
+
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  metrics.title_present = !!titleMatch;
+  metrics.title_text = titleMatch ? titleMatch[1].trim().slice(0, 120) : null;
+
+  const descMatch = html.match(
+    /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
+  );
+  metrics.meta_description_present = !!descMatch;
+  metrics.meta_description_text = descMatch ? descMatch[1].trim().slice(0, 200) : null;
+
+  const viewportMatch = html.match(
+    /<meta[^>]+name=["']viewport["'][^>]*>/i
+  );
+  metrics.viewport_present = !!viewportMatch;
+
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  metrics.h1_present = !!h1Match;
+  metrics.h1_text = h1Match
+    ? h1Match[1].replace(/<[^>]*>/g, '').trim().slice(0, 120)
+    : null;
+
+  metrics.html_length = html.length;
+
+  return metrics;
+}
+
+function computeOverallScore(url, responseOk, metrics) {
+  let score = 50;
+
+  if (!responseOk) return 0;
+
+  if (/^https:\/\//i.test(url)) score += 10;
+  if (metrics.title_present) score += 10;
+  if (metrics.meta_description_present) score += 10;
+  if (metrics.viewport_present) score += 10;
+  if (metrics.h1_present) score += 5;
+
+  if (metrics.html_length > 0 && metrics.html_length < 100000) {
+    score += 5;
+  }
+
+  return Math.min(100, Math.max(0, score));
+}
+
+export default async (request, context) => {
+  if (request.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ message: 'Method not allowed' }),
+      { status: 405, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // SAFELY PARSE JSON BODY
+  let bodyText;
+  try {
+    bodyText = await request.text();
+  } catch (err) {
+    console.error('Error reading body:', err);
+    return new Response(
+      JSON.stringify({ message: 'Could not read request body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  let body;
+  try {
+    body = JSON.parse(bodyText || '{}');
+  } catch (err) {
+    console.error('JSON parse error:', err, 'RAW:', bodyText);
+    return new Response(
+      JSON.stringify({ message: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const rawUrl = body?.url;
+  const userId = body?.userId || null;
+
+  const url = normaliseUrl(rawUrl);
+
+  if (!url) {
+    return new Response(
+      JSON.stringify({ message: 'Missing URL' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  let responseOk = false;
+  let httpStatus = null;
+  let metrics = {};
+  let errorText = null;
+
+  try {
+    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+
+    httpStatus = res.status;
+    responseOk = res.ok;
+
+    const html = await res.text();
+    metrics = basicHtmlChecks(html);
+  } catch (err) {
+    console.error('Error fetching URL:', err);
+    errorText = err.message || 'Fetch failed';
+  }
+
+  const score_overall = computeOverallScore(url, responseOk, metrics);
+
+  const fullMetrics = {
+    http_status: httpStatus,
+    response_ok: responseOk,
+    error: errorText,
+    checks: metrics
+  };
+
+  const { data, error } = await supabase
+    .from('scan_results')
+    .insert({
+      user_id: userId,
+      url,
+      status: responseOk ? 'completed' : 'error',
+      score_overall,
+      metrics: fullMetrics
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Supabase insert error:', error);
+    return new Response(
+      JSON.stringify({ message: 'Failed to save scan result' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      scan_id: data.id,
+      url,
+      status: data.status,
+      score_overall,
+      metrics: fullMetrics
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
 };
