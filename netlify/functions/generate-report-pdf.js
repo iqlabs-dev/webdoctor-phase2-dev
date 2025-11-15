@@ -28,43 +28,40 @@ export const handler = async (event) => {
     };
   }
 
-  const { report_id, html: htmlFromBody } = body;
+  const { user_id } = body;
 
-  // ✅ Only require report_id; HTML can be loaded from Supabase
-  if (!report_id) {
+  if (!user_id) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'report_id required' })
+      body: JSON.stringify({ error: 'user_id required' })
     };
   }
 
-  let html = htmlFromBody || null;
+  // 1) Get the latest report for this user
+  const { data: reportRow, error: loadError } = await supabase
+    .from('reports')
+    .select('report_id, html')
+    .eq('user_id', user_id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  // If HTML not provided, pull it from the reports table
-  if (!html) {
-    const { data, error } = await supabase
-      .from('reports')
-      .select('html')
-      .eq('report_id', report_id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('SUPABASE LOAD HTML ERROR:', error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'failed to load report html' })
-      };
-    }
-
-    if (!data || !data.html) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'report html not found' })
-      };
-    }
-
-    html = data.html;
+  if (loadError) {
+    console.error('SUPABASE LOAD REPORT ERROR:', loadError);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'failed to load report' })
+    };
   }
+
+  if (!reportRow || !reportRow.report_id || !reportRow.html) {
+    return {
+      statusCode: 404,
+      body: JSON.stringify({ error: 'no report found for this user' })
+    };
+  }
+
+  const { report_id, html } = reportRow;
 
   let browser;
 

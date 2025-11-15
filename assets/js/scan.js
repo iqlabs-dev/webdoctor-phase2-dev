@@ -11,14 +11,15 @@ export function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-// Simple Phase 2.6 scan → calls the existing run-scan function
+// Call backend scan + report generator pipeline
 export async function runScan(url) {
   const payload = {
     url,
-    userId: window.currentUserId || null  // optional tagging
+    user_id: window.currentUserId || null,
+    email: window.currentUserEmail || null
   };
 
-  const response = await fetch('/.netlify/functions/run-scan', {
+  const response = await fetch('/.netlify/functions/generate-report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -28,7 +29,7 @@ export async function runScan(url) {
   try {
     data = await response.json();
   } catch {
-    // ignore parse errors; handled below
+    // ignore JSON parse errors, we’ll handle by status code
   }
 
   if (!response.ok) {
@@ -36,7 +37,6 @@ export async function runScan(url) {
     throw new Error(msg);
   }
 
-  // Expect the basic scan result from 2.6
-  // data: { score_overall, scan_id, url, ... }
+  // Don’t enforce shape here — just pass back whatever backend returns
   return data;
 }
