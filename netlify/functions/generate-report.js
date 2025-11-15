@@ -289,9 +289,15 @@ export const handler = async (event) => {
 
   const { url, user_id, email } = body;
 
-  if (!user_id) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'user_id required' }) };
-  }
+if (!url) {
+  return {
+    statusCode: 400,
+    body: JSON.stringify({ error: 'url required' })
+  };
+}
+
+// user_id is optional for now – we'll wire it in properly later
+
 
   const siteUrl = url || 'https://example.com';
   const today = new Date().toISOString().split('T')[0];
