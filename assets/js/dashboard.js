@@ -1,6 +1,6 @@
 try {
   const result = await runScan(cleaned);
-  // result must include: report_id, report_html, score_overall, etc.
+  // result must include: report_id, report_html, score_overal, etc.
   window.lastScanResult = result;
 
   const score = result.score_overall ?? result.score ?? '—';
