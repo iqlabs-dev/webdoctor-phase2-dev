@@ -1,22 +1,6 @@
 [build]
-  command = "npm install"
-  publish = "public"
-
-  # Use Node 18 for the build + functions
-  [build.environment]
-    NODE_VERSION = "18"
+  publish = "."
+  functions = "netlify/functions"
 
 [functions]
-  # Bundle functions with esbuild
   node_bundler = "esbuild"
-
-  # These must be shipped as-is so Chromium binary is available
-  external_node_modules = [
-    "@sparticuz/chromium",
-    "puppeteer-core"
-  ]
-
-  # Make sure the Chromium files are actually included
-  included_files = [
-    "node_modules/@sparticuz/chromium/**"
-  ]
