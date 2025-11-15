@@ -1,26 +1,22 @@
-import { supabase } from './supabaseClient.js';
+// /assets/js/auth-guard.js
 
-const LOGIN = 'login.html';
-const DASH = 'dashboard.html';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const page = window.location.pathname.split('/').pop();
+// Initialise client
+window.supabaseClient = createClient(
+  window.SUPABASE_URL,
+  window.SUPABASE_ANON_KEY
+);
 
-(async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await window.supabaseClient.auth.getSession();
 
-  // Logged out → trying to access dashboard
-  if (!session && page === DASH) {
-    window.location.href = LOGIN;
+  if (!session || !session.user) {
+    window.location.href = '/login.html';
+    return;
   }
 
-  // Logged in → trying to access login page
-  if (session && page === LOGIN) {
-    window.location.href = DASH;
-  }
-})();
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (!session && page === DASH) {
-    window.location.href = LOGIN;
-  }
+  // Store for other scripts
+  window.currentUserId = session.user.id;
+  window.currentUserEmail = session.user.email;
 });
