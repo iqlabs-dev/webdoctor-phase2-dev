@@ -28,19 +28,47 @@ export const handler = async (event) => {
     };
   }
 
-  const { report_id, html } = body;
+  const { report_id, html: htmlFromBody } = body;
 
-  if (!report_id || !html) {
+  // ✅ Only require report_id; HTML can be loaded from Supabase
+  if (!report_id) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'report_id and html required' })
+      body: JSON.stringify({ error: 'report_id required' })
     };
+  }
+
+  let html = htmlFromBody || null;
+
+  // If HTML not provided, pull it from the reports table
+  if (!html) {
+    const { data, error } = await supabase
+      .from('reports')
+      .select('html')
+      .eq('report_id', report_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('SUPABASE LOAD HTML ERROR:', error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'failed to load report html' })
+      };
+    }
+
+    if (!data || !data.html) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'report html not found' })
+      };
+    }
+
+    html = data.html;
   }
 
   let browser;
 
   try {
-    // Use Sparticuz Chromium helper to get the correct executable path on Netlify
     const executablePath = await chromium.executablePath();
 
     browser = await puppeteer.launch({
@@ -56,7 +84,6 @@ export const handler = async (event) => {
       waitUntil: ['load', 'networkidle0']
     });
 
-    // Generate PDF buffer
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -68,7 +95,7 @@ export const handler = async (event) => {
       }
     });
 
-    // Upload to Supabase Storage → bucket "reports"
+    // Upload to Supabase Storage bucket "reports"
     const filePath = `${report_id}.pdf`;
 
     const { error: uploadError } = await supabase.storage
@@ -86,7 +113,6 @@ export const handler = async (event) => {
       };
     }
 
-    // Get public URL
     const { data: publicUrlData } = supabase.storage
       .from('reports')
       .getPublicUrl(filePath);
@@ -114,7 +140,7 @@ export const handler = async (event) => {
     if (browser) {
       try {
         await browser.close();
-      } catch (e) {
+      } catch {
         // ignore close errors
       }
     }
