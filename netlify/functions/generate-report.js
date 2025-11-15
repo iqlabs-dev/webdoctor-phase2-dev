@@ -316,11 +316,19 @@ export const handler = async (event) => {
   }]);
 
   if (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'supabase insert failed', details: error.message })
-    };
-  }
+  console.log("SUPABASE REPORT INSERT ERROR:", error);   // <--- ADD THIS LINE
+
+  return {
+    statusCode: 500,
+    body: JSON.stringify({
+      error: 'supabase insert failed',
+      details: error.message,
+      hint: error.hint || null,
+      code: error.code || null
+    })
+  };
+}
+
 
   // return HTML as well so dashboard can show the report
   return {
