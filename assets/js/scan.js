@@ -1,4 +1,4 @@
-// /assets/js/scan.js
+// /asset/js/scan.js
 
 export function normaliseUrl(raw) {
   if (!raw) return '';
