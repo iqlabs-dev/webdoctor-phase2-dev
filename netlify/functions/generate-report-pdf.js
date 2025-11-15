@@ -17,6 +17,7 @@ export const handler = async (event) => {
     };
   }
 
+  // 1) Read body and get report_id
   let body = {};
   try {
     body = JSON.parse(event.body || '{}');
@@ -27,28 +28,43 @@ export const handler = async (event) => {
     };
   }
 
-  const { report_id, html } = body;
+  const { report_id } = body;
 
-  if (!report_id || !html) {
+  if (!report_id) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'report_id and html required' })
+      body: JSON.stringify({ error: 'report_id required' })
     };
   }
 
   try {
-    const isLocal = process.env.NETLIFY_DEV === 'true';
+    // 2) Look up HTML for this report_id from Supabase
+    const { data: reportRow, error: fetchError } = await supabase
+      .from('reports')
+      .select('html')
+      .eq('report_id', report_id)
+      .single();
 
+    if (fetchError || !reportRow || !reportRow.html) {
+      console.error('REPORT HTML FETCH ERROR:', fetchError);
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'report html not found' })
+      };
+    }
+
+    const html = reportRow.html;
+
+    // 3) Launch Chromium (Netlify-friendly)
+    const isLocal = process.env.NETLIFY_DEV === 'true';
     let browser;
 
     if (isLocal) {
-      // Local dev: use full Puppeteer
-      browser = await puppeteer.launch({
-        headless: true
-      });
+      // Local dev: normal puppeteer
+      browser = await puppeteer.launch({ headless: true });
     } else {
-      // Netlify / Lambda: use chromium helper
-      const executablePath = await chromium.executablePath(); // ✅ no custom path
+      // Netlify / Lambda: use chromium helper – NO hard-coded path
+      const executablePath = await chromium.executablePath();
 
       browser = await puppeteer.launch({
         args: chromium.args,
@@ -58,6 +74,7 @@ export const handler = async (event) => {
       });
     }
 
+    // 4) Render HTML → PDF
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -69,7 +86,7 @@ export const handler = async (event) => {
 
     await browser.close();
 
-    // Store PDF in Supabase Storage bucket "reports"
+    // 5) Save PDF to Supabase Storage (bucket: reports)
     const filename = `${report_id}.pdf`;
 
     const { error: uploadError } = await supabase
@@ -95,6 +112,7 @@ export const handler = async (event) => {
 
     const publicUrl = publicUrlData?.publicUrl || null;
 
+    // 6) Done
     return {
       statusCode: 200,
       body: JSON.stringify({
