@@ -1,4 +1,4 @@
-// /netlify/functions/generate-report-pdf.js
+// /netlify/function/generate-report-pdf.js
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import { createClient } from "@supabase/supabase-js";
