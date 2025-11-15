@@ -13,94 +13,117 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      color: #e2e8f0;
     }
 
     .card {
       background: #1e293b;
-      border-radius: 22px;
+      border-radius: 18px;
       padding: 28px;
-      width: min(520px, 96vw);
+      width: min(460px, 94vw);
       text-align: center;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.25);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
     }
 
     h1 {
-      margin: 0 0 6px;
-      font-size: 1.4rem;
+      margin: 0 0 10px;
+      font-size: 1.3rem;
       color: #e2e8f0;
     }
 
     .sub {
       color: #94a3b8;
       font-size: 0.85rem;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     input {
       width: 100%;
-      padding: 0.75rem;
-      border-radius: 10px;
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
       border: 1px solid #334155;
+      margin: 0.4rem 0 1rem;
       background: #0f172a;
       color: #e2e8f0;
     }
 
-    button {
-      width: 48%;
-      padding: 0.75rem;
-      border-radius: 9999px;
-      border: 0;
-      color: #fff;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 12px;
-      font-size: 0.9rem;
+    input::placeholder {
+      color: #64748b;
     }
 
-    .green { background: #16a34a; }
-    .red { background: #dc2626; }
+    button {
+      width: 48%;
+      padding: 0.7rem 1rem;
+      border-radius: 9999px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .green {
+      background: #16a34a;
+      color: #03120a;
+    }
+
+    .red {
+      background: #dc2626;
+      color: #fef2f2;
+    }
 
     .row {
       display: flex;
       justify-content: space-between;
       gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 12px;
     }
 
-    /* Report preview area */
-    #report-section {
-      margin-top: 26px;
-      display: none;
+    .back-link {
+      display: block;
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    /* Report section */
+    #report-section h2 {
+      margin: 0 0 6px;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      text-align: left;
+    }
+
+    #report-section p {
+      margin: 0 0 10px;
+      font-size: 0.78rem;
+      color: #94a3b8;
       text-align: left;
     }
 
     #report-preview {
       border-radius: 16px;
       overflow: hidden;
-      max-height: 560px;
+      max-height: 520px;
       background: #0b1120;
-      box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
     }
 
     #download-pdf-link {
       display: inline-block;
-      padding: 10px 16px;
-      margin-top: 14px;
+      padding: 8px 16px;
+      margin-top: 10px;
       border-radius: 9999px;
       background: #22c55e;
       color: #022c22;
-      text-decoration: none;
-      font-size: 0.9rem;
       font-weight: 600;
+      font-size: 0.85rem;
+      text-decoration: none;
     }
 
-    .back-link {
-      display: block;
-      margin-top: 20px;
-      color: #cbd5f5;
-      font-size: 0.85rem;
-      text-decoration: underline;
+    #download-pdf-link[disabled] {
+      opacity: 0.6;
+      pointer-events: none;
     }
   </style>
 </head>
@@ -108,107 +131,35 @@
 <body>
   <div class="card">
     <h1>WebDoctor Dashboard</h1>
-
     <div class="sub" id="user-email">Loading...</div>
     <div class="sub" id="trial-info"></div>
 
-    <input id="site-url" type="text" placeholder="Enter site URL (https://example.com)" />
+    <input id="site-url"
+           type="text"
+           placeholder="Enter site URL (https://example.com)" />
 
     <div class="row">
       <button class="green" id="run-scan">Run scan</button>
       <button class="red" id="logout-btn">Sign out</button>
     </div>
 
-    <!-- ============================ -->
-    <!--      Report preview block    -->
-    <!-- ============================ -->
-    <section id="report-section">
-      <h2 style="margin: 0 0 6px; font-size: 1rem; color: #e2e8f0;">Latest WebDoctor report</h2>
-      <p style="margin: 0 0 12px; font-size: 0.85rem; color: #94a3b8;">
-        This is a live preview of your most recent scan. Use the button below to download the PDF.
-      </p>
+    <!-- Report preview + PDF -->
+    <section id="report-section" style="margin-top: 16px; display: none; text-align: left;">
+      <h2>Latest WebDoctor report</h2>
+      <p>This is a live preview of your most recent scan. Use the button below to download the PDF.</p>
 
-      <!-- On-screen preview -->
+      <!-- On-screen preview (we inject report_html here) -->
       <div id="report-preview"></div>
 
-      <!-- Download PDF action -->
-      <a id="download-pdf-link" href="#" target="_blank">Download PDF</a>
+      <!-- Download PDF -->
+      <a href="#" id="download-pdf-link">Generating PDF…</a>
     </section>
 
     <a href="/" class="back-link">← Back to WebDoctor main site</a>
   </div>
 
-  <!-- Auth + Dashboard Logic -->
+  <!-- Auth protection + dashboard logic -->
   <script type="module" src="/assets/js/auth-guard.js"></script>
   <script type="module" src="/assets/js/dashboard.js"></script>
-  <script type="module" src="/assets/js/scan.js"></script>
-
-  <!-- PDF Generation Logic -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const link = document.getElementById('download-pdf-link');
-      const section = document.getElementById('report-section');
-      const preview = document.getElementById('report-preview');
-      const status = document.getElementById('trial-info');
-
-      // Hook into global "last scan"
-      document.addEventListener('webdoctor:scan-complete', (evt) => {
-        const { html, report_id } = evt.detail;
-        window.lastReportHtml = html;
-        window.lastReportId = report_id;
-
-        // Show the section
-        section.style.display = 'block';
-        preview.innerHTML = html;
-      });
-
-      // Download handler
-      link.addEventListener('click', async (e) => {
-        if (link.dataset.ready === '1' && link.href && !link.href.endsWith('#')) {
-          return; // already has a PDF URL
-        }
-
-        e.preventDefault();
-
-        const reportId = window.lastReportId;
-        if (!reportId) {
-          status.textContent = 'Run a scan first, then download.';
-          return;
-        }
-
-        status.textContent = 'Generating PDF...';
-        link.textContent = 'Generating...';
-
-        try {
-          const response = await fetch('/.netlify/functions/generate-report-pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ report_id: reportId })
-          });
-
-          const data = await response.json();
-
-          if (!response.ok || !data.ok) {
-            status.textContent = 'PDF failed: ' + (data.error || 'Error');
-            link.textContent = 'Download PDF';
-            return;
-          }
-
-          const pdfUrl = data.pdf_url;
-          link.href = pdfUrl;
-          link.dataset.ready = '1';
-          link.textContent = 'Open PDF';
-          status.textContent = 'PDF ready. Opening...';
-
-          window.open(pdfUrl, '_blank');
-
-        } catch (err) {
-          status.textContent = 'PDF failed: ' + err.message;
-          link.textContent = 'Download PDF';
-        }
-      });
-    });
-  </script>
-
 </body>
 </html>

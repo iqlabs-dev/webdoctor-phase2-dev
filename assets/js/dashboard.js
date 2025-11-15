@@ -1,66 +1,133 @@
 // /assets/js/dashboard.js
-import { supabase } from './supabaseClient.js';
 
-// Load user + trial info
-(async () => {
-  const {
-    data: { session }
-  } = await supabase.auth.getSession();
+import { normaliseUrl, runScan } from './scan.js';
 
-  const emailBox = document.querySelector('#user-email');
-  const trialBox = document.querySelector('#trial-info');
+document.addEventListener('DOMContentLoaded', () => {
+  const emailEl = document.getElementById('user-email');
+  const statusEl = document.getElementById('trial-info');
+  const urlInput = document.getElementById('site-url');
+  const runBtn = document.getElementById('run-scan');
+  const logoutBtn = document.getElementById('logout-btn');
+  const reportSection = document.getElementById('report-section');
+  const reportPreview = document.getElementById('report-preview');
+  const downloadPdfBtn = document.getElementById('download-pdf-link');
 
-  if (!session) return;
-
-  // expose current user id for scan.js (Phase 2.6)
-  window.currentUserId = session.user.id;
-
-  if (emailBox) {
-    emailBox.textContent = `Logged in as ${session.user.email}`;
+  // auth-guard.js sets this when session is valid
+  if (window.currentUserEmail) {
+    emailEl.textContent = `Logged in as ${window.currentUserEmail}`;
+  } else {
+    emailEl.textContent = 'Checking session...';
   }
 
-  if (trialBox) {
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('trial_start, trial_end, credits, subscription_status')
-      .eq('user_id', session.user.id)
-      .single();
-
-    if (error || !profile) {
-      trialBox.textContent = '';
+  function renderReportPreview(result) {
+    if (!result || !result.report_html) {
+      reportSection.style.display = 'none';
       return;
     }
 
-    const today = new Date();
-    const end = new Date(profile.trial_end);
-    today.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
+    reportPreview.innerHTML = result.report_html;
+    reportSection.style.display = 'block';
 
-    const msDiff = end.getTime() - today.getTime();
-    const daysLeft = Math.ceil(msDiff / (1000 * 60 * 60 * 24));
-
-    if (profile.subscription_status === 'trial') {
-      if (daysLeft > 0) {
-        trialBox.textContent = `Trial: ${daysLeft} day${
-          daysLeft === 1 ? '' : 's'
-        } remaining`;
-      } else {
-        trialBox.textContent =
-          'Trial expired — upgrade required after Phase 2 Stripe integration.';
-      }
-    } else {
-      trialBox.textContent = `Plan: ${profile.subscription_status}`;
+    const idBadge = reportPreview.querySelector('[data-report-id]');
+    if (idBadge) {
+      idBadge.textContent = result.report_id || '—';
     }
   }
-})();
 
-// Sign out
-document
-  .querySelector('#logout-btn')
-  ?.addEventListener('click', async () => {
-    await supabase.auth.signOut();
-    window.location.href = 'login.html';
+  // 1) Run scan → we expect backend to return report_id + report_html
+  runBtn.addEventListener('click', async () => {
+    const cleaned = normaliseUrl(urlInput.value);
+
+    if (!cleaned) {
+      statusEl.textContent = 'Enter a valid URL.';
+      return;
+    }
+
+    statusEl.textContent = 'Running scan...';
+    runBtn.disabled = true;
+    downloadPdfBtn.disabled = true;
+
+    try {
+      const result = await runScan(cleaned);
+
+      // Backend must include: report_id, report_html, score_overall, etc.
+      window.lastScanResult = result;
+
+      if (!result.report_id || !result.report_html) {
+        statusEl.textContent = 'Scan failed: report data missing.';
+        reportSection.style.display = 'none';
+        return;
+      }
+
+      statusEl.textContent = `Report created. ID: ${result.report_id}.`;
+      renderReportPreview(result);
+      downloadPdfBtn.disabled = false;
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
+      reportSection.style.display = 'none';
+    } finally {
+      runBtn.disabled = false;
+    }
   });
 
-// NOTE: Run Scan click handler is now in /assets/js/scan.js
-// (no more placeholder alert here)
+  // 2) Generate PDF for latest report using report_id only
+  downloadPdfBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    const last = window.lastScanResult;
+    const reportId = last && last.report_id;
+
+    if (!reportId) {
+      statusEl.textContent = 'Run a scan first, then generate the PDF.';
+      return;
+    }
+
+    statusEl.textContent = 'Generating PDF...';
+    downloadPdfBtn.disabled = true;
+
+    try {
+      const response = await fetch('/.netlify/functions/generate-report-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: reportId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'PDF generation failed');
+      }
+
+      statusEl.textContent = 'PDF ready — opening…';
+
+      // our function returns { ok: true, report_id, pdf_url }
+      const pdfUrl = data.pdf_url || data.url || null;
+
+      if (pdfUrl) {
+        window.open(pdfUrl, '_blank');
+      } else {
+        statusEl.textContent = 'PDF generated but no URL returned.';
+      }
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent =
+        'Scan failed: ' + (err.message || 'PDF generation failed');
+    } finally {
+      downloadPdfBtn.disabled = false;
+    }
+  });
+
+  // 3) Sign-out
+  logoutBtn.addEventListener('click', async () => {
+    statusEl.textContent = 'Signing out...';
+    try {
+      const { error } = await window.supabaseClient.auth.signOut();
+      if (error) throw error;
+      window.location.href = '/login.html';
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'Sign out failed: ' + err.message;
+    }
+  });
+});
