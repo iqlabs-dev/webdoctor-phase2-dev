@@ -13,11 +13,12 @@ export function normaliseUrl(raw) {
 
 // Call backend report generator pipeline
 export async function runScan(url) {
-  const payload = {
-    url,
-    userId: window.currentUserId || null,
-    email: window.currentUserEmail || null
-  };
+const payload = {
+  url,
+  user_id: window.currentUserId || null,
+  email: window.currentUserEmail || null
+};
+
 
   const response = await fetch('/.netlify/functions/generate-report', {
     method: 'POST',
