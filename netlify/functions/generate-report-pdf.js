@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
+// Supabase client using service role key (server-side only)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -27,72 +28,52 @@ export const handler = async (event) => {
     };
   }
 
-  const reportId = body.report_id || body.reportId;
+  const { report_id, html } = body;
 
-  if (!reportId) {
+  if (!report_id || !html) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'report_id required' })
+      body: JSON.stringify({ error: 'report_id and html required' })
     };
   }
-
-  // 1) Get HTML from Supabase
-  const { data: report, error: fetchError } = await supabase
-    .from('reports')
-    .select('id, report_id, html')
-    .eq('report_id', reportId)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error('SUPABASE REPORT FETCH ERROR:', fetchError);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'supabase fetch failed' })
-    };
-  }
-
-  if (!report || !report.html) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'report not found or html missing' })
-    };
-  }
-
-  const html = report.html;
-
-  chromium.setHeadlessMode = true;
-  chromium.setGraphicsMode = false;
 
   let browser;
 
   try {
+    // Use Sparticuz Chromium helper to get the correct executable path on Netlify
+    const executablePath = await chromium.executablePath();
+
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath,
       headless: chromium.headless
     });
 
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
 
+    await page.setContent(html, {
+      waitUntil: ['load', 'networkidle0']
+    });
+
+    // Generate PDF buffer
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: {
         top: '18mm',
+        right: '16mm',
         bottom: '18mm',
-        left: '15mm',
-        right: '15mm'
+        left: '16mm'
       }
     });
 
-    const fileName = `${reportId}.pdf`;
+    // Upload to Supabase Storage → bucket "reports"
+    const filePath = `${report_id}.pdf`;
 
-    const { error: uploadError } = await supabase
-      .storage
+    const { error: uploadError } = await supabase.storage
       .from('reports')
-      .upload(fileName, pdfBuffer, {
+      .upload(filePath, pdfBuffer, {
         contentType: 'application/pdf',
         upsert: true
       });
@@ -101,23 +82,23 @@ export const handler = async (event) => {
       console.error('SUPABASE PDF UPLOAD ERROR:', uploadError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'supabase upload failed' })
+        body: JSON.stringify({ error: 'pdf upload failed' })
       };
     }
 
-    const { data: publicData } = supabase
-      .storage
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
       .from('reports')
-      .getPublicUrl(fileName);
+      .getPublicUrl(filePath);
 
-    const pdfUrl = publicData?.publicUrl || null;
+    const pdf_url = publicUrlData?.publicUrl || null;
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         ok: true,
-        report_id: reportId,
-        pdf_url: pdfUrl
+        report_id,
+        pdf_url
       })
     };
   } catch (err) {
@@ -126,15 +107,15 @@ export const handler = async (event) => {
       statusCode: 500,
       body: JSON.stringify({
         error: 'pdf generation failed',
-        details: err.message
+        details: err.message || String(err)
       })
     };
   } finally {
     if (browser) {
       try {
         await browser.close();
-      } catch (closeErr) {
-        console.error('Error closing browser:', closeErr);
+      } catch (e) {
+        // ignore close errors
       }
     }
   }
