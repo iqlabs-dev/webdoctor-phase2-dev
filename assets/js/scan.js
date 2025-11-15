@@ -1,6 +1,5 @@
 // /assets/js/scan.js
 
-// 1) Clean up the URL
 export function normaliseUrl(raw) {
   if (!raw) return '';
   let url = raw.trim();
@@ -12,7 +11,7 @@ export function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-// 2) Call backend scan pipeline (run-scan function)
+// Call backend report generator pipeline
 export async function runScan(url) {
   const payload = {
     url,
@@ -20,22 +19,29 @@ export async function runScan(url) {
     email: window.currentUserEmail || null
   };
 
-  const response = await fetch('/.netlify/functions/run-scan', {
+  const response = await fetch('/.netlify/functions/generate-report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
-  const data = await response.json();
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    // ignore parse errors, we'll handle below
+  }
 
   if (!response.ok) {
-    const msg = data?.message || data?.error || 'Scan failed';
+    const msg = data?.error || data?.message || 'Scan failed';
     throw new Error(msg);
   }
 
-  // This should include report_id + report_html from the function
+  // We expect the backend to give us a full report object
+  if (!data.report_id || !data.report_html) {
+    console.error('generate-report returned incomplete data:', data);
+    throw new Error('report data missing');
+  }
+
   return data;
 }
-
-// ❌ No DOM event listeners here anymore.
-// The dashboard page (dashboard.js) is responsible for wiring buttons & UI.
