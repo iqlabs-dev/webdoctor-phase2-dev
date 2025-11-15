@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-// Supabase (service role, server-side only)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -18,7 +17,6 @@ export const handler = async (event) => {
     };
   }
 
-  // 1) Parse body
   let body;
   try {
     body = JSON.parse(event.body || '{}');
@@ -38,7 +36,7 @@ export const handler = async (event) => {
     };
   }
 
-  // 2) Fetch report HTML from Supabase
+  // 1) Get HTML from Supabase
   const { data: report, error: fetchError } = await supabase
     .from('reports')
     .select('id, report_id, html')
@@ -62,7 +60,6 @@ export const handler = async (event) => {
 
   const html = report.html;
 
-  // 3) Generate PDF with chromium + puppeteer-core
   chromium.setHeadlessMode = true;
   chromium.setGraphicsMode = false;
 
@@ -90,7 +87,6 @@ export const handler = async (event) => {
       }
     });
 
-    // 4) Upload PDF to Supabase Storage bucket "reports"
     const fileName = `${reportId}.pdf`;
 
     const { error: uploadError } = await supabase
@@ -109,7 +105,6 @@ export const handler = async (event) => {
       };
     }
 
-    // 5) Get public URL to return to the dashboard
     const { data: publicData } = supabase
       .storage
       .from('reports')

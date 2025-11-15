@@ -1,5 +1,14 @@
-[functions]
-  node_bundler = "esbuild"
+[build]
+  command = "npm install && npm run build"
+  publish = "public"
 
-[functions."cleanup-expired-trials"]
-  schedule = "0 3 * * *"
+[functions]
+  # Use esbuild and Node 18
+  node_bundler = "esbuild"
+  node_version = "18"
+
+  # Don’t tree-shake these – Netlify must include them as-is
+  external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]
+
+  # Make sure the Chromium binary is copied into the function bundle
+  included_files = ["node_modules/@sparticuz/chromium/**"]
