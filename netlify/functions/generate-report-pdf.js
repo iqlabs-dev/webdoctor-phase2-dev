@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-// Supabase client (SERVICE ROLE KEY)
+// Supabase (service role)
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -17,84 +17,63 @@ export const handler = async (event) => {
     };
   }
 
-  // 1) Parse JSON body
   let body = {};
   try {
     body = JSON.parse(event.body || '{}');
-  } catch (err) {
-    console.error('generate-report-pdf JSON parse error:', err);
+  } catch (e) {
     return {
       statusCode: 400,
       body: JSON.stringify({ error: 'invalid json' })
     };
   }
 
-  const { report_id } = body;
+  const { report_id, html } = body;
 
-  if (!report_id) {
+  if (!report_id || !html) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'report_id required' })
+      body: JSON.stringify({ error: 'report_id and html required' })
     };
   }
-
-  // 2) Fetch HTML for this report from Supabase
-  const { data: reportRow, error: fetchError } = await supabase
-    .from('reports')
-    .select('html')
-    .eq('report_id', report_id)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error('Error fetching report HTML:', fetchError);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'failed to fetch report html' })
-    };
-  }
-
-  if (!reportRow || !reportRow.html) {
-    return {
-      statusCode: 404,
-      body: JSON.stringify({ error: 'report not found or no html' })
-    };
-  }
-
-  let browser;
 
   try {
-    // 3) Launch headless Chromium
-    const executablePath = await chromium.executablePath();
+    const isLocal = process.env.NETLIFY_DEV === 'true';
 
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath,
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true
-    });
+    let browser;
+
+    if (isLocal) {
+      // Local dev: use full Puppeteer
+      browser = await puppeteer.launch({
+        headless: true
+      });
+    } else {
+      // Netlify / Lambda: use chromium helper
+      const executablePath = await chromium.executablePath(); // ✅ no custom path
+
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath,
+        headless: chromium.headless
+      });
+    }
 
     const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
 
-    // 4) Load HTML from DB
-    await page.setContent(reportRow.html, { waitUntil: 'networkidle0' });
-
-    // 5) Render to PDF
     const pdfBuffer = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: {
-        top: '10mm',
-        right: '10mm',
-        bottom: '10mm',
-        left: '10mm'
-      }
+      margin: { top: '12mm', right: '12mm', bottom: '14mm', left: '12mm' }
     });
 
-    // 6) Upload PDF to Supabase Storage → bucket "reports"
-    const filename = `reports/${report_id}.pdf`;
+    await browser.close();
 
-    const { error: uploadError } = await supabase.storage
+    // Store PDF in Supabase Storage bucket "reports"
+    const filename = `${report_id}.pdf`;
+
+    const { error: uploadError } = await supabase
+      .storage
       .from('reports')
       .upload(filename, pdfBuffer, {
         contentType: 'application/pdf',
@@ -102,46 +81,36 @@ export const handler = async (event) => {
       });
 
     if (uploadError) {
-      console.error('Error uploading PDF:', uploadError);
+      console.error('SUPABASE PDF UPLOAD ERROR:', uploadError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'pdf upload failed' })
+        body: JSON.stringify({ error: 'storage upload failed' })
       };
     }
 
-    // 7) Get public URL
-    const {
-      data: { publicUrl }
-    } = supabase.storage.from('reports').getPublicUrl(filename);
-
-    // 8) Optional: save pdf_url on the report row
-    const { error: updateError } = await supabase
+    const { data: publicUrlData } = supabase
+      .storage
       .from('reports')
-      .update({ pdf_url: publicUrl })
-      .eq('report_id', report_id);
+      .getPublicUrl(filename);
 
-    if (updateError) {
-      console.error('Error saving pdf_url:', updateError);
-    }
+    const publicUrl = publicUrlData?.publicUrl || null;
 
-    // 9) Return URL
     return {
       statusCode: 200,
       body: JSON.stringify({
         ok: true,
-        report_id,
-        pdf_url: publicUrl
+        pdf_url: publicUrl,
+        path: filename
       })
     };
   } catch (err) {
-    console.error('Error generating PDF:', err);
+    console.error('PDF GENERATION ERROR:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'pdf generation failed' })
+      body: JSON.stringify({
+        error: 'pdf generation failed',
+        details: err.message
+      })
     };
-  } finally {
-    if (browser) {
-      await browser.close();
-    }
   }
 };
