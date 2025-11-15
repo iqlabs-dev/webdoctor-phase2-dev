@@ -1,4 +1,4 @@
-// /asset/js/scan.js
+// /assets/js/scan.js
 
 export function normaliseUrl(raw) {
   if (!raw) return '';
@@ -11,16 +11,14 @@ export function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-// Call backend report generator pipeline
+// Simple Phase 2.6 scan → calls the existing run-scan function
 export async function runScan(url) {
-const payload = {
-  url,
-  user_id: window.currentUserId || null,
-  email: window.currentUserEmail || null
-};
+  const payload = {
+    url,
+    userId: window.currentUserId || null  // optional tagging
+  };
 
-
-  const response = await fetch('/.netlify/functions/generate-report', {
+  const response = await fetch('/.netlify/functions/run-scan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -30,7 +28,7 @@ const payload = {
   try {
     data = await response.json();
   } catch {
-    // ignore parse errors, we'll handle below
+    // ignore parse errors; handled below
   }
 
   if (!response.ok) {
@@ -38,11 +36,7 @@ const payload = {
     throw new Error(msg);
   }
 
-  // We expect the backend to give us a full report object
-  if (!data.report_id || !data.report_html) {
-    console.error('generate-report returned incomplete data:', data);
-    throw new Error('report data missing');
-  }
-
+  // Expect the basic scan result from 2.6
+  // data: { score_overall, scan_id, url, ... }
   return data;
 }
