@@ -150,11 +150,12 @@
   <a href="/" class="back-link">← Back to WebDoctor main site</a>
 </div>
 
-<!-- Supabase client (global) -->
-<script src="/assets/js/supabaseClient.js"></script>
+<!-- Supabase client as a module (so imports work) -->
+<script type="module" src="/assets/js/supabaseClient.js"></script>
 
 <!-- Auth protection + dashboard logic -->
 <script type="module" src="/assets/js/auth-guard.js"></script>
 <script type="module" src="/assets/js/dashboard.js"></script>
+
 </body>
 </html>
