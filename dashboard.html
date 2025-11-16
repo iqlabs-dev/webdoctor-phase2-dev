@@ -159,7 +159,13 @@
   </div>
 
   <!-- Auth protection + dashboard logic -->
-  <script type="module" src="/assets/js/auth-guard.js"></script>
+  <!-- 1) Shared Supabase client -->
+  <script src="/assets/js/supabaseClient.js"></script>
+
+  <!-- 2) Auth guard (redirects if no session, sets currentUserId/currentUserEmail) -->
+  <script src="/assets/js/auth-guard.js"></script>
+
+  <!-- 3) Dashboard + scan logic -->
   <script type="module" src="/assets/js/dashboard.js"></script>
 </body>
 </html>
