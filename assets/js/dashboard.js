@@ -13,9 +13,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadPdfBtn = document.getElementById('download-pdf-link');
 
   // ----------------------------------------------------
-  // 1. USER HEADER — show login email once auth is ready
+  // 1. USER HEADER — show login email
   // ----------------------------------------------------
   function updateUserHeader() {
+    if (!emailEl) return;
+
     if (window.currentUserEmail) {
       emailEl.textContent = `Logged in as ${window.currentUserEmail}`;
     } else {
@@ -23,27 +25,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Run now and again shortly to catch async auth-guard setup
+  // Try to pull user from Supabase if auth-guard hasn't set globals yet
+  async function hydrateUserFromSupabase() {
+    try {
+      if (!window.supabaseClient) {
+        console.warn('supabaseClient not found on window');
+        updateUserHeader();
+        return;
+      }
+
+      const { data, error } = await window.supabaseClient.auth.getUser();
+      if (error) {
+        console.warn('getUser error:', error);
+        updateUserHeader();
+        return;
+      }
+
+      if (data && data.user) {
+        window.currentUserEmail = data.user.email;
+        window.currentUserId = data.user.id;
+      }
+
+      updateUserHeader();
+    } catch (err) {
+      console.error('hydrateUserFromSupabase error:', err);
+      updateUserHeader();
+    }
+  }
+
+  // Initial header state + fetch user
   updateUserHeader();
-  setTimeout(updateUserHeader, 300);
-  setTimeout(updateUserHeader, 1000);
+  hydrateUserFromSupabase();
 
   // ----------------------------------------------------
   // 2. RENDER INLINE HTML REPORT PREVIEW (OSD)
   // ----------------------------------------------------
   function renderReportPreview(result) {
     if (!result || !result.report_html) {
-      // If backend didn’t send HTML yet, hide preview gracefully
       reportSection.style.display = 'none';
       reportPreview.innerHTML = '';
       return;
     }
 
-    // Inject the report HTML (Template V3 etc.)
     reportPreview.innerHTML = result.report_html;
     reportSection.style.display = 'block';
 
-    // Optional: fill in a badge for report id, if present in template
     const idBadge = reportPreview.querySelector('[data-report-id]');
     if (idBadge) {
       idBadge.textContent = result.report_id || '—';
@@ -66,16 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const result = await runScan(cleaned);
-      // Expect at least: result.report_id (and optionally result.report_html)
       window.lastScanResult = result;
 
       const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
-      // OSD (safe even if report_html is missing)
       renderReportPreview(result);
-
-      // Enable PDF button since we have a report id
       downloadPdfBtn.disabled = false;
     } catch (err) {
       console.error('SCAN ERROR:', err);
@@ -115,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         data = await response.json();
       } catch {
-        // ignore JSON parse errors, we’ll infer from response.ok
+        // ignore parse issues
       }
 
       if (!response.ok) {
@@ -144,6 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
   logoutBtn.addEventListener('click', async () => {
     statusEl.textContent = 'Signing out...';
     try {
+      if (!window.supabaseClient) {
+        throw new Error('Supabase client not available');
+      }
+
       const { error } = await window.supabaseClient.auth.signOut();
       if (error) throw error;
       window.location.href = '/login.html';

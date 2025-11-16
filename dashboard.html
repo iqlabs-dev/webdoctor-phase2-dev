@@ -147,12 +147,14 @@
       <a href="#" id="download-pdf-link">Download PDF</a>
     </section>
 
-    <a href="/" class="back-link">← Back to WebDoctor main site</a>
-  </div>
+  <a href="/" class="back-link">← Back to WebDoctor main site</a>
+</div>
 
-  <!-- Auth + Supabase + dashboard logic -->
-  <script src="/assets/js/supabaseClient.js"></script>
-  <script type="module" src="/assets/js/auth-guard.js"></script>
-  <script type="module" src="/assets/js/dashboard.js"></script>
+<!-- Supabase client (global) -->
+<script src="/assets/js/supabaseClient.js"></script>
+
+<!-- Auth protection + dashboard logic -->
+<script type="module" src="/assets/js/auth-guard.js"></script>
+<script type="module" src="/assets/js/dashboard.js"></script>
 </body>
 </html>
