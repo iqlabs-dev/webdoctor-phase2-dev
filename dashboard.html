@@ -74,7 +74,6 @@
       justify-content: space-between;
       gap: 10px;
       margin-top: 10px;
-      margin-bottom: 12px;
     }
 
     .back-link {
@@ -86,44 +85,25 @@
       cursor: pointer;
     }
 
-    /* Report section */
     #report-section h2 {
       margin: 0 0 6px;
-      font-size: 0.9rem;
+      font-size: 1rem;
       color: #e2e8f0;
-      text-align: left;
     }
 
     #report-section p {
       margin: 0 0 10px;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       color: #94a3b8;
-      text-align: left;
-    }
-
-    #report-preview {
-      border-radius: 16px;
-      overflow: hidden;
-      max-height: 520px;
-      background: #0b1120;
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
     }
 
     #download-pdf-link {
       display: inline-block;
-      padding: 8px 16px;
       margin-top: 10px;
-      border-radius: 9999px;
-      background: #22c55e;
-      color: #022c22;
-      font-weight: 600;
       font-size: 0.85rem;
-      text-decoration: none;
-    }
-
-    #download-pdf-link[disabled] {
-      opacity: 0.6;
-      pointer-events: none;
+      text-decoration: underline;
+      color: #e2e8f0;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -131,12 +111,18 @@
 <body>
   <div class="card">
     <h1>WebDoctor Dashboard</h1>
-    <div class="sub" id="user-email">Loading...</div>
-    <div class="sub" id="trial-info"></div>
 
-    <input id="site-url"
-           type="text"
-           placeholder="Enter site URL (https://example.com)" />
+    <!-- User email header -->
+    <div class="sub" id="user-email">Checking session...</div>
+
+    <!-- System status: scan + PDF messages -->
+    <div class="sub" id="system-status"></div>
+
+    <input
+      id="site-url"
+      type="text"
+      placeholder="Enter site URL (https://example.com)"
+    />
 
     <div class="row">
       <button class="green" id="run-scan">Run scan</button>
@@ -144,28 +130,29 @@
     </div>
 
     <!-- Report preview + PDF -->
-    <section id="report-section" style="margin-top: 16px; display: none; text-align: left;">
+    <section
+      id="report-section"
+      style="margin-top: 16px; display: none; text-align: left;"
+    >
       <h2>Latest WebDoctor report</h2>
-      <p>This is a live preview of your most recent scan. Use the button below to download the PDF.</p>
+      <p>
+        This is a live preview of your most recent scan. Use the button below
+        to download the PDF.
+      </p>
 
       <!-- On-screen preview (we inject report_html here) -->
       <div id="report-preview"></div>
 
       <!-- Download PDF -->
-      <a href="#" id="download-pdf-link">Generating PDF…</a>
+      <a href="#" id="download-pdf-link">Download PDF</a>
     </section>
 
     <a href="/" class="back-link">← Back to WebDoctor main site</a>
   </div>
 
-  <!-- Auth protection + dashboard logic -->
-  <!-- 1) Shared Supabase client -->
+  <!-- Auth + Supabase + dashboard logic -->
   <script src="/assets/js/supabaseClient.js"></script>
-
-  <!-- 2) Auth guard (redirects if no session, sets currentUserId/currentUserEmail) -->
-  <script src="/assets/js/auth-guard.js"></script>
-
-  <!-- 3) Dashboard + scan logic -->
+  <script type="module" src="/assets/js/auth-guard.js"></script>
   <script type="module" src="/assets/js/dashboard.js"></script>
 </body>
 </html>
