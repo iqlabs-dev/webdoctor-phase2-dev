@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const reportPreview = document.getElementById('report-preview');
   const downloadPdfBtn = document.getElementById('download-pdf-link');
 
+  // Initial status
+  statusEl.textContent = 'Checking session...';
+
   // -------------------------------------------
   // SESSION CHECK (auth-guard.js sets globals)
   // -------------------------------------------
@@ -19,6 +22,32 @@ document.addEventListener('DOMContentLoaded', () => {
     emailEl.textContent = `Logged in as ${window.currentUserEmail}`;
   } else {
     emailEl.textContent = 'Checking session...';
+  }
+
+  // -------------------------------------------
+  // LOAD REPORT ROW FROM SUPABASE BY report_id
+  // -------------------------------------------
+  async function loadReportRow(reportId) {
+    if (!window.supabaseClient) {
+      throw new Error('Supabase client not available');
+    }
+
+    const { data, error } = await window.supabaseClient
+      .from('reports')
+      .select('report_id, html, score')
+      .eq('report_id', reportId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('loadReportRow error:', error);
+      throw new Error('Failed to load report from database');
+    }
+
+    if (!data) {
+      throw new Error('Report not found in database');
+    }
+
+    return data;
   }
 
   // -------------------------------------------
@@ -38,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // -------------------------------------------
-  // RUN SCAN → SAVE RESULT → SHOW PREVIEW
+  // RUN SCAN → LOAD DB ROW → SHOW OSD HTML
   // -------------------------------------------
   runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
@@ -52,17 +81,42 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPdfBtn.disabled = true;
 
     try {
+      // Step 1: run the backend pipeline
       const result = await runScan(cleaned);
-      window.lastScanResult = result;
 
-      const score = result.score_overall ?? result.score ?? '—';
-      const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
+      const reportId = result.report_id;
+      if (!reportId) {
+        throw new Error('report_id missing from scan result');
+      }
 
-      statusEl.textContent = `Scan complete. Score ${score}. Scan ID: ${scanId}.`;
+      // Step 2: load score + html from Supabase
+      const row = await loadReportRow(reportId);
 
-      renderReportPreview(result);
+      const score =
+        row.score ??
+        result.score_overall ??
+        result.score ??
+        '—';
 
-      downloadPdfBtn.disabled = false;
+      // Cache final merged result for later features
+      window.lastScanResult = {
+        ...result,
+        ...row,
+        score_overall: score,
+        report_html: row.html
+      };
+
+      statusEl.textContent = `Scan complete. Score ${score}. Scan ID: ${reportId}.`;
+
+      // Step 3: render OSD
+      renderReportPreview({
+        report_html: row.html,
+        report_id: reportId
+      });
+
+      // PDF disabled for CCF-25320-01 (enabled later)
+      downloadPdfBtn.disabled = true;
+      downloadPdfBtn.title = 'PDF download will be enabled in the next build step.';
     } catch (err) {
       console.error('SCAN ERROR:', err);
       statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
@@ -73,48 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // -------------------------------------------
-  // GENERATE PDF FROM SAVED report_id
+  // PDF GENERATION (DISABLED FOR THIS CCF)
   // -------------------------------------------
-  downloadPdfBtn.addEventListener('click', async (e) => {
+  downloadPdfBtn.addEventListener('click', (e) => {
     e.preventDefault();
-
-    const last = window.lastScanResult;
-    const reportId = last && last.report_id;
-
-    if (!reportId) {
-      statusEl.textContent = 'Run a scan first, then generate the PDF.';
-      return;
-    }
-
-    statusEl.textContent = 'Generating PDF...';
-    downloadPdfBtn.disabled = true;
-
-    try {
-      const response = await fetch('/.netlify/functions/generate-report-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report_id: reportId })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'PDF generation failed');
-      }
-
-      statusEl.textContent = 'PDF ready — opening…';
-
-      if (data.pdf_url) {
-        window.open(data.pdf_url, '_blank');
-      } else {
-        statusEl.textContent = 'PDF generated but no URL returned.';
-      }
-    } catch (err) {
-      console.error('PDF ERROR:', err);
-      statusEl.textContent = 'PDF failed: ' + (err.message || 'Unknown error');
-    } finally {
-      downloadPdfBtn.disabled = false;
-    }
+    statusEl.textContent =
+      'PDF disabled for this build (CCF-25320-01).';
   });
 
   // -------------------------------------------
