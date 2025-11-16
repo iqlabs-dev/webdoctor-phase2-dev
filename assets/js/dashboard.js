@@ -60,7 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const score  = result.score_overall ?? result.score ?? '—';
       const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
 
-      statusEl.textContent = `Scan complete. Score ${score}. Scan ID: ${scanId}.`;
+statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
+
 
       renderReportPreview(result);
       downloadPdfBtn.disabled = false;
