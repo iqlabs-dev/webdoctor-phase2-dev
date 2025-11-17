@@ -2,14 +2,85 @@
 
 import { normaliseUrl, runScan } from './scan.js';
 
+// -----------------------------
+// SCAN HISTORY BLOCK
+// -----------------------------
+
+async function loadScanHistory() {
+  const tbody = document.getElementById('history-body');
+  const empty = document.getElementById('history-empty');
+
+  if (!tbody || !empty) return;
+
+  const supabase = window.supabaseClient;
+  if (!supabase) {
+    console.warn('Supabase client not available; cannot load history.');
+    empty.textContent = 'Scan history is unavailable right now.';
+    return;
+  }
+
+  empty.textContent = 'Loading scan history…';
+  tbody.innerHTML = '';
+
+  const { data, error } = await supabase
+    .from('wd_scans') // <-- change if your table name differs
+    .select('scan_id, url, overall_score, created_at')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error('History load error:', error);
+    empty.textContent = 'Unable to load scan history right now.';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    empty.textContent = 'No scans yet. Run your first scan to see history here.';
+    return;
+  }
+
+  empty.textContent = '';
+
+  for (const row of data) {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td class="col-url">${row.url || ''}</td>
+      <td class="col-score">
+        ${
+          row.overall_score != null
+            ? `<span class="tag">${row.overall_score}/100</span>`
+            : '—'
+        }
+      </td>
+      <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
+      <td class="col-actions">
+        <button class="btn-link" disabled>View</button>
+        <button class="btn-link" disabled>PDF</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  }
+}
+
+// -----------------------------
+// MAIN DASHBOARD LOGIC
+// -----------------------------
+
 document.addEventListener('DOMContentLoaded', () => {
-  const statusEl = document.getElementById('trial-info');      // single status line
+  const statusEl = document.getElementById('trial-info'); // single status line
   const urlInput = document.getElementById('site-url');
   const runBtn = document.getElementById('run-scan');
   const logoutBtn = document.getElementById('logout-btn');
   const reportSection = document.getElementById('report-section');
   const reportPreview = document.getElementById('report-preview');
   const downloadPdfBtn = document.getElementById('download-pdf-link');
+
+  if (!statusEl || !urlInput || !runBtn || !logoutBtn || !reportSection || !reportPreview || !downloadPdfBtn) {
+    console.error('Dashboard elements missing from DOM.');
+    return;
+  }
 
   // Start with a neutral message (or blank)
   statusEl.textContent = '';
@@ -58,6 +129,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Now a valid report exists, so PDF button is allowed
       downloadPdfBtn.disabled = false;
+
+      // Refresh scan history after a successful scan
+      loadScanHistory();
     } catch (err) {
       console.error('SCAN ERROR:', err);
       statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
@@ -119,70 +193,19 @@ document.addEventListener('DOMContentLoaded', () => {
   logoutBtn.addEventListener('click', async () => {
     statusEl.textContent = 'Signing out...';
     try {
-      if (!window.supabaseClient) {
+      const supabase = window.supabaseClient;
+      if (!supabase) {
         throw new Error('Supabase client not available');
       }
-      const { error } = await window.supabaseClient.auth.signOut();
+      const { error } = await supabase.auth.signOut();
       if (error) throw error;
       window.location.href = '/login.html';
     } catch (err) {
       console.error(err);
-      statusEl.textContent = 'Sign out failed: ' + err.message;
+      statusEl.textContent = 'Sign out failed: ' + (err.message || 'Unknown error');
     }
   });
-  // -----------------------------
-// SCAN HISTORY BLOCK
-// -----------------------------
 
-async function loadScanHistory() {
-  const tbody = document.getElementById("history-body");
-  const empty = document.getElementById("history-empty");
-
-  if (!tbody || !empty) return;
-
-  empty.textContent = "Loading scan history…";
-  tbody.innerHTML = "";
-
-  const { data, error } = await supabase
-    .from("wd_scans") // <-- replace with your actual table name
-    .select("scan_id, url, overall_score, created_at")
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  if (error) {
-    console.error("History load error:", error);
-    empty.textContent = "Unable to load scan history right now.";
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    empty.textContent = "No scans yet. Run your first scan to see history here.";
-    return;
-  }
-
-  empty.textContent = "";
-
-  for (const row of data) {
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td class="col-url">${row.url || ""}</td>
-      <td class="col-score">
-        ${row.overall_score != null ? `<span class="tag">${row.overall_score}/100</span>` : "—"}
-      </td>
-      <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
-      <td class="col-actions">
-        <button class="btn-link" disabled>View</button>
-        <button class="btn-link" disabled>PDF</button>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-  }
-}
-
-// run on page load
-window.addEventListener("DOMContentLoaded", () => {
+  // Initial history load on page ready
   loadScanHistory();
 });
-

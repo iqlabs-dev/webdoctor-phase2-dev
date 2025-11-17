@@ -105,6 +105,101 @@
       color: #e2e8f0;
       cursor: pointer;
     }
+
+    /* History styles */
+    #history-section {
+      margin-top: 24px;
+      text-align: left;
+    }
+
+    #history-section h2 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+      color: #e2e8f0;
+    }
+
+    #history-section p {
+      margin: 0 0 8px;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .history-table-wrapper {
+      border-radius: 12px;
+      border: 1px solid #334155;
+      overflow: hidden;
+      background: #020617;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    thead {
+      background: #020617;
+    }
+
+    th,
+    td {
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    th {
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    td {
+      color: #cbd5f5;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .col-url {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .col-score,
+    .col-date,
+    .col-actions {
+      white-space: nowrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      border: 1px solid #38bdf8;
+      color: #e2e8f0;
+    }
+
+    .btn-link {
+      font-size: 0.7rem;
+      border-radius: 9999px;
+      padding: 3px 6px;
+      border: 1px solid #64748b;
+      background: transparent;
+      color: #e2e8f0;
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    .btn-link:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
   </style>
 </head>
 
@@ -147,64 +242,30 @@
       <a href="#" id="download-pdf-link">Download PDF</a>
     </section>
 
+    <!-- Scan history -->
+    <section id="history-section">
+      <h2>Past scans</h2>
+      <p id="history-empty">Loading scan history…</p>
+
+      <div class="history-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th class="col-score">Score</th>
+              <th class="col-date">Date</th>
+              <th class="col-actions">Report</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <!-- rows injected by dashboard.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <a href="/" class="back-link">← Back to WebDoctor main site</a>
   </div>
-  // -----------------------------
-// SCAN HISTORY BLOCK
-// -----------------------------
-
-async function loadScanHistory() {
-  const tbody = document.getElementById("history-body");
-  const empty = document.getElementById("history-empty");
-
-  if (!tbody || !empty) return;
-
-  empty.textContent = "Loading scan history…";
-  tbody.innerHTML = "";
-
-  const { data, error } = await supabase
-    .from("wd_scans") // <-- replace with your actual table name
-    .select("scan_id, url, overall_score, created_at")
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  if (error) {
-    console.error("History load error:", error);
-    empty.textContent = "Unable to load scan history right now.";
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    empty.textContent = "No scans yet. Run your first scan to see history here.";
-    return;
-  }
-
-  empty.textContent = "";
-
-  for (const row of data) {
-    const tr = document.createElement("tr");
-
-    tr.innerHTML = `
-      <td class="col-url">${row.url || ""}</td>
-      <td class="col-score">
-        ${row.overall_score != null ? `<span class="tag">${row.overall_score}/100</span>` : "—"}
-      </td>
-      <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
-      <td class="col-actions">
-        <button class="btn-link" disabled>View</button>
-        <button class="btn-link" disabled>PDF</button>
-      </td>
-    `;
-
-    tbody.appendChild(tr);
-  }
-}
-
-// run on page load
-window.addEventListener("DOMContentLoaded", () => {
-  loadScanHistory();
-});
-
 
   <!-- Supabase client as a module (so imports work) -->
   <script type="module" src="/assets/js/supabaseClient.js"></script>
