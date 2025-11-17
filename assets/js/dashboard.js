@@ -23,10 +23,11 @@ async function loadScanHistory() {
   tbody.innerHTML = '';
 
   const { data, error } = await supabase
-    .from('wd_scans') // <-- change if your table name is different
-    .select('scan_id, url, overall_score, created_at')
-    .order('created_at', { ascending: false })
-    .limit(20);
+  .from('reports') // <-- public.reports table
+  .select('scan_id, url, overall_score, created_at')
+  .order('created_at', { ascending: false })
+  .limit(20);
+
 
    if (error) {
   console.error('History load error:', error);
