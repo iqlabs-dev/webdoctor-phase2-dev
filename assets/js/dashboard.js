@@ -28,11 +28,12 @@ async function loadScanHistory() {
     .order('created_at', { ascending: false })
     .limit(20);
 
-  if (error) {
-    console.error('History load error:', error);
-    empty.textContent = 'Unable to load scan history right now.';
-    return;
-  }
+   if (error) {
+  console.error('History load error:', error);
+  empty.textContent = 'Unable to load scan history: ' + (error.message || 'Unknown error');
+  return;
+}
+
 
   if (!data || data.length === 0) {
     empty.textContent = 'No scans yet. Run your first scan to see history here.';
