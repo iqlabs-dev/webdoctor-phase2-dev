@@ -1,145 +1,147 @@
 // /netlify/functions/generate-report-pdf.js
-
 import { createClient } from '@supabase/supabase-js';
 import chromium from '@sparticuz/chromium';
 import puppeteer from 'puppeteer-core';
 
-// Supabase client using service role key (server-side only)
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, serviceKey);
 
 export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'method not allowed' })
-    };
-  }
-
-  let body;
   try {
-    body = JSON.parse(event.body || '{}');
-  } catch (e) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'invalid json' })
-    };
-  }
+    if (event.httpMethod !== 'POST') {
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ error: 'Method not allowed' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  const { user_id } = body;
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Invalid JSON body' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  if (!user_id) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'user_id required' })
-    };
-  }
+    const { report_id, user_id } = body;
 
-  // 1) Get the latest report for this user
-  const { data: reportRow, error: loadError } = await supabase
-    .from('reports')
-    .select('report_id, html')
-    .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    if (!report_id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'report_id is required' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  if (loadError) {
-    console.error('SUPABASE LOAD REPORT ERROR:', loadError);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'failed to load report' })
-    };
-  }
+    // Fetch report row
+    const { data: report, error: dbError } = await supabase
+      .from('reports')
+      .select('html, report_id, user_id')
+      .eq('report_id', report_id)
+      .maybeSingle();
 
-  if (!reportRow || !reportRow.report_id || !reportRow.html) {
-    return {
-      statusCode: 404,
-      body: JSON.stringify({ error: 'no report found for this user' })
-    };
-  }
+    if (dbError) {
+      console.error('DB error:', dbError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Database error: ' + dbError.message }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  const { report_id, html } = reportRow;
+    if (!report) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Report not found' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  let browser;
+    // Optional guard: only enforce if both values exist
+    if (report.user_id && user_id && report.user_id !== user_id) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: 'Not authorised for this report' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-  try {
-    const executablePath = await chromium.executablePath();
+    if (!report.html) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Report has no HTML content' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
-    browser = await puppeteer.launch({
+    // ----- Generate PDF from HTML via headless Chrome -----
+    const browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless
     });
 
     const page = await browser.newPage();
-
-    await page.setContent(html, {
-      waitUntil: ['load', 'networkidle0']
-    });
+    await page.setContent(report.html, { waitUntil: 'networkidle0' });
 
     const pdfBuffer = await page.pdf({
       format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '18mm',
-        right: '16mm',
-        bottom: '18mm',
-        left: '16mm'
-      }
+      printBackground: true
     });
 
-    // Upload to Supabase Storage bucket "reports"
-    const filePath = `${report_id}.pdf`;
+    await browser.close();
+
+    // ----- Upload to Supabase Storage -----
+    const pdfPath = `reports/${report.report_id}.pdf`; // e.g. reports/WDR-25319-6308.pdf
 
     const { error: uploadError } = await supabase.storage
-      .from('reports')
-      .upload(filePath, pdfBuffer, {
+      .from('report-pdfs') // <-- change if your bucket name is different
+      .upload(pdfPath, pdfBuffer, {
         contentType: 'application/pdf',
         upsert: true
       });
 
     if (uploadError) {
-      console.error('SUPABASE PDF UPLOAD ERROR:', uploadError);
+      console.error('Upload error:', uploadError);
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'pdf upload failed' })
+        body: JSON.stringify({ error: 'Upload error: ' + uploadError.message }),
+        headers: { 'Content-Type': 'application/json' }
       };
     }
 
     const { data: publicUrlData } = supabase.storage
-      .from('reports')
-      .getPublicUrl(filePath);
+      .from('report-pdfs')
+      .getPublicUrl(pdfPath);
 
-    const pdf_url = publicUrlData?.publicUrl || null;
+    const pdfUrl = publicUrlData?.publicUrl;
+
+    if (!pdfUrl) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Could not generate public URL for PDF' }),
+        headers: { 'Content-Type': 'application/json' }
+      };
+    }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        ok: true,
-        report_id,
-        pdf_url
-      })
+      body: JSON.stringify({ pdf_url: pdfUrl }),
+      headers: { 'Content-Type': 'application/json' }
     };
   } catch (err) {
-    console.error('PDF GENERATION ERROR:', err);
+    console.error('PDF FUNCTION FATAL ERROR:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: 'pdf generation failed',
-        details: err.message || String(err)
-      })
+      body: JSON.stringify({ error: 'Internal error: ' + (err.message || 'unknown') }),
+      headers: { 'Content-Type': 'application/json' }
     };
-  } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch {
-        // ignore close errors
-      }
-    }
   }
 };
