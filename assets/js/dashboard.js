@@ -24,7 +24,7 @@ async function loadScanHistory() {
 
   const { data, error } = await supabase
     .from('reports') // public.reports table
-    .select('url, score, created_at, report_id')
+    .select('url, score, created_at, report_id, html')
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -55,12 +55,99 @@ async function loadScanHistory() {
       <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
 
       <td class="col-actions">
-        <button class="btn-link" disabled>View</button>
-        <button class="btn-link" disabled>PDF</button>
+        <button class="btn-link btn-view">View</button>
+        <button class="btn-link btn-pdf">PDF</button>
       </td>
     `;
 
     tbody.appendChild(tr);
+
+    // ----- Wire up VIEW button for this row -----
+    const viewBtn = tr.querySelector('.btn-view');
+    if (viewBtn) {
+      const html = row.html;
+      const reportId = row.report_id;
+
+      if (!html) {
+        viewBtn.disabled = true;
+      } else {
+        viewBtn.disabled = false;
+        viewBtn.addEventListener('click', () => {
+          const reportSection = document.getElementById('report-section');
+          const reportPreview = document.getElementById('report-preview');
+          const statusEl = document.getElementById('trial-info');
+
+          if (!reportSection || !reportPreview) return;
+
+          reportPreview.innerHTML = html;
+          reportSection.style.display = 'block';
+
+          const idBadge = reportPreview.querySelector('[data-report-id]');
+          if (idBadge) idBadge.textContent = reportId || '—';
+
+          if (statusEl) {
+            statusEl.textContent = reportId
+              ? `Showing report ${reportId} from history.`
+              : 'Showing report from history.';
+          }
+
+          reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+    }
+
+    // ----- Wire up PDF button for this row -----
+    const pdfBtn = tr.querySelector('.btn-pdf');
+    if (pdfBtn) {
+      const reportId = row.report_id;
+
+      if (!reportId) {
+        pdfBtn.disabled = true;
+      } else {
+        pdfBtn.disabled = false;
+        pdfBtn.addEventListener('click', async () => {
+          const statusEl = document.getElementById('trial-info');
+          if (statusEl) statusEl.textContent = 'Generating PDF...';
+
+          pdfBtn.disabled = true;
+
+          try {
+            const response = await fetch(
+              '/.netlify/functions/generate-report-pdf',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report_id: reportId })
+              }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(data?.error || 'PDF generation failed');
+            }
+
+            if (statusEl) statusEl.textContent = 'PDF ready — opening…';
+
+            const pdfUrl = data.pdf_url || data.url;
+            if (pdfUrl) {
+              window.open(pdfUrl, '_blank');
+            } else if (statusEl) {
+              statusEl.textContent = 'PDF generated but no URL returned.';
+            }
+          } catch (err) {
+            console.error('HISTORY PDF ERROR:', err);
+            const statusEl = document.getElementById('trial-info');
+            if (statusEl) {
+              statusEl.textContent =
+                'PDF failed: ' + (err.message || 'Unknown error');
+            }
+          } finally {
+            pdfBtn.disabled = false;
+          }
+        });
+      }
+    }
   }
 }
 
