@@ -4,10 +4,11 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "node-fetch": "^3.3.2",
-    "@supabase/supabase-js": "^2.43.1",
-    "stripe": "^14.24.0",
     "@sparticuz/chromium": "^119.0.0",
-    "puppeteer-core": "^22.0.0"
+    "@supabase/supabase-js": "^2.43.1",
+    "html-pdf-node": "^1.0.8",
+    "node-fetch": "^3.3.2",
+    "puppeteer-core": "^22.0.0",
+    "stripe": "^14.24.0"
   }
 }
