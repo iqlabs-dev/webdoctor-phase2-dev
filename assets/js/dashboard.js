@@ -24,7 +24,7 @@ async function loadScanHistory() {
 
   const { data, error } = await supabase
     .from('reports') // public.reports table
-    .select('url, score, created_at, report_id, html')
+    .select('url, score, created_at, report_id, html, user_id')
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -62,7 +62,7 @@ async function loadScanHistory() {
 
     tbody.appendChild(tr);
 
-    // ----- Wire up VIEW button for this row -----
+    // ----- VIEW button (history row) -----
     const viewBtn = tr.querySelector('.btn-view');
     if (viewBtn) {
       const html = row.html;
@@ -96,12 +96,14 @@ async function loadScanHistory() {
       }
     }
 
-    // ----- Wire up PDF button for this row -----
+    // ----- PDF button (history row) -----
     const pdfBtn = tr.querySelector('.btn-pdf');
     if (pdfBtn) {
       const reportId = row.report_id;
+      const userId = row.user_id;
 
-      if (!reportId) {
+      // If we don't have user_id or report_id (old legacy scans), disable PDF
+      if (!reportId || !userId) {
         pdfBtn.disabled = true;
       } else {
         pdfBtn.disabled = false;
@@ -117,7 +119,7 @@ async function loadScanHistory() {
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ report_id: reportId })
+                body: JSON.stringify({ report_id: reportId, user_id: userId })
               }
             );
 
@@ -233,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const last = window.lastScanResult;
     const reportId = last && last.report_id;
+    const userId = last && last.user_id; // if your runScan returns this
 
     if (!reportId) {
       statusEl.textContent = 'Run a scan first, then generate the PDF.';
@@ -243,10 +246,14 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPdfBtn.disabled = true;
 
     try {
+      const body = userId
+        ? { report_id: reportId, user_id: userId }
+        : { report_id: reportId };
+
       const response = await fetch('/.netlify/functions/generate-report-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report_id: reportId })
+        body: JSON.stringify(body)
       });
 
       const data = await response.json();
