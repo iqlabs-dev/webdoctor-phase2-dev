@@ -9,7 +9,6 @@ window.currentReport = null;       // { report_id }
 // -----------------------------
 // SCAN HISTORY BLOCK
 // -----------------------------
-
 async function loadScanHistory() {
   const tbody = document.getElementById('history-body');
   const empty = document.getElementById('history-empty');
@@ -26,8 +25,8 @@ async function loadScanHistory() {
   tbody.innerHTML = '';
 
   const { data, error } = await supabase
-    .from('reports') // public.reports table
-    .select('url, score, created_at, report_id, html')
+    .from('reports')                                   // public.reports
+    .select('url, score, created_at, report_id, html') // no user filter yet
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -50,20 +49,19 @@ async function loadScanHistory() {
 
     tr.innerHTML = `
       <td class="col-url">${row.url || ''}</td>
-
       <td class="col-score">
-        ${row.score != null ? `<span class="tag">${row.score}/100</span>` : '—'}
+        ${
+          row.score != null
+            ? `<span class="tag">${row.score}/100</span>`
+            : '—'
+        }
       </td>
-
       <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
-
       <td class="col-actions">
         <button class="btn-link btn-view">View</button>
         <button class="btn-link btn-pdf">PDF</button>
       </td>
     `;
-
-    tbody.appendChild(tr);
 
     // ----- VIEW button (history row) -----
     const viewBtn = tr.querySelector('.btn-view');
@@ -111,6 +109,7 @@ async function loadScanHistory() {
         pdfBtn.disabled = false;
         pdfBtn.addEventListener('click', async () => {
           const statusEl = document.getElementById('trial-info');
+
           if (!currentUserId) {
             if (statusEl) {
               statusEl.textContent = 'PDF failed: user session missing.';
@@ -158,13 +157,14 @@ async function loadScanHistory() {
         });
       }
     }
+
+    tbody.appendChild(tr);
   }
 }
 
 // -----------------------------
 // MAIN DASHBOARD LOGIC
 // -----------------------------
-
 document.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('trial-info'); // single status line
   const urlInput = document.getElementById('site-url');
