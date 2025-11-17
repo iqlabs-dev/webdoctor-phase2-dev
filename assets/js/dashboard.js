@@ -130,4 +130,59 @@ document.addEventListener('DOMContentLoaded', () => {
       statusEl.textContent = 'Sign out failed: ' + err.message;
     }
   });
+  // -----------------------------
+// SCAN HISTORY BLOCK
+// -----------------------------
+
+async function loadScanHistory() {
+  const tbody = document.getElementById("history-body");
+  const empty = document.getElementById("history-empty");
+
+  if (!tbody || !empty) return;
+
+  empty.textContent = "Loading scan history…";
+  tbody.innerHTML = "";
+
+  const { data, error } = await supabase
+    .from("wd_scans") // <-- replace with your actual table name
+    .select("scan_id, url, overall_score, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("History load error:", error);
+    empty.textContent = "Unable to load scan history right now.";
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    empty.textContent = "No scans yet. Run your first scan to see history here.";
+    return;
+  }
+
+  empty.textContent = "";
+
+  for (const row of data) {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td class="col-url">${row.url || ""}</td>
+      <td class="col-score">
+        ${row.overall_score != null ? `<span class="tag">${row.overall_score}/100</span>` : "—"}
+      </td>
+      <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
+      <td class="col-actions">
+        <button class="btn-link" disabled>View</button>
+        <button class="btn-link" disabled>PDF</button>
+      </td>
+    `;
+
+    tbody.appendChild(tr);
+  }
+}
+
+// run on page load
+window.addEventListener("DOMContentLoaded", () => {
+  loadScanHistory();
 });
+
