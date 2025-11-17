@@ -1,7 +1,7 @@
 // /assets/js/dashboard.js
 
 import { normaliseUrl, runScan } from './scan.js';
-import { supabase } from './supabaseClient.js';  // <— key fix
+import { supabase } from './supabaseClient.js';
 
 // -----------------------------
 // SCAN HISTORY BLOCK
@@ -23,18 +23,17 @@ async function loadScanHistory() {
   tbody.innerHTML = '';
 
   const { data, error } = await supabase
-  .from('reports') // <-- public.reports table
-  .select('scan_id, url, overall_score, created_at')
-  .order('created_at', { ascending: false })
-  .limit(20);
+    .from('reports') // public.reports table
+    .select('url, score, created_at, report_id')
+    .order('created_at', { ascending: false })
+    .limit(20);
 
-
-   if (error) {
-  console.error('History load error:', error);
-  empty.textContent = 'Unable to load scan history: ' + (error.message || 'Unknown error');
-  return;
-}
-
+  if (error) {
+    console.error('History load error:', error);
+    empty.textContent =
+      'Unable to load scan history: ' + (error.message || 'Unknown error');
+    return;
+  }
 
   if (!data || data.length === 0) {
     empty.textContent = 'No scans yet. Run your first scan to see history here.';
@@ -48,14 +47,13 @@ async function loadScanHistory() {
 
     tr.innerHTML = `
       <td class="col-url">${row.url || ''}</td>
+
       <td class="col-score">
-        ${
-          row.overall_score != null
-            ? `<span class="tag">${row.overall_score}/100</span>`
-            : '—'
-        }
+        ${row.score != null ? `<span class="tag">${row.score}/100</span>` : '—'}
       </td>
+
       <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
+
       <td class="col-actions">
         <button class="btn-link" disabled>View</button>
         <button class="btn-link" disabled>PDF</button>
@@ -79,7 +77,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const reportPreview = document.getElementById('report-preview');
   const downloadPdfBtn = document.getElementById('download-pdf-link');
 
-  if (!statusEl || !urlInput || !runBtn || !logoutBtn || !reportSection || !reportPreview || !downloadPdfBtn) {
+  if (
+    !statusEl ||
+    !urlInput ||
+    !runBtn ||
+    !logoutBtn ||
+    !reportSection ||
+    !reportPreview ||
+    !downloadPdfBtn
+  ) {
     console.error('Dashboard elements missing from DOM.');
     return;
   }
@@ -126,7 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
       loadScanHistory();
     } catch (err) {
       console.error('SCAN ERROR:', err);
-      statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
+      statusEl.textContent =
+        'Scan failed: ' + (err.message || 'Unknown error');
       reportSection.style.display = 'none';
     } finally {
       runBtn.disabled = false;
@@ -171,7 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error('PDF ERROR:', err);
-      statusEl.textContent = 'PDF failed: ' + (err.message || 'Unknown error');
+      statusEl.textContent =
+        'PDF failed: ' + (err.message || 'Unknown error');
     } finally {
       downloadPdfBtn.disabled = false;
     }
@@ -189,7 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = '/login.html';
     } catch (err) {
       console.error(err);
-      statusEl.textContent = 'Sign out failed: ' + (err.message || 'Unknown error');
+      statusEl.textContent =
+        'Sign out failed: ' + (err.message || 'Unknown error');
     }
   });
 
