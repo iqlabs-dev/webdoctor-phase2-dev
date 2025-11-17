@@ -1,10 +1,18 @@
 // /netlify/functions/generate-report-pdf.js
 
+// /netlify/functions/generate-report-pdf.js
+
 import { createClient } from '@supabase/supabase-js';
 import pdf from 'html-pdf-node'; // <-- html-pdf-node version
-import dotenv from 'dotenv';
 
-dotenv.config();
+// ------------------------------
+// Setup Supabase
+// ------------------------------
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
 
 // ------------------------------
 // Setup Supabase
