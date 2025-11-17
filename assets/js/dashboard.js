@@ -3,6 +3,9 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase } from './supabaseClient.js';
 
+let currentUserId = null;          // auth user id
+window.currentReport = null;       // { report_id }
+
 // -----------------------------
 // SCAN HISTORY BLOCK
 // -----------------------------
@@ -24,7 +27,7 @@ async function loadScanHistory() {
 
   const { data, error } = await supabase
     .from('reports') // public.reports table
-    .select('url, score, created_at, report_id, html, user_id')
+    .select('url, score, created_at, report_id, html')
     .order('created_at', { ascending: false })
     .limit(20);
 
@@ -68,7 +71,7 @@ async function loadScanHistory() {
       const html = row.html;
       const reportId = row.report_id;
 
-      if (!html) {
+      if (!html || !reportId) {
         viewBtn.disabled = true;
       } else {
         viewBtn.disabled = false;
@@ -85,10 +88,11 @@ async function loadScanHistory() {
           const idBadge = reportPreview.querySelector('[data-report-id]');
           if (idBadge) idBadge.textContent = reportId || '—';
 
+          // track the report we’re currently looking at
+          window.currentReport = { report_id: reportId };
+
           if (statusEl) {
-            statusEl.textContent = reportId
-              ? `Showing report ${reportId} from history.`
-              : 'Showing report from history.';
+            statusEl.textContent = `Showing report ${reportId} from history.`;
           }
 
           reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -100,17 +104,21 @@ async function loadScanHistory() {
     const pdfBtn = tr.querySelector('.btn-pdf');
     if (pdfBtn) {
       const reportId = row.report_id;
-      const userId = row.user_id;
 
-      // If we don't have user_id or report_id (old legacy scans), disable PDF
-      if (!reportId || !userId) {
+      if (!reportId) {
         pdfBtn.disabled = true;
       } else {
         pdfBtn.disabled = false;
         pdfBtn.addEventListener('click', async () => {
           const statusEl = document.getElementById('trial-info');
-          if (statusEl) statusEl.textContent = 'Generating PDF...';
+          if (!currentUserId) {
+            if (statusEl) {
+              statusEl.textContent = 'PDF failed: user session missing.';
+            }
+            return;
+          }
 
+          if (statusEl) statusEl.textContent = 'Generating PDF...';
           pdfBtn.disabled = true;
 
           try {
@@ -119,7 +127,7 @@ async function loadScanHistory() {
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ report_id: reportId, user_id: userId })
+                body: JSON.stringify({ report_id: reportId, user_id: currentUserId })
               }
             );
 
@@ -139,9 +147,9 @@ async function loadScanHistory() {
             }
           } catch (err) {
             console.error('HISTORY PDF ERROR:', err);
-            const statusEl = document.getElementById('trial-info');
-            if (statusEl) {
-              statusEl.textContent =
+            const statusEl2 = document.getElementById('trial-info');
+            if (statusEl2) {
+              statusEl2.textContent =
                 'PDF failed: ' + (err.message || 'Unknown error');
             }
           } finally {
@@ -157,7 +165,7 @@ async function loadScanHistory() {
 // MAIN DASHBOARD LOGIC
 // -----------------------------
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('trial-info'); // single status line
   const urlInput = document.getElementById('site-url');
   const runBtn = document.getElementById('run-scan');
@@ -180,6 +188,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   statusEl.textContent = '';
+
+  // ---- get current auth user for PDF user_id ----
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      console.warn('Could not get auth user:', error);
+    } else if (data?.user) {
+      currentUserId = data.user.id;
+    }
+  } catch (e) {
+    console.warn('auth.getUser failed:', e);
+  }
 
   // ----- Render inline HTML report preview -----
   function renderReportPreview(result) {
@@ -211,6 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await runScan(cleaned);
       window.lastScanResult = result;
 
+      // track the latest report
+      window.currentReport = {
+        report_id: result.report_id || null
+      };
+
       const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
@@ -229,16 +254,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ----- Generate PDF from last report_id -----
+  // ----- Generate PDF from the currently shown report -----
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
-    const last = window.lastScanResult;
-    const reportId = last && last.report_id;
-    const userId = last && last.user_id; // if your runScan returns this
+    const current = window.currentReport || {};
+    const last = window.lastScanResult || {};
+
+    const reportId = current.report_id || last.report_id;
 
     if (!reportId) {
-      statusEl.textContent = 'Run a scan first, then generate the PDF.';
+      statusEl.textContent =
+        'No report selected. Run a scan or open one from history first.';
+      return;
+    }
+
+    if (!currentUserId) {
+      statusEl.textContent = 'PDF failed: user session missing.';
       return;
     }
 
@@ -246,9 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPdfBtn.disabled = true;
 
     try {
-      const body = userId
-        ? { report_id: reportId, user_id: userId }
-        : { report_id: reportId };
+      const body = { report_id: reportId, user_id: currentUserId };
 
       const response = await fetch('/.netlify/functions/generate-report-pdf', {
         method: 'POST',
