@@ -3,82 +3,37 @@
 import { normaliseUrl, runScan } from './scan.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const emailEl        = document.getElementById('user-email');
-  const statusEl       = document.getElementById('system-status');
-  const urlInput       = document.getElementById('site-url');
-  const runBtn         = document.getElementById('run-scan');
-  const logoutBtn      = document.getElementById('logout-btn');
-  const reportSection  = document.getElementById('report-section');
-  const reportPreview  = document.getElementById('report-preview');
+  const statusEl = document.getElementById('trial-info');      // single status line
+  const urlInput = document.getElementById('site-url');
+  const runBtn = document.getElementById('run-scan');
+  const logoutBtn = document.getElementById('logout-btn');
+  const reportSection = document.getElementById('report-section');
+  const reportPreview = document.getElementById('report-preview');
   const downloadPdfBtn = document.getElementById('download-pdf-link');
 
-  // ----------------------------------------------------
-  // 1. USER HEADER — show login email
-  // ----------------------------------------------------
-  function updateUserHeader() {
-    if (!emailEl) return;
+  // Start with a neutral message (or blank)
+  statusEl.textContent = '';
 
-    if (window.currentUserEmail) {
-      emailEl.textContent = `Logged in as ${window.currentUserEmail}`;
-    } else {
-      emailEl.textContent = 'Checking session...';
-    }
-  }
-
-  // Try to pull user from Supabase if auth-guard hasn't set globals yet
-  async function hydrateUserFromSupabase() {
-    try {
-      if (!window.supabaseClient) {
-        console.warn('supabaseClient not found on window');
-        updateUserHeader();
-        return;
-      }
-
-      const { data, error } = await window.supabaseClient.auth.getUser();
-      if (error) {
-        console.warn('getUser error:', error);
-        updateUserHeader();
-        return;
-      }
-
-      if (data && data.user) {
-        window.currentUserEmail = data.user.email;
-        window.currentUserId = data.user.id;
-      }
-
-      updateUserHeader();
-    } catch (err) {
-      console.error('hydrateUserFromSupabase error:', err);
-      updateUserHeader();
-    }
-  }
-
-  // Initial header state + fetch user
-  updateUserHeader();
-  hydrateUserFromSupabase();
-
-  // ----------------------------------------------------
-  // 2. RENDER INLINE HTML REPORT PREVIEW (OSD)
-  // ----------------------------------------------------
+  // -------------------------------------------
+  // RENDER INLINE HTML REPORT PREVIEW (OSD)
+  // -------------------------------------------
   function renderReportPreview(result) {
     if (!result || !result.report_html) {
       reportSection.style.display = 'none';
-      reportPreview.innerHTML = '';
       return;
     }
 
     reportPreview.innerHTML = result.report_html;
     reportSection.style.display = 'block';
 
+    // Optional: populate any badge inside the HTML
     const idBadge = reportPreview.querySelector('[data-report-id]');
-    if (idBadge) {
-      idBadge.textContent = result.report_id || '—';
-    }
+    if (idBadge) idBadge.textContent = result.report_id || '—';
   }
 
-  // ----------------------------------------------------
-  // 3. RUN SCAN → SAVE RESULT → SHOW PREVIEW
-  // ----------------------------------------------------
+  // -------------------------------------------
+  // RUN SCAN → SAVE RESULT → SHOW PREVIEW
+  // -------------------------------------------
   runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
@@ -92,26 +47,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const result = await runScan(cleaned);
+      // Backend should return full report object
       window.lastScanResult = result;
 
       const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
+      // If/when we wire OSD, this shows the full report HTML:
       renderReportPreview(result);
+
+      // Now a valid report exists, so PDF button is allowed
       downloadPdfBtn.disabled = false;
     } catch (err) {
       console.error('SCAN ERROR:', err);
       statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
       reportSection.style.display = 'none';
-      reportPreview.innerHTML = '';
     } finally {
       runBtn.disabled = false;
     }
   });
 
-  // ----------------------------------------------------
-  // 4. GENERATE PDF FROM SAVED report_id
-  // ----------------------------------------------------
+  // -------------------------------------------
+  // GENERATE PDF FROM SAVED report_id
+  // -------------------------------------------
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
@@ -133,21 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({ report_id: reportId })
       });
 
-      let data = {};
-      try {
-        data = await response.json();
-      } catch {
-        // ignore parse issues
-      }
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data?.error || 'PDF generation failed');
       }
 
-      const pdfUrl = data.pdf_url || data.url || null;
+      statusEl.textContent = 'PDF ready — opening…';
 
+      const pdfUrl = data.pdf_url || data.url;
       if (pdfUrl) {
-        statusEl.textContent = 'PDF ready — opening…';
         window.open(pdfUrl, '_blank');
       } else {
         statusEl.textContent = 'PDF generated but no URL returned.';
@@ -160,21 +113,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ----------------------------------------------------
-  // 5. LOG OUT
-  // ----------------------------------------------------
+  // -------------------------------------------
+  // LOGOUT
+  // -------------------------------------------
   logoutBtn.addEventListener('click', async () => {
     statusEl.textContent = 'Signing out...';
     try {
       if (!window.supabaseClient) {
         throw new Error('Supabase client not available');
       }
-
       const { error } = await window.supabaseClient.auth.signOut();
       if (error) throw error;
       window.location.href = '/login.html';
     } catch (err) {
-      console.error('LOGOUT ERROR:', err);
+      console.error(err);
       statusEl.textContent = 'Sign out failed: ' + err.message;
     }
   });
