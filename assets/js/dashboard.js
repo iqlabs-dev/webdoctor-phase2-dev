@@ -1,6 +1,7 @@
 // /assets/js/dashboard.js
 
 import { normaliseUrl, runScan } from './scan.js';
+import { supabase } from './supabaseClient.js';  // <— key fix
 
 // -----------------------------
 // SCAN HISTORY BLOCK
@@ -12,7 +13,6 @@ async function loadScanHistory() {
 
   if (!tbody || !empty) return;
 
-  const supabase = window.supabaseClient;
   if (!supabase) {
     console.warn('Supabase client not available; cannot load history.');
     empty.textContent = 'Scan history is unavailable right now.';
@@ -23,7 +23,7 @@ async function loadScanHistory() {
   tbody.innerHTML = '';
 
   const { data, error } = await supabase
-    .from('wd_scans') // <-- change if your table name differs
+    .from('wd_scans') // <-- change if your table name is different
     .select('scan_id, url, overall_score, created_at')
     .order('created_at', { ascending: false })
     .limit(20);
@@ -82,12 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Start with a neutral message (or blank)
   statusEl.textContent = '';
 
-  // -------------------------------------------
-  // RENDER INLINE HTML REPORT PREVIEW (OSD)
-  // -------------------------------------------
+  // ----- Render inline HTML report preview -----
   function renderReportPreview(result) {
     if (!result || !result.report_html) {
       reportSection.style.display = 'none';
@@ -97,14 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
     reportPreview.innerHTML = result.report_html;
     reportSection.style.display = 'block';
 
-    // Optional: populate any badge inside the HTML
     const idBadge = reportPreview.querySelector('[data-report-id]');
     if (idBadge) idBadge.textContent = result.report_id || '—';
   }
 
-  // -------------------------------------------
-  // RUN SCAN → SAVE RESULT → SHOW PREVIEW
-  // -------------------------------------------
+  // ----- Run scan → show status + preview -----
   runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
@@ -118,19 +112,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const result = await runScan(cleaned);
-      // Backend should return full report object
       window.lastScanResult = result;
 
       const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
-      // If/when we wire OSD, this shows the full report HTML:
       renderReportPreview(result);
-
-      // Now a valid report exists, so PDF button is allowed
       downloadPdfBtn.disabled = false;
 
-      // Refresh scan history after a successful scan
+      // refresh history after successful scan
       loadScanHistory();
     } catch (err) {
       console.error('SCAN ERROR:', err);
@@ -141,9 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // -------------------------------------------
-  // GENERATE PDF FROM SAVED report_id
-  // -------------------------------------------
+  // ----- Generate PDF from last report_id -----
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
@@ -187,13 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // -------------------------------------------
-  // LOGOUT
-  // -------------------------------------------
+  // ----- Logout -----
   logoutBtn.addEventListener('click', async () => {
     statusEl.textContent = 'Signing out...';
     try {
-      const supabase = window.supabaseClient;
       if (!supabase) {
         throw new Error('Supabase client not available');
       }
@@ -206,6 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Initial history load on page ready
+  // Initial history load
   loadScanHistory();
 });
