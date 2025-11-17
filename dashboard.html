@@ -33,7 +33,7 @@
     .sub {
       color: #94a3b8;
       font-size: 0.85rem;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
 
     input {
@@ -112,11 +112,11 @@
   <div class="card">
     <h1>WebDoctor Dashboard</h1>
 
-    <!-- User email header -->
-    <div class="sub" id="user-email">Checking session...</div>
+    <!-- User email (set by auth-guard.js) -->
+    <div class="sub" id="user-email"></div>
 
-    <!-- System status: scan + PDF messages -->
-    <div class="sub" id="system-status"></div>
+    <!-- System status: scan + PDF messages (used by dashboard.js) -->
+    <div class="sub" id="trial-info"></div>
 
     <input
       id="site-url"
@@ -147,15 +147,14 @@
       <a href="#" id="download-pdf-link">Download PDF</a>
     </section>
 
-  <a href="/" class="back-link">← Back to WebDoctor main site</a>
-</div>
+    <a href="/" class="back-link">← Back to WebDoctor main site</a>
+  </div>
 
-<!-- Supabase client as a module (so imports work) -->
-<script type="module" src="/assets/js/supabaseClient.js"></script>
+  <!-- Supabase client as a module (so imports work) -->
+  <script type="module" src="/assets/js/supabaseClient.js"></script>
 
-<!-- Auth protection + dashboard logic -->
-<script type="module" src="/assets/js/auth-guard.js"></script>
-<script type="module" src="/assets/js/dashboard.js"></script>
-
+  <!-- Auth protection + dashboard logic -->
+  <script type="module" src="/assets/js/auth-guard.js"></script>
+  <script type="module" src="/assets/js/dashboard.js"></script>
 </body>
 </html>
