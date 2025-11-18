@@ -1,7 +1,8 @@
 // /assets/js/dashboard.js
 
 import { normaliseUrl, runScan } from './scan.js';
-import { supabase } from './supabaseClient.js';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
+
 
 let currentUserId = null;
 window.currentReport = null;
@@ -53,6 +54,9 @@ async function downloadPdfFromHtml(html, filename) {
 // -----------------------------
 // SCAN HISTORY BLOCK
 // -----------------------------
+// -----------------------------
+// SCAN HISTORY BLOCK (REST API)
+// -----------------------------
 async function loadScanHistory() {
   const tbody = document.getElementById('history-body');
   const empty = document.getElementById('history-empty');
@@ -62,92 +66,139 @@ async function loadScanHistory() {
   empty.textContent = 'Loading scan history…';
   tbody.innerHTML = '';
 
-  const { data, error } = await supabase
-    .from('reports')
-    .select('url, score, created_at, report_id, html')
-    .order('created_at', { ascending: false })
-    .limit(20);
+  try {
+    const url =
+      `${SUPABASE_URL}/rest/v1/reports` +
+      `?select=url,score,created_at,report_id,html` +
+      `&order=created_at.desc` +
+      `&limit=20`;
 
-  console.log('HISTORY QUERY RESULT:', { data, error });
+    const res = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    });
 
-  if (error) {
-    console.error('History load error:', error);
-    empty.textContent = 'Unable to load scan history.';
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    empty.textContent = 'No scans yet. Run your first scan to see history.';
-    return;
-  }
-
-  empty.textContent = '';
-
-  for (const row of data) {
-    const tr = document.createElement('tr');
-
-    tr.innerHTML = `
-      <td class="col-url">${row.url || ''}</td>
-      <td class="col-score">
-        ${row.score != null ? `<span class="tag">${row.score}/100</span>` : '—'}
-      </td>
-      <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
-      <td class="col-actions">
-        <button class="btn-link btn-view">View</button>
-        <button class="btn-link btn-pdf">PDF</button>
-      </td>
-    `;
-
-    // VIEW BUTTON
-    const viewBtn = tr.querySelector('.btn-view');
-    if (viewBtn) {
-      viewBtn.onclick = () => {
-        const reportSection = document.getElementById('report-section');
-        const reportPreview = document.getElementById('report-preview');
-        const statusEl = document.getElementById('trial-info');
-
-        if (!row.html) return;
-
-        reportPreview.innerHTML = row.html;
-        reportSection.style.display = 'block';
-
-        const idBadge = reportPreview.querySelector('[data-report-id]');
-        if (idBadge) idBadge.textContent = row.report_id || '—';
-
-        window.currentReport = { report_id: row.report_id };
-
-        if (statusEl) {
-          statusEl.textContent = `Showing report ${row.report_id} from history.`;
-        }
-
-        reportSection.scrollIntoView({ behavior: 'smooth' });
-      };
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('REST history error:', res.status, text);
+      empty.textContent = 'Unable to load scan history.';
+      return;
     }
 
-    // PDF BUTTON
-    const pdfBtn = tr.querySelector('.btn-pdf');
-    if (pdfBtn) {
-      pdfBtn.onclick = async () => {
-        const statusEl = document.getElementById('trial-info');
-        if (statusEl) statusEl.textContent = 'Generating PDF from history…';
+    const data = await res.json();
+    console.log('REST HISTORY RESULT:', data);
 
-        const fullHtml = `<!doctype html>
+    if (!data || data.length === 0) {
+      empty.textContent = 'No scans yet. Run your first scan to see history here.';
+      return;
+    }
+
+    empty.textContent = '';
+
+    for (const row of data) {
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td class="col-url">${row.url || ''}</td>
+        <td class="col-score">
+          ${
+            row.score != null
+              ? `<span class="tag">${row.score}/100</span>`
+              : '—'
+          }
+        </td>
+        <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
+        <td class="col-actions">
+          <button class="btn-link btn-view">View</button>
+          <button class="btn-link btn-pdf">PDF</button>
+        </td>
+      `;
+
+      // VIEW button
+      const viewBtn = tr.querySelector('.btn-view');
+      if (viewBtn) {
+        const html = row.html;
+        const reportId = row.report_id;
+
+        if (!html || !reportId) {
+          viewBtn.disabled = true;
+        } else {
+          viewBtn.onclick = () => {
+            const reportSection = document.getElementById('report-section');
+            const reportPreview = document.getElementById('report-preview');
+            const statusEl = document.getElementById('trial-info');
+
+            if (!reportSection || !reportPreview) return;
+
+            reportPreview.innerHTML = html;
+            reportSection.style.display = 'block';
+
+            const idBadge = reportPreview.querySelector('[data-report-id]');
+            if (idBadge) idBadge.textContent = reportId || '—';
+
+            window.currentReport = { report_id: reportId };
+
+            if (statusEl) {
+              statusEl.textContent = `Showing report ${reportId} from history.`;
+            }
+
+            reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          };
+        }
+      }
+
+      // PDF button using DocRaptor helper you already have
+      const pdfBtn = tr.querySelector('.btn-pdf');
+      if (pdfBtn) {
+        const reportId = row.report_id;
+        const html = row.html;
+
+        if (!reportId || !html) {
+          pdfBtn.disabled = true;
+        } else {
+          pdfBtn.onclick = async () => {
+            const statusEl = document.getElementById('trial-info');
+            if (statusEl) statusEl.textContent = 'Generating PDF from history…';
+            pdfBtn.disabled = true;
+
+            try {
+              const fullHtml = `<!doctype html>
 <html>
-<head><meta charset="utf-8" /><title>WebDoctor Report ${row.report_id}</title></head>
+<head>
+  <meta charset="utf-8" />
+  <title>WebDoctor Report ${reportId}</title>
+</head>
 <body>
-${row.html || ''}
+${html}
 </body>
 </html>`;
 
-        await downloadPdfFromHtml(fullHtml, `${row.report_id || 'webdoctor-report'}.pdf`);
+              await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
 
-        if (statusEl) statusEl.textContent = `PDF downloaded for ${row.report_id}.`;
-      };
+              if (statusEl) statusEl.textContent = `PDF downloaded for ${reportId}.`;
+            } catch (err) {
+              console.error('HISTORY PDF ERROR:', err);
+              if (statusEl) {
+                statusEl.textContent =
+                  'PDF failed: ' + (err.message || 'Unknown error');
+              }
+            } finally {
+              pdfBtn.disabled = false;
+            }
+          };
+        }
+      }
+
+      tbody.appendChild(tr);
     }
-
-    tbody.appendChild(tr);
+  } catch (err) {
+    console.error('loadScanHistory REST error:', err);
+    empty.textContent = 'Unable to load scan history.';
   }
 }
+
 
 // -----------------------------
 // MAIN DASHBOARD LOGIC
