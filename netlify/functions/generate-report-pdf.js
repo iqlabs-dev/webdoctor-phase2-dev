@@ -1,110 +1,132 @@
 // /netlify/functions/generate-report-pdf.js
+// FINAL VERSION – DocRaptor + Supabase + Phase 2.8 PDF Engine
 
-// /netlify/functions/generate-report-pdf.js
+import { createClient } from "@supabase/supabase-js";
 
-import { createClient } from '@supabase/supabase-js';
-import pdf from 'html-pdf-node'; // <-- html-pdf-node version
-
-// ------------------------------
-// Setup Supabase
-// ------------------------------
+// -------------------------------------------------------------
+// Supabase (secure – server-side only)
+// -------------------------------------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-
-// ------------------------------
-// Setup Supabase
-// ------------------------------
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-// ------------------------------
+// -------------------------------------------------------------
 // MAIN HANDLER
-// ------------------------------
+// -------------------------------------------------------------
 export async function handler(event) {
   try {
-    if (event.httpMethod !== 'POST') {
+    if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({ error: 'Method not allowed' })
+        body: JSON.stringify({ error: "Method not allowed" }),
       };
     }
 
-    const { report_id } = JSON.parse(event.body);
+    const { html, report_id, user_id } = JSON.parse(event.body || "{}");
 
-    if (!report_id) {
+    if (!html || !report_id || !user_id) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: 'report_id required' })
+        body: JSON.stringify({
+          error: "Missing html / report_id / user_id",
+        }),
       };
     }
 
-    // ------------------------------
-    // Fetch report from Supabase
-    // ------------------------------
-    const { data, error } = await supabase
-      .from('reports')
-      .select('html')
-      .eq('report_id', report_id)
-      .single();
+    // -------------------------------------------------------------
+    // 1) Generate PDF via DocRaptor
+    // -------------------------------------------------------------
+    const docPayload = {
+      test: false,
+      document_content: html,
+      type: "pdf",
+      name: `${report_id}.pdf`,
+    };
 
-    if (error || !data) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Report not found' })
-      };
-    }
-
-    const htmlContent = data.html;
-
-    // ------------------------------
-    // Generate PDF using html-pdf-node
-    // ------------------------------
-    const file = { content: htmlContent };
-
-    const pdfBuffer = await pdf.generatePdf(file, {
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', bottom: '20mm', left: '12mm', right: '12mm' }
+    const docRes = await fetch("https://docraptor.com/docs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_credentials: process.env.DOCRAPTOR_API_KEY,
+        doc: docPayload,
+      }),
     });
 
-    // ------------------------------
-    // Upload PDF to Supabase storage
-    // ------------------------------
-    const pdfPath = `reports/${report_id}.pdf`;
+    if (!docRes.ok) {
+      const errorText = await docRes.text();
+      console.error("DocRaptor error:", errorText);
+
+      return {
+        statusCode: 502,
+        body: JSON.stringify({
+          error: "DocRaptor request failed",
+          detail: errorText,
+        }),
+      };
+    }
+
+    const pdfBuffer = Buffer.from(await docRes.arrayBuffer());
+
+    // -------------------------------------------------------------
+    // 2) Upload PDF to Supabase Storage
+    // -------------------------------------------------------------
+    const storagePath = `${user_id}/${report_id}.pdf`;
 
     const { error: uploadError } = await supabase.storage
-      .from('reports')
-      .upload(pdfPath, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true
+      .from("reports-pdf")
+      .upload(storagePath, pdfBuffer, {
+        contentType: "application/pdf",
+        upsert: true,
       });
 
     if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
+
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: 'Upload failed', details: uploadError })
+        body: JSON.stringify({
+          error: "Failed to upload PDF",
+          detail: uploadError,
+        }),
       };
     }
 
-    const pdfPublicUrl =
-      `${process.env.SUPABASE_URL}/storage/v1/object/public/reports/${pdfPath}`;
+    // -------------------------------------------------------------
+    // 3) Get the PUBLIC URL
+    // -------------------------------------------------------------
+    const { data: publicInfo } = supabase.storage
+      .from("reports-pdf")
+      .getPublicUrl(storagePath);
 
+    const pdf_url = publicInfo.publicUrl;
+
+    // -------------------------------------------------------------
+    // 4) Save PDF URL to `reports` table
+    // -------------------------------------------------------------
+    await supabase
+      .from("reports")
+      .update({ pdf_url })
+      .eq("report_id", report_id);
+
+    // -------------------------------------------------------------
+    // DONE
+    // -------------------------------------------------------------
     return {
       statusCode: 200,
-      body: JSON.stringify({ url: pdfPublicUrl })
+      body: JSON.stringify({ pdf_url }),
     };
   } catch (err) {
+    console.error("generate-report-pdf.js error:", err);
+
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: 'PDF failed',
-        details: err.message || String(err)
-      })
+        error: "Server error",
+        detail: err.message || String(err),
+      }),
     };
   }
 }

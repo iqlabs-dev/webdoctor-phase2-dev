@@ -37,6 +37,28 @@ export async function runScan(url) {
     throw new Error(msg);
   }
 
+  // ------------------------------------
+  // PHASE 2.8 — Generate PDF (background)
+  // ------------------------------------
+  if (data && data.html && data.report_id && window.currentUserId) {
+    fetch('/.netlify/functions/generate-report-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        html: data.html,
+        report_id: data.report_id,
+        user_id: window.currentUserId
+      })
+    })
+      .then(r => r.json())
+      .then(pdfData => {
+        console.log('PDF generation requested:', pdfData);
+      })
+      .catch(err => {
+        console.error('PDF request failed:', err);
+      });
+  }
+
   // Don’t enforce shape here — just pass back whatever backend returns
   return data;
 }
