@@ -3,9 +3,9 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase } from './supabaseClient.js';
 
-let currentUserId = null;          
-window.currentReport = null;       
-window.lastScanResult = null;      
+let currentUserId = null;
+window.currentReport = null;
+window.lastScanResult = null;
 
 // -----------------------------
 // DOCRAPTOR HELPER
@@ -44,7 +44,6 @@ async function downloadPdfFromHtml(html, filename) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-
   } catch (err) {
     console.error('downloadPdfFromHtml error:', err);
     alert('Unexpected error creating PDF. Check console.');
@@ -68,6 +67,8 @@ async function loadScanHistory() {
     .select('url, score, created_at, report_id, html')
     .order('created_at', { ascending: false })
     .limit(20);
+
+  console.log('HISTORY QUERY RESULT:', { data, error });
 
   if (error) {
     console.error('History load error:', error);
@@ -101,24 +102,25 @@ async function loadScanHistory() {
     const viewBtn = tr.querySelector('.btn-view');
     if (viewBtn) {
       viewBtn.onclick = () => {
-        const section = document.getElementById('report-section');
-        const preview = document.getElementById('report-preview');
-        const status = document.getElementById('trial-info');
+        const reportSection = document.getElementById('report-section');
+        const reportPreview = document.getElementById('report-preview');
+        const statusEl = document.getElementById('trial-info');
 
         if (!row.html) return;
 
-        preview.innerHTML = row.html;
-        section.style.display = 'block';
+        reportPreview.innerHTML = row.html;
+        reportSection.style.display = 'block';
 
-        const idBadge = preview.querySelector('[data-report-id]');
-        if (idBadge) idBadge.textContent = row.report_id;
+        const idBadge = reportPreview.querySelector('[data-report-id]');
+        if (idBadge) idBadge.textContent = row.report_id || '—';
 
         window.currentReport = { report_id: row.report_id };
 
-        if (status)
-          status.textContent = `Showing report ${row.report_id} from history.`;
+        if (statusEl) {
+          statusEl.textContent = `Showing report ${row.report_id} from history.`;
+        }
 
-        section.scrollIntoView({ behavior: 'smooth' });
+        reportSection.scrollIntoView({ behavior: 'smooth' });
       };
     }
 
@@ -126,17 +128,20 @@ async function loadScanHistory() {
     const pdfBtn = tr.querySelector('.btn-pdf');
     if (pdfBtn) {
       pdfBtn.onclick = async () => {
-        const status = document.getElementById('trial-info');
-
-        status.textContent = 'Generating PDF…';
+        const statusEl = document.getElementById('trial-info');
+        if (statusEl) statusEl.textContent = 'Generating PDF from history…';
 
         const fullHtml = `<!doctype html>
-<html><head><meta charset="utf-8"><title>${row.report_id}</title></head>
-<body>${row.html}</body></html>`;
+<html>
+<head><meta charset="utf-8" /><title>WebDoctor Report ${row.report_id}</title></head>
+<body>
+${row.html || ''}
+</body>
+</html>`;
 
-        await downloadPdfFromHtml(fullHtml, `${row.report_id}.pdf`);
+        await downloadPdfFromHtml(fullHtml, `${row.report_id || 'webdoctor-report'}.pdf`);
 
-        status.textContent = `PDF downloaded for ${row.report_id}.`;
+        if (statusEl) statusEl.textContent = `PDF downloaded for ${row.report_id}.`;
       };
     }
 
@@ -156,15 +161,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const reportPreview = document.getElementById('report-preview');
   const downloadPdfBtn = document.getElementById('download-pdf-link');
 
-  // GET AUTH USER
-  try {
-    const { data } = await supabase.auth.getUser();
-    if (data?.user) currentUserId = data.user.id;
-  } catch (e) {}
+  if (
+    !statusEl ||
+    !urlInput ||
+    !runBtn ||
+    !logoutBtn ||
+    !reportSection ||
+    !reportPreview ||
+    !downloadPdfBtn
+  ) {
+    console.error('Dashboard elements missing from DOM.');
+    return;
+  }
 
-  // RENDER INLINE PREVIEW
+  statusEl.textContent = '';
+
+  // Get current auth user (optional)
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    console.log('DASHBOARD auth.getUser:', { user: data?.user || null, error });
+    if (data?.user) currentUserId = data.user.id;
+  } catch (e) {
+    console.warn('auth.getUser failed:', e);
+  }
+
   function renderReportPreview(result) {
-    if (!result?.report_html) {
+    if (!result || !result.report_html) {
       reportSection.style.display = 'none';
       return;
     }
@@ -172,74 +194,95 @@ document.addEventListener('DOMContentLoaded', async () => {
     reportSection.style.display = 'block';
 
     const idBadge = reportPreview.querySelector('[data-report-id]');
-    if (idBadge) idBadge.textContent = result.report_id;
+    if (idBadge) idBadge.textContent = result.report_id || '—';
   }
 
-  // RUN SCAN
-  runBtn.onclick = async () => {
+  // Run scan
+  runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
       statusEl.textContent = 'Enter a valid URL.';
       return;
     }
 
-    statusEl.textContent = 'Running scan…';
+    statusEl.textContent = 'Running scan...';
     runBtn.disabled = true;
     downloadPdfBtn.disabled = true;
 
     try {
       const result = await runScan(cleaned);
-      window.lastScanResult = result;
-      window.currentReport = { report_id: result.report_id };
+      console.log('SCAN RESULT:', result);
 
-      statusEl.textContent = `Scan complete. Scan ID: ${result.report_id}.`;
+      window.lastScanResult = result;
+      window.currentReport = { report_id: result.report_id || null };
+
+      const scanId = result.scan_id ?? result.id ?? result.report_id ?? '—';
+      statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
       renderReportPreview(result);
       downloadPdfBtn.disabled = false;
 
-      // refresh
       await loadScanHistory();
-
     } catch (err) {
       console.error('SCAN ERROR:', err);
-      statusEl.textContent = 'Scan failed.';
+      statusEl.textContent =
+        'Scan failed: ' + (err.message || 'Unknown error');
+      reportSection.style.display = 'none';
     } finally {
       runBtn.disabled = false;
     }
-  };
+  });
 
-  // DOWNLOAD PDF FOR CURRENT REPORT
-  downloadPdfBtn.onclick = async (e) => {
+  // Download PDF for current report
+  downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
-    const reportId = window.currentReport?.report_id || 'webdoctor-report';
-    const innerHtml = reportPreview.innerHTML;
+    const current = window.currentReport || {};
+    const last = window.lastScanResult || {};
+    const reportId = current.report_id || last.report_id || 'webdoctor-report';
 
+    const innerHtml = reportPreview.innerHTML;
     if (!innerHtml) {
-      statusEl.textContent = 'Nothing to export.';
+      statusEl.textContent =
+        'Nothing to export. Run a scan or open one from history first.';
       return;
     }
 
-    statusEl.textContent = 'Generating PDF…';
+    statusEl.textContent = 'Generating PDF...';
     downloadPdfBtn.disabled = true;
 
-    const fullHtml = `<!doctype html>
-<html><head><meta charset="utf-8"></head><body>
+    try {
+      const fullHtml = `<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>WebDoctor Report ${reportId}</title></head>
+<body>
 ${innerHtml}
-</body></html>`;
+</body>
+</html>`;
 
-    await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
+      await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
 
-    statusEl.textContent = 'PDF downloaded.';
-    downloadPdfBtn.disabled = false;
-  };
+      statusEl.textContent = 'PDF downloaded.';
+    } catch (err) {
+      console.error('PDF ERROR:', err);
+      statusEl.textContent =
+        'PDF failed: ' + (err.message || 'Unknown error');
+    } finally {
+      downloadPdfBtn.disabled = false;
+    }
+  });
 
-  // LOGOUT
-  logoutBtn.onclick = async () => {
-    const { error } = await supabase.auth.signOut();
-    window.location.href = '/login.html';
-  };
+  // Logout
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Sign out error:', e);
+    } finally {
+      window.location.href = '/login.html';
+    }
+  });
 
-  // INITIAL HISTORY LOAD
+  // Initial history load
   loadScanHistory();
 });
