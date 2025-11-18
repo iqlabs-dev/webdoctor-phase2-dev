@@ -276,8 +276,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderReportPreview(result);
       downloadPdfBtn.disabled = false;
 
+      // --- Save to Supabase reports history ---
+      try {
+        if (supabase && result.report_html && result.report_id) {
+          await supabase.from('reports').insert({
+            url: cleaned,
+            score: result.score ?? null,
+            report_id: result.report_id,
+            html: result.report_html,
+            user_id: currentUserId ?? null, // ok if null for now
+          });
+        } else {
+          console.warn('Not inserting report: missing supabase or report_html/report_id');
+        }
+      } catch (e) {
+        console.warn('Could not save report to history:', e);
+      }
+
       // refresh history after successful scan
-      loadScanHistory();
+      await loadScanHistory();
+
     } catch (err) {
       console.error('SCAN ERROR:', err);
       statusEl.textContent =
