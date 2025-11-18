@@ -5,6 +5,52 @@ import { supabase } from './supabaseClient.js';
 
 let currentUserId = null;          // auth user id
 window.currentReport = null;       // { report_id }
+window.lastScanResult = null;      // latest scan data
+
+// -----------------------------
+// DOCRAPTOR HELPER
+// -----------------------------
+async function downloadPdfFromHtml(html, filename) {
+  try {
+    const res = await fetch('/.netlify/functions/docraptor-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html, filename }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('PDF generation failed:', errText);
+      alert('PDF generation failed. Check console for details.');
+      return;
+    }
+
+    // Because function returns isBase64Encoded:true,
+    // we need to convert base64 → Blob.
+    const base64 = await res.text();
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'webdoctor-report.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('downloadPdfFromHtml error:', err);
+    alert('Unexpected error creating PDF. Check console.');
+  }
+}
 
 // -----------------------------
 // SCAN HISTORY BLOCK
@@ -102,48 +148,36 @@ async function loadScanHistory() {
     const pdfBtn = tr.querySelector('.btn-pdf');
     if (pdfBtn) {
       const reportId = row.report_id;
+      const html = row.html;
 
-      if (!reportId) {
+      if (!reportId || !html) {
         pdfBtn.disabled = true;
       } else {
         pdfBtn.disabled = false;
         pdfBtn.addEventListener('click', async () => {
           const statusEl = document.getElementById('trial-info');
 
-          if (!currentUserId) {
-            if (statusEl) {
-              statusEl.textContent = 'PDF failed: user session missing.';
-            }
-            return;
-          }
-
-          if (statusEl) statusEl.textContent = 'Generating PDF...';
+          if (statusEl) statusEl.textContent = 'Generating PDF from history…';
           pdfBtn.disabled = true;
 
           try {
-            const response = await fetch(
-              '/.netlify/functions/generate-report-pdf',
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ report_id: reportId, user_id: currentUserId })
-              }
-            );
+            // Ensure full HTML document for DocRaptor
+            const fullHtml = html.trim().startsWith('<!doctype')
+              ? html
+              : `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>WebDoctor Report ${reportId}</title>
+</head>
+<body>
+${html}
+</body>
+</html>`;
 
-            const data = await response.json();
+            await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
 
-            if (!response.ok) {
-              throw new Error(data?.error || 'PDF generation failed');
-            }
-
-            if (statusEl) statusEl.textContent = 'PDF ready — opening…';
-
-            const pdfUrl = data.pdf_url || data.url;
-            if (pdfUrl) {
-              window.open(pdfUrl, '_blank');
-            } else if (statusEl) {
-              statusEl.textContent = 'PDF generated but no URL returned.';
-            }
+            if (statusEl) statusEl.textContent = `PDF downloaded for ${reportId}.`;
           } catch (err) {
             console.error('HISTORY PDF ERROR:', err);
             const statusEl2 = document.getElementById('trial-info');
@@ -189,7 +223,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   statusEl.textContent = '';
 
-  // ---- get current auth user for PDF user_id ----
+  // ---- get current auth user (optional, for future gating/credits) ----
   try {
     const { data, error } = await supabase.auth.getUser();
     if (error) {
@@ -261,16 +295,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const current = window.currentReport || {};
     const last = window.lastScanResult || {};
 
-    const reportId = current.report_id || last.report_id;
+    const reportId = current.report_id || last.report_id || 'webdoctor-report';
 
-    if (!reportId) {
+    // Use whatever is currently rendered as the report HTML
+    const innerHtml = reportPreview.innerHTML;
+    if (!innerHtml) {
       statusEl.textContent =
-        'No report selected. Run a scan or open one from history first.';
-      return;
-    }
-
-    if (!currentUserId) {
-      statusEl.textContent = 'PDF failed: user session missing.';
+        'Nothing to export. Run a scan or open one from history first.';
       return;
     }
 
@@ -278,28 +309,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadPdfBtn.disabled = true;
 
     try {
-      const body = { report_id: reportId, user_id: currentUserId };
+      const fullHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>WebDoctor Report ${reportId}</title>
+</head>
+<body>
+${innerHtml}
+</body>
+</html>`;
 
-      const response = await fetch('/.netlify/functions/generate-report-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+      await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data?.error || 'PDF generation failed');
-      }
-
-      statusEl.textContent = 'PDF ready — opening…';
-
-      const pdfUrl = data.pdf_url || data.url;
-      if (pdfUrl) {
-        window.open(pdfUrl, '_blank');
-      } else {
-        statusEl.textContent = 'PDF generated but no URL returned.';
-      }
+      statusEl.textContent = 'PDF downloaded.';
     } catch (err) {
       console.error('PDF ERROR:', err);
       statusEl.textContent =
