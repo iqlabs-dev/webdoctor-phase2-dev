@@ -1,22 +1,21 @@
 // /assets/js/auth-guard.js
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// Initialise client
-window.supabaseClient = createClient(
-  window.SUPABASE_URL,
-  window.SUPABASE_ANON_KEY
-);
+import { supabase } from './supabaseClient.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await window.supabaseClient.auth.getSession();
+  try {
+    const { data, error } = await supabase.auth.getUser();
 
-  if (!session || !session.user) {
+    if (error || !data?.user) {
+      // Not logged in → send them back to login
+      window.location.href = '/login.html';
+      return;
+    }
+
+    // Logged in → allow dashboard to load
+    console.log('Auth guard: user OK', data.user.id);
+  } catch (err) {
+    console.error('Auth guard error:', err);
     window.location.href = '/login.html';
-    return;
   }
-
-  // Store for other scripts
-  window.currentUserId = session.user.id;
-  window.currentUserEmail = session.user.email;
 });
