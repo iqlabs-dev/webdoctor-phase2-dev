@@ -153,17 +153,16 @@ export const handler = async (event) => {
   // --------------------------
   // SAVE TO SUPABASE
   // --------------------------
-  await supabase.from("reports").insert([
-    {
-      user_id,
-      email,
-      url,
-      score: 78,
-      report_id: reportId,
-      html,
-      pdf_url
-    }
-  ]);
+await supabase.from("reports").insert([{
+  user_id,
+  email,
+  url,
+  score: 78,
+  report_id: reportId,
+  html: html,     // restore OSD preview
+  pdf_url
+}]);
+
 
   // --------------------------
   // RETURN TO DASHBOARD
