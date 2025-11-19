@@ -3,6 +3,8 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
+console.log('DASHBOARD JS v2.8-pdf-url'); // version marker
+
 let currentUserId = null;
 window.currentReport = null;
 window.lastScanResult = null;
@@ -132,11 +134,11 @@ async function loadScanHistory() {
         pdfLink.className = 'wd-history-link';
         actionTd.appendChild(pdfLink);
       } else {
+        const spacer = document.createTextNode(' ');
+        actionTd.appendChild(spacer);
         const pdfSpan = document.createElement('span');
         pdfSpan.className = 'wd-history-muted';
         pdfSpan.textContent = 'PDF pending…';
-        const spacer = document.createTextNode(' ');
-        actionTd.appendChild(spacer);
         actionTd.appendChild(pdfSpan);
       }
 
@@ -180,7 +182,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const { data, error } = await supabase.auth.getUser();
     console.log('DASHBOARD auth.getUser:', { user: data?.user || null, error });
-    if (data?.user) currentUserId = data.user.id;
+    if (data?.user) {
+      currentUserId = data.user.id;
+      window.currentUserId = currentUserId;      // expose for scan.js
+      window.currentUserEmail = data.user.email || null;
+    }
   } catch (e) {
     console.warn('auth.getUser failed:', e);
   }
@@ -221,7 +227,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       renderReportPreview(result);
 
-      // Re-enable PDF button (we'll fetch pdf_url on click)
       downloadPdfBtn.disabled = false;
 
       await loadScanHistory();
@@ -235,7 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Download PDF for current report (using stored pdf_url)
+  // Download PDF for current report using stored pdf_url
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
@@ -304,6 +309,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Initial history load
+  // Initial history loads
   loadScanHistory();
 });
