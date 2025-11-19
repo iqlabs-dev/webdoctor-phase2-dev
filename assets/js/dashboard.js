@@ -3,57 +3,10 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-
 let currentUserId = null;
 window.currentReport = null;
 window.lastScanResult = null;
 
-// -----------------------------
-// DOCRAPTOR HELPER
-// -----------------------------
-async function downloadPdfFromHtml(html, filename) {
-  try {
-    const res = await fetch('/.netlify/functions/docraptor-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, filename }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('PDF generation failed:', errText);
-      alert('PDF generation failed. Check console for details.');
-      return;
-    }
-
-    const base64 = await res.text();
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || 'webdoctor-report.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error('downloadPdfFromHtml error:', err);
-    alert('Unexpected error creating PDF. Check console.');
-  }
-}
-
-// -----------------------------
-// SCAN HISTORY BLOCK
-// -----------------------------
 // -----------------------------
 // SCAN HISTORY BLOCK (REST API)
 // -----------------------------
@@ -69,7 +22,7 @@ async function loadScanHistory() {
   try {
     const url =
       `${SUPABASE_URL}/rest/v1/reports` +
-      `?select=url,score,created_at,report_id,html` +
+      `?select=url,score,created_at,report_id,html,pdf_url` +
       `&order=created_at.desc` +
       `&limit=20`;
 
@@ -100,97 +53,94 @@ async function loadScanHistory() {
     for (const row of data) {
       const tr = document.createElement('tr');
 
-      tr.innerHTML = `
-        <td class="col-url">${row.url || ''}</td>
-        <td class="col-score">
-          ${
-            row.score != null
-              ? `<span class="tag">${row.score}/100</span>`
-              : '—'
-          }
-        </td>
-        <td class="col-date">${new Date(row.created_at).toLocaleString()}</td>
-        <td class="col-actions">
-          <button class="btn-link btn-view">View</button>
-          <button class="btn-link btn-pdf">PDF</button>
-        </td>
-      `;
+      // URL
+      const urlTd = document.createElement('td');
+      urlTd.className = 'col-url';
+      urlTd.textContent = row.url || '';
+      tr.appendChild(urlTd);
+
+      // Score
+      const scoreTd = document.createElement('td');
+      scoreTd.className = 'col-score';
+      if (row.score != null) {
+        const span = document.createElement('span');
+        span.className = 'tag';
+        span.textContent = `${row.score}/100`;
+        scoreTd.appendChild(span);
+      } else {
+        scoreTd.textContent = '—';
+      }
+      tr.appendChild(scoreTd);
+
+      // Date
+      const dateTd = document.createElement('td');
+      dateTd.className = 'col-date';
+      dateTd.textContent = row.created_at
+        ? new Date(row.created_at).toLocaleString()
+        : '—';
+      tr.appendChild(dateTd);
+
+      // Actions (View + PDF)
+      const actionTd = document.createElement('td');
+      actionTd.className = 'col-actions';
 
       // VIEW button
-      const viewBtn = tr.querySelector('.btn-view');
-      if (viewBtn) {
-        const html = row.html;
-        const reportId = row.report_id;
+      const viewBtn = document.createElement('button');
+      viewBtn.className = 'btn-link btn-view';
+      viewBtn.textContent = 'View';
 
-        if (!html || !reportId) {
-          viewBtn.disabled = true;
-        } else {
-          viewBtn.onclick = () => {
-            const reportSection = document.getElementById('report-section');
-            const reportPreview = document.getElementById('report-preview');
-            const statusEl = document.getElementById('trial-info');
+      const html = row.html;
+      const reportId = row.report_id;
 
-            if (!reportSection || !reportPreview) return;
+      if (!html || !reportId) {
+        viewBtn.disabled = true;
+      } else {
+        viewBtn.onclick = () => {
+          const reportSection = document.getElementById('report-section');
+          const reportPreview = document.getElementById('report-preview');
+          const statusEl = document.getElementById('trial-info');
 
-            reportPreview.innerHTML = html;
-            reportSection.style.display = 'block';
+          if (!reportSection || !reportPreview) return;
 
-            const idBadge = reportPreview.querySelector('[data-report-id]');
-            if (idBadge) idBadge.textContent = reportId || '—';
+          reportPreview.innerHTML = html;
+          reportSection.style.display = 'block';
 
-            window.currentReport = { report_id: reportId };
+          const idBadge = reportPreview.querySelector('[data-report-id]');
+          if (idBadge) idBadge.textContent = reportId || '—';
 
-            if (statusEl) {
-              statusEl.textContent = `Showing report ${reportId} from history.`;
-            }
+          window.currentReport = { report_id: reportId };
 
-            reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          };
-        }
+          if (statusEl) {
+            statusEl.textContent = `Showing report ${reportId} from history.`;
+          }
+
+          reportSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+      }
+      actionTd.appendChild(viewBtn);
+
+      // PDF link (uses stored pdf_url)
+      if (row.pdf_url) {
+        const spacer = document.createTextNode(' ');
+        actionTd.appendChild(spacer);
+
+        const pdfLink = document.createElement('a');
+        pdfLink.href = row.pdf_url;
+        pdfLink.target = '_blank';
+        pdfLink.rel = 'noopener noreferrer';
+        pdfLink.textContent = 'PDF';
+        pdfLink.className = 'wd-history-link';
+        actionTd.appendChild(pdfLink);
+      } else {
+        const pdfSpan = document.createElement('span');
+        pdfSpan.className = 'wd-history-muted';
+        pdfSpan.textContent = 'PDF pending…';
+        const spacer = document.createTextNode(' ');
+        actionTd.appendChild(spacer);
+        actionTd.appendChild(pdfSpan);
       }
 
-      // PDF button using DocRaptor helper you already have
-      const pdfBtn = tr.querySelector('.btn-pdf');
-      if (pdfBtn) {
-        const reportId = row.report_id;
-        const html = row.html;
-
-        if (!reportId || !html) {
-          pdfBtn.disabled = true;
-        } else {
-          pdfBtn.onclick = async () => {
-            const statusEl = document.getElementById('trial-info');
-            if (statusEl) statusEl.textContent = 'Generating PDF from history…';
-            pdfBtn.disabled = true;
-
-            try {
-              const fullHtml = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>WebDoctor Report ${reportId}</title>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-
-              await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
-
-              if (statusEl) statusEl.textContent = `PDF downloaded for ${reportId}.`;
-            } catch (err) {
-              console.error('HISTORY PDF ERROR:', err);
-              if (statusEl) {
-                statusEl.textContent =
-                  'PDF failed: ' + (err.message || 'Unknown error');
-              }
-            } finally {
-              pdfBtn.disabled = false;
-            }
-          };
-        }
-      }
-
+      tr.appendChild(actionTd);
       tbody.appendChild(tr);
     }
   } catch (err) {
@@ -198,7 +148,6 @@ ${html}
     empty.textContent = 'Unable to load scan history.';
   }
 }
-
 
 // -----------------------------
 // MAIN DASHBOARD LOGIC
@@ -271,6 +220,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
       renderReportPreview(result);
+
+      // Re-enable PDF button (we'll fetch pdf_url on click)
       downloadPdfBtn.disabled = false;
 
       await loadScanHistory();
@@ -284,38 +235,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Download PDF for current report
+  // Download PDF for current report (using stored pdf_url)
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
     const current = window.currentReport || {};
     const last = window.lastScanResult || {};
-    const reportId = current.report_id || last.report_id || 'webdoctor-report';
+    const reportId = current.report_id || last.report_id;
 
-    const innerHtml = reportPreview.innerHTML;
-    if (!innerHtml) {
+    if (!reportId) {
       statusEl.textContent =
-        'Nothing to export. Run a scan or open one from history first.';
+        'No report selected. Run a scan or open one from history first.';
       return;
     }
 
-    statusEl.textContent = 'Generating PDF...';
+    statusEl.textContent = 'Checking for PDF...';
     downloadPdfBtn.disabled = true;
 
     try {
-      const fullHtml = `<!doctype html>
-<html>
-<head><meta charset="utf-8" /><title>WebDoctor Report ${reportId}</title></head>
-<body>
-${innerHtml}
-</body>
-</html>`;
+      const url =
+        `${SUPABASE_URL}/rest/v1/reports` +
+        `?select=pdf_url` +
+        `&report_id=eq.${encodeURIComponent(reportId)}` +
+        `&limit=1`;
 
-      await downloadPdfFromHtml(fullHtml, `${reportId}.pdf`);
+      const res = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      });
 
-      statusEl.textContent = 'PDF downloaded.';
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('PDF lookup error:', res.status, text);
+        statusEl.textContent = 'Unable to fetch PDF. Try again shortly.';
+        return;
+      }
+
+      const rows = await res.json();
+      const pdf_url = rows[0]?.pdf_url || null;
+
+      if (!pdf_url) {
+        statusEl.textContent =
+          'PDF is still generating. Please wait a few seconds and try again.';
+        return;
+      }
+
+      window.open(pdf_url, '_blank');
+      statusEl.textContent = 'PDF opened in a new tab.';
     } catch (err) {
-      console.error('PDF ERROR:', err);
+      console.error('PDF open error:', err);
       statusEl.textContent =
         'PDF failed: ' + (err.message || 'Unknown error');
     } finally {
