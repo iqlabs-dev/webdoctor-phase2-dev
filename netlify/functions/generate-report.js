@@ -44,16 +44,16 @@ const TEMPLATE = `<!doctype html>
       margin: 20mm;
     }
 
+    * {
+      box-sizing: border-box;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
-      font-family: "Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: #020617;
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #e5edf4;
       color: #0f172a;
-    }
-
-    * {
-      box-sizing: border-box;
     }
 
     body {
@@ -72,378 +72,419 @@ const TEMPLATE = `<!doctype html>
       border-radius: 32px;
       padding: 24px;
       color: #e5edf4;
-      box-shadow: 0 22px 60px rgba(15, 23, 42, 0.55);
+      overflow: hidden;
     }
 
-    .wd-header {
-      background: linear-gradient(90deg, #0f766e, #22c1c3);
-      border-radius: 24px 24px 18px 18px;
-      padding: 22px 26px 18px;
-      color: #e5f8ff;
+    /* HEADER TOP */
+    .wd-header-top {
+      padding: 20px 24px 26px;
+      border-radius: 24px;
+      background: linear-gradient(90deg, #0ea5e9, #14b8a6);
+      color: #ecfeff;
     }
 
     .wd-header-title {
-      font-size: 22px;
+      font-size: 1.5rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
       margin: 0 0 4px;
     }
 
-    .wd-header-subtitle {
-      font-size: 12px;
-      opacity: 0.9;
-      margin-bottom: 14px;
+    .wd-header-tagline {
+      margin: 0;
+      font-size: 0.9rem;
+      opacity: 0.92;
     }
 
     .wd-header-meta-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
+      margin-top: 18px;
     }
 
-    .wd-pill {
-      min-width: 140px;
-      padding: 8px 10px 6px;
+    .wd-meta-pill {
+      min-width: 0;
+      padding: 10px 16px;
       border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      background: rgba(15, 23, 42, 0.18);
-      font-size: 11px;
+      background: rgba(15, 23, 42, 0.25);
+      border: 1px solid rgba(15, 23, 42, 0.18);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .wd-meta-label {
+      font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-    }
-
-    .wd-pill-label {
-      display: block;
       opacity: 0.8;
-      margin-bottom: 2px;
+      margin-bottom: 3px;
     }
 
-    .wd-pill-value {
-      display: block;
-      font-size: 11px;
+    .wd-meta-value {
+      font-size: 0.9rem;
       font-weight: 600;
       word-break: break-all;
     }
 
-    .wd-body {
-      background: #e5edf4;
-      border-radius: 0 0 24px 24px;
-      margin-top: -4px;
-      padding: 24px 24px 20px;
-    }
-
-    .wd-overall-row {
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      margin-bottom: 22px;
-    }
-
-    .wd-overall-main {
-      flex: 2;
-      background: #f8fafc;
-      border-radius: 18px;
-      padding: 18px 18px 16px;
-      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
-    }
-
-    .wd-overall-main h2 {
-      margin: 0 0 4px;
-      font-size: 15px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: #0b1220;
-    }
-
-    .wd-overall-summary {
-      font-size: 12px;
-      color: #4b5563;
-      margin-bottom: 10px;
-    }
-
-    .wd-gauge-row {
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-    }
-
-    .wd-gauge-block {
-      flex: 1;
-      min-width: 180px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 8px 4px;
-    }
-
-    .wd-gauge-label {
-      margin-top: 6px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    /* BODY */
+    .wd-report-body {
+      background: #f1f5f9;
+      border-radius: 24px;
+      padding: 24px 24px 28px;
+      margin-top: 20px;
       color: #0f172a;
     }
 
-    .wd-gauge-caption {
-      margin-top: 2px;
-      font-size: 10px;
-      color: #6b7280;
-      text-align: center;
-      max-width: 200px;
+    /* SCORE PANEL — TRI GAUGE */
+    .wd-score-panel {
+      margin-bottom: 26px;
+      padding: 20px 20px 22px;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
     }
 
-    .wd-gauge-circle {
-      width: 88px;
-      height: 88px;
-      border-radius: 50%;
-      background: conic-gradient(#10b981 0 270deg, #e2e8f0 270deg 360deg);
+    .wd-score-header h2 {
+      margin: 0 0 6px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .wd-score-summary {
+      margin: 0;
+      font-size: 0.92rem;
+      color: #475569;
+    }
+
+    .wd-score-gauges {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+      margin-top: 22px;
+    }
+
+    .wd-gauge-card {
+      text-align: center;
+    }
+
+    .wd-gauge-shell {
       display: flex;
       align-items: center;
       justify-content: center;
-      position: relative;
-      color: #0f172a;
-      font-weight: 700;
-      font-size: 20px;
+      margin-bottom: 10px;
     }
 
-    .wd-gauge-circle span {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
+    .wd-gauge-ring {
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: conic-gradient(#22c55e 0deg, #14b8a6 220deg, #e2e8f0 220deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wd-gauge-inner {
+      width: 82px;
+      height: 82px;
+      border-radius: 999px;
       background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
     }
 
+    .wd-gauge-score {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .wd-gauge-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+
+    .wd-gauge-caption {
+      margin: 0;
+      font-size: 0.78rem;
+      color: #64748b;  /* darker for clarity */
+    }
+
+    /* SECTIONS */
     .wd-section {
-      margin-top: 18px;
+      margin-top: 20px;
+      padding: 18px 20px 20px;
+      background: #ffffff;
+      border-radius: 18px;
     }
 
     .wd-section-title {
-      font-size: 12px;
-      letter-spacing: 0.16em;
+      margin: 0 0 12px;
+      font-size: 0.95rem;
       text-transform: uppercase;
-      color: #0f172a;
-      margin-bottom: 8px;
-      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #475569;
+      font-weight: 600;
     }
 
-    .wd-keymetrics-grid {
+    /* KEY METRICS */
+    .wd-metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 16px;
     }
 
-    .wd-keymetric-card {
-      background: #f8fafc;
+    .wd-metric-card {
+      padding: 14px 14px 12px;
       border-radius: 14px;
-      padding: 10px 12px 8px;
-      border: 1px solid #dbe3ef;
-      font-size: 11px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
     }
 
-    .wd-keymetric-card h3 {
-      margin: 0 0 4px;
-      font-size: 11.5px;
+    .wd-metric-label {
+      margin: 0 0 6px;
+      font-size: 0.9rem;
       font-weight: 600;
       color: #0f172a;
     }
 
-    .wd-keymetric-main {
-      font-size: 11px;
-      color: #111827;
+    .wd-metric-main {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #0f172a;
     }
 
-    .wd-keymetric-caption {
-      margin-top: 1px;
-      font-size: 10px;
-      color: #9ca3af;
+    .wd-metric-sub {
+      font-size: 0.8rem;
+      color: #475569; /* improved contrast */
+      margin-top: 2px;
     }
 
+    /* ISSUES */
     .wd-issues-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 14px;
     }
 
     .wd-issue-card {
-      background: #fef2f2;
+      padding: 12px 12px 11px;
       border-radius: 14px;
-      padding: 10px 12px 9px;
-      border: 1px solid #fecaca;
-      font-size: 11px;
-      color: #7f1d1d;
+      border: 1px solid #fee2e2;
+      background: #fef2f2;
     }
 
     .wd-issue-badge {
-      display: inline-block;
-      padding: 2px 8px 1px;
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
       border-radius: 999px;
-      background: rgba(220, 38, 38, 0.1);
-      border: 1px solid rgba(220, 38, 38, 0.32);
-      color: #b91c1c;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 9px;
-      margin-bottom: 5px;
+      font-size: 0.72rem;
       font-weight: 600;
+      background: #fee2e2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      margin-bottom: 6px;
     }
 
-    .wd-issue-card h4 {
-      margin: 0 0 3px;
-      font-size: 11.5px;
+    .wd-issue-title {
+      margin: 0 0 4px;
+      font-size: 0.9rem;
       font-weight: 600;
+      color: #0f172a;
     }
 
     .wd-issue-text {
       margin: 0;
-      font-size: 10.5px;
-      color: #991b1b;
-      line-height: 1.4;
+      font-size: 0.8rem;
+      color: #475569; /* darker for readability */
     }
 
-    .wd-reco-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .wd-reco-card {
-      background: #f8fafc;
-      border-radius: 14px;
-      padding: 10px 12px 9px;
-      border: 1px solid #dbe3ef;
-      font-size: 11px;
-      color: #111827;
-    }
-
-    .wd-reco-card ol {
+    /* RECOMMENDATIONS */
+    .wd-reco-list {
       margin: 0;
       padding-left: 18px;
+      font-size: 0.88rem;
+      color: #0f172a;
     }
 
-    .wd-reco-card li {
-      margin-bottom: 6px;
-      font-size: 10.5px;
+    .wd-reco-list li + li {
+      margin-top: 3px;
     }
 
+    /* NOTES */
     .wd-notes-body {
-      background: #f8fafc;
-      border-radius: 14px;
-      padding: 10px 12px 18px;
-      border: 1px dashed #cbd5e1;
-      font-size: 10.5px;
-      color: #4b5563;
-      min-height: 40px;
+      font-size: 0.86rem;
+      color: #374151; /* strong grey, good for paragraph reading */
+      line-height: 1.5;
+      white-space: pre-wrap;
     }
 
+    /* FOOTER */
     .wd-footer {
       margin-top: 16px;
       text-align: center;
-      font-size: 10px;
-      color: #94a3b8;
+      font-size: 0.7rem;
+      color: #64748b; /* more visible in PDF */
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+
+      .wd-report-card {
+        padding: 16px;
+        border-radius: 24px;
+      }
+
+      .wd-header-top {
+        padding: 16px 16px 18px;
+        border-radius: 18px;
+      }
+
+      .wd-report-body {
+        padding: 16px 14px 18px;
+      }
+
+      .wd-score-gauges {
+        grid-template-columns: 1fr;
+      }
+
+      .wd-metrics-grid,
+      .wd-issues-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="wd-report-shell">
     <main class="wd-report-card">
-      <header class="wd-header">
+      <!-- HEADER -->
+      <section class="wd-header-top">
         <h1 class="wd-header-title">WebDoctor Health Report</h1>
-        <p class="wd-header-subtitle">Scan. Diagnose. Revive.</p>
+        <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
         <div class="wd-header-meta-row">
-          <div class="wd-pill">
-            <span class="wd-pill-label">Website</span>
-            <span class="wd-pill-value">{{url}}</span>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Website</span>
+            <span class="wd-meta-value">{{url}}</span>
           </div>
-          <div class="wd-pill">
-            <span class="wd-pill-label">Scan date</span>
-            <span class="wd-pill-value">{{date}}</span>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Scan Date</span>
+            <span class="wd-meta-value">{{date}}</span>
           </div>
-          <div class="wd-pill">
-            <span class="wd-pill-label">Report ID</span>
-            <span class="wd-pill-value">{{id}}</span>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report ID</span>
+            <span class="wd-meta-value">{{id}}</span>
           </div>
         </div>
-      </header>
+      </section>
 
-      <section class="wd-body">
-        <!-- OVERALL -->
-        <section class="wd-overall-row">
-          <div class="wd-overall-main">
+      <section class="wd-report-body">
+        <!-- SCORE PANEL -->
+        <section class="wd-score-panel">
+          <header class="wd-score-header">
             <h2>Overall Website Health</h2>
-            <p class="wd-overall-summary">{{summary}}</p>
+            <p class="wd-score-summary">{{summary}}</p>
+          </header>
 
-            <div class="wd-gauge-row">
-              <div class="wd-gauge-block">
-                <div class="wd-gauge-circle">
-                  <span>{{perf_score}}</span>
+          <div class="wd-score-gauges">
+
+            <!-- Performance Gauge -->
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{perf_score}}</span>
+                  </div>
                 </div>
-                <div class="wd-gauge-label">Performance</div>
-                <div class="wd-gauge-caption">Page speed and load behaviour.</div>
               </div>
-              <div class="wd-gauge-block">
-                <div class="wd-gauge-circle">
-                  <span>{{seo_score}}</span>
+              <div class="wd-gauge-label">Performance</div>
+              <p class="wd-gauge-caption">Page speed and load behaviour.</p>
+            </article>
+
+            <!-- SEO Gauge -->
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{seo_score}}</span>
+                  </div>
                 </div>
-                <div class="wd-gauge-label">SEO</div>
-                <div class="wd-gauge-caption">Indexing signals and discoverability.</div>
               </div>
-              <div class="wd-gauge-block">
-                <div class="wd-gauge-circle">
-                  <span>{{score}}</span>
+              <div class="wd-gauge-label">SEO</div>
+              <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
+            </article>
+
+            <!-- Overall Gauge -->
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{score}}</span>
+                  </div>
                 </div>
-                <div class="wd-gauge-label">Overall Score</div>
-                <div class="wd-gauge-caption">Weighted blend of all key systems.</div>
               </div>
-            </div>
+              <div class="wd-gauge-label">Overall Score</div>
+              <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
+            </article>
+
           </div>
         </section>
 
         <!-- KEY METRICS -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Key metrics</h3>
-          <div class="wd-keymetrics-grid">
-            <article class="wd-keymetric-card">
-              <h3>Page Load</h3>
-              <p class="wd-keymetric-main">{{metric_page_load_value}}</p>
-              <p class="wd-keymetric-caption">Goal: {{metric_page_load_goal}}</p>
+          <h3 class="wd-section-title">Key Metrics</h3>
+
+          <div class="wd-metrics-grid">
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label">Page Load</h4>
+              <div class="wd-metric-main">{{metric_page_load_value}}</div>
+              <div class="wd-metric-sub">Goal: {{metric_page_load_goal}}</div>
             </article>
-            <article class="wd-keymetric-card">
-              <h3>Mobile Usability</h3>
-              <p class="wd-keymetric-main">{{metric_mobile_status}}</p>
-              <p class="wd-keymetric-caption">{{metric_mobile_text}}</p>
+
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label">Mobile Usability</h4>
+              <div class="wd-metric-main">{{metric_mobile_status}}</div>
+              <div class="wd-metric-sub">{{metric_mobile_text}}</div>
             </article>
-            <article class="wd-keymetric-card">
-              <h3>Core Web Vitals</h3>
-              <p class="wd-keymetric-main">{{metric_cwv_status}}</p>
-              <p class="wd-keymetric-caption">{{metric_cwv_text}}</p>
+
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label">Core Web Vitals</h4>
+              <div class="wd-metric-main">{{metric_cwv_status}}</div>
+              <div class="wd-metric-sub">{{metric_cwv_text}}</div>
             </article>
           </div>
         </section>
 
         <!-- TOP ISSUES -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Top issues detected</h3>
+          <h3 class="wd-section-title">Top Issues Detected</h3>
+
           <div class="wd-issues-grid">
             <article class="wd-issue-card">
-              <span class="wd-issue-badge">{{issue1_severity}}</span>
-              <h4>{{issue1_title}}</h4>
+              <div class="wd-issue-badge">{{issue1_severity}}</div>
+              <h4 class="wd-issue-title">{{issue1_title}}</h4>
               <p class="wd-issue-text">{{issue1_text}}</p>
             </article>
+
             <article class="wd-issue-card">
-              <span class="wd-issue-badge">{{issue2_severity}}</span>
-              <h4>{{issue2_title}}</h4>
+              <div class="wd-issue-badge">{{issue2_severity}}</div>
+              <h4 class="wd-issue-title">{{issue2_title}}</h4>
               <p class="wd-issue-text">{{issue2_text}}</p>
             </article>
+
             <article class="wd-issue-card">
-              <span class="wd-issue-badge">{{issue3_severity}}</span>
-              <h4>{{issue3_title}}</h4>
+              <div class="wd-issue-badge">{{issue3_severity}}</div>
+              <h4 class="wd-issue-title">{{issue3_title}}</h4>
               <p class="wd-issue-text">{{issue3_text}}</p>
             </article>
           </div>
@@ -451,21 +492,14 @@ const TEMPLATE = `<!doctype html>
 
         <!-- RECOMMENDED FIX SEQUENCE -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Recommended fix sequence</h3>
-          <div class="wd-reco-grid">
-            <article class="wd-reco-card">
-              <ol>
-                <li>{{recommendation1}}</li>
-                <li>{{recommendation2}}</li>
-              </ol>
-            </article>
-            <article class="wd-reco-card">
-              <ol start="3">
-                <li>{{recommendation3}}</li>
-                <li>{{recommendation4}}</li>
-              </ol>
-            </article>
-          </div>
+          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+
+          <ol class="wd-reco-list">
+            <li>{{recommendation1}}</li>
+            <li>{{recommendation2}}</li>
+            <li>{{recommendation3}}</li>
+            <li>{{recommendation4}}</li>
+          </ol>
         </section>
 
         <!-- NOTES -->
@@ -481,8 +515,7 @@ const TEMPLATE = `<!doctype html>
     </main>
   </div>
 </body>
-</html>
-`;
+</html>`;
 
 // ---------------------------------------------------------------------
 // MAIN HANDLER
