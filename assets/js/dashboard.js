@@ -1,13 +1,77 @@
-// /assets/js/dashboard.js
+// /asset/js/dashboard.js
 
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-console.log('DASHBOARD JS v2.8-pdf-url'); // version marker
+console.log('DASHBOARD JS v2.8-docraptor'); // version marker
 
 let currentUserId = null;
 window.currentReport = null;
 window.lastScanResult = null;
+
+// -----------------------------
+// DOCRAPTOR HELPER (current preview -> PDF)
+// -----------------------------
+async function downloadPdfFromCurrentPreview(reportId) {
+  const statusEl = document.getElementById('trial-info');
+  const reportPreview = document.getElementById('report-preview');
+
+  if (!reportPreview || !reportPreview.innerHTML.trim()) {
+    if (statusEl) {
+      statusEl.textContent =
+        'Nothing to export. Run a scan or open one from history first.';
+    }
+    return;
+  }
+
+  const innerHtml = reportPreview.innerHTML;
+  const safeId = reportId || 'webdoctor-report';
+
+  if (statusEl) statusEl.textContent = 'Generating PDF…';
+
+  try {
+    // Use exactly what is rendered in the preview as the DocRaptor document
+    const fullHtml = innerHtml;
+
+    const res = await fetch('/.netlify/functions/docraptor-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        html: fullHtml,
+        filename: `${safeId}.pdf`,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('DocRaptor PDF error:', errText);
+      if (statusEl) {
+        statusEl.textContent = 'PDF generation failed. See console.';
+      }
+      return;
+    }
+
+    // Netlify sends binary PDF (isBase64Encoded: true on the function)
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    if (statusEl) statusEl.textContent = 'PDF downloaded.';
+  } catch (err) {
+    console.error('downloadPdfFromCurrentPreview error:', err);
+    if (statusEl) {
+      statusEl.textContent =
+        'PDF failed: ' + (err.message || 'Unexpected error');
+    }
+  }
+}
 
 // -----------------------------
 // SCAN HISTORY BLOCK (REST API)
@@ -121,7 +185,7 @@ async function loadScanHistory() {
       }
       actionTd.appendChild(viewBtn);
 
-      // PDF link (uses stored pdf_url)
+      // PDF link (uses stored pdf_url for history rows – optional, can refine later)
       if (row.pdf_url) {
         const spacer = document.createTextNode(' ');
         actionTd.appendChild(spacer);
@@ -226,7 +290,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusEl.textContent = `Scan complete. Scan ID: ${scanId}.`;
 
       renderReportPreview(result);
-
       downloadPdfBtn.disabled = false;
 
       await loadScanHistory();
@@ -240,59 +303,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Download PDF for current report using stored pdf_url
+  // Download PDF for current report using DocRaptor + current preview HTML
   downloadPdfBtn.addEventListener('click', async (e) => {
     e.preventDefault();
 
     const current = window.currentReport || {};
     const last = window.lastScanResult || {};
-    const reportId = current.report_id || last.report_id;
+    const reportId = current.report_id || last.report_id || 'webdoctor-report';
 
-    if (!reportId) {
-      statusEl.textContent =
-        'No report selected. Run a scan or open one from history first.';
-      return;
-    }
-
-    statusEl.textContent = 'Checking for PDF...';
     downloadPdfBtn.disabled = true;
-
     try {
-      const url =
-        `${SUPABASE_URL}/rest/v1/reports` +
-        `?select=pdf_url` +
-        `&report_id=eq.${encodeURIComponent(reportId)}` +
-        `&limit=1`;
-
-      const res = await fetch(url, {
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error('PDF lookup error:', res.status, text);
-        statusEl.textContent = 'Unable to fetch PDF. Try again shortly.';
-        return;
-      }
-
-      const rows = await res.json();
-      const pdf_url = rows[0]?.pdf_url || null;
-
-      if (!pdf_url) {
-        statusEl.textContent =
-          'PDF is still generating. Please wait a few seconds and try again.';
-        return;
-      }
-
-      window.open(pdf_url, '_blank');
-      statusEl.textContent = 'PDF opened in a new tab.';
-    } catch (err) {
-      console.error('PDF open error:', err);
-      statusEl.textContent =
-        'PDF failed: ' + (err.message || 'Unknown error');
+      await downloadPdfFromCurrentPreview(reportId);
     } finally {
       downloadPdfBtn.disabled = false;
     }
@@ -309,6 +330,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Initial history loads
+  // Initial history load
   loadScanHistory();
 });
