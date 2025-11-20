@@ -349,20 +349,26 @@ const TEMPLATE = `
       <h1 class="wd-header-title">WebDoctor Health Report</h1>
       <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
-      <div class="wd-header-meta-row">
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Website</span>
-          <span class="wd-meta-value">{{url}}</span>
-        </div>
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Scan Date</span>
-          <span class="wd-meta-value>{{date}}</span>
-        </div>
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Report ID</span>
-          <span class="wd-meta-value">{{id}}</span>
-        </div>
-      </div>
+  <div class="wd-header-meta-row">
+    <!-- Website -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Website</span>
+      <span class="wd-meta-value">{{url}}</span>
+    </div>
+
+    <!-- Scan Date -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Scan Date</span>
+      <span class="wd-meta-value">{{date}}</span>
+    </div>
+
+    <!-- Report ID -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Report ID</span>
+      <span class="wd-meta-value">{{id}}</span>
+    </div>
+  </div>
+
     </section>
 
     <section class="wd-report-body">
