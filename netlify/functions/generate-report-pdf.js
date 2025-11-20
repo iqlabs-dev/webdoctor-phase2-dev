@@ -1,132 +1,106 @@
 // /netlify/functions/generate-report-pdf.js
-// FINAL VERSION – DocRaptor + Supabase + Phase 2.8 PDF Engine
 
-import { createClient } from "@supabase/supabase-js";
+import fetch from "node-fetch";
 
-// -------------------------------------------------------------
-// Supabase (secure – server-side only)
-// -------------------------------------------------------------
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// --------------------
+// ENV VARS (Netlify)
+// --------------------
+const DOC_API_KEY = process.env.DOCRAPTOR_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// -------------------------------------------------------------
+// --------------------
 // MAIN HANDLER
-// -------------------------------------------------------------
+// --------------------
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method not allowed" }),
-      };
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    const { html, report_id, user_id } = JSON.parse(event.body || "{}");
+    const { html, report_id } = JSON.parse(event.body);
 
-    if (!html || !report_id || !user_id) {
+    if (!html || !report_id) {
       return {
         statusCode: 400,
-        body: JSON.stringify({
-          error: "Missing html / report_id / user_id",
-        }),
+        body: JSON.stringify({ error: "Missing html or report_id" })
       };
     }
 
-    // -------------------------------------------------------------
-    // 1) Generate PDF via DocRaptor
-    // -------------------------------------------------------------
-    const docPayload = {
-      test: false,
-      document_content: html,
-      type: "pdf",
-      name: `${report_id}.pdf`,
-    };
-
-    const docRes = await fetch("https://docraptor.com/docs", {
+    // -----------------------------
+    // 1. SEND TO DOCRAPTOR → PDF
+    // -----------------------------
+    const drRes = await fetch("https://docraptor.com/docs", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        user_credentials: process.env.DOCRAPTOR_API_KEY,
-        doc: docPayload,
-      }),
+        user_credentials: DOC_API_KEY,
+        doc: {
+          test: false,
+          name: `${report_id}.pdf`,
+          document_type: "pdf",
+          html: html
+        }
+      })
     });
 
-    if (!docRes.ok) {
-      const errorText = await docRes.text();
-      console.error("DocRaptor error:", errorText);
-
-      return {
-        statusCode: 502,
-        body: JSON.stringify({
-          error: "DocRaptor request failed",
-          detail: errorText,
-        }),
-      };
+    if (!drRes.ok) {
+      const text = await drRes.text();
+      console.log("DocRaptor failed:", text);
+      return { statusCode: 500, body: text };
     }
 
-    const pdfBuffer = Buffer.from(await docRes.arrayBuffer());
+    const pdfBuffer = Buffer.from(await drRes.arrayBuffer());
 
-    // -------------------------------------------------------------
-    // 2) Upload PDF to Supabase Storage
-    // -------------------------------------------------------------
-    const storagePath = `${user_id}/${report_id}.pdf`;
+    // -----------------------------------
+    // 2. STORE PDF IN SUPABASE STORAGE
+    // -----------------------------------
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/reports/${report_id}.pdf`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/pdf",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+          "x-upsert": "true"
+        },
+        body: pdfBuffer
+      }
+    );
 
-    const { error: uploadError } = await supabase.storage
-      .from("reports-pdf")
-      .upload(storagePath, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError);
-
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Failed to upload PDF",
-          detail: uploadError,
-        }),
-      };
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text();
+      console.log("Storage upload failed:", text);
+      return { statusCode: 500, body: text };
     }
 
-    // -------------------------------------------------------------
-    // 3) Get the PUBLIC URL
-    // -------------------------------------------------------------
-    const { data: publicInfo } = supabase.storage
-      .from("reports-pdf")
-      .getPublicUrl(storagePath);
+    const pdf_url = `${SUPABASE_URL}/storage/v1/object/public/reports/${report_id}.pdf`;
 
-    const pdf_url = publicInfo.publicUrl;
+    // -----------------------------------
+    // 3. UPDATE REPORT RECORD (pdf_url)
+    // -----------------------------------
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/reports?report_id=eq.${report_id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+          "apikey": SUPABASE_SERVICE_KEY
+        },
+        body: JSON.stringify({ pdf_url })
+      }
+    );
 
-    // -------------------------------------------------------------
-    // 4) Save PDF URL to `reports` table
-    // -------------------------------------------------------------
-    await supabase
-      .from("reports")
-      .update({ pdf_url })
-      .eq("report_id", report_id);
-
-    // -------------------------------------------------------------
-    // DONE
-    // -------------------------------------------------------------
     return {
       statusCode: 200,
-      body: JSON.stringify({ pdf_url }),
+      body: JSON.stringify({ pdf_url })
     };
-  } catch (err) {
-    console.error("generate-report-pdf.js error:", err);
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: "Server error",
-        detail: err.message || String(err),
-      }),
-    };
+  } catch (err) {
+    console.log("generate-report-pdf error:", err);
+    return { statusCode: 500, body: err.message };
   }
 }
