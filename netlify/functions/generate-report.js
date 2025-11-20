@@ -396,7 +396,7 @@ const TEMPLATE = `<!doctype html>
         <!-- SCORE PANEL -->
         <section class="wd-score-panel">
           <header class="wd-score-header">
-            <h2>Overall Website Health</h2>
+            <h2 style="color:#0f172a;">Overall Website Health</h2>
             <!-- inline colour so it matches the local V4.2 exactly -->
             <p class="wd-score-summary" style="color:#4b5563;">{{summary}}</p>
           </header>
