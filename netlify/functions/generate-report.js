@@ -93,10 +93,11 @@ const TEMPLATE = `<!doctype html>
     }
 
     .wd-header-tagline {
-      margin: 0;
+   margin: 0;
   font-size: 0.95rem;
-  color: #475569;   /* same as KEY METRICS */
-  font-weight: 500;
+  font-weight: 600;
+  color: #e2faff;    /* brighter, readable on gradient */
+  opacity: 1;
     }
 
     .wd-header-meta-row {
@@ -149,10 +150,10 @@ const TEMPLATE = `<!doctype html>
     }
 
     .wd-score-header h2 {
-      margin: 0 0 6px;
-      font-size: 1.35rem;   /* +1 step */
-      font-weight: 700;
-      color: #020617;       /* darker for stronger heading */
+     margin: 0 0 6px;
+  font-size: 1.35rem;   /* +1 step */
+  font-weight: 700;
+  color: #111827;       /* matches KEY METRICS heading tone */
     }
 
     .wd-score-summary {
