@@ -94,8 +94,9 @@ const TEMPLATE = `<!doctype html>
 
     .wd-header-tagline {
       margin: 0;
-      font-size: 0.95rem;
-      opacity: 0.96;
+  font-size: 0.95rem;
+  color: #475569;   /* same as KEY METRICS */
+  font-weight: 500;
     }
 
     .wd-header-meta-row {
@@ -156,8 +157,9 @@ const TEMPLATE = `<!doctype html>
 
     .wd-score-summary {
       margin: 0;
-      font-size: 0.96rem;
-      color: #4b5563; /* darker, matches section copy tone */
+  font-size: 0.96rem;
+  color: #475569;    /* darker, same as metrics */
+  font-weight: 500;
     }
 
     .wd-score-gauges {
