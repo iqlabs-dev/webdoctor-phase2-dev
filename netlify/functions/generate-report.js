@@ -40,7 +40,7 @@ const TEMPLATE = `<!doctype html>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* PAGE SETUP (PDF-friendly) */
+    /* PAGE SETUP (DocRaptor-friendly) */
     @page {
       size: A4;
       margin: 20mm;
@@ -81,20 +81,21 @@ const TEMPLATE = `<!doctype html>
     .wd-header-top {
       padding: 20px 24px 26px;
       border-radius: 24px;
-      background: linear-gradient(90deg, #14b8a6, #0ea5e9); /* teal -> blue (reversed) */
+      /* reversed gradient: teal → blue */
+      background: linear-gradient(90deg, #14b8a6, #0ea5e9);
       color: #ecfeff;
     }
 
     .wd-header-title {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       font-weight: 700;
       margin: 0 0 4px;
     }
 
     .wd-header-tagline {
       margin: 0;
-      font-size: 0.9rem;
-      opacity: 0.92;
+      font-size: 0.95rem;
+      opacity: 0.96;
     }
 
     .wd-header-meta-row {
@@ -132,14 +133,14 @@ const TEMPLATE = `<!doctype html>
     .wd-report-body {
       background: #f1f5f9;
       border-radius: 24px;
-      padding: 24px 24px 28px;
-      margin-top: 20px;
+      padding: 28px 24px 30px;
+      margin-top: 22px;
       color: #0f172a;
     }
 
     /* SCORE PANEL — TRI GAUGE */
     .wd-score-panel {
-      margin-bottom: 30px;
+      margin-bottom: 28px;
       padding: 22px 22px 24px;
       background: #ffffff;
       border-radius: 20px;
@@ -148,21 +149,21 @@ const TEMPLATE = `<!doctype html>
 
     .wd-score-header h2 {
       margin: 0 0 6px;
-      font-size: 1.25rem;
+      font-size: 1.35rem;   /* +1 step */
       font-weight: 700;
       color: #0f172a;
     }
 
     .wd-score-summary {
       margin: 0;
-      font-size: 0.92rem;
-      color: #475569;
+      font-size: 0.96rem;
+      color: #4b5563; /* darker, matches section copy tone */
     }
 
     .wd-score-gauges {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 20px;
+      gap: 22px;
       margin-top: 22px;
     }
 
@@ -174,7 +175,7 @@ const TEMPLATE = `<!doctype html>
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .wd-gauge-ring {
@@ -198,7 +199,7 @@ const TEMPLATE = `<!doctype html>
     }
 
     .wd-gauge-score {
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       font-weight: 700;
       color: #0f172a;
     }
@@ -206,31 +207,31 @@ const TEMPLATE = `<!doctype html>
     .wd-gauge-label {
       font-size: 0.95rem;
       font-weight: 600;
-      color: #1f2937;
+      color: #0f172a;
       margin-bottom: 4px;
     }
 
     .wd-gauge-caption {
       margin: 0;
-      font-size: 0.82rem;
-      color: #4b5563;
+      font-size: 0.88rem;
+      color: #475569; /* now matches Key Metrics sub text */
     }
 
-    /* GENERIC SECTIONS */
+    /* SECTIONS */
     .wd-section {
-      margin-top: 30px;
-      padding: 22px 22px 24px;
+      margin-top: 24px;           /* more spacing between sections */
+      padding: 20px 22px 22px;
       background: #ffffff;
       border-radius: 18px;
     }
 
     .wd-section-title {
-      margin: 0 0 16px;
-      font-size: 1.05rem;
+      margin: 0 0 14px;
+      font-size: 1rem;            /* +1 step */
       text-transform: uppercase;
-      letter-spacing: 0.11em;
-      color: #334155;
-      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #475569;
+      font-weight: 600;
     }
 
     /* KEY METRICS */
@@ -249,28 +250,28 @@ const TEMPLATE = `<!doctype html>
 
     .wd-metric-label {
       margin: 0 0 6px;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      color: #0f172a;
+      color: #111827;  /* slightly darker */
     }
 
     .wd-metric-main {
       font-size: 0.92rem;
       font-weight: 500;
-      color: #111827;
+      color: #0f172a;
     }
 
     .wd-metric-sub {
-      font-size: 0.82rem;
-      color: #4b5563;
-      margin-top: 3px;
+      font-size: 0.86rem;
+      color: #475569; /* shared tone */
+      margin-top: 2px;
     }
 
     /* ISSUES */
     .wd-issues-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      gap: 16px;
     }
 
     .wd-issue-card {
@@ -295,32 +296,32 @@ const TEMPLATE = `<!doctype html>
 
     .wd-issue-title {
       margin: 0 0 4px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 600;
-      color: #111827;
+      color: #0f172a;
     }
 
     .wd-issue-text {
       margin: 0;
       font-size: 0.82rem;
-      color: #4b5563;
+      color: #475569;
     }
 
     /* RECOMMENDATIONS */
     .wd-reco-list {
       margin: 0;
       padding-left: 18px;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       color: #0f172a;
     }
 
     .wd-reco-list li + li {
-      margin-top: 3px;
+      margin-top: 4px;
     }
 
     /* NOTES */
     .wd-notes-body {
-      font-size: 0.86rem;
+      font-size: 0.88rem;
       color: #374151;
       line-height: 1.5;
       white-space: pre-wrap;
@@ -328,13 +329,13 @@ const TEMPLATE = `<!doctype html>
 
     /* FOOTER */
     .wd-footer {
-      margin-top: 16px;
+      margin-top: 18px;
       text-align: center;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       color: #64748b;
     }
 
-    /* RESPONSIVE (for on-screen preview) */
+    /* RESPONSIVE */
     @media (max-width: 768px) {
       body {
         padding: 12px;
@@ -351,7 +352,7 @@ const TEMPLATE = `<!doctype html>
       }
 
       .wd-report-body {
-        padding: 16px 14px 18px;
+        padding: 18px 16px 20px;
       }
 
       .wd-score-gauges {
@@ -399,6 +400,7 @@ const TEMPLATE = `<!doctype html>
           </header>
 
           <div class="wd-score-gauges">
+
             <!-- Performance Gauge -->
             <article class="wd-gauge-card">
               <div class="wd-gauge-shell">
@@ -437,6 +439,7 @@ const TEMPLATE = `<!doctype html>
               <div class="wd-gauge-label">Overall Score</div>
               <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
             </article>
+
           </div>
         </section>
 
@@ -505,7 +508,10 @@ const TEMPLATE = `<!doctype html>
         <!-- NOTES -->
         <section class="wd-section">
           <h3 class="wd-section-title">Notes</h3>
-          <div class="wd-notes-body">{{notes}}</div>
+          <!-- Static text for now so you never see placeholders -->
+          <div class="wd-notes-body">
+            Automated WebDoctor analysis. Dynamic notes will be wired in during Phase 3.
+          </div>
         </section>
       </section>
 
@@ -515,7 +521,8 @@ const TEMPLATE = `<!doctype html>
     </main>
   </div>
 </body>
-</html>`;
+</html>
+`;
 
 // --------------------------------------
 // MAIN HANDLER
