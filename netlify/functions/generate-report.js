@@ -213,9 +213,8 @@ const TEMPLATE = `<!doctype html>
 
     .wd-gauge-caption {
       margin: 0;
-      font-size: 0.94rem;
-      font-weight: 500;
-      color: #374151; /* darker – matches Key Metrics tone */
+      font-size: 0.88rem;
+      color: #475569; /* now matches Key Metrics sub text */
     }
 
     /* SECTIONS */
@@ -374,7 +373,8 @@ const TEMPLATE = `<!doctype html>
       <!-- HEADER -->
       <section class="wd-header-top">
         <h1 class="wd-header-title">WebDoctor Health Report</h1>
-        <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
+        <!-- force solid colour so it doesn't look washed out -->
+        <p class="wd-header-tagline" style="color:#e0f2fe;">Scan. Diagnose. Revive.</p>
 
         <div class="wd-header-meta-row">
           <div class="wd-meta-pill">
@@ -397,7 +397,8 @@ const TEMPLATE = `<!doctype html>
         <section class="wd-score-panel">
           <header class="wd-score-header">
             <h2>Overall Website Health</h2>
-            <p class="wd-score-summary">{{summary}}</p>
+            <!-- inline colour so it matches the local V4.2 exactly -->
+            <p class="wd-score-summary" style="color:#4b5563;">{{summary}}</p>
           </header>
 
           <div class="wd-score-gauges">
@@ -509,10 +510,8 @@ const TEMPLATE = `<!doctype html>
         <!-- NOTES -->
         <section class="wd-section">
           <h3 class="wd-section-title">Notes</h3>
-          <!-- Static text for now so you never see placeholders -->
-          <div class="wd-notes-body">
-            Automated WebDoctor analysis. Dynamic notes will be wired in during Phase 3.
-          </div>
+          <!-- now uses the real notes token -->
+          <div class="wd-notes-body">{{notes}}</div>
         </section>
       </section>
 
@@ -601,7 +600,7 @@ export const handler = async (event) => {
     recommendation4: 'Re-scan with WebDoctor to confirm score improvement.',
 
     notes:
-      'This is an automated WebDoctor preview. In Phase 3, these values will be generated from live scan data (performance, SEO, mobile, security, and accessibility).'
+      'This is an automated WebDoctor preview. In Phase 3, these values will come from live scan data (performance, SEO, mobile, security, and accessibility).'
   };
 
   // Build final HTML
@@ -642,8 +641,8 @@ export const handler = async (event) => {
     body: JSON.stringify({
       ok: true,
       report_id: reportId,
-      html,          // for any old callers
-      report_html: html // what dashboard.js expects now
+      html,
+      report_html: html
     })
   };
 };
