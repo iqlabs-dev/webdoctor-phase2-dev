@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebDoctor Health Report — V4.1</title>
+  <title>WebDoctor Health Report — V4.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* PAGE SETUP (DocRaptor-friendly) */
+    /* PAGE SETUP (PDF-friendly) */
     @page {
       size: A4;
       margin: 20mm;
@@ -48,11 +48,12 @@
 
     /* HEADER TOP */
     .wd-header-top {
-      padding: 20px 24px 26px;
-      border-radius: 24px;
-      background: linear-gradient(90deg, #0ea5e9, #14b8a6);
-      color: #ecfeff;
-    }
+  padding: 20px 24px 26px;
+  border-radius: 24px;
+  background: linear-gradient(90deg, #14b8a6, #0ea5e9); /* 🔄 reversed */
+  color: #ecfeff;
+}
+
 
     .wd-header-title {
       font-size: 1.5rem;
@@ -108,8 +109,8 @@
 
     /* SCORE PANEL — TRI GAUGE */
     .wd-score-panel {
-      margin-bottom: 26px;
-      padding: 20px 20px 22px;
+      margin-bottom: 30px;
+      padding: 22px 22px 24px;
       background: #ffffff;
       border-radius: 20px;
       box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
@@ -173,33 +174,33 @@
     }
 
     .wd-gauge-label {
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      color: #0f172a;
+      color: #1f2937;
       margin-bottom: 4px;
     }
 
     .wd-gauge-caption {
       margin: 0;
-      font-size: 0.78rem;
-      color: #64748b;  /* darker for clarity */
+      font-size: 0.82rem;
+      color: #4b5563;
     }
 
-    /* SECTIONS */
+    /* GENERIC SECTIONS */
     .wd-section {
-      margin-top: 20px;
-      padding: 18px 20px 20px;
+      margin-top: 30px;
+      padding: 22px 22px 24px;
       background: #ffffff;
       border-radius: 18px;
     }
 
     .wd-section-title {
-      margin: 0 0 12px;
-      font-size: 0.95rem;
+      margin: 0 0 16px;
+      font-size: 1.05rem;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #475569;
-      font-weight: 600;
+      letter-spacing: 0.11em;
+      color: #334155;
+      font-weight: 700;
     }
 
     /* KEY METRICS */
@@ -224,15 +225,15 @@
     }
 
     .wd-metric-main {
-      font-size: 0.9rem;
+      font-size: 0.92rem;
       font-weight: 500;
-      color: #0f172a;
+      color: #111827;
     }
 
     .wd-metric-sub {
-      font-size: 0.8rem;
-      color: #475569; /* improved contrast */
-      margin-top: 2px;
+      font-size: 0.82rem;
+      color: #4b5563;
+      margin-top: 3px;
     }
 
     /* ISSUES */
@@ -264,15 +265,15 @@
 
     .wd-issue-title {
       margin: 0 0 4px;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      color: #0f172a;
+      color: #111827;
     }
 
     .wd-issue-text {
       margin: 0;
-      font-size: 0.8rem;
-      color: #475569; /* darker for readability */
+      font-size: 0.82rem;
+      color: #4b5563;
     }
 
     /* RECOMMENDATIONS */
@@ -290,7 +291,7 @@
     /* NOTES */
     .wd-notes-body {
       font-size: 0.86rem;
-      color: #374151; /* strong grey, good for paragraph reading */
+      color: #374151;
       line-height: 1.5;
       white-space: pre-wrap;
     }
@@ -300,10 +301,10 @@
       margin-top: 16px;
       text-align: center;
       font-size: 0.7rem;
-      color: #64748b; /* more visible in PDF */
+      color: #64748b;
     }
 
-    /* RESPONSIVE */
+    /* RESPONSIVE (for on-screen preview) */
     @media (max-width: 768px) {
       body {
         padding: 12px;
@@ -368,7 +369,6 @@
           </header>
 
           <div class="wd-score-gauges">
-
             <!-- Performance Gauge -->
             <article class="wd-gauge-card">
               <div class="wd-gauge-shell">
@@ -407,7 +407,6 @@
               <div class="wd-gauge-label">Overall Score</div>
               <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
             </article>
-
           </div>
         </section>
 
