@@ -151,7 +151,7 @@ const TEMPLATE = `<!doctype html>
       margin: 0 0 6px;
       font-size: 1.35rem;   /* +1 step */
       font-weight: 700;
-      color: #0f172a;
+      color: #020617;       /* darker for stronger heading */
     }
 
     .wd-score-summary {
@@ -214,7 +214,7 @@ const TEMPLATE = `<!doctype html>
     .wd-gauge-caption {
       margin: 0;
       font-size: 0.88rem;
-      color: #475569; /* now matches Key Metrics sub text */
+      color: #475569; /* matches Key Metrics sub text */
     }
 
     /* SECTIONS */
@@ -319,12 +319,13 @@ const TEMPLATE = `<!doctype html>
       margin-top: 4px;
     }
 
-    /* NOTES */
+    /* DOCTOR'S SUMMARY */
     .wd-notes-body {
       font-size: 0.88rem;
       color: #374151;
       line-height: 1.5;
       white-space: pre-wrap;
+      text-align: justify; /* doctor's report feel */
     }
 
     /* FOOTER */
@@ -373,8 +374,7 @@ const TEMPLATE = `<!doctype html>
       <!-- HEADER -->
       <section class="wd-header-top">
         <h1 class="wd-header-title">WebDoctor Health Report</h1>
-        <!-- force solid colour so it doesn't look washed out -->
-        <p class="wd-header-tagline" style="color:#e0f2fe;">Scan. Diagnose. Revive.</p>
+        <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
         <div class="wd-header-meta-row">
           <div class="wd-meta-pill">
@@ -396,9 +396,8 @@ const TEMPLATE = `<!doctype html>
         <!-- SCORE PANEL -->
         <section class="wd-score-panel">
           <header class="wd-score-header">
-            <h2 style="color:#0f172a;">Overall Website Health</h2>
-            <!-- inline colour so it matches the local V4.2 exactly -->
-            <p class="wd-score-summary" style="color:#4b5563;">{{summary}}</p>
+            <h2>Overall Website Health</h2>
+            <p class="wd-score-summary">{{summary}}</p>
           </header>
 
           <div class="wd-score-gauges">
@@ -507,11 +506,12 @@ const TEMPLATE = `<!doctype html>
           </ol>
         </section>
 
-        <!-- NOTES -->
+        <!-- DOCTOR'S SUMMARY (replaces Notes) -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Notes</h3>
-          <!-- now uses the real notes token -->
-          <div class="wd-notes-body">{{notes}}</div>
+          <h3 class="wd-section-title">Doctor’s Summary</h3>
+          <div class="wd-notes-body">
+            {{doctor_summary}}
+          </div>
         </section>
       </section>
 
@@ -584,23 +584,33 @@ export const handler = async (event) => {
 
     issue1_severity: 'Critical',
     issue1_title: 'Uncompressed hero image',
-    issue1_text: 'Homepage hero image is ~1.8MB. Compress to <300KB and serve WebP/AVIF.',
+    issue1_text:
+      'Homepage hero image is ~1.8MB. Compress to <300KB and serve WebP/AVIF.',
 
     issue2_severity: 'Critical',
     issue2_title: 'Missing meta description',
-    issue2_text: 'No meta description found on homepage. Add a 140–160 character summary.',
+    issue2_text:
+      'No meta description found on homepage. Add a 140–160 character summary.',
 
     issue3_severity: 'Moderate',
     issue3_title: 'Heading structure',
-    issue3_text: 'Multiple H1s detected. Use a single H1 and downgrade others to H2/H3.',
+    issue3_text:
+      'Multiple H1s detected. Use a single H1 and downgrade others to H2/H3.',
 
-    recommendation1: 'Optimize homepage media (hero + gallery) for size and format.',
-    recommendation2: 'Add SEO foundation: title, meta description, and Open Graph tags.',
-    recommendation3: 'Fix duplicate H1s and ensure semantic heading order.',
-    recommendation4: 'Re-scan with WebDoctor to confirm score improvement.',
+    recommendation1:
+      'Optimize homepage media (hero + gallery) for size and format.',
+    recommendation2:
+      'Add SEO foundation: title, meta description, and Open Graph tags.',
+    recommendation3:
+      'Fix duplicate H1s and ensure semantic heading order.',
+    recommendation4:
+      'Re-scan with WebDoctor to confirm score improvement.',
 
-    notes:
-      'This is an automated WebDoctor preview. In Phase 3, these values will come from live scan data (performance, SEO, mobile, security, and accessibility).'
+    doctor_summary:
+      'The site remains operational with no acute failures detected. ' +
+      'The primary concerns relate to performance overhead, incomplete SEO signalling, and structural inconsistencies in headings. ' +
+      'These issues are clinically significant but manageable with routine corrective work. ' +
+      'Prioritising the red issues will produce the fastest health improvements, followed by a secondary optimisation cycle and re-scan to confirm recovery.'
   };
 
   // Build final HTML
@@ -635,13 +645,13 @@ export const handler = async (event) => {
     };
   }
 
-  // Return HTML for OSD preview
+  // Return HTML for OSD preview (dashboard.js expects report_html)
   return {
     statusCode: 200,
     body: JSON.stringify({
       ok: true,
       report_id: reportId,
-      html,
+      html,          // backwards compatibility
       report_html: html
     })
   };
