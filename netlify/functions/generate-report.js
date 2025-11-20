@@ -27,504 +27,469 @@ function makeReportId(prefix = 'WDR') {
 }
 
 // --------------------------------------
-// REPORT TEMPLATE V4.2 (FINAL, LOCKED)
+// REPORT TEMPLATE V4.2 (OSD BODY-ONLY)
 // --------------------------------------
-const TEMPLATE = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>WebDoctor Health Report — V4.2</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+// NOTE: No <html>, <head>, <body>. This is designed
+// to be injected into #report-preview in dashboard.html.
+const TEMPLATE = `
+<style>
+  /* --- CORE RESET FOR REPORT ONLY --- */
+  .wd-report-shell * {
+    box-sizing: border-box;
+    font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  }
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  .wd-report-shell {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    color: #0f172a;
+  }
 
-  <style>
-    /* PAGE SETUP (DocRaptor-friendly) */
-    @page {
-      size: A4;
-      margin: 20mm;
-    }
+  .wd-report-card {
+    background: #0b1220;
+    border-radius: 32px;
+    padding: 24px;
+    color: #e5edf4;
+    overflow: hidden;
+  }
 
-    * {
-      box-sizing: border-box;
-    }
+  /* HEADER TOP */
+  .wd-header-top {
+    padding: 20px 24px 26px;
+    border-radius: 24px;
+    background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+    color: #ecfeff;
+  }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #e5edf4;
-      color: #0f172a;
-    }
+  .wd-header-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: #ecfeff !important;
+  }
 
-    body {
-      display: flex;
-      justify-content: center;
-      padding: 24px 12px;
-    }
+  .wd-header-tagline {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #e0f2fe !important;
+    font-weight: 500;
+  }
 
-    .wd-report-shell {
-      width: 100%;
-      max-width: 900px;
-    }
+  .wd-header-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 18px;
+  }
 
+  .wd-meta-pill {
+    min-width: 0;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.25);
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .wd-meta-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.8;
+    margin-bottom: 3px;
+  }
+
+  .wd-meta-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    word-break: break-all;
+  }
+
+  /* BODY WRAPPER */
+  .wd-report-body {
+    background: #f1f5f9;
+    border-radius: 24px;
+    padding: 28px 24px 30px;
+    margin-top: 22px;
+    color: #0f172a;
+  }
+
+  /* SCORE PANEL — TRI GAUGE */
+  .wd-score-panel {
+    margin-bottom: 28px;
+    padding: 22px 22px 24px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+  }
+
+  .wd-score-header h2 {
+    margin: 0 0 6px;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #020617 !important;   /* darker heading */
+  }
+
+  .wd-score-summary {
+    margin: 0;
+    font-size: 0.96rem;
+    color: #475569 !important;   /* same tone as metrics */
+    font-weight: 500;
+  }
+
+  .wd-score-gauges {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 22px;
+  }
+
+  .wd-gauge-card {
+    text-align: center;
+  }
+
+  .wd-gauge-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .wd-gauge-ring {
+    width: 110px;
+    height: 110px;
+    border-radius: 999px;
+    background: conic-gradient(#22c55e 0deg, #14b8a6 220deg, #e2e8f0 220deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wd-gauge-inner {
+    width: 82px;
+    height: 82px;
+    border-radius: 999px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wd-gauge-score {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .wd-gauge-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+
+  .wd-gauge-caption {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #475569;
+  }
+
+  /* SECTIONS */
+  .wd-section {
+    margin-top: 24px;
+    padding: 20px 22px 22px;
+    background: #ffffff;
+    border-radius: 18px;
+  }
+
+  .wd-section-title {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  /* KEY METRICS */
+  .wd-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .wd-metric-card {
+    padding: 14px 14px 12px;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+
+  .wd-metric-label {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .wd-metric-main {
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #0f172a;
+  }
+
+  .wd-metric-sub {
+    font-size: 0.86rem;
+    color: #475569;
+    margin-top: 2px;
+  }
+
+  /* ISSUES */
+  .wd-issues-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .wd-issue-card {
+    padding: 12px 12px 11px;
+    border-radius: 14px;
+    border: 1px solid #fee2e2;
+    background: #fef2f2;
+  }
+
+  .wd-issue-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    margin-bottom: 6px;
+  }
+
+  .wd-issue-title {
+    margin: 0 0 4px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .wd-issue-text {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #475569;
+  }
+
+  /* RECOMMENDATIONS */
+  .wd-reco-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.9rem;
+    color: #0f172a;
+  }
+
+  .wd-reco-list li + li {
+    margin-top: 4px;
+  }
+
+  /* CLINICAL SUMMARY */
+  .wd-notes-body {
+    font-size: 0.88rem;
+    color: #374151;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    text-align: justify;
+  }
+
+  /* FOOTER */
+  .wd-footer {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: #64748b;
+  }
+
+  /* SIMPLE RESPONSIVE (mostly for PDF parity) */
+  @media (max-width: 768px) {
     .wd-report-card {
-      background: #0b1220;
-      border-radius: 32px;
-      padding: 24px;
-      color: #e5edf4;
-      overflow: hidden;
+      padding: 16px;
+      border-radius: 24px;
     }
 
-    /* HEADER TOP */
     .wd-header-top {
-      padding: 20px 24px 26px;
-      border-radius: 24px;
-      /* reversed gradient: teal → blue */
-      background: linear-gradient(90deg, #14b8a6, #0ea5e9);
-      color: #ecfeff;
-    }
-
-    .wd-header-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0 0 4px;
-    }
-
-    .wd-header-tagline {
-   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e2faff;    /* brighter, readable on gradient */
-  opacity: 1;
-    }
-
-    .wd-header-meta-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 18px;
-    }
-
-    .wd-meta-pill {
-      min-width: 0;
-      padding: 10px 16px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.25);
-      border: 1px solid rgba(15, 23, 42, 0.18);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .wd-meta-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      opacity: 0.8;
-      margin-bottom: 3px;
-    }
-
-    .wd-meta-value {
-      font-size: 0.9rem;
-      font-weight: 600;
-      word-break: break-all;
-    }
-
-    /* BODY */
-    .wd-report-body {
-      background: #f1f5f9;
-      border-radius: 24px;
-      padding: 28px 24px 30px;
-      margin-top: 22px;
-      color: #0f172a;
-    }
-
-    /* SCORE PANEL — TRI GAUGE */
-    .wd-score-panel {
-      margin-bottom: 28px;
-      padding: 22px 22px 24px;
-      background: #ffffff;
-      border-radius: 20px;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
-    }
-
-    .wd-score-header h2 {
-     margin: 0 0 6px;
-  font-size: 1.35rem;   /* +1 step */
-  font-weight: 700;
-  color: #111827;       /* matches KEY METRICS heading tone */
-    }
-
-    .wd-score-summary {
-      margin: 0;
-  font-size: 0.96rem;
-  color: #475569;    /* darker, same as metrics */
-  font-weight: 500;
-    }
-
-    .wd-score-gauges {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 22px;
-      margin-top: 22px;
-    }
-
-    .wd-gauge-card {
-      text-align: center;
-    }
-
-    .wd-gauge-shell {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-    }
-
-    .wd-gauge-ring {
-      width: 110px;
-      height: 110px;
-      border-radius: 999px;
-      background: conic-gradient(#22c55e 0deg, #14b8a6 220deg, #e2e8f0 220deg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .wd-gauge-inner {
-      width: 82px;
-      height: 82px;
-      border-radius: 999px;
-      background: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .wd-gauge-score {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .wd-gauge-label {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #0f172a;
-      margin-bottom: 4px;
-    }
-
-    .wd-gauge-caption {
-      margin: 0;
-      font-size: 0.88rem;
-      color: #475569; /* matches Key Metrics sub text */
-    }
-
-    /* SECTIONS */
-    .wd-section {
-      margin-top: 24px;           /* more spacing between sections */
-      padding: 20px 22px 22px;
-      background: #ffffff;
+      padding: 16px 16px 18px;
       border-radius: 18px;
     }
 
-    .wd-section-title {
-      margin: 0 0 14px;
-      font-size: 1rem;            /* +1 step */
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #475569;
-      font-weight: 600;
+    .wd-report-body {
+      padding: 18px 16px 20px;
     }
 
-    /* KEY METRICS */
-    .wd-metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+    .wd-score-gauges {
+      grid-template-columns: 1fr;
     }
 
-    .wd-metric-card {
-      padding: 14px 14px 12px;
-      border-radius: 14px;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc;
-    }
-
-    .wd-metric-label {
-      margin: 0 0 6px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #111827;  /* slightly darker */
-    }
-
-    .wd-metric-main {
-      font-size: 0.92rem;
-      font-weight: 500;
-      color: #0f172a;
-    }
-
-    .wd-metric-sub {
-      font-size: 0.86rem;
-      color: #475569; /* shared tone */
-      margin-top: 2px;
-    }
-
-    /* ISSUES */
+    .wd-metrics-grid,
     .wd-issues-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      grid-template-columns: 1fr;
     }
+  }
+</style>
 
-    .wd-issue-card {
-      padding: 12px 12px 11px;
-      border-radius: 14px;
-      border: 1px solid #fee2e2;
-      background: #fef2f2;
-    }
+<div class="wd-report-shell">
+  <main class="wd-report-card">
+    <!-- HEADER -->
+    <section class="wd-header-top">
+      <h1 class="wd-header-title">WebDoctor Health Report</h1>
+      <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
-    .wd-issue-badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 3px 9px;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      background: #fee2e2;
-      color: #b91c1c;
-      border: 1px solid #fecaca;
-      margin-bottom: 6px;
-    }
+      <div class="wd-header-meta-row">
+        <div class="wd-meta-pill">
+          <span class="wd-meta-label">Website</span>
+          <span class="wd-meta-value">{{url}}</span>
+        </div>
+        <div class="wd-meta-pill">
+          <span class="wd-meta-label">Scan Date</span>
+          <span class="wd-meta-value>{{date}}</span>
+        </div>
+        <div class="wd-meta-pill">
+          <span class="wd-meta-label">Report ID</span>
+          <span class="wd-meta-value">{{id}}</span>
+        </div>
+      </div>
+    </section>
 
-    .wd-issue-title {
-      margin: 0 0 4px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #0f172a;
-    }
+    <section class="wd-report-body">
+      <!-- SCORE PANEL -->
+      <section class="wd-score-panel">
+        <header class="wd-score-header">
+          <h2>Overall Website Health</h2>
+          <p class="wd-score-summary">{{summary}}</p>
+        </header>
 
-    .wd-issue-text {
-      margin: 0;
-      font-size: 0.82rem;
-      color: #475569;
-    }
+        <div class="wd-score-gauges">
+          <!-- Performance Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{perf_score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">Performance</div>
+            <p class="wd-gauge-caption">Page speed and load behaviour.</p>
+          </article>
 
-    /* RECOMMENDATIONS */
-    .wd-reco-list {
-      margin: 0;
-      padding-left: 18px;
-      font-size: 0.9rem;
-      color: #0f172a;
-    }
+          <!-- SEO Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{seo_score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">SEO</div>
+            <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
+          </article>
 
-    .wd-reco-list li + li {
-      margin-top: 4px;
-    }
-
-    /* DOCTOR'S SUMMARY */
-    .wd-notes-body {
-      font-size: 0.88rem;
-      color: #374151;
-      line-height: 1.5;
-      white-space: pre-wrap;
-      text-align: justify; /* doctor's report feel */
-    }
-
-    /* FOOTER */
-    .wd-footer {
-      margin-top: 18px;
-      text-align: center;
-      font-size: 0.72rem;
-      color: #64748b;
-    }
-
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      body {
-        padding: 12px;
-      }
-
-      .wd-report-card {
-        padding: 16px;
-        border-radius: 24px;
-      }
-
-      .wd-header-top {
-        padding: 16px 16px 18px;
-        border-radius: 18px;
-      }
-
-      .wd-report-body {
-        padding: 18px 16px 20px;
-      }
-
-      .wd-score-gauges {
-        grid-template-columns: 1fr;
-      }
-
-      .wd-metrics-grid,
-      .wd-issues-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="wd-report-shell">
-    <main class="wd-report-card">
-      <!-- HEADER -->
-      <section class="wd-header-top">
-        <h1 class="wd-header-title">WebDoctor Health Report</h1>
-        <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
-
-        <div class="wd-header-meta-row">
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Website</span>
-            <span class="wd-meta-value">{{url}}</span>
-          </div>
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Scan Date</span>
-            <span class="wd-meta-value">{{date}}</span>
-          </div>
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report ID</span>
-            <span class="wd-meta-value">{{id}}</span>
-          </div>
+          <!-- Overall Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">Overall Score</div>
+            <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
+          </article>
         </div>
       </section>
 
-      <section class="wd-report-body">
-        <!-- SCORE PANEL -->
-        <section class="wd-score-panel">
-          <header class="wd-score-header">
-            <h2>Overall Website Health</h2>
-            <p class="wd-score-summary">{{summary}}</p>
-          </header>
+      <!-- KEY METRICS -->
+      <section class="wd-section">
+        <h3 class="wd-section-title">Key Metrics</h3>
 
-          <div class="wd-score-gauges">
+        <div class="wd-metrics-grid">
+          <article class="wd-metric-card">
+            <h4 class="wd-metric-label">Page Load</h4>
+            <div class="wd-metric-main">{{metric_page_load_value}}</div>
+            <div class="wd-metric-sub">Goal: {{metric_page_load_goal}}</div>
+          </article>
 
-            <!-- Performance Gauge -->
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{perf_score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">Performance</div>
-              <p class="wd-gauge-caption">Page speed and load behaviour.</p>
-            </article>
+          <article class="wd-metric-card">
+            <h4 class="wd-metric-label">Mobile Usability</h4>
+            <div class="wd-metric-main">{{metric_mobile_status}}</div>
+            <div class="wd-metric-sub">{{metric_mobile_text}}</div>
+          </article>
 
-            <!-- SEO Gauge -->
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{seo_score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">SEO</div>
-              <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
-            </article>
-
-            <!-- Overall Gauge -->
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">Overall Score</div>
-              <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
-            </article>
-
-          </div>
-        </section>
-
-        <!-- KEY METRICS -->
-        <section class="wd-section">
-          <h3 class="wd-section-title">Key Metrics</h3>
-
-          <div class="wd-metrics-grid">
-            <article class="wd-metric-card">
-              <h4 class="wd-metric-label">Page Load</h4>
-              <div class="wd-metric-main">{{metric_page_load_value}}</div>
-              <div class="wd-metric-sub">Goal: {{metric_page_load_goal}}</div>
-            </article>
-
-            <article class="wd-metric-card">
-              <h4 class="wd-metric-label">Mobile Usability</h4>
-              <div class="wd-metric-main">{{metric_mobile_status}}</div>
-              <div class="wd-metric-sub">{{metric_mobile_text}}</div>
-            </article>
-
-            <article class="wd-metric-card">
-              <h4 class="wd-metric-label">Core Web Vitals</h4>
-              <div class="wd-metric-main">{{metric_cwv_status}}</div>
-              <div class="wd-metric-sub">{{metric_cwv_text}}</div>
-            </article>
-          </div>
-        </section>
-
-        <!-- TOP ISSUES -->
-        <section class="wd-section">
-          <h3 class="wd-section-title">Top Issues Detected</h3>
-
-          <div class="wd-issues-grid">
-            <article class="wd-issue-card">
-              <div class="wd-issue-badge">{{issue1_severity}}</div>
-              <h4 class="wd-issue-title">{{issue1_title}}</h4>
-              <p class="wd-issue-text">{{issue1_text}}</p>
-            </article>
-
-            <article class="wd-issue-card">
-              <div class="wd-issue-badge">{{issue2_severity}}</div>
-              <h4 class="wd-issue-title">{{issue2_title}}</h4>
-              <p class="wd-issue-text">{{issue2_text}}</p>
-            </article>
-
-            <article class="wd-issue-card">
-              <div class="wd-issue-badge">{{issue3_severity}}</div>
-              <h4 class="wd-issue-title">{{issue3_title}}</h4>
-              <p class="wd-issue-text">{{issue3_text}}</p>
-            </article>
-          </div>
-        </section>
-
-        <!-- RECOMMENDED FIX SEQUENCE -->
-        <section class="wd-section">
-          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-
-          <ol class="wd-reco-list">
-            <li>{{recommendation1}}</li>
-            <li>{{recommendation2}}</li>
-            <li>{{recommendation3}}</li>
-            <li>{{recommendation4}}</li>
-          </ol>
-        </section>
-
-        <!-- DOCTOR'S SUMMARY (replaces Notes) -->
-        <section class="wd-section">
-          <h3 class="wd-section-title">Doctor’s Summary</h3>
-          <div class="wd-notes-body">
-            {{doctor_summary}}
-          </div>
-        </section>
+          <article class="wd-metric-card">
+            <h4 class="wd-metric-label">Core Web Vitals</h4>
+            <div class="wd-metric-main">{{metric_cwv_status}}</div>
+            <div class="wd-metric-sub">{{metric_cwv_text}}</div>
+          </article>
+        </div>
       </section>
 
-      <footer class="wd-footer">
-        © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
-      </footer>
-    </main>
-  </div>
-</body>
-</html>
+      <!-- TOP ISSUES -->
+      <section class="wd-section">
+        <h3 class="wd-section-title">Top Issues Detected</h3>
+
+        <div class="wd-issues-grid">
+          <article class="wd-issue-card">
+            <div class="wd-issue-badge">{{issue1_severity}}</div>
+            <h4 class="wd-issue-title">{{issue1_title}}</h4>
+            <p class="wd-issue-text">{{issue1_text}}</p>
+          </article>
+
+          <article class="wd-issue-card">
+            <div class="wd-issue-badge">{{issue2_severity}}</div>
+            <h4 class="wd-issue-title">{{issue2_title}}</h4>
+            <p class="wd-issue-text">{{issue2_text}}</p>
+          </article>
+
+          <article class="wd-issue-card">
+            <div class="wd-issue-badge">{{issue3_severity}}</div>
+            <h4 class="wd-issue-title">{{issue3_title}}</h4>
+            <p class="wd-issue-text">{{issue3_text}}</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- RECOMMENDED FIX SEQUENCE -->
+      <section class="wd-section">
+        <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+        <ol class="wd-reco-list">
+          <li>{{recommendation1}}</li>
+          <li>{{recommendation2}}</li>
+          <li>{{recommendation3}}</li>
+          <li>{{recommendation4}}</li>
+        </ol>
+      </section>
+
+      <!-- CLINICAL SUMMARY -->
+      <section class="wd-section">
+        <h3 class="wd-section-title">Clinical Summary</h3>
+        <div class="wd-notes-body">
+          {{doctor_summary}}
+        </div>
+      </section>
+    </section>
+
+    <footer class="wd-footer">
+      © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+    </footer>
+  </main>
+</div>
 `;
 
 // --------------------------------------

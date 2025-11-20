@@ -1,3 +1,4 @@
+<!-- FULL TEMPLATE WITH CLINICAL SUMMARY PATCH APPLIED -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -9,12 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* PAGE SETUP (DocRaptor-friendly) */
-    @page {
-      size: A4;
-      margin: 20mm;
-    }
-
+    /* --- CORE RESET FOR REPORT ONLY --- */
     * {
       box-sizing: border-box;
     }
@@ -50,7 +46,6 @@
     .wd-header-top {
       padding: 20px 24px 26px;
       border-radius: 24px;
-      /* reversed gradient: teal → blue */
       background: linear-gradient(90deg, #14b8a6, #0ea5e9);
       color: #ecfeff;
     }
@@ -59,12 +54,14 @@
       font-size: 1.6rem;
       font-weight: 700;
       margin: 0 0 4px;
+      color: #ecfeff !important;
     }
 
     .wd-header-tagline {
       margin: 0;
       font-size: 0.95rem;
-      opacity: 0.96;
+      color: #e0f2fe !important;
+      font-weight: 500;
     }
 
     .wd-header-meta-row {
@@ -98,7 +95,6 @@
       word-break: break-all;
     }
 
-    /* BODY */
     .wd-report-body {
       background: #f1f5f9;
       border-radius: 24px;
@@ -107,7 +103,7 @@
       color: #0f172a;
     }
 
-    /* SCORE PANEL — TRI GAUGE */
+    /* SCORE PANEL */
     .wd-score-panel {
       margin-bottom: 28px;
       padding: 22px 22px 24px;
@@ -118,15 +114,16 @@
 
     .wd-score-header h2 {
       margin: 0 0 6px;
-      font-size: 1.35rem;   /* +1 step */
+      font-size: 1.35rem;
       font-weight: 700;
-      color: #0f172a;
+      color: #020617 !important;
     }
 
     .wd-score-summary {
       margin: 0;
       font-size: 0.96rem;
-      color: #4b5563; /* darker, matches section copy tone */
+      color: #475569 !important;
+      font-weight: 500;
     }
 
     .wd-score-gauges {
@@ -183,12 +180,11 @@
     .wd-gauge-caption {
       margin: 0;
       font-size: 0.88rem;
-      color: #475569; /* now matches Key Metrics sub text */
+      color: #475569;
     }
 
-    /* SECTIONS */
     .wd-section {
-      margin-top: 24px;           /* more spacing between sections */
+      margin-top: 24px;
       padding: 20px 22px 22px;
       background: #ffffff;
       border-radius: 18px;
@@ -196,14 +192,13 @@
 
     .wd-section-title {
       margin: 0 0 14px;
-      font-size: 1rem;            /* +1 step */
+      font-size: 1rem;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       color: #475569;
       font-weight: 600;
     }
 
-    /* KEY METRICS */
     .wd-metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -221,7 +216,7 @@
       margin: 0 0 6px;
       font-size: 0.95rem;
       font-weight: 600;
-      color: #111827;  /* slightly darker */
+      color: #111827;
     }
 
     .wd-metric-main {
@@ -232,11 +227,10 @@
 
     .wd-metric-sub {
       font-size: 0.86rem;
-      color: #475569; /* shared tone */
+      color: #475569;
       margin-top: 2px;
     }
 
-    /* ISSUES */
     .wd-issues-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -251,8 +245,6 @@
     }
 
     .wd-issue-badge {
-      display: inline-flex;
-      align-items: center;
       padding: 3px 9px;
       border-radius: 999px;
       font-size: 0.72rem;
@@ -261,6 +253,9 @@
       color: #b91c1c;
       border: 1px solid #fecaca;
       margin-bottom: 6px;
+      display:flex;
+      align-items:center;
+      width:max-content;
     }
 
     .wd-issue-title {
@@ -276,7 +271,6 @@
       color: #475569;
     }
 
-    /* RECOMMENDATIONS */
     .wd-reco-list {
       margin: 0;
       padding-left: 18px;
@@ -288,57 +282,28 @@
       margin-top: 4px;
     }
 
-    /* NOTES */
+    /* CLINICAL SUMMARY */
     .wd-notes-body {
       font-size: 0.88rem;
       color: #374151;
       line-height: 1.5;
       white-space: pre-wrap;
+      text-align: justify;
     }
 
-    /* FOOTER */
     .wd-footer {
       margin-top: 18px;
       text-align: center;
       font-size: 0.72rem;
       color: #64748b;
     }
-
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      body {
-        padding: 12px;
-      }
-
-      .wd-report-card {
-        padding: 16px;
-        border-radius: 24px;
-      }
-
-      .wd-header-top {
-        padding: 16px 16px 18px;
-        border-radius: 18px;
-      }
-
-      .wd-report-body {
-        padding: 18px 16px 20px;
-      }
-
-      .wd-score-gauges {
-        grid-template-columns: 1fr;
-      }
-
-      .wd-metrics-grid,
-      .wd-issues-grid {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
 
-<body>
+<body class="wd-isolated">
   <div class="wd-report-shell">
     <main class="wd-report-card">
+
       <!-- HEADER -->
       <section class="wd-header-top">
         <h1 class="wd-header-title">WebDoctor Health Report</h1>
@@ -361,6 +326,7 @@
       </section>
 
       <section class="wd-report-body">
+
         <!-- SCORE PANEL -->
         <section class="wd-score-panel">
           <header class="wd-score-header">
@@ -370,7 +336,6 @@
 
           <div class="wd-score-gauges">
 
-            <!-- Performance Gauge -->
             <article class="wd-gauge-card">
               <div class="wd-gauge-shell">
                 <div class="wd-gauge-ring">
@@ -383,7 +348,6 @@
               <p class="wd-gauge-caption">Page speed and load behaviour.</p>
             </article>
 
-            <!-- SEO Gauge -->
             <article class="wd-gauge-card">
               <div class="wd-gauge-shell">
                 <div class="wd-gauge-ring">
@@ -396,7 +360,6 @@
               <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
             </article>
 
-            <!-- Overall Gauge -->
             <article class="wd-gauge-card">
               <div class="wd-gauge-shell">
                 <div class="wd-gauge-ring">
@@ -437,10 +400,9 @@
           </div>
         </section>
 
-        <!-- TOP ISSUES -->
+        <!-- ISSUES -->
         <section class="wd-section">
           <h3 class="wd-section-title">Top Issues Detected</h3>
-
           <div class="wd-issues-grid">
             <article class="wd-issue-card">
               <div class="wd-issue-badge">{{issue1_severity}}</div>
@@ -462,10 +424,9 @@
           </div>
         </section>
 
-        <!-- RECOMMENDED FIX SEQUENCE -->
+        <!-- RECOMMENDATIONS -->
         <section class="wd-section">
           <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-
           <ol class="wd-reco-list">
             <li>{{recommendation1}}</li>
             <li>{{recommendation2}}</li>
@@ -474,21 +435,23 @@
           </ol>
         </section>
 
-        <!-- NOTES -->
+        <!-- CLINICAL SUMMARY -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Notes</h3>
-          <!-- Static text for now so you never see placeholders -->
+          <h3 class="wd-section-title">Clinical Summary</h3>
           <div class="wd-notes-body">
-            Automated WebDoctor analysis. Dynamic notes will be wired in during Phase 3.
+            <!-- Placeholder text until Phase 3 automation -->
+            No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling,
+            and structural consistency. Address red issues first, then perform a follow-up scan.
           </div>
         </section>
+
       </section>
 
       <footer class="wd-footer">
         © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
       </footer>
+
     </main>
   </div>
 </body>
 </html>
-`;
