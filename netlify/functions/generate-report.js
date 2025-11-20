@@ -213,8 +213,9 @@ const TEMPLATE = `<!doctype html>
 
     .wd-gauge-caption {
       margin: 0;
-      font-size: 0.88rem;
-      color: #475569; /* now matches Key Metrics sub text */
+      font-size: 0.94rem;
+      font-weight: 500;
+      color: #374151; /* darker – matches Key Metrics tone */
     }
 
     /* SECTIONS */
