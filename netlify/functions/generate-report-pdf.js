@@ -38,7 +38,7 @@ export async function handler(event) {
       body: JSON.stringify({
         user_credentials: DOC_API_KEY,
         doc: {
-          test: false,
+          test: true,
           name: `${report_id}.pdf`,
           document_type: "pdf",
           html: html
@@ -46,11 +46,19 @@ export async function handler(event) {
       })
     });
 
-    if (!drRes.ok) {
-      const text = await drRes.text();
-      console.log("DocRaptor failed:", text);
-      return { statusCode: 500, body: text };
-    }
+if (!drRes.ok) {
+  const text = await drRes.text();
+  console.log("DocRaptor failed:", text);
+  return {
+    statusCode: 500,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      error: "DocRaptor error",
+      detail: text,
+    }),
+  };
+}
+
 
     const pdfBuffer = Buffer.from(await drRes.arrayBuffer());
 
