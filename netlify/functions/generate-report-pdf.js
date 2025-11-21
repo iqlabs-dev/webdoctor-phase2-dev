@@ -50,7 +50,7 @@ export async function handler(event) {
       body: JSON.stringify({
         user_credentials: DOC_API_KEY,
         doc: {
-          test: true, // change to false only when ready for live docs
+          test: false,   // LIVE MODE — full rendering, no watermark
           name: `${report_id}.pdf`,
           document_type: "pdf",
           document_content: html,   // ✅ CORRECT FOR DOCRAPTOR
