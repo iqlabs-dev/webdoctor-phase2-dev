@@ -297,57 +297,6 @@
       font-size: 0.72rem;
       color: #64748b;
     }
-    /* Overall diagnostic – numeric cards (PDF + OSD safe) */
-
-.wd-diagnostic-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.wd-diagnostic-card {
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 14px 16px 16px;
-  border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-}
-
-@media (max-width: 768px) {
-  .wd-diagnostic-card {
-    flex-basis: 100%;
-  }
-}
-
-.wd-diagnostic-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-
-.wd-diagnostic-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.wd-diagnostic-score {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #0b9380;
-}
-
-.wd-diagnostic-insight {
-  margin: 0;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  color: #4b5563;
-}
-
   </style>
 </head>
 
@@ -385,47 +334,46 @@
             <p class="wd-score-summary">{{summary}}</p>
           </header>
 
-<!-- OLD GAUGE BLOCK START (TEMP HIDDEN) -->
-<div class="wd-diagnostic-grid">
+          <div class="wd-score-gauges">
 
-  <!-- Performance -->
-  <article class="wd-diagnostic-card">
-    <header class="wd-diagnostic-header">
-      <span class="wd-diagnostic-name">Performance</span>
-      <span class="wd-diagnostic-score">{{perf_score}} / 100</span>
-    </header>
-    <p class="wd-diagnostic-insight">
-      Page speed and load behaviour. Large images and heavy scripts will lower this score.
-    </p>
-  </article>
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{perf_score}}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wd-gauge-label">Performance</div>
+              <p class="wd-gauge-caption">Page speed and load behaviour.</p>
+            </article>
 
-  <!-- SEO -->
-  <article class="wd-diagnostic-card">
-    <header class="wd-diagnostic-header">
-      <span class="wd-diagnostic-name">SEO</span>
-      <span class="wd-diagnostic-score">{{seo_score}} / 100</span>
-    </header>
-    <p class="wd-diagnostic-insight">
-      Indexing signals and discoverability. Missing meta data and poor headings will reduce this.
-    </p>
-  </article>
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{seo_score}}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wd-gauge-label">SEO</div>
+              <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
+            </article>
 
-  <!-- Overall -->
-  <article class="wd-diagnostic-card">
-    <header class="wd-diagnostic-header">
-      <span class="wd-diagnostic-name">Overall Score</span>
-      <span class="wd-diagnostic-score">{{score}} / 100</span>
-    </header>
-    <p class="wd-diagnostic-insight">
-      Weighted blend of all key systems. Use this as the simple “health number” for the site.
-    </p>
-  </article>
+            <article class="wd-gauge-card">
+              <div class="wd-gauge-shell">
+                <div class="wd-gauge-ring">
+                  <div class="wd-gauge-inner">
+                    <span class="wd-gauge-score">{{score}}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wd-gauge-label">Overall Score</div>
+              <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
+            </article>
 
-</div>
-<!-- OLD GAUGE BLOCK END -->
-
-
-
+          </div>
+        </section>
 
         <!-- KEY METRICS -->
         <section class="wd-section">
