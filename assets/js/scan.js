@@ -29,7 +29,7 @@ export async function runScan(url) {
   try {
     data = await response.json();
   } catch {
-    // ignore JSON parse errors, we’ll handle by status code
+    // ignore JSON parse errors
   }
 
   if (!response.ok) {
@@ -37,20 +37,35 @@ export async function runScan(url) {
     throw new Error(msg);
   }
 
-  // ------------------------------------
-  // PHASE 2.8 — Generate PDF (background)
-  // ------------------------------------
-  if (data && data.html && data.report_id && window.currentUserId) {
+  // -------------------------------
+  // GET FULL REPORT HTML SAFELY
+  // -------------------------------
+  // Preferred field from backend is "report_html"
+  // We fallback to data.html only if needed
+  const fullHtml = data.report_html || data.html;
+
+  // ---------------------------------------------------------
+  // PHASE 2.8 — Trigger PDF Generation (Background Process)
+  // ---------------------------------------------------------
+  if (data && fullHtml && data.report_id && window.currentUserId) {
     fetch('/.netlify/functions/generate-report-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        html: data.html,
-        report_id: data.report_id,
+        html: fullHtml,            // <-- Correct field for PDF generation
+        report_id: data.report_id, 
         user_id: window.currentUserId
       })
     })
-      .then(r => r.json())
+      .then(async r => {
+        let txt = await r.text();
+        try {
+          return JSON.parse(txt);
+        } catch {
+          console.error("PDF raw response:", txt);
+          return { error: "Invalid JSON from PDF function" };
+        }
+      })
       .then(pdfData => {
         console.log('PDF generation requested:', pdfData);
       })
@@ -59,6 +74,6 @@ export async function runScan(url) {
       });
   }
 
-  // Don’t enforce shape here — just pass back whatever backend returns
+  // Return whatever the backend scan returned
   return data;
 }

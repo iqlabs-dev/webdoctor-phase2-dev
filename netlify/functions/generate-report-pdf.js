@@ -53,7 +53,8 @@ export async function handler(event) {
           test: true, // change to false only when ready for live docs
           name: `${report_id}.pdf`,
           document_type: "pdf",
-          html,
+          document_content: html,   // ✅ CORRECT FOR DOCRAPTOR
+
         },
       }),
     });
