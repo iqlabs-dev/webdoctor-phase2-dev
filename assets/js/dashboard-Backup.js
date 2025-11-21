@@ -167,17 +167,6 @@ async function loadScanHistory(downloadPdfBtn) {
     console.error('loadScanHistory REST error:', err);
     empty.textContent = 'Unable to load scan history.';
   }
-
-  // ----------------------------------------------
-  // Auto-refresh history once after a new scan
-  // ----------------------------------------------
-  if (window.justRanScan) {
-    window.justRanScan = false; // reset flag
-
-    setTimeout(() => {
-      loadScanHistory(downloadPdfBtn);
-    }, 10000); // 10 seconds
-  }
 }
 
 // -----------------------------
@@ -236,9 +225,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       statusEl.textContent = `Scan complete. Report ID: ${reportId}.`;
 
       renderReportPreview(html, reportId);
-
-      // Mark that we just ran a scan (for one-time auto-refresh)
-      window.justRanScan = true;
 
       // Enable download button only if we already have pdf_url
       downloadPdfBtn.disabled = !result.pdf_url;
