@@ -2,7 +2,9 @@
 
 const DOC_API_KEY = process.env.DOCRAPTOR_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Support both env var names – your Netlify uses SUPABASE_SERVICE_ROLE_KEY
+const SUPABASE_SERVICE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
 export async function handler(event) {
   try {
@@ -14,12 +16,14 @@ export async function handler(event) {
       };
     }
 
+    // Debug env status (shows in Netlify logs)
+    console.log("ENV CHECK:", {
+      haveDoc: !!DOC_API_KEY,
+      haveUrl: !!SUPABASE_URL,
+      haveService: !!SUPABASE_SERVICE_KEY,
+    });
+
     if (!DOC_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      console.log("Missing env vars:", {
-        haveDoc: !!DOC_API_KEY,
-        haveUrl: !!SUPABASE_URL,
-        haveService: !!SUPABASE_SERVICE_KEY,
-      });
       return {
         statusCode: 500,
         headers: { "Content-Type": "application/json" },
@@ -46,7 +50,7 @@ export async function handler(event) {
       body: JSON.stringify({
         user_credentials: DOC_API_KEY,
         doc: {
-          test: true, // change to false only when you are ready for live docs
+          test: true, // change to false only when ready for live docs
           name: `${report_id}.pdf`,
           document_type: "pdf",
           html,
@@ -141,7 +145,10 @@ export async function handler(event) {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Server error", detail: String(err) }),
+      body: JSON.stringify({
+        error: "Server error",
+        detail: String(err),
+      }),
     };
   }
 }
