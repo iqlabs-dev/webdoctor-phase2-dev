@@ -116,7 +116,7 @@ const TEMPLATE = `
     color: #0f172a;
   }
 
-  /* SCORE PANEL – NUMERIC CARDS */
+  /* SCORE PANEL — TRI GAUGE */
   .wd-score-panel {
     margin-bottom: 28px;
     padding: 22px 22px 24px;
@@ -129,58 +129,71 @@ const TEMPLATE = `
     margin: 0 0 6px;
     font-size: 1.35rem;
     font-weight: 700;
-    color: #020617 !important;
+    color: #020617 !important;   /* darker heading */
   }
 
   .wd-score-summary {
     margin: 0;
     font-size: 0.96rem;
-    color: #475569 !important;
+    color: #475569 !important;   /* same tone as metrics */
     font-weight: 500;
   }
 
-  /* NEW DIAGNOSTIC CARDS */
-  .wd-diagnostic-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin-top: 18px;
+  .wd-score-gauges {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 22px;
   }
 
-  .wd-diagnostic-card {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 14px 16px 16px;
-    border-radius: 16px;
+  .wd-gauge-card {
+    text-align: center;
+  }
+
+  .wd-gauge-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .wd-gauge-ring {
+    width: 110px;
+    height: 110px;
+    border-radius: 999px;
+    background: conic-gradient(#22c55e 0deg, #14b8a6 220deg, #e2e8f0 220deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wd-gauge-inner {
+    width: 82px;
+    height: 82px;
+    border-radius: 999px;
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-  }
-
-  .wd-diagnostic-header {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 6px;
+    align-items: center;
+    justify-content: center;
   }
 
-  .wd-diagnostic-name {
-    font-size: 0.9rem;
-    font-weight: 600;
+  .wd-gauge-score {
+    font-size: 1.6rem;
+    font-weight: 700;
     color: #0f172a;
   }
 
-  .wd-diagnostic-score {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #0b9380;
+  .wd-gauge-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
   }
 
-  .wd-diagnostic-insight {
+  .wd-gauge-caption {
     margin: 0;
-    font-size: 0.8rem;
-    line-height: 1.4;
-    color: #4b5563;
+    font-size: 0.88rem;
+    color: #475569;
   }
 
   /* SECTIONS */
@@ -318,8 +331,8 @@ const TEMPLATE = `
       padding: 18px 16px 20px;
     }
 
-    .wd-diagnostic-card {
-      flex-basis: 100%;
+    .wd-score-gauges {
+      grid-template-columns: 1fr;
     }
 
     .wd-metrics-grid,
@@ -336,25 +349,26 @@ const TEMPLATE = `
       <h1 class="wd-header-title">WebDoctor Health Report</h1>
       <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
-      <div class="wd-header-meta-row">
-        <!-- Website -->
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Website</span>
-          <span class="wd-meta-value">{{url}}</span>
-        </div>
+  <div class="wd-header-meta-row">
+    <!-- Website -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Website</span>
+      <span class="wd-meta-value">{{url}}</span>
+    </div>
 
-        <!-- Scan Date -->
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Scan Date</span>
-          <span class="wd-meta-value">{{date}}</span>
-        </div>
+    <!-- Scan Date -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Scan Date</span>
+      <span class="wd-meta-value">{{date}}</span>
+    </div>
 
-        <!-- Report ID -->
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Report ID</span>
-          <span class="wd-meta-value">{{id}}</span>
-        </div>
-      </div>
+    <!-- Report ID -->
+    <div class="wd-meta-pill">
+      <span class="wd-meta-label">Report ID</span>
+      <span class="wd-meta-value">{{id}}</span>
+    </div>
+  </div>
+
     </section>
 
     <section class="wd-report-body">
@@ -365,38 +379,44 @@ const TEMPLATE = `
           <p class="wd-score-summary">{{summary}}</p>
         </header>
 
-        <div class="wd-diagnostic-grid">
-          <!-- Performance -->
-          <article class="wd-diagnostic-card">
-            <header class="wd-diagnostic-header">
-              <span class="wd-diagnostic-name">Performance</span>
-              <span class="wd-diagnostic-score">{{perf_score}} / 100</span>
-            </header>
-            <p class="wd-diagnostic-insight">
-              Page speed and load behaviour. Large images and heavy scripts will lower this score.
-            </p>
+        <div class="wd-score-gauges">
+          <!-- Performance Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{perf_score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">Performance</div>
+            <p class="wd-gauge-caption">Page speed and load behaviour.</p>
           </article>
 
-          <!-- SEO -->
-          <article class="wd-diagnostic-card">
-            <header class="wd-diagnostic-header">
-              <span class="wd-diagnostic-name">SEO</span>
-              <span class="wd-diagnostic-score">{{seo_score}} / 100</span>
-            </header>
-            <p class="wd-diagnostic-insight">
-              Indexing signals and discoverability. Missing meta data and poor headings will reduce this.
-            </p>
+          <!-- SEO Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{seo_score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">SEO</div>
+            <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
           </article>
 
-          <!-- Overall -->
-          <article class="wd-diagnostic-card">
-            <header class="wd-diagnostic-header">
-              <span class="wd-diagnostic-name">Overall Score</span>
-              <span class="wd-diagnostic-score">{{score}} / 100</span>
-            </header>
-            <p class="wd-diagnostic-insight">
-              Weighted blend of all key systems. Use this as the simple “health number” for the site.
-            </p>
+          <!-- Overall Gauge -->
+          <article class="wd-gauge-card">
+            <div class="wd-gauge-shell">
+              <div class="wd-gauge-ring">
+                <div class="wd-gauge-inner">
+                  <span class="wd-gauge-score">{{score}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="wd-gauge-label">Overall Score</div>
+            <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
           </article>
         </div>
       </section>
@@ -477,7 +497,6 @@ const TEMPLATE = `
   </main>
 </div>
 `;
-
 
 // --------------------------------------
 // MAIN HANDLER
