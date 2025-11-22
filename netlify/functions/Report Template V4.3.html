@@ -1,16 +1,15 @@
-<!-- FULL TEMPLATE WITH CLINICAL SUMMARY PATCH APPLIED -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebDoctor Health Report — V4.2</title>
+  <title>WebDoctor Health Report — V4.3</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    /* --- CORE RESET FOR REPORT ONLY --- */
+    /* ---------- CORE RESET ---------- */
     * {
       box-sizing: border-box;
     }
@@ -42,7 +41,7 @@
       overflow: hidden;
     }
 
-    /* HEADER TOP */
+    /* ---------- HEADER ---------- */
     .wd-header-top {
       padding: 20px 24px 26px;
       border-radius: 24px;
@@ -95,6 +94,7 @@
       word-break: break-all;
     }
 
+    /* ---------- BODY SHELL ---------- */
     .wd-report-body {
       background: #f1f5f9;
       border-radius: 24px;
@@ -103,13 +103,41 @@
       color: #0f172a;
     }
 
-    /* SCORE PANEL */
+    .wd-section {
+      margin-top: 24px;
+      padding: 20px 22px 22px;
+      background: #ffffff;
+      border-radius: 18px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .wd-section-title {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #475569;
+      font-weight: 600;
+    }
+
+    .wd-section-subtitle {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      opacity: 0.8;
+      margin-top: 10px;
+      margin-bottom: 4px;
+      letter-spacing: 0.08em;
+      color: #64748b;
+    }
+
+    /* ---------- SCORE PANEL ---------- */
     .wd-score-panel {
       margin-bottom: 28px;
       padding: 22px 22px 24px;
       background: #ffffff;
       border-radius: 20px;
       box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+      border: 1px solid #e2e8f0;
     }
 
     .wd-score-header h2 {
@@ -126,79 +154,132 @@
       font-weight: 500;
     }
 
-    .wd-score-gauges {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 22px;
-      margin-top: 22px;
-    }
-
-    .wd-gauge-card {
-      text-align: center;
-    }
-
-    .wd-gauge-shell {
+    .wd-diagnostic-grid {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 14px;
     }
 
-    .wd-gauge-ring {
-      width: 110px;
-      height: 110px;
-      border-radius: 999px;
-      background: conic-gradient(#22c55e 0deg, #14b8a6 220deg, #e2e8f0 220deg);
+    .wd-diagnostic-card {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 14px 16px 16px;
+      border-radius: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+
+    @media (max-width: 768px) {
+      .wd-diagnostic-card {
+        flex-basis: 100%;
+      }
+    }
+
+    .wd-diagnostic-header {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
     }
 
-    .wd-gauge-inner {
-      width: 82px;
-      height: 82px;
-      border-radius: 999px;
-      background: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .wd-diagnostic-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #0f172a;
     }
 
-    .wd-gauge-score {
-      font-size: 1.6rem;
+    .wd-diagnostic-score {
+      font-size: 0.9rem;
       font-weight: 700;
-      color: #0f172a;
+      color: #0b9380;
     }
 
-    .wd-gauge-label {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #0f172a;
-      margin-bottom: 4px;
-    }
-
-    .wd-gauge-caption {
+    .wd-diagnostic-insight {
       margin: 0;
-      font-size: 0.88rem;
-      color: #475569;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #4b5563;
     }
 
-    .wd-section {
+    /* ---------- CLINICAL DIAGNOSTIC BLOCKS ---------- */
+
+    .wd-diag-section {
       margin-top: 24px;
-      padding: 20px 22px 22px;
+    }
+
+    .wd-diag-block {
+      padding: 16px 18px 18px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
       background: #ffffff;
-      border-radius: 18px;
+      margin-bottom: 14px;
     }
 
-    .wd-section-title {
-      margin: 0 0 14px;
-      font-size: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #475569;
+    .wd-diag-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .wd-diag-title {
+      font-size: 0.92rem;
       font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #475569;
     }
 
+    .wd-score-pill {
+      min-width: 78px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-align: center;
+      background: #ecfeff;
+      border: 1px solid #14b8a6;
+      color: #0f172a;
+    }
+
+    /* Future severity variants (hooked up later in 3.1) */
+    .wd-score-pill-good {
+      background: rgba(22, 163, 74, 0.14);
+      border-color: rgba(34, 197, 94, 0.7);
+    }
+
+    .wd-score-pill-ok {
+      background: rgba(234, 179, 8, 0.16);
+      border-color: rgba(250, 204, 21, 0.7);
+    }
+
+    .wd-score-pill-poor {
+      background: rgba(248, 113, 113, 0.16);
+      border-color: rgba(248, 113, 113, 0.8);
+    }
+
+    .wd-diag-summary {
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #374151;
+      margin: 0 0 8px;
+    }
+
+    .wd-diag-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.82rem;
+      color: #111827;
+    }
+
+    .wd-diag-list li + li {
+      margin-top: 3px;
+    }
+
+    /* ---------- KEY METRICS ---------- */
     .wd-metrics-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -231,6 +312,7 @@
       margin-top: 2px;
     }
 
+    /* ---------- TOP ISSUES ---------- */
     .wd-issues-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -253,9 +335,9 @@
       color: #b91c1c;
       border: 1px solid #fecaca;
       margin-bottom: 6px;
-      display:flex;
-      align-items:center;
-      width:max-content;
+      display: inline-flex;
+      align-items: center;
+      width: max-content;
     }
 
     .wd-issue-title {
@@ -271,6 +353,7 @@
       color: #475569;
     }
 
+    /* ---------- RECOMMENDATIONS & SUMMARY ---------- */
     .wd-reco-list {
       margin: 0;
       padding-left: 18px;
@@ -282,7 +365,6 @@
       margin-top: 4px;
     }
 
-    /* CLINICAL SUMMARY */
     .wd-notes-body {
       font-size: 0.88rem;
       color: #374151;
@@ -291,6 +373,7 @@
       text-align: justify;
     }
 
+    /* ---------- FOOTER ---------- */
     .wd-footer {
       margin-top: 18px;
       text-align: center;
@@ -325,54 +408,117 @@
         </div>
       </section>
 
+      <!-- BODY -->
       <section class="wd-report-body">
 
-        <!-- SCORE PANEL -->
+        <!-- OVERALL SCORE PANEL -->
         <section class="wd-score-panel">
           <header class="wd-score-header">
             <h2>Overall Website Health</h2>
             <p class="wd-score-summary">{{summary}}</p>
           </header>
 
-          <div class="wd-score-gauges">
+          <div class="wd-diagnostic-grid">
 
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{perf_score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">Performance</div>
-              <p class="wd-gauge-caption">Page speed and load behaviour.</p>
+            <!-- Performance snapshot -->
+            <article class="wd-diagnostic-card">
+              <header class="wd-diagnostic-header">
+                <span class="wd-diagnostic-name">Performance</span>
+                <span class="wd-diagnostic-score">{{perf_score}} / 100</span>
+              </header>
+              <p class="wd-diagnostic-insight">
+                Page speed and load behaviour. Large images and heavy scripts will lower this score.
+              </p>
             </article>
 
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{seo_score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">SEO</div>
-              <p class="wd-gauge-caption">Indexing signals and discoverability.</p>
+            <!-- SEO snapshot -->
+            <article class="wd-diagnostic-card">
+              <header class="wd-diagnostic-header">
+                <span class="wd-diagnostic-name">SEO</span>
+                <span class="wd-diagnostic-score">{{seo_score}} / 100</span>
+              </header>
+              <p class="wd-diagnostic-insight">
+                Indexing signals and discoverability. Missing meta data and poor headings will reduce this.
+              </p>
             </article>
 
-            <article class="wd-gauge-card">
-              <div class="wd-gauge-shell">
-                <div class="wd-gauge-ring">
-                  <div class="wd-gauge-inner">
-                    <span class="wd-gauge-score">{{score}}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="wd-gauge-label">Overall Score</div>
-              <p class="wd-gauge-caption">Weighted blend of all key systems.</p>
+            <!-- Overall snapshot -->
+            <article class="wd-diagnostic-card">
+              <header class="wd-diagnostic-header">
+                <span class="wd-diagnostic-name">Overall Score</span>
+                <span class="wd-diagnostic-score">{{score}} / 100</span>
+              </header>
+              <p class="wd-diagnostic-insight">
+                Weighted blend of all key systems. Use this as the simple “health number” for the site.
+              </p>
             </article>
 
           </div>
+        </section>
+
+        <!-- SYSTEM DIAGNOSTICS (CLINICAL BLOCKS) -->
+        <section class="wd-section wd-diag-section">
+          <h3 class="wd-section-title">System Diagnostics</h3>
+
+          <!-- Performance block -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Performance &amp; Speed</div>
+              <div class="wd-score-pill">{{perf_score}} / 100</div>
+            </header>
+            <p class="wd-diag-summary">
+              Measures how quickly your pages load and become usable. Heavy images, blocking scripts, and slow hosting
+              will drag this down.
+            </p>
+            <div class="wd-section-subtitle">Top Issues</div>
+            <ul class="wd-diag-list">
+              <li>See “Top Issues Detected” for the most critical performance-related problems on this scan.</li>
+            </ul>
+            <div class="wd-section-subtitle">Recommended Fixes</div>
+            <ul class="wd-diag-list">
+              <li>Follow the global “Recommended Fix Sequence” to address performance items in the right order.</li>
+            </ul>
+          </article>
+
+          <!-- SEO block -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">SEO &amp; Findability</div>
+              <div class="wd-score-pill">{{seo_score}} / 100</div>
+            </header>
+            <p class="wd-diag-summary">
+              Focuses on how easily search engines can discover and understand your content: meta tags, headings,
+              indexing signals and structured data.
+            </p>
+            <div class="wd-section-subtitle">Top Issues</div>
+            <ul class="wd-diag-list">
+              <li>See “Top Issues Detected” for SEO-related gaps identified in this scan.</li>
+            </ul>
+            <div class="wd-section-subtitle">Recommended Fixes</div>
+            <ul class="wd-diag-list">
+              <li>Use the “Recommended Fix Sequence” as the action plan for improving search visibility.</li>
+            </ul>
+          </article>
+
+          <!-- Overall health block -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Overall Site Health</div>
+              <div class="wd-score-pill">{{score}} / 100</div>
+            </header>
+            <p class="wd-diag-summary">
+              Combines the major systems into a single health signal. This is the number you can track over time to show
+              improvement to clients and stakeholders.
+            </p>
+            <div class="wd-section-subtitle">Top Issues</div>
+            <ul class="wd-diag-list">
+              <li>Red and amber items in “Top Issues Detected” indicate what is pulling down your overall health.</li>
+            </ul>
+            <div class="wd-section-subtitle">Recommended Fixes</div>
+            <ul class="wd-diag-list">
+              <li>Work through the “Recommended Fix Sequence” to lift this score in the most efficient way.</li>
+            </ul>
+          </article>
         </section>
 
         <!-- KEY METRICS -->
@@ -400,7 +546,7 @@
           </div>
         </section>
 
-        <!-- ISSUES -->
+        <!-- TOP ISSUES -->
         <section class="wd-section">
           <h3 class="wd-section-title">Top Issues Detected</h3>
           <div class="wd-issues-grid">
@@ -424,7 +570,7 @@
           </div>
         </section>
 
-        <!-- RECOMMENDATIONS -->
+        <!-- RECOMMENDED FIX SEQUENCE -->
         <section class="wd-section">
           <h3 class="wd-section-title">Recommended Fix Sequence</h3>
           <ol class="wd-reco-list">
@@ -439,7 +585,6 @@
         <section class="wd-section">
           <h3 class="wd-section-title">Clinical Summary</h3>
           <div class="wd-notes-body">
-            <!-- Placeholder text until Phase 3 automation -->
             No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling,
             and structural consistency. Address red issues first, then perform a follow-up scan.
           </div>

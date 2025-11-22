@@ -27,13 +27,13 @@ function makeReportId(prefix = 'WDR') {
 }
 
 // --------------------------------------
-// REPORT TEMPLATE V4.2 (OSD BODY-ONLY)
+// REPORT TEMPLATE V4.3 (OSD BODY-ONLY)
 // --------------------------------------
 // NOTE: No <html>, <head>, <body>. This is designed
 // to be injected into #report-preview in dashboard.html.
 const TEMPLATE = `
 <style>
-  /* --- CORE RESET FOR REPORT ONLY --- */
+  /* CORE RESET (SCOPED TO REPORT SHELL) */
   .wd-report-shell * {
     box-sizing: border-box;
     font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
@@ -107,7 +107,7 @@ const TEMPLATE = `
     word-break: break-all;
   }
 
-  /* BODY WRAPPER */
+  /* BODY SHELL */
   .wd-report-body {
     background: #f1f5f9;
     border-radius: 24px;
@@ -116,13 +116,41 @@ const TEMPLATE = `
     color: #0f172a;
   }
 
-  /* SCORE PANEL – NUMERIC CARDS */
+  .wd-section {
+    margin-top: 24px;
+    padding: 20px 22px 22px;
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .wd-section-title {
+    margin: 0 0 14px;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  .wd-section-subtitle {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    opacity: 0.8;
+    margin-top: 10px;
+    margin-bottom: 4px;
+    letter-spacing: 0.08em;
+    color: #64748b;
+  }
+
+  /* SCORE PANEL */
   .wd-score-panel {
     margin-bottom: 28px;
     padding: 22px 22px 24px;
     background: #ffffff;
     border-radius: 20px;
     box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+    border: 1px solid #e2e8f0;
   }
 
   .wd-score-header h2 {
@@ -139,12 +167,11 @@ const TEMPLATE = `
     font-weight: 500;
   }
 
-  /* NEW DIAGNOSTIC CARDS */
   .wd-diagnostic-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
-    margin-top: 18px;
+    margin-top: 14px;
   }
 
   .wd-diagnostic-card {
@@ -152,7 +179,7 @@ const TEMPLATE = `
     min-width: 0;
     padding: 14px 16px 16px;
     border-radius: 16px;
-    background: #ffffff;
+    background: #f8fafc;
     border: 1px solid #e2e8f0;
   }
 
@@ -183,21 +210,78 @@ const TEMPLATE = `
     color: #4b5563;
   }
 
-  /* SECTIONS */
-  .wd-section {
+  /* SYSTEM DIAGNOSTICS – CLINICAL BLOCKS */
+  .wd-diag-section {
     margin-top: 24px;
-    padding: 20px 22px 22px;
-    background: #ffffff;
-    border-radius: 18px;
   }
 
-  .wd-section-title {
-    margin: 0 0 14px;
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #475569;
+  .wd-diag-block {
+    padding: 16px 18px 18px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    margin-bottom: 14px;
+  }
+
+  .wd-diag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .wd-diag-title {
+    font-size: 0.92rem;
     font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .wd-score-pill {
+    min-width: 78px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    background: #ecfeff;
+    border: 1px solid #14b8a6;
+    color: #0f172a;
+  }
+
+  .wd-score-pill-good {
+    background: rgba(22, 163, 74, 0.14);
+    border-color: rgba(34, 197, 94, 0.7);
+  }
+
+  .wd-score-pill-ok {
+    background: rgba(234, 179, 8, 0.16);
+    border-color: rgba(250, 204, 21, 0.7);
+  }
+
+  .wd-score-pill-poor {
+    background: rgba(248, 113, 113, 0.16);
+    border-color: rgba(248, 113, 113, 0.8);
+  }
+
+  .wd-diag-summary {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #374151;
+    margin: 0 0 8px;
+  }
+
+  .wd-diag-list {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.82rem;
+    color: #111827;
+  }
+
+  .wd-diag-list li + li {
+    margin-top: 3px;
   }
 
   /* KEY METRICS */
@@ -233,7 +317,7 @@ const TEMPLATE = `
     margin-top: 2px;
   }
 
-  /* ISSUES */
+  /* TOP ISSUES */
   .wd-issues-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -273,7 +357,7 @@ const TEMPLATE = `
     color: #475569;
   }
 
-  /* RECOMMENDATIONS */
+  /* RECOMMENDATIONS & SUMMARY */
   .wd-reco-list {
     margin: 0;
     padding-left: 18px;
@@ -285,7 +369,6 @@ const TEMPLATE = `
     margin-top: 4px;
   }
 
-  /* CLINICAL SUMMARY */
   .wd-notes-body {
     font-size: 0.88rem;
     color: #374151;
@@ -302,7 +385,7 @@ const TEMPLATE = `
     color: #64748b;
   }
 
-  /* SIMPLE RESPONSIVE (mostly for PDF parity) */
+  /* SIMPLE RESPONSIVE */
   @media (max-width: 768px) {
     .wd-report-card {
       padding: 16px;
@@ -337,19 +420,16 @@ const TEMPLATE = `
       <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
 
       <div class="wd-header-meta-row">
-        <!-- Website -->
         <div class="wd-meta-pill">
           <span class="wd-meta-label">Website</span>
           <span class="wd-meta-value">{{url}}</span>
         </div>
 
-        <!-- Scan Date -->
         <div class="wd-meta-pill">
           <span class="wd-meta-label">Scan Date</span>
           <span class="wd-meta-value">{{date}}</span>
         </div>
 
-        <!-- Report ID -->
         <div class="wd-meta-pill">
           <span class="wd-meta-label">Report ID</span>
           <span class="wd-meta-value">{{id}}</span>
@@ -358,7 +438,7 @@ const TEMPLATE = `
     </section>
 
     <section class="wd-report-body">
-      <!-- SCORE PANEL -->
+      <!-- OVERALL SCORE PANEL -->
       <section class="wd-score-panel">
         <header class="wd-score-header">
           <h2>Overall Website Health</h2>
@@ -366,7 +446,6 @@ const TEMPLATE = `
         </header>
 
         <div class="wd-diagnostic-grid">
-          <!-- Performance -->
           <article class="wd-diagnostic-card">
             <header class="wd-diagnostic-header">
               <span class="wd-diagnostic-name">Performance</span>
@@ -377,7 +456,6 @@ const TEMPLATE = `
             </p>
           </article>
 
-          <!-- SEO -->
           <article class="wd-diagnostic-card">
             <header class="wd-diagnostic-header">
               <span class="wd-diagnostic-name">SEO</span>
@@ -388,7 +466,6 @@ const TEMPLATE = `
             </p>
           </article>
 
-          <!-- Overall -->
           <article class="wd-diagnostic-card">
             <header class="wd-diagnostic-header">
               <span class="wd-diagnostic-name">Overall Score</span>
@@ -399,6 +476,68 @@ const TEMPLATE = `
             </p>
           </article>
         </div>
+      </section>
+
+      <!-- SYSTEM DIAGNOSTICS -->
+      <section class="wd-section wd-diag-section">
+        <h3 class="wd-section-title">System Diagnostics</h3>
+
+        <article class="wd-diag-block">
+          <header class="wd-diag-header">
+            <div class="wd-diag-title">Performance &amp; Speed</div>
+            <div class="wd-score-pill">{{perf_score}} / 100</div>
+          </header>
+          <p class="wd-diag-summary">
+            Measures how quickly your pages load and become usable. Heavy images, blocking scripts, and slow hosting
+            will drag this score down.
+          </p>
+          <div class="wd-section-subtitle">Top Issues</div>
+          <ul class="wd-diag-list">
+            <li>See “Top Issues Detected” for the most critical performance-related problems on this scan.</li>
+          </ul>
+          <div class="wd-section-subtitle">Recommended Fixes</div>
+          <ul class="wd-diag-list">
+            <li>Follow the global “Recommended Fix Sequence” to address performance items in the right order.</li>
+          </ul>
+        </article>
+
+        <article class="wd-diag-block">
+          <header class="wd-diag-header">
+            <div class="wd-diag-title">SEO &amp; Findability</div>
+            <div class="wd-score-pill">{{seo_score}} / 100</div>
+          </header>
+          <p class="wd-diag-summary">
+            Focuses on how easily search engines can discover and understand your content: meta tags, headings,
+            indexing signals and structured data.
+          </p>
+          <div class="wd-section-subtitle">Top Issues</div>
+          <ul class="wd-diag-list">
+            <li>See “Top Issues Detected” for SEO-related gaps identified in this scan.</li>
+          </ul>
+          <div class="wd-section-subtitle">Recommended Fixes</div>
+          <ul class="wd-diag-list">
+            <li>Use the “Recommended Fix Sequence” as the action plan for improving search visibility.</li>
+          </ul>
+        </article>
+
+        <article class="wd-diag-block">
+          <header class="wd-diag-header">
+            <div class="wd-diag-title">Overall Site Health</div>
+            <div class="wd-score-pill">{{score}} / 100</div>
+          </header>
+          <p class="wd-diag-summary">
+            Combines the major systems into a single health signal. This is the number you can track over time to show
+            improvement to clients and stakeholders.
+          </p>
+          <div class="wd-section-subtitle">Top Issues</div>
+          <ul class="wd-diag-list">
+            <li>Red and amber items in “Top Issues Detected” indicate what is pulling down your overall health.</li>
+          </ul>
+          <div class="wd-section-subtitle">Recommended Fixes</div>
+          <ul class="wd-diag-list">
+            <li>Work through the “Recommended Fix Sequence” to lift this score in the most efficient way.</li>
+          </ul>
+        </article>
       </section>
 
       <!-- KEY METRICS -->
@@ -478,7 +617,6 @@ const TEMPLATE = `
 </div>
 `;
 
-
 // --------------------------------------
 // MAIN HANDLER
 // --------------------------------------
@@ -513,9 +651,7 @@ export const handler = async (event) => {
   const today = new Date().toISOString().split('T')[0];
   const reportId = makeReportId('WDR');
 
-  // ------------------------------
   // TEMP STATIC DATA (Phase 2.8)
-  // ------------------------------
   const overallScore = 78;
   const summary =
     'Overall healthy — main opportunities in performance and SEO. Fix the red issues first, then re-scan.';
@@ -572,7 +708,7 @@ export const handler = async (event) => {
   let html = TEMPLATE;
   for (const [key, value] of Object.entries(tokens)) {
     const safeValue = String(value ?? '');
-    html = html.replace(new RegExp(`{{${key}}}`, 'g'), safeValue);
+    html = html.replace(new RegExp(\`{{\${key}}}\`, 'g'), safeValue);
   }
 
   // Store in Supabase
@@ -600,13 +736,12 @@ export const handler = async (event) => {
     };
   }
 
-  // Return HTML for OSD preview (dashboard.js expects report_html)
   return {
     statusCode: 200,
     body: JSON.stringify({
       ok: true,
       report_id: reportId,
-      html,          // backwards compatibility
+      html,
       report_html: html
     })
   };
