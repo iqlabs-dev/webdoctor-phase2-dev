@@ -375,6 +375,7 @@ const TEMPLATE = `
     line-height: 1.5;
     white-space: pre-wrap;
     text-align: justify;
+    text-indent: 0 !important;
   }
 
   /* FOOTER */
