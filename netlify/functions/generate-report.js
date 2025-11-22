@@ -455,7 +455,7 @@ const TEMPLATE = `
               <span class="wd-diagnostic-score">{{perf_score}} / 100</span>
             </header>
             <p class="wd-diagnostic-insight">
-              Page speed and load behaviour. Large images and heavy scripts will lower this score.
+              How fast your site loads for users.
             </p>
           </article>
 
@@ -465,7 +465,7 @@ const TEMPLATE = `
               <span class="wd-diagnostic-score">{{seo_score}} / 100</span>
             </header>
             <p class="wd-diagnostic-insight">
-              Indexing signals and discoverability. Missing meta data and poor headings will reduce this.
+              How easily search engines can understand and discover your site.
             </p>
           </article>
 
@@ -475,7 +475,7 @@ const TEMPLATE = `
               <span class="wd-diagnostic-score">{{score}} / 100</span>
             </header>
             <p class="wd-diagnostic-insight">
-              Weighted blend of all key systems. Use this as the simple “health number” for the site.
+              A combined score of your site’s key health systems.
             </p>
           </article>
         </div>
