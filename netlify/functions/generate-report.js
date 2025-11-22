@@ -708,8 +708,9 @@ export const handler = async (event) => {
   let html = TEMPLATE;
   for (const [key, value] of Object.entries(tokens)) {
     const safeValue = String(value ?? '');
-    html = html.replace(new RegExp(\`{{\${key}}}\`, 'g'), safeValue);
+    html = html.replace(new RegExp(`{{${key}}}`, 'g'), safeValue);
   }
+
 
   // Store in Supabase
   const { error } = await supabase.from('reports').insert([
