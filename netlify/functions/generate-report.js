@@ -370,12 +370,14 @@ const TEMPLATE = `
   }
 
   .wd-notes-body {
-    font-size: 0.88rem;
-    color: #374151;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    text-align: justify;
-    text-indent: 0 !important;
+  font-size: 0.88rem;
+  color: #374151;
+  line-height: 1.5;
+  white-space: normal !important;
+  text-align: justify;
+  text-indent: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
   }
 
   /* FOOTER */
