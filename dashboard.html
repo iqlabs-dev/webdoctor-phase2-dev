@@ -1144,10 +1144,10 @@
     renderRows(filtered);
   }
 
-  // CHANGED: no userId filter – load all scan_history rows for now
+  // CHANGED: no userId filter – load all scan_results rows for now
   async function loadScanHistory() {
     const { data, error } = await supabase
-      .from("scan_history")
+      .from("scan_results")
       .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
       .order("created_at", { ascending: false })
       .limit(100);
