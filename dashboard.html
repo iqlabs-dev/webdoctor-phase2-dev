@@ -766,7 +766,6 @@
         <span class="icon">▶</span>
         <span>Run New Scan</span>
       </a>
-
       <div class="hint-text">
         Your plan scans are used first. If you run out, extra credits are $1 per scan. Paste a URL, we’ll handle the diagnostics. No setup, no code, no plugins.
       </div>
@@ -811,7 +810,7 @@
         </tr>
         </thead>
         <tbody>
-        <!-- rows will be injected dynamically -->
+        <!-- rows injected dynamically -->
         </tbody>
       </table>
 
@@ -950,7 +949,7 @@
   function getStatusKey(status) {
     const s = (status || "").toLowerCase();
     if (s === "in_progress" || s === "pending") return "in-progress";
-    if (s === "failed") return "failed";
+    if (s === "failed" || s === "error") return "failed";
     return "completed";
   }
 
@@ -964,6 +963,7 @@
   function getStatusClass(status) {
     const key = getStatusKey(status);
     if (key === "in-progress") return "status-pill pending";
+    if (key === "failed") return "status-pill";
     return "status-pill";
   }
 
@@ -1104,8 +1104,8 @@
 
     if (!allRecords.length) {
       if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "block";
-      if (emptyFiltered) emptyFiltered.style.display = "none";
+      if (emptyNone) emptyNone.display = "block";
+      if (emptyFiltered) emptyFiltered.display = "none";
       return;
     }
 
@@ -1144,8 +1144,8 @@
     renderRows(filtered);
   }
 
-  // CHANGED: no userId filter – load all scan_results rows for now
   async function loadScanHistory() {
+    // DEV: show latest 100 scans from scan_results (no user filter for now)
     const { data, error } = await supabase
       .from("scan_results")
       .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
@@ -1207,7 +1207,7 @@
     await loadProfile(user);
     setupFilters();
     setupSearch();
-    await loadScanHistory();   // CHANGED: no user.id argument
+    await loadScanHistory();
     await setupSignOut();
   });
 </script>
@@ -1216,7 +1216,6 @@
   const runScanBtn = document.getElementById('wd-run-scan-btn');
   if (runScanBtn) {
     runScanBtn.addEventListener('click', (e) => {
-      // make sure it actually leaves the dashboard
       e.preventDefault();
       window.location.href = 'index.html#scan';
     });
