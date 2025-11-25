@@ -107,6 +107,8 @@ export default async (request, context) => {
     );
   }
 
+  const startedAt = Date.now();
+
   let responseOk = false;
   let httpStatus = null;
   let metrics = {};
@@ -125,6 +127,7 @@ export default async (request, context) => {
     errorText = err.message || 'Fetch failed';
   }
 
+  const scanTimeMs = Date.now() - startedAt;
   const score_overall = computeOverallScore(url, responseOk, metrics);
 
   const fullMetrics = {
@@ -134,14 +137,18 @@ export default async (request, context) => {
     checks: metrics
   };
 
+  // NOTE: now writing into scan_history instead of scan_results
   const { data, error } = await supabase
-    .from('scan_results')
+    .from('scan_history')
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
       score_overall,
-      metrics: fullMetrics
+      metrics: fullMetrics,
+      report_id: null,
+      report_url: null,
+      scan_time_ms: scanTimeMs
     })
     .select()
     .single();
