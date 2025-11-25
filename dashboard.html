@@ -375,7 +375,7 @@
     /* LAYOUT GRID */
 
     .layout-grid {
-      display: block; /* full-width history */
+      display: block;
     }
 
     h2 {
@@ -746,17 +746,19 @@
         </div>
       </div>
 
-      <div class="summary-block last-scan-card">
+      <div class="summary-block last-scan-card" id="wd-last-scan-card">
         <div class="summary-label">Last scan</div>
-        <div class="last-scan-site">example.com</div>
-        <div class="last-scan-meta">Scanned on Nov 25, 2025 · Desktop</div>
-        <div class="score-pill">
-          <span class="score">82</span>
-          Overall score · Needs attention
+        <div class="last-scan-site" id="wd-last-scan-site">No scans yet</div>
+        <div class="last-scan-meta" id="wd-last-scan-meta">
+          Run your first WebDoctor scan to see it here.
+        </div>
+        <div class="score-pill" id="wd-last-scan-score-pill" style="display:none;">
+          <span class="score" id="wd-last-scan-score">--</span>
+          <span id="wd-last-scan-status-text">Overall score</span>
         </div>
         <div class="summary-actions" style="margin-top:18px;">
-          <a href="#" class="action-link">View full report</a>
-          <a href="#" class="action-link">Download PDF</a>
+          <a href="#" class="action-link" id="wd-last-scan-view" style="display:none;">View full report</a>
+          <a href="#" class="action-link" id="wd-last-scan-pdf" style="display:none;">Download PDF</a>
         </div>
       </div>
     </div>
@@ -809,51 +811,8 @@
           <th style="text-align:right;">Actions</th>
         </tr>
         </thead>
-        <tbody>
-        <tr class="scan-row" data-status="completed">
-          <td>Nov 25, 2025</td>
-          <td>example.com</td>
-          <td>82</td>
-          <td><span class="status-pill">Completed</span></td>
-          <td>
-            <button type="button" class="report-id-btn" data-report-id="WDR-25329-0001">
-              <span class="report-id">WDR-25329-0001</span>
-            </button>
-          </td>
-          <td style="text-align:right;">
-            <a href="#" class="action-link">View</a>
-            <a href="#" class="action-link">PDF</a>
-          </td>
-        </tr>
-        <tr class="scan-row" data-status="completed">
-          <td>Nov 22, 2025</td>
-          <td>mysite.co.nz</td>
-          <td>74</td>
-          <td><span class="status-pill">Completed</span></td>
-          <td>
-            <button type="button" class="report-id-btn" data-report-id="WDR-25326-0004">
-              <span class="report-id">WDR-25326-0004</span>
-            </button>
-          </td>
-          <td style="text-align:right;">
-            <a href="#" class="action-link">View</a>
-            <a href="#" class="action-link">PDF</a>
-          </td>
-        </tr>
-        <tr class="scan-row" data-status="in-progress">
-          <td>Nov 18, 2025</td>
-          <td>clientdemo.agency</td>
-          <td>—</td>
-          <td><span class="status-pill pending">In progress</span></td>
-          <td>
-            <button type="button" class="report-id-btn" data-report-id="WDR-25322-0009">
-              <span class="report-id">WDR-25322-0009</span>
-            </button>
-          </td>
-          <td style="text-align:right;">
-            <span class="hint-text">Generating…</span>
-          </td>
-        </tr>
+        <tbody id="historyBody">
+        <!-- Filled by Supabase data -->
         </tbody>
       </table>
 
@@ -878,39 +837,165 @@
 
 <div id="copyToast">Report ID copied to clipboard</div>
 
-<script>
-  (function () {
-    const rows = Array.from(document.querySelectorAll("tr.scan-row"));
-    const searchInput = document.getElementById("historySearch");
-    const filterPills = document.querySelectorAll(".filter-pill");
-    const loadMoreBtn = document.getElementById("loadMoreScans");
+<!-- Supabase auth + profile + history wiring -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU"; // <- paste anon key here
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const PAGE_SIZE = 10;
+
+  function showToast(msg) {
+    const toast = document.getElementById("copyToast");
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add("visible");
+    setTimeout(() => toast.classList.remove("visible"), 1500);
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit"
+    });
+  }
+
+  function normaliseStatus(raw) {
+    if (!raw) return "completed";
+    const v = String(raw).toLowerCase();
+    if (v === "completed" || v === "done") return "completed";
+    if (v === "pending" || v === "running" || v === "in_progress") return "in-progress";
+    return v;
+  }
+
+  function buildStatusPill(status) {
+    const span = document.createElement("span");
+    const normal = normaliseStatus(status);
+    span.className = "status-pill" + (normal === "in-progress" ? " pending" : "");
+    span.textContent = normal === "in-progress" ? "In progress" : "Completed";
+    return span;
+  }
+
+  function renderScanHistory(records) {
+    const tbody = document.getElementById("historyBody");
+    const table = document.querySelector(".scan-history-table");
     const emptyNone = document.getElementById("historyEmptyNone");
     const emptyFiltered = document.getElementById("historyEmptyFiltered");
-    const table = document.querySelector(".scan-history-table");
-    const PAGE_SIZE = 10;
-    let activeStatus = "all";
+    const loadMoreBtn = document.getElementById("loadMoreScans");
 
-    // Last scan card -> click first "View"
-    const lastScanCard = document.querySelector(".last-scan-card");
-    if (lastScanCard) {
-      lastScanCard.addEventListener("click", () => {
-        const firstView = document.querySelector(".scan-history-table .action-link");
-        if (firstView) firstView.click();
-      });
+    if (!tbody || !table) return;
+
+    tbody.innerHTML = "";
+
+    if (!records || records.length === 0) {
+      table.style.display = "none";
+      emptyNone.style.display = "block";
+      emptyFiltered.style.display = "none";
+      loadMoreBtn.style.display = "none";
+      return;
     }
 
-    // Copy Report ID
-    const toast = document.getElementById("copyToast");
-    function showToast(msg) {
-      if (!toast) return;
-      toast.textContent = msg;
-      toast.classList.add("visible");
-      setTimeout(() => toast.classList.remove("visible"), 1500);
-    }
+    table.style.display = "table";
+    emptyNone.style.display = "none";
+    emptyFiltered.style.display = "none";
 
-    document.querySelectorAll(".report-id-btn").forEach(btn => {
+    records.forEach((row) => {
+      const tr = document.createElement("tr");
+      const status = normaliseStatus(row.status);
+
+      tr.className = "scan-row";
+      tr.dataset.status = status;
+
+      // Date
+      const tdDate = document.createElement("td");
+      tdDate.textContent = formatDate(row.created_at) || "—";
+
+      // Website
+      const tdSite = document.createElement("td");
+      tdSite.textContent = row.url || "—";
+
+      // Score
+      const tdScore = document.createElement("td");
+      tdScore.textContent =
+        typeof row.score_overall === "number" ? row.score_overall : "—";
+
+      // Status
+      const tdStatus = document.createElement("td");
+      tdStatus.appendChild(buildStatusPill(status));
+
+      // Report ID
+      const tdId = document.createElement("td");
+      const reportId = row.report_id || "—";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "report-id-btn";
+      btn.dataset.reportId = reportId;
+      const spanId = document.createElement("span");
+      spanId.className = "report-id";
+      spanId.textContent = reportId;
+      btn.appendChild(spanId);
+      tdId.appendChild(btn);
+
+      // Actions
+      const tdActions = document.createElement("td");
+      tdActions.style.textAlign = "right";
+
+      const hasReportUrl = !!row.report_url;
+      const isCompleted = status === "completed";
+
+      if (isCompleted && hasReportUrl) {
+        const viewLink = document.createElement("a");
+        viewLink.className = "action-link";
+        viewLink.textContent = "View";
+        viewLink.href = row.report_url;
+        viewLink.target = "_blank";
+        tdActions.appendChild(viewLink);
+
+        const pdfLink = document.createElement("a");
+        pdfLink.className = "action-link";
+        pdfLink.textContent = "PDF";
+        pdfLink.href = row.report_url;
+        pdfLink.target = "_blank";
+        tdActions.appendChild(pdfLink);
+      } else if (!isCompleted) {
+        const span = document.createElement("span");
+        span.className = "hint-text";
+        span.textContent = "Generating…";
+        tdActions.appendChild(span);
+      } else {
+        const span = document.createElement("span");
+        span.className = "hint-text";
+        span.textContent = "Report pending";
+        tdActions.appendChild(span);
+      }
+
+      tr.appendChild(tdDate);
+      tr.appendChild(tdSite);
+      tr.appendChild(tdScore);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdId);
+      tr.appendChild(tdActions);
+
+      tbody.appendChild(tr);
+    });
+
+    // After rendering rows, wire up interactions
+    initHistoryInteractions();
+    initCopyButtons();
+  }
+
+  function initCopyButtons() {
+    document.querySelectorAll(".report-id-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const id = btn.dataset.reportId;
+        const id = btn.dataset.reportId || "";
+        if (!id || id === "—") return;
         try {
           if (navigator.clipboard && navigator.clipboard.writeText) {
             await navigator.clipboard.writeText(id);
@@ -921,15 +1006,36 @@
         }
       });
     });
+  }
 
-    const hasRows = rows.length > 0;
+  function initHistoryInteractions() {
+    const rows = Array.from(document.querySelectorAll("tr.scan-row"));
+    const searchInput = document.getElementById("historySearch");
+    const filterPills = document.querySelectorAll(".filter-pill");
+    const loadMoreBtn = document.getElementById("loadMoreScans");
+    const emptyFiltered = document.getElementById("historyEmptyFiltered");
+    const emptyNone = document.getElementById("historyEmptyNone");
+    const table = document.querySelector(".scan-history-table");
+
+    if (!table) return;
+
+    if (rows.length === 0) {
+      table.style.display = "none";
+      if (emptyNone) emptyNone.style.display = "block";
+      if (loadMoreBtn) loadMoreBtn.style.display = "none";
+      return;
+    }
+
+    table.style.display = "table";
+    if (emptyNone) emptyNone.style.display = "none";
+
+    let activeStatus = "all";
 
     function applyFilters() {
-      if (!hasRows) return;
       const q = (searchInput?.value || "").trim().toLowerCase();
       let visibleCount = 0;
 
-      rows.forEach(row => {
+      rows.forEach((row) => {
         const status = row.dataset.status || "";
         const text = row.textContent.toLowerCase();
         const matchesQuery = !q || text.includes(q);
@@ -942,13 +1048,14 @@
       });
 
       if (visibleCount === 0 && q) {
-        emptyFiltered.style.display = "block";
-      } else {
+        if (emptyFiltered) emptyFiltered.style.display = "block";
+      } else if (emptyFiltered) {
         emptyFiltered.style.display = "none";
       }
     }
 
     function setupPagination() {
+      if (!loadMoreBtn) return;
       if (rows.length <= PAGE_SIZE) {
         loadMoreBtn.style.display = "none";
         return;
@@ -958,7 +1065,7 @@
         row.style.display = index < PAGE_SIZE ? "" : "none";
       });
       loadMoreBtn.style.display = "inline-flex";
-      loadMoreBtn.addEventListener("click", () => {
+      loadMoreBtn.onclick = () => {
         visible += PAGE_SIZE;
         rows.forEach((row, index) => {
           if (index < visible) row.style.display = "";
@@ -966,49 +1073,42 @@
         if (visible >= rows.length) {
           loadMoreBtn.style.display = "none";
         }
-      });
+      };
     }
 
-    if (!hasRows) {
-      if (table) table.style.display = "none";
-      emptyNone.style.display = "block";
-      emptyFiltered.style.display = "none";
-      loadMoreBtn.style.display = "none";
-    } else {
-      emptyNone.style.display = "none";
-      setupPagination();
-      applyFilters();
-    }
+    setupPagination();
+    applyFilters();
 
     if (searchInput) {
-      searchInput.addEventListener("input", () => {
-        rows.forEach(r => (r.style.display = ""));
-        loadMoreBtn.style.display = "none";
+      searchInput.oninput = () => {
+        rows.forEach((r) => (r.style.display = ""));
+        if (loadMoreBtn) loadMoreBtn.style.display = "none";
         applyFilters();
-      });
+      };
     }
 
-    filterPills.forEach(pill => {
-      pill.addEventListener("click", () => {
-        filterPills.forEach(p => p.classList.remove("active"));
+    filterPills.forEach((pill) => {
+      pill.onclick = () => {
+        filterPills.forEach((p) => p.classList.remove("active"));
         pill.classList.add("active");
         activeStatus = pill.dataset.status || "all";
-        rows.forEach(r => (r.style.display = ""));
-        loadMoreBtn.style.display = "none";
+        rows.forEach((r) => (r.style.display = ""));
+        if (loadMoreBtn) loadMoreBtn.style.display = "none";
         applyFilters();
-      });
+      };
     });
-  })();
-</script>
 
-<!-- Supabase auth + profile wiring -->
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Last-scan card: click -> first "View" link if present
+    const lastScanCard = document.getElementById("wd-last-scan-card");
+    if (lastScanCard) {
+      lastScanCard.onclick = () => {
+        const firstView = document.querySelector(
+          ".scan-history-table .action-link"
+        );
+        if (firstView) firstView.click();
+      };
+    }
+  }
 
   async function requireSession() {
     const { data, error } = await supabase.auth.getSession();
@@ -1049,7 +1149,8 @@
 
     if (nameEl) nameEl.textContent = displayName;
     if (emailEl) emailEl.textContent = displayEmail || "Signed in";
-    if (initialEl) initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
+    if (initialEl) initialEl.textContent =
+      (displayName || "?").trim().charAt(0).toUpperCase();
 
     const credits = typeof profile.credits === "number" ? profile.credits : 0;
     if (creditsEl) {
@@ -1066,18 +1167,24 @@
       summary = "Trial plan · enjoy your WebDoctor test scans.";
     } else if (tier === "starter") {
       summary = monthlyLimit
-        ? `Starter · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
+        ? `Starter · ${monthlyLimit} scans/month — ${Math.max(
+            monthlyLimit - used,
+            0
+          )} left.`
         : "Starter plan · monthly scans included.";
     } else if (tier === "pro") {
       summary = monthlyLimit
-        ? `Pro · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
+        ? `Pro · ${monthlyLimit} scans/month — ${Math.max(
+            monthlyLimit - used,
+            0
+          )} left.`
         : "Pro plan · higher limits and priority processing.";
     } else if (tier === "agency") {
       summary = monthlyLimit
         ? `Agency · ${monthlyLimit}+ scans/month with priority diagnostics.`
         : "Agency plan · built for teams and client load.";
-
     }
+
     if (planSummaryEl) {
       planSummaryEl.textContent = summary;
     }
@@ -1085,6 +1192,95 @@
     if (adminBadgeEl) {
       adminBadgeEl.style.display = profile.is_admin ? "inline-flex" : "none";
     }
+  }
+
+  function updateLastScanCard(record) {
+    const siteEl = document.getElementById("wd-last-scan-site");
+    const metaEl = document.getElementById("wd-last-scan-meta");
+    const scorePill = document.getElementById("wd-last-scan-score-pill");
+    const scoreEl = document.getElementById("wd-last-scan-score");
+    const statusTextEl = document.getElementById("wd-last-scan-status-text");
+    const viewLink = document.getElementById("wd-last-scan-view");
+    const pdfLink = document.getElementById("wd-last-scan-pdf");
+
+    if (!record) {
+      if (siteEl) siteEl.textContent = "No scans yet";
+      if (metaEl)
+        metaEl.textContent = "Run your first WebDoctor scan to see it here.";
+      if (scorePill) scorePill.style.display = "none";
+      if (viewLink) viewLink.style.display = "none";
+      if (pdfLink) pdfLink.style.display = "none";
+      return;
+    }
+
+    const status = normaliseStatus(record.status);
+    const formattedDate = formatDate(record.created_at);
+
+    if (siteEl) siteEl.textContent = record.url || "Unknown site";
+    if (metaEl) {
+      metaEl.textContent = formattedDate
+        ? `Scanned on ${formattedDate}`
+        : "Most recent scan";
+    }
+
+    const numericScore =
+      typeof record.score_overall === "number" ? record.score_overall : null;
+
+    if (numericScore !== null && scorePill && scoreEl && statusTextEl) {
+      scoreEl.textContent = String(numericScore);
+      statusTextEl.textContent =
+        numericScore >= 90
+          ? "Overall score · Healthy"
+          : numericScore >= 70
+          ? "Overall score · Needs attention"
+          : "Overall score · Critical";
+      scorePill.style.display = "inline-flex";
+    } else if (scorePill) {
+      scorePill.style.display = "none";
+    }
+
+    const hasReportUrl = !!record.report_url;
+    const isCompleted = status === "completed";
+
+    if (viewLink) {
+      if (isCompleted && hasReportUrl) {
+        viewLink.style.display = "inline-flex";
+        viewLink.href = record.report_url;
+        viewLink.target = "_blank";
+      } else {
+        viewLink.style.display = "none";
+      }
+    }
+
+    if (pdfLink) {
+      if (isCompleted && hasReportUrl) {
+        pdfLink.style.display = "inline-flex";
+        pdfLink.href = record.report_url;
+        pdfLink.target = "_blank";
+      } else {
+        pdfLink.style.display = "none";
+      }
+    }
+  }
+
+  async function loadScanHistory(userId) {
+    const { data, error } = await supabase
+      .from("scan_history")
+      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error("Error loading scan history", error);
+      renderScanHistory([]);
+      updateLastScanCard(null);
+      return;
+    }
+
+    const records = data || [];
+    renderScanHistory(records);
+    updateLastScanCard(records[0] || null);
   }
 
   async function setupSignOut() {
@@ -1109,7 +1305,7 @@
 
     await loadProfile(user);
     await setupSignOut();
-    // Next step: we'll also call loadScanHistory(user.id) from here.
+    await loadScanHistory(user.id);
   });
 </script>
 
