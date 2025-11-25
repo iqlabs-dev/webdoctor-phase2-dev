@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Service-role client (bypasses RLS, server-side only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 function normaliseUrl(raw) {
@@ -67,19 +68,19 @@ function computeOverallScore(url, responseOk, metrics) {
 export default async (request, context) => {
   if (request.method !== 'POST') {
     return new Response(
-      JSON.stringify({ message: 'Method not allowed' }),
+      JSON.stringify({ success: false, message: 'Method not allowed' }),
       { status: 405, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // SAFELY PARSE JSON BODY
+  // ---- Safely read + parse JSON body ----
   let bodyText;
   try {
     bodyText = await request.text();
   } catch (err) {
     console.error('Error reading body:', err);
     return new Response(
-      JSON.stringify({ message: 'Could not read request body' }),
+      JSON.stringify({ success: false, message: 'Could not read request body' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -90,7 +91,7 @@ export default async (request, context) => {
   } catch (err) {
     console.error('JSON parse error:', err, 'RAW:', bodyText);
     return new Response(
-      JSON.stringify({ message: 'Invalid JSON body' }),
+      JSON.stringify({ success: false, message: 'Invalid JSON body' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -102,17 +103,17 @@ export default async (request, context) => {
 
   if (!url) {
     return new Response(
-      JSON.stringify({ message: 'Missing URL' }),
+      JSON.stringify({ success: false, message: 'Missing URL' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  const startedAt = Date.now();
-
+  // ---- Fetch site + do basic checks ----
   let responseOk = false;
   let httpStatus = null;
   let metrics = {};
   let errorText = null;
+  const start = Date.now();
 
   try {
     const res = await fetch(url, { method: 'GET', redirect: 'follow' });
@@ -127,7 +128,7 @@ export default async (request, context) => {
     errorText = err.message || 'Fetch failed';
   }
 
-  const scanTimeMs = Date.now() - startedAt;
+  const scanTimeMs = Date.now() - start;
   const score_overall = computeOverallScore(url, responseOk, metrics);
 
   const fullMetrics = {
@@ -137,17 +138,15 @@ export default async (request, context) => {
     checks: metrics
   };
 
-  // NOTE: now writing into scan_history instead of scan_results
+  // ---- Store result in scan_results (canonical table) ----
   const { data, error } = await supabase
-    .from('scan_results')
+    .from('scan_results')   // <— IMPORTANT: back to scan_results
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
       score_overall,
       metrics: fullMetrics,
-      report_id: null,
-      report_url: null,
       scan_time_ms: scanTimeMs
     })
     .select()
@@ -156,7 +155,11 @@ export default async (request, context) => {
   if (error) {
     console.error('Supabase insert error:', error);
     return new Response(
-      JSON.stringify({ message: 'Failed to save scan result' }),
+      JSON.stringify({
+        success: false,
+        message: 'Failed to save scan result',
+        supabaseError: error.message || error.details || null
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
