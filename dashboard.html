@@ -5,130 +5,363 @@
   <title>WebDoctor Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
+    :root {
+      --bg: #020617;
+      --bg-elevated: #020819;
+      --bg-soft: #0b1220;
+      --border-subtle: #1f2937;
+      --border-strong: #334155;
+      --ink: #e5e7eb;
+      --ink-soft: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --shadow-card: 0 22px 60px rgba(15, 23, 42, 0.85);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      background: #0f172a;
       min-height: 100vh;
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 60%, #020617 100%);
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      padding: 32px 16px;
+    }
+
+    .shell {
+      width: min(1120px, 100%);
+      background: linear-gradient(145deg, #020617, #020819);
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 55%);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 0, #38bdf8, #0ea5e9 40%, #0f172a 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-
-  .card {
-  background: #1e293b;
-  border-radius: 18px;
-  padding: 28px;
-  width: min(900px, 96vw);
-  margin: 0 auto;
-  text-align: center;
-  box-shadow: 0 18px 45px rgba(0,0,0,0.25);
-}
-
-
-    h1 {
-      margin: 0 0 10px;
-      font-size: 1.3rem;
-      color: #e2e8f0;
-    }
-
-    .sub {
-      color: #94a3b8;
-      font-size: 0.85rem;
-      margin-bottom: 8px;
-    }
-
-    input {
-      width: 100%;
-      padding: 0.65rem 0.8rem;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      margin: 0.4rem 0 1rem;
-      background: #0f172a;
-      color: #e2e8f0;
-    }
-
-    input::placeholder {
-      color: #64748b;
-    }
-
-    button {
-      width: 48%;
-      padding: 0.7rem 1rem;
-      border-radius: 9999px;
-      border: 0;
+      font-size: 0.8rem;
       font-weight: 700;
-      cursor: pointer;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #e0f2fe;
+      border: 1px solid rgba(15, 23, 42, 0.85);
     }
 
-    .green {
-      background: #16a34a;
-      color: #03120a;
-    }
-
-    .red {
-      background: #dc2626;
-      color: #fef2f2;
-    }
-
-    .row {
+    .brand-text {
       display: flex;
-      justify-content: space-between;
-      gap: 10px;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-size: 0.98rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      flex-direction: column;
+      max-width: 260px;
+    }
+
+    .user-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-soft);
+      margin-bottom: 2px;
+    }
+
+    #user-email {
+      font-size: 0.8rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Layout main */
+
+    .main {
+      padding: 20px 24px 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr);
+      gap: 16px;
+    }
+
+    .layout-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .layout-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .topbar-right {
+        align-self: stretch;
+        justify-content: space-between;
+      }
+    }
+
+    .panel {
+      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), #020617);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      padding: 18px 18px 16px;
+    }
+
+    .panel + .panel {
       margin-top: 10px;
     }
 
-    .back-link {
-      display: block;
-      margin-top: 1rem;
-      font-size: 0.85rem;
-      color: #cbd5f5;
-      text-decoration: underline;
-      cursor: pointer;
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 8px;
     }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .panel-sub {
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+      margin-bottom: 10px;
+    }
+
+    .badge-soft {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      background: var(--accent-soft);
+      color: #e0f2fe;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* Form */
+
+    .field-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--ink-soft);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    @media (max-width: 700px) {
+      .input-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    input#site-url {
+      flex: 1;
+      padding: 0.65rem 0.8rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-strong);
+      background: #020617;
+      color: var(--ink);
+      font-size: 0.9rem;
+    }
+
+    input#site-url::placeholder {
+      color: #64748b;
+    }
+
+    /* Buttons */
+
+    .btn {
+      border-radius: var(--radius-pill);
+      border: 1px solid transparent;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease, border-color 0.08s ease;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.6);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      border-color: rgba(22, 163, 74, 0.9);
+      min-width: 140px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border-color: rgba(148, 163, 184, 0.6);
+      padding-inline: 0.9rem;
+      font-size: 0.8rem;
+    }
+
+    .btn-link {
+      font-size: 0.7rem;
+      border-radius: var(--radius-pill);
+      padding: 3px 8px;
+      border: 1px solid #64748b;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    .btn-link:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .helper-text {
+      margin-top: 6px;
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+    }
+
+    /* Report section */
 
     #report-section h2 {
       margin: 0 0 6px;
-      font-size: 1rem;
-      color: #e2e8f0;
+      font-size: 0.9rem;
     }
 
     #report-section p {
       margin: 0 0 10px;
       font-size: 0.8rem;
-      color: #94a3b8;
+      color: var(--ink-soft);
+    }
+
+    #report-preview {
+      max-height: 260px;
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: #020617;
+      padding: 10px 12px;
+      font-size: 0.78rem;
     }
 
     #download-pdf-link {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       margin-top: 10px;
-      font-size: 0.85rem;
-      text-decoration: underline;
-      color: #e2e8f0;
+      font-size: 0.8rem;
+      text-decoration: none;
+      color: #e0f2fe;
       cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.7);
+      background: var(--accent-soft);
     }
 
-    /* History styles */
-    #history-section {
-      margin-top: 24px;
-      text-align: left;
+    #download-pdf-link:hover {
+      background: rgba(56, 189, 248, 0.18);
     }
+
+    /* History */
 
     #history-section h2 {
       margin: 0 0 4px;
-      font-size: 1rem;
-      color: #e2e8f0;
+      font-size: 0.9rem;
     }
 
     #history-section p {
       margin: 0 0 8px;
       font-size: 0.8rem;
-      color: #94a3b8;
+      color: var(--ink-soft);
     }
 
     .history-table-wrapper {
       border-radius: 12px;
-      border: 1px solid #334155;
+      border: 1px solid var(--border-subtle);
       overflow: hidden;
       background: #020617;
     }
@@ -145,14 +378,15 @@
 
     th,
     td {
-      padding: 6px 8px;
+      padding: 7px 8px;
       text-align: left;
       border-bottom: 1px solid #1e293b;
     }
 
     th {
-      color: #e2e8f0;
+      color: var(--ink);
       font-weight: 600;
+      font-size: 0.78rem;
     }
 
     td {
@@ -176,97 +410,121 @@
       white-space: nowrap;
     }
 
-    .tag {
-      display: inline-flex;
+    /* Footer */
+
+    .footer {
+      padding: 6px 24px 14px;
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      border: 1px solid #38bdf8;
-      color: #e2e8f0;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
     }
 
-    .btn-link {
-      font-size: 0.7rem;
-      border-radius: 9999px;
-      padding: 3px 6px;
-      border: 1px solid #64748b;
-      background: transparent;
-      color: #e2e8f0;
+    .back-link {
+      color: #cbd5f5;
+      text-decoration: underline;
+      text-underline-offset: 2px;
       cursor: pointer;
-      margin-right: 4px;
-    }
-
-    .btn-link:disabled {
-      opacity: 0.4;
-      cursor: default;
     }
   </style>
 </head>
 
 <body>
-  <div class="card">
-    <h1>WebDoctor Dashboard</h1>
-
-    <!-- User email (set by auth-guard.js) -->
-    <div class="sub" id="user-email"></div>
-
-    <!-- System status: scan + PDF messages (used by dashboard.js) -->
-    <div class="sub" id="trial-info"></div>
-
-    <input
-      id="site-url"
-      type="text"
-      placeholder="Enter site URL (https://example.com)"
-    />
-
-    <div class="row">
-      <button class="green" id="run-scan">Run scan</button>
-      <button class="red" id="logout-btn">Sign out</button>
-    </div>
-
-    <!-- Report preview + PDF -->
-    <section
-      id="report-section"
-      style="margin-top: 16px; display: none; text-align: left;"
-    >
-      <h2>Latest WebDoctor report</h2>
-      <p>
-        This is a live preview of your most recent scan. Use the button below
-        to download the PDF.
-      </p>
-
-      <!-- On-screen preview (we inject report_html here) -->
-      <div id="report-preview"></div>
-
-      <!-- Download PDF -->
-      <a href="#" id="download-pdf-link">Download PDF</a>
-    </section>
-
-    <!-- Scan history -->
-    <section id="history-section">
-      <h2>Past scans</h2>
-      <p id="history-empty">Loading scan history…</p>
-
-      <div class="history-table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Site</th>
-              <th class="col-score">Score</th>
-              <th class="col-date">Date</th>
-              <th class="col-actions">Report</th>
-            </tr>
-          </thead>
-          <tbody id="history-body">
-            <!-- rows injected by dashboard.js -->
-          </tbody>
-        </table>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">WD</div>
+        <div class="brand-text">
+          <span class="brand-title">WebDoctor</span>
+          <span class="brand-subtitle">Diagnostic Dashboard</span>
+        </div>
       </div>
-    </section>
 
-    <a href="/" class="back-link">← Back to WebDoctor main site</a>
+      <div class="topbar-right">
+        <div class="user-pill">
+          <span class="user-label">Signed in as</span>
+          <span id="user-email">Loading…</span>
+        </div>
+        <button class="btn btn-ghost" id="logout-btn">Sign out</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="layout-grid">
+        <!-- Left column: scan + history -->
+        <div>
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Run a new scan</div>
+                <p class="panel-sub">
+                  Enter a live website URL to generate a fresh WebDoctor report.
+                </p>
+              </div>
+              <span class="badge-soft">Live</span>
+            </div>
+
+            <label for="site-url" class="field-label">Website URL</label>
+            <div class="input-row">
+              <input
+                id="site-url"
+                type="text"
+                placeholder="https://example.com"
+              />
+              <button class="btn btn-primary" id="run-scan">Run scan</button>
+            </div>
+
+            <p id="trial-info" class="helper-text"></p>
+          </section>
+
+          <section id="history-section" class="panel" style="margin-top: 12px;">
+            <h2>Past scans</h2>
+            <p id="history-empty">Loading scan history…</p>
+
+            <div class="history-table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Site</th>
+                    <th class="col-score">Score</th>
+                    <th class="col-date">Date</th>
+                    <th class="col-actions">Report</th>
+                  </tr>
+                </thead>
+                <tbody id="history-body">
+                  <!-- rows injected by dashboard.js -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- Right column: latest report preview -->
+        <div>
+          <section
+            id="report-section"
+            class="panel"
+            style="display: none;"
+          >
+            <h2>Latest WebDoctor report</h2>
+            <p>
+              This is a live preview of your most recent scan. Use the button
+              below to download the full PDF.
+            </p>
+
+            <div id="report-preview"></div>
+
+            <a href="#" id="download-pdf-link">Download PDF</a>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <a href="/" class="back-link">← Back to WebDoctor main site</a>
+      <span>© WebDoctor · Clinical diagnostics for the web</span>
+    </footer>
   </div>
 
   <!-- Supabase client as a module (so imports work) -->
