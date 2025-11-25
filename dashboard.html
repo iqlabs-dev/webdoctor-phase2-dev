@@ -2,24 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebDoctor Dashboard</title>
+  <title>WebDoctor — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #020617;
-      --bg-elevated: #020819;
-      --bg-soft: #0b1220;
-      --border-subtle: #1f2937;
-      --border-strong: #334155;
-      --ink: #e5e7eb;
-      --ink-soft: #9ca3af;
-      --accent: #38bdf8;
-      --accent-soft: rgba(56, 189, 248, 0.12);
-      --danger: #ef4444;
-      --success: #22c55e;
-      --radius-lg: 18px;
-      --radius-pill: 999px;
-      --shadow-card: 0 22px 60px rgba(15, 23, 42, 0.85);
+      --bg-top: #050814;
+      --bg-mid: #07101f;
+      --bg-bot: #0b1729;
+      --ink: #e8eef2;
+      --ink-soft: #c7d9e7;
+      --muted: #9fb1bf;
+      --highlight: #5dd8ff;
+      --danger: #ff6b6b;
+      --box: rgba(255,255,255,0.06);
+      --box2: rgba(255,255,255,0.12);
     }
 
     * {
@@ -28,510 +25,1106 @@
 
     body {
       margin: 0;
-      min-height: 100vh;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #020617 0, #020617 40%, #020617 60%, #020617 100%);
+      padding: 0;
+      font-family: Montserrat, sans-serif;
+      background: radial-gradient(circle at top left, #10172a 0, #050814 45%, #02040a 100%);
       color: var(--ink);
-      display: flex;
-      justify-content: center;
-      align-items: stretch;
-      padding: 32px 16px;
+      overflow-x: hidden;
     }
 
-    .shell {
-      width: min(1120px, 100%);
-      background: linear-gradient(145deg, #020617, #020819);
-      border-radius: 24px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    /* HEADER */
 
-    /* Top bar */
-
-    .topbar {
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding: 22px 40px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.1));
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 18px 24px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 55%);
     }
 
-    .brand {
+    .header-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 26px;
     }
 
-    .brand-mark {
-      width: 32px;
-      height: 32px;
-      border-radius: 12px;
-      background: radial-gradient(circle at 30% 0, #38bdf8, #0ea5e9 40%, #0f172a 100%);
+    .logo a {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .back-link {
+      font-size: 16px;
+      color: var(--ink-soft);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      opacity: 0.9;
+      transition: 0.2s;
+    }
+
+    .back-link span.arrow {
+      font-size: 18px;
+      margin-top: -1px;
+    }
+
+    .back-link:hover {
+      color: var(--highlight);
+      opacity: 1;
+    }
+
+    .header-right {
       display: flex;
+      align-items: center;
+      gap: 26px;
+    }
+
+    .nav-link {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      text-decoration: none;
+      transition: 0.2s;
+    }
+
+    .nav-link.active {
+      color: var(--highlight);
+    }
+
+    .nav-link:hover {
+      color: var(--ink);
+    }
+
+    .user-menu {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .user-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(8,15,30,0.9);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--ink-soft);
+      outline: none;
+    }
+
+    .user-initial {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--highlight), #8be7ff);
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #e0f2fe;
-      border: 1px solid rgba(15, 23, 42, 0.85);
+      color: #000;
+      font-weight: 800;
+      font-size: 15px;
     }
 
-    .brand-text {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .brand-title {
-      font-size: 0.98rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .brand-subtitle {
-      font-size: 0.75rem;
-      color: var(--ink-soft);
-    }
-
-    .topbar-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .user-pill {
-      padding: 8px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(148, 163, 184, 0.6);
-      background: rgba(15, 23, 42, 0.9);
-      display: flex;
-      flex-direction: column;
-      max-width: 260px;
-    }
-
-    .user-label {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--ink-soft);
-      margin-bottom: 2px;
-    }
-
-    #user-email {
-      font-size: 0.8rem;
+    .user-email {
+      max-width: 180px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    /* Layout main */
-
-    .main {
-      padding: 20px 24px 18px;
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr);
-      gap: 16px;
+    .user-caret {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-left: 4px;
     }
 
-    .layout-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.1fr);
-      gap: 16px;
-    }
-
-    @media (max-width: 900px) {
-      .layout-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-      .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-      }
-      .topbar-right {
-        align-self: stretch;
-        justify-content: space-between;
-      }
-    }
-
-    .panel {
-      background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.98), #020617);
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border-subtle);
-      padding: 18px 18px 16px;
-    }
-
-    .panel + .panel {
-      margin-top: 10px;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      gap: 8px;
-    }
-
-    .panel-title {
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-
-    .panel-sub {
-      font-size: 0.8rem;
-      color: var(--ink-soft);
-      margin-bottom: 10px;
-    }
-
-    .badge-soft {
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.45);
-      background: var(--accent-soft);
-      color: #e0f2fe;
+    .user-admin-badge {
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 2px 6px;
+      color: var(--highlight);
     }
 
-    /* Form */
+    .user-dropdown {
+      position: absolute;
+      right: 0;
+      top: 110%;
+      background: #040712;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.7);
+      min-width: 230px;
+      padding: 8px;
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: 0.16s ease-out;
+    }
 
-    .field-label {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--ink-soft);
-      margin-bottom: 4px;
+    .user-menu:hover .user-dropdown {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .user-dropdown a,
+    .user-dropdown button {
       display: block;
-    }
-
-    .input-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    @media (max-width: 700px) {
-      .input-row {
-        flex-direction: column;
-        align-items: stretch;
-      }
-    }
-
-    input#site-url {
-      flex: 1;
-      padding: 0.65rem 0.8rem;
-      border-radius: 12px;
-      border: 1px solid var(--border-strong);
-      background: #020617;
-      color: var(--ink);
-      font-size: 0.9rem;
-    }
-
-    input#site-url::placeholder {
-      color: #64748b;
-    }
-
-    /* Buttons */
-
-    .btn {
-      border-radius: var(--radius-pill);
-      border: 1px solid transparent;
-      padding: 0.6rem 1.2rem;
-      font-size: 0.85rem;
-      font-weight: 600;
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      text-decoration: none;
+      color: var(--ink-soft);
+      transition: 0.16s;
+      border: none;
+      background: transparent;
+      text-align: left;
       cursor: pointer;
+      font-family: inherit;
+    }
+
+    .user-dropdown a:hover,
+    .user-dropdown button:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--ink);
+    }
+
+    .user-dropdown a.signout {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .user-dropdown-separator {
+      height: 1px;
+      margin: 6px 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+    }
+
+    /* PAGE WRAP */
+
+    .wrap {
+      max-width: 1200px;
+      margin: 34px auto 60px;
+      padding: 0 20px 40px;
+    }
+
+    .section {
+      background: var(--box);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow: 0 0 40px rgba(0,0,0,0.45);
+      padding: 32px 34px;
+      margin-bottom: 30px;
+    }
+
+    .section.small {
+      padding: 24px 26px;
+    }
+
+    h1 {
+      font-size: 36px;
+      margin: 0 0 6px;
+      font-weight: 800;
+      color: var(--highlight);
+    }
+
+    .subtext {
+      font-size: 18px;
+      color: var(--ink-soft);
+      margin-bottom: 24px;
+    }
+
+    /* SUMMARY CARD */
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 26px;
+      align-items: stretch;
+    }
+
+    .summary-block {
+      background: var(--box2);
+      border-radius: 16px;
+      padding: 22px 24px;
+      border: 1px solid rgba(255,255,255,0.09);
+    }
+
+    .summary-label {
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .credits-value {
+      font-size: 34px;
+      font-weight: 800;
+      color: var(--highlight);
+      transition: color 0.15s;
+    }
+
+    .credits-value.low-credits {
+      color: #fb923c;
+    }
+
+    .last-scan-site {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .last-scan-meta {
+      font-size: 14px;
+      color: var(--ink-soft);
+      margin-bottom: 8px;
+    }
+
+    .score-pill {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      white-space: nowrap;
-      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease, border-color 0.08s ease;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(10,180,130,0.14);
+      font-size: 14px;
+      color: #5ffac5;
+      font-weight: 600;
+      margin-top: 4px;
     }
 
-    .btn:disabled {
-      opacity: 0.4;
-      cursor: default;
-      transform: none;
-      box-shadow: none;
+    .score-pill span.score {
+      font-size: 18px;
+      font-weight: 800;
     }
 
-    .btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.6);
+    .summary-actions {
+      margin-top: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
     }
+
+    /* Run button */
 
     .btn-primary {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      color: #022c22;
-      border-color: rgba(22, 163, 74, 0.9);
-      min-width: 140px;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--ink);
-      border-color: rgba(148, 163, 184, 0.6);
-      padding-inline: 0.9rem;
-      font-size: 0.8rem;
-    }
-
-    .btn-link {
-      font-size: 0.7rem;
-      border-radius: var(--radius-pill);
-      padding: 3px 8px;
-      border: 1px solid #64748b;
-      background: transparent;
-      color: var(--ink);
-      cursor: pointer;
-      margin-right: 4px;
-    }
-
-    .btn-link:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-
-    .helper-text {
-      margin-top: 6px;
-      font-size: 0.78rem;
-      color: var(--ink-soft);
-    }
-
-    /* Report section */
-
-    #report-section h2 {
-      margin: 0 0 6px;
-      font-size: 0.9rem;
-    }
-
-    #report-section p {
-      margin: 0 0 10px;
-      font-size: 0.8rem;
-      color: var(--ink-soft);
-    }
-
-    #report-preview {
-      max-height: 260px;
-      overflow: auto;
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      background: #020617;
-      padding: 10px 12px;
-      font-size: 0.78rem;
-    }
-
-    #download-pdf-link {
+      padding: 16px 32px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #22c55e, #14b8a6);
+      color: #000;
+      font-weight: 800;
+      font-size: 18px;
+      text-decoration: none;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      margin-top: 10px;
-      font-size: 0.8rem;
-      text-decoration: none;
-      color: #e0f2fe;
+      gap: 8px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.55);
+      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
+    }
+
+    .btn-primary span.icon {
+      font-size: 20px;
+      margin-top: -2px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 38px rgba(0,0,0,0.7);
+      opacity: 0.92;
+    }
+
+    .hint-text {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* Last scan clickable */
+
+    .last-scan-card {
       cursor: pointer;
-      padding: 4px 10px;
+      transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
+    }
+
+    .last-scan-card:hover {
+      box-shadow: 0 0 40px rgba(0,0,0,0.7);
+      border-color: rgba(93,216,255,0.5);
+      transform: translateY(-1px);
+    }
+
+    /* LAYOUT GRID */
+
+    .layout-grid {
+      display: block; /* full-width history */
+    }
+
+    h2 {
+      font-size: 24px;
+      margin: 0 0 10px;
+    }
+
+    /* HISTORY HEADER / SEARCH / FILTERS */
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 10px;
+    }
+
+    .history-header-left {
+      flex: 1 1 auto;
+    }
+
+    .history-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      min-width: 260px;
+    }
+
+    .filter-pills {
+      display: inline-flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .filter-pill {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(10,15,32,0.9);
       border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.7);
-      background: var(--accent-soft);
+      padding: 4px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
     }
 
-    #download-pdf-link:hover {
-      background: rgba(56, 189, 248, 0.18);
+    .filter-pill.active {
+      border-color: var(--highlight);
+      color: var(--ink);
+      background: rgba(12,26,56,0.95);
     }
 
-    /* History */
-
-    #history-section h2 {
-      margin: 0 0 4px;
-      font-size: 0.9rem;
+    .search-group {
+      position: relative;
+      width: 100%;
     }
 
-    #history-section p {
-      margin: 0 0 8px;
-      font-size: 0.8rem;
-      color: var(--ink-soft);
+    .search-input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(4,8,18,0.9);
+      color: var(--ink);
+      padding: 7px 12px 7px 30px;
+      font-size: 13px;
+      outline: none;
     }
 
-    .history-table-wrapper {
-      border-radius: 12px;
-      border: 1px solid var(--border-subtle);
-      overflow: hidden;
-      background: #020617;
+    .search-input::placeholder {
+      color: var(--muted);
     }
+
+    .search-icon {
+      position: absolute;
+      left: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    /* TABLE */
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.8rem;
+      margin-top: 10px;
     }
 
-    thead {
-      background: #020617;
-    }
-
-    th,
-    td {
-      padding: 7px 8px;
-      text-align: left;
-      border-bottom: 1px solid #1e293b;
+    th, td {
+      padding: 14px 10px;
+      font-size: 15px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
     th {
-      color: var(--ink);
+      text-align: left;
+      color: var(--muted);
       font-weight: 600;
-      font-size: 0.78rem;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     td {
-      color: #cbd5f5;
+      color: var(--ink);
     }
 
-    tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .col-url {
-      max-width: 220px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .col-score,
-    .col-date,
-    .col-actions {
-      white-space: nowrap;
-    }
-
-    /* Footer */
-
-    .footer {
-      padding: 6px 24px 14px;
-      display: flex;
-      justify-content: space-between;
+    .status-pill {
+      display: inline-flex;
       align-items: center;
-      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(95,248,187,0.12);
+      color: #6cfac3;
+    }
+
+    .status-pill.pending {
+      background: rgba(255,204,102,0.15);
+      color: #ffd27a;
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .status-pill.pending::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,210,122,0.8);
+      border-top-color: transparent;
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: translateY(-50%) rotate(360deg);
+      }
+    }
+
+    .action-link {
+      color: var(--highlight);
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      margin-right: 10px;
+    }
+
+    .action-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Report ID style + copy button */
+
+    .report-id-btn {
+      border: none;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .report-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      transition: color 0.12s;
+    }
+
+    .report-id-btn:hover .report-id {
+      color: var(--highlight);
+    }
+
+    /* History footer / load more */
+
+    .history-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(7,12,24,0.9);
+      color: var(--ink-soft);
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      transition: 0.16s;
+      cursor: pointer;
+    }
+
+    .btn-secondary.small {
+      padding: 7px 14px;
+      font-size: 12px;
+      border-radius: 999px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(15,25,42,0.98);
+      color: var(--ink);
+    }
+
+    /* Empty states */
+
+    .history-empty {
+      display: none;
+      margin-top: 12px;
+      padding: 18px 16px;
+      border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,0.2);
+      background: rgba(4,8,20,0.85);
+      font-size: 14px;
       color: var(--ink-soft);
     }
 
-    .back-link {
-      color: #cbd5f5;
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      cursor: pointer;
+    .history-empty strong {
+      color: var(--highlight);
+    }
+
+    /* Copy toast */
+
+    #copyToast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%) translateY(20px);
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(12,20,40,0.96);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: var(--ink-soft);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+      z-index: 60;
+    }
+
+    #copyToast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 960px) {
+      header {
+        padding: 18px 18px;
+      }
+
+      .header-left {
+        gap: 16px;
+      }
+
+      .wrap {
+        margin-top: 24px;
+      }
+
+      .summary-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .history-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .history-controls {
+        align-items: stretch;
+        min-width: 0;
+      }
+
+      .filter-pills {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 30px;
+      }
+
+      .section {
+        padding: 24px 20px;
+      }
+
+      .section.small {
+        padding: 20px 18px;
+      }
+
+      .subtext {
+        font-size: 16px;
+      }
+
+      .user-trigger {
+        padding: 6px 10px;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark">WD</div>
-        <div class="brand-text">
-          <span class="brand-title">WebDoctor</span>
-          <span class="brand-subtitle">Diagnostic Dashboard</span>
-        </div>
-      </div>
 
-      <div class="topbar-right">
-        <div class="user-pill">
-          <span class="user-label">Signed in as</span>
-          <span id="user-email">Loading…</span>
-        </div>
-        <button class="btn btn-ghost" id="logout-btn">Sign out</button>
-      </div>
-    </header>
-
-    <main class="main">
-      <div class="layout-grid">
-        <!-- Left column: scan + history -->
-        <div>
-          <section class="panel">
-            <div class="panel-header">
-              <div>
-                <div class="panel-title">Run a new scan</div>
-                <p class="panel-sub">
-                  Enter a live website URL to generate a fresh WebDoctor report.
-                </p>
-              </div>
-              <span class="badge-soft">Live</span>
-            </div>
-
-            <label for="site-url" class="field-label">Website URL</label>
-            <div class="input-row">
-              <input
-                id="site-url"
-                type="text"
-                placeholder="https://example.com"
-              />
-              <button class="btn btn-primary" id="run-scan">Run scan</button>
-            </div>
-
-            <p id="trial-info" class="helper-text"></p>
-          </section>
-
-          <section id="history-section" class="panel" style="margin-top: 12px;">
-            <h2>Past scans</h2>
-            <p id="history-empty">Loading scan history…</p>
-
-            <div class="history-table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Site</th>
-                    <th class="col-score">Score</th>
-                    <th class="col-date">Date</th>
-                    <th class="col-actions">Report</th>
-                  </tr>
-                </thead>
-                <tbody id="history-body">
-                  <!-- rows injected by dashboard.js -->
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
-        <!-- Right column: latest report preview -->
-        <div>
-          <section
-            id="report-section"
-            class="panel"
-            style="display: none;"
-          >
-            <h2>Latest WebDoctor report</h2>
-            <p>
-              This is a live preview of your most recent scan. Use the button
-              below to download the full PDF.
-            </p>
-
-            <div id="report-preview"></div>
-
-            <a href="#" id="download-pdf-link">Download PDF</a>
-          </section>
-        </div>
-      </div>
-    </main>
-
-    <footer class="footer">
-      <a href="/" class="back-link">← Back to WebDoctor main site</a>
-      <span>© WebDoctor · Clinical diagnostics for the web</span>
-    </footer>
+<header>
+  <div class="header-left">
+    <div class="logo">
+      <a href="index.html">WebDoctor</a>
+    </div>
+    <a class="back-link" href="index.html">
+      <span class="arrow">←</span>
+      <span>Back to main page</span>
+    </a>
   </div>
 
-  <!-- Supabase client as a module (so imports work) -->
-  <script type="module" src="/assets/js/supabaseClient.js"></script>
+  <div class="header-right">
+    <a href="#" class="nav-link active">Dashboard</a>
 
-  <!-- Auth protection + dashboard logic -->
-  <script type="module" src="/assets/js/auth-guard.js"></script>
-  <script type="module" src="/assets/js/dashboard.js"></script>
+    <div class="user-menu">
+      <button class="user-trigger" type="button">
+        <span class="user-initial" id="wd-user-initial">U</span>
+        <span class="user-email" id="wd-user-email">you@example.com</span>
+        <span id="wd-admin-badge" class="user-admin-badge" style="display:none;">Admin</span>
+        <span class="user-caret">▾</span>
+      </button>
+      <div class="user-dropdown">
+        <a href="#">Profile</a>
+        <button type="button">Buy extra credits</button>
+        <button type="button">Manage subscription &amp; invoices</button>
+        <div class="user-dropdown-separator"></div>
+        <button type="button">Support</button>
+        <a href="https://trust.webdoctor.tech" target="_blank">Trust &amp; privacy</a>
+        <div class="user-dropdown-separator"></div>
+        <a href="#" class="signout">Sign out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- SUMMARY / TOP STRIP -->
+  <div class="section">
+    <h1>Welcome back, <span id="wd-user-name">there</span></h1>
+    <div class="subtext">
+      Run new scans, check your last diagnosis, and download reports — all from one place.
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-block">
+        <div class="summary-label">Scans available</div>
+        <div class="credits-value" id="wd-credits-count">--</div>
+        <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
+          Loading your plan details…
+        </div>
+      </div>
+
+      <div class="summary-block last-scan-card">
+        <div class="summary-label">Last scan</div>
+        <div class="last-scan-site">example.com</div>
+        <div class="last-scan-meta">Scanned on Nov 25, 2025 · Desktop</div>
+        <div class="score-pill">
+          <span class="score">82</span>
+          Overall score · Needs attention
+        </div>
+        <div class="summary-actions" style="margin-top:18px;">
+          <a href="#" class="action-link">View full report</a>
+          <a href="#" class="action-link">Download PDF</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary-actions">
+      <a href="#" class="btn-primary">
+        <span class="icon">▶</span>
+        <span>Run New Scan</span>
+      </a>
+      <div class="hint-text">
+        Your plan scans are used first. If you run out, extra credits are $1 per scan. Paste a URL, we’ll handle the diagnostics. No setup, no code, no plugins.
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID: HISTORY ONLY -->
+
+  <div class="layout-grid">
+
+    <div class="section">
+      <div class="history-header">
+        <div class="history-header-left">
+          <h2>Scan history</h2>
+          <div class="hint-text">
+            All the websites you’ve scanned with WebDoctor. Open a report or download the PDF anytime.
+          </div>
+        </div>
+        <div class="history-controls">
+          <div class="filter-pills">
+            <button class="filter-pill active" data-status="all">All</button>
+            <button class="filter-pill" data-status="completed">Completed</button>
+            <button class="filter-pill" data-status="in-progress">In progress</button>
+          </div>
+          <div class="search-group">
+            <span class="search-icon">🔍</span>
+            <input id="historySearch" class="search-input" type="search"
+                   placeholder="Search scans… (domain, date, ID)">
+          </div>
+        </div>
+      </div>
+
+      <table class="scan-history-table">
+        <thead>
+        <tr>
+          <th>Date</th>
+          <th>Website</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Report ID</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr class="scan-row" data-status="completed">
+          <td>Nov 25, 2025</td>
+          <td>example.com</td>
+          <td>82</td>
+          <td><span class="status-pill">Completed</span></td>
+          <td>
+            <button type="button" class="report-id-btn" data-report-id="WDR-25329-0001">
+              <span class="report-id">WDR-25329-0001</span>
+            </button>
+          </td>
+          <td style="text-align:right;">
+            <a href="#" class="action-link">View</a>
+            <a href="#" class="action-link">PDF</a>
+          </td>
+        </tr>
+        <tr class="scan-row" data-status="completed">
+          <td>Nov 22, 2025</td>
+          <td>mysite.co.nz</td>
+          <td>74</td>
+          <td><span class="status-pill">Completed</span></td>
+          <td>
+            <button type="button" class="report-id-btn" data-report-id="WDR-25326-0004">
+              <span class="report-id">WDR-25326-0004</span>
+            </button>
+          </td>
+          <td style="text-align:right;">
+            <a href="#" class="action-link">View</a>
+            <a href="#" class="action-link">PDF</a>
+          </td>
+        </tr>
+        <tr class="scan-row" data-status="in-progress">
+          <td>Nov 18, 2025</td>
+          <td>clientdemo.agency</td>
+          <td>—</td>
+          <td><span class="status-pill pending">In progress</span></td>
+          <td>
+            <button type="button" class="report-id-btn" data-report-id="WDR-25322-0009">
+              <span class="report-id">WDR-25322-0009</span>
+            </button>
+          </td>
+          <td style="text-align:right;">
+            <span class="hint-text">Generating…</span>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+
+      <div id="historyEmptyNone" class="history-empty">
+        <strong>No scans yet.</strong> Run your first WebDoctor scan and it will appear here.
+      </div>
+
+      <div id="historyEmptyFiltered" class="history-empty">
+        <strong>No scans match your search.</strong> Try clearing filters or changing your search terms.
+      </div>
+
+      <div class="history-footer">
+        <button id="loadMoreScans" type="button" class="btn-secondary small" style="display:none;">
+          Load more scans
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="copyToast">Report ID copied to clipboard</div>
+
+<script>
+  (function () {
+    const rows = Array.from(document.querySelectorAll("tr.scan-row"));
+    const searchInput = document.getElementById("historySearch");
+    const filterPills = document.querySelectorAll(".filter-pill");
+    const loadMoreBtn = document.getElementById("loadMoreScans");
+    const emptyNone = document.getElementById("historyEmptyNone");
+    const emptyFiltered = document.getElementById("historyEmptyFiltered");
+    const table = document.querySelector(".scan-history-table");
+    const PAGE_SIZE = 10;
+    let activeStatus = "all";
+
+    // Last scan card -> click first "View"
+    const lastScanCard = document.querySelector(".last-scan-card");
+    if (lastScanCard) {
+      lastScanCard.addEventListener("click", () => {
+        const firstView = document.querySelector(".scan-history-table .action-link");
+        if (firstView) firstView.click();
+      });
+    }
+
+    // Copy Report ID
+    const toast = document.getElementById("copyToast");
+    function showToast(msg) {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 1500);
+    }
+
+    document.querySelectorAll(".report-id-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.reportId;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(id);
+          }
+          showToast("Report ID " + id + " copied");
+        } catch (e) {
+          showToast("Unable to copy ID");
+        }
+      });
+    });
+
+    const hasRows = rows.length > 0;
+
+    function applyFilters() {
+      if (!hasRows) return;
+      const q = (searchInput?.value || "").trim().toLowerCase();
+      let visibleCount = 0;
+
+      rows.forEach(row => {
+        const status = row.dataset.status || "";
+        const text = row.textContent.toLowerCase();
+        const matchesQuery = !q || text.includes(q);
+        const matchesStatus =
+          activeStatus === "all" || status === activeStatus;
+
+        const show = matchesQuery && matchesStatus;
+        row.style.display = show ? "" : "none";
+        if (show) visibleCount++;
+      });
+
+      if (visibleCount === 0 && q) {
+        emptyFiltered.style.display = "block";
+      } else {
+        emptyFiltered.style.display = "none";
+      }
+    }
+
+    function setupPagination() {
+      if (rows.length <= PAGE_SIZE) {
+        loadMoreBtn.style.display = "none";
+        return;
+      }
+      let visible = PAGE_SIZE;
+      rows.forEach((row, index) => {
+        row.style.display = index < PAGE_SIZE ? "" : "none";
+      });
+      loadMoreBtn.style.display = "inline-flex";
+      loadMoreBtn.addEventListener("click", () => {
+        visible += PAGE_SIZE;
+        rows.forEach((row, index) => {
+          if (index < visible) row.style.display = "";
+        });
+        if (visible >= rows.length) {
+          loadMoreBtn.style.display = "none";
+        }
+      });
+    }
+
+    if (!hasRows) {
+      if (table) table.style.display = "none";
+      emptyNone.style.display = "block";
+      emptyFiltered.style.display = "none";
+      loadMoreBtn.style.display = "none";
+    } else {
+      emptyNone.style.display = "none";
+      setupPagination();
+      applyFilters();
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        rows.forEach(r => (r.style.display = ""));
+        loadMoreBtn.style.display = "none";
+        applyFilters();
+      });
+    }
+
+    filterPills.forEach(pill => {
+      pill.addEventListener("click", () => {
+        filterPills.forEach(p => p.classList.remove("active"));
+        pill.classList.add("active");
+        activeStatus = pill.dataset.status || "all";
+        rows.forEach(r => (r.style.display = ""));
+        loadMoreBtn.style.display = "none";
+        applyFilters();
+      });
+    });
+  })();
+</script>
+
+<!-- Supabase auth + profile wiring -->
+<script type="module">
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MjEzODk3OCwiZXhwIjoyMDc3NzE0OTc4fQ.UQ0nx7jSrtD8-AxHgRBTuJcXFHkNjdpq0mvoaXwtwi8";
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  async function requireSession() {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("Error getting session", error);
+      window.location.href = "/login.html";
+      return null;
+    }
+    if (!data.session) {
+      window.location.href = "/login.html";
+      return null;
+    }
+    return data.session.user;
+  }
+
+  async function loadProfile(user) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("full_name, email, credits, subscription_tier, is_admin, monthly_limit, reports_used")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading profile", error);
+    }
+
+    const profile = data || {};
+    const displayEmail = profile.email || user.email || "";
+    const displayName = profile.full_name || displayEmail || "WebDoctor user";
+
+    const nameEl = document.getElementById("wd-user-name");
+    const emailEl = document.getElementById("wd-user-email");
+    const initialEl = document.getElementById("wd-user-initial");
+    const creditsEl = document.getElementById("wd-credits-count");
+    const planSummaryEl = document.getElementById("wd-plan-summary");
+    const adminBadgeEl = document.getElementById("wd-admin-badge");
+
+    if (nameEl) nameEl.textContent = displayName;
+    if (emailEl) emailEl.textContent = displayEmail || "Signed in";
+    if (initialEl) initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
+
+    const credits = typeof profile.credits === "number" ? profile.credits : 0;
+    if (creditsEl) {
+      creditsEl.textContent = credits;
+      creditsEl.classList.toggle("low-credits", credits <= 2);
+    }
+
+    const tier = (profile.subscription_tier || "free").toLowerCase();
+    const monthlyLimit = profile.monthly_limit;
+    const used = profile.reports_used || 0;
+
+    let summary = "Free plan · pay-per-scan credits.";
+    if (tier === "trial") {
+      summary = "Trial plan · enjoy your WebDoctor test scans.";
+    } else if (tier === "starter") {
+      summary = monthlyLimit
+        ? `Starter · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
+        : "Starter plan · monthly scans included.";
+    } else if (tier === "pro") {
+      summary = monthlyLimit
+        ? `Pro · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
+        : "Pro plan · higher limits and priority processing.";
+    } else if (tier === "agency") {
+      summary = monthlyLimit
+        ? `Agency · ${monthlyLimit}+ scans/month with priority diagnostics.`
+        : "Agency plan · built for teams and client load.";
+
+    }
+    if (planSummaryEl) {
+      planSummaryEl.textContent = summary;
+    }
+
+    if (adminBadgeEl) {
+      adminBadgeEl.style.display = profile.is_admin ? "inline-flex" : "none";
+    }
+  }
+
+  async function setupSignOut() {
+    const signoutLink = document.querySelector(".signout");
+    if (!signoutLink) return;
+
+    signoutLink.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error("Error signing out", err);
+      } finally {
+        window.location.href = "/index.html";
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    const user = await requireSession();
+    if (!user) return;
+
+    await loadProfile(user);
+    await setupSignOut();
+    // Next step: we'll also call loadScanHistory(user.id) from here.
+  });
+</script>
+
+<footer style="
+  position: fixed;
+  right: 24px;
+  bottom: 18px;
+  color: rgba(231,239,245,0.45);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  pointer-events: none;
+">
+  Powered by <span style="color:#5dd8ff;">iQWeb</span>
+</footer>
+
 </body>
 </html>
