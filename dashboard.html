@@ -234,10 +234,6 @@
       margin-bottom: 30px;
     }
 
-    .section.small {
-      padding: 24px 26px;
-    }
-
     h1 {
       font-size: 36px;
       margin: 0 0 6px;
@@ -326,34 +322,70 @@
       align-items: center;
     }
 
+    /* INLINE RUN SCAN BAR */
+
+    .run-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 18px;
+    }
+
+    .run-strip-input {
+      flex: 1 1 260px;
+      min-width: 0;
+    }
+
+    #wd-scan-url-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(4,8,20,0.95);
+      color: var(--ink);
+      font-size: 14px;
+      outline: none;
+    }
+
+    #wd-scan-url-input::placeholder {
+      color: var(--muted);
+    }
+
     /* Run button */
 
     .btn-primary {
-      padding: 16px 32px;
+      padding: 14px 26px;
       border-radius: 14px;
       background: linear-gradient(135deg, #22c55e, #14b8a6);
       color: #000;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 16px;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       gap: 8px;
       box-shadow: 0 12px 30px rgba(0,0,0,0.55);
-      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
       border: none;
       cursor: pointer;
+      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
     }
 
     .btn-primary span.icon {
-      font-size: 20px;
+      font-size: 18px;
       margin-top: -2px;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       transform: translateY(-1px);
       box-shadow: 0 18px 38px rgba(0,0,0,0.7);
       opacity: 0.92;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
     }
 
     .hint-text {
@@ -377,7 +409,7 @@
     /* LAYOUT GRID */
 
     .layout-grid {
-      display: block; /* full-width history */
+      display: block;
     }
 
     h2 {
@@ -561,41 +593,6 @@
       color: var(--highlight);
     }
 
-    /* History footer / load more */
-
-    .history-footer {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(7,12,24,0.9);
-      color: var(--ink-soft);
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: 0.16s;
-      cursor: pointer;
-    }
-
-    .btn-secondary.small {
-      padding: 7px 14px;
-      font-size: 12px;
-      border-radius: 999px;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(15,25,42,0.98);
-      color: var(--ink);
-    }
-
     /* Empty states */
 
     .history-empty {
@@ -667,6 +664,10 @@
       .filter-pills {
         justify-content: flex-start;
       }
+
+      .run-strip {
+        align-items: stretch;
+      }
     }
 
     @media (max-width: 640px) {
@@ -676,10 +677,6 @@
 
       .section {
         padding: 24px 20px;
-      }
-
-      .section.small {
-        padding: 20px 18px;
       }
 
       .subtext {
@@ -746,6 +743,24 @@
         <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
           Loading your plan details…
         </div>
+
+        <!-- INLINE RUN STRIP -->
+        <div class="run-strip">
+          <div class="run-strip-input">
+            <input
+              id="wd-scan-url-input"
+              type="text"
+              placeholder="Paste a URL to scan (e.g. https://example.com)">
+          </div>
+          <button id="wd-run-scan-btn" class="btn-primary" type="button">
+            <span class="icon">▶</span>
+            <span>Run Scan</span>
+          </button>
+        </div>
+
+        <div class="hint-text" style="margin-top:8px;">
+          Your plan scans are used first. If you run out, extra credits are $1 per scan.
+        </div>
       </div>
 
       <div class="summary-block last-scan-card">
@@ -760,16 +775,6 @@
           <a href="#" class="action-link" style="display:none;">View full report</a>
           <a href="#" class="action-link" style="display:none;">Download PDF</a>
         </div>
-      </div>
-    </div>
-
-    <div class="summary-actions">
-      <button class="btn-primary" id="wd-run-scan-btn">
-        <span class="icon">▶</span>
-        <span>Run New Scan</span>
-      </button>
-      <div class="hint-text">
-        Your plan scans are used first. If you run out, extra credits are $1 per scan. Paste a URL, we’ll handle the diagnostics. No setup, no code, no plugins.
       </div>
     </div>
   </div>
@@ -823,12 +828,6 @@
       <div id="historyEmptyFiltered" class="history-empty">
         <strong>No scans match your search.</strong> Try clearing filters or changing your search terms.
       </div>
-
-      <div class="history-footer">
-        <button id="loadMoreScans" type="button" class="btn-secondary small" style="display:none;">
-          Load more scans
-        </button>
-      </div>
     </div>
 
   </div>
@@ -850,47 +849,7 @@
   Powered by <span style="color:#5dd8ff;">iQWeb</span>
 </footer>
 
-<!-- Run Scan Modal -->
-<div id="scanModal" style="
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(6px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-">
-  <div style="
-    background: #0d1628;
-    padding: 28px;
-    border-radius: 18px;
-    width: 420px;
-    border: 1px solid rgba(255,255,255,0.1);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-  ">
-    <h2 style="margin-top:0; color:#5dd8ff;">Run a new scan</h2>
-    <p class="hint-text" style="margin-bottom:14px;">Enter a website URL to run a full WebDoctor scan.</p>
-
-    <input id="scanUrlInput" type="text" placeholder="https://example.com" style="
-      width:100%;
-      padding:12px 14px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,0.2);
-      background:#08101e;
-      color:white;
-      font-size:14px;
-      margin-bottom:18px;
-    ">
-
-    <div style="display:flex; justify-content:flex-end; gap:12px;">
-      <button id="cancelScanBtn" class="btn-secondary small" type="button">Cancel</button>
-      <button id="confirmScanBtn" class="btn-primary" type="button" style="padding:10px 20px;">Run Scan</button>
-    </div>
-  </div>
-</div>
-
-<!-- Supabase + wiring -->
+<!-- Supabase auth + profile + scan history + inline scan wiring -->
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -1224,7 +1183,7 @@
     updateLastScanCard(allRecords[0] || null);
   }
 
-  // Expose for debugging if needed
+  // Expose for debugging
   window.loadScanHistory = loadScanHistory;
 
   function setupFilters() {
@@ -1264,48 +1223,29 @@
     });
   }
 
-  function setupScanModal(user) {
+  function setupInlineScan(user) {
     const runBtn = document.getElementById("wd-run-scan-btn");
-    const modal = document.getElementById("scanModal");
-    const cancelBtn = document.getElementById("cancelScanBtn");
-    const confirmBtn = document.getElementById("confirmScanBtn");
-    const urlInput = document.getElementById("scanUrlInput");
+    const urlInput = document.getElementById("wd-scan-url-input");
+    if (!runBtn || !urlInput) return;
 
-    if (!runBtn || !modal || !cancelBtn || !confirmBtn || !urlInput) return;
-
-    // Open modal
-    runBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      modal.style.display = "flex";
-      urlInput.value = "";
-      urlInput.focus();
-    });
-
-    // Close modal
-    cancelBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-    // Run scan
-    confirmBtn.addEventListener("click", async () => {
-      const url = urlInput.value.trim();
-      if (!url) {
-        alert("Please enter a URL");
+    async function triggerScan() {
+      const raw = (urlInput.value || "").trim();
+      if (!raw) {
+        alert("Please enter a URL to scan.");
+        urlInput.focus();
         return;
       }
 
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = "Scanning…";
+      runBtn.disabled = true;
+      runBtn.innerHTML = "<span class='icon'>⏳</span><span>Scanning…</span>";
 
-      let json;
-      let res;
-
+      let res, json;
       try {
         res = await fetch("/.netlify/functions/run-scan", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            url,
+            url: raw,
             userId: user?.id || null
           })
         });
@@ -1313,23 +1253,33 @@
       } catch (err) {
         console.error("Error calling run-scan:", err);
         alert("Scan failed. Please try again.");
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = "Run Scan";
+        runBtn.disabled = false;
+        runBtn.innerHTML = "<span class='icon'>▶</span><span>Run Scan</span>";
         return;
       }
 
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = "Run Scan";
+      runBtn.disabled = false;
+      runBtn.innerHTML = "<span class='icon'>▶</span><span>Run Scan</span>";
 
       if (!res.ok || !json?.success) {
         alert("Scan failed: " + (json?.message || "Unknown error"));
         return;
       }
 
-      modal.style.display = "none";
-
-      // Reload scan history for this user
+      urlInput.value = "";
       await loadScanHistory(user.id);
+    }
+
+    runBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      triggerScan();
+    });
+
+    urlInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        triggerScan();
+      }
     });
   }
 
@@ -1342,7 +1292,7 @@
     setupSearch();
     await loadScanHistory(user.id);
     await setupSignOut();
-    setupScanModal(user);
+    setupInlineScan(user);
   });
 </script>
 
