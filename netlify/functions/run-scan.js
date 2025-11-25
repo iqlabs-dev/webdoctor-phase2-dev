@@ -139,7 +139,7 @@ export default async (request, context) => {
 
   // NOTE: now writing into scan_history instead of scan_results
   const { data, error } = await supabase
-    .from('scan_history')
+    .from('scan_results')
     .insert({
       user_id: userId,
       url,
