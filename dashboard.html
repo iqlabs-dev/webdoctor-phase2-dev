@@ -762,11 +762,10 @@
     </div>
 
     <div class="summary-actions">
-<a href="index.html#scan" class="btn-primary" id="wd-run-scan-btn">
-  <span class="icon">▶</span>
-  <span>Run New Scan</span>
-</a>
-
+      <a href="index.html#scan" class="btn-primary" id="wd-run-scan-btn">
+        <span class="icon">▶</span>
+        <span>Run New Scan</span>
+      </a>
 
       <div class="hint-text">
         Your plan scans are used first. If you run out, extra credits are $1 per scan. Paste a URL, we’ll handle the diagnostics. No setup, no code, no plugins.
@@ -1145,11 +1144,11 @@
     renderRows(filtered);
   }
 
-  async function loadScanHistory(userId) {
+  // CHANGED: no userId filter – load all scan_history rows for now
+  async function loadScanHistory() {
     const { data, error } = await supabase
       .from("scan_history")
       .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
-      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -1208,10 +1207,11 @@
     await loadProfile(user);
     setupFilters();
     setupSearch();
-    await loadScanHistory(user.id);
+    await loadScanHistory();   // CHANGED: no user.id argument
     await setupSignOut();
   });
 </script>
+
 <script>
   const runScanBtn = document.getElementById('wd-run-scan-btn');
   if (runScanBtn) {
@@ -1222,7 +1222,6 @@
     });
   }
 </script>
-
 
 <footer style="
   position: fixed;
