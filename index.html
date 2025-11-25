@@ -37,6 +37,11 @@
       height: 100%;
     }
 
+    /* 10% global type size increase */
+    html {
+      font-size: 110%;
+    }
+
     body {
       font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
@@ -92,7 +97,7 @@
     }
 
     .nav-subtitle {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.11em;
@@ -103,7 +108,7 @@
       display: flex;
       align-items: center;
       gap: 18px;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
     }
 
     .nav-links {
@@ -117,7 +122,7 @@
       text-decoration: none;
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 500;
       padding-bottom: 2px;
       border-bottom: 1px solid transparent;
@@ -142,7 +147,7 @@
     .nav-ghost {
       border-radius: 999px;
       padding: 7px 18px;
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       text-transform: uppercase;
       letter-spacing: 0.18em;
       border: 1px solid transparent;
@@ -240,7 +245,7 @@
     }
 
     .hero-version {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 0.18em;
       color: rgba(148,163,184,0.9);
@@ -248,7 +253,7 @@
     }
 
     .hero-h1 {
-      font-size: clamp(2rem, 2.6vw, 2.4rem);
+      font-size: clamp(1.9rem, 2.4vw, 2.3rem);
       line-height: 1.08;
       letter-spacing: 0.01em;
       font-weight: 800;
@@ -262,10 +267,10 @@
     }
 
     .hero-sub {
-      font-size: 1.02rem;
+      font-size: 1rem;
       color: var(--ink-soft);
       max-width: 40rem;
-      line-height: 1.5;
+      line-height: 1.45;
       margin: 0 0 18px;
     }
     .hero-sub em {
@@ -278,7 +283,7 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      font-size: 0.84rem;
+      font-size: 0.8rem;
       color: var(--muted);
       margin-top: -2px;
     }
@@ -286,7 +291,7 @@
     .hero-mini-dot {
       text-transform: uppercase;
       letter-spacing: 0.16em;
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       color: var(--ink-soft);
     }
 
@@ -306,7 +311,6 @@
       align-items: flex-end;
       gap: 14px;
       margin-bottom: 16px;
-      text-align: left; /* force left alignment */
     }
 
     @media (max-width: 720px) {
@@ -319,23 +323,23 @@
     .section-kicker {
       text-transform: uppercase;
       letter-spacing: 0.12em;
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       color: var(--ink);
-      opacity: 0.78;
+      opacity: 0.75;
     }
 
     .section-title {
-      font-size: 1.12rem;
+      font-size: 1rem;
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
     .section-subtitle {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       color: var(--muted);
       max-width: 26rem;
-      line-height: 1.7;
+      line-height: 1.6;
     }
 
     /* FEATURES */
@@ -380,6 +384,7 @@
       background: radial-gradient(circle at top, rgba(34,211,238,0.10), rgba(15,23,42,0.98));
     }
 
+    /* subtle per-signal tint */
     .feature-card--perf { border-color: rgba(56,189,248,0.55); }
     .feature-card--seo { border-color: rgba(250,204,21,0.45); }
     .feature-card--mobile { border-color: rgba(45,212,191,0.55); }
@@ -388,27 +393,27 @@
     .feature-card--summary { border-color: rgba(125,211,252,0.55); }
 
     .feature-tag {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       color: rgba(148,163,184,0.9);
     }
 
     .feature-name {
-      font-size: 0.98rem;
+      font-size: 0.9rem;
       font-weight: 600;
       margin-top: 4px;
       margin-bottom: 4px;
     }
 
     .feature-body {
-      font-size: 0.86rem;
+      font-size: 0.8rem;
       color: var(--muted);
-      line-height: 1.7;
+      line-height: 1.6;
     }
 
     .feature-meta {
-      font-size: 0.8rem;
+      font-size: 0.74rem;
       color: #a5f3fc;
       margin-top: 3px;
       margin-bottom: 8px;
@@ -423,7 +428,7 @@
     }
 
     .feature-pill {
-      font-size: 0.7rem;
+      font-size: 0.66rem;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       border-radius: 999px;
@@ -449,10 +454,10 @@
     }
 
     .workflow-intro {
-      font-size: 0.88rem;
+      font-size: 0.82rem;
       color: var(--muted);
       max-width: 44rem;
-      line-height: 1.8;
+      line-height: 1.7;
       margin: 0 0 16px;
     }
 
@@ -492,7 +497,7 @@
       background: none;
       border: none;
       display: block;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       color: var(--ink-soft);
       line-height: 1.4;
@@ -500,15 +505,15 @@
     }
 
     .how-step-title {
-      font-size: 0.9rem;
+      font-size: 0.84rem;
       font-weight: 600;
     }
 
     .how-step-body {
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       color: var(--muted);
       grid-column: 2 / -1;
-      line-height: 1.7;
+      line-height: 1.6;
     }
 
     .how-panel {
@@ -517,16 +522,16 @@
       background: rgba(15, 23, 42, 0.97);
       border: 1px solid rgba(56, 189, 248, 0.55);
       box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--ink-soft);
-      line-height: 1.8;
+      line-height: 1.7;
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
 
     .how-panel-title {
-      font-size: 0.88rem;
+      font-size: 0.82rem;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       color: #e0f2fe;
@@ -543,7 +548,7 @@
       padding: 4px 9px;
       background: rgba(15, 23, 42, 1);
       border: 1px solid rgba(148, 163, 184, 0.7);
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--ink-soft);
     }
 
@@ -598,16 +603,18 @@
       opacity: 1;
     }
 
+    /* Permanent subtle teal border on all pricing cards */
     .pricing-card {
       border-color: rgba(34, 211, 238, 0.35) !important;
     }
 
+    /* Strengthen border slightly on hover */
     .pricing-card:hover {
       border-color: rgba(34, 211, 238, 0.7) !important;
     }
 
     .pricing-name {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.16em;
@@ -615,22 +622,22 @@
     }
 
     .pricing-price {
-      font-size: 1.12rem;
+      font-size: 1rem;
       font-weight: 700;
     }
 
     .pricing-meta-extra {
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       color: var(--ink-soft);
     }
 
     .pricing-meta {
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       color: var(--muted);
     }
 
     .pricing-pill {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       border-radius: 999px;
       padding: 3px 8px;
       border: 1px solid rgba(148,163,184,0.6);
@@ -640,7 +647,7 @@
     }
 
     .pricing-footnote {
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--muted);
       margin-top: 8px;
     }
@@ -663,13 +670,13 @@
       background: rgba(34, 197, 94, 0.04);
       border: 1px solid rgba(34, 197, 94, 0.28);
       color: #bbf7d0;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       font-weight: 600;
       letter-spacing: 0.01em;
     }
 
     .pricing-note {
-      font-size: 0.86rem;
+      font-size: 0.82rem;
       color: var(--muted);
       opacity: 0.75;
       margin: 12px 0 22px;
@@ -687,9 +694,9 @@
 
     .trust-block {
       flex: 2 1 260px;
-      font-size: 0.86rem;
+      font-size: 0.8rem;
       color: var(--muted);
-      line-height: 1.8;
+      line-height: 1.75;
       max-width: 640px;
     }
 
@@ -700,9 +707,9 @@
       background: rgba(15, 23, 42, 0.97);
       border: 1px solid rgba(34, 197, 94, 0.55);
       box-shadow: 0 16px 36px rgba(15, 23, 42, 0.85);
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       color: #bbf7d0;
-      line-height: 1.8;
+      line-height: 1.7;
       align-self: flex-start;
       margin-top: -20px;
       position: relative;
@@ -721,7 +728,7 @@
 
     .trust-callout span {
       display: block;
-      font-size: 0.76rem;
+      font-size: 0.72rem;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       color: #bbf7d0;
@@ -759,8 +766,8 @@
     .trust-contact {
       margin-top: 18px;
       padding-top: 10px;
-      border-top: 1px solid rgba(15,23,42,0.9);
-      font-size: 0.78rem;
+      border-top: 1px solid rgba(15, 23, 42, 0.9);
+      font-size: 0.74rem;
       color: var(--muted);
     }
 
@@ -780,7 +787,7 @@
     .wd-footer {
       padding: 28px 0;
       border-top: 1px solid rgba(255,255,255,0.05);
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       letter-spacing: 0.04em;
       color: var(--muted);
     }
@@ -808,7 +815,6 @@
       margin-left: 8px;
       color: var(--muted);
     }
-
   </style>
 </head>
 
@@ -846,7 +852,7 @@
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
-          <p class="hero-version">WebDoctor v3.7</p>
+          <p class="hero-version">WebDoctor v1.0</p>
 
           <h1 class="hero-h1">
             WebDoctor is built for people who want<br>
