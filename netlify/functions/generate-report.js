@@ -1,12 +1,19 @@
 // /netlify/functions/generate-report.js
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// --------------------------------------
+// Resolve path of this function file
+// --------------------------------------
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // --------------------------------------
 // Generate WDR-YYDDD-#### (iQLABS ID)
@@ -120,12 +127,8 @@ export const handler = async (event) => {
   // --------------------------------------
   let templateHtml;
   try {
-    const templatePath = join(
-      process.cwd(),
-      'netlify',
-      'functions',
-      'report_template_v4_3.html'
-    );
+    const templatePath = join(__dirname, 'report_template_v4_3.html');
+    console.log('Loading report template from:', templatePath);
     templateHtml = readFileSync(templatePath, 'utf8');
   } catch (err) {
     console.error('Error loading report template:', err);
