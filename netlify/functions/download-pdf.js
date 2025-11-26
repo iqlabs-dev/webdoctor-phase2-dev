@@ -6,7 +6,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Browser POST: { report_id: "WDR-25330-0001" }
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return {
@@ -26,7 +25,6 @@ export const handler = async (event) => {
   }
 
   const { report_id } = body;
-
   if (!report_id) {
     return {
       statusCode: 400,
@@ -34,7 +32,7 @@ export const handler = async (event) => {
     };
   }
 
-  // 1) Fetch HTML from Supabase
+  // 1) Get HTML from Supabase
   const { data, error } = await supabase
     .from('reports')
     .select('html')
@@ -51,7 +49,7 @@ export const handler = async (event) => {
 
   const html = data.html;
 
-  // 2) DocRaptor
+  // 2) Call DocRaptor
   const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
   if (!DOC_RAPTOR_API_KEY) {
     return {
@@ -92,7 +90,6 @@ export const handler = async (event) => {
   const arrayBuffer = await resp.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Return as downloadable PDF stream
   return {
     statusCode: 200,
     isBase64Encoded: true,
