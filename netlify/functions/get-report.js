@@ -57,19 +57,43 @@ exports.handler = async (event) => {
     }
 
     // --- 1) Load scan record from Supabase ---
-    const { data: record, error } = await supabase
+
+    let record = null;
+
+    // 1a) Try by report_id (future-friendly WDR-25315-00001 etc)
+    const { data: byReportId, error: err1 } = await supabase
       .from("scan_results")
       .select("*")
       .eq("report_id", reportId)
       .maybeSingle();
 
-    if (error) {
-      console.error("[get-report] Supabase error:", error);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Error loading report from database.",
-      };
+    if (err1) {
+      console.error("[get-report] Supabase error (by report_id):", err1);
+    }
+
+    if (byReportId) {
+      record = byReportId;
+    } else {
+      // 1b) Fallback: older rows that only have numeric id
+      const numericId = Number(reportId);
+      if (!Number.isNaN(numericId)) {
+        const { data: byId, error: err2 } = await supabase
+          .from("scan_results")
+          .select("*")
+          .eq("id", numericId)
+          .maybeSingle();
+
+        if (err2) {
+          console.error("[get-report] Supabase error (by id):", err2);
+          return {
+            statusCode: 500,
+            headers: { "Content-Type": "text/plain" },
+            body: "Error loading report from database.",
+          };
+        }
+
+        record = byId;
+      }
     }
 
     if (!record) {
@@ -79,6 +103,7 @@ exports.handler = async (event) => {
         body: "Report not found.",
       };
     }
+
 
     // --- 2) Load the HTML template file ---
     // Adjust this path if your template lives somewhere else.

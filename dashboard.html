@@ -1138,33 +1138,36 @@ const displayName = profile.full_name || displayEmail || "WebDoctor user";
       tdId.textContent = reportId;
       tr.appendChild(tdId);
 
-      // ACTIONS: View report + Download PDF
-      const tdActions = document.createElement("td");
-      tdActions.style.textAlign = "right";
+// ACTIONS (VIEW + PDF)
+const tdActions = document.createElement('td');
+tdActions.style.textAlign = 'right';
 
-      if (statusKey === "completed" && reportId && reportId !== "-") {
-        // View OSD report
-        const viewLink = document.createElement("a");
-        viewLink.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-        viewLink.target = "_blank";
-        viewLink.rel = "noopener";
-        viewLink.className = "action-link";
-        viewLink.textContent = "View report";
-        tdActions.appendChild(viewLink);
+if (status.toLowerCase() === 'completed' && reportId && reportId !== '-') {
+  // VIEW PDF (opens report.html in new tab)
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'wd-pdf-btn';        // you can make a wd-view-btn later
+  viewBtn.textContent = 'VIEW  PDF';
+  viewBtn.style.marginRight = '8px';
+  viewBtn.addEventListener('click', () => {
+    window.open(`/report.html?report_id=${reportId}`, '_blank');
+  });
+  tdActions.appendChild(viewBtn);
 
-        // Download PDF
-        const pdfBtn = document.createElement("button");
-        pdfBtn.type = "button";
-        pdfBtn.className = "wd-pdf-btn";
-        pdfBtn.textContent = "Download PDF";
-        pdfBtn.addEventListener("click", () => downloadPdf(reportId));
-        tdActions.appendChild(pdfBtn);
-      } else {
-        tdActions.textContent = "Generating…";
-        tdActions.className = "scan-actions-pending";
-      }
+  // DOWNLOAD PDF
+  const dlBtn = document.createElement('button');
+  dlBtn.type = 'button';
+  dlBtn.className = 'wd-pdf-btn';
+  dlBtn.textContent = 'Download PDF';
+  dlBtn.addEventListener('click', () => downloadPdf(reportId));
+  tdActions.appendChild(dlBtn);
+} else {
+  tdActions.textContent = 'Generating…';
+  tdActions.className = 'scan-actions-pending';
+}
 
-      tr.appendChild(tdActions);
+tr.appendChild(tdActions);
+
       tbody.appendChild(tr);
     }
 
