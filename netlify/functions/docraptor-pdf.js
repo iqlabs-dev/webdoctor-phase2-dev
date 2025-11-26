@@ -1,91 +1,74 @@
 // netlify/functions/docraptor-pdf.js
 
-import { createClient } from "@supabase/supabase-js";
-
-export const handler = async (event) => {
+exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({ error: "Method not allowed" }),
+        body: JSON.stringify({ error: "Method not allowed" })
       };
     }
 
-    const body = JSON.parse(event.body || "{}");
-    const { report_id } = body;
-
-    if (!report_id) {
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (e) {
+      console.error("Bad JSON body:", event.body);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Missing report_id" }),
+        body: JSON.stringify({ error: "Invalid JSON body" })
       };
     }
 
-    // Load environment variables
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+    const html = body.html;
+    const reportId = body.reportId;
+
+    if (!html || !reportId) {
+      console.error("Missing html or reportId:", body);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing html or reportId" })
+      };
+    }
+
     const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Supabase config missing" }),
-      };
-    }
-
     if (!DOC_RAPTOR_API_KEY) {
+      console.error("DOC_RAPTOR_API_KEY is not set");
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }),
+        body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" })
       };
     }
 
-    // Connect to Supabase
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-    // Get the HTML for the report
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("report_html")
-      .eq("report_id", report_id)
-      .maybeSingle();
-
-    if (error || !data || !data.report_html) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Report HTML not found" }),
-      };
-    }
-
-    const html = data.report_html;
-
-    // Call DocRaptor API
     const resp = await fetch("https://docraptor.com/docs", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/pdf",
+        "Accept": "application/pdf"
       },
       body: JSON.stringify({
         user_credentials: DOC_RAPTOR_API_KEY,
         doc: {
-          name: `${report_id}.pdf`,
+          name: `${reportId}.pdf`,
           document_type: "pdf",
           document_content: html,
           javascript: true,
-          prince_options: { media: "print" },
-        },
-      }),
+          prince_options: {
+            media: "print"
+          }
+        }
+      })
     });
 
     if (!resp.ok) {
       const errorText = await resp.text();
+      console.error("DocRaptor error", resp.status, errorText);
       return {
         statusCode: 500,
         body: JSON.stringify({
           error: "DocRaptor error",
-          details: errorText,
-        }),
+          details: errorText
+        })
       };
     }
 
@@ -97,15 +80,15 @@ export const handler = async (event) => {
       isBase64Encoded: true,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${report_id}.pdf"`,
+        "Content-Disposition": `attachment; filename="${reportId}.pdf"`
       },
-      body: buffer.toString("base64"),
+      body: buffer.toString("base64")
     };
   } catch (err) {
     console.error("docraptor-pdf error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unknown error" }),
+      body: JSON.stringify({ error: err.message || "Unknown error" })
     };
   }
 };

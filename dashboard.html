@@ -1161,13 +1161,26 @@ async function downloadPdf(reportId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         reportId: reportId,
-        html: "<h1>This proves PDF works</h1>"
+        html: `
+          <!doctype html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>WebDoctor Report ${reportId}</title>
+            </head>
+            <body>
+              <h1>WebDoctor test PDF</h1>
+              <p>This proves DocRaptor wiring works.</p>
+              <p>Report ID: ${reportId}</p>
+            </body>
+          </html>
+        `
       })
     });
 
-
     if (!resp.ok) {
-      console.error('PDF download failed', resp.status);
+      const text = await resp.text();
+      console.error('PDF download failed', resp.status, text);
       alert('Sorry — there was a problem generating the PDF.');
       return;
     }
@@ -1188,6 +1201,7 @@ async function downloadPdf(reportId) {
     alert('Sorry — there was a problem generating the PDF.');
   }
 }
+
 
 
 
