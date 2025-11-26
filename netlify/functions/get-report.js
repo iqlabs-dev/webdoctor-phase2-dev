@@ -1,10 +1,10 @@
 // netlify/functions/get-report.js
 //
 // Returns full HTML for a single WebDoctor report.
-// Called from: /report.html?report_id=WEB-YYJJJ-00001 (or numeric id during legacy phase)
+// Called from: /report.html?report_id=WEB-YYJJJ-00001 (or legacy numeric ids)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads "Report Template V4.3.html" from the *same folder* as this function
+// - Loads "Report Template V4.3.html" from the project root
 // - Replaces {{PLACEHOLDERS}} with real values
 // - Responds with text/html
 
@@ -13,32 +13,18 @@ const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 // --- Supabase (server-side key) ---
-// Be generous with fallbacks in case env var names differ.
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_KEY ||
-  process.env.SUPABASE_SECRET ||
-  process.env.SUPABASE_SERVICE_API_KEY ||
-  process.env.SUPABASE_ANON_KEY; // last-ditch fallback
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.warn(
-    "[get-report] Missing Supabase env vars. " +
-      "SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set."
+    "[get-report] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars."
   );
 }
 
-let supabase = null;
-try {
-  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  }
-} catch (e) {
-  console.error("[get-report] Error creating Supabase client:", e);
-}
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Helper: safely format date/time to "DD MMM YYYY" and "HH:MM" (24h, NZ)
+// Helper: safely format date/time (NZ, 24-hour)
 function formatNZDateTime(iso) {
   if (!iso) return { date: "-", time: "-" };
   const d = new Date(iso);
@@ -53,13 +39,8 @@ function formatNZDateTime(iso) {
 
   return {
     date: `${day} ${month} ${year}`, // DD MMM YYYY
-    time: `${hours}:${mins}`, // HH:MM
+    time: `${hours}:${mins}`,        // HH:MM
   };
-}
-
-// Simple helper for placeholders
-function safe(val, fallback = "-") {
-  return val === null || val === undefined || val === "" ? fallback : String(val);
 }
 
 exports.handler = async (event) => {
@@ -71,24 +52,17 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         headers: { "Content-Type": "text/plain" },
-        body: "[get-report] Missing report_id in query string.",
+        body: "Missing report_id in query string.",
       };
     }
 
-    if (!supabase) {
-      console.error("[get-report] Supabase client not initialised.");
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "[get-report] Supabase configuration error on server.",
-      };
-    }
+    console.log("[get-report] Incoming reportId:", reportId);
 
     // --- 1) Load scan record from Supabase ---
 
     let record = null;
 
-    // 1a) Preferred: look up by report_id (for WEB-YYJJJ-00001 etc.)
+    // 1a) Try by report_id (future-friendly WEB-YYJJJ-00001 etc)
     const { data: byReportId, error: err1 } = await supabase
       .from("scan_results")
       .select("*")
@@ -101,8 +75,9 @@ exports.handler = async (event) => {
 
     if (byReportId) {
       record = byReportId;
+      console.log("[get-report] Found record by report_id");
     } else {
-      // 1b) Legacy fallback: numeric ID (e.g. "45")
+      // 1b) Fallback: older rows that only have numeric id
       const numericId = Number(reportId);
       if (!Number.isNaN(numericId)) {
         const { data: byId, error: err2 } = await supabase
@@ -116,11 +91,14 @@ exports.handler = async (event) => {
           return {
             statusCode: 500,
             headers: { "Content-Type": "text/plain" },
-            body: "[get-report] Error loading report from database.",
+            body: "Error loading report from database.",
           };
         }
 
-        record = byId;
+        if (byId) {
+          record = byId;
+          console.log("[get-report] Found record by numeric id");
+        }
       }
     }
 
@@ -129,13 +107,14 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         headers: { "Content-Type": "text/plain" },
-        body: "[get-report] Report not found.",
+        body: "Report not found.",
       };
     }
 
     // --- 2) Load the HTML template file ---
-    // Template must live in the *same folder* as this function on Netlify.
-    const templatePath = path.join(__dirname, "Report Template V4.3.html");
+    // Template lives in the project root (same place as index.html)
+    const templatePath = path.resolve(process.cwd(), "Report Template V4.3.html");
+    console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
     try {
@@ -145,21 +124,24 @@ exports.handler = async (event) => {
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain" },
-        body: "[get-report] Report template missing on server.",
+        body: "Report template missing on server.",
       };
     }
 
     // --- 3) Prepare values for placeholders ---
     const { date, time } = formatNZDateTime(record.created_at);
 
+    const safe = (val, fallback = "-") =>
+      val === null || val === undefined || val === "" ? fallback : String(val);
+
     const replacements = {
-      // Core meta
+      // core meta
       "{{REPORT_ID}}": safe(record.report_id || reportId),
       "{{SCAN_URL}}": safe(record.url),
       "{{SCAN_DATE}}": date,
       "{{SCAN_TIME}}": time,
 
-      // Scores (align with your scan_results columns)
+      // scores
       "{{OVERALL_SCORE}}": safe(record.score_overall, "—"),
       "{{PERFORMANCE_SCORE}}": safe(record.score_performance, "—"),
       "{{SEO_SCORE}}": safe(record.score_seo, "—"),
@@ -167,7 +149,7 @@ exports.handler = async (event) => {
       "{{ACCESSIBILITY_SCORE}}": safe(record.score_accessibility, "—"),
       "{{SECURITY_SCORE}}": safe(record.score_security, "—"),
 
-      // Optional extras
+      // timings etc (optional)
       "{{SCAN_TIME_MS}}": safe(record.scan_time_ms, "—"),
     };
 
@@ -190,7 +172,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: { "Content-Type": "text/plain" },
-      body: "[get-report] Unexpected server error.",
+      body: "Unexpected server error.",
     };
   }
 };
