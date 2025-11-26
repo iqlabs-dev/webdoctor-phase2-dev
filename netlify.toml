@@ -1,8 +1,7 @@
-[build]
-  publish = "."
-  functions = "netlify/functions"
-
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]
-  included_files = ["node_modules/@sparticuz/chromium/bin/**"]
+  included_files = [
+    "node_modules/@sparticuz/chromium/bin/**",
+    "netlify/functions/report_template_v4_3.html"
+  ]
