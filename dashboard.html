@@ -255,7 +255,7 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
       gap: 26px;
       align-items: stretch;
     }
@@ -319,31 +319,33 @@
     }
 
     .summary-actions {
-      margin-top: 18px;
+      margin-top: 26px;
       display: flex;
       flex-wrap: wrap;
       gap: 14px;
       align-items: center;
     }
 
-    /* INLINE RUN STRIP */
+    /* Inline run strip */
 
     .run-strip {
       margin-top: 18px;
       display: flex;
-      gap: 10px;
-      align-items: center;
+      gap: 12px;
+      align-items: stretch;
     }
 
+    .run-strip-btn,
     .run-strip-input {
-      flex: 1 1 auto;
+      flex: 1 1 0;
+      display: flex;
     }
 
     .run-strip-input input {
       width: 100%;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(4,8,18,0.95);
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(4,8,18,0.9);
       color: var(--ink);
       padding: 12px 14px;
       font-size: 14px;
@@ -354,10 +356,12 @@
       color: var(--muted);
     }
 
-    /* PRIMARY BUTTON */
+    /* Run button */
 
     .btn-primary {
-      padding: 14px 26px;
+      width: 100%;
+      justify-content: center;
+      padding: 14px 20px;
       border-radius: 14px;
       background: linear-gradient(135deg, #22c55e, #14b8a6);
       color: #000;
@@ -371,12 +375,12 @@
       transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
       border: none;
       cursor: pointer;
-      white-space: nowrap;
+      font-family: inherit;
     }
 
     .btn-primary span.icon {
-      font-size: 20px;
-      margin-top: -2px;
+      font-size: 18px;
+      margin-top: -1px;
     }
 
     .btn-primary:hover {
@@ -590,18 +594,6 @@
       color: var(--highlight);
     }
 
-    /* clickable hostname */
-
-    .history-hostname .history-link {
-      color: var(--highlight);
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .history-hostname .history-link:hover {
-      text-decoration: underline;
-    }
-
     /* History footer / load more */
 
     .history-footer {
@@ -733,12 +725,6 @@
 
       .run-strip {
         flex-direction: column;
-        align-items: stretch;
-      }
-
-      .btn-primary {
-        width: 100%;
-        justify-content: center;
       }
     }
   </style>
@@ -791,7 +777,6 @@
     </div>
 
     <div class="summary-grid">
-      <!-- LEFT: PLAN + INLINE SCAN -->
       <div class="summary-block">
         <div class="summary-label">Scans available</div>
         <div class="credits-value" id="wd-credits-count">--</div>
@@ -799,18 +784,20 @@
           Loading your plan details…
         </div>
 
-        <!-- INLINE RUN STRIP -->
+        <!-- INLINE RUN STRIP: BUTTON LEFT, INPUT RIGHT -->
         <div class="run-strip">
+          <div class="run-strip-btn">
+            <button id="wd-run-scan-btn" class="btn-primary" type="button">
+              <span class="icon">▶</span>
+              <span>Run Scan</span>
+            </button>
+          </div>
           <div class="run-strip-input">
             <input
               id="wd-scan-url-input"
               type="text"
               placeholder="Paste a URL to scan (e.g. https://example.com)">
           </div>
-          <button id="wd-run-scan-btn" class="btn-primary" type="button">
-            <span class="icon">▶</span>
-            <span>Run Scan</span>
-          </button>
         </div>
 
         <div class="hint-text" style="margin-top:8px;">
@@ -818,7 +805,6 @@
         </div>
       </div>
 
-      <!-- RIGHT: LAST SCAN CARD -->
       <div class="summary-block last-scan-card">
         <div class="summary-label">Last scan</div>
         <div class="last-scan-site">No scans yet</div>
@@ -836,7 +822,9 @@
   </div>
 
   <!-- MAIN GRID: HISTORY ONLY -->
+
   <div class="layout-grid">
+
     <div class="section">
       <div class="history-header">
         <div class="history-header-left">
@@ -861,14 +849,15 @@
 
       <table class="scan-history-table">
         <thead>
-          <tr>
-            <th>Date</th>
-            <th>Website</th>
-            <th>Score</th>
-            <th>Status</th>
-            <th>Report ID</th>
-            <th style="text-align:right;">Actions</th>
-          </tr>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Website</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Report ID</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
         </thead>
         <tbody>
         <!-- rows injected dynamically -->
@@ -889,6 +878,7 @@
         </button>
       </div>
     </div>
+
   </div>
 
 </div>
@@ -908,7 +898,7 @@
   Powered by <span style="color:#5dd8ff;">iQWeb</span>
 </footer>
 
-<!-- Supabase + wiring -->
+<!-- Supabase auth + profile + scan history + inline scan wiring -->
 <script type="module">
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -999,17 +989,23 @@
   let activeStatus = "all";
   let searchQuery = "";
 
-  function formatDateTime(dateString) {
+  function formatDate(dateString) {
     if (!dateString) return "—";
     const d = new Date(dateString);
     if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase(); // MMM caps
+    const year = d.getFullYear();
+    return `${day} ${month} ${year}`; // DD MMM YYYY
+  }
+
+  function formatTime(dateString) {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return "—";
+    const hours = String(d.getHours()).padStart(2, "0");
+    const mins = String(d.getMinutes()).padStart(2, "0");
+    return `${hours}:${mins}`; // HH:MM (24-hour)
   }
 
   function getHostname(url) {
@@ -1069,12 +1065,9 @@
       const statusClass = getStatusClass(rec.status);
 
       tr.innerHTML = `
-        <td>${formatDateTime(rec.created_at)}</td>
-
-        <td class="history-hostname" data-scan-id="${rec.id}">
-          <span class="history-link">${hostname}</span>
-        </td>
-
+        <td>${formatDate(rec.created_at)}</td>
+        <td>${formatTime(rec.created_at)}</td>
+        <td>${hostname}</td>
         <td>${score}</td>
         <td><span class="${statusClass}">${statusLabel}</span></td>
         <td>
@@ -1098,7 +1091,7 @@
       tbody.appendChild(tr);
     }
 
-    // Copy report IDs
+    // Hook up copy buttons each time we re-render
     tbody.querySelectorAll(".report-id-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.reportId;
@@ -1113,16 +1106,7 @@
       });
     });
 
-    // CLICKING A HOSTNAME loads it into LAST SCAN card
-    tbody.querySelectorAll(".history-hostname").forEach((cell) => {
-      cell.addEventListener("click", () => {
-        const scanId = cell.dataset.scanId;
-        const selected = records.find((r) => String(r.id) === String(scanId));
-        if (selected) updateLastScanCard(selected);
-      });
-    });
-
-    // Last Scan Card click = first PDF
+    // Last-scan card click → first PDF link
     const lastScanCard = document.querySelector(".last-scan-card");
     if (lastScanCard) {
       lastScanCard.onclick = () => {
@@ -1153,7 +1137,7 @@
 
     const hostname = getHostname(record.url);
     if (siteEl) siteEl.textContent = hostname;
-    if (metaEl) metaEl.textContent = `Scanned on ${formatDateTime(record.created_at)}`;
+    if (metaEl) metaEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
 
     if (scorePill && scoreSpan) {
       if (record.score_overall != null) {
@@ -1164,7 +1148,6 @@
       }
     }
 
-    // Right now we just use report_url as "view" and "download" if present
     if (pdfLink) {
       if (record.report_url) {
         pdfLink.href = record.report_url;
@@ -1196,7 +1179,6 @@
       if (emptyNone) emptyNone.style.display = "block";
       if (emptyFiltered) emptyFiltered.style.display = "none";
       renderRows([]);
-      updateLastScanCard(null);
       return;
     }
 
@@ -1209,7 +1191,8 @@
     if (searchQuery) {
       filtered = filtered.filter((rec) => {
         const haystack = [
-          formatDateTime(rec.created_at),
+          formatDate(rec.created_at),
+          formatTime(rec.created_at),
           getHostname(rec.url),
           rec.url || "",
           rec.report_id || ""
@@ -1225,7 +1208,6 @@
       if (emptyNone) emptyNone.style.display = "none";
       if (emptyFiltered) emptyFiltered.style.display = "block";
       renderRows([]);
-      updateLastScanCard(null);
       return;
     }
 
@@ -1234,7 +1216,6 @@
     if (emptyFiltered) emptyFiltered.style.display = "none";
 
     renderRows(filtered);
-    updateLastScanCard(filtered[0] || null);
   }
 
   async function loadScanHistory(userId) {
@@ -1258,6 +1239,7 @@
     }
 
     applyFiltersAndRender();
+    updateLastScanCard(allRecords[0] || null);
   }
 
   // Expose for debugging if needed
@@ -1300,23 +1282,24 @@
     });
   }
 
-  function setupRunStrip(user) {
+  function setupInlineRun(user) {
     const runBtn = document.getElementById("wd-run-scan-btn");
     const urlInput = document.getElementById("wd-scan-url-input");
-
     if (!runBtn || !urlInput) return;
 
-    async function triggerScan() {
+    runBtn.addEventListener("click", async () => {
       const url = (urlInput.value || "").trim();
       if (!url) {
-        alert("Please enter a URL");
+        alert("Please enter a URL to scan.");
+        urlInput.focus();
         return;
       }
 
       runBtn.disabled = true;
       runBtn.textContent = "Scanning…";
 
-      let res, json;
+      let json;
+      let res;
       try {
         res = await fetch("/.netlify/functions/run-scan", {
           method: "POST",
@@ -1331,33 +1314,21 @@
         console.error("Error calling run-scan:", err);
         alert("Scan failed. Please try again.");
         runBtn.disabled = false;
-        runBtn.innerHTML = '<span class="icon">▶</span><span>Run Scan</span>';
+        runBtn.textContent = "Run Scan";
         return;
       }
 
       runBtn.disabled = false;
-      runBtn.innerHTML = '<span class="icon">▶</span><span>Run Scan</span>';
+      runBtn.textContent = "Run Scan";
 
       if (!res.ok || !json?.success) {
         alert("Scan failed: " + (json?.message || "Unknown error"));
         return;
       }
 
+      // Clear URL field and refresh history
       urlInput.value = "";
-      // Reload scan history for this user
       await loadScanHistory(user.id);
-    }
-
-    runBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      triggerScan();
-    });
-
-    urlInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        triggerScan();
-      }
     });
   }
 
@@ -1370,7 +1341,7 @@
     setupSearch();
     await loadScanHistory(user.id);
     await setupSignOut();
-    setupRunStrip(user);
+    setupInlineRun(user);
   });
 </script>
 
