@@ -727,6 +727,29 @@
         flex-direction: column;
       }
     }
+    .wd-pdf-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  color: #e0f2fe;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+}
+
+.wd-pdf-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 1);
+  transform: translateY(-1px);
+}
+
+.scan-actions-pending {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
   </style>
 </head>
 
@@ -1046,65 +1069,121 @@
     setTimeout(() => toast.classList.remove("visible"), 1500);
   }
 
-  function renderRows(records) {
-    const table = document.querySelector(".scan-history-table");
-    const tbody = table?.querySelector("tbody");
-    if (!tbody || !table) return;
+function renderRows(records) {
+  const table = document.querySelector('.scan-history-table');
+  const tbody = table?.querySelector('tbody');
+  if (!tbody || !table) return;
 
-    tbody.innerHTML = "";
+  tbody.innerHTML = '';
 
-    for (const rec of records) {
-      const tr = document.createElement("tr");
-      const statusKey = getStatusKey(rec.status);
-      tr.className = "scan-row";
-      tr.dataset.status = statusKey;
+  for (const rec of records) {
+    const tr = document.createElement('tr');
+    tr.className = 'scan-row';
 
-      const hostname = getHostname(rec.url);
-      const score = rec.score_overall ?? "—";
-      const statusLabel = getStatusLabel(rec.status);
-      const statusClass = getStatusClass(rec.status);
+    const created = rec.created_at ? new Date(rec.created_at) : null;
 
-      tr.innerHTML = `
-        <td>${formatDate(rec.created_at)}</td>
-        <td>${formatTime(rec.created_at)}</td>
-        <td>${hostname}</td>
-        <td>${score}</td>
-        <td><span class="${statusClass}">${statusLabel}</span></td>
-        <td>
-          ${
-            rec.report_id
-              ? `<button type="button" class="report-id-btn" data-report-id="${rec.report_id}">
-                   <span class="report-id">${rec.report_id}</span>
-                 </button>`
-              : '<span class="hint-text">Pending</span>'
-          }
-        </td>
-        <td style="text-align:right;">
-          ${
-            rec.report_url
-              ? `<a href="${rec.report_url}" target="_blank" class="action-link">PDF</a>`
-              : '<span class="hint-text">Generating…</span>'
-          }
-        </td>
-      `;
+    const dateStr = created
+      ? created.toLocaleDateString('en-NZ', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        }).toUpperCase()
+      : '-';
 
-      tbody.appendChild(tr);
+    const timeStr = created
+      ? created.toLocaleTimeString('en-NZ', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        })
+      : '-';
+
+    const website = rec.url || rec.website || '-';
+    const score = rec.score ?? '-';
+    const status = (rec.status || 'Pending').toString();
+    const reportId = rec.report_id || rec.id || '-';
+
+    // DATE
+    const tdDate = document.createElement('td');
+    tdDate.textContent = dateStr;
+    tr.appendChild(tdDate);
+
+    // TIME
+    const tdTime = document.createElement('td');
+    tdTime.textContent = timeStr;
+    tr.appendChild(tdTime);
+
+    // WEBSITE
+    const tdSite = document.createElement('td');
+    tdSite.textContent = website;
+    tr.appendChild(tdSite);
+
+    // SCORE
+    const tdScore = document.createElement('td');
+    tdScore.textContent = score;
+    tr.appendChild(tdScore);
+
+    // STATUS
+    const tdStatus = document.createElement('td');
+    tdStatus.textContent = status;
+    tdStatus.className = `status-pill status-${status.toLowerCase()}`;
+    tr.appendChild(tdStatus);
+
+    // REPORT ID
+    const tdId = document.createElement('td');
+    tdId.textContent = reportId;
+    tr.appendChild(tdId);
+
+    // ACTIONS (PDF)
+    const tdActions = document.createElement('td');
+
+    if (status.toLowerCase() === 'completed' && reportId && reportId !== '-') {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'wd-pdf-btn';
+      btn.textContent = 'Download PDF';
+      btn.addEventListener('click', () => downloadPdf(reportId));
+      tdActions.appendChild(btn);
+    } else {
+      tdActions.textContent = 'Generating…';
+      tdActions.className = 'scan-actions-pending';
     }
 
-    // Hook up copy buttons each time we re-render
-    tbody.querySelectorAll(".report-id-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.dataset.reportId;
-        try {
-          if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(id);
-          }
-          showToast(`Report ID ${id} copied`);
-        } catch {
-          showToast("Unable to copy ID");
-        }
-      });
+    tr.appendChild(tdActions);
+
+    tbody.appendChild(tr);
+  }
+}
+async function downloadPdf(reportId) {
+  try {
+    const resp = await fetch('/.netlify/functions/download-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report_id: reportId })
     });
+
+    if (!resp.ok) {
+      console.error('PDF download failed', resp.status);
+      alert('Sorry — there was a problem generating the PDF.');
+      return;
+    }
+
+    const blob = await resp.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${reportId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('PDF download error', err);
+    alert('Sorry — there was a problem generating the PDF.');
+  }
+}
 
     // Last-scan card click → first PDF link
     const lastScanCard = document.querySelector(".last-scan-card");
