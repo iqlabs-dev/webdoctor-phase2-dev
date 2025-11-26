@@ -1,7 +1,7 @@
 // netlify/functions/get-report.js
 //
 // Returns full HTML for a single WebDoctor report.
-// Called from: /report.html?report_id=WDR-25315-00001
+// Called from: /report.html?report_id=40
 //
 // - Reads scan data from Supabase (scan_results table)
 // - Loads "Report Template V4.3.html"
@@ -24,7 +24,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Helper: safely format date/time
+// Helper: safely format date/time (NZ, 24-hour)
 function formatNZDateTime(iso) {
   if (!iso) return { date: "-", time: "-" };
   const d = new Date(iso);
@@ -57,43 +57,29 @@ exports.handler = async (event) => {
     }
 
     // --- 1) Load scan record from Supabase ---
+    // For now we treat reportId as the numeric `id` from scan_results.
 
-    let record = null;
+    const numericId = Number(reportId);
 
-    // 1a) Try by report_id (future-friendly WDR-25315-00001 etc)
-    const { data: byReportId, error: err1 } = await supabase
-      .from("scan_results")
-      .select("*")
-      .eq("report_id", reportId)
-      .maybeSingle();
+    let query = supabase.from("scan_results").select("*").limit(1);
 
-    if (err1) {
-      console.error("[get-report] Supabase error (by report_id):", err1);
+    if (!Number.isNaN(numericId)) {
+      // Normal path: ids like 40, 41, 42...
+      query = query.eq("id", numericId);
+    } else {
+      // Fallback: if we ever pass a non-numeric id in future
+      query = query.eq("id", reportId);
     }
 
-    if (byReportId) {
-      record = byReportId;
-    } else {
-      // 1b) Fallback: older rows that only have numeric id
-      const numericId = Number(reportId);
-      if (!Number.isNaN(numericId)) {
-        const { data: byId, error: err2 } = await supabase
-          .from("scan_results")
-          .select("*")
-          .eq("id", numericId)
-          .maybeSingle();
+    const { data: record, error } = await query.maybeSingle();
 
-        if (err2) {
-          console.error("[get-report] Supabase error (by id):", err2);
-          return {
-            statusCode: 500,
-            headers: { "Content-Type": "text/plain" },
-            body: "Error loading report from database.",
-          };
-        }
-
-        record = byId;
-      }
+    if (error) {
+      console.error("[get-report] Supabase error:", error);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: "Error loading report from database.",
+      };
     }
 
     if (!record) {
@@ -104,24 +90,21 @@ exports.handler = async (event) => {
       };
     }
 
+    // --- 2) Load the HTML template file ---
+    // Template lives right next to this function in /netlify/functions
+    const templatePath = path.join(__dirname, "Report Template V4.3.html");
 
-// --- 2) Load the HTML template file ---
-// Template lives right next to this function in /netlify/functions
-const templatePath = path.join(__dirname, "Report Template V4.3.html");
-
-let templateHtml;
-try {
-  templateHtml = fs.readFileSync(templatePath, "utf8");
-} catch (tplErr) {
-  console.error("[get-report] Could not read template:", tplErr);
-  return {
-    statusCode: 500,
-    headers: { "Content-Type": "text/plain" },
-    body: "Report template missing on server.",
-  };
-}
-
-
+    let templateHtml;
+    try {
+      templateHtml = fs.readFileSync(templatePath, "utf8");
+    } catch (tplErr) {
+      console.error("[get-report] Could not read template:", tplErr);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: "Report template missing on server.",
+      };
+    }
 
     // --- 3) Prepare values for placeholders ---
     const { date, time } = formatNZDateTime(record.created_at);
@@ -153,15 +136,11 @@ try {
       html = html.split(token).join(value);
     }
 
-    // If your template has any JSON/diagnostic blocks that you inject,
-    // you can extend replacements above to include those as strings.
-
     // --- 4) Respond with HTML for /report.html to display ---
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        // Make sure browsers don't try to download it as a file.
         "Cache-Control": "no-store",
       },
       body: html,
