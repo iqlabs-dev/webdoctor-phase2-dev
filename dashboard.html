@@ -1160,10 +1160,11 @@ async function downloadPdf(reportId) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        reportId,
-        html: '<h1>This proves PDF works</h1>'
+        reportId: reportId,
+        html: "<h1>This proves PDF works</h1>"
       })
     });
+
 
     if (!resp.ok) {
       console.error('PDF download failed', resp.status);
