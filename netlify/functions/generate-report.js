@@ -714,8 +714,34 @@ export const handler = async (event) => {
     html = html.replace(new RegExp(`{{${key}}}`, 'g'), safeValue);
   }
 
+  // --------------------------------------
+  // PHASE 3.6 — CALL DOCRAPTOR FOR PDF
+  // --------------------------------------
+  let pdfBase64 = null;
+  let pdfFilename = `${reportId}.pdf`;
 
-  // Store in Supabase
+  try {
+    const baseUrl =
+      process.env.URL || process.env.DEPLOY_URL || 'http://localhost:8888';
+
+    const pdfResp = await fetch(`${baseUrl}/.netlify/functions/docraptor-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html, reportId })
+    });
+
+    if (pdfResp.ok) {
+      // docraptor-pdf returns the PDF body as base64
+      pdfBase64 = await pdfResp.text();
+    } else {
+      const errText = await pdfResp.text();
+      console.error('DocRaptor PDF error:', pdfResp.status, errText);
+    }
+  } catch (err) {
+    console.error('DocRaptor PDF exception:', err);
+  }
+
+  // Store in Supabase (HTML only for now)
   const { error } = await supabase.from('reports').insert([
     {
       user_id,
@@ -746,7 +772,10 @@ export const handler = async (event) => {
       ok: true,
       report_id: reportId,
       html,
-      report_html: html
+      report_html: html,
+      // Phase 3.6 additions:
+      pdf_base64: pdfBase64,
+      pdf_filename: pdfFilename
     })
   };
 };
