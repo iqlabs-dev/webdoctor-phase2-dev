@@ -105,26 +105,22 @@ exports.handler = async (event) => {
     }
 
 
-    // --- 2) Load the HTML template file ---
-    // Adjust this path if your template lives somewhere else.
-    const templatePath = path.join(
-      __dirname,
-      "..",
-      "..",
-      "Report Template V4.3.html"
-    );
+// --- 2) Load the HTML template file ---
+// Template sits in the same folder as this function.
+const templatePath = path.join(__dirname, "Report Template V4.3.html");
 
-    let templateHtml;
-    try {
-      templateHtml = fs.readFileSync(templatePath, "utf8");
-    } catch (tplErr) {
-      console.error("[get-report] Could not read template:", tplErr);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Report template missing on server.",
-      };
-    }
+let templateHtml;
+try {
+  templateHtml = fs.readFileSync(templatePath, "utf8");
+} catch (tplErr) {
+  console.error("[get-report] Could not read template:", tplErr);
+  return {
+    statusCode: 500,
+    headers: { "Content-Type": "text/plain" },
+    body: "Report template missing on server.",
+  };
+}
+
 
     // --- 3) Prepare values for placeholders ---
     const { date, time } = formatNZDateTime(record.created_at);
