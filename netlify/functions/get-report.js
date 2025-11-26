@@ -106,7 +106,7 @@ exports.handler = async (event) => {
 
 
 // --- 2) Load the HTML template file ---
-// Template sits in the same folder as this function.
+// Template lives right next to this function in /netlify/functions
 const templatePath = path.join(__dirname, "Report Template V4.3.html");
 
 let templateHtml;
@@ -120,6 +120,7 @@ try {
     body: "Report template missing on server.",
   };
 }
+
 
 
     // --- 3) Prepare values for placeholders ---
