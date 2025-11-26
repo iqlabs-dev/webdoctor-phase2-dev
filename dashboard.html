@@ -727,28 +727,29 @@
         flex-direction: column;
       }
     }
+
     .wd-pdf-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.7);
-  background: rgba(15, 23, 42, 0.9);
-  color: #e0f2fe;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
-}
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.7);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e0f2fe;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+    }
 
-.wd-pdf-btn:hover {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 1);
-  transform: translateY(-1px);
-}
+    .wd-pdf-btn:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 1);
+      transform: translateY(-1px);
+    }
 
-.scan-actions-pending {
-  font-size: 0.8rem;
-  color: #64748b;
-}
+    .scan-actions-pending {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
 
   </style>
 </head>
@@ -958,7 +959,7 @@
 
     const profile = data || {};
     const displayEmail = profile.email || user.email || "";
-    const displayName = profile.full_name || displayEmail || "WebDoctor user";
+    the displayName = profile.full_name || displayEmail || "WebDoctor user";
 
     const nameEl = document.getElementById("wd-user-name");
     const emailEl = document.getElementById("wd-user-email");
@@ -1017,9 +1018,9 @@
     const d = new Date(dateString);
     if (Number.isNaN(d.getTime())) return "—";
     const day = String(d.getDate()).padStart(2, "0");
-    const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase(); // MMM caps
+    const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
     const year = d.getFullYear();
-    return `${day} ${month} ${year}`; // DD MMM YYYY
+    return `${day} ${month} ${year}`;
   }
 
   function formatTime(dateString) {
@@ -1028,7 +1029,7 @@
     if (Number.isNaN(d.getTime())) return "—";
     const hours = String(d.getHours()).padStart(2, "0");
     const mins = String(d.getMinutes()).padStart(2, "0");
-    return `${hours}:${mins}`; // HH:MM (24-hour)
+    return `${hours}:${mins}`;
   }
 
   function getHostname(url) {
@@ -1069,142 +1070,168 @@
     setTimeout(() => toast.classList.remove("visible"), 1500);
   }
 
-function renderRows(records) {
-  const table = document.querySelector('.scan-history-table');
-  const tbody = table?.querySelector('tbody');
-  if (!tbody || !table) return;
+  // STEP 1: History rows → View report + Download PDF, and last-scan click
+  function renderRows(records) {
+    const table = document.querySelector(".scan-history-table");
+    const tbody = table?.querySelector("tbody");
+    if (!tbody || !table) return;
 
-  tbody.innerHTML = '';
+    tbody.innerHTML = "";
 
-  for (const rec of records) {
-    const tr = document.createElement('tr');
-    tr.className = 'scan-row';
+    for (const rec of records) {
+      const tr = document.createElement("tr");
+      tr.className = "scan-row";
 
-    const created = rec.created_at ? new Date(rec.created_at) : null;
+      const created = rec.created_at ? new Date(rec.created_at) : null;
 
-    const dateStr = created
-      ? created.toLocaleDateString('en-NZ', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric'
-        }).toUpperCase()
-      : '-';
+      const dateStr = created
+        ? created.toLocaleDateString("en-NZ", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          }).toUpperCase()
+        : "-";
 
-    const timeStr = created
-      ? created.toLocaleTimeString('en-NZ', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        })
-      : '-';
+      const timeStr = created
+        ? created.toLocaleTimeString("en-NZ", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          })
+        : "-";
 
-    const website = rec.url || rec.website || '-';
-    const score = rec.score ?? '-';
-    const status = (rec.status || 'Pending').toString();
-    const reportId = rec.report_id || rec.id || '-';
+      const website = rec.url || rec.website || "-";
+      const score = rec.score_overall ?? rec.score ?? "—";
+      const statusRaw = (rec.status || "Pending").toString();
+      const statusKey = getStatusKey(statusRaw);
+      const reportId = rec.report_id || rec.id || "-";
 
-    // DATE
-    const tdDate = document.createElement('td');
-    tdDate.textContent = dateStr;
-    tr.appendChild(tdDate);
+      // DATE
+      const tdDate = document.createElement("td");
+      tdDate.textContent = dateStr;
+      tr.appendChild(tdDate);
 
-    // TIME
-    const tdTime = document.createElement('td');
-    tdTime.textContent = timeStr;
-    tr.appendChild(tdTime);
+      // TIME
+      const tdTime = document.createElement("td");
+      tdTime.textContent = timeStr;
+      tr.appendChild(tdTime);
 
-    // WEBSITE
-    const tdSite = document.createElement('td');
-    tdSite.textContent = website;
-    tr.appendChild(tdSite);
+      // WEBSITE
+      const tdSite = document.createElement("td");
+      tdSite.textContent = website;
+      tr.appendChild(tdSite);
 
-    // SCORE
-    const tdScore = document.createElement('td');
-    tdScore.textContent = score;
-    tr.appendChild(tdScore);
+      // SCORE
+      const tdScore = document.createElement("td");
+      tdScore.textContent = score;
+      tr.appendChild(tdScore);
 
-    // STATUS
-    const tdStatus = document.createElement('td');
-    tdStatus.textContent = status;
-    tdStatus.className = `status-pill status-${status.toLowerCase()}`;
-    tr.appendChild(tdStatus);
+      // STATUS
+      const tdStatus = document.createElement("td");
+      tdStatus.textContent = getStatusLabel(statusRaw);
+      tdStatus.className = getStatusClass(statusRaw);
+      tr.appendChild(tdStatus);
 
-    // REPORT ID
-    const tdId = document.createElement('td');
-    tdId.textContent = reportId;
-    tr.appendChild(tdId);
+      // REPORT ID
+      const tdId = document.createElement("td");
+      tdId.textContent = reportId;
+      tr.appendChild(tdId);
 
-    // ACTIONS (PDF)
-    const tdActions = document.createElement('td');
+      // ACTIONS: View report + Download PDF
+      const tdActions = document.createElement("td");
+      tdActions.style.textAlign = "right";
 
-    if (status.toLowerCase() === 'completed' && reportId && reportId !== '-') {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'wd-pdf-btn';
-      btn.textContent = 'Download PDF';
-      btn.addEventListener('click', () => downloadPdf(reportId));
-      tdActions.appendChild(btn);
-    } else {
-      tdActions.textContent = 'Generating…';
-      tdActions.className = 'scan-actions-pending';
+      if (statusKey === "completed" && reportId && reportId !== "-") {
+        // View OSD report
+        const viewLink = document.createElement("a");
+        viewLink.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+        viewLink.target = "_blank";
+        viewLink.rel = "noopener";
+        viewLink.className = "action-link";
+        viewLink.textContent = "View report";
+        tdActions.appendChild(viewLink);
+
+        // Download PDF
+        const pdfBtn = document.createElement("button");
+        pdfBtn.type = "button";
+        pdfBtn.className = "wd-pdf-btn";
+        pdfBtn.textContent = "Download PDF";
+        pdfBtn.addEventListener("click", () => downloadPdf(reportId));
+        tdActions.appendChild(pdfBtn);
+      } else {
+        tdActions.textContent = "Generating…";
+        tdActions.className = "scan-actions-pending";
+      }
+
+      tr.appendChild(tdActions);
+      tbody.appendChild(tr);
     }
 
-    tr.appendChild(tdActions);
-
-    tbody.appendChild(tr);
-  }
-}
-async function downloadPdf(reportId) {
-  try {
-    const resp = await fetch('/.netlify/functions/docraptor-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        reportId: reportId,
-        html: `
-          <!doctype html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <title>WebDoctor Report ${reportId}</title>
-            </head>
-            <body>
-              <h1>WebDoctor test PDF</h1>
-              <p>This proves DocRaptor wiring works.</p>
-              <p>Report ID: ${reportId}</p>
-            </body>
-          </html>
-        `
-      })
-    });
-
-    if (!resp.ok) {
-      const text = await resp.text();
-      console.error('PDF download failed', resp.status, text);
-      alert('Sorry — there was a problem generating the PDF.');
-      return;
+    // Make last-scan card click open latest report
+    const lastScanCard = document.querySelector(".last-scan-card");
+    if (lastScanCard && records.length) {
+      const latest = records[0];
+      const latestId = latest.report_id || latest.id;
+      lastScanCard.onclick = () => {
+        if (!latestId) return;
+        window.open(
+          `/report.html?report_id=${encodeURIComponent(latestId)}`,
+          "_blank"
+        );
+      };
     }
-
-    const blob = await resp.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${reportId}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error('PDF download error', err);
-    alert('Sorry — there was a problem generating the PDF.');
   }
-}
 
+  // current test wiring for DocRaptor: HTML stub + reportId
+  async function downloadPdf(reportId) {
+    try {
+      const resp = await fetch("/.netlify/functions/docraptor-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportId: reportId,
+          html: `
+            <!doctype html>
+            <html>
+              <head>
+                <meta charset="utf-8" />
+                <title>WebDoctor Report ${reportId}</title>
+              </head>
+              <body>
+                <h1>WebDoctor test PDF</h1>
+                <p>This proves DocRaptor wiring works.</p>
+                <p>Report ID: ${reportId}</p>
+              </body>
+            </html>
+          `,
+        }),
+      });
 
+      if (!resp.ok) {
+        const text = await resp.text();
+        console.error("PDF download failed", resp.status, text);
+        alert("Sorry — there was a problem generating the PDF.");
+        return;
+      }
 
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
 
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${reportId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF download error", err);
+      alert("Sorry — there was a problem generating the PDF.");
+    }
+  }
+
+  // STEP 2: last-scan card links to /report.html + DocRaptor
   function updateLastScanCard(record) {
     const card = document.querySelector(".last-scan-card");
     if (!card) return;
@@ -1226,7 +1253,9 @@ async function downloadPdf(reportId) {
 
     const hostname = getHostname(record.url);
     if (siteEl) siteEl.textContent = hostname;
-    if (metaEl) metaEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
+    if (metaEl) {
+      metaEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
+    }
 
     if (scorePill && scoreSpan) {
       if (record.score_overall != null) {
@@ -1237,24 +1266,26 @@ async function downloadPdf(reportId) {
       }
     }
 
-    if (pdfLink) {
-      if (record.report_url) {
-        pdfLink.href = record.report_url;
-        pdfLink.target = "_blank";
-        pdfLink.style.display = "inline-flex";
-      } else {
-        pdfLink.style.display = "none";
-      }
+    const reportId = record.report_id || record.id;
+
+    // View full report (OSD)
+    if (viewLink && reportId) {
+      viewLink.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+      viewLink.target = "_blank";
+      viewLink.style.display = "inline-flex";
+    } else if (viewLink) {
+      viewLink.style.display = "none";
     }
 
-    if (viewLink) {
-      if (record.report_url) {
-        viewLink.href = record.report_url;
-        viewLink.target = "_blank";
-        viewLink.style.display = "inline-flex";
-      } else {
-        viewLink.style.display = "none";
-      }
+    // Download PDF (DocRaptor)
+    if (pdfLink && reportId) {
+      pdfLink.onclick = (e) => {
+        e.preventDefault();
+        downloadPdf(reportId);
+      };
+      pdfLink.style.display = "inline-flex";
+    } else if (pdfLink) {
+      pdfLink.style.display = "none";
     }
   }
 
@@ -1284,7 +1315,7 @@ async function downloadPdf(reportId) {
           formatTime(rec.created_at),
           getHostname(rec.url),
           rec.url || "",
-          rec.report_id || ""
+          rec.report_id || "",
         ]
           .join(" ")
           .toLowerCase();
@@ -1395,8 +1426,8 @@ async function downloadPdf(reportId) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             url,
-            userId: user?.id || null
-          })
+            userId: user?.id || null,
+          }),
         });
         json = await res.json();
       } catch (err) {
