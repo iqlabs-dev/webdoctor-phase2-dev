@@ -111,22 +111,23 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 2) Load the HTML template file ---
-    // Template lives in the project root (same place as index.html)
-    const templatePath = path.resolve(process.cwd(), "Report Template V4.3.html");
-    console.log("[get-report] Using template path:", templatePath);
+// --- 2) Load the HTML template file ---
+// Template now lives beside this function file in netlify/functions/
+const templatePath = path.join(__dirname, "report_template_v4_3.html");
+console.log("[get-report] Using template path:", templatePath);
 
-    let templateHtml;
-    try {
-      templateHtml = fs.readFileSync(templatePath, "utf8");
-    } catch (tplErr) {
-      console.error("[get-report] Could not read template:", tplErr);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Report template missing on server.",
-      };
-    }
+let templateHtml;
+try {
+  templateHtml = fs.readFileSync(templatePath, "utf8");
+} catch (tplErr) {
+  console.error("[get-report] Could not read template:", tplErr);
+  return {
+    statusCode: 500,
+    headers: { "Content-Type": "text/plain" },
+    body: "Report template missing on server.",
+  };
+}
+
 
     // --- 3) Prepare values for placeholders ---
     const { date, time } = formatNZDateTime(record.created_at);
