@@ -1189,16 +1189,6 @@ async function downloadPdf(reportId) {
   }
 }
 
-  // Last-scan card click → trigger first PDF button in history
-  const lastScanCard = document.querySelector(".last-scan-card");
-  if (lastScanCard) {
-    lastScanCard.onclick = () => {
-      const firstPdfBtn = document.querySelector(".scan-history-table .wd-pdf-btn");
-      if (firstPdfBtn) firstPdfBtn.click();
-    };
-  }
-
-  
 
   function updateLastScanCard(record) {
     const card = document.querySelector(".last-scan-card");
