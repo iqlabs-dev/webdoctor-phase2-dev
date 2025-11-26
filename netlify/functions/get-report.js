@@ -4,7 +4,7 @@
 // Called from: /report.html?report_id=WEB-YYJJJ-00001 (or legacy numeric ids)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads "Report Template V4.3.html" from the project root
+// - Loads report_template_v4_3.html from netlify/functions
 // - Replaces {{PLACEHOLDERS}} with real values
 // - Responds with text/html
 
@@ -59,7 +59,6 @@ exports.handler = async (event) => {
     console.log("[get-report] Incoming reportId:", reportId);
 
     // --- 1) Load scan record from Supabase ---
-
     let record = null;
 
     // 1a) Try by report_id (future-friendly WEB-YYJJJ-00001 etc)
@@ -111,23 +110,22 @@ exports.handler = async (event) => {
       };
     }
 
-// --- 2) Load the HTML template file ---
-// Template now lives beside this function file in netlify/functions/
-const templatePath = path.join(__dirname, "report_template_v4_3.html");
-console.log("[get-report] Using template path:", templatePath);
+    // --- 2) Load the HTML template file ---
+    // Template lives beside this function in netlify/functions/
+    const templatePath = path.join(__dirname, "report_template_v4_3.html");
+    console.log("[get-report] Using template path:", templatePath);
 
-let templateHtml;
-try {
-  templateHtml = fs.readFileSync(templatePath, "utf8");
-} catch (tplErr) {
-  console.error("[get-report] Could not read template:", tplErr);
-  return {
-    statusCode: 500,
-    headers: { "Content-Type": "text/plain" },
-    body: "Report template missing on server.",
-  };
-}
-
+    let templateHtml;
+    try {
+      templateHtml = fs.readFileSync(templatePath, "utf8");
+    } catch (tplErr) {
+      console.error("[get-report] Could not read template:", tplErr);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: "Report template missing on server.",
+      };
+    }
 
     // --- 3) Prepare values for placeholders ---
     const { date, time } = formatNZDateTime(record.created_at);
@@ -159,7 +157,7 @@ try {
       html = html.split(token).join(value);
     }
 
-    // --- 4) Respond with HTML for /report.html too display ---
+    // --- 4) Respond with HTML for /report.html to display ---
     return {
       statusCode: 200,
       headers: {
