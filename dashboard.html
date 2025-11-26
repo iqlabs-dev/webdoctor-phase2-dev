@@ -1156,11 +1156,15 @@ function renderRows(records) {
 }
 async function downloadPdf(reportId) {
   try {
-    const resp = await fetch('/.netlify/functions/download-pdf', {
+    const resp = await fetch('/.netlify/functions/docraptor-pdf', {
+
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ report_id: reportId })
-    });
+  body: JSON.stringify({
+  reportId,
+  html: "<h1>This proves PDF works</h1>"
+})
+
 
     if (!resp.ok) {
       console.error('PDF download failed', resp.status);
@@ -1185,14 +1189,15 @@ async function downloadPdf(reportId) {
   }
 }
 
-    // Last-scan card click → first PDF link
-    const lastScanCard = document.querySelector(".last-scan-card");
-    if (lastScanCard) {
-      lastScanCard.onclick = () => {
-        const firstPdf = tbody.querySelector(".action-link");
-        if (firstPdf) firstPdf.click();
-      };
-    }
+  // Last-scan card click → trigger first PDF button in history
+  const lastScanCard = document.querySelector(".last-scan-card");
+  if (lastScanCard) {
+    lastScanCard.onclick = () => {
+      const firstPdfBtn = document.querySelector(".scan-history-table .wd-pdf-btn");
+      if (firstPdfBtn) firstPdfBtn.click();
+    };
+  }
+
   
 
   function updateLastScanCard(record) {
