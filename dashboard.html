@@ -1157,14 +1157,13 @@ function renderRows(records) {
 async function downloadPdf(reportId) {
   try {
     const resp = await fetch('/.netlify/functions/docraptor-pdf', {
-
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-  reportId,
-  html: "<h1>This proves PDF works</h1>"
-})
-
+      body: JSON.stringify({
+        reportId,
+        html: '<h1>This proves PDF works</h1>'
+      })
+    });
 
     if (!resp.ok) {
       console.error('PDF download failed', resp.status);
@@ -1188,6 +1187,7 @@ async function downloadPdf(reportId) {
     alert('Sorry — there was a problem generating the PDF.');
   }
 }
+
 
 
   function updateLastScanCard(record) {
