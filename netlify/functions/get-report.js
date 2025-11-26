@@ -158,7 +158,7 @@ exports.handler = async (event) => {
       html = html.split(token).join(value);
     }
 
-    // --- 4) Respond with HTML for /report.html to display ---
+    // --- 4) Respond with HTML for /report.html too display ---
     return {
       statusCode: 200,
       headers: {
