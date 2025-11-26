@@ -957,9 +957,10 @@
       console.error("Error loading profile", error);
     }
 
-    const profile = data || {};
-    const displayEmail = profile.email || user.email || "";
-    the displayName = profile.full_name || displayEmail || "WebDoctor user";
+  const profile = data || {};
+const displayEmail = profile.email || user.email || "";
+const displayName = profile.full_name || displayEmail || "WebDoctor user";
+
 
     const nameEl = document.getElementById("wd-user-name");
     const emailEl = document.getElementById("wd-user-email");
