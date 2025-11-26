@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WebDoctor Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #050814;
+      color: #e8eef2;
+      font-family: Montserrat, sans-serif;
+    }
+
+    #report-root {
+      max-width: 960px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="report-root">Loading report…</div>
+
+  <script type="module">
+    async function loadReport() {
+      const params = new URLSearchParams(window.location.search);
+      const reportId = params.get("id");
+
+      if (!reportId) {
+        document.getElementById("report-root").innerHTML = "<p>No report ID found.</p>";
+        return;
+      }
+
+      const resp = await fetch(`/.netlify/functions/get-report?report_id=${reportId}`);
+      const json = await resp.json();
+
+      if (!json.success) {
+        document.getElementById("report-root").innerHTML = "<p>Unable to load report.</p>";
+        return;
+      }
+
+      // Inject stored HTML
+      document.getElementById("report-root").innerHTML = json.html;
+    }
+
+    loadReport();
+  </script>
+</body>
+</html>
