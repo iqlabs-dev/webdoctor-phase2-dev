@@ -6,6 +6,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const SITE_URL =
   process.env.SITE_URL || 'https://deluxe-sherbet-c8ac68.netlify.app';
 
+// Allow both new iQWEB plans and (optionally) legacy ones
+const ALLOWED_PRICE_IDS = new Set([
+  process.env.PRICE_ID_INSIGHT,
+  process.env.PRICE_ID_INTELLIGENCE,
+  process.env.PRICE_ID_IMPACT,
+
+  // keep these if you still have old WebDoctor buttons anywhere
+  process.env.PRICE_ID_SCAN,
+  process.env.PRICE_ID_DIAGNOSE,
+  process.env.PRICE_ID_REVIVE,
+]);
+
 export default async (request, context) => {
   // Only allow POST
   if (request.method !== 'POST') {
@@ -33,6 +45,15 @@ export default async (request, context) => {
     );
   }
 
+  // Basic safety: make sure priceId is one of YOUR Stripe prices
+  if (!ALLOWED_PRICE_IDS.has(priceId)) {
+    console.warn('Attempt to use disallowed priceId:', priceId);
+    return new Response(
+      JSON.stringify({ error: 'Invalid priceId' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -45,7 +66,7 @@ export default async (request, context) => {
         },
       ],
       success_url: `${SITE_URL}/thanks.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}#pricing`,
+      cancel_url: `${SITE_URL}/#pricing`,
     });
 
     return new Response(

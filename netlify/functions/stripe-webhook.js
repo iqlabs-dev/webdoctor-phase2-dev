@@ -12,16 +12,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// New iQWEB plan price IDs from Netlify env
-const PRICE_ID_INSIGHT = process.env.PRICE_ID_INSIGHT;           // $29
-const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE; // $75
-const PRICE_ID_IMPACT = process.env.PRICE_ID_IMPACT;             // $149
+/**
+ * PLAN IDS
+ * New iQWEB plans (Insight / Intelligence / Impact)
+ */
+const PRICE_ID_INSIGHT       = process.env.PRICE_ID_INSIGHT;        // e.g. $29
+const PRICE_ID_INTELLIGENCE  = process.env.PRICE_ID_INTELLIGENCE;   // e.g. $75
+const PRICE_ID_IMPACT        = process.env.PRICE_ID_IMPACT;         // e.g. $149;
 
-// Monthly scan limits for each plan
+/**
+ * Legacy WebDoctor plan IDs (SCAN / DIAGNOSE / REVIVE)
+ * These map 1:1 to the new plans so old checkout flows still work.
+ */
+const PRICE_ID_SCAN      = process.env.PRICE_ID_SCAN;      // maps to Insight
+const PRICE_ID_DIAGNOSE  = process.env.PRICE_ID_DIAGNOSE;  // maps to Intelligence
+const PRICE_ID_REVIVE    = process.env.PRICE_ID_REVIVE;    // maps to Impact
+
+// Monthly scan limits for each plan (new + legacy IDs)
 const PLAN_LIMITS = {
+  // New
   [PRICE_ID_INSIGHT]: 100,        // Insight: 100 scans / month
   [PRICE_ID_INTELLIGENCE]: 250,   // Intelligence: 250 scans / month
-  [PRICE_ID_IMPACT]: 500          // Impact: 500 scans / month
+  [PRICE_ID_IMPACT]: 500,         // Impact: 500 scans / month
+
+  // Legacy – same limits, just different price IDs
+  [PRICE_ID_SCAN]: 100,
+  [PRICE_ID_DIAGNOSE]: 250,
+  [PRICE_ID_REVIVE]: 500
 };
 
 // Helper: set plan + monthly limit on profile
@@ -30,9 +47,15 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
 
   // subscription_status text for your UI/dashboard
   let subscriptionStatus = null;
-  if (priceId === PRICE_ID_INSIGHT) subscriptionStatus = 'insight';
-  if (priceId === PRICE_ID_INTELLIGENCE) subscriptionStatus = 'intelligence';
-  if (priceId === PRICE_ID_IMPACT) subscriptionStatus = 'impact';
+
+  // Treat new + legacy IDs as the same logical tier
+  if (priceId === PRICE_ID_INSIGHT || priceId === PRICE_ID_SCAN) {
+    subscriptionStatus = 'insight';
+  } else if (priceId === PRICE_ID_INTELLIGENCE || priceId === PRICE_ID_DIAGNOSE) {
+    subscriptionStatus = 'intelligence';
+  } else if (priceId === PRICE_ID_IMPACT || priceId === PRICE_ID_REVIVE) {
+    subscriptionStatus = 'impact';
+  }
 
   const { error } = await supabase
     .from('profiles')
