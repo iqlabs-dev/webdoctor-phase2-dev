@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB — Dashboard</title>
+  <title>WebDoctor — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
@@ -249,12 +249,6 @@
       font-size: 18px;
       color: var(--ink-soft);
       margin-bottom: 24px;
-      line-height: 1.55;
-    }
-
-    .subtext strong {
-      color: var(--highlight);
-      font-weight: 600;
     }
 
     /* SUMMARY CARD */
@@ -293,12 +287,46 @@
       color: #fb923c;
     }
 
-    .hint-text {
-      font-size: 14px;
-      color: var(--muted);
+    .last-scan-site {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 4px;
     }
 
-    /* INLINE RUN STRIP */
+    .last-scan-meta {
+      font-size: 14px;
+      color: var(--ink-soft);
+      margin-bottom: 8px;
+    }
+
+    .score-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(10,180,130,0.14);
+      font-size: 14px;
+      color: #5ffac5;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .score-pill span.score {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .summary-actions {
+      margin-top: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+
+    /* Inline run strip */
 
     .run-strip {
       margin-top: 18px;
@@ -361,89 +389,22 @@
       opacity: 0.92;
     }
 
-    /* PREMIUM LATEST SCAN CARD */
+    .hint-text {
+      font-size: 14px;
+      color: var(--muted);
+    }
 
-    .latest-scan-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 20px;
-      padding: 28px 26px;
-      text-align: center;
+    /* Last scan clickable */
+
+    .last-scan-card {
       cursor: pointer;
-      transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+      transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
     }
 
-    .latest-scan-card:hover {
-      background: rgba(255, 255, 255, 0.06);
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-    }
-
-    .ls-label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      color: #38bdf8;
-      margin-bottom: 18px;
-    }
-
-    .ls-url {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #e2e8f0;
-    }
-
-    .ls-date {
-      margin-top: 6px;
-      font-size: 0.92rem;
-      color: #cbd5e1;
-    }
-
-    .ls-score-box {
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .ls-score-pill {
-      background: #0ea5e9;
-      padding: 6px 16px;
-      color: white;
-      font-weight: 700;
-      border-radius: 40px;
-      font-size: 1rem;
-      margin-bottom: 4px;
-    }
-
-    .ls-score-text {
-      font-size: 0.85rem;
-      color: #cbd5e1;
-    }
-
-    .ls-footer {
-      margin-top: 22px;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #38bdf8;
-      align-items: center;
-      opacity: 0.85;
-      transition: opacity 0.2s;
-    }
-
-    .latest-scan-card:hover .ls-footer {
-      opacity: 1;
-    }
-
-    .ls-arrow {
-      opacity: 0.85;
-    }
-
-    .latest-scan-card:hover .ls-arrow {
-      opacity: 1;
+    .last-scan-card:hover {
+      box-shadow: 0 0 40px rgba(0,0,0,0.7);
+      border-color: rgba(93,216,255,0.5);
+      transform: translateY(-1px);
     }
 
     /* LAYOUT GRID */
@@ -836,10 +797,7 @@
   <div class="section">
     <h1>Welcome back, <span id="wd-user-name">there</span></h1>
     <div class="subtext">
-      <strong>Scan</strong> — run instant website health checks.<br>
-      <strong>View</strong> — access your latest and past scans.<br>
-      <strong>Share</strong> — download reports anytime.<br>
-      All from one place.
+      Run new scans, check your last diagnosis, and download reports — all from one place.
     </div>
 
     <div class="summary-grid">
@@ -871,24 +829,17 @@
         </div>
       </div>
 
-      <!-- NEW PREMIUM LATEST SCAN CARD -->
-      <div class="summary-block">
-        <div id="latest-scan-card" class="latest-scan-card">
-          <div class="ls-label">LATEST SCAN</div>
-          <div class="ls-body">
-            <div id="ls-url" class="ls-url">No scans yet</div>
-            <div id="ls-date" class="ls-date">Run your first WebDoctor scan to see it here.</div>
-            <div class="ls-score-box">
-              <span id="ls-score" class="ls-score-pill" style="display:none;">—</span>
-              <span class="ls-score-text">Overall score</span>
-            </div>
-          </div>
-          <div class="ls-footer">
-            <span>View full report</span>
-            <svg class="ls-arrow" width="16" height="16" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M9 18l6-6-6-6"/>
-            </svg>
-          </div>
+      <div class="summary-block last-scan-card">
+        <div class="summary-label">Last scan</div>
+        <div class="last-scan-site">No scans yet</div>
+        <div class="last-scan-meta">Run your first WebDoctor scan to see it here.</div>
+        <div class="score-pill" style="display:none;">
+          <span class="score">—</span>
+          Overall score
+        </div>
+        <div class="summary-actions" style="margin-top:18px;">
+          <a href="#" class="action-link" style="display:none;">View full report</a>
+          <a href="#" class="action-link" style="display:none;">Download PDF</a>
         </div>
       </div>
     </div>
@@ -1006,9 +957,10 @@
       console.error("Error loading profile", error);
     }
 
-    const profile = data || {};
-    const displayEmail = profile.email || user.email || "";
-    const displayName = profile.full_name || displayEmail || "WebDoctor user";
+  const profile = data || {};
+const displayEmail = profile.email || user.email || "";
+const displayName = profile.full_name || displayEmail || "WebDoctor user";
+
 
     const nameEl = document.getElementById("wd-user-name");
     const emailEl = document.getElementById("wd-user-email");
@@ -1119,7 +1071,7 @@
     setTimeout(() => toast.classList.remove("visible"), 1500);
   }
 
-  // STEP 1: History rows → View report + Download PDF, and latest-scan click
+  // STEP 1: History rows → View report + Download PDF, and last-scan click
   function renderRows(records) {
     const table = document.querySelector(".scan-history-table");
     const tbody = table?.querySelector("tbody");
@@ -1165,16 +1117,10 @@
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
-// WEBSITE (clickable: focuses this scan in Latest Scan card)
-const tdSite = document.createElement("td");
-tdSite.textContent = website;
-tdSite.style.cursor = "pointer";
-tdSite.title = "Show this scan in the Latest Scan card";
-tdSite.addEventListener("click", () => {
-  updateLastScanCard(rec);
-});
-tr.appendChild(tdSite);
-
+      // WEBSITE
+      const tdSite = document.createElement("td");
+      tdSite.textContent = website;
+      tr.appendChild(tdSite);
 
       // SCORE
       const tdScore = document.createElement("td");
@@ -1192,37 +1138,51 @@ tr.appendChild(tdSite);
       tdId.textContent = reportId;
       tr.appendChild(tdId);
 
-      // ACTIONS (VIEW + PDF)
-      const tdActions = document.createElement("td");
-      tdActions.style.textAlign = "right";
+// ACTIONS (VIEW + PDF)
+const tdActions = document.createElement('td');
+tdActions.style.textAlign = 'right';
 
-      if (statusKey === "completed" && reportId && reportId !== "-") {
-        // VIEW PDF (opens report.html in new tab)
-        const viewBtn = document.createElement("button");
-        viewBtn.type = "button";
-        viewBtn.className = "wd-pdf-btn";
-        viewBtn.textContent = "View PDF";
-        viewBtn.style.marginRight = "8px";
-        viewBtn.addEventListener("click", () => {
-          window.open(`/report.html?report_id=${reportId}`, "_blank");
-        });
-        tdActions.appendChild(viewBtn);
+if (status.toLowerCase() === 'completed' && reportId && reportId !== '-') {
+  // VIEW PDF (opens report.html in new tab)
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'wd-pdf-btn';        // you can make a wd-view-btn later
+  viewBtn.textContent = 'VIEW  PDF';
+  viewBtn.style.marginRight = '8px';
+  viewBtn.addEventListener('click', () => {
+    window.open(`/report.html?report_id=${reportId}`, '_blank');
+  });
+  tdActions.appendChild(viewBtn);
 
-        // DOWNLOAD PDF
-        const dlBtn = document.createElement("button");
-        dlBtn.type = "button";
-        dlBtn.className = "wd-pdf-btn";
-        dlBtn.textContent = "Download PDF";
-        dlBtn.addEventListener("click", () => downloadPdf(reportId));
-        tdActions.appendChild(dlBtn);
-      } else {
-        tdActions.textContent = "Generating…";
-        tdActions.className = "scan-actions-pending";
-      }
+  // DOWNLOAD PDF
+  const dlBtn = document.createElement('button');
+  dlBtn.type = 'button';
+  dlBtn.className = 'wd-pdf-btn';
+  dlBtn.textContent = 'Download PDF';
+  dlBtn.addEventListener('click', () => downloadPdf(reportId));
+  tdActions.appendChild(dlBtn);
+} else {
+  tdActions.textContent = 'Generating…';
+  tdActions.className = 'scan-actions-pending';
+}
 
-      tr.appendChild(tdActions);
+tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
+    }
+
+    // Make last-scan card click open latest report
+    const lastScanCard = document.querySelector(".last-scan-card");
+    if (lastScanCard && records.length) {
+      const latest = records[0];
+      const latestId = latest.report_id || latest.id;
+      lastScanCard.onclick = () => {
+        if (!latestId) return;
+        window.open(
+          `/report.html?report_id=${encodeURIComponent(latestId)}`,
+          "_blank"
+        );
+      };
     }
   }
 
@@ -1275,49 +1235,62 @@ tr.appendChild(tdSite);
     }
   }
 
-  // STEP 2: latest-scan card → view latest report
+  // STEP 2: last-scan card links to /report.html + DocRaptor
   function updateLastScanCard(record) {
-    const card = document.getElementById("latest-scan-card");
+    const card = document.querySelector(".last-scan-card");
     if (!card) return;
 
-    const urlEl = document.getElementById("ls-url");
-    const dateEl = document.getElementById("ls-date");
-    const scoreEl = document.getElementById("ls-score");
+    const siteEl = card.querySelector(".last-scan-site");
+    const metaEl = card.querySelector(".last-scan-meta");
+    const scorePill = card.querySelector(".score-pill");
+    const scoreSpan = card.querySelector(".score-pill .score");
+    const [viewLink, pdfLink] = card.querySelectorAll(".summary-actions .action-link");
 
     if (!record) {
-      if (urlEl) urlEl.textContent = "No scans yet";
-      if (dateEl) dateEl.textContent = "Run your first WebDoctor scan to see it here.";
-      if (scoreEl) scoreEl.style.display = "none";
-      card.dataset.reportId = "";
-      card.onclick = null;
+      if (siteEl) siteEl.textContent = "No scans yet";
+      if (metaEl) metaEl.textContent = "Run your first WebDoctor scan to see it here.";
+      if (scorePill) scorePill.style.display = "none";
+      if (viewLink) viewLink.style.display = "none";
+      if (pdfLink) pdfLink.style.display = "none";
       return;
     }
 
     const hostname = getHostname(record.url);
-    if (urlEl) urlEl.textContent = hostname;
-    if (dateEl) {
-      dateEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
+    if (siteEl) siteEl.textContent = hostname;
+    if (metaEl) {
+      metaEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
     }
 
-    if (scoreEl) {
+    if (scorePill && scoreSpan) {
       if (record.score_overall != null) {
-        scoreEl.textContent = record.score_overall;
-        scoreEl.style.display = "inline-block";
+        scoreSpan.textContent = record.score_overall;
+        scorePill.style.display = "inline-flex";
       } else {
-        scoreEl.style.display = "none";
+        scorePill.style.display = "none";
       }
     }
 
     const reportId = record.report_id || record.id;
-    card.dataset.reportId = reportId || "";
 
-    card.onclick = () => {
-      if (!card.dataset.reportId) return;
-      window.open(
-        `/report.html?report_id=${encodeURIComponent(card.dataset.reportId)}`,
-        "_blank"
-      );
-    };
+    // View full report (OSD)
+    if (viewLink && reportId) {
+      viewLink.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+      viewLink.target = "_blank";
+      viewLink.style.display = "inline-flex";
+    } else if (viewLink) {
+      viewLink.style.display = "none";
+    }
+
+    // Download PDF (DocRaptor)
+    if (pdfLink && reportId) {
+      pdfLink.onclick = (e) => {
+        e.preventDefault();
+        downloadPdf(reportId);
+      };
+      pdfLink.style.display = "inline-flex";
+    } else if (pdfLink) {
+      pdfLink.style.display = "none";
+    }
   }
 
   function applyFiltersAndRender() {
@@ -1330,7 +1303,6 @@ tr.appendChild(tdSite);
       if (emptyNone) emptyNone.style.display = "block";
       if (emptyFiltered) emptyFiltered.style.display = "none";
       renderRows([]);
-      updateLastScanCard(null);
       return;
     }
 
@@ -1360,7 +1332,6 @@ tr.appendChild(tdSite);
       if (emptyNone) emptyNone.style.display = "none";
       if (emptyFiltered) emptyFiltered.style.display = "block";
       renderRows([]);
-      updateLastScanCard(null);
       return;
     }
 
@@ -1369,7 +1340,6 @@ tr.appendChild(tdSite);
     if (emptyFiltered) emptyFiltered.style.display = "none";
 
     renderRows(filtered);
-    updateLastScanCard(filtered[0] || null);
   }
 
   async function loadScanHistory(userId) {
@@ -1393,6 +1363,7 @@ tr.appendChild(tdSite);
     }
 
     applyFiltersAndRender();
+    updateLastScanCard(allRecords[0] || null);
   }
 
   // Expose for debugging if needed
