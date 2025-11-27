@@ -118,13 +118,10 @@ export default async (request, context) => {
         }
 
         if (!existingProfile) {
-          // No profile yet → create one with a new uuid
-          const newUserId = crypto.randomUUID();
-
+          // No profile yet → create a profile for this Stripe customer
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
-              user_id_uuid: newUserId,   // matches your table column
               email: customerEmail,
               stripe_customer_id: customerId,
               credits: 0,
@@ -135,6 +132,7 @@ export default async (request, context) => {
             console.error('Error inserting new profile:', insertError);
           }
         } else {
+
           // Profile exists → just attach stripe_customer_id
           const { error: updateError } = await supabase
             .from('profiles')
