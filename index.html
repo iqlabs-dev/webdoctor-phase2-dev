@@ -679,7 +679,46 @@
       font-size: 0.82rem;
       color: var(--muted);
       opacity: 0.75;
-      margin: 12px 0 22px;
+      margin: 12px 0 8px;
+    }
+
+    /* NEW: CTA button inside pricing cards */
+    .pricing-cta {
+      margin-top: 8px;
+      align-self: flex-start;
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      border: 1px solid rgba(34,211,238,0.7);
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      color: var(--ink-soft);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 12px 28px rgba(15,23,42,0.85);
+      transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
+    }
+
+    .pricing-cta:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.95);
+      box-shadow: 0 18px 40px rgba(34,211,238,0.55);
+      color: var(--ink);
+    }
+
+    .pricing-status {
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+      min-height: 1em;
+      margin-top: 4px;
     }
 
     /* TRUST */
@@ -1069,6 +1108,10 @@
             <div class="pricing-meta">Per account, billed monthly.</div>
             <div class="pricing-meta">100 scans · PDF included · No auto-overage.</div>
             <div class="pricing-pill">Solo founders &amp; small sites</div>
+            <!-- NEW: CTA button -->
+            <button id="btn-landing-insight" class="pricing-cta">
+              Start with Scan
+            </button>
           </div>
 
           <div class="pricing-card pricing-card--featured">
@@ -1078,6 +1121,10 @@
             <div class="pricing-meta">Per account, billed monthly.</div>
             <div class="pricing-meta">250 scans · PDF included · No auto-overage.</div>
             <div class="pricing-pill">Busy studios &amp; funnels</div>
+            <!-- NEW: CTA button -->
+            <button id="btn-landing-intelligence" class="pricing-cta">
+              Start with Diagnose
+            </button>
           </div>
 
           <div class="pricing-card">
@@ -1087,10 +1134,17 @@
             <div class="pricing-meta">Per account, billed monthly.</div>
             <div class="pricing-meta">500 scans · PDF included · No auto-overage.</div>
             <div class="pricing-pill">Agencies &amp; larger teams</div>
+            <!-- NEW: CTA button -->
+            <button id="btn-landing-impact" class="pricing-cta">
+              Start with Revive
+            </button>
           </div>
         </div>
 
         <p class="pricing-note">All prices in USD.</p>
+
+        <!-- NEW: status line -->
+        <p id="pricing-status" class="pricing-status"></p>
 
         <div class="pricing-lock">
           🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.
@@ -1161,5 +1215,68 @@
     </footer>
 
   </div>
+
+  <!-- NEW: Stripe checkout wiring for main-page pricing -->
+  <script>
+    // Map plans to Stripe price IDs (TEST MODE IDs)
+    const LANDING_PLAN_PRICE_IDS = {
+      insight: 'price_1SQ4knHrtPY0HwDpFHfxNdoZ',       // $29 – 100 scans
+      intelligence: 'price_1SQ4oZHrtPY0HwDpjLOnlC5k',  // $75 – 250 scans
+      impact: 'price_1SQ4qUHrtPY0HwDpSDWJDBpb',        // $149 – 500 scans
+    };
+
+    async function startLandingCheckout(planKey) {
+      const priceId = LANDING_PLAN_PRICE_IDS[planKey];
+      const statusEl = document.getElementById('pricing-status');
+
+      if (!priceId) {
+        console.error('Unknown planKey for checkout:', planKey);
+        if (statusEl) statusEl.textContent = 'Unable to start checkout (invalid plan).';
+        return;
+      }
+
+      // On the public site we probably don't have a logged-in user yet.
+      let email = window.currentUserEmail || null;
+      if (!email) {
+        email = window.prompt('Enter your email to continue with secure checkout:');
+      }
+      if (!email) {
+        console.warn('No email provided – checkout cancelled.');
+        if (statusEl) statusEl.textContent = 'Checkout cancelled — no email entered.';
+        return;
+      }
+
+      try {
+        if (statusEl) statusEl.textContent = 'Opening secure Stripe checkout…';
+
+        const res = await fetch('/.netlify/functions/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priceId, email }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.url) {
+          console.error('Checkout session error:', data);
+          if (statusEl) statusEl.textContent = 'Unable to start checkout. Please try again.';
+          return;
+        }
+
+        window.location.href = data.url;
+      } catch (err) {
+        console.error('Checkout error:', err);
+        if (statusEl) statusEl.textContent = 'Checkout failed. Please try again.';
+      }
+    }
+
+    document.getElementById('btn-landing-insight')
+      ?.addEventListener('click', () => startLandingCheckout('insight'));
+
+    document.getElementById('btn-landing-intelligence')
+      ?.addEventListener('click', () => startLandingCheckout('intelligence'));
+
+    document.getElementById('btn-landing-impact')
+      ?.addEventListener('click', () => startLandingCheckout('impact'));
+  </script>
 </body>
 </html>
