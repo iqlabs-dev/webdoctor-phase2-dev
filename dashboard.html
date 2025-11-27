@@ -790,6 +790,22 @@
       color: #64748b;
     }
 
+    /* WEBSITE column as blue, hyperlink-style text */
+    .history-site-link {
+      color: var(--highlight);
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-block;
+      max-width: 100%;
+    }
+
+    .history-site-link:hover {
+      text-decoration: underline;
+    }
+
   </style>
 </head>
 
@@ -1165,16 +1181,15 @@
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
-// WEBSITE (clickable: focuses this scan in Latest Scan card)
-const tdSite = document.createElement("td");
-tdSite.textContent = website;
-tdSite.style.cursor = "pointer";
-tdSite.title = "Show this scan in the Latest Scan card";
-tdSite.addEventListener("click", () => {
-  updateLastScanCard(rec);
-});
-tr.appendChild(tdSite);
-
+      // WEBSITE (blue clickable, focuses this scan in Latest Scan card)
+      const tdSite = document.createElement("td");
+      tdSite.className = "history-site-link";
+      tdSite.textContent = website;
+      tdSite.title = website;
+      tdSite.addEventListener("click", () => {
+        updateLastScanCard(rec);
+      });
+      tr.appendChild(tdSite);
 
       // SCORE
       const tdScore = document.createElement("td");
