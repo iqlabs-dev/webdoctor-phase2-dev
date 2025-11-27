@@ -12,36 +12,36 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Stripe price IDs from Netlify env
-const PRICE_ID_SCAN = process.env.PRICE_ID_SCAN;           // $14.95 — 100 scans
-const PRICE_ID_DIAGNOSE = process.env.PRICE_ID_DIAGNOSE;   // $29.95 — 300 scans
-const PRICE_ID_REVIVE = process.env.PRICE_ID_REVIVE;       // $49.95 — 700 scans
+// New iQWEB plan price IDs from Netlify env
+const PRICE_ID_INSIGHT = process.env.PRICE_ID_INSIGHT;           // $29
+const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE; // $75
+const PRICE_ID_IMPACT = process.env.PRICE_ID_IMPACT;             // $149
 
-// Locked monthly limits for each plan
+// Monthly scan limits for each plan
 const PLAN_LIMITS = {
-  [PRICE_ID_SCAN]: 100,
-  [PRICE_ID_DIAGNOSE]: 300,
-  [PRICE_ID_REVIVE]: 700
+  [PRICE_ID_INSIGHT]: 100,        // Insight: 100 scans / month
+  [PRICE_ID_INTELLIGENCE]: 250,   // Intelligence: 250 scans / month
+  [PRICE_ID_IMPACT]: 500          // Impact: 500 scans / month
 };
 
 // Helper: set plan + monthly limit on profile
 async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
   const monthlyLimit = PLAN_LIMITS[priceId] ?? null;
 
-  // work out a simple status string based on plan
+  // subscription_status text for your UI/dashboard
   let subscriptionStatus = null;
-  if (priceId === PRICE_ID_SCAN) subscriptionStatus = 'scan';
-  if (priceId === PRICE_ID_DIAGNOSE) subscriptionStatus = 'diagnose';
-  if (priceId === PRICE_ID_REVIVE) subscriptionStatus = 'revive';
+  if (priceId === PRICE_ID_INSIGHT) subscriptionStatus = 'insight';
+  if (priceId === PRICE_ID_INTELLIGENCE) subscriptionStatus = 'intelligence';
+  if (priceId === PRICE_ID_IMPACT) subscriptionStatus = 'impact';
 
   const { error } = await supabase
     .from('profiles')
     .update({
       plan_price_id: priceId,
       monthly_limit: monthlyLimit,
-      reports_used: 0,            // reset count on new / changed subscription
+      reports_used: 0,               // reset counter on new/changed sub
       subscription_status: subscriptionStatus,
-      trial_start: null,          // clear 3-day trial when paid sub is active
+      trial_start: null,             // clear trial when paid sub is active
       trial_end: null
     })
     .eq('stripe_customer_id', stripeCustomerId);
@@ -51,6 +51,7 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
   }
 }
 
+// Default Netlify function export
 export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -77,9 +78,12 @@ export default async (request, context) => {
         const customerEmail =
           session.customer_details?.email || session.customer_email;
 
-        if (!customerId || !subscriptionId || !customerEmail) break;
+        if (!customerId || !subscriptionId || !customerEmail) {
+          console.warn('Missing customer/subscription/email on session');
+          break;
+        }
 
-        // 1) Make sure a profile row exists for this email
+        // 1) Ensure a profile row exists for this email
         const { data: existingProfile, error: selectError } = await supabase
           .from('profiles')
           .select('email')
@@ -97,7 +101,7 @@ export default async (request, context) => {
           const { error: insertError } = await supabase
             .from('profiles')
             .insert({
-              user_id_uuid: newUserId,     // matches your table column name
+              user_id_uuid: newUserId,   // matches your table column
               email: customerEmail,
               stripe_customer_id: customerId,
               credits: 0,
