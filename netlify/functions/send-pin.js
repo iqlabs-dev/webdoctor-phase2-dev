@@ -1,85 +1,96 @@
 // netlify/functions/send-pin.js
-import { createClient } from '@supabase/supabase-js';
+// Sends a 6-digit OTP code email via Supabase (not a magic link)
 
-// Use the same env vars you already use in stripe-webhook.js
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Server-side Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ ok: false, message: 'Method not allowed' }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, message: "Method not allowed" }),
+    };
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(event.body || "{}");
+  } catch (err) {
+    console.error("send-pin: invalid JSON body", err);
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, message: "Invalid request body" }),
+    };
+  }
+
+  const rawEmail = (payload.email || "").trim();
+  const email = rawEmail.toLowerCase();
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: false, message: "Valid email required" }),
+    };
+  }
+
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("send-pin: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: false,
+        message: "Server misconfigured (Supabase credentials missing)",
+      }),
     };
   }
 
   try {
-    const body = JSON.parse(event.body || '{}');
-    const email = (body.email || '').trim();
-
-    if (!email) {
-      return {
-        statusCode: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ ok: false, message: 'Email is required' }),
-      };
-    }
-
-    // Ask Supabase Auth to send a 6-digit OTP email for this address.
-    // Make sure in your Supabase Auth settings, "Email OTP" is enabled
-    // (not just magic links).
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true, // create user on first sign-in
+    // Call Supabase Auth OTP endpoint directly to send a 6-digit code.
+    const resp = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        email,
+        create_user: true,  // create account on first login
+        type: "email",      // <-- IMPORTANT: send OTP email, not magic link
+      }),
     });
 
-    if (error) {
-      console.error('send-pin: Supabase signInWithOtp error', error);
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("send-pin: Supabase OTP error", resp.status, text);
       return {
         statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ok: false,
-          message: 'Unable to send code. Please try again.',
+          success: false,
+          message: "Could not send code. Please try again.",
         }),
       };
     }
 
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ ok: true }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ success: true }),
     };
   } catch (err) {
-    console.error('send-pin unexpected error', err);
+    console.error("send-pin: unexpected error", err);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ok: false,
-        message: 'Server error while sending code.',
+        success: false,
+        message: "Unexpected server error",
       }),
     };
   }
-};
+}
