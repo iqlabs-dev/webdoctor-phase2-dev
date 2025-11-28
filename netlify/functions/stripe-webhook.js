@@ -1,7 +1,6 @@
 // netlify/functions/stripe-webhook.js
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
 
 // Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -16,9 +15,9 @@ const supabase = createClient(
  * PLAN IDS
  * New iQWEB plans (Insight / Intelligence / Impact)
  */
-const PRICE_ID_INSIGHT       = process.env.PRICE_ID_INSIGHT;        // e.g. $29
-const PRICE_ID_INTELLIGENCE  = process.env.PRICE_ID_INTELLIGENCE;   // e.g. $75
-const PRICE_ID_IMPACT        = process.env.PRICE_ID_IMPACT;         // e.g. $149;
+const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT;       // e.g. $29
+const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE;  // e.g. $75
+const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT;        // e.g. $149
 
 /**
  * Legacy WebDoctor plan IDs (SCAN / DIAGNOSE / REVIVE)
@@ -55,6 +54,8 @@ async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
     subscriptionStatus = 'intelligence';
   } else if (priceId === PRICE_ID_IMPACT || priceId === PRICE_ID_REVIVE) {
     subscriptionStatus = 'impact';
+  } else {
+    console.warn('Unknown price ID in setPlanLimitOnProfile:', priceId);
   }
 
   const { error } = await supabase
@@ -132,7 +133,6 @@ export default async (request, context) => {
             console.error('Error inserting new profile:', insertError);
           }
         } else {
-
           // Profile exists → just attach stripe_customer_id
           const { error: updateError } = await supabase
             .from('profiles')
