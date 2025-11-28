@@ -257,6 +257,50 @@
       font-weight: 600;
     }
 
+    /* PLAN BANNER (Linear-style plan confirmation) */
+
+    .plan-banner {
+      background: rgba(34, 211, 238, 0.08);
+      border: 1px solid rgba(34,211,238,0.55);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+      color: var(--ink-soft);
+    }
+
+    .plan-banner strong {
+      color: var(--ink);
+    }
+
+    .checkout-btn {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(34,211,238,0.8);
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 12px 28px rgba(15,23,42,0.85);
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+
+    .checkout-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,1);
+      color: var(--ink);
+    }
+
     /* SUMMARY CARD */
 
     .summary-grid {
@@ -765,6 +809,11 @@
       .run-strip {
         flex-direction: column;
       }
+
+      .plan-banner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
     }
 
     .wd-pdf-btn {
@@ -858,6 +907,14 @@
       All from one place.
     </div>
 
+    <!-- Linear-style plan banner (only shows if ?plan= is present) -->
+    <div id="selected-plan-banner" class="plan-banner" style="display:none;">
+      <p id="selected-plan-text"></p>
+      <button id="selected-plan-cta" class="checkout-btn" type="button">
+        Continue to checkout
+      </button>
+    </div>
+
     <div class="summary-grid">
       <div class="summary-block">
         <div class="summary-label">Scans available</div>
@@ -893,7 +950,7 @@
           <div class="ls-label">LATEST SCAN</div>
           <div class="ls-body">
             <div id="ls-url" class="ls-url">No scans yet</div>
-            <div id="ls-date" class="ls-date">Run your first WebDoctor scan to see it here.</div>
+            <div id="ls-date" class="ls-date">Run your first iQWEB scan to see it here.</div>
             <div class="ls-score-box">
               <span id="ls-score" class="ls-score-pill" style="display:none;">—</span>
               <span class="ls-score-text">Overall score</span>
@@ -919,7 +976,7 @@
         <div class="history-header-left">
           <h2>Scan history</h2>
           <div class="hint-text">
-            All the websites you’ve scanned with WebDoctor. Open a report or download the PDF anytime.
+            All the websites you’ve scanned with iQWEB. Open a report or download the PDF anytime.
           </div>
         </div>
         <div class="history-controls">
@@ -954,7 +1011,7 @@
       </table>
 
       <div id="historyEmptyNone" class="history-empty">
-        <strong>No scans yet.</strong> Run your first WebDoctor scan and it will appear here.
+        <strong>No scans yet.</strong> Run your first iQWEB scan and it will appear here.
       </div>
 
       <div id="historyEmptyFiltered" class="history-empty">
@@ -984,7 +1041,7 @@
   text-transform: uppercase;
   pointer-events: none;
 ">
-  Powered by <span style="color:#5dd8ff;">iQWeb</span>
+  Powered by <span style="color:#5dd8ff;">iQWEB</span>
 </footer>
 
 <!-- Supabase auth + profile + scan history + inline scan wiring -->
@@ -1024,7 +1081,7 @@
 
     const profile = data || {};
     const displayEmail = profile.email || user.email || "";
-    const displayName = profile.full_name || displayEmail || "WebDoctor user";
+    const displayName = profile.full_name || displayEmail || "iQWEB user";
 
     const nameEl = document.getElementById("wd-user-name");
     const emailEl = document.getElementById("wd-user-email");
@@ -1049,7 +1106,7 @@
 
     let summary = "Free plan · pay-per-scan credits.";
     if (tier === "trial") {
-      summary = "Trial plan · enjoy your WebDoctor test scans.";
+      summary = "Trial plan · enjoy your iQWEB test scans.";
     } else if (tier === "starter") {
       summary = monthlyLimit
         ? `Starter · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
@@ -1254,10 +1311,10 @@
             <html>
               <head>
                 <meta charset="utf-8" />
-                <title>WebDoctor Report ${reportId}</title>
+                <title>iQWEB Report ${reportId}</title>
               </head>
               <body>
-                <h1>WebDoctor test PDF</h1>
+                <h1>iQWEB test PDF</h1>
                 <p>This proves DocRaptor wiring works.</p>
                 <p>Report ID: ${reportId}</p>
               </body>
@@ -1301,7 +1358,7 @@
 
     if (!record) {
       if (urlEl) urlEl.textContent = "No scans yet";
-      if (dateEl) dateEl.textContent = "Run your first WebDoctor scan to see it here.";
+      if (dateEl) dateEl.textContent = "Run your first iQWEB scan to see it here.";
       if (scoreEl) scoreEl.style.display = "none";
       card.dataset.reportId = "";
       card.onclick = null;
@@ -1500,6 +1557,72 @@
     });
   }
 
+  // Stripe checkout for selected plan (Linear-style)
+  async function startPlanCheckout(planKey) {
+    const priceIds = {
+      insight: 'price_1SQ4knHrtPY0HwDpFHfxNdoZ',       // $29 – 100 scans (TEST)
+      intelligence: 'price_1SQ4oZHrtPY0HwDpjLOnlC5k',  // $75 – 250 scans (TEST)
+      impact: 'price_1SQ4qUHrtPY0HwDpSDWJDBpb',        // $149 – 500 scans (TEST)
+    };
+
+    const priceId = priceIds[planKey];
+    if (!priceId) {
+      alert("Invalid plan selected.");
+      return;
+    }
+
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data?.user) {
+      alert("Please log in again to continue.");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const email = data.user.email;
+
+    try {
+      const res = await fetch('/.netlify/functions/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId, email }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json?.url) {
+        console.error('Checkout session error:', json);
+        alert('Unable to start checkout. Please try again.');
+        return;
+      }
+
+      window.location.href = json.url;
+    } catch (err) {
+      console.error('Checkout error:', err);
+      alert('Checkout failed. Please try again.');
+    }
+  }
+
+  function handleSelectedPlan() {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan');
+    if (!plan) return;
+
+    const banner = document.getElementById('selected-plan-banner');
+    const textEl = document.getElementById('selected-plan-text');
+    const cta = document.getElementById('selected-plan-cta');
+    if (!banner || !textEl || !cta) return;
+
+    const map = {
+      insight: 'Insight — $29/mo · 100 scans',
+      intelligence: 'Intelligence — $75/mo · 250 scans',
+      impact: 'Impact — $149/mo · 500 scans',
+    };
+
+    textEl.textContent = `You selected: ${map[plan] || plan}`;
+    banner.style.display = 'flex';
+
+    cta.onclick = () => startPlanCheckout(plan);
+  }
+
   document.addEventListener("DOMContentLoaded", async () => {
     const user = await requireSession();
     if (!user) return;
@@ -1510,6 +1633,7 @@
     await loadScanHistory(user.id);
     await setupSignOut();
     setupInlineRun(user);
+    handleSelectedPlan();  // show banner + wire checkout if ?plan= exists
   });
 </script>
 

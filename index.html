@@ -1224,67 +1224,23 @@
 
   </div>
 
-  <!-- Stripe checkout wiring for main-page pricing -->
+    <!-- Linear-style flow: pricing buttons redirect into dashboard with plan selected -->
   <script>
-    // Map plans to Stripe price IDs (TEST MODE IDs)
-    const LANDING_PLAN_PRICE_IDS = {
-      insight: 'price_1SQ4knHrtPY0HwDpFHfxNdoZ',       // $29 – 100 scans
-      intelligence: 'price_1SQ4oZHrtPY0HwDpjLOnlC5k',  // $75 – 250 scans
-      impact: 'price_1SQ4qUHrtPY0HwDpSDWJDBpb',        // $149 – 500 scans
-    };
-
-    async function startLandingCheckout(planKey) {
-      const priceId = LANDING_PLAN_PRICE_IDS[planKey];
-      const statusEl = document.getElementById('pricing-status');
-
-      if (!priceId) {
-        console.error('Unknown planKey for checkout:', planKey);
-        if (statusEl) statusEl.textContent = 'Unable to start checkout (invalid plan).';
-        return;
-      }
-
-      // On the public site we probably don't have a logged-in user yet.
-      let email = window.currentUserEmail || null;
-      if (!email) {
-        email = window.prompt('Enter your email to continue with secure checkout:');
-      }
-      if (!email) {
-        console.warn('No email provided – checkout cancelled.');
-        if (statusEl) statusEl.textContent = 'Checkout cancelled — no email entered.';
-        return;
-      }
-
-      try {
-        if (statusEl) statusEl.textContent = 'Opening secure Stripe checkout…';
-
-        const res = await fetch('/.netlify/functions/create-checkout-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ priceId, email }),
-        });
-
-        const data = await res.json();
-        if (!res.ok || !data.url) {
-          console.error('Checkout session error:', data);
-          if (statusEl) statusEl.textContent = 'Unable to start checkout. Please try again.';
-          return;
-        }
-
-        window.location.href = data.url;
-      } catch (err) {
-        console.error('Checkout error:', err);
-        if (statusEl) statusEl.textContent = 'Checkout failed. Please try again.';
-      }
+    function goToDashboardWithPlan(planKey) {
+      const base = '/dashboard.html';
+      const url = new URL(base, window.location.origin);
+      url.searchParams.set('plan', planKey);
+      window.location.href = url.toString();
     }
 
     document.getElementById('btn-landing-insight')
-      ?.addEventListener('click', () => startLandingCheckout('insight'));
+      ?.addEventListener('click', () => goToDashboardWithPlan('insight'));
 
     document.getElementById('btn-landing-intelligence')
-      ?.addEventListener('click', () => startLandingCheckout('intelligence'));
+      ?.addEventListener('click', () => goToDashboardWithPlan('intelligence'));
 
     document.getElementById('btn-landing-impact')
-      ?.addEventListener('click', () => startLandingCheckout('impact'));
+      ?.addEventListener('click', () => goToDashboardWithPlan('impact'));
   </script>
 </body>
 </html>
