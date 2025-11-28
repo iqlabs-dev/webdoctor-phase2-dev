@@ -5,6 +5,7 @@
   <title>iQWEB — Sign in</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
   <style>
     :root {
       --bg-top: #050814;
@@ -14,12 +15,11 @@
       --ink-soft: #c0cfeb;
       --muted: #9aa4ba;
       --accent: #22d3ee;
-      --accent-soft: rgba(34, 211, 238, 0.12);
+      --accent-soft: rgba(34, 211, 238, 0.16);
       --danger: #fb7185;
-      --panel: #070d1c;
-      --panel-soft: #0b1224;
+      --card: #050816;
+      --card-soft: #070b18;
       --radius-lg: 22px;
-      --shadow-soft: 0 26px 60px rgba(0, 0, 0, 0.55);
     }
 
     * {
@@ -31,7 +31,6 @@
       padding: 0;
       height: 100%;
       font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      -webkit-font-smoothing: antialiased;
     }
 
     body {
@@ -40,69 +39,80 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 24px 16px;
     }
 
-    .shell {
+    .login-shell {
+      max-width: 420px;
       width: 100%;
-      max-width: 520px;
-      padding: 24px;
     }
 
-    .auth-card {
-      background: linear-gradient(145deg, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
-      border-radius: 28px;
-      box-shadow: var(--shadow-soft);
-      border: 1px solid rgba(148,163,184,0.3);
-      padding: 32px 34px 30px;
+    .card {
+      background: radial-gradient(circle at top left, #0f172a 0, #020617 55%, #000 100%);
+      border-radius: 24px;
+      padding: 30px 30px 26px;
+      box-shadow:
+        0 30px 80px rgba(0,0,0,0.75),
+        0 0 0 1px rgba(148,163,184,0.35);
+      border: 1px solid rgba(15,23,42,0.9);
+      position: relative;
+      overflow: hidden;
     }
 
-    @media (max-width: 540px) {
-      .auth-card {
-        padding: 26px 22px 24px;
-        border-radius: 20px;
-      }
+    .badge {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(34,211,238,0.16), transparent 60%),
+        radial-gradient(circle at 100% 0%, rgba(45,212,191,0.12), transparent 55%);
+      opacity: 0.8;
+      mix-blend-mode: screen;
     }
 
-    .brand {
-      margin-bottom: 18px;
+    .card-inner {
+      position: relative;
+      z-index: 1;
     }
 
-    .brand-title {
-      font-size: 1.4rem;
+    .logo {
+      font-size: 1.05rem;
       font-weight: 800;
-      letter-spacing: 0.24em;
+      letter-spacing: 0.26em;
       text-transform: uppercase;
+      color: var(--ink);
+      margin-bottom: 4px;
     }
 
-    .brand-subtitle {
-      margin-top: 4px;
+    .logo span {
+      color: var(--ink);
+    }
+
+    .tagline {
       font-size: 0.7rem;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
-      letter-spacing: 0.16em;
       color: var(--muted);
+      margin-bottom: 22px;
     }
 
     h1 {
-      font-size: 1.4rem;
-      margin: 8px 0 4px;
+      font-size: 1.2rem;
+      margin: 0 0 6px;
       font-weight: 700;
     }
 
-    .intro {
+    .subtitle {
       font-size: 0.85rem;
       color: var(--ink-soft);
       line-height: 1.6;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
-    .intro em {
+    .subtitle em {
       font-style: normal;
       color: var(--accent);
-      font-weight: 600;
-    }
-
-    form {
-      margin-top: 10px;
+      font-weight: 500;
     }
 
     label {
@@ -112,277 +122,485 @@
       letter-spacing: 0.14em;
       color: var(--muted);
       margin-bottom: 6px;
-      font-weight: 600;
     }
 
     .field {
       margin-bottom: 16px;
     }
 
-    input[type="email"] {
+    input[type="email"],
+    input[type="text"] {
       width: 100%;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,0.6);
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.55);
       background: rgba(15,23,42,0.98);
       color: var(--ink);
-      padding: 11px 12px;
+      padding: 10px 14px;
       font-size: 0.9rem;
       outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
     }
 
-    input[type="email"]::placeholder {
-      color: var(--muted);
-    }
-
-    input[type="email"]:focus {
+    input[type="email"]:focus,
+    input[type="text"]:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(34,211,238,0.55);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.5);
+      background: #020617;
     }
 
-    .helper {
-      font-size: 0.75rem;
+    input::placeholder {
       color: var(--muted);
-      margin-top: 4px;
-      line-height: 1.5;
     }
 
-    .plan-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      padding: 4px 10px;
-      border: 1px solid rgba(148,163,184,0.5);
-      background: rgba(15,23,42,0.98);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--ink-soft);
-      margin-bottom: 10px;
-    }
-
-    .plan-pill span.dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: var(--accent);
-    }
-
-    button[type="submit"] {
+    .btn-primary {
       width: 100%;
       border-radius: 999px;
-      padding: 11px 16px;
       border: none;
-      background: linear-gradient(135deg, #22c55e, #14b8a6);
-      color: #020617;
-      font-size: 0.95rem;
-      font-weight: 800;
+      padding: 11px 16px;
+      font-size: 0.9rem;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.14em;
       cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #14b8a6);
+      color: #020617;
+      box-shadow: 0 18px 38px rgba(15,23,42,0.9);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      margin-top: 4px;
-      box-shadow: 0 16px 30px rgba(0,0,0,0.6);
-      transition: transform 0.14s ease-out, box-shadow 0.14s ease-out, opacity 0.14s;
+      transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, opacity 0.12s;
     }
 
-    button[type="submit"]:hover:not(:disabled) {
+    .btn-primary:hover:not(:disabled) {
       transform: translateY(-1px);
-      box-shadow: 0 22px 40px rgba(0,0,0,0.75);
+      box-shadow: 0 24px 46px rgba(15,23,42,1);
       opacity: 0.96;
     }
 
-    button[type="submit"]:disabled {
+    .btn-primary:disabled {
       opacity: 0.6;
       cursor: default;
       box-shadow: none;
     }
 
-    .status {
-      margin-top: 10px;
-      font-size: 0.8rem;
-      min-height: 1.2em;
+    .btn-text {
+      background: none;
+      border: none;
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0;
     }
 
-    .status.ok {
-      color: #bbf7d0;
+    .btn-text:hover {
+      color: var(--accent);
+    }
+
+    .status {
+      margin-top: 10px;
+      min-height: 1.2em;
+      font-size: 0.8rem;
+      color: var(--muted);
     }
 
     .status.error {
       color: var(--danger);
     }
 
-    .footnote {
+    .status.success {
+      color: #4ade80;
+    }
+
+    .fine-print {
       margin-top: 18px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--muted);
       text-align: center;
       line-height: 1.6;
     }
 
-    .footnote a {
+    .fine-print a {
       color: var(--accent);
       text-decoration: none;
-      border-bottom: 1px dotted rgba(34,211,238,0.7);
+      border-bottom: 1px dotted rgba(34,211,238,0.6);
     }
 
-    .footnote a:hover {
+    .fine-print a:hover {
       border-bottom-style: solid;
     }
 
+    /* PIN STEP */
+
+    .pin-instructions {
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .pin-email {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .pin-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .pin-input {
+      width: 42px;
+      height: 46px;
+      border-radius: 14px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(15,23,42,0.98);
+      color: var(--ink);
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .pin-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.5);
+    }
+
+    .pin-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .link-inline {
+      border: none;
+      background: none;
+      padding: 0;
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .link-inline:hover {
+      color: #7dd3fc;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+    }
+
+    @media (max-width: 480px) {
+      .card {
+        padding: 26px 22px 24px;
+      }
+
+      .pin-row {
+        justify-content: space-between;
+      }
+
+      .pin-input {
+        width: 38px;
+        height: 42px;
+      }
+    }
   </style>
 </head>
+
 <body>
+  <div class="login-shell">
+    <div class="card">
+      <div class="badge"></div>
+      <div class="card-inner">
+        <div class="logo"><span>IQWEB</span></div>
+        <div class="tagline">SCAN · VIEW · SHARE</div>
 
-<div class="shell">
-  <div class="auth-card">
-    <div class="brand">
-      <div class="brand-title">IQWEB</div>
-      <div class="brand-subtitle">SCAN · VIEW · SHARE</div>
-    </div>
+        <h1>Sign in to your dashboard</h1>
+        <p class="subtitle">
+          Enter your email and we’ll send you a secure one-time code.<br>
+          <em>No passwords. No reset emails. Just a quick PIN.</em>
+        </p>
 
-    <h1>Sign in to your dashboard</h1>
-    <p class="intro">
-      Enter your email and we’ll send you a secure sign-in link.
-      <br><em>No passwords. No reset emails. Just click and go.</em>
-    </p>
+        <!-- STEP 1: EMAIL -->
+        <div id="step-email" class="step active">
+          <div class="field">
+            <label for="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              autocomplete="email"
+              required />
+          </div>
 
-    <div id="selected-plan-pill" class="plan-pill" style="display:none;">
-      <span class="dot"></span>
-      <span id="selected-plan-text">Selected plan</span>
-    </div>
+          <button id="btn-send-code" class="btn-primary" type="button">
+            Send sign-in code
+          </button>
+        </div>
 
-    <form id="login-form">
-      <div class="field">
-        <label for="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          placeholder="you@example.com"
-          required
-        />
-        <div class="helper">
-          We’ll send a one-time sign-in link to this address.
+        <!-- STEP 2: PIN -->
+        <div id="step-pin" class="step">
+          <p class="pin-instructions">
+            We’ve emailed a 6-digit sign-in code to
+            <span id="pin-email-display" class="pin-email"></span>.<br>
+            Enter it below to open your iQWEB dashboard.
+          </p>
+
+          <div class="pin-row">
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+          </div>
+
+          <div class="pin-meta">
+            <button id="btn-back-email" type="button" class="link-inline">
+              Change email
+            </button>
+            <button id="btn-resend-code" type="button" class="link-inline">
+              Resend code
+            </button>
+          </div>
+
+          <button id="btn-verify-code" class="btn-primary" type="button">
+            Verify &amp; sign in
+          </button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="fine-print">
+          By continuing you agree to our future
+          <a href="https://trust.webdoctor.tech" target="_blank" rel="noreferrer">
+            trust, security &amp; privacy notes
+          </a>.
         </div>
       </div>
-
-      <button id="submit-btn" type="submit">
-        <span>Send sign-in link</span>
-      </button>
-
-      <div id="status" class="status"></div>
-    </form>
-
-    <div class="footnote">
-      By continuing you agree to our future<br>
-      <a href="/trust.html">trust, security &amp; privacy notes</a>.
     </div>
   </div>
-</div>
 
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
+    // Same project + anon key as your dashboard
+    const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const params = new URLSearchParams(window.location.search);
-  const selectedPlan = params.get("plan"); // insight | intelligence | impact | null
+    const stepEmail = document.getElementById("step-email");
+    const stepPin = document.getElementById("step-pin");
+    const emailInput = document.getElementById("email");
+    const sendBtn = document.getElementById("btn-send-code");
+    const resendBtn = document.getElementById("btn-resend-code");
+    const verifyBtn = document.getElementById("btn-verify-code");
+    const backBtn = document.getElementById("btn-back-email");
+    const statusEl = document.getElementById("status");
+    const pinEmailDisplay = document.getElementById("pin-email-display");
+    const pinInputs = Array.from(document.querySelectorAll(".pin-input"));
 
-  // Show the selected plan, if any (from dashboard redirect)
-  (function showPlan() {
-    if (!selectedPlan) return;
-    const pill = document.getElementById("selected-plan-pill");
-    const text = document.getElementById("selected-plan-text");
-    if (!pill || !text) return;
+    let currentEmail = "";
 
-    const label =
-      selectedPlan === "insight" ? "Insight – $29 / month" :
-      selectedPlan === "intelligence" ? "Intelligence – $75 / month" :
-      selectedPlan === "impact" ? "Impact – $149 / month" :
-      selectedPlan;
-
-    text.textContent = `Selected plan: ${label}`;
-    pill.style.display = "inline-flex";
-  })();
-
-  const emailInput = document.getElementById("email");
-  const form = document.getElementById("login-form");
-  const statusEl = document.getElementById("status");
-  const submitBtn = document.getElementById("submit-btn");
-
-  function setStatus(msg, type = "") {
-    if (!statusEl) return;
-    statusEl.textContent = msg || "";
-    statusEl.classList.remove("ok", "error");
-    if (type) statusEl.classList.add(type);
-  }
-
-  async function redirectIfLoggedIn() {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) {
-      console.error("getSession error", error);
-      return;
-    }
-    if (data.session?.user) {
-      // Already logged in → straight to dashboard, keep ?plan
-      const base = "/dashboard.html";
-      const qs = selectedPlan ? `?plan=${encodeURIComponent(selectedPlan)}` : "";
-      window.location.href = base + qs;
-    }
-  }
-
-  await redirectIfLoggedIn();
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const email = (emailInput.value || "").trim();
-
-    if (!email) {
-      setStatus("Please enter your email address.", "error");
-      emailInput.focus();
-      return;
+    function setStatus(msg, type = "") {
+      statusEl.textContent = msg || "";
+      statusEl.classList.remove("error", "success");
+      if (type) statusEl.classList.add(type);
     }
 
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Sending link…";
-    setStatus("");
+    function showStep(step) {
+      if (step === "email") {
+        stepEmail.classList.add("active");
+        stepPin.classList.remove("active");
+        setStatus("");
+      } else {
+        stepEmail.classList.remove("active");
+        stepPin.classList.add("active");
+        setStatus("");
+      }
+    }
 
-    try {
-      // Build redirect URL so when they click the email link, they land back on the dashboard
-      const origin = window.location.origin;
-      const qs = selectedPlan ? `?plan=${encodeURIComponent(selectedPlan)}` : "";
-      const redirectTo = `${origin}/dashboard.html${qs}`;
+    async function sendCode({ isResend = false } = {}) {
+      const email = (emailInput.value || "").trim();
+      if (!email) {
+        setStatus("Please enter your email address.", "error");
+        emailInput.focus();
+        return;
+      }
+
+      currentEmail = email;
+      pinEmailDisplay.textContent = email;
+
+      sendBtn.disabled = true;
+      if (resendBtn) resendBtn.disabled = true;
+      verifyBtn.disabled = true;
+
+      setStatus(isResend ? "Resending code…" : "Sending code…");
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: redirectTo,
+          shouldCreateUser: true, // create on first sign-in
         },
       });
 
-      if (error) {
-        console.error("signInWithOtp error", error);
-        setStatus(error.message || "Could not send sign-in link.", "error");
-      } else {
-        setStatus("Check your inbox — we’ve sent you a sign-in link.", "ok");
-      }
-    } catch (err) {
-      console.error("Unexpected error sending OTP", err);
-      setStatus("Sorry — something went wrong sending your link.", "error");
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Send sign-in link";
-    }
-  });
-</script>
+      sendBtn.disabled = false;
+      if (resendBtn) resendBtn.disabled = false;
+      verifyBtn.disabled = false;
 
+      if (error) {
+        console.error("Error sending OTP", error);
+        setStatus(error.message || "Could not send code. Please try again.", "error");
+        return;
+      }
+
+      // Move to PIN step on first send
+      showStep("pin");
+      pinInputs.forEach((input) => (input.value = ""));
+      if (pinInputs[0]) pinInputs[0].focus();
+
+      setStatus(
+        isResend
+          ? "We’ve sent a new 6-digit code. It should arrive shortly."
+          : "Check your email for a 6-digit sign-in code.",
+        "success"
+      );
+    }
+
+    function getPinValue() {
+      return pinInputs.map((i) => (i.value || "").trim()).join("");
+    }
+
+    async function verifyCode() {
+      const token = getPinValue();
+      if (!currentEmail) {
+        setStatus("Please enter your email first.", "error");
+        showStep("email");
+        emailInput.focus();
+        return;
+      }
+      if (!token || token.length < 6) {
+        setStatus("Enter the 6-digit code from your email.", "error");
+        if (pinInputs[0]) pinInputs[0].focus();
+        return;
+      }
+
+      verifyBtn.disabled = true;
+      sendBtn.disabled = true;
+      if (resendBtn) resendBtn.disabled = true;
+
+      setStatus("Verifying code…");
+
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: currentEmail,
+        token,
+        type: "email", // email OTP (not magic link)
+      });
+
+      verifyBtn.disabled = false;
+      sendBtn.disabled = false;
+      if (resendBtn) resendBtn.disabled = false;
+
+      if (error || !data?.session) {
+        console.error("Error verifying OTP", error);
+        setStatus(
+          error?.message || "That code didn’t work. Please check and try again.",
+          "error"
+        );
+        pinInputs.forEach((i) => (i.value = ""));
+        if (pinInputs[0]) pinInputs[0].focus();
+        return;
+      }
+
+      setStatus("Signed in. Redirecting…", "success");
+      window.location.href = "/dashboard.html";
+    }
+
+    function wirePinInputs() {
+      pinInputs.forEach((input, idx) => {
+        input.addEventListener("input", (e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          e.target.value = value.slice(-1);
+
+          if (value && idx < pinInputs.length - 1) {
+            pinInputs[idx + 1].focus();
+          }
+
+          // If last box filled, auto-verify
+          if (idx === pinInputs.length - 1 && getPinValue().length === 6) {
+            verifyCode();
+          }
+        });
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Backspace" && !e.target.value && idx > 0) {
+            pinInputs[idx - 1].focus();
+          }
+          if (e.key === "ArrowLeft" && idx > 0) {
+            pinInputs[idx - 1].focus();
+          }
+          if (e.key === "ArrowRight" && idx < pinInputs.length - 1) {
+            pinInputs[idx + 1].focus();
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            verifyCode();
+          }
+        });
+
+        // Allow paste full code into first input
+        if (idx === 0) {
+          input.addEventListener("paste", (e) => {
+            const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+            const digits = text.replace(/\D/g, "").slice(0, pinInputs.length);
+            if (!digits) return;
+            e.preventDefault();
+            digits.split("").forEach((d, i) => {
+              if (pinInputs[i]) pinInputs[i].value = d;
+            });
+            if (digits.length === pinInputs.length) {
+              verifyCode();
+            }
+          });
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (emailInput) emailInput.focus();
+      wirePinInputs();
+
+      sendBtn?.addEventListener("click", () => sendCode({ isResend: false }));
+      resendBtn?.addEventListener("click", () => sendCode({ isResend: true }));
+      verifyBtn?.addEventListener("click", verifyCode);
+
+      backBtn?.addEventListener("click", () => {
+        showStep("email");
+        setStatus("");
+        if (emailInput) emailInput.focus();
+      });
+
+      emailInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          sendCode({ isResend: false });
+        }
+      });
+    });
+  </script>
 </body>
 </html>
