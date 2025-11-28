@@ -393,10 +393,11 @@
     </div>
   </div>
 
+  <!-- PIN login wiring: calls Netlify send-pin + verify-pin, then sets Supabase session -->
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-    // Same project + anon key as your dashboard
+    // Same project + anon key as dashboard
     const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
     const SUPABASE_ANON_KEY =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
@@ -451,24 +452,33 @@
 
       setStatus(isResend ? "Resending code…" : "Sending code…");
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true, // create on first sign-in
-        },
-      });
+      let res;
+      try {
+        res = await fetch("/.netlify/functions/send-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+      } catch (err) {
+        console.error("Error calling send-pin:", err);
+        setStatus("Could not send code. Please try again.", "error");
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+        verifyBtn.disabled = false;
+        return;
+      }
 
       sendBtn.disabled = false;
       if (resendBtn) resendBtn.disabled = false;
       verifyBtn.disabled = false;
 
-      if (error) {
-        console.error("Error sending OTP", error);
-        setStatus(error.message || "Could not send code. Please try again.", "error");
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("send-pin failed:", text);
+        setStatus("Could not send code. Please try again.", "error");
         return;
       }
 
-      // Move to PIN step on first send
       showStep("pin");
       pinInputs.forEach((input) => (input.value = ""));
       if (pinInputs[0]) pinInputs[0].focus();
@@ -505,24 +515,47 @@
 
       setStatus("Verifying code…");
 
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: currentEmail,
-        token,
-        type: "email", // email OTP (not magic link)
-      });
+      let res;
+      try {
+        res = await fetch("/.netlify/functions/verify-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: currentEmail, code: token }),
+        });
+      } catch (err) {
+        console.error("Error calling verify-pin:", err);
+        setStatus("Could not verify that code. Please try again.", "error");
+        verifyBtn.disabled = false;
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+        return;
+      }
 
       verifyBtn.disabled = false;
       sendBtn.disabled = false;
       if (resendBtn) resendBtn.disabled = false;
 
-      if (error || !data?.session) {
-        console.error("Error verifying OTP", error);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        console.error("verify-pin failed:", data);
         setStatus(
-          error?.message || "That code didn’t work. Please check and try again.",
+          data?.message || "That code didn’t work. Please check and try again.",
           "error"
         );
         pinInputs.forEach((i) => (i.value = ""));
         if (pinInputs[0]) pinInputs[0].focus();
+        return;
+      }
+
+      // Set Supabase session in the browser from tokens returned by verify-pin
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+
+      if (sessionError) {
+        console.error("Error setting Supabase session:", sessionError);
+        setStatus("We signed you in, but couldn’t open the session. Try again.", "error");
         return;
       }
 
@@ -540,7 +573,6 @@
             pinInputs[idx + 1].focus();
           }
 
-          // If last box filled, auto-verify
           if (idx === pinInputs.length - 1 && getPinValue().length === 6) {
             verifyCode();
           }
@@ -562,7 +594,6 @@
           }
         });
 
-        // Allow paste full code into first input
         if (idx === 0) {
           input.addEventListener("paste", (e) => {
             const text = (e.clipboardData || window.clipboardData).getData("text") || "";
