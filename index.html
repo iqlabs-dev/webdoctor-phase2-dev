@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB — Insight. Intelligence. Impact.</title>
+  <title>iQWEB</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="iQWEB delivers a concise, human-focused website health report — performance, SEO, mobile, accessibility, security — with clear priorities and a PDF you can share.">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -88,13 +88,16 @@
       min-width: 0;
     }
 
-    .nav-title {
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
+ .nav-title {
+  font-family: "Montserrat", sans-serif;
+  font-weight: 700;
+  font-size: 1.08rem;
+  letter-spacing: 0.04em;   /* clean tight wordmark */
+  text-transform: none;     /* keep lowercase i */
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
 
     .nav-subtitle {
       font-size: 0.7rem;
@@ -862,57 +865,63 @@
     <div class="shell-inner">
 
       <!-- NAVIGATION -->
-      <header class="nav">
-        <div class="nav-left">
-          <div class="nav-title">iQWEB</div>
-          <div class="nav-subtitle">INSIGHT · INTELLIGENCE · IMPACT</div>
-        </div>
+<header class="nav">
+  <div class="nav-left">
+    <div class="nav-title">
+      iQ<span style="color: var(--accent);">WEB</span>
+    </div>
+    <div class="nav-subtitle">SCAN · VIEW · SHARE</div>
+  </div>
 
-        <div class="nav-center">
-          <div class="nav-links">
-            <a href="#how" class="nav-link">How it works</a>
-            <a href="#features" class="nav-link">Signals we check</a>
-            <a href="#pricing" class="nav-link">Pricing</a>
-            <a href="#trust" class="nav-link">Trust</a>
-          </div>
-        </div>
+  <div class="nav-center">
+    <div class="nav-links">
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="#features" class="nav-link">Signals we check</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+      <a href="#trust" class="nav-link">Trust</a>
+    </div>
+  </div>
 
-        <div class="nav-right">
-          <a href="/dashboard.html" class="nav-ghost">Dashboard</a>
-          <a href="/dashboard.html" class="nav-cta">
-            <span>Login</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z" />
-            </svg>
-          </a>
-        </div>
-      </header>
+  <div class="nav-right">
+    <a href="/dashboard.html" class="nav-ghost">Dashboard</a>
+    <a href="/dashboard.html" class="nav-cta">
+      <span>Login</span>
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path fill="currentColor"
+          d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z" />
+      </svg>
+    </a>
+  </div>
+</header>
+
 
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
           <p class="hero-version">iQWEB v1.0</p>
 
-          <h1 class="hero-h1">
-            iQWEB is built for people who want<br>
-            <span>clarity, not complexity.</span>
-          </h1>
+<h1 class="hero-h1">
+  iQWEB is built for people who want<br>
+  <span>clarity, not complexity.</span>
+</h1>
 
-          <p class="hero-sub">
-            It takes the performance, SEO, mobile, accessibility and security signals your tools see
-            and turns them into a <em>single, human-readable diagnosis</em> — one score, one summary,
-            one shareable PDF.
-          </p>
+<p class="hero-sub">
+  And most importantly — <em>it saves you time.</em><br><br>
+  iQWEB takes the performance, SEO, mobile, accessibility, and security signals behind your site 
+  and turns them into a clear, human-ready report — one scan, one view, one shareable PDF.
+</p>
+
         </section>
       </main>
 
-      <div class="hero-mini-row">
-        <span class="hero-mini-dot">Score</span>
-        <span class="hero-mini-sep">·</span>
-        <span class="hero-mini-dot">Summary</span>
-        <span class="hero-mini-sep">·</span>
-        <span class="hero-mini-dot">Shareable PDF</span>
-      </div>
+<div class="hero-mini-row">
+  <span class="hero-mini-dot">Scan</span>
+  <span class="hero-mini-sep">·</span>
+  <span class="hero-mini-dot">View</span>
+  <span class="hero-mini-sep">·</span>
+  <span class="hero-mini-dot">Share</span>
+</div>
+
 
       <!-- FEATURES -->
       <section class="section" id="features">
