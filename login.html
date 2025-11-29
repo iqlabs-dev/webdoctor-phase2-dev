@@ -363,4 +363,257 @@
             <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
             <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
             <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text"
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
+          </div>
+
+          <div class="pin-meta">
+            <button id="btn-back-email" type="button" class="link-inline">
+              Change email
+            </button>
+            <button id="btn-resend-code" type="button" class="link-inline">
+              Resend code
+            </button>
+          </div>
+
+          <button id="btn-verify-code" class="btn-primary" type="button">
+            Verify &amp; sign in
+          </button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="fine-print">
+          By continuing you agree to our future
+          <a href="https://trust.webdoctor.tech" target="_blank" rel="noreferrer">
+            trust, security &amp; privacy notes
+          </a>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIN login wiring: send-pin via Netlify, verifyOtp via Supabase, then redirect -->
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    // Same project + anon key as dashboard
+    const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
+    const SUPABASE_ANON_KEY =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const stepEmail       = document.getElementById("step-email");
+    const stepPin         = document.getElementById("step-pin");
+    const emailInput      = document.getElementById("email");
+    const sendBtn         = document.getElementById("btn-send-code");
+    const resendBtn       = document.getElementById("btn-resend-code");
+    const verifyBtn       = document.getElementById("btn-verify-code");
+    const backBtn         = document.getElementById("btn-back-email");
+    const statusEl        = document.getElementById("status");
+    const pinEmailDisplay = document.getElementById("pin-email-display");
+    const pinInputs       = Array.from(document.querySelectorAll(".pin-input"));
+
+    let currentEmail = "";
+
+    function setStatus(msg, type = "") {
+      statusEl.textContent = msg || "";
+      statusEl.classList.remove("error", "success");
+      if (type) statusEl.classList.add(type);
+    }
+
+    function showStep(step) {
+      if (step === "email") {
+        stepEmail.classList.add("active");
+        stepPin.classList.remove("active");
+      } else {
+        stepEmail.classList.remove("active");
+        stepPin.classList.add("active");
+      }
+      setStatus("");
+    }
+
+    async function sendCode({ isResend = false } = {}) {
+      const email = (emailInput.value || "").trim();
+      if (!email) {
+        setStatus("Please enter your email address.", "error");
+        emailInput.focus();
+        return;
+      }
+
+      currentEmail = email;
+      pinEmailDisplay.textContent = email;
+
+      sendBtn.disabled = true;
+      if (resendBtn) resendBtn.disabled = true;
+      verifyBtn.disabled = true;
+
+      setStatus(isResend ? "Resending code…" : "Sending code…");
+
+      try {
+        const res = await fetch("/.netlify/functions/send-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+        verifyBtn.disabled = false;
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("send-pin failed:", text);
+          setStatus("Could not send code. Please try again.", "error");
+          return;
+        }
+
+        showStep("pin");
+        pinInputs.forEach((input) => (input.value = ""));
+        if (pinInputs[0]) pinInputs[0].focus();
+
+        setStatus(
+          isResend
+            ? "We’ve sent a new 6-digit code. It should arrive shortly."
+            : "Check your email for a 6-digit sign-in code.",
+          "success"
+        );
+      } catch (err) {
+        console.error("Error calling send-pin:", err);
+        setStatus("Could not send code. Please try again.", "error");
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+        verifyBtn.disabled = false;
+      }
+    }
+
+    function getPinValue() {
+      return pinInputs.map((i) => (i.value || "").trim()).join("");
+    }
+
+    async function verifyCode() {
+      const token = getPinValue();
+
+      if (!currentEmail) {
+        setStatus("Please enter your email first.", "error");
+        showStep("email");
+        emailInput.focus();
+        return;
+      }
+
+      if (!token || token.length < 6) {
+        setStatus("Enter the 6-digit code from your email.", "error");
+        if (pinInputs[0]) pinInputs[0].focus();
+        return;
+      }
+
+      verifyBtn.disabled = true;
+      sendBtn.disabled = true;
+      if (resendBtn) resendBtn.disabled = true;
+
+      setStatus("Verifying code…");
+
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: currentEmail,
+          token,
+          type: "email", // email OTP
+        });
+
+        verifyBtn.disabled = false;
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+
+        if (error) {
+          console.error("verifyOtp error:", error);
+          setStatus("Invalid or expired code. Please request a new one.", "error");
+          pinInputs.forEach((i) => (i.value = ""));
+          if (pinInputs[0]) pinInputs[0].focus();
+          return;
+        }
+
+        console.log("verifyOtp success:", data);
+        setStatus("Signed in. Redirecting…", "success");
+        window.location.href = "/dashboard.html";
+      } catch (err) {
+        console.error("verifyOtp unexpected error:", err);
+        setStatus("Could not verify that code. Please try again.", "error");
+        verifyBtn.disabled = false;
+        sendBtn.disabled = false;
+        if (resendBtn) resendBtn.disabled = false;
+      }
+    }
+
+    function wirePinInputs() {
+      pinInputs.forEach((input, idx) => {
+        input.addEventListener("input", (e) => {
+          const value = e.target.value.replace(/\D/g, "");
+          e.target.value = value.slice(-1);
+
+          if (value && idx < pinInputs.length - 1) {
+            pinInputs[idx + 1].focus();
+          }
+
+          if (idx === pinInputs.length - 1 && getPinValue().length === 6) {
+            verifyCode();
+          }
+        });
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Backspace" && !e.target.value && idx > 0) {
+            pinInputs[idx - 1].focus();
+          }
+          if (e.key === "ArrowLeft" && idx > 0) {
+            pinInputs[idx - 1].focus();
+          }
+          if (e.key === "ArrowRight" && idx < pinInputs.length - 1) {
+            pinInputs[idx + 1].focus();
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            verifyCode();
+          }
+        });
+
+        if (idx === 0) {
+          input.addEventListener("paste", (e) => {
+            const text = (e.clipboardData || window.clipboardData).getData("text") || "";
+            const digits = text.replace(/\D/g, "").slice(0, pinInputs.length);
+            if (!digits) return;
+            e.preventDefault();
+            digits.split("").forEach((d, i) => {
+              if (pinInputs[i]) pinInputs[i].value = d;
+            });
+            if (digits.length === pinInputs.length) {
+              verifyCode();
+            }
+          });
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (emailInput) emailInput.focus();
+      wirePinInputs();
+
+      sendBtn?.addEventListener("click", () => sendCode({ isResend: false }));
+      resendBtn?.addEventListener("click", () => sendCode({ isResend: true }));
+      verifyBtn?.addEventListener("click", verifyCode);
+
+      backBtn?.addEventListener("click", () => {
+        showStep("email");
+        setStatus("");
+        emailInput.focus();
+      });
+
+      emailInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          sendCode({ isResend: false });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
