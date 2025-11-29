@@ -396,3 +396,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initial history load
   await loadScanHistory(downloadPdfBtn);
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+  const banner = document.getElementById("subscription-banner");
+  const runScanBtn = document.getElementById("run-scan-btn");
+  const pricingBtn = document.getElementById("btn-go-to-pricing");
+
+  // TEMP: always show banner until subscription logic is wired
+  if (banner) banner.style.display = "block";
+
+  // Disable scan button
+  if (runScanBtn) {
+    runScanBtn.disabled = true;
+    runScanBtn.title = "Purchase a subscription to run scans";
+  }
+
+  // Redirect to pricing
+  if (pricingBtn) {
+    pricingBtn.addEventListener("click", () => {
+      window.location.href = "/pricing.html"; // or your pricing section
+    });
+  }
+});
