@@ -1,53 +1,76 @@
 // netlify/functions/send-pin.js
-// Sends a 6-digit OTP email (not a magic link)
+// Sends a Supabase OTP email (6-digit code) using the Magic Link template
+
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+// Use the anon key – we don't need service role here
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export async function handler(event) {
-  if (event.httpMethod !== "POST") {
+  if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      body: JSON.stringify({ success: false, message: "Method not allowed" })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, message: 'Method not allowed' }),
     };
   }
 
-  let { email } = JSON.parse(event.body || "{}");
-  email = (email || "").trim().toLowerCase();
+  let email;
+  try {
+    const payload = JSON.parse(event.body || '{}');
+    email = (payload.email || '').trim();
+  } catch (err) {
+    console.error('send-pin: invalid JSON body', err);
+    return {
+      statusCode: 400,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, message: 'Invalid request body' }),
+    };
+  }
 
   if (!email) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ success: false, message: "Email required" })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, message: 'Email is required' }),
     };
   }
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  const resp = await fetch(`${url}/auth/v1/otp`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  try {
+    // This tells Supabase to generate a 6-digit OTP and send your Magic Link email
+    const { data, error } = await supabase.auth.signInWithOtp({
       email,
-      create_user: true,
-      type: "email",      // <-- forces OTP code, NOT magic link
-      channel: "email"    // <-- REQUIRED to avoid magic link fallback
-    })
-  });
+      options: {
+        // You can change this later – not super important for the code-based login
+        emailRedirectTo: process.env.SITE_URL || 'https://deluxe-sherbet-c8ac68.netlify.app/dashboard.html',
+      },
+    });
 
-  if (!resp.ok) {
-    const text = await resp.text();
-    console.error("OTP error:", text);
+    if (error) {
+      console.error('send-pin: Supabase signInWithOtp error', error);
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ success: false, message: 'Could not send code' }),
+      };
+    }
+
+    console.log('send-pin: OTP email sent', data);
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, message: 'Code sent' }),
+    };
+  } catch (err) {
+    console.error('send-pin: unexpected error', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ success: false, message: "Could not send code" })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, message: 'Could not send code' }),
     };
   }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ success: true })
-  };
 }
