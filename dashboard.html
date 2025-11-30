@@ -833,7 +833,7 @@
       font-size: 13px;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+      transition: opacity 0.16s ease-out, transform 0.16s.ease-out;
       z-index: 60;
     }
 
@@ -1167,7 +1167,7 @@
   import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
   const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
+  const SUPABASE_ANON_KEY = "YOUR-ANON-KEY-HERE"; // keep your real key here
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1723,9 +1723,9 @@
   // Stripe checkout for selected plan (Linear-style)
   async function startPlanCheckout(planKey) {
     const priceIds = {
-      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ", // $29 – 100 scans (TEST)
-      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k", // $75 – 250 scans (TEST)
-      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb", // $149 – 500 scans (TEST)
+      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",       // $29 – 100 scans (TEST)
+      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k",  // $75 – 250 scans (TEST)
+      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",        // $149 – 500 scans (TEST)
     };
 
     const priceId = priceIds[planKey];
@@ -1846,6 +1846,14 @@
     setupCreditPackButtons(user);
     handleSelectedPlan(); // show banner + wire checkout if ?plan= exists
 
+    // Wire "View plans & subscribe" banner button → main pricing
+    const goToPricingBtn = document.getElementById("btn-go-to-pricing");
+    if (goToPricingBtn) {
+      goToPricingBtn.addEventListener("click", () => {
+        window.location.href = "/index.html#pricing";
+      });
+    }
+
     // --- Handle return from Stripe checkout ---
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
@@ -1858,10 +1866,12 @@
           "Your subscription is now active. Enjoy your scans.";
       }
 
+      // give webhook a moment then pull fresh profile
       setTimeout(() => {
         loadProfile(user);
       }, 1500);
 
+      // clean URL so message doesn’t re-trigger
       if (window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete("session_id");
