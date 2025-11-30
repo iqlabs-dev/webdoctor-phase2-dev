@@ -18,40 +18,40 @@
       --box: rgba(255,255,255,0.06);
       --box2: rgba(255,255,255,0.12);
     }
+
     .subscription-banner {
-  margin-bottom: 20px;
-  padding: 14px 18px;
-  border-radius: 18px;
-  background: radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,0.96));
-  border: 1px solid rgba(148,163,184,0.55);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.6);
-}
+      margin-bottom: 20px;
+      padding: 14px 18px;
+      border-radius: 18px;
+      background: radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.55);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    }
 
-.subscription-banner__title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
+    .subscription-banner__title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
 
-.subscription-banner__text {
-  font-size: 0.8rem;
-  color: #c0cfeb;
-  margin: 0 0 12px;
-}
+    .subscription-banner__text {
+      font-size: 0.8rem;
+      color: #c0cfeb;
+      margin: 0 0 12px;
+    }
 
-.subscription-banner__button {
-  border: none;
-  border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  background: linear-gradient(135deg, #22c55e, #14b8a6);
-  color: #020617;
-}
-
+    .subscription-banner__button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      background: linear-gradient(135deg, #22c55e, #14b8a6);
+      color: #020617;
+    }
 
     * {
       box-sizing: border-box;
@@ -369,6 +369,61 @@
 
     .credits-value.low-credits {
       color: #fb923c;
+    }
+
+    .plan-remaining-row {
+      margin-top: 6px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .plan-remaining-label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .plan-remaining-value {
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+
+    .credits-pack-row {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .credits-pack-label {
+      width: 100%;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .credits-pack-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.65);
+      background: rgba(8,15,30,0.9);
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      cursor: pointer;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.1s ease;
+    }
+
+    .credits-pack-btn:hover {
+      background: rgba(34,211,238,0.14);
+      border-color: rgba(34,211,238,0.9);
+      transform: translateY(-1px);
+      color: var(--ink);
     }
 
     .hint-text {
@@ -942,20 +997,18 @@
     </div>
 
     <!-- SUBSCRIPTION REQUIRED BANNER -->
-<div id="subscription-banner" class="subscription-banner" style="display:none;">
-
-  <div class="subscription-banner__title">
-    Choose your iQWEB plan to continue
-  </div>
-  <p class="subscription-banner__text">
-    Your account is active, but you don’t have a subscription yet.
-    Purchase a plan to unlock scans and full dashboard features.
-  </p>
-  <button id="btn-go-to-pricing" class="subscription-banner__button">
-    View plans &amp; subscribe
-  </button>
-</div>
-
+    <div id="subscription-banner" class="subscription-banner" style="display:none;">
+      <div class="subscription-banner__title">
+        Choose your iQWEB plan to continue
+      </div>
+      <p class="subscription-banner__text">
+        Your account is active, but you don’t have a subscription yet.
+        Purchase a plan to unlock scans and full dashboard features.
+      </p>
+      <button id="btn-go-to-pricing" class="subscription-banner__button">
+        View plans &amp; subscribe
+      </button>
+    </div>
 
     <!-- Linear-style plan banner (only shows if ?plan= is present) -->
     <div id="selected-plan-banner" class="plan-banner" style="display:none;">
@@ -969,6 +1022,12 @@
       <div class="summary-block">
         <div class="summary-label">Scans available</div>
         <div class="credits-value" id="wd-credits-count">--</div>
+
+        <div class="plan-remaining-row">
+          <span class="plan-remaining-label">Plan scans remaining</span>
+          <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
+        </div>
+
         <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
           Loading your plan details…
         </div>
@@ -991,6 +1050,15 @@
 
         <div class="hint-text" style="margin-top:8px;">
           Your plan scans are used first. If you run out, extra credits are $1 per scan.
+        </div>
+
+        <div class="credits-pack-row">
+          <div class="credits-pack-label">Top up your credits</div>
+          <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
+          <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
+          <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
+          <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
+          <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
         </div>
       </div>
 
@@ -1121,7 +1189,7 @@
   async function loadProfile(user) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, email, credits, subscription_tier, is_admin, monthly_limit, reports_used")
+      .select("full_name, email, credits, subscription_tier, is_admin, monthly_limit, reports_used, plan, plan_status, plan_scans_remaining")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -1139,6 +1207,7 @@
     const creditsEl = document.getElementById("wd-credits-count");
     const planSummaryEl = document.getElementById("wd-plan-summary");
     const adminBadgeEl = document.getElementById("wd-admin-badge");
+    const planRemainingEl = document.getElementById("wd-plan-scans-remaining");
 
     if (nameEl) nameEl.textContent = displayName;
     if (emailEl) emailEl.textContent = displayEmail || "Signed in";
@@ -1153,6 +1222,10 @@
     const tier = (profile.subscription_tier || "free").toLowerCase();
     const monthlyLimit = profile.monthly_limit;
     const used = profile.reports_used || 0;
+    const planScansRemaining =
+      typeof profile.plan_scans_remaining === "number"
+        ? profile.plan_scans_remaining
+        : null;
 
     let summary = "Free plan · pay-per-scan credits.";
     if (tier === "trial") {
@@ -1170,8 +1243,19 @@
         ? `Agency · ${monthlyLimit}+ scans/month with priority diagnostics.`
         : "Agency plan · built for teams and client load.";
     }
+
     if (planSummaryEl) {
       planSummaryEl.textContent = summary;
+    }
+
+    if (planRemainingEl) {
+      if (planScansRemaining != null) {
+        planRemainingEl.textContent = planScansRemaining;
+      } else if (typeof monthlyLimit === "number") {
+        planRemainingEl.textContent = Math.max(monthlyLimit - used, 0);
+      } else {
+        planRemainingEl.textContent = "--";
+      }
     }
 
     if (adminBadgeEl) {
@@ -1673,6 +1757,51 @@
     cta.onclick = () => startPlanCheckout(plan);
   }
 
+  async function startCreditsCheckout(pack, user) {
+    const activeUser = user;
+    if (!activeUser) {
+      alert("Please log in again to continue.");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const email = activeUser.email;
+
+    try {
+      const res = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: activeUser.id,
+          email,
+          type: "credits",
+          pack: String(pack),
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json?.url) {
+        console.error("Credit checkout session error:", json);
+        alert("Unable to start credit purchase. Please try again.");
+        return;
+      }
+
+      window.location.href = json.url;
+    } catch (err) {
+      console.error("Credit checkout error:", err);
+      alert("Unable to start credit purchase. Please try again.");
+    }
+  }
+
+  function setupCreditPackButtons(user) {
+    const packs = ["10", "25", "50", "100", "500"];
+    packs.forEach((pack) => {
+      const btn = document.getElementById(`btn-credits-${pack}`);
+      if (!btn) return;
+      btn.addEventListener("click", () => startCreditsCheckout(pack, user));
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", async () => {
     const user = await requireSession();
     if (!user) return;
@@ -1683,6 +1812,7 @@
     await loadScanHistory(user.id);
     await setupSignOut();
     setupInlineRun(user);
+    setupCreditPackButtons(user);
     handleSelectedPlan();  // show banner + wire checkout if ?plan= exists
   });
 </script>

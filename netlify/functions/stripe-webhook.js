@@ -11,71 +11,131 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/**
- * PLAN IDS
- * New iQWEB plans (Insight / Intelligence / Impact)
- */
-const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT;       // e.g. $29
-const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE;  // e.g. $75
-const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT;        // e.g. $149
+// Subscription plan price IDs (env vars)
+const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT;      // $29 → 100 scans
+const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE; // $75 → 250 scans
+const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT;       // $149 → 500 scans
 
-/**
- * Legacy WebDoctor plan IDs (SCAN / DIAGNOSE / REVIVE)
- * These map 1:1 to the new plans so old checkout flows still work.
- */
-const PRICE_ID_SCAN      = process.env.PRICE_ID_SCAN;      // maps to Insight
-const PRICE_ID_DIAGNOSE  = process.env.PRICE_ID_DIAGNOSE;  // maps to Intelligence
-const PRICE_ID_REVIVE    = process.env.PRICE_ID_REVIVE;    // maps to Impact
-
-// Monthly scan limits for each plan (new + legacy IDs)
-const PLAN_LIMITS = {
-  // New
-  [PRICE_ID_INSIGHT]: 100,        // Insight: 100 scans / month
-  [PRICE_ID_INTELLIGENCE]: 250,   // Intelligence: 250 scans / month
-  [PRICE_ID_IMPACT]: 500,         // Impact: 500 scans / month
-
-  // Legacy – same limits, just different price IDs
-  [PRICE_ID_SCAN]: 100,
-  [PRICE_ID_DIAGNOSE]: 250,
-  [PRICE_ID_REVIVE]: 500
+// Map Stripe price → internal plan name + monthly scan allowance
+const PLAN_CONFIG = {
+  [PRICE_ID_INSIGHT]: {
+    plan: 'insight',
+    scans: 100,
+  },
+  [PRICE_ID_INTELLIGENCE]: {
+    plan: 'intelligence',
+    scans: 250,
+  },
+  [PRICE_ID_IMPACT]: {
+    plan: 'impact',
+    scans: 500,
+  },
 };
 
-// Helper: set plan + monthly limit on profile
-async function setPlanLimitOnProfile(stripeCustomerId, priceId) {
-  const monthlyLimit = PLAN_LIMITS[priceId] ?? null;
+// HELPERS
+// ------------------------------------------------------------
 
-  // subscription_status text for your UI/dashboard
-  let subscriptionStatus = null;
+// Activate or update subscription on profile
+async function handleSubscriptionCheckout(session, userId, metadata) {
+  const customerId = session.customer;
+  const subscriptionId = session.subscription;
 
-  // Treat new + legacy IDs as the same logical tier
-  if (priceId === PRICE_ID_INSIGHT || priceId === PRICE_ID_SCAN) {
-    subscriptionStatus = 'insight';
-  } else if (priceId === PRICE_ID_INTELLIGENCE || priceId === PRICE_ID_DIAGNOSE) {
-    subscriptionStatus = 'intelligence';
-  } else if (priceId === PRICE_ID_IMPACT || priceId === PRICE_ID_REVIVE) {
-    subscriptionStatus = 'impact';
+  if (!customerId || !subscriptionId) {
+    console.warn('Subscription checkout missing customerId or subscriptionId');
+  }
+
+  // Get subscription from Stripe so we know which price ID is active
+  let priceId = null;
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const item = subscription.items?.data?.[0];
+    priceId = item?.price?.id || null;
+  } catch (err) {
+    console.error('Error retrieving subscription to determine priceId:', err);
+  }
+
+  const fallbackPlan = metadata.plan || 'insight';
+  let plan = fallbackPlan;
+  let allowedScans = 100;
+
+  if (priceId && PLAN_CONFIG[priceId]) {
+    plan = PLAN_CONFIG[priceId].plan;
+    allowedScans = PLAN_CONFIG[priceId].scans;
   } else {
-    console.warn('Unknown price ID in setPlanLimitOnProfile:', priceId);
+    console.warn(
+      'Unknown or missing priceId in subscription; falling back to',
+      fallbackPlan
+    );
+  }
+
+  const updates = {
+    plan,
+    plan_status: 'active',
+    plan_scans_remaining: allowedScans,
+    stripe_subscription_id: subscriptionId,
+  };
+
+  // Also attach stripe_customer_id if we have it
+  if (customerId) {
+    updates.stripe_customer_id = customerId;
   }
 
   const { error } = await supabase
     .from('profiles')
-    .update({
-      plan_price_id: priceId,
-      monthly_limit: monthlyLimit,
-      reports_used: 0,               // reset counter on new/changed sub
-      subscription_status: subscriptionStatus,
-      trial_start: null,             // clear trial when paid sub is active
-      trial_end: null
-    })
-    .eq('stripe_customer_id', stripeCustomerId);
+    .update(updates)
+    .eq('id', userId);
 
   if (error) {
-    console.error('Error updating profile with plan limit:', error);
+    console.error('Error updating profile for subscription', error);
+    throw error;
   }
+
+  console.log(
+    `✔ Subscription activated for user ${userId} on plan ${plan} with ${allowedScans} scans`
+  );
 }
 
-// Default Netlify function export
+// Add credits to profile (never expire, just accumulate)
+async function handleCreditPackCheckout(session, userId, metadata) {
+  const creditsToAdd = parseInt(metadata.credits || '0', 10);
+
+  if (!creditsToAdd || Number.isNaN(creditsToAdd)) {
+    console.warn('No valid credits metadata on credit pack checkout', metadata);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('credits')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching profile for credits', error);
+    throw error;
+  }
+
+  const currentCredits = data?.credits || 0;
+  const newCredits = currentCredits + creditsToAdd;
+
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ credits: newCredits })
+    .eq('id', userId);
+
+  if (updateError) {
+    console.error('Error updating credits', updateError);
+    throw updateError;
+  }
+
+  console.log(
+    `✔ Added ${creditsToAdd} credits to user ${userId} (total ${newCredits})`
+  );
+}
+
+// MAIN HANDLER
+// ------------------------------------------------------------
+
 export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -84,7 +144,7 @@ export default async (request, context) => {
 
   // Verify Stripe signature
   try {
-    const body = await request.text();
+    const body = await request.text(); // raw body for Stripe
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
     console.error('❌ Stripe webhook signature failed:', err.message);
@@ -93,115 +153,90 @@ export default async (request, context) => {
 
   try {
     switch (event.type) {
-      // Fired after checkout payment completes
       case 'checkout.session.completed': {
         const session = event.data.object;
+        const metadata = session.metadata || {};
 
-        const customerId = session.customer;
-        const subscriptionId = session.subscription;
-        const customerEmail =
-          session.customer_details?.email || session.customer_email;
+        const userId = metadata.user_id;
+        const type = metadata.type;
 
-        if (!customerId || !subscriptionId || !customerEmail) {
-          console.warn('Missing customer/subscription/email on session');
+        if (!userId || !type) {
+          console.warn(
+            'checkout.session.completed missing user_id or type in metadata',
+            metadata
+          );
           break;
         }
 
-        // 1) Ensure a profile row exists for this email
-        const { data: existingProfile, error: selectError } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('email', customerEmail)
-          .maybeSingle();
-
-        if (selectError) {
-          console.error('Error looking up profile by email:', selectError);
-        }
-
-        if (!existingProfile) {
-          // No profile yet → create a profile for this Stripe customer
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              email: customerEmail,
-              stripe_customer_id: customerId,
-              credits: 0,
-              subscription_status: null
-            });
-
-          if (insertError) {
-            console.error('Error inserting new profile:', insertError);
-          }
+        if (type === 'subscription') {
+          await handleSubscriptionCheckout(session, userId, metadata);
+        } else if (type === 'credits') {
+          await handleCreditPackCheckout(session, userId, metadata);
         } else {
-          // Profile exists → just attach stripe_customer_id
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ stripe_customer_id: customerId })
-            .eq('email', customerEmail);
-
-          if (updateError) {
-            console.error('Error updating existing profile:', updateError);
-          }
+          console.warn('Unknown metadata.type on checkout.session.completed:', type);
         }
 
-        // 2) Look up subscription → get price → apply plan limit
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const priceId = subscription.items.data[0].price.id;
-
-        console.log('✔ checkout.session.completed → assigning plan:', priceId);
-        await setPlanLimitOnProfile(customerId, priceId);
-
         break;
       }
 
-      // Fired on plan upgrade/downgrade/renewal
-      case 'customer.subscription.updated':
-      case 'customer.subscription.created': {
-        const subscription = event.data.object;
-
-        const customerId = subscription.customer;
-        const priceId = subscription.items.data[0].price.id;
-
-        console.log('✔ subscription.updated/created → assigning plan:', priceId);
-        await setPlanLimitOnProfile(customerId, priceId);
-
-        break;
-      }
-
-      // Fired when user cancels subscription
+      // Optional: react to subscription cancellations
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
-        const customerId = subscription.customer;
+        const subscriptionId = subscription.id;
 
-        console.log('⚠ subscription.deleted → clearing plan');
+        console.log(
+          '⚠ subscription.deleted → marking plan_status = cancelled for subscription',
+          subscriptionId
+        );
 
-        const { error } = await supabase
+        // Find profile(s) by stripe_subscription_id
+        const { data: profiles, error } = await supabase
           .from('profiles')
-          .update({
-            plan_price_id: null,
-            monthly_limit: null,
-            reports_used: 0,
-            subscription_status: null
-          })
-          .eq('stripe_customer_id', customerId);
+          .select('id')
+          .eq('stripe_subscription_id', subscriptionId);
 
         if (error) {
-          console.error('Error clearing plan on cancel:', error);
+          console.error('Error finding profiles for cancelled subscription', error);
+          break;
+        }
+
+        if (!profiles || profiles.length === 0) {
+          console.warn(
+            'No profiles found for cancelled subscription',
+            subscriptionId
+          );
+          break;
+        }
+
+        const profileIds = profiles.map((p) => p.id);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            plan_status: 'cancelled',
+            plan_scans_remaining: 0,
+          })
+          .in('id', profileIds);
+
+        if (updateError) {
+          console.error('Error updating profiles on subscription cancel', updateError);
         }
 
         break;
       }
 
-      default:
+      default: {
+        // Ignore everything else for now
         console.log('➡ Ignored Stripe event:', event.type);
         break;
+      }
     }
 
     return new Response(
       JSON.stringify({ received: true }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (err) {
