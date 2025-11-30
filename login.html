@@ -316,6 +316,24 @@
         height: 42px;
       }
     }
+    /* Wrong-code shake + error state */
+.pin-row.shake {
+  animation: pin-shake 0.18s ease-in-out 0s 2;
+}
+
+.pin-input.error {
+  border-color: #fb7185;
+  box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.55);
+}
+
+@keyframes pin-shake {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-3px); }
+  50%  { transform: translateX(3px); }
+  75%  { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
   </style>
 </head>
 
@@ -525,13 +543,33 @@
       sendBtn.disabled = false;
       if (resendBtn) resendBtn.disabled = false;
 
-      if (error) {
-        console.error("verifyOtp error:", error);
-        setStatus("Invalid or expired code. Please request a new one.", "error");
-        pinInputs.forEach((i) => (i.value = ""));
-        if (pinInputs[0]) pinInputs[0].focus();
-        return;
-      }
+if (error) {
+  console.error("verifyOtp error:", error);
+  setStatus("Invalid or expired code. Please request a new one.", "error");
+
+  // Clear inputs + mark red
+  pinInputs.forEach((i) => {
+    i.value = "";
+    i.classList.add("error");
+  });
+
+  // Shake animation
+  const pinRow = document.querySelector(".pin-row");
+  if (pinRow) {
+    pinRow.classList.remove("shake"); 
+    void pinRow.offsetWidth; // retrigger animation
+    pinRow.classList.add("shake");
+  }
+
+  // Remove red outline after animation
+  setTimeout(() => {
+    pinInputs.forEach((i) => i.classList.remove("error"));
+  }, 350);
+
+  if (pinInputs[0]) pinInputs[0].focus();
+  return;
+}
+
 
       console.log("verifyOtp success:", data);
       setStatus("Signed in. Redirecting…", "success");
