@@ -1186,10 +1186,13 @@
     return data.session.user;
   }
 
+  // -----------------------
+  // PROFILE / PLAN SUMMARY
+  // -----------------------
   async function loadProfile(user) {
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, email, credits, subscription_tier, is_admin, monthly_limit, reports_used, plan, plan_status, plan_scans_remaining")
+      .select("full_name, email, credits, plan, plan_status, plan_scans_remaining, is_admin")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -1208,53 +1211,73 @@
     const planSummaryEl = document.getElementById("wd-plan-summary");
     const adminBadgeEl = document.getElementById("wd-admin-badge");
     const planRemainingEl = document.getElementById("wd-plan-scans-remaining");
+    const subscriptionBanner = document.getElementById("subscription-banner");
 
     if (nameEl) nameEl.textContent = displayName;
     if (emailEl) emailEl.textContent = displayEmail || "Signed in";
-    if (initialEl) initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
-
-    const credits = typeof profile.credits === "number" ? profile.credits : 0;
-    if (creditsEl) {
-      creditsEl.textContent = credits;
-      creditsEl.classList.toggle("low-credits", credits <= 2);
+    if (initialEl) {
+      initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
     }
 
-    const tier = (profile.subscription_tier || "free").toLowerCase();
-    const monthlyLimit = profile.monthly_limit;
-    const used = profile.reports_used || 0;
-    const planScansRemaining =
-      typeof profile.plan_scans_remaining === "number"
-        ? profile.plan_scans_remaining
-        : null;
+    const credits = Number.isFinite(profile.credits) ? profile.credits : 0;
+    const plan = (profile.plan || "").toLowerCase();           // insight / intelligence / impact
+    const planStatus = (profile.plan_status || "").toLowerCase(); // active / cancelled / ""
+    const planScansRemaining = Number.isFinite(profile.plan_scans_remaining)
+      ? profile.plan_scans_remaining
+      : 0;
 
-    let summary = "Free plan · pay-per-scan credits.";
-    if (tier === "trial") {
-      summary = "Trial plan · enjoy your iQWEB test scans.";
-    } else if (tier === "starter") {
-      summary = monthlyLimit
-        ? `Starter · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
-        : "Starter plan · monthly scans included.";
-    } else if (tier === "pro") {
-      summary = monthlyLimit
-        ? `Pro · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
-        : "Pro plan · higher limits and priority processing.";
-    } else if (tier === "agency") {
-      summary = monthlyLimit
-        ? `Agency · ${monthlyLimit}+ scans/month with priority diagnostics.`
-        : "Agency plan · built for teams and client load.";
+    // Big number: total scans available (plan + credits)
+    const totalAvailable =
+      (planStatus === "active" ? planScansRemaining : 0) + credits;
+
+    if (creditsEl) {
+      creditsEl.textContent = totalAvailable;
+      creditsEl.classList.toggle("low-credits", totalAvailable <= 2);
+    }
+
+    // Small label row for "Plan scans remaining"
+    if (planRemainingEl) {
+      if (planStatus === "active") {
+        planRemainingEl.textContent = planScansRemaining;
+      } else {
+        planRemainingEl.textContent = "—";
+      }
+    }
+
+    // Human summary line under the number
+    let summary;
+    if (planStatus === "active" && plan) {
+      const friendlyNameMap = {
+        insight: "Insight",
+        intelligence: "Intelligence",
+        impact: "Impact",
+      };
+      const planName =
+        friendlyNameMap[plan] ||
+        plan.charAt(0).toUpperCase() + plan.slice(1);
+
+      summary = `${planName} plan — ${planScansRemaining} plan scans left this month`;
+      if (credits > 0) {
+        summary += ` · ${credits} extra credits (never expire).`;
+      } else {
+        summary += `.`;
+      }
+    } else if (credits > 0) {
+      summary = `Free plan · ${credits} credits available (never expire).`;
+    } else {
+      summary = `No active plan yet. Choose a plan or buy credits to start scanning.`;
     }
 
     if (planSummaryEl) {
       planSummaryEl.textContent = summary;
     }
 
-    if (planRemainingEl) {
-      if (planScansRemaining != null) {
-        planRemainingEl.textContent = planScansRemaining;
-      } else if (typeof monthlyLimit === "number") {
-        planRemainingEl.textContent = Math.max(monthlyLimit - used, 0);
+    // Show / hide the "Choose your plan" banner
+    if (subscriptionBanner) {
+      if (planStatus !== "active" && totalAvailable === 0) {
+        subscriptionBanner.style.display = "block";
       } else {
-        planRemainingEl.textContent = "--";
+        subscriptionBanner.style.display = "none";
       }
     }
 
@@ -1341,11 +1364,13 @@
       const created = rec.created_at ? new Date(rec.created_at) : null;
 
       const dateStr = created
-        ? created.toLocaleDateString("en-NZ", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }).toUpperCase()
+        ? created
+            .toLocaleDateString("en-NZ", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+            .toUpperCase()
         : "-";
 
       const timeStr = created
@@ -1502,7 +1527,9 @@
     const hostname = getHostname(record.url);
     if (urlEl) urlEl.textContent = hostname;
     if (dateEl) {
-      dateEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
+      dateEl.textContent = `Scanned on ${formatDate(
+        record.created_at
+      )} at ${formatTime(record.created_at)}`;
     }
 
     if (scoreEl) {
@@ -1581,7 +1608,9 @@
   async function loadScanHistory(userId) {
     let query = supabase
       .from("scan_results")
-      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
+      .select(
+        "id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms"
+      )
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -1694,9 +1723,9 @@
   // Stripe checkout for selected plan (Linear-style)
   async function startPlanCheckout(planKey) {
     const priceIds = {
-      insight: 'price_1SQ4knHrtPY0HwDpFHfxNdoZ',       // $29 – 100 scans (TEST)
-      intelligence: 'price_1SQ4oZHrtPY0HwDpjLOnlC5k',  // $75 – 250 scans (TEST)
-      impact: 'price_1SQ4qUHrtPY0HwDpSDWJDBpb',        // $149 – 500 scans (TEST)
+      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ", // $29 – 100 scans (TEST)
+      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k", // $75 – 250 scans (TEST)
+      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb", // $149 – 500 scans (TEST)
     };
 
     const priceId = priceIds[planKey];
@@ -1715,48 +1744,49 @@
     const email = data.user.email;
 
     try {
-      const res = await fetch('/.netlify/functions/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ priceId, email }),
       });
 
       const json = await res.json();
       if (!res.ok || !json?.url) {
-        console.error('Checkout session error:', json);
-        alert('Unable to start checkout. Please try again.');
+        console.error("Checkout session error:", json);
+        alert("Unable to start checkout. Please try again.");
         return;
       }
 
       window.location.href = json.url;
     } catch (err) {
-      console.error('Checkout error:', err);
-      alert('Checkout failed. Please try again.');
+      console.error("Checkout error:", err);
+      alert("Checkout failed. Please try again.");
     }
   }
 
   function handleSelectedPlan() {
     const params = new URLSearchParams(window.location.search);
-    const plan = params.get('plan');
+    const plan = params.get("plan");
     if (!plan) return;
 
-    const banner = document.getElementById('selected-plan-banner');
-    const textEl = document.getElementById('selected-plan-text');
-    const cta = document.getElementById('selected-plan-cta');
+    const banner = document.getElementById("selected-plan-banner");
+    const textEl = document.getElementById("selected-plan-text");
+    const cta = document.getElementById("selected-plan-cta");
     if (!banner || !textEl || !cta) return;
 
     const map = {
-      insight: 'Insight — $29/mo · 100 scans',
-      intelligence: 'Intelligence — $75/mo · 250 scans',
-      impact: 'Impact — $149/mo · 500 scans',
+      insight: "Insight — $29/mo · 100 scans",
+      intelligence: "Intelligence — $75/mo · 250 scans",
+      impact: "Impact — $149/mo · 500 scans",
     };
 
     textEl.textContent = `You selected: ${map[plan] || plan}`;
-    banner.style.display = 'flex';
+    banner.style.display = "flex";
 
     cta.onclick = () => startPlanCheckout(plan);
   }
 
+  // Credit pack checkout (requires matching Netlify function)
   async function startCreditsCheckout(pack, user) {
     const activeUser = user;
     if (!activeUser) {
@@ -1813,26 +1843,25 @@
     await loadScanHistory(user.id);
     await setupSignOut();
     setupInlineRun(user);
-    handleSelectedPlan();  // show banner + wire checkout if ?plan= exists
+    setupCreditPackButtons(user);
+    handleSelectedPlan(); // show banner + wire checkout if ?plan= exists
 
-    // --- NEW: Handle return from Stripe checkout ---
+    // --- Handle return from Stripe checkout ---
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
     const billingStatus = params.get("billing");
 
-    // If we came back from Stripe with a successful checkout
     if (sessionId || billingStatus === "success") {
       const planSummaryEl = document.getElementById("wd-plan-summary");
       if (planSummaryEl) {
-        planSummaryEl.textContent = "Your subscription is now active. Enjoy your scans.";
+        planSummaryEl.textContent =
+          "Your subscription is now active. Enjoy your scans.";
       }
 
-      // Give Stripe webhook a moment, then refresh profile to pick up new plan/credits
       setTimeout(() => {
         loadProfile(user);
       }, 1500);
 
-      // Clean up the URL so the message doesn't keep reappearing on refresh
       if (window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete("session_id");
