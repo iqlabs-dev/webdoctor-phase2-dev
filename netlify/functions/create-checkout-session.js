@@ -19,12 +19,10 @@ const ALLOWED_PRICE_IDS = new Set([
 ]);
 
 export default async (request, context) => {
-  // Only allow POST
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  // Parse JSON body safely (Netlify v2 style)
   let body;
   try {
     body = await request.json();
@@ -45,7 +43,6 @@ export default async (request, context) => {
     );
   }
 
-  // Basic safety: make sure priceId is one of YOUR Stripe prices
   if (!ALLOWED_PRICE_IDS.has(priceId)) {
     console.warn('Attempt to use disallowed priceId:', priceId);
     return new Response(
@@ -61,11 +58,13 @@ export default async (request, context) => {
       customer_email: email,
       line_items: [
         {
-          price: priceId, // we pass the exact price ID from the front end
+          price: priceId,
           quantity: 1,
         },
       ],
-      success_url: `${SITE_URL}/thanks.html?session_id={CHECKOUT_SESSION_ID}`,
+
+      // ⬇⬇⬇ FIXED — redirect user back to dashboard
+      success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/#pricing`,
     });
 

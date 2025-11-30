@@ -1806,15 +1806,42 @@
     const user = await requireSession();
     if (!user) return;
 
+    // Initial load
     await loadProfile(user);
     setupFilters();
     setupSearch();
     await loadScanHistory(user.id);
     await setupSignOut();
     setupInlineRun(user);
-    setupCreditPackButtons(user);
     handleSelectedPlan();  // show banner + wire checkout if ?plan= exists
+
+    // --- NEW: Handle return from Stripe checkout ---
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    const billingStatus = params.get("billing");
+
+    // If we came back from Stripe with a successful checkout
+    if (sessionId || billingStatus === "success") {
+      const planSummaryEl = document.getElementById("wd-plan-summary");
+      if (planSummaryEl) {
+        planSummaryEl.textContent = "Your subscription is now active. Enjoy your scans.";
+      }
+
+      // Give Stripe webhook a moment, then refresh profile to pick up new plan/credits
+      setTimeout(() => {
+        loadProfile(user);
+      }, 1500);
+
+      // Clean up the URL so the message doesn't keep reappearing on refresh
+      if (window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("billing");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      }
+    }
   });
+
 </script>
 
 </body>
