@@ -10,9 +10,11 @@ const supabase = createClient(
 );
 
 // --- price IDs (unchanged) ---
-const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT;
-const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE;
-const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT;
+// --- price IDs (LIVE env) ---
+const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT_LIVE;
+const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE_LIVE;
+const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT_LIVE;
+
 
 const PLAN_CONFIG = {
   [PRICE_ID_INSIGHT]:      { plan: 'insight',      scans: 100 },

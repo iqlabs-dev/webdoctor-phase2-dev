@@ -12,7 +12,7 @@ const ALLOWED_PRICE_IDS = new Set([
   process.env.PRICE_ID_INTELLIGENCE,
   process.env.PRICE_ID_IMPACT,
 
-  // keep these if you still have old WebDoctor buttons anywhere
+  // legacy WebDoctor prices if you still use them anywhere
   process.env.PRICE_ID_SCAN,
   process.env.PRICE_ID_DIAGNOSE,
   process.env.PRICE_ID_REVIVE,
@@ -34,8 +34,14 @@ export default async (request, context) => {
     );
   }
 
-  // 🔹 Now we also accept userId / type / plan from the dashboard
-  const { priceId, email, userId, type, plan } = body || {};
+  const {
+    priceId,
+    email,
+    userId,        // NEW – from dashboard
+    selectedPlan,  // NEW – "insight" | "intelligence" | "impact"
+    type,          // optional: "subscription" | "credits"
+    pack,          // optional: "10" | "25" | ...
+  } = body || {};
 
   if (!priceId || !email) {
     return new Response(
@@ -52,29 +58,56 @@ export default async (request, context) => {
     );
   }
 
-  // 🔹 This is the key fix: send metadata to Stripe
-  const metadata = {};
-  if (userId) metadata.user_id = userId;          // used by webhook to find Supabase profile
-  if (type) metadata.type = type;                 // e.g. "subscription" or "credits"
-  if (plan) metadata.plan = plan;                 // e.g. "insight" / "intelligence" / "impact"
+  // default to subscription if not specified
+  const purchaseType = type || 'subscription';
 
   try {
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',               // subscriptions only for now
-      payment_method_types: ['card'],
-      customer_email: email,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/#pricing`,
+    let session;
 
-      // ✅ send through to Stripe so the webhook can update Supabase
-      metadata,
-    });
+    if (purchaseType === 'subscription') {
+      // MONTHLY PLAN CHECKOUT
+      session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        customer_email: email,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+
+        // 🔑 This is what the webhook will read
+        metadata: {
+          user_id: userId || '',
+          type: 'subscription',
+          plan: selectedPlan || '',
+        },
+
+        success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}&billing=success`,
+        cancel_url: `${SITE_URL}/#pricing`,
+      });
+    } else {
+      // OPTIONAL: ONE-OFF CREDIT PACKS (for later)
+      session = await stripe.checkout.sessions.create({
+        mode: 'payment',
+        payment_method_types: ['card'],
+        customer_email: email,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          user_id: userId || '',
+          type: 'credits',
+          pack: pack || '',
+        },
+        success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}&billing=success`,
+        cancel_url: `${SITE_URL}/dashboard.html`,
+      });
+    }
 
     return new Response(
       JSON.stringify({ url: session.url }),
