@@ -34,7 +34,8 @@ export default async (request, context) => {
     );
   }
 
-  const { priceId, email } = body || {};
+  // 🔹 Now we also accept userId / type / plan from the dashboard
+  const { priceId, email, userId, type, plan } = body || {};
 
   if (!priceId || !email) {
     return new Response(
@@ -51,9 +52,15 @@ export default async (request, context) => {
     );
   }
 
+  // 🔹 This is the key fix: send metadata to Stripe
+  const metadata = {};
+  if (userId) metadata.user_id = userId;          // used by webhook to find Supabase profile
+  if (type) metadata.type = type;                 // e.g. "subscription" or "credits"
+  if (plan) metadata.plan = plan;                 // e.g. "insight" / "intelligence" / "impact"
+
   try {
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
+      mode: 'subscription',               // subscriptions only for now
       payment_method_types: ['card'],
       customer_email: email,
       line_items: [
@@ -62,10 +69,11 @@ export default async (request, context) => {
           quantity: 1,
         },
       ],
-
-      // ⬇⬇⬇ FIXED — redirect user back to dashboard
       success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${SITE_URL}/#pricing`,
+
+      // ✅ send through to Stripe so the webhook can update Supabase
+      metadata,
     });
 
     return new Response(
