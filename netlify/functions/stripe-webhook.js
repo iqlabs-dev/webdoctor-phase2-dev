@@ -9,12 +9,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- price IDs (unchanged) ---
 // --- price IDs (LIVE env) ---
 const PRICE_ID_INSIGHT      = process.env.PRICE_ID_INSIGHT_LIVE;
 const PRICE_ID_INTELLIGENCE = process.env.PRICE_ID_INTELLIGENCE_LIVE;
 const PRICE_ID_IMPACT       = process.env.PRICE_ID_IMPACT_LIVE;
-
 
 const PLAN_CONFIG = {
   [PRICE_ID_INSIGHT]:      { plan: 'insight',      scans: 100 },
@@ -84,7 +82,7 @@ async function handleCreditPackCheckout(session, userId, metadata) {
   const { data, error } = await supabase
     .from('profiles')
     .select('credits')
-    .eq('user_id', userId) // <-- was id
+    .eq('user_id', userId)
     .single();
 
   if (error) {
@@ -98,7 +96,7 @@ async function handleCreditPackCheckout(session, userId, metadata) {
   const { error: updateError } = await supabase
     .from('profiles')
     .update({ credits: newCredits })
-    .eq('user_id', userId); // <-- was id
+    .eq('user_id', userId);
 
   if (updateError) {
     console.error('Error updating credits', updateError);
@@ -114,13 +112,29 @@ export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event;
+  // 🔍 DEBUG: see what the function actually receives
+  console.log('stripe-webhook: incoming', {
+    method: request.method,
+    hasSig: !!sig,
+    secretSet: !!webhookSecret,
+  });
 
+  let body;
   try {
-    const body = await request.text();
+    body = await request.text();
+  } catch (err) {
+    console.error('❌ Failed to read webhook body:', err);
+    return new Response('Webhook Error', { status: 400 });
+  }
+
+  let event;
+  try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
-    console.error('❌ Stripe webhook signature failed:', err.message);
+    console.error('❌ Stripe webhook signature failed:', err.message, {
+      hasSig: !!sig,
+      secretSet: !!webhookSecret,
+    });
     return new Response('Webhook Error', { status: 400 });
   }
 
@@ -131,6 +145,8 @@ export default async (request, context) => {
         const metadata = session.metadata || {};
         const userId = metadata.user_id;
         const type = metadata.type;
+
+        console.log('checkout.session.completed metadata:', metadata);
 
         if (!userId || !type) {
           console.warn('checkout.session.completed missing user_id or type in metadata', metadata);

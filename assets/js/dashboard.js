@@ -53,12 +53,13 @@ async function startSubscriptionCheckout(planKey) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-  priceId,                  // 🔥 which Stripe price
+  priceId,                  // Stripe price_xxx
   email: window.currentUserEmail,
-  userId: currentUserId,    // 🔥 used as metadata.user_id
+  userId: currentUserId,
   type: 'subscription',
-  selectedPlan: planKey,    // "insight" | "intelligence" | "impact"
+  selectedPlan: planKey,    // 🔑 matches backend
 }),
+
 
     });
 
