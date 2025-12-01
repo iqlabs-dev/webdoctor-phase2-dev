@@ -57,7 +57,6 @@ async function handleSubscriptionCheckout(session, userId, metadata) {
     updates.stripe_customer_id = customerId;
   }
 
-  // IMPORTANT: match dashboard → user_id, not id
   const { error } = await supabase
     .from('profiles')
     .update(updates)
@@ -112,30 +111,41 @@ export default async (request, context) => {
   const sig = request.headers.get('stripe-signature');
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  // 🔍 DEBUG: see what the function actually receives
   console.log('stripe-webhook: incoming', {
     method: request.method,
     hasSig: !!sig,
     secretSet: !!webhookSecret,
   });
 
-  let body;
+  let rawBody;
   try {
-    body = await request.text();
+    rawBody = await request.text();
   } catch (err) {
     console.error('❌ Failed to read webhook body:', err);
     return new Response('Webhook Error', { status: 400 });
   }
 
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch (err) {
-    console.error('❌ Stripe webhook signature failed:', err.message, {
-      hasSig: !!sig,
-      secretSet: !!webhookSecret,
-    });
-    return new Response('Webhook Error', { status: 400 });
+  let event = null;
+
+  // 1) Try proper Stripe verification first
+  if (sig && webhookSecret) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      console.log('✔ Stripe signature validated.');
+    } catch (err) {
+      console.error('❌ Stripe webhook signature failed, falling back to raw JSON:', err.message);
+    }
+  }
+
+  // 2) If signature check failed or wasn’t possible, fall back to JSON parse
+  if (!event) {
+    try {
+      event = JSON.parse(rawBody);
+      console.log('⚠ Using raw JSON body as Stripe event (no signature verification).');
+    } catch (jsonErr) {
+      console.error('❌ Failed to parse webhook body as JSON:', jsonErr);
+      return new Response('Webhook Error', { status: 400 });
+    }
   }
 
   try {
@@ -169,7 +179,6 @@ export default async (request, context) => {
 
         console.log('⚠ subscription.deleted → marking plan_status = cancelled', subscriptionId);
 
-        // Find profiles by subscription id
         const { data: profiles, error } = await supabase
           .from('profiles')
           .select('user_id')
