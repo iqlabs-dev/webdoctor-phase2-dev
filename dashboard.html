@@ -1721,49 +1721,56 @@
     });
   }
 
-  // Stripe checkout for selected plan (Linear-style)
-  async function startPlanCheckout(planKey) {
-    const priceIds = {
-      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",       // $29 – 100 scans (TEST)
-      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k",  // $75 – 250 scans (TEST)
-      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",        // $149 – 500 scans (TEST)
-    };
+// Stripe checkout for selected plan (Linear-style)
+async function startPlanCheckout(planKey) {
+  const priceIds = {
+    insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",      // $29 – 100 scans (TEST)
+    intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k", // $75 – 250 scans (TEST)
+    impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",       // $149 – 500 scans (TEST)
+  };
 
-    const priceId = priceIds[planKey];
-    if (!priceId) {
-      alert("Invalid plan selected.");
-      return;
-    }
-
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data?.user) {
-      alert("Please log in again to continue.");
-      window.location.href = "/login.html";
-      return;
-    }
-
-    const email = data.user.email;
-
-    try {
-      const res = await fetch("/.netlify/functions/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId, email }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json?.url) {
-        console.error("Checkout session error:", json);
-        alert("Unable to start checkout. Please try again.");
-        return;
-      }
-
-      window.location.href = json.url;
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Checkout failed. Please try again.");
-    }
+  const priceId = priceIds[planKey];
+  if (!priceId) {
+    alert("Invalid plan selected.");
+    return;
   }
+
+  // Use the current session (more reliable than getUser() alone)
+  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+
+  const user = sessionData?.session?.user || null;
+
+  if (sessionErr || !user) {
+    console.error("startPlanCheckout: no active session", sessionErr);
+    alert("Please log in again to continue.");
+    window.location.href = "/login.html";
+    return;
+  }
+
+  const email = user.email;
+  const userId = user.id;
+
+  try {
+    const res = await fetch("/.netlify/functions/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priceId, email, userId }),
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json?.url) {
+      console.error("Checkout session error:", json);
+      alert("Unable to start checkout. Please try again.");
+      return;
+    }
+
+    window.location.href = json.url;
+  } catch (err) {
+    console.error("Checkout error:", err);
+    alert("Checkout failed. Please try again.");
+  }
+}
+
 
   function handleSelectedPlan() {
     const params = new URLSearchParams(window.location.search);
