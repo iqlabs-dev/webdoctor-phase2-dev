@@ -1019,34 +1019,57 @@
       </button>
     </div>
 
-    <div class="summary-grid">
-<div class="summary-block">
-  <div class="summary-label">Total scans available</div>
-  <div class="credits-value" id="wd-credits-count">--</div>
+<div class="summary-grid">
+  <!-- LEFT: TOTAL SCANS + RUN SCAN -->
+  <div class="summary-block">
+    <div class="summary-label">Total scans available</div>
+    <div class="credits-value" id="wd-credits-count">--</div>
 
-  <div class="plan-remaining-row">
-    <span class="plan-remaining-label">Monthly subscription scans remaining</span>
-    <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
-  </div>
-
-  <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
-    Loading your plan details…
-  </div>
-
-  <div class="run-strip">
-    <div class="run-strip-btn">
-      <button id="wd-run-scan-btn" class="btn-primary" type="button">
-        <span class="icon">▶</span>
-        <span>Run Scan</span>
-      </button>
+    <div class="plan-remaining-row">
+      <span class="plan-remaining-label">Monthly subscription scans remaining</span>
+      <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
     </div>
-    <div class="run-strip-input">
-      <input
-        id="wd-scan-url-input"
-        type="text"
-        placeholder="Paste a URL to scan (e.g. https://example.com)">
+
+    <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
+      Loading your plan details…
+    </div>
+
+    <div class="run-strip">
+      <div class="run-strip-btn">
+        <button id="wd-run-scan-btn" class="btn-primary" type="button">
+          <span class="icon">▶</span>
+          <span>Run Scan</span>
+        </button>
+      </div>
+      <div class="run-strip-input">
+        <input
+          id="wd-scan-url-input"
+          type="text"
+          placeholder="Paste a URL to scan (e.g. https://example.com)">
+      </div>
+    </div>
+
+    <div class="hint-text" style="margin-top:8px;">
+      Your subscription scans are used first. If you run out, extra credits are $1 per scan.
+    </div>
+
+    <div class="credits-pack-row">
+      <div class="credits-pack-label">Top up your credits</div>
+      <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
+      <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
+      <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
+      <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
+      <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
     </div>
   </div>
+
+  <!-- RIGHT: latest scan card (your existing block) -->
+  <div class="summary-block">
+    <!-- latest scan card exactly as you already have -->
+    ...
+  </div>
+</div>
+
 
   <div class="hint-text" style="margin-top:8px;">
     Your subscription scans are used first. If you run out, extra credits are $1 per scan.
@@ -1845,14 +1868,17 @@ async function startPlanCheckout(planKey) {
     }
   }
 
-  function setupCreditPackButtons(user) {
-    const packs = ["10", "25", "50", "100", "500"];
-    packs.forEach((pack) => {
-      const btn = document.getElementById(`btn-credits-${pack}`);
-      if (!btn) return;
-      btn.addEventListener("click", () => startCreditsCheckout(pack, user));
+function setupCreditPackButtons(user) {
+  const packs = ["10", "25", "50", "100", "500"];
+  packs.forEach((pack) => {
+    const btn = document.getElementById(`btn-credits-${pack}`);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      alert("Top-ups are coming soon. For now, please choose a monthly plan.");
     });
-  }
+  });
+}
+
 
   document.addEventListener("DOMContentLoaded", async () => {
     const user = await requireSession();
