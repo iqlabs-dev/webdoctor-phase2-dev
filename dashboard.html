@@ -820,23 +820,22 @@
 
     /* Copy toast */
 
- #copyToast {
-  position: fixed;
-  left: 50%;
-  bottom: 26px;
-  transform: translateX(-50%) translateY(20px);
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: rgba(12,20,40,0.96);
-  border: 1px solid rgba(255,255,255,0.18);
-  color: var(--ink-soft);
-  font-size: 13px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.16s ease-out, transform 0.16s ease-out;
-  z-index: 60;
-}
-
+    #copyToast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%) translateY(20px);
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(12,20,40,0.96);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: var(--ink-soft);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
+      z-index: 60;
+    }
 
     #copyToast.visible {
       opacity: 1;
@@ -1019,88 +1018,53 @@
       </button>
     </div>
 
-<div class="summary-grid">
-  <!-- LEFT: TOTAL SCANS + RUN SCAN -->
-  <div class="summary-block">
-    <div class="summary-label">Total scans available</div>
-    <div class="credits-value" id="wd-credits-count">--</div>
+    <!-- SUMMARY GRID: LEFT (scans) + RIGHT (latest scan) -->
+    <div class="summary-grid">
 
-    <div class="plan-remaining-row">
-      <span class="plan-remaining-label">Monthly subscription scans remaining</span>
-      <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
-    </div>
+      <!-- LEFT: TOTAL SCANS + RUN SCAN + TOP-UP -->
+      <div class="summary-block">
+        <div class="summary-label">Total scans available</div>
+        <div class="credits-value" id="wd-credits-count">--</div>
 
-    <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
-      Loading your plan details…
-    </div>
+        <div class="plan-remaining-row">
+          <span class="plan-remaining-label">Monthly subscription scans remaining</span>
+          <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
+        </div>
 
-    <div class="run-strip">
-      <div class="run-strip-btn">
-        <button id="wd-run-scan-btn" class="btn-primary" type="button">
-          <span class="icon">▶</span>
-          <span>Run Scan</span>
-        </button>
+        <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
+          Loading your plan details…
+        </div>
+
+        <div class="run-strip">
+          <div class="run-strip-btn">
+            <button id="wd-run-scan-btn" class="btn-primary" type="button">
+              <span class="icon">▶</span>
+              <span>Run Scan</span>
+            </button>
+          </div>
+          <div class="run-strip-input">
+            <input
+              id="wd-scan-url-input"
+              type="text"
+              placeholder="Paste a URL to scan (e.g. https://example.com)">
+          </div>
+        </div>
+
+        <div class="hint-text" style="margin-top:8px;">
+          Your subscription scans are used first. If you run out, extra credits are $1 per scan.
+        </div>
+
+        <div class="credits-pack-row">
+          <div class="credits-pack-label">Top up your credits</div>
+          <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
+          <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
+          <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
+          <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
+          <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
+        </div>
       </div>
-      <div class="run-strip-input">
-        <input
-          id="wd-scan-url-input"
-          type="text"
-          placeholder="Paste a URL to scan (e.g. https://example.com)">
-      </div>
-    </div>
 
-    <div class="hint-text" style="margin-top:8px;">
-      Your subscription scans are used first. If you run out, extra credits are $1 per scan.
-    </div>
-
-    <div class="credits-pack-row">
-      <div class="credits-pack-label">Top up your credits</div>
-      <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
-      <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
-      <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
-      <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
-      <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
-    </div>
-  </div>
-
-  <!-- RIGHT: latest scan card (your existing block) -->
-  <div class="summary-block">
-    <!-- latest scan card exactly as you already have -->
-    ...
-  </div>
-</div>
-
-
-  <div class="hint-text" style="margin-top:8px;">
-    Your subscription scans are used first. If you run out, extra credits are $1 per scan.
-  </div>
-
-  <div class="credits-pack-row">
-    <div class="credits-pack-label">Top up your credits</div>
-    <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
-    <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
-    <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
-    <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
-    <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
-  </div>
-</div>
-
-
-  <div class="hint-text" style="margin-top:8px;">
-    Your plan scans are used first. If you run out, extra credits are $1 per scan.
-  </div>
-
-  <div class="credits-pack-row">
-    <div class="credits-pack-label">Top up your credits</div>
-    <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
-    <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
-    <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
-    <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
-    <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
-  </div>
-</div>
-
-      <!-- NEW PREMIUM LATEST SCAN CARD -->
+      <!-- RIGHT: LATEST SCAN CARD -->
       <div class="summary-block">
         <div id="latest-scan-card" class="latest-scan-card">
           <div class="ls-label">LATEST SCAN</div>
@@ -1120,8 +1084,9 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
+
+    </div><!-- /summary-grid -->
+  </div><!-- /section (summary) -->
 
   <!-- MAIN GRID: HISTORY ONLY -->
 
@@ -1387,7 +1352,6 @@
     setTimeout(() => toast.classList.remove("visible"), 1500);
   }
 
-  // STEP 1: History rows → View report + Download PDF, and latest-scan click
   function renderRows(records) {
     const table = document.querySelector(".scan-history-table");
     const tbody = table?.querySelector("tbody");
@@ -1435,7 +1399,7 @@
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
-      // WEBSITE (blue clickable, focuses this scan in Latest Scan card)
+      // WEBSITE
       const tdSite = document.createElement("td");
       tdSite.className = "history-site-link";
       tdSite.textContent = website;
@@ -1461,12 +1425,11 @@
       tdId.textContent = reportId;
       tr.appendChild(tdId);
 
-      // ACTIONS (VIEW + PDF)
+      // ACTIONS
       const tdActions = document.createElement("td");
       tdActions.style.textAlign = "right";
 
       if (statusKey === "completed" && reportId && reportId !== "-") {
-        // VIEW PDF (opens report.html in new tab)
         const viewBtn = document.createElement("button");
         viewBtn.type = "button";
         viewBtn.className = "wd-pdf-btn";
@@ -1477,7 +1440,6 @@
         });
         tdActions.appendChild(viewBtn);
 
-        // DOWNLOAD PDF
         const dlBtn = document.createElement("button");
         dlBtn.type = "button";
         dlBtn.className = "wd-pdf-btn";
@@ -1495,7 +1457,6 @@
     }
   }
 
-  // current test wiring for DocRaptor: HTML stub + reportId
   async function downloadPdf(reportId) {
     try {
       const resp = await fetch("/.netlify/functions/docraptor-pdf", {
@@ -1544,7 +1505,6 @@
     }
   }
 
-  // STEP 2: latest-scan card → view latest report
   function updateLastScanCard(record) {
     const card = document.getElementById("latest-scan-card");
     if (!card) return;
@@ -1668,7 +1628,6 @@
     applyFiltersAndRender();
   }
 
-  // Expose for debugging if needed
   window.loadScanHistory = loadScanHistory;
 
   function setupFilters() {
@@ -1752,62 +1711,58 @@
         return;
       }
 
-      // Clear URL field and refresh history
       urlInput.value = "";
       await loadScanHistory(user.id);
     });
   }
 
-// Stripe checkout for selected plan (Linear-style)
-async function startPlanCheckout(planKey) {
-  const priceIds = {
-    insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",      // $29 – 100 scans (TEST)
-    intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k", // $75 – 250 scans (TEST)
-    impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",       // $149 – 500 scans (TEST)
-  };
+  async function startPlanCheckout(planKey) {
+    const priceIds = {
+      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",
+      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k",
+      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",
+    };
 
-  const priceId = priceIds[planKey];
-  if (!priceId) {
-    alert("Invalid plan selected.");
-    return;
-  }
-
-  // Use the current session (more reliable than getUser() alone)
-  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-
-  const user = sessionData?.session?.user || null;
-
-  if (sessionErr || !user) {
-    console.error("startPlanCheckout: no active session", sessionErr);
-    alert("Please log in again to continue.");
-    window.location.href = "/login.html";
-    return;
-  }
-
-  const email = user.email;
-  const userId = user.id;
-
-  try {
-    const res = await fetch("/.netlify/functions/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ priceId, email, userId }),
-    });
-
-    const json = await res.json();
-    if (!res.ok || !json?.url) {
-      console.error("Checkout session error:", json);
-      alert("Unable to start checkout. Please try again.");
+    const priceId = priceIds[planKey];
+    if (!priceId) {
+      alert("Invalid plan selected.");
       return;
     }
 
-    window.location.href = json.url;
-  } catch (err) {
-    console.error("Checkout error:", err);
-    alert("Checkout failed. Please try again.");
-  }
-}
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
 
+    const user = sessionData?.session?.user || null;
+
+    if (sessionErr || !user) {
+      console.error("startPlanCheckout: no active session", sessionErr);
+      alert("Please log in again to continue.");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const email = user.email;
+    const userId = user.id;
+
+    try {
+      const res = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId, email, userId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json?.url) {
+        console.error("Checkout session error:", json);
+        alert("Unable to start checkout. Please try again.");
+        return;
+      }
+
+      window.location.href = json.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Checkout failed. Please try again.");
+    }
+  }
 
   function handleSelectedPlan() {
     const params = new URLSearchParams(window.location.search);
@@ -1831,7 +1786,6 @@ async function startPlanCheckout(planKey) {
     cta.onclick = () => startPlanCheckout(plan);
   }
 
-  // Credit pack checkout (requires matching Netlify function)
   async function startCreditsCheckout(pack, user) {
     const activeUser = user;
     if (!activeUser) {
@@ -1868,23 +1822,21 @@ async function startPlanCheckout(planKey) {
     }
   }
 
-function setupCreditPackButtons(user) {
-  const packs = ["10", "25", "50", "100", "500"];
-  packs.forEach((pack) => {
-    const btn = document.getElementById(`btn-credits-${pack}`);
-    if (!btn) return;
-    btn.addEventListener("click", () => {
-      alert("Top-ups are coming soon. For now, please choose a monthly plan.");
+  function setupCreditPackButtons(user) {
+    const packs = ["10", "25", "50", "100", "500"];
+    packs.forEach((pack) => {
+      const btn = document.getElementById(`btn-credits-${pack}`);
+      if (!btn) return;
+      btn.addEventListener("click", () => {
+        alert("Top-ups are coming soon. For now, please choose a monthly plan.");
+      });
     });
-  });
-}
-
+  }
 
   document.addEventListener("DOMContentLoaded", async () => {
     const user = await requireSession();
     if (!user) return;
 
-    // Initial load
     await loadProfile(user);
     setupFilters();
     setupSearch();
@@ -1892,9 +1844,8 @@ function setupCreditPackButtons(user) {
     await setupSignOut();
     setupInlineRun(user);
     setupCreditPackButtons(user);
-    handleSelectedPlan(); // show banner + wire checkout if ?plan= exists
+    handleSelectedPlan();
 
-    // Wire "View plans & subscribe" banner button → main pricing
     const goToPricingBtn = document.getElementById("btn-go-to-pricing");
     if (goToPricingBtn) {
       goToPricingBtn.addEventListener("click", () => {
@@ -1902,7 +1853,6 @@ function setupCreditPackButtons(user) {
       });
     }
 
-    // --- Handle return from Stripe checkout ---
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
     const billingStatus = params.get("billing");
@@ -1914,12 +1864,10 @@ function setupCreditPackButtons(user) {
           "Your subscription is now active. Enjoy your scans.";
       }
 
-      // give webhook a moment then pull fresh profile
       setTimeout(() => {
         loadProfile(user);
       }, 1500);
 
-      // clean URL so message doesn’t re-trigger
       if (window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete("session_id");
