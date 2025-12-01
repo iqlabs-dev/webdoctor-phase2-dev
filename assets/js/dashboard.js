@@ -3,18 +3,28 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-console.log('DASHBOARD JS v3.0-billing-wireup');
+console.log('DASHBOARD JS v3.1-billing-wireup');
+
+// ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
+// Make sure these match Stripe + your Netlify env vars.
+const PLAN_PRICE_IDS = {
+  insight: 'price_1SY1olHrtPY0HwDpXIy1WPH7',      // INSIGHT (TEST)
+  intelligence: 'price_1SY1pdHrtPY0HwDpJP5hYLF2', // INTELLIGENCE (TEST)
+  impact: 'price_1SY1qJHrtPY0HwDpV4GkMs0H',       // IMPACT (TEST)
+};
 
 let currentUserId = null;
 window.currentReport = null;
 window.lastScanResult = null;
 window.currentProfile = null;
+window.currentUserEmail = null;
 
 // -----------------------------
 // BILLING HELPERS
 // -----------------------------
 
-async function startSubscriptionCheckout() {
+// Start checkout for a specific subscription plan
+async function startSubscriptionCheckout(planKey) {
   const statusEl = document.getElementById('trial-info');
 
   if (!currentUserId || !window.currentUserEmail) {
@@ -22,6 +32,15 @@ async function startSubscriptionCheckout() {
       statusEl.textContent = 'No user detected. Please log in again.';
     }
     console.error('startSubscriptionCheckout: missing user or email');
+    return;
+  }
+
+  const priceId = PLAN_PRICE_IDS[planKey];
+  if (!priceId) {
+    console.error('startSubscriptionCheckout: invalid planKey', planKey);
+    if (statusEl) {
+      statusEl.textContent = 'Invalid plan selected. Please refresh and try again.';
+    }
     return;
   }
 
@@ -33,11 +52,14 @@ async function startSubscriptionCheckout() {
     const res = await fetch('/.netlify/functions/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: currentUserId,
-        email: window.currentUserEmail,
-        type: 'subscription',
-      }),
+body: JSON.stringify({
+  priceId,                  // 🔥 which Stripe price
+  email: window.currentUserEmail,
+  userId: currentUserId,    // 🔥 used as metadata.user_id
+  type: 'subscription',
+  selectedPlan: planKey,    // "insight" | "intelligence" | "impact"
+}),
+
     });
 
     const data = await res.json();
@@ -58,6 +80,7 @@ async function startSubscriptionCheckout() {
   }
 }
 
+// (Future) credit-pack checkout
 async function startCreditCheckout(pack) {
   const statusEl = document.getElementById('trial-info');
 
@@ -96,7 +119,7 @@ async function startCreditCheckout(pack) {
 
     window.location.href = data.url;
   } catch (err) {
-    console.error('Credit checkout error:', err);
+    console.error('Checkout error:', err);
     if (statusEl) {
       statusEl.textContent = 'Checkout failed: ' + (err.message || 'Unknown error');
     }
@@ -149,7 +172,7 @@ async function refreshProfile() {
     const { data, error } = await supabase
       .from('profiles')
       .select('plan, plan_status, plan_scans_remaining, credits')
-      .eq('id', currentUserId)
+      .eq('user_id', currentUserId)   // 🔥 FIXED: profiles.user_id, not id
       .single();
 
     if (error) {
@@ -196,7 +219,7 @@ async function decrementScanBalance() {
         plan_scans_remaining: planScansRemaining,
         credits,
       })
-      .eq('id', currentUserId);
+      .eq('user_id', currentUserId);     // 🔥 FIXED
 
     if (error) {
       console.error('Error updating scan balance after scan:', error);
@@ -400,22 +423,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Subscription plan buttons (optional – currently all start same subscription checkout)
+  // Subscription plan buttons → specific plan checkouts
   const btnInsight = document.getElementById('btn-plan-insight');
   const btnIntelligence = document.getElementById('btn-plan-intelligence');
   const btnImpact = document.getElementById('btn-plan-impact');
 
   if (btnInsight) {
-    btnInsight.addEventListener('click', () => startSubscriptionCheckout());
+    btnInsight.addEventListener('click', () => startSubscriptionCheckout('insight'));
   }
   if (btnIntelligence) {
-    btnIntelligence.addEventListener('click', () => startSubscriptionCheckout());
+    btnIntelligence.addEventListener('click', () => startSubscriptionCheckout('intelligence'));
   }
   if (btnImpact) {
-    btnImpact.addEventListener('click', () => startSubscriptionCheckout());
+    btnImpact.addEventListener('click', () => startSubscriptionCheckout('impact'));
   }
 
-  // Credit pack buttons (wire these if present in your HTML)
+  // Credit pack buttons (can flip to "coming soon" if you like)
   const btnCredits10 = document.getElementById('btn-credits-10');
   const btnCredits25 = document.getElementById('btn-credits-25');
   const btnCredits50 = document.getElementById('btn-credits-50');
@@ -428,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnCredits100) btnCredits100.addEventListener('click', () => startCreditCheckout(100));
   if (btnCredits500) btnCredits500.addEventListener('click', () => startCreditCheckout(500));
 
-  // "View plans & subscribe" banner button (currently just goes to pricing)
+  // "View plans & subscribe" banner button → pricing page (optional)
   const pricingBtn = document.getElementById('btn-go-to-pricing');
   if (pricingBtn) {
     pricingBtn.addEventListener('click', () => {

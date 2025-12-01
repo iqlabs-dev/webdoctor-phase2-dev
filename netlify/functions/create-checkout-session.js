@@ -38,10 +38,11 @@ export default async (request, context) => {
   const {
     priceId,
     email,
-    userId,        // from dashboard
-    selectedPlan,  // "insight" | "intelligence" | "impact"
-    type,          // "subscription" | "credits"
-    pack,          // "10" | "25" | ...
+    userId,          // from dashboard
+    selectedPlan,    // "insight" | "intelligence" | "impact"
+    plan,            // fallback if frontend still sends "plan"
+    type,            // "subscription" | "credits"
+    pack,            // "10" | "25" | ...
   } = body || {};
 
   if (!priceId || !email) {
@@ -61,6 +62,9 @@ export default async (request, context) => {
 
   // default to subscription if not specified
   const purchaseType = type || 'subscription';
+
+  // normalise plan name so webhook always sees something sensible
+  const planName = selectedPlan || plan || '';
 
   try {
     let session;
@@ -82,7 +86,7 @@ export default async (request, context) => {
         metadata: {
           user_id: userId || '',
           type: 'subscription',
-          plan: selectedPlan || '',
+          plan: planName,
         },
 
         success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}&billing=success`,
