@@ -475,8 +475,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('auth.getUser failed:', e);
   }
 
+  // If we just came back from Stripe checkout, confirm the subscription
+  try {
+    const url = new URL(window.location.href);
+    const billingStatus = url.searchParams.get('billing');
+    const checkoutSessionId = url.searchParams.get('session_id');
+
+    if (billingStatus === 'success' && checkoutSessionId && currentUserId) {
+      statusEl.textContent = 'Finalising your subscription…';
+
+      const res = await fetch('/.netlify/functions/confirm-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: checkoutSessionId,
+          userId: currentUserId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        console.error('confirm-subscription error:', data);
+        statusEl.textContent =
+          'We received your payment, but could not activate the plan automatically. Please contact support.';
+      } else {
+        statusEl.textContent = `Your ${data.plan.toUpperCase()} plan is now active.`;
+      }
+
+      // Clean query params from URL
+      url.searchParams.delete('billing');
+      url.searchParams.delete('session_id');
+      window.history.replaceState({}, '', url.toString());
+    }
+  } catch (err) {
+    console.error('Error in Stripe return handling:', err);
+  }
+
   // Refresh usage UI from profile (plan + credits)
   await refreshProfile();
+
 
   // Run scan
   runBtn.addEventListener('click', async () => {
