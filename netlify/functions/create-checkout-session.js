@@ -8,9 +8,10 @@ const SITE_URL =
 
 // Allow both new iQWEB plans and (optionally) legacy ones
 const ALLOWED_PRICE_IDS = new Set([
-  process.env.PRICE_ID_INSIGHT,
-  process.env.PRICE_ID_INTELLIGENCE,
-  process.env.PRICE_ID_IMPACT,
+  // current iQWEB subscription plans (LIVE env vars)
+  process.env.PRICE_ID_INSIGHT_LIVE,
+  process.env.PRICE_ID_INTELLIGENCE_LIVE,
+  process.env.PRICE_ID_IMPACT_LIVE,
 
   // legacy WebDoctor prices if you still use them anywhere
   process.env.PRICE_ID_SCAN,
@@ -37,10 +38,10 @@ export default async (request, context) => {
   const {
     priceId,
     email,
-    userId,        // NEW – from dashboard
-    selectedPlan,  // NEW – "insight" | "intelligence" | "impact"
-    type,          // optional: "subscription" | "credits"
-    pack,          // optional: "10" | "25" | ...
+    userId,        // from dashboard
+    selectedPlan,  // "insight" | "intelligence" | "impact"
+    type,          // "subscription" | "credits"
+    pack,          // "10" | "25" | ...
   } = body || {};
 
   if (!priceId || !email) {
@@ -88,7 +89,7 @@ export default async (request, context) => {
         cancel_url: `${SITE_URL}/#pricing`,
       });
     } else {
-      // OPTIONAL: ONE-OFF CREDIT PACKS (for later)
+      // ONE-OFF CREDIT PACKS
       session = await stripe.checkout.sessions.create({
         mode: 'payment',
         payment_method_types: ['card'],
