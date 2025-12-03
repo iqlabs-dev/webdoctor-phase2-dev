@@ -430,18 +430,12 @@
       align-self: end;
     }
 
-.feature-pill-row {
+ .feature-pill-row {
   margin-top: auto;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* NEW – prevents the pills from stacking */
   gap: 6px;
 }
-
-/* Fix pill wrapping for Card 06 (Summary) */
-.feature-card--summary .feature-pill-row {
-  flex-wrap: nowrap;
-}
-
 
 
     .feature-pill {
