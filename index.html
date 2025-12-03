@@ -1177,87 +1177,64 @@
 
         <p class="pricing-footnote">
           Need a tailored plan?
-          <a href="mailto:pricing@webdoctor.tech" class="pricing-footnote-link">pricing@webdoctor.tech</a>
+          <a href="mailto:pricing@webdoctor.tech" class="pricing-footnote-link">pricing@iqlabs.ai</a>
           for custom options.
         </p>
       </section>
 
-      <!-- TRUST -->
-      <section class="section" id="trust">
-        <div class="section-header">
-          <div>
-            <div class="section-kicker">Trust &amp; verification</div>
-            <div class="section-title">Built as a health check, not a data farm.</div>
-          </div>
-        </div>
-
-        <div class="trust-row">
-          <div class="trust-block">
-            <p><strong>iQWEB is built as a health check, not a data farm.</strong> Every report includes a unique iQWEB Report ID. Over time, you’ll be able to verify that ID at our public trust page to confirm the report is genuine and hasn’t been tampered with.</p>
-
-            <p>Behind the scenes, iQWEB is powered by the WebIQ Core Engine and built in New Zealand. That means clear jurisdiction, transparent governance, and a human being to email if something ever looks off.</p>
-
-            <p class="trust-contact">
-              Have a question?
-              <a href="mailto:support@webdoctor.tech">support@webdoctor.tech</a>
-              · General enquiries:
-              <a href="mailto:info@webdoctor.tech">info@webdoctor.tech</a>
-            </p>
-          </div>
-
-          <aside class="trust-callout">
-            <span>Verification &amp; security</span>
-            <p>
-              We’re building a dedicated trust hub at
-              <a href="https://trust.webdoctor.tech" class="trust-link">trust.webdoctor.tech</a>
-              where you’ll be able to:
-            </p>
-            <ul>
-              <li>Verify report IDs.</li>
-              <li>Read our security &amp; privacy notes in plain language.</li>
-              <li>See uptime and change-log history.</li>
-            </ul>
-            <p style="margin-top:4px;">
-              Until then, treat this as a living, evolving platform — and feel free to send feedback any time.
-            </p>
-          </aside>
-        </div>
-      </section>
-
+<!-- TRUST -->
+<section class="section" id="trust">
+  <div class="section-header">
+    <div>
+      <div class="section-kicker">Trust &amp; verification</div>
+      <div class="section-title">Built as a health check, not a data farm.</div>
     </div>
-
-    <!-- FOOTER -->
-    <footer class="wd-footer">
-      <div class="wd-footer-inner">
-        <span>© 2025 iQWEB — All rights reserved — Made in New Zealand.</span>
-        <span class="wd-footer-links">
-          <a href="/index.html">Overview</a>
-          <a href="/pricing.html">Pricing</a>
-          <a href="/trust.html">Trust</a>
-          <span class="wd-powered">Powered by the WebIQ Core Engine.</span>
-        </span>
-      </div>
-    </footer>
-
   </div>
 
-    <!-- Linear-style flow: pricing buttons redirect into dashboard with plan selected -->
-  <script>
-    function goToDashboardWithPlan(planKey) {
-      const base = '/dashboard.html';
-      const url = new URL(base, window.location.origin);
-      url.searchParams.set('plan', planKey);
-      window.location.href = url.toString();
-    }
+  <div class="trust-row">
+    <div class="trust-block">
+      <p><strong>iQWEB is built as a health check, not a data farm.</strong> Every report includes a unique iQWEB Report ID. Over time, you’ll be able to verify that ID at our public trust page to confirm the report is genuine and hasn’t been tampered with.</p>
 
-    document.getElementById('btn-landing-insight')
-      ?.addEventListener('click', () => goToDashboardWithPlan('insight'));
+      <p>Behind the scenes, iQWEB is powered by the Λ i Q™ Core Engine and built in New Zealand. That means clear jurisdiction, transparent governance, and a human being to email if something ever looks off.</p>
 
-    document.getElementById('btn-landing-intelligence')
-      ?.addEventListener('click', () => goToDashboardWithPlan('intelligence'));
+      <p class="trust-contact">
+        Have a question?
+        <a href="mailto:support@iqweb.ai">support@iqweb.ai</a>
+        · General enquiries:
+        <a href="mailto:info@iqweb.ai">info@iqweb.ai</a>
+      </p>
+    </div>
 
-    document.getElementById('btn-landing-impact')
-      ?.addEventListener('click', () => goToDashboardWithPlan('impact'));
-  </script>
-</body>
-</html>
+    <aside class="trust-callout">
+      <span>Verification &amp; security</span>
+      <p>
+        We’re building a dedicated trust hub at
+        <a href="https://trust.iqweb.ai" class="trust-link">trust.iqweb.ai</a>
+        where you’ll be able to:
+      </p>
+      <ul>
+        <li>Verify report IDs.</li>
+        <li>Read our security &amp; privacy notes in plain language.</li>
+        <li>See uptime and change-log history.</li>
+      </ul>
+      <p style="margin-top:4px;">
+        Until then, treat this as a living, evolving platform — and feel free to send feedback any time.
+      </p>
+    </aside>
+  </div>
+</section>
+
+</div>
+
+<!-- FOOTER -->
+<footer class="wd-footer">
+  <div class="wd-footer-inner">
+    <span>© 2025 iQWEB — All rights reserved — Made in New Zealand.</span>
+    <span class="wd-footer-links">
+      <a href="/index.html">Overview</a>
+      <a href="/pricing.html">Pricing</a>
+      <a href="/trust.html">Trust</a>
+      <span class="wd-powered">Powered by the Λ i Q™ Core Engine.</span>
+    </span>
+  </div>
+</footer>
