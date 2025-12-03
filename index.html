@@ -338,7 +338,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-top: 0;
-  margin-bottom: 10px;       /* more breathing room before body text */
+  margin-bottom: 4px;       /* more breathing room before body text */
 }
 
 
@@ -347,15 +347,18 @@
       color: var(--muted);
       max-width: 26rem;
       line-height: 1.6;
+       margin-top: 6px; /* optional */
     }
 
     /* FEATURES */
 
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
+.feature-grid {
+  margin-top: 26px; /* add this line */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
 
     @media (max-width: 960px) {
       .feature-grid {
