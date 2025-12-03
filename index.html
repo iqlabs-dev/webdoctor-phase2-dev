@@ -430,12 +430,13 @@
       align-self: end;
     }
 
-    .feature-pill-row {
-      margin-top: auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
+ .feature-pill-row {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: nowrap; /* NEW – prevents the pills from stacking */
+  gap: 6px;
+}
+
 
     .feature-pill {
       font-size: 0.66rem;
@@ -973,7 +974,7 @@
               If it breaks on a small screen, we flag it. Tap targets, layout stability and
               readable sizing — the real-world UX checks.
             </p>
-            <div class="feature-meta">Flags common mobile UX failures before users do.</div>
+            <div class="feature-meta">Flags mobile UX failures before users notice.</div>
             <div class="feature-pill-row">
               <span class="feature-pill">Responsive</span>
               <span class="feature-pill">4G reality</span>
