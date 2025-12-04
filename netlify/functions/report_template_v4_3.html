@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebDoctor Health Report — V4.3</title>
+  <title>iQWEB Website Report — V1.0</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Fonts -->
@@ -34,32 +34,35 @@
     }
 
     .wd-report-card {
-      background: #0b1220;
-      border-radius: 32px;
+      background: #ffffff;
+      border-radius: 28px;
       padding: 24px;
-      color: #e5edf4;
+      color: #0f172a;
       overflow: hidden;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
     }
 
-    /* ---------- HEADER ---------- */
+    /* ---------- HEADER (SOFT GREY BAND) ---------- */
     .wd-header-top {
-      padding: 20px 24px 26px;
-      border-radius: 24px;
-      background: linear-gradient(90deg, #14b8a6, #0ea5e9);
-      color: #ecfeff;
+      padding: 20px 24px 22px;
+      border-radius: 20px;
+      background: #f8fafc;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
     }
 
     .wd-header-title {
       font-size: 1.6rem;
       font-weight: 700;
       margin: 0 0 4px;
-      color: #ecfeff !important;
+      color: #0f172a !important;
     }
 
     .wd-header-tagline {
       margin: 0;
       font-size: 0.95rem;
-      color: #e0f2fe !important;
+      color: #475569 !important;
       font-weight: 500;
     }
 
@@ -74,8 +77,8 @@
       min-width: 0;
       padding: 10px 16px;
       border-radius: 999px;
-      background: rgba(15, 23, 42, 0.25);
-      border: 1px solid rgba(15, 23, 42, 0.18);
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
       display: flex;
       flex-direction: column;
     }
@@ -84,14 +87,16 @@
       font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      opacity: 0.8;
+      opacity: 0.75;
       margin-bottom: 3px;
+      color: #64748b;
     }
 
     .wd-meta-value {
       font-size: 0.9rem;
       font-weight: 600;
       word-break: break-all;
+      color: #0f172a;
     }
 
     /* ---------- BODY SHELL ---------- */
@@ -136,7 +141,7 @@
       padding: 22px 22px 24px;
       background: #ffffff;
       border-radius: 20px;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
       border: 1px solid #e2e8f0;
     }
 
@@ -203,7 +208,7 @@
       color: #4b5563;
     }
 
-    /* ---------- CLINICAL DIAGNOSTIC BLOCKS ---------- */
+    /* ---------- DIAGNOSTIC BLOCKS ---------- */
 
     .wd-diag-section {
       margin-top: 24px;
@@ -240,12 +245,12 @@
       font-size: 0.8rem;
       font-weight: 600;
       text-align: center;
-      background: #ecfeff;
-      border: 1px solid #14b8a6;
-      color: #0f172a;
+   background: #f0fdfa;
+  border: 1px solid #14b8a6;
+  color: #0f172a;
     }
 
-    /* Future severity variants (hooked up later in 3.1) */
+    /* Future severity variants – class names kept for later use */
     .wd-score-pill-good {
       background: rgba(22, 163, 74, 0.14);
       border-color: rgba(34, 197, 94, 0.7);
@@ -366,14 +371,14 @@
     }
 
     .wd-notes-body {
-  font-size: 0.88rem;
-  color: #374151;
-  line-height: 1.5;
-  white-space: normal !important;
-  text-align: justify;
-  text-indent: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
+      font-size: 0.88rem;
+      color: #374151;
+      line-height: 1.5;
+      white-space: normal !important;
+      text-align: justify;
+      text-indent: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     /* ---------- FOOTER ---------- */
@@ -392,8 +397,8 @@
 
       <!-- HEADER -->
       <section class="wd-header-top">
-        <h1 class="wd-header-title">WebDoctor Health Report</h1>
-        <p class="wd-header-tagline">Scan. Diagnose. Revive.</p>
+        <h1 class="wd-header-title">iQWEB</h1>
+
 
         <div class="wd-header-meta-row">
           <div class="wd-meta-pill">
@@ -401,7 +406,7 @@
             <span class="wd-meta-value">{{url}}</span>
           </div>
           <div class="wd-meta-pill">
-            <span class="wd-meta-label">Scan Date</span>
+            <span class="wd-meta-label">Report Date</span>
             <span class="wd-meta-value">{{date}}</span>
           </div>
           <div class="wd-meta-pill">
@@ -432,7 +437,6 @@
               <p class="wd-diagnostic-insight">
                 How fast your site loads for users.
               </p>
-
             </article>
 
             <!-- SEO snapshot -->
@@ -441,10 +445,9 @@
                 <span class="wd-diagnostic-name">SEO</span>
                 <span class="wd-diagnostic-score">{{seo_score}} / 100</span>
               </header>
-             <p class="wd-diagnostic-insight">
-              How easily search engines can understand and discover your site.
-            </p>
-
+              <p class="wd-diagnostic-insight">
+                How easily search engines can understand and discover your site.
+              </p>
             </article>
 
             <!-- Overall snapshot -->
@@ -454,16 +457,16 @@
                 <span class="wd-diagnostic-score">{{score}} / 100</span>
               </header>
               <p class="wd-diagnostic-insight">
-               A combined score of your site’s key health systems.
+                A combined score of your site’s key systems in one number.
               </p>
             </article>
 
           </div>
         </section>
 
-        <!-- SYSTEM DIAGNOSTICS (CLINICAL BLOCKS) -->
+        <!-- SYSTEM DIAGNOSTICS -->
         <section class="wd-section wd-diag-section">
-          <h3 class="wd-section-title">System Diagnostics</h3>
+          <h3 class="wd-section-title">Signal Diagnostics</h3>
 
           <!-- Performance block -->
           <article class="wd-diag-block">
@@ -473,7 +476,7 @@
             </header>
             <p class="wd-diag-summary">
               Measures how quickly your pages load and become usable. Heavy images, blocking scripts, and slow hosting
-              will drag this down.
+              will all drag this down.
             </p>
             <div class="wd-section-subtitle">Top Issues</div>
             <ul class="wd-diag-list">
@@ -586,19 +589,19 @@
           </ol>
         </section>
 
-        <!-- CLINICAL SUMMARY -->
+        <!-- SUMMARY -->
         <section class="wd-section">
-          <h3 class="wd-section-title">Clinical Summary</h3>
+          <h3 class="wd-section-title">Summary &amp; Notes</h3>
           <div class="wd-notes-body">
             No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling,
-            and structural consistency. Address red issues first, then perform a follow-up scan.
+            and structural consistency. Address red issues first, then perform a follow-up scan to confirm improvements.
           </div>
         </section>
 
       </section>
 
       <footer class="wd-footer">
-        © 2025 WebDoctor — All Rights Reserved — Made in New Zealand.
+        © 2025 iQWEB — All Rights Reserved — Made in New Zealand.
       </footer>
 
     </main>
