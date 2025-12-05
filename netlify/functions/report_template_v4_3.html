@@ -73,6 +73,238 @@
       margin-top: 18px;
     }
 
+    /* ---------- HEADER BAR + TOGGLE ---------- */
+    .wd-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .wd-theme-toggle {
+      background: none;
+      border: none;
+      color: #0f172a;  /* iQWEB ink */
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 400;           /* keep same weight in both themes */
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      padding: 0;
+      margin: 0;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    /* Dark mode version of toggle */
+    body.wd-dark .wd-theme-toggle {
+      color: #e5e4e2;   /* platinum Λ in dark mode */
+      opacity: 0.92;
+      font-weight: 400; /* no bold in dark mode */
+    }
+
+    /* Glow on hover (desktop only) */
+    @media (hover: hover) and (pointer: fine) {
+
+      /* Light mode glow */
+      body:not(.wd-dark) .wd-theme-toggle:hover {
+        text-shadow:
+          0 0 4px rgba(15, 23, 42, 0.45),   /* subtle navy haze */
+          0 0 10px rgba(15, 23, 42, 0.28);
+      }
+
+      /* Dark mode glow */
+      body.wd-dark .wd-theme-toggle:hover {
+        text-shadow:
+          0 0 4px rgba(229, 228, 226, 0.65),  /* stronger platinum glow */
+          0 0 10px rgba(229, 228, 226, 0.45);
+      }
+    }
+
+    /* Hide toggle entirely in PDF / print */
+    @media print {
+      .wd-theme-toggle {
+        display: none !important;
+      }
+    }
+
+    /* ---------- DARK MODE: LAYERED CARD SYSTEM ---------- */
+
+    /* Page background + default text */
+    body.wd-dark {
+      background: #030712;
+      color: #e5e4e2;
+    }
+
+    /* Main outer card */
+    body.wd-dark .wd-report-card {
+      background: #050814;
+      border-color: #111827;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+    }
+
+    /* Header band */
+    body.wd-dark .wd-header-top {
+      background: #050814;
+      border-color: #111827;
+    }
+
+    /* Inner shell behind the sections */
+    body.wd-dark .wd-report-body {
+      background: #020617;
+    }
+
+    /* Standard content blocks (sections, scores, metrics, diagnostic cards) */
+    body.wd-dark .wd-section,
+    body.wd-dark .wd-score-panel,
+    body.wd-dark .wd-diag-block,
+    body.wd-dark .wd-metric-card,
+    body.wd-dark .wd-diagnostic-card {
+      background: #0b1220;
+      border-color: #1f2937;
+    }
+
+    /* Issue cards – danger tint */
+    body.wd-dark .wd-issue-card {
+      background: #2b1a1a;
+      border-color: #7f1d1d;
+    }
+
+    body.wd-dark .wd-issue-badge {
+      background: #7f1d1d;
+      border-color: #fecaca;
+      color: #fee2e2;
+    }
+
+    /* Headings in dark mode */
+    body.wd-dark .wd-header-title,
+    body.wd-dark .wd-section-title,
+    body.wd-dark .wd-score-header h2,
+    body.wd-dark .wd-metric-label,
+    body.wd-dark .wd-issue-title,
+    body.wd-dark .wd-diag-title,
+    body.wd-dark .wd-diagnostic-name {
+      color: #e5e4e2 !important;
+    }
+
+    /* Body text in dark mode */
+    body.wd-dark .wd-score-summary,
+    body.wd-dark .wd-diagnostic-insight,
+    body.wd-dark .wd-diag-summary,
+    body.wd-dark .wd-diag-list,
+    body.wd-dark .wd-metric-main,
+    body.wd-dark .wd-metric-sub,
+    body.wd-dark .wd-issue-text,
+    body.wd-dark .wd-reco-list,
+    body.wd-dark .wd-notes-body,
+    body.wd-dark .wd-footer,
+    body.wd-dark .wd-meta-label,
+    body.wd-dark .wd-meta-value {
+      color: #cbd5f5;
+    }
+
+    /* Meta pills (website / date / id) */
+    body.wd-dark .wd-meta-pill {
+      background: #020617;
+      border-color: #1f2937;
+    }
+
+    /* Score pill in dark mode */
+    body.wd-dark .wd-score-pill {
+      background: #022c22;
+      border-color: #14b8a6;
+      color: #e5fdf9;
+    }
+
+    /* ---------- PRINT / PDF OVERRIDES ---------- */
+    /* Always force light theme for PDFs, even if user was in dark mode */
+
+    @media print {
+      body,
+      body.wd-dark {
+        background: #e5edf4 !important;
+        color: #0f172a !important;
+      }
+
+      body .wd-report-card,
+      body.wd-dark .wd-report-card {
+        background: #ffffff !important;
+        border-color: #e2e8f0 !important;
+        box-shadow: none !important;
+      }
+
+      body .wd-header-top,
+      body.wd-dark .wd-header-top {
+        background: #f8fafc !important;
+        border-color: #e2e8f0 !important;
+      }
+
+      body .wd-report-body,
+      body.wd-dark .wd-report-body {
+        background: #f1f5f9 !important;
+      }
+
+      body .wd-section,
+      body .wd-score-panel,
+      body .wd-diag-block,
+      body .wd-metric-card,
+      body .wd-issue-card,
+      body.wd-dark .wd-section,
+      body.wd-dark .wd-score-panel,
+      body.wd-dark .wd-diag-block,
+      body.wd-dark .wd-metric-card,
+      body.wd-dark .wd-issue-card {
+        background: #ffffff !important;
+        border-color: #e2e8f0 !important;
+      }
+
+      body .wd-header-title,
+      body .wd-section-title,
+      body .wd-metric-label,
+      body .wd-issue-title,
+      body .wd-diag-title {
+        color: #0f172a !important;
+      }
+
+      body .wd-score-summary,
+      body .wd-diagnostic-insight,
+      body .wd-diag-summary,
+      body .wd-diag-list,
+      body .wd-metric-main,
+      body .wd-metric-sub,
+      body .wd-issue-text,
+      body .wd-reco-list,
+      body .wd-notes-body,
+      body .wd-footer,
+      body .wd-meta-label,
+      body .wd-meta-value,
+      body.wd-dark .wd-score-summary,
+      body.wd-dark .wd-diagnostic-insight,
+      body.wd-dark .wd-diag-summary,
+      body.wd-dark .wd-diag-list,
+      body.wd-dark .wd-metric-main,
+      body.wd-dark .wd-metric-sub,
+      body.wd-dark .wd-issue-text,
+      body.wd-dark .wd-reco-list,
+      body.wd-dark .wd-notes-body,
+      body.wd-dark .wd-footer,
+      body.wd-dark .wd-meta-label,
+      body.wd-dark .wd-meta-value {
+        color: #111827 !important;
+      }
+    }  /* ← CLOSES PRINT MODE */
+
+    /* ---------- DARK-MODE POLISH FIXES ---------- */
+    body.wd-dark .wd-score-summary {
+      color: #e2e8f0 !important;
+    }
+
+    body.wd-dark .wd-section-title {
+      color: #f9fafb !important;
+    }
+
+    /* ---------- LIGHT THEME COMPONENTS (UNCHANGED) ---------- */
+
     .wd-meta-pill {
       min-width: 0;
       padding: 10px 16px;
@@ -245,9 +477,9 @@
       font-size: 0.8rem;
       font-weight: 600;
       text-align: center;
-   background: #f0fdfa;
-  border: 1px solid #14b8a6;
-  color: #0f172a;
+      background: #f0fdfa;
+      border: 1px solid #14b8a6;
+      color: #0f172a;
     }
 
     /* Future severity variants – class names kept for later use */
@@ -397,8 +629,10 @@
 
       <!-- HEADER -->
       <section class="wd-header-top">
-        <h1 class="wd-header-title">iQWEB</h1>
-
+        <div class="wd-header-bar">
+          <h1 class="wd-header-title">iQWEB</h1>
+          <button class="wd-theme-toggle" id="themeToggle" type="button">— Λ —</button>
+        </div>
 
         <div class="wd-header-meta-row">
           <div class="wd-meta-pill">
@@ -606,5 +840,45 @@
 
     </main>
   </div>
+
+  <script>
+    (function () {
+      const body = document.body;
+      const toggle = document.getElementById('themeToggle');
+      if (!toggle) return;
+
+      const THEME_KEY = 'iqweb_report_theme';
+
+      function applyTheme(theme) {
+        if (theme === 'dark') {
+          body.classList.add('wd-dark');
+        } else {
+          body.classList.remove('wd-dark');
+        }
+      }
+
+      // Default to light, honour saved preference if present
+      let saved = null;
+      try {
+        saved = localStorage.getItem(THEME_KEY);
+      } catch (e) {
+        saved = null;
+      }
+
+      applyTheme(saved === 'dark' ? 'dark' : 'light');
+
+      toggle.addEventListener('click', function () {
+        const isDark = body.classList.contains('wd-dark');
+        const next = isDark ? 'light' : 'dark';
+        applyTheme(next);
+        try {
+          localStorage.setItem(THEME_KEY, next);
+        } catch (e) {
+          // ignore storage issues
+        }
+      });
+    })();
+  </script>
+
 </body>
 </html>
