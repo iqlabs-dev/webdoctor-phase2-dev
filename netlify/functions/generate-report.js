@@ -66,24 +66,47 @@ export const handler = async (event) => {
   }
 
   const siteUrl = url || 'https://example.com';
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
   const reportId = makeReportId('WDR');
 
-  // TEMP STATIC DATA (Phase 2.8)
+  // --------------------------------------
+  // TEMP STATIC DATA (Phase 2.8 / 3.x)
+  // --------------------------------------
   const overallScore = 78;
   const summary =
     'Overall healthy — main opportunities in performance and SEO. Fix the red issues first, then re-scan.';
 
+  const doctor_summary =
+    'The site remains operational with no acute failures detected. ' +
+    'The primary concerns relate to performance overhead, incomplete SEO signalling, and structural inconsistencies in headings. ' +
+    'These issues are clinically significant but manageable with routine corrective work. ' +
+    'Prioritising the red issues will produce the fastest health improvements, followed by a secondary optimisation cycle and re-scan to confirm recovery.';
+
+  // Tokens expected by report_template_v5.0.html
   const tokens = {
+    // Header meta
     url: siteUrl,
     date: today,
     id: reportId,
+
+    // Overall health
     summary,
     score: String(overallScore),
 
+    // Core scores (top 3 cards)
     perf_score: '82',
     seo_score: '74',
 
+    // Nine signal scores
+    structure_score: '76',
+    mobile_score: '80',
+    security_score: '72',
+    accessibility_score: '70',
+    domain_score: '78',
+    content_score: '75',
+    summary_signal_score: '77',
+
+    // Key metrics
     metric_page_load_value: '1.8s',
     metric_page_load_goal: '< 2.5s',
     metric_mobile_status: 'Pass',
@@ -91,6 +114,7 @@ export const handler = async (event) => {
     metric_cwv_status: 'Needs attention',
     metric_cwv_text: 'CLS slightly high on hero section.',
 
+    // Top issues
     issue1_severity: 'Critical',
     issue1_title: 'Uncompressed hero image',
     issue1_text:
@@ -106,6 +130,7 @@ export const handler = async (event) => {
     issue3_text:
       'Multiple H1s detected. Use a single H1 and downgrade others to H2/H3.',
 
+    // Recommended fix sequence
     recommendation1:
       'Optimize homepage media (hero + gallery) for size and format.',
     recommendation2:
@@ -113,21 +138,19 @@ export const handler = async (event) => {
     recommendation3:
       'Fix duplicate H1s and ensure semantic heading order.',
     recommendation4:
-      'Re-scan with WebDoctor to confirm score improvement.',
+      'Re-scan with iQWEB to confirm score improvement.',
 
-    doctor_summary:
-      'The site remains operational with no acute failures detected. ' +
-      'The primary concerns relate to performance overhead, incomplete SEO signalling, and structural inconsistencies in headings. ' +
-      'These issues are clinically significant but manageable with routine corrective work. ' +
-      'Prioritising the red issues will produce the fastest health improvements, followed by a secondary optimisation cycle and re-scan to confirm recovery.'
+    // Summary & Notes section
+    notes: doctor_summary
   };
 
   // --------------------------------------
-  // LOAD TEMPLATE FROM FILE (OSD + PDF)
+  // LOAD TEMPLATE FROM FILE (HTML + PDF)
   // --------------------------------------
   let templateHtml;
   try {
-    const templatePath = join(__dirname, 'report_template_v4_3.html');
+    // ⬇️ Make sure this matches your actual file name
+    const templatePath = join(__dirname, 'report_template_v5_0.html');
     console.log('Loading report template from:', templatePath);
     templateHtml = readFileSync(templatePath, 'utf8');
   } catch (err) {
@@ -149,7 +172,7 @@ export const handler = async (event) => {
   }
 
   // --------------------------------------
-  // PHASE 3.6 — CALL DOCRAPTOR FOR PDF
+  // PHASE 3.x — CALL DOCRAPTOR FOR PDF
   // --------------------------------------
   let pdfBase64 = null;
   const pdfFilename = `${reportId}.pdf`;
