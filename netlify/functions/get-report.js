@@ -1,10 +1,10 @@
 // netlify/functions/get-report.js
 //
-// Returns full HTML for a single iQWEB report.
-// Called from: /report.html?report_id=WDR-YYDDD-#### (or legacy numeric ids)
+// Returns full HTML for a single iQWEB report (v5.0 template).
+// Called from: /report.html?report_id=WDR-YYDDD-#### or legacy numeric ids.
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5.0.html frm netlify/functions
+// - Loads report_template_v5.0.html from netlify/functions
 // - Replaces {{placeholders}} with real values
 // - Responds with text/html
 
@@ -24,23 +24,21 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Helper: safely format date/time (NZ, 24-hour)
-function formatNZDateTime(iso) {
-  if (!iso) return { date: "-", time: "-" };
+// Helper: safely format date (NZ)
+function formatNZDate(iso) {
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return { date: "-", time: "-" };
+  if (Number.isNaN(d.getTime())) return "-";
 
   const day = String(d.getDate()).padStart(2, "0");
   const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
   const year = d.getFullYear();
+  return `${day} ${month} ${year}`; // DD MMM YYYY
+}
 
-  const hours = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
-
-  return {
-    date: `${day} ${month} ${year}`, // DD MMM YYYY
-    time: `${hours}:${mins}`,        // HH:MM
-  };
+function safe(val, fallback = "—") {
+  if (val === null || val === undefined || val === "") return fallback;
+  return String(val);
 }
 
 exports.handler = async (event) => {
@@ -61,7 +59,7 @@ exports.handler = async (event) => {
     // --- 1) Load scan record from Supabase ---
     let record = null;
 
-    // 1a) Try by report_id (WDR-YYDDD-#### etc)
+    // 1a) Try by report_id (new IDs like WDR-25xxx-0001 etc)
     const { data: byReportId, error: err1 } = await supabase
       .from("scan_results")
       .select("*")
@@ -76,7 +74,7 @@ exports.handler = async (event) => {
       record = byReportId;
       console.log("[get-report] Found record by report_id");
     } else {
-      // 1b) Fallback: older rows that only have numeric id
+      // 1b) Legacy numeric ids
       const numericId = Number(reportId);
       if (!Number.isNaN(numericId)) {
         const { data: byId, error: err2 } = await supabase
@@ -126,104 +124,79 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 3) Prepare values for placeholders ---
-    const { date, time } = formatNZDateTime(record.created_at);
+    // --- 3) Prepare values for placeholders (match v5.0 template) ---
+    const formattedDate = formatNZDate(record.created_at);
 
-    const safe = (val, fallback = "-") =>
-      val === null || val === undefined || val === "" ? fallback : String(val);
+    const tokens = {
+      // header meta
+      url: safe(record.url),
+      date: formattedDate,
+      id: safe(record.report_id || reportId),
 
-    const replacements = {
-      // Header meta
-      "{{url}}": safe(record.url),
-      "{{date}}": date,
-      "{{id}}": safe(record.report_id || reportId),
-
-      // Overall summary + score
-      "{{summary}}": safe(
+      // high-level summary + scores
+      summary: safe(
         record.summary ||
-          "Overall healthy — main opportunities in performance, SEO, and structure."
+          record.summary_text ||
+          "Overall healthy — main opportunities in performance and SEO."
       ),
-      "{{score}}": safe(record.score_overall, "—"),
+      score: safe(record.score_overall || record.overall_score || "—"),
+      perf_score: safe(record.score_performance || record.perf_score || "—"),
+      seo_score: safe(record.score_seo || record.seo_score || "—"),
+      mobile_score: safe(record.score_mobile || record.mobile_score || "—"),
+      accessibility_score: safe(
+        record.score_accessibility || record.accessibility_score || "—"
+      ),
+      security_score: safe(record.score_security || record.security_score || "—"),
 
-      // Nine signal scores (adapt RHS to your actual column names)
-      "{{perf_score}}": safe(
-        record.score_performance ?? record.perf_score,
-        "—"
-      ),
-      "{{seo_score}}": safe(record.score_seo ?? record.seo_score, "—"),
-      "{{structure_score}}": safe(
-        record.score_structure ?? record.structure_score,
-        "—"
-      ),
-      "{{mobile_score}}": safe(
-        record.score_mobile ?? record.mobile_score,
-        "—"
-      ),
-      "{{security_score}}": safe(
-        record.score_security ?? record.security_score,
-        "—"
-      ),
-      "{{accessibility_score}}": safe(
-        record.score_accessibility ?? record.accessibility_score,
-        "—"
-      ),
-      "{{domain_score}}": safe(
-        record.score_domain ?? record.domain_score,
-        "—"
-      ),
-      "{{content_score}}": safe(
-        record.score_content ?? record.content_score,
-        "—"
-      ),
-      "{{summary_signal_score}}": safe(
-        record.score_summary_signal ?? record.summary_signal_score,
-        "—"
-      ),
+      // extra signal scores (these can be null for now)
+      structure_score: safe(record.structure_score),
+      domain_score: safe(record.domain_score),
+      content_score: safe(record.content_score),
+      summary_signal_score: safe(record.summary_signal_score),
 
-      // Key metrics (if present)
-      "{{metric_page_load_value}}": safe(
-        record.metric_page_load_value,
-        "—"
-      ),
-      "{{metric_page_load_goal}}": safe(record.metric_page_load_goal, "—"),
-      "{{metric_mobile_status}}": safe(record.metric_mobile_status, "—"),
-      "{{metric_mobile_text}}": safe(record.metric_mobile_text, "—"),
-      "{{metric_cwv_status}}": safe(record.metric_cwv_status, "—"),
-      "{{metric_cwv_text}}": safe(record.metric_cwv_text, "—"),
+      // key metrics
+      metric_page_load_value: safe(record.metric_page_load_value),
+      metric_page_load_goal: safe(record.metric_page_load_goal),
+      metric_mobile_status: safe(record.metric_mobile_status),
+      metric_mobile_text: safe(record.metric_mobile_text),
+      metric_cwv_status: safe(record.metric_cwv_status),
+      metric_cwv_text: safe(record.metric_cwv_text),
 
-      // Top issues
-      "{{issue1_severity}}": safe(record.issue1_severity, "—"),
-      "{{issue1_title}}": safe(record.issue1_title, "—"),
-      "{{issue1_text}}": safe(record.issue1_text, "—"),
+      // top issues
+      issue1_severity: safe(record.issue1_severity),
+      issue1_title: safe(record.issue1_title),
+      issue1_text: safe(record.issue1_text),
 
-      "{{issue2_severity}}": safe(record.issue2_severity, "—"),
-      "{{issue2_title}}": safe(record.issue2_title, "—"),
-      "{{issue2_text}}": safe(record.issue2_text, "—"),
+      issue2_severity: safe(record.issue2_severity),
+      issue2_title: safe(record.issue2_title),
+      issue2_text: safe(record.issue2_text),
 
-      "{{issue3_severity}}": safe(record.issue3_severity, "—"),
-      "{{issue3_title}}": safe(record.issue3_title, "—"),
-      "{{issue3_text}}": safe(record.issue3_text, "—"),
+      issue3_severity: safe(record.issue3_severity),
+      issue3_title: safe(record.issue3_title),
+      issue3_text: safe(record.issue3_text),
 
-      // Recommended fix sequence
-      "{{recommendation1}}": safe(record.recommendation1, "—"),
-      "{{recommendation2}}": safe(record.recommendation2, "—"),
-      "{{recommendation3}}": safe(record.recommendation3, "—"),
-      "{{recommendation4}}": safe(record.recommendation4, "—"),
+      // fix sequence
+      recommendation1: safe(record.recommendation1),
+      recommendation2: safe(record.recommendation2),
+      recommendation3: safe(record.recommendation3),
+      recommendation4: safe(record.recommendation4),
 
-      // Summary & notes
-      "{{notes}}": safe(
+      // notes / closing summary
+      notes: safe(
         record.notes ||
           record.doctor_summary ||
-          "No additional notes recorded for this scan."
+          "No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling, and structural consistency. Address red issues first, then perform a follow-up scan to confirm improvements."
       ),
     };
 
+    // --- 4) Apply replacements into template ---
     let html = templateHtml;
-    for (const [token, value] of Object.entries(replacements)) {
-      html = html.split(token).join(value);
+    for (const [key, value] of Object.entries(tokens)) {
+      const re = new RegExp(`{{${key}}}`, "g");
+      html = html.replace(re, value);
     }
 
-    // --- 4) Respond with HTML for /report.html to display ---
+    // --- 5) Respond with HTML ---
     return {
       statusCode: 200,
       headers: {
