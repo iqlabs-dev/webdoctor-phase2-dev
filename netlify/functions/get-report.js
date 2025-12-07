@@ -1,47 +1,29 @@
 // netlify/functions/get-report.js
-//
-// Returns full HTML for a single iQWEB report (v5.0 template).
-//
-// Called from: /report.html?report_id=... or ?id=...
-// - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5.0.html from the same folder
-// - Replaces {{tokens}} with real values
-// - Responds with text/html
 
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 // --- Supabase (server-side key) ---
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn(
-    "[get-report] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars."
-  );
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-// ---------- Helpers ----------
-function formatNZDate(iso) {
-  if (!iso) return "-";
+// Format date
+function formatNZDateTime(iso) {
+  if (!iso) return { date: "-", time: "-" };
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
 
   const day = String(d.getDate()).padStart(2, "0");
   const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
   const year = d.getFullYear();
-  return `${day} ${month} ${year}`;
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+
+  return { date: `${day} ${month} ${year}`, time: `${hours}:${mins}` };
 }
 
-function safe(val, fallback = "—") {
-  if (val === null || val === undefined || val === "") return fallback;
-  return String(val);
-}
-
-// ---------- Main handler ----------
 exports.handler = async (event) => {
   try {
     const qs = event.queryStringParameters || {};
@@ -51,166 +33,104 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         headers: { "Content-Type": "text/plain" },
-        body: "Missing report_id in query string.",
+        body: "Missing report_id",
       };
     }
 
-    console.log("[get-report] Incoming reportId:", reportId);
+    console.log("[get-report] Looking for:", reportId);
 
-    // 1) Load scan record from Supabase
-    let record = null;
+    // ------------------------------------------------------------------
+    // 1) Load from **reports** table only (not scan_results)
+    // ------------------------------------------------------------------
 
-    // 1a) Try report_id (preferred)
-    const { data: byReportId, error: err1 } = await supabase
-      .from("scan_results")
+    const { data: record, error } = await supabase
+      .from("reports")
       .select("*")
       .eq("report_id", reportId)
       .maybeSingle();
 
-    if (err1) {
-      console.error("[get-report] Supabase error (by report_id):", err1);
-    }
-
-    if (byReportId) {
-      record = byReportId;
-      console.log("[get-report] Found record by report_id");
-    } else {
-      // 1b) Fallback to legacy numeric id
-      const numericId = Number(reportId);
-      if (!Number.isNaN(numericId)) {
-        const { data: byId, error: err2 } = await supabase
-          .from("scan_results")
-          .select("*")
-          .eq("id", numericId)
-          .maybeSingle();
-
-        if (err2) {
-          console.error("[get-report] Supabase error (by id):", err2);
-          return {
-            statusCode: 500,
-            headers: { "Content-Type": "text/plain" },
-            body: "Error loading report from database.",
-          };
-        }
-
-        if (byId) {
-          record = byId;
-          console.log("[get-report] Found record by numeric id");
-        }
-      }
+    if (error) {
+      console.error("[get-report] Supabase error:", error);
+      return { statusCode: 500, body: "Database error" };
     }
 
     if (!record) {
-      console.warn("[get-report] No record found for id:", reportId);
-      return {
-        statusCode: 404,
-        headers: { "Content-Type": "text/plain" },
-        body: `Report not found for id: ${reportId}`,
-      };
+      console.warn("[get-report] Report not found in reports table");
+      return { statusCode: 404, body: "Report not found" };
     }
 
-    // 2) Load the v5.0 HTML template file
+    // ------------------------------------------------------------------
+    // 2) Load report_template_v5.0.html
+    // ------------------------------------------------------------------
+
     const templatePath = path.join(__dirname, "report_template_v5.0.html");
-    console.log("[get-report] Using template path:", templatePath);
+    console.log("Loading template:", templatePath);
 
-    let templateHtml;
-    try {
-      templateHtml = fs.readFileSync(templatePath, "utf8");
-    } catch (tplErr) {
-      console.error("[get-report] Could not read template:", tplErr);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Report template missing on server.",
-      };
-    }
+    let html = fs.readFileSync(templatePath, "utf8");
 
-    // 3) Map DB fields → template tokens
-    const formattedDate = formatNZDate(record.created_at);
+    // ------------------------------------------------------------------
+    // 3) Replace tokens
+    // ------------------------------------------------------------------
 
-    const tokens = {
-      // header
-      url: safe(record.url),
-      date: formattedDate,
-      id: safe(record.report_id || reportId),
+    const { date } = formatNZDateTime(record.created_at);
 
-      // overall + core scores
-      summary: safe(
-        record.summary ||
-          record.summary_text ||
-          "Overall healthy — main opportunities in performance, SEO, and signalling."
-      ),
-      score: safe(record.score_overall || record.overall_score || "—"),
-
-      perf_score: safe(record.score_performance || record.perf_score || "—"),
-      seo_score: safe(record.score_seo || record.seo_score || "—"),
-      mobile_score: safe(record.score_mobile || record.mobile_score || "—"),
-      accessibility_score: safe(
-        record.score_accessibility || record.accessibility_score || "—"
-      ),
-      security_score: safe(
-        record.score_security || record.security_score || "—"
-      ),
-      structure_score: safe(record.structure_score),
-      domain_score: safe(record.domain_score),
-      content_score: safe(record.content_score),
-      summary_signal_score: safe(record.summary_signal_score),
-
-      // metrics
-      metric_page_load_value: safe(record.metric_page_load_value),
-      metric_page_load_goal: safe(record.metric_page_load_goal),
-      metric_mobile_status: safe(record.metric_mobile_status),
-      metric_mobile_text: safe(record.metric_mobile_text),
-      metric_cwv_status: safe(record.metric_cwv_status),
-      metric_cwv_text: safe(record.metric_cwv_text),
-
-      // issues
-      issue1_severity: safe(record.issue1_severity),
-      issue1_title: safe(record.issue1_title),
-      issue1_text: safe(record.issue1_text),
-      issue2_severity: safe(record.issue2_severity),
-      issue2_title: safe(record.issue2_title),
-      issue2_text: safe(record.issue2_text),
-      issue3_severity: safe(record.issue3_severity),
-      issue3_title: safe(record.issue3_title),
-      issue3_text: safe(record.issue3_text),
-
-      // recommended fixes
-      recommendation1: safe(record.recommendation1),
-      recommendation2: safe(record.recommendation2),
-      recommendation3: safe(record.recommendation3),
-      recommendation4: safe(record.recommendation4),
-
-      // notes
-      notes: safe(
-        record.notes ||
-          record.doctor_summary ||
-          "No critical failures. Focus first on red issues, then re-scan to confirm improvements."
-      ),
+    const replace = (token, val) => {
+      html = html.replace(new RegExp(token, "g"), val ?? "—");
     };
 
-    // 4) Replace {{tokens}} in the template
-    let html = templateHtml;
-    for (const [key, value] of Object.entries(tokens)) {
-      const re = new RegExp(`{{${key}}}`, "g");
-      html = html.replace(re, value);
-    }
+    replace("{{url}}", record.url);
+    replace("{{date}}", date);
+    replace("{{id}}", record.report_id);
 
-    // 5) Return final HTML
+    replace("{{summary}}", record.summary);
+    replace("{{score}}", record.score);
+
+    replace("{{perf_score}}", record.score_performance);
+    replace("{{seo_score}}", record.score_seo);
+    replace("{{mobile_score}}", record.score_mobile);
+    replace("{{accessibility_score}}", record.score_accessibility);
+    replace("{{security_score}}", record.score_security);
+    replace("{{domain_score}}", record.score_domain);
+    replace("{{content_score}}", record.score_content);
+    replace("{{summary_signal_score}}", record.score_summary);
+
+    replace("{{metric_page_load_value}}", record.metric_page_load_value);
+    replace("{{metric_page_load_goal}}", record.metric_page_load_goal);
+    replace("{{metric_mobile_status}}", record.metric_mobile_status);
+    replace("{{metric_mobile_text}}", record.metric_mobile_text);
+    replace("{{metric_cwv_status}}", record.metric_cwv_status);
+    replace("{{metric_cwv_text}}", record.metric_cwv_text);
+
+    replace("{{issue1_severity}}", record.issue1_severity);
+    replace("{{issue1_title}}", record.issue1_title);
+    replace("{{issue1_text}}", record.issue1_text);
+
+    replace("{{issue2_severity}}", record.issue2_severity);
+    replace("{{issue2_title}}", record.issue2_title);
+    replace("{{issue2_text}}", record.issue2_text);
+
+    replace("{{issue3_severity}}", record.issue3_severity);
+    replace("{{issue3_title}}", record.issue3_title);
+    replace("{{issue3_text}}", record.issue3_text);
+
+    replace("{{recommendation1}}", record.recommendation1);
+    replace("{{recommendation2}}", record.recommendation2);
+    replace("{{recommendation3}}", record.recommendation3);
+    replace("{{recommendation4}}", record.recommendation4);
+
+    replace("{{notes}}", record.notes);
+
+    // ------------------------------------------------------------------
+    // 4) Return final HTML
+    // ------------------------------------------------------------------
+
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
+      headers: { "Content-Type": "text/html; charset=utf-8" },
       body: html,
     };
   } catch (err) {
-    console.error("[get-report] Unexpected error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "text/plain" },
-      body: "Unexpected server error.",
-    };
+    console.error("[get-report] Fatal error:", err);
+    return { statusCode: 500, body: "Server error" };
   }
 };
