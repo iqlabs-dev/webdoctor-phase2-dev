@@ -1,11 +1,11 @@
 // netlify/functions/get-report.js
 //
-// Returns full HTML for a single WebDoctor report.
-// Called from: /report.html?report_id=WEB-YYJJJ-00001 (or legacy numeric ids)
+// Returns full HTML for a single iQWEB report.
+// Called from: /report.html?report_id=WDR-YYDDD-#### (or legacy numeric ids)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v4_3.html from netlify/functions
-// - Replaces {{PLACEHOLDERS}} with real values
+// - Loads report_template_v5.0.html from netlify/functions
+// - Replaces {{placeholders}} with real values
 // - Responds with text/html
 
 const fs = require("fs");
@@ -61,7 +61,7 @@ exports.handler = async (event) => {
     // --- 1) Load scan record from Supabase ---
     let record = null;
 
-    // 1a) Try by report_id (future-friendly WEB-YYJJJ-00001 etc)
+    // 1a) Try by report_id (WDR-YYDDD-#### etc)
     const { data: byReportId, error: err1 } = await supabase
       .from("scan_results")
       .select("*")
@@ -110,9 +110,8 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 2) Load the HTML template file ---
-    // Template lives beside this function in netlify/functions/
-    const templatePath = path.join(__dirname, "report_template_v4_3.html");
+    // --- 2) Load the HTML template file (v5.0) ---
+    const templatePath = path.join(__dirname, "report_template_v5.0.html");
     console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
@@ -134,22 +133,89 @@ exports.handler = async (event) => {
       val === null || val === undefined || val === "" ? fallback : String(val);
 
     const replacements = {
-      // core meta
-      "{{REPORT_ID}}": safe(record.report_id || reportId),
-      "{{SCAN_URL}}": safe(record.url),
-      "{{SCAN_DATE}}": date,
-      "{{SCAN_TIME}}": time,
+      // Header meta
+      "{{url}}": safe(record.url),
+      "{{date}}": date,
+      "{{id}}": safe(record.report_id || reportId),
 
-      // scores
-      "{{OVERALL_SCORE}}": safe(record.score_overall, "—"),
-      "{{PERFORMANCE_SCORE}}": safe(record.score_performance, "—"),
-      "{{SEO_SCORE}}": safe(record.score_seo, "—"),
-      "{{MOBILE_SCORE}}": safe(record.score_mobile, "—"),
-      "{{ACCESSIBILITY_SCORE}}": safe(record.score_accessibility, "—"),
-      "{{SECURITY_SCORE}}": safe(record.score_security, "—"),
+      // Overall summary + score
+      "{{summary}}": safe(
+        record.summary ||
+          "Overall healthy — main opportunities in performance, SEO, and structure."
+      ),
+      "{{score}}": safe(record.score_overall, "—"),
 
-      // timings etc (optional)
-      "{{SCAN_TIME_MS}}": safe(record.scan_time_ms, "—"),
+      // Nine signal scores (adapt RHS to your actual column names)
+      "{{perf_score}}": safe(
+        record.score_performance ?? record.perf_score,
+        "—"
+      ),
+      "{{seo_score}}": safe(record.score_seo ?? record.seo_score, "—"),
+      "{{structure_score}}": safe(
+        record.score_structure ?? record.structure_score,
+        "—"
+      ),
+      "{{mobile_score}}": safe(
+        record.score_mobile ?? record.mobile_score,
+        "—"
+      ),
+      "{{security_score}}": safe(
+        record.score_security ?? record.security_score,
+        "—"
+      ),
+      "{{accessibility_score}}": safe(
+        record.score_accessibility ?? record.accessibility_score,
+        "—"
+      ),
+      "{{domain_score}}": safe(
+        record.score_domain ?? record.domain_score,
+        "—"
+      ),
+      "{{content_score}}": safe(
+        record.score_content ?? record.content_score,
+        "—"
+      ),
+      "{{summary_signal_score}}": safe(
+        record.score_summary_signal ?? record.summary_signal_score,
+        "—"
+      ),
+
+      // Key metrics (if present)
+      "{{metric_page_load_value}}": safe(
+        record.metric_page_load_value,
+        "—"
+      ),
+      "{{metric_page_load_goal}}": safe(record.metric_page_load_goal, "—"),
+      "{{metric_mobile_status}}": safe(record.metric_mobile_status, "—"),
+      "{{metric_mobile_text}}": safe(record.metric_mobile_text, "—"),
+      "{{metric_cwv_status}}": safe(record.metric_cwv_status, "—"),
+      "{{metric_cwv_text}}": safe(record.metric_cwv_text, "—"),
+
+      // Top issues
+      "{{issue1_severity}}": safe(record.issue1_severity, "—"),
+      "{{issue1_title}}": safe(record.issue1_title, "—"),
+      "{{issue1_text}}": safe(record.issue1_text, "—"),
+
+      "{{issue2_severity}}": safe(record.issue2_severity, "—"),
+      "{{issue2_title}}": safe(record.issue2_title, "—"),
+      "{{issue2_text}}": safe(record.issue2_text, "—"),
+
+      "{{issue3_severity}}": safe(record.issue3_severity, "—"),
+      "{{issue3_title}}": safe(record.issue3_title, "—"),
+      "{{issue3_text}}": safe(record.issue3_text, "—"),
+
+      // Recommended fix sequence
+      "{{recommendation1}}": safe(record.recommendation1, "—"),
+      "{{recommendation2}}": safe(record.recommendation2, "—"),
+      "{{recommendation3}}": safe(record.recommendation3, "—"),
+      "{{recommendation4}}": safe(record.recommendation4, "—"),
+
+      // Summary & notes
+      "{{notes}}": safe(
+        record.notes ||
+          record.doctor_summary ||
+          "No additional notes recorded for this scan."
+      ),
     };
 
     let html = templateHtml;
