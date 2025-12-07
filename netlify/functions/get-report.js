@@ -4,7 +4,7 @@
 // Called from: /report.html?report_id=WDR-YYDDD-#### (or legacy numeric ids)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5.0.html from netlify/functions
+// - Loads report_template_v5.0.html frm netlify/functions
 // - Replaces {{placeholders}} with real values
 // - Responds with text/html
 
