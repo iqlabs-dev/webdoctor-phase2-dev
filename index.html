@@ -88,21 +88,20 @@
       min-width: 0;
     }
 
- .nav-title {
-  font-family: "Montserrat", sans-serif;
-  font-weight: 700;
-  font-size: 1.08rem;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  text-decoration: none;      /* remove underline */
-}
+    .nav-title {
+      font-family: "Montserrat", sans-serif;
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      text-transform: none;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      text-decoration: none;
+    }
 
-.nav-title:hover {
-  text-decoration: none;
-}
-
+    .nav-title:hover {
+      text-decoration: none;
+    }
 
     .nav-subtitle {
       font-size: 0.7rem;
@@ -237,16 +236,14 @@
     }
 
     /* HERO */
-.hero-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr);
-  gap: 20px;
-  margin-top: 120px;      /* distance from nav to hero */
-  margin-bottom: 40px;    /* NEW – distance from hero to “Signals we check” */
-  align-items: flex-start;
-}
-
- 
+    .hero-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr);
+      gap: 20px;
+      margin-top: 120px;      /* distance from nav to hero */
+      margin-bottom: 40px;    /* distance from hero to “Signals we check” */
+      align-items: flex-start;
+    }
 
     .hero-left {
       display: flex;
@@ -330,42 +327,40 @@
       }
     }
 
-.section-kicker {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.78rem;
-  color: var(--ink);
-  opacity: 0.75;
-  margin-bottom: 2px;        /* tighter link to the title */
-}
+    .section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+      color: var(--ink);
+      opacity: 0.75;
+      margin-bottom: 2px;
+    }
 
-.section-title {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-top: 0;
-  margin-bottom: 4px;       /* more breathing room before body text */
-}
-
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0;
+      margin-bottom: 4px;
+    }
 
     .section-subtitle {
       font-size: 0.82rem;
       color: var(--muted);
       max-width: 26rem;
       line-height: 1.6;
-       margin-top: 6px; /* optional */
+      margin-top: 6px;
     }
 
     /* FEATURES */
 
-.feature-grid {
-  margin-top: 26px; /* add this line */
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
+    .feature-grid {
+      margin-top: 26px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
 
     @media (max-width: 960px) {
       .feature-grid {
@@ -437,13 +432,12 @@
       align-self: end;
     }
 
- .feature-pill-row {
-  margin-top: auto;
-  display: flex;
-  flex-wrap: nowrap; /* NEW – prevents the pills from stacking */
-  gap: 6px;
-}
-
+    .feature-pill-row {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
 
     .feature-pill {
       font-size: 0.66rem;
@@ -455,115 +449,115 @@
       border: 1px solid rgba(148,163,184,0.5);
       color: rgba(148,163,184,0.9);
     }
+
     /* === 9 SIGNALS GRID (iQWEB S-TIER) === */
 
-.iq-section {
-  margin-top: 18px;
-}
+    .iq-section {
+      margin-top: 18px;
+    }
 
-.iq-section-inner {
-  margin-top: 4px;
-}
+    .iq-section-inner {
+      margin-top: 4px;
+    }
 
-.iq-section-header {
-  max-width: 44rem;
-  margin-bottom: 18px;
-}
+    .iq-section-header {
+      max-width: 44rem;
+      margin-bottom: 18px;
+    }
 
-.iq-eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.75rem;
-  color: var(--ink);
-  opacity: 0.75;
-  margin: 0 0 4px;
-}
+    .iq-eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.75rem;
+      color: var(--ink);
+      opacity: 0.75;
+      margin: 0 0 4px;
+    }
 
-.iq-section-title {
-  font-size: 1.02rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin: 0 0 6px;
-}
+    .iq-section-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin: 0 0 6px;
+    }
 
-.iq-section-lede {
-  margin: 0;
-  font-size: 0.84rem;
-  color: var(--muted);
-  line-height: 1.7;
-}
+    .iq-section-lede {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
 
-/* Grid of 9 cards */
-.iq-signal-grid {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
+    /* Grid of 9 cards */
+    .iq-signal-grid {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
 
-@media (max-width: 960px) {
-  .iq-signal-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+    @media (max-width: 960px) {
+      .iq-signal-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
 
-@media (max-width: 640px) {
-  .iq-signal-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+    @media (max-width: 640px) {
+      .iq-signal-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
 
-/* Individual signal cards */
-.iq-signal-card {
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.96);
-  border: 1px solid rgba(31, 41, 55, 0.9);
-  padding: 14px 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.75);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
-}
+    /* Individual signal cards */
+    .iq-signal-card {
+      border-radius: 16px;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      padding: 14px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 18px 38px rgba(15, 23, 42, 0.75);
+      transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease;
+    }
 
-.iq-signal-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(34, 211, 238, 0.55);
-  box-shadow: 0 22px 52px rgba(15, 23, 42, 0.95);
-  background: radial-gradient(circle at top, rgba(34,211,238,0.10), rgba(15,23,42,0.98));
-}
+    .iq-signal-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(34, 211, 238, 0.55);
+      box-shadow: 0 22px 52px rgba(15, 23, 42, 0.95);
+      background: radial-gradient(circle at top, rgba(34,211,238,0.10), rgba(15,23,42,0.98));
+    }
 
-.iq-signal-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin: 0 0 2px;
-  color: var(--ink-soft);
-}
+    .iq-signal-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin: 0 0 2px;
+      color: var(--ink-soft);
+    }
 
-.iq-signal-text {
-  font-size: 0.8rem;
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 4px;
-}
+    .iq-signal-text {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0 0 4px;
+    }
 
-.iq-signal-list {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-  line-height: 1.5;
-}
+    .iq-signal-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+      line-height: 1.5;
+    }
 
-.iq-signal-list li + li {
-  margin-top: 3px;
-}
-
+    .iq-signal-list li + li {
+      margin-top: 3px;
+    }
 
     /* HOW IT WORKS */
 
@@ -645,7 +639,7 @@
 
     .how-panel {
       border-radius: 16px;
-      padding: 14px 16px;
+      padding: 14px 18px;
       background: rgba(15, 23, 42, 0.97);
       border: 1px solid rgba(56, 189, 248, 0.55);
       box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
@@ -655,6 +649,15 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+    }
+
+    .how-panel p {
+      margin: 0 0 10px;
+      line-height: 1.6;
+    }
+
+    .how-panel p:last-of-type {
+      margin-bottom: 0;
     }
 
     .how-panel-title {
@@ -668,6 +671,7 @@
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
+      margin-bottom: 4px;
     }
 
     .how-pill {
@@ -681,10 +685,15 @@
 
     /* PRICING */
 
+    #pricing.section {
+      margin-top: 60px; /* extra breathing room after workflow */
+    }
+
     .pricing-row {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
+      margin-top: 24px;
     }
 
     .pricing-card {
@@ -696,6 +705,7 @@
       padding: 14px 14px 16px;
       display: flex;
       flex-direction: column;
+      align-items: stretch;
       gap: 6px;
       box-shadow: 0 18px 38px rgba(15,23,42,0.85);
       transition:
@@ -756,11 +766,14 @@
     .pricing-meta-extra {
       font-size: 0.78rem;
       color: var(--ink-soft);
+      margin-top: 2px;
+      margin-bottom: 2px;
     }
 
     .pricing-meta {
       font-size: 0.78rem;
       color: var(--muted);
+      margin-bottom: 4px;
     }
 
     .pricing-pill {
@@ -770,7 +783,8 @@
       border: 1px solid rgba(148,163,184,0.6);
       color: rgba(148,163,184,0.9);
       align-self: flex-start;
-      margin-top: 3px;
+      margin-top: 8px;
+      margin-bottom: 10px;
     }
 
     .pricing-footnote {
@@ -809,10 +823,10 @@
       margin: 12px 0 8px;
     }
 
-    /* NEW: CTA button inside pricing cards */
+    /* CTA button inside pricing cards */
     .pricing-cta {
-      margin-top: 8px;
-      align-self: flex-start;
+      margin-top: auto;
+      align-self: stretch;
       border-radius: 999px;
       padding: 7px 16px;
       font-size: 0.75rem;
@@ -823,6 +837,7 @@
       color: var(--ink-soft);
       cursor: pointer;
       display: inline-flex;
+      justify-content: center;
       align-items: center;
       gap: 6px;
       box-shadow: 0 12px 28px rgba(15,23,42,0.85);
@@ -981,30 +996,28 @@
       margin-left: 8px;
       color: var(--muted);
     }
+
     /* === iQWEB S-Tier Spacing Patch === */
 
-/* More breathing room before HOW IT WORKS */
-#how.section {
-  margin-top: 60px !important;   /* was 40px */
-}
+    /* More breathing room before HOW IT WORKS */
+    #how.section {
+      margin-top: 60px !important;   /* was 40px */
+    }
 
-/* More breathing room before TRUST section */
-#trust.section {
-  margin-top: 60px !important;   /* was 40px */
-}
-.closing-philosophy {
-  max-width: 680px;
-  margin: 60px auto 40px auto;
-  font-size: 0.95rem;
-  line-height: 1.65;
-  color: rgba(229,240,255,0.75);
-  font-style: italic;
-  text-align: center;
-}
-.iq-section-header {
-  margin-bottom: 18px; /* add or increase this */
-}
+    /* More breathing room before TRUST section */
+    #trust.section {
+      margin-top: 60px !important;   /* was 40px */
+    }
 
+    .closing-philosophy {
+      max-width: 680px;
+      margin: 60px auto 40px auto;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: rgba(229,240,255,0.75);
+      font-style: italic;
+      text-align: center;
+    }
 
   </style>
 </head>
@@ -1014,297 +1027,285 @@
     <div class="shell-inner">
 
       <!-- NAVIGATION -->
-<header class="nav">
-  <div class="nav-left">
-<a href="/" class="nav-title">iQWEB</a>
+      <header class="nav">
+        <div class="nav-left">
+          <a href="/" class="nav-title">iQWEB</a>
+        </div>
 
+        <div class="nav-center">
+          <div class="nav-links">
+            <a href="#how" class="nav-link">How it works</a>
+            <a href="#signals" class="nav-link">Signals we check</a>
+            <a href="#pricing" class="nav-link">Pricing</a>
+            <a href="#trust" class="nav-link">Trust</a>
+          </div>
+        </div>
 
-
-  </div>
-
-  <div class="nav-center">
-    <div class="nav-links">
-      <a href="#how" class="nav-link">How it works</a>
-      <a href="#features" class="nav-link">Signals we check</a>
-      <a href="#pricing" class="nav-link">Pricing</a>
-      <a href="#trust" class="nav-link">Trust</a>
-    </div>
-  </div>
-
-  <div class="nav-right">
-    <a href="/dashboard.html" class="nav-ghost">Dashboard</a>
-    <a href="/dashboard.html" class="nav-cta">
-      <span>Login</span>
-      <svg viewBox="0 0 20 20" aria-hidden="true">
-        <path fill="currentColor"
-          d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z" />
-      </svg>
-    </a>
-  </div>
-</header>
-
+        <div class="nav-right">
+          <a href="/dashboard.html" class="nav-ghost">Dashboard</a>
+          <a href="/dashboard.html" class="nav-cta">
+            <span>Login</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path fill="currentColor"
+                d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z" />
+            </svg>
+          </a>
+        </div>
+      </header>
 
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
-
-<h1 class="hero-h1">
-  iQWEB transforms data into clarity.<br>
- </h1>
-
+          <h1 class="hero-h1">
+            iQWEB transforms data into clarity.<br>
+          </h1>
 
           <p class="hero-sub">
-           It reads performance, SEO, mobile, accessibility, and security data — converting raw diagnostics into a clear, 
-           structured report you can understand at a glance, ready to share instantly.
+            It reads performance, SEO, mobile, accessibility, and security data — converting raw diagnostics into a clear,
+            structured report you can understand at a glance, ready to share instantly.
           </p>
-
         </section>
       </main>
 
-
-
-<!-- FEATURES -->
-<div class="section-header">
-  <div>
-    <div class="section-kicker">Signals we check</div>
-    <div class="section-title">See what really shapes a website’s health.</div>
-
-    <p class="section-subtitle">
-      iQWEB analyses your site across nine independent signal groups — combining performance diagnostics,
-      structural analysis, trust indicators, accessibility checks, and infrastructure health data.
-      It’s a deeper look beneath the surface, built to reveal what actually affects speed, ranking,
-      usability, and credibility.
-      <br><br>
-      Fix what we highlight, re-scan, and you’ll see the needle move.
-    </p>
-  </div>
-</div>
-
-<section id="signals" class="iq-section iq-section-signals">
-  <div class="iq-section-inner">
-    <header class="iq-section-header">
-      <h2 class="iq-section-title">THE NINE SIGNALS EVERY IQWEB SCAN CHECKS</h2>
-    </header>
-
-    <div class="iq-signal-grid">
-      <!-- 1. Performance -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Performance</h3>
-        <p class="iq-signal-text">
-          How fast your pages load and respond for real users.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Actual load behaviour and responsiveness</li>
-          <li>Asset weight and request efficiency</li>
-          <li>Server response and TTFB patterns</li>
-        </ul>
-      </article>
-
-      <!-- 2. SEO -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">SEO Foundations</h3>
-        <p class="iq-signal-text">
-          How clearly search engines can understand and rank your site.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Title, meta and canonical clarity</li>
-          <li>Indexability and crawl readiness</li>
-          <li>Basic schema and search signals</li>
-        </ul>
-      </article>
-
-      <!-- 3. Structure -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Structure &amp; Semantics</h3>
-        <p class="iq-signal-text">
-          Whether your HTML scaffolding communicates meaning.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Heading hierarchy</li>
-          <li>Core landmarks (header, main, nav, footer)</li>
-          <li>Missing or broken structural elements</li>
-        </ul>
-      </article>
-
-      <!-- 4. Mobile -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Mobile Experience</h3>
-        <p class="iq-signal-text">
-          How your site behaves on the screens your customers actually use.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Responsive layout integrity</li>
-          <li>Tap target sizing and spacing</li>
-          <li>Readability on small devices</li>
-        </ul>
-      </article>
-
-      <!-- 5. Security & Trust -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Security &amp; Trust</h3>
-        <p class="iq-signal-text">
-          Signals that protect users and reinforce credibility.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Protocol and redirect behaviour</li>
-          <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.)</li>
-          <li>Mixed-content and downgrade risks</li>
-        </ul>
-      </article>
-
-      <!-- 6. Accessibility -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Accessibility</h3>
-        <p class="iq-signal-text">
-          How usable your site is for people using assistive technologies.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Contrast, labels and ARIA usage</li>
-          <li>Alt text coverage for key imagery</li>
-          <li>Common keyboard / screen reader traps</li>
-        </ul>
-      </article>
-
-      <!-- 7. Domain & Hosting -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Domain &amp; Hosting Health</h3>
-        <p class="iq-signal-text">
-          Behind-the-scenes signals that determine reliability.
-        </p>
-        <ul class="iq-signal-list">
-          <li>DNS, SPF and DMARC presence</li>
-          <li>SSL validity and expiry window</li>
-          <li>Server response and platform fingerprints</li>
-        </ul>
-      </article>
-
-      <!-- 8. Content Signals -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Content Signals</h3>
-        <p class="iq-signal-text">
-          Whether your pages send clear, strong relevance signals.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Title &amp; description length sanity checks</li>
-          <li>Thin or near-empty pages</li>
-          <li>Social preview / Open Graph hygiene</li>
-        </ul>
-      </article>
-
-      <!-- 9. Summary & Fix Plan -->
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Summary &amp; Fix Plan</h3>
-        <p class="iq-signal-text">
-          A client-ready action plan you can hand to your team or client.
-        </p>
-        <ul class="iq-signal-list">
-          <li>Executive summary in human language</li>
-          <li>Ranked “Top Issues” list</li>
-          <li>Step-by-step Recommended Fix Sequence</li>
-        </ul>
-      </article>
-    </div>
-  </div>
-</section>
-
-
- <!-- HOW IT WORKS -->
-<section class="section" id="how">
-  <div class="section-header">
-    <div>
-      <div class="section-kicker">Workflow</div>
-      <div class="section-title">From URL to report in one loop.</div>
-    </div>
-  </div>
-
-  <p class="workflow-intro">
-    iQWEB exists to do one thing well: turn a URL into a clear, prioritised
-    diagnosis you can act on. No chasing devs for screenshots. No translating
-    Lighthouse metrics for non-technical clients. Just a report you can share and act on.
-  </p>
-
-  <div class="how-grid">
-
-    <div class="how-steps">
-
-      <div class="how-step">
-        <div class="how-step-num">1</div>
+      <!-- FEATURES INTRO -->
+      <div class="section-header">
         <div>
-          <div class="how-step-title">Paste the URL you want to scan.</div>
-          <div class="how-step-body">
-            Drop in any public website URL. iQWEB normalises the address,
-            handles redirects and queues the scan — no code or login to the
-            site needed.
-          </div>
+          <div class="section-kicker">Signals we check</div>
+          <div class="section-title">See what really shapes a website’s health.</div>
+
+          <p class="section-subtitle">
+            iQWEB analyses your site across nine independent signal groups — combining performance diagnostics,
+            structural analysis, trust indicators, accessibility checks, and infrastructure health data.
+            It’s a deeper look beneath the surface, built to reveal what actually affects speed, ranking,
+            usability, and credibility.
+            <br><br>
+            Fix what we highlight, re-scan, and you’ll see the needle move.
+          </p>
         </div>
       </div>
 
-      <div class="how-step">
-        <div class="how-step-num">2</div>
-        <div>
-          <div class="how-step-title">iQWEB runs the checks for you.</div>
-          <div class="how-step-body">
-            Under the hood, we run performance, SEO, mobile, security and
-            accessibility checks — then process everything through the
-            <strong>Λ&#8239;i&#8239;Q Core Engine</strong> to score and rank issues
-            by real-world impact.
+      <!-- NINE SIGNALS -->
+      <section id="signals" class="iq-section iq-section-signals">
+        <div class="iq-section-inner">
+          <header class="iq-section-header">
+            <h2 class="iq-section-title">THE NINE SIGNALS EVERY IQWEB SCAN CHECKS</h2>
+          </header>
+
+          <div class="iq-signal-grid">
+            <!-- 1. Performance -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Performance</h3>
+              <p class="iq-signal-text">
+                How fast your pages load and respond for real users.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Actual load behaviour and responsiveness</li>
+                <li>Asset weight and request efficiency</li>
+                <li>Server response and TTFB patterns</li>
+              </ul>
+            </article>
+
+            <!-- 2. SEO -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">SEO Foundations</h3>
+              <p class="iq-signal-text">
+                How clearly search engines can understand and rank your site.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Title, meta and canonical clarity</li>
+                <li>Indexability and crawl readiness</li>
+                <li>Basic schema and search signals</li>
+              </ul>
+            </article>
+
+            <!-- 3. Structure -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Structure &amp; Semantics</h3>
+              <p class="iq-signal-text">
+                Whether your HTML scaffolding communicates meaning.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Heading hierarchy</li>
+                <li>Core landmarks (header, main, nav, footer)</li>
+                <li>Missing or broken structural elements</li>
+              </ul>
+            </article>
+
+            <!-- 4. Mobile -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Mobile Experience</h3>
+              <p class="iq-signal-text">
+                How your site behaves on the screens your customers actually use.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Responsive layout integrity</li>
+                <li>Tap target sizing and spacing</li>
+                <li>Readability on small devices</li>
+              </ul>
+            </article>
+
+            <!-- 5. Security & Trust -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Security &amp; Trust</h3>
+              <p class="iq-signal-text">
+                Signals that protect users and reinforce credibility.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Protocol and redirect behaviour</li>
+                <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.)</li>
+                <li>Mixed-content and downgrade risks</li>
+              </ul>
+            </article>
+
+            <!-- 6. Accessibility -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Accessibility</h3>
+              <p class="iq-signal-text">
+                How usable your site is for people using assistive technologies.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Contrast, labels and ARIA usage</li>
+                <li>Alt text coverage for key imagery</li>
+                <li>Common keyboard / screen reader traps</li>
+              </ul>
+            </article>
+
+            <!-- 7. Domain & Hosting -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Domain &amp; Hosting Health</h3>
+              <p class="iq-signal-text">
+                Behind-the-scenes signals that determine reliability.
+              </p>
+              <ul class="iq-signal-list">
+                <li>DNS, SPF and DMARC presence</li>
+                <li>SSL validity and expiry window</li>
+                <li>Server response and platform fingerprints</li>
+              </ul>
+            </article>
+
+            <!-- 8. Content Signals -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Content Signals</h3>
+              <p class="iq-signal-text">
+                Whether your pages send clear, strong relevance signals.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Title &amp; description length sanity checks</li>
+                <li>Thin or near-empty pages</li>
+                <li>Social preview / Open Graph hygiene</li>
+              </ul>
+            </article>
+
+            <!-- 9. Summary & Fix Plan -->
+            <article class="iq-signal-card">
+              <h3 class="iq-signal-title">Summary &amp; Fix Plan</h3>
+              <p class="iq-signal-text">
+                A client-ready action plan you can hand to your team or client.
+              </p>
+              <ul class="iq-signal-list">
+                <li>Executive summary in human language</li>
+                <li>Ranked “Top Issues” list</li>
+                <li>Step-by-step Recommended Fix Sequence</li>
+              </ul>
+            </article>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="how-step">
-        <div class="how-step-num">3</div>
-        <div>
-          <div class="how-step-title">You get a prioritised diagnosis + PDF.</div>
-          <div class="how-step-body">
-            You’ll see an overall score, top issues, recommended fixes and a
-            clean PDF report. Use it for proposals, QA, or internal
-            prioritisation — without exporting five different tools.
+      <!-- HOW IT WORKS -->
+      <section class="section" id="how">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Workflow</div>
+            <div class="section-title">From URL to report in one loop.</div>
           </div>
         </div>
-      </div>
 
-    </div>
+        <p class="workflow-intro">
+          iQWEB exists to do one thing well: turn a URL into a clear, prioritised
+          diagnosis you can act on. No chasing devs for screenshots. No translating
+          Lighthouse metrics for non-technical clients. Just a report you can share and act on.
+        </p>
 
-    <div class="how-panel">
-      <div class="how-panel-title">What iQWEB v1.0 includes today</div>
-      <p>
-        You’re looking at the full launch engine behind iQWEB v1.0. This
-        version delivers a complete, end-to-end workflow from scan to report —
-        the first fully deployable release of the platform.
-      </p>
+        <div class="how-grid">
 
-      <div class="how-panel-row">
-        <div class="how-pill">User dashboard</div>
-        <div class="how-pill">Single-URL scans</div>
-        <div class="how-pill">Automated diagnostics</div>
-        <div class="how-pill">On-screen report display</div>
-        <div class="how-pill">Client-ready summary</div>
-        <div class="how-pill">PDF export pipeline</div>
-        <div class="how-pill">Scan history</div>
-        <div class="how-pill">Verified Report ID</div>
-      </div>
+          <div class="how-steps">
 
-      <p>
-        As iQWEB evolves, you’ll see white-label reporting, a live Simulator
-        Mode for walk-throughs, and deeper integrations built directly into
-        the dashboard.
+            <div class="how-step">
+              <div class="how-step-num">1</div>
+              <div>
+                <div class="how-step-title">Paste the URL you want to scan.</div>
+                <div class="how-step-body">
+                  Drop in any public website URL. iQWEB normalises the address,
+                  handles redirects and queues the scan — no code or login to the
+                  site needed.
+                </div>
+              </div>
+            </div>
 
-        What you’ll never see is interruption — no ads, no pop-ups, nothing that adds noise. Just clarity..
-      </p>
-    </div>
+            <div class="how-step">
+              <div class="how-step-num">2</div>
+              <div>
+                <div class="how-step-title">iQWEB runs the checks for you.</div>
+                <div class="how-step-body">
+                  Under the hood, we run performance, SEO, mobile, security and
+                  accessibility checks — then process everything through the
+                  <strong>Λ&#8239;i&#8239;Q Core Engine</strong> to score and rank issues
+                  by real-world impact.
+                </div>
+              </div>
+            </div>
 
-  </div>
-</section>
+            <div class="how-step">
+              <div class="how-step-num">3</div>
+              <div>
+                <div class="how-step-title">You get a prioritised diagnosis + PDF.</div>
+                <div class="how-step-body">
+                  You’ll see an overall score, top issues, recommended fixes and a
+                  clean PDF report. Use it for proposals, QA, or internal
+                  prioritisation — without exporting five different tools.
+                </div>
+              </div>
+            </div>
 
+          </div>
+
+          <div class="how-panel">
+            <div class="how-panel-title">What iQWEB v1.0 includes today</div>
+            <p>
+              You’re looking at the full launch engine behind iQWEB v1.0. This
+              version delivers a complete, end-to-end workflow from scan to report —
+              the first fully deployable release of the platform.
+            </p>
+
+            <div class="how-panel-row">
+              <div class="how-pill">User dashboard</div>
+              <div class="how-pill">Single-URL scans</div>
+              <div class="how-pill">Automated diagnostics</div>
+              <div class="how-pill">On-screen report display</div>
+              <div class="how-pill">Client-ready summary</div>
+              <div class="how-pill">PDF export pipeline</div>
+              <div class="how-pill">Scan history</div>
+              <div class="how-pill">Verified Report ID</div>
+            </div>
+
+            <p>
+              As iQWEB evolves, you’ll see white-label reporting, a live Simulator
+              Mode for walk-throughs, and deeper integrations built directly into
+              the dashboard. What you’ll never see is interruption — no ads,
+              no pop-ups, nothing that adds noise. Just clarity.
+            </p>
+          </div>
+
+        </div>
+      </section>
 
       <!-- PRICING -->
       <section class="section" id="pricing">
         <div class="section-header">
           <div>
-<div class="section-kicker">Simple pricing</div>
-<div class="section-title">Clear monthly plans — cancel anytime, no contracts.</div>
-
+            <div class="section-kicker">Simple pricing</div>
+            <div class="section-title">Clear monthly plans — cancel anytime, no contracts.</div>
           </div>
         </div>
 
@@ -1358,116 +1359,119 @@
           🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.
         </div>
 
-<p class="pricing-footnote">
-  Need a tailored plan?
-  <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
-  for custom options.
-</p>
-
+        <p class="pricing-footnote">
+          Need a tailored plan?
+          <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
+          for custom options.
+        </p>
       </section>
 
-<!-- TRUST -->
-<section class="section" id="trust">
-  <div class="section-header">
-    <div>
-<div class="section-kicker">Trust &amp; verification</div>
-<div class="section-title">Built as a Health Check, Not a Data Farm.</div>
+      <!-- TRUST -->
+      <section class="section" id="trust">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Trust &amp; verification</div>
+            <div class="section-title">Built as a Health Check, Not a Data Farm.</div>
+          </div>
+        </div>
+
+        <div class="trust-row">
+          <div class="trust-block">
+            <p><strong>iQWEB is built as a health check, not a data farm.</strong> Every report includes a unique iQWEB Report ID. Over time, you’ll be able to verify that ID at our public trust page to confirm the report is genuine and hasn’t been tampered with.</p>
+
+            <p>Behind the scenes, iQWEB is powered by the Λ i Q™ Core Engine and built in New Zealand. That means clear jurisdiction, transparent governance, and a human being to email if something ever looks off.</p>
+
+            <p class="trust-contact">
+              Have a question?
+              <a href="mailto:support@iqweb.ai">support@iqweb.ai</a>
+              · General enquiries:
+              <a href="mailto:info@iqweb.ai">info@iqweb.ai</a>
+            </p>
+          </div>
+
+          <aside class="trust-callout">
+            <span>Verification &amp; security</span>
+            <p>
+              We’re building a dedicated trust hub at
+              <a href="/trust" class="trust-link">trust.iqweb.ai</a>
+              where you’ll be able to:
+            </p>
+
+            <ul>
+              <li>Verify report IDs.</li>
+              <li>Read our security &amp; privacy notes in plain language.</li>
+              <li>See uptime and change-log history.</li>
+            </ul>
+            <p style="margin-top:4px;">
+              Until then, treat this as a living, evolving platform — and feel free to send feedback any time.
+            </p>
+          </aside>
+        </div>
+      </section>
 
     </div>
+
+    <!-- CLOSING STATEMENT -->
+    <section class="closing-statement">
+      <div class="closing-inner">
+        <p class="closing-philosophy">
+          iQWEB exists to bring clarity to websites that have become increasingly complex beneath the surface. Our mission is simple: build intelligent tools that help people make sense of website signals — instead of feeling overwhelmed by them.
+          Every report we deliver is grounded in accuracy, transparency, and the belief that clarity should simplify the web, not complicate it.
+        </p>
+      </div>
+    </section>
+
+    <style>
+      .closing-statement {
+        padding: 60px 20px;
+        background: var(--bg-mid);
+        border-top: 1px solid rgba(255, 255, 255, 0.03);
+      }
+
+      .closing-inner {
+        max-width: 780px;
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .closing-inner p {
+        font-size: 1rem;
+        line-height: 1.8;
+        color: var(--ink-soft);
+        margin: 0;
+      }
+
+      @media (max-width: 600px) {
+        .closing-inner p {
+          font-size: 0.95rem;
+          line-height: 1.7;
+        }
+      }
+    </style>
+
+    <!-- FOOTER -->
+    <footer class="wd-footer">
+      <div class="wd-footer-inner">
+        <span>© 2025 iQWEB – All rights reserved.</span>
+
+        <span class="wd-footer-links">
+          <a href="/index.html">Home</a>
+          <a href="/pricing.html">Pricing</a>
+          <a href="/trust.html">Trust</a>
+
+          <!-- Legal links (Paddle compliant) -->
+          <a href="https://iqlabs.co.nz/#privacy" target="_blank" rel="noopener">Privacy</a>
+          <a href="https://iqlabs.co.nz/#terms" target="_blank" rel="noopener">Terms</a>
+          <a href="https://iqlabs.co.nz/#billing" target="_blank" rel="noopener">Billing & Refunds</a>
+
+          <!-- Parent company -->
+          <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS (parent)</a>
+        </span>
+
+        <span class="wd-powered">Powered by Λ i Q™.</span>
+      </div>
+    </footer>
+
   </div>
-
-  <div class="trust-row">
-    <div class="trust-block">
-      <p><strong>iQWEB is built as a health check, not a data farm.</strong> Every report includes a unique iQWEB Report ID. Over time, you’ll be able to verify that ID at our public trust page to confirm the report is genuine and hasn’t been tampered with.</p>
-
-      <p>Behind the scenes, iQWEB is powered by the Λ i Q™ Core Engine and built in New Zealand. That means clear jurisdiction, transparent governance, and a human being to email if something ever looks off.</p>
-
-      <p class="trust-contact">
-        Have a question?
-        <a href="mailto:support@iqweb.ai">support@iqweb.ai</a>
-        · General enquiries:
-        <a href="mailto:info@iqweb.ai">info@iqweb.ai</a>
-      </p>
-    </div>
-
-    <aside class="trust-callout">
-      <span>Verification &amp; security</span>
-<p>
-  We’re building a dedicated trust hub at
-  <a href="/trust" class="trust-link">trust.iqweb.ai</a>
-  where you’ll be able to:
-</p>
-
-      <ul>
-        <li>Verify report IDs.</li>
-        <li>Read our security &amp; privacy notes in plain language.</li>
-        <li>See uptime and change-log history.</li>
-      </ul>
-      <p style="margin-top:4px;">
-        Until then, treat this as a living, evolving platform — and feel free to send feedback any time.
-      </p>
-    </aside>
-  </div>
-</section>
-
-</div>
-<section class="closing-statement">
-  <div class="closing-inner">
-    <p class="closing-philosophy">
-      iQWEB exists to bring clarity to websites that have become increasingly complex beneath the surface. Our mission is simple: build intelligent tools that help people make sense of website signals — instead of feeling overwhelmed by them. 
-      Every report we deliver is grounded in accuracy, transparency, and the belief that clarity should simplify the web, not complicate it.
-    </p>
-  </div>
-</section>
-
-<style>
-  .closing-statement {
-    padding: 60px 20px;
-    background: var(--bg-mid);
-    border-top: 1px solid rgba(255, 255, 255, 0.03);
-  }
-
-  .closing-inner {
-    max-width: 780px;
-    margin: 0 auto;
-    text-align: center;
-  }
-
-  .closing-inner p {
-    font-size: 1rem;
-    line-height: 1.8;
-    color: var(--ink-soft);
-    margin: 0;
-  }
-
-  @media (max-width: 600px) {
-    .closing-inner p {
-      font-size: 0.95rem;
-      line-height: 1.7;
-    }
-  }
-</style>
-
-<!-- FOOTER -->
-<footer class="wd-footer">
-  <div class="wd-footer-inner">
-    <span>© 2025 iQWEB – All rights reserved.</span>
-
-    <span class="wd-footer-links">
-      <a href="/index.html">Home</a>
-      <a href="/pricing.html">Pricing</a>
-      <a href="/trust.html">Trust</a>
-
-      <!-- Legal links (Paddle compliant) -->
-      <a href="https://iqlabs.co.nz/#privacy" target="_blank" rel="noopener">Privacy</a>
-      <a href="https://iqlabs.co.nz/#terms" target="_blank" rel="noopener">Terms</a>
-      <a href="https://iqlabs.co.nz/#billing" target="_blank" rel="noopener">Billing & Refunds</a>
-
-      <!-- Parent company -->
-      <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS (parent)</a>
-    </span>
-
-    <span class="wd-powered">Powered by Λ i Q™.</span>
-  </div>
-</footer>
-
+</body>
+</html>
