@@ -1,11 +1,11 @@
 // netlify/functions/get-report.js
 //
 // Returns full HTML for a single iQWEB report (v5.0 template).
-// Called from: /report.html?report_id=WDR-YYDDD-#### or legacy numeric ids.
 //
+// Called from: /report.html?report_id=... or ?id=...
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5.0.html from netlify/functions
-// - Replaces {{placeholders}} with real values
+// - Loads report_template_v5.0.html from the same folder
+// - Replaces {{tokens}} with real values
 // - Responds with text/html
 
 const fs = require("fs");
@@ -24,7 +24,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Helper: safely format date (NZ)
+// ---------- Helpers ----------
 function formatNZDate(iso) {
   if (!iso) return "-";
   const d = new Date(iso);
@@ -33,7 +33,7 @@ function formatNZDate(iso) {
   const day = String(d.getDate()).padStart(2, "0");
   const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
   const year = d.getFullYear();
-  return `${day} ${month} ${year}`; // DD MMM YYYY
+  return `${day} ${month} ${year}`;
 }
 
 function safe(val, fallback = "—") {
@@ -41,6 +41,7 @@ function safe(val, fallback = "—") {
   return String(val);
 }
 
+// ---------- Main handler ----------
 exports.handler = async (event) => {
   try {
     const qs = event.queryStringParameters || {};
@@ -56,10 +57,10 @@ exports.handler = async (event) => {
 
     console.log("[get-report] Incoming reportId:", reportId);
 
-    // --- 1) Load scan record from Supabase ---
+    // 1) Load scan record from Supabase
     let record = null;
 
-    // 1a) Try by report_id (new IDs like WDR-25xxx-0001 etc)
+    // 1a) Try report_id (preferred)
     const { data: byReportId, error: err1 } = await supabase
       .from("scan_results")
       .select("*")
@@ -74,7 +75,7 @@ exports.handler = async (event) => {
       record = byReportId;
       console.log("[get-report] Found record by report_id");
     } else {
-      // 1b) Legacy numeric ids
+      // 1b) Fallback to legacy numeric id
       const numericId = Number(reportId);
       if (!Number.isNaN(numericId)) {
         const { data: byId, error: err2 } = await supabase
@@ -104,11 +105,11 @@ exports.handler = async (event) => {
       return {
         statusCode: 404,
         headers: { "Content-Type": "text/plain" },
-        body: "Report not found.",
+        body: `Report not found for id: ${reportId}`,
       };
     }
 
-    // --- 2) Load the HTML template file (v5.0) ---
+    // 2) Load the v5.0 HTML template file
     const templatePath = path.join(__dirname, "report_template_v5.0.html");
     console.log("[get-report] Using template path:", templatePath);
 
@@ -124,37 +125,38 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 3) Prepare values for placeholders (match v5.0 template) ---
+    // 3) Map DB fields → template tokens
     const formattedDate = formatNZDate(record.created_at);
 
     const tokens = {
-      // header meta
+      // header
       url: safe(record.url),
       date: formattedDate,
       id: safe(record.report_id || reportId),
 
-      // high-level summary + scores
+      // overall + core scores
       summary: safe(
         record.summary ||
           record.summary_text ||
-          "Overall healthy — main opportunities in performance and SEO."
+          "Overall healthy — main opportunities in performance, SEO, and signalling."
       ),
       score: safe(record.score_overall || record.overall_score || "—"),
+
       perf_score: safe(record.score_performance || record.perf_score || "—"),
       seo_score: safe(record.score_seo || record.seo_score || "—"),
       mobile_score: safe(record.score_mobile || record.mobile_score || "—"),
       accessibility_score: safe(
         record.score_accessibility || record.accessibility_score || "—"
       ),
-      security_score: safe(record.score_security || record.security_score || "—"),
-
-      // extra signal scores (these can be null for now)
+      security_score: safe(
+        record.score_security || record.security_score || "—"
+      ),
       structure_score: safe(record.structure_score),
       domain_score: safe(record.domain_score),
       content_score: safe(record.content_score),
       summary_signal_score: safe(record.summary_signal_score),
 
-      // key metrics
+      // metrics
       metric_page_load_value: safe(record.metric_page_load_value),
       metric_page_load_goal: safe(record.metric_page_load_goal),
       metric_mobile_status: safe(record.metric_mobile_status),
@@ -162,41 +164,39 @@ exports.handler = async (event) => {
       metric_cwv_status: safe(record.metric_cwv_status),
       metric_cwv_text: safe(record.metric_cwv_text),
 
-      // top issues
+      // issues
       issue1_severity: safe(record.issue1_severity),
       issue1_title: safe(record.issue1_title),
       issue1_text: safe(record.issue1_text),
-
       issue2_severity: safe(record.issue2_severity),
       issue2_title: safe(record.issue2_title),
       issue2_text: safe(record.issue2_text),
-
       issue3_severity: safe(record.issue3_severity),
       issue3_title: safe(record.issue3_title),
       issue3_text: safe(record.issue3_text),
 
-      // fix sequence
+      // recommended fixes
       recommendation1: safe(record.recommendation1),
       recommendation2: safe(record.recommendation2),
       recommendation3: safe(record.recommendation3),
       recommendation4: safe(record.recommendation4),
 
-      // notes / closing summary
+      // notes
       notes: safe(
         record.notes ||
           record.doctor_summary ||
-          "No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling, and structural consistency. Address red issues first, then perform a follow-up scan to confirm improvements."
+          "No critical failures. Focus first on red issues, then re-scan to confirm improvements."
       ),
     };
 
-    // --- 4) Apply replacements into template ---
+    // 4) Replace {{tokens}} in the template
     let html = templateHtml;
     for (const [key, value] of Object.entries(tokens)) {
       const re = new RegExp(`{{${key}}}`, "g");
       html = html.replace(re, value);
     }
 
-    // --- 5) Respond with HTML ---
+    // 5) Return final HTML
     return {
       statusCode: 200,
       headers: {
