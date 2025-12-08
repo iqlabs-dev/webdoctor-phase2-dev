@@ -10,7 +10,7 @@
 // - Responds with text/html
 
 const fs = require("fs");
-const path = require("path");
+// 🚫 no path import – we’ll use __dirname directly
 const { createClient } = require("@supabase/supabase-js");
 
 // --- Supabase (server-side key) ---
@@ -113,21 +113,11 @@ exports.handler = async (event) => {
       };
     }
 
-       // --- 2) Load the HTML template file (v5.0) ---
-    const templatePath = path.join(__dirname, "report_template_v5_0.html");
+    // --- 2) Load the HTML template file (v5.0) ---
+    const templatePath = `${__dirname}/report_template_v5_0.html`;
     console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
-
-    // ⬇️ DEBUG: list files that actually exist beside this function on Netlify
-    try {
-      const filesHere = fs.readdirSync(__dirname);
-      console.log("[get-report] __dirname:", __dirname);
-      console.log("[get-report] Files in __dirname:", filesHere);
-    } catch (listErr) {
-      console.error("[get-report] Could not list __dirname:", listErr);
-    }
-
     try {
       templateHtml = fs.readFileSync(templatePath, "utf8");
     } catch (tplErr) {
@@ -142,19 +132,16 @@ exports.handler = async (event) => {
     // --- 3) Prepare values for placeholders (match v5.0 template names) ---
     const formattedDate = formatNZDate(record.created_at);
 
-    // If you don’t yet have all these columns in scan_results,
-    // safe() will just fall back to "—" so the report still renders.
     const replacements = {
       "{{url}}": safe(record.url),
       "{{date}}": safe(formattedDate),
       "{{id}}": safe(record.report_id || record.id),
 
       // Overall headline
-      "{{summary}}":
-        safe(
-          record.summary_text,
-          "The site is scan-ready. Fix the highlighted issues first, then re-scan to confirm improvements."
-        ),
+      "{{summary}}": safe(
+        record.summary_text,
+        "The site is scan-ready. Fix the highlighted issues first, then re-scan to confirm improvements."
+      ),
       "{{score}}": safe(record.score_overall),
 
       // Nine signal scores
@@ -176,7 +163,7 @@ exports.handler = async (event) => {
       "{{metric_cwv_status}}": safe(record.metric_cwv_status),
       "{{metric_cwv_text}}": safe(record.metric_cwv_text),
 
-      // Top issues (optional – will show “—” if not yet wired)
+      // Top issues
       "{{issue1_severity}}": safe(record.issue1_severity),
       "{{issue1_title}}": safe(record.issue1_title),
       "{{issue1_text}}": safe(record.issue1_text),
