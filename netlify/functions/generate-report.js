@@ -1,242 +1,215 @@
-// /netlify/functions/generate-report.js
-import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+// netlify/functions/get-report.js
+//
+// Returns full HTML for a single iQWEB report.
+//
+// Called from: /report.html?report_id=59  (or ?id=59)
+//
+// - Reads scan data from Supabase (scan_results table)
+// - Loads report_template.html from netlify/functions
+// - Replaces {{placeholders}} with real values
+// - Responds with text/html
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const fs = require("fs");
+const path = require("path");
+const { createClient } = require("@supabase/supabase-js");
 
-// --------------------------------------
-// Resolve path of this function file
-// --------------------------------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// --- Supabase (server-side key) ---
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// --------------------------------------
-// Generate WDR-YYDDD-#### (iQLABS ID)
-// --------------------------------------
-function makeReportId(prefix = 'WDR') {
-  const now = new Date();
-  const year2 = String(now.getFullYear()).slice(-2); // YY
-
-  // Julian day
-  const start = new Date(now.getFullYear(), 0, 0);
-  const diff = now - start;
-  const day = Math.floor(diff / (1000 * 60 * 60 * 24)); // 1..365
-  const ddd = String(day).padStart(3, '0');
-
-  // Temporary random 4-digit sequence
-  const seq = Math.floor(Math.random() * 9999);
-  const seqStr = String(seq).padStart(4, '0');
-
-  return `${prefix}-${year2}${ddd}-${seqStr}`;
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn(
+    "[get-report] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars."
+  );
 }
 
-// --------------------------------------
-// MAIN HANDLER
-// --------------------------------------
-export const handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'method not allowed' })
-    };
-  }
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  let body = {};
+// Helper: safely format date (NZ)
+function formatNZDate(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
+  const year = d.getFullYear();
+
+  return `${day} ${month} ${year}`; // DD MMM YYYY
+}
+
+function safe(val, fallback = "—") {
+  return val === null || val === undefined || val === ""
+    ? fallback
+    : String(val);
+}
+
+exports.handler = async (event) => {
   try {
-    body = JSON.parse(event.body || '{}');
-  } catch (e) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'invalid json' })
+    const qs = event.queryStringParameters || {};
+    const reportId = qs.report_id || qs.id;
+
+    if (!reportId) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "text/plain" },
+        body: "Missing report_id in query string.",
+      };
+    }
+
+    console.log("[get-report] Incoming reportId:", reportId);
+
+    // --- 1) Load scan record from Supabase (scan_results) ---
+    let record = null;
+
+    // First try numeric id (this is what your dashboard uses: 55, 56, 57…)
+    const numericId = Number(reportId);
+    if (!Number.isNaN(numericId)) {
+      const { data, error } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("id", numericId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[get-report] Supabase error (by id):", error);
+        return {
+          statusCode: 500,
+          headers: { "Content-Type": "text/plain" },
+          body: "Error loading report from database.",
+        };
+      }
+
+      if (data) {
+        record = data;
+        console.log("[get-report] Found record by numeric id");
+      }
+    }
+
+    // Optional: if later you start using string report_id (WDR-YYDDD-####)
+    if (!record) {
+      const { data, error } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("report_id", reportId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[get-report] Supabase error (by report_id):", error);
+      }
+
+      if (data) {
+        record = data;
+        console.log("[get-report] Found record by report_id");
+      }
+    }
+
+    if (!record) {
+      console.warn("[get-report] No record found for id:", reportId);
+      return {
+        statusCode: 404,
+        headers: { "Content-Type": "text/plain" },
+        body: "Report not found.",
+      };
+    }
+
+    // --- 2) Load the HTML template file (single canonical name) ---
+    const templatePath = path.join(__dirname, "report_template.html");
+    console.log("[get-report] Using template path:", templatePath);
+
+    let templateHtml;
+    try {
+      templateHtml = fs.readFileSync(templatePath, "utf8");
+    } catch (tplErr) {
+      console.error("[get-report] Could not read template:", tplErr);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "text/plain" },
+        body: "Report template missing on server.",
+      };
+    }
+
+    // --- 3) Prepare values for placeholders (match template names) ---
+    const formattedDate = formatNZDate(record.created_at);
+
+    const replacements = {
+      "{{url}}": safe(record.url),
+      "{{date}}": safe(formattedDate),
+      "{{id}}": safe(record.report_id || record.id),
+
+      // Overall headline
+      "{{summary}}": safe(
+        record.summary_text,
+        "The site is scan-ready. Fix the highlighted issues first, then re-scan to confirm improvements."
+      ),
+      "{{score}}": safe(record.score_overall),
+
+      // Nine signal scores
+      "{{perf_score}}": safe(record.score_performance),
+      "{{seo_score}}": safe(record.score_seo),
+      "{{structure_score}}": safe(record.score_structure),
+      "{{mobile_score}}": safe(record.score_mobile),
+      "{{security_score}}": safe(record.score_security),
+      "{{accessibility_score}}": safe(record.score_accessibility),
+      "{{domain_score}}": safe(record.score_domain),
+      "{{content_score}}": safe(record.score_content),
+      "{{summary_signal_score}}": safe(record.score_summary_signal),
+
+      // Key metrics
+      "{{metric_page_load_value}}": safe(record.metric_page_load_value),
+      "{{metric_page_load_goal}}": safe(record.metric_page_load_goal),
+      "{{metric_mobile_status}}": safe(record.metric_mobile_status),
+      "{{metric_mobile_text}}": safe(record.metric_mobile_text),
+      "{{metric_cwv_status}}": safe(record.metric_cwv_status),
+      "{{metric_cwv_text}}": safe(record.metric_cwv_text),
+
+      // Top issues
+      "{{issue1_severity}}": safe(record.issue1_severity),
+      "{{issue1_title}}": safe(record.issue1_title),
+      "{{issue1_text}}": safe(record.issue1_text),
+
+      "{{issue2_severity}}": safe(record.issue2_severity),
+      "{{issue2_title}}": safe(record.issue2_title),
+      "{{issue2_text}}": safe(record.issue2_text),
+
+      "{{issue3_severity}}": safe(record.issue3_severity),
+      "{{issue3_title}}": safe(record.issue3_title),
+      "{{issue3_text}}": safe(record.issue3_text),
+
+      // Recommendations
+      "{{recommendation1}}": safe(record.recommendation1),
+      "{{recommendation2}}": safe(record.recommendation2),
+      "{{recommendation3}}": safe(record.recommendation3),
+      "{{recommendation4}}": safe(record.recommendation4),
+
+      // Notes at the bottom
+      "{{notes}}": safe(
+        record.notes,
+        "No critical failures detected. Address red issues first, then re-scan to confirm improvements."
+      ),
     };
-  }
 
-  const { url, user_id, email } = body;
+    // --- 4) Apply replacements ---
+    let html = templateHtml;
+    for (const [token, value] of Object.entries(replacements)) {
+      html = html.split(token).join(value);
+    }
 
-  if (!url) {
+    // --- 5) Respond with HTML for /report.html to display ---
     return {
-      statusCode: 400,
-      body: JSON.stringify({ error: 'url required' })
+      statusCode: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+      body: html,
     };
-  }
-
-  const siteUrl = url || 'https://example.com';
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const reportId = makeReportId('WDR');
-
-  // --------------------------------------
-  // TEMP STATIC DATA (Phase 2.8 / 3.x)
-  // --------------------------------------
-  const overallScore = 78;
-  const summary =
-    'Overall healthy — main opportunities in performance and SEO. Fix the red issues first, then re-scan.';
-
-  const doctor_summary =
-    'The site remains operational with no acute failures detected. ' +
-    'The primary concerns relate to performance overhead, incomplete SEO signalling, and structural inconsistencies in headings. ' +
-    'These issues are clinically significant but manageable with routine corrective work. ' +
-    'Prioritising the red issues will produce the fastest health improvements, followed by a secondary optimisation cycle and re-scan to confirm recovery.';
-
-  // Tokens expected by report_template_v5.0.html
-  const tokens = {
-    // Header meta
-    url: siteUrl,
-    date: today,
-    id: reportId,
-
-    // Overall health
-    summary,
-    score: String(overallScore),
-
-    // Core scores (top 3 cards)
-    perf_score: '82',
-    seo_score: '74',
-
-    // Nine signal scores
-    structure_score: '76',
-    mobile_score: '80',
-    security_score: '72',
-    accessibility_score: '70',
-    domain_score: '78',
-    content_score: '75',
-    summary_signal_score: '77',
-
-    // Key metrics
-    metric_page_load_value: '1.8s',
-    metric_page_load_goal: '< 2.5s',
-    metric_mobile_status: 'Pass',
-    metric_mobile_text: 'Responsive layout detected across key viewports.',
-    metric_cwv_status: 'Needs attention',
-    metric_cwv_text: 'CLS slightly high on hero section.',
-
-    // Top issues
-    issue1_severity: 'Critical',
-    issue1_title: 'Uncompressed hero image',
-    issue1_text:
-      'Homepage hero image is ~1.8MB. Compress to <300KB and serve WebP/AVIF.',
-
-    issue2_severity: 'Critical',
-    issue2_title: 'Missing meta description',
-    issue2_text:
-      'No meta description found on homepage. Add a 140–160 character summary.',
-
-    issue3_severity: 'Moderate',
-    issue3_title: 'Heading structure',
-    issue3_text:
-      'Multiple H1s detected. Use a single H1 and downgrade others to H2/H3.',
-
-    // Recommended fix sequence
-    recommendation1:
-      'Optimize homepage media (hero + gallery) for size and format.',
-    recommendation2:
-      'Add SEO foundation: title, meta description, and Open Graph tags.',
-    recommendation3:
-      'Fix duplicate H1s and ensure semantic heading order.',
-    recommendation4:
-      'Re-scan with iQWEB to confirm score improvement.',
-
-    // Summary & Notes section
-    notes: doctor_summary
-  };
-
-  // --------------------------------------
-  // LOAD TEMPLATE FROM FILE (HTML + PDF)
-  // --------------------------------------
-  let templateHtml;
-  try {
-    // ⬇️ Make sure this matches your actual file name
-    const templatePath = join(__dirname, 'report_template.html');
-    console.log('Loading report template from:', templatePath);
-    templateHtml = readFileSync(templatePath, 'utf8');
   } catch (err) {
-    console.error('Error loading report template:', err);
+    console.error("[get-report] Unexpected error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: 'failed to load report template',
-        detail: err.message
-      })
+      headers: { "Content-Type": "text/plain" },
+      body: "Unexpected server error.",
     };
   }
-
-  // Build final HTML by replacing {{tokens}}
-  let html = templateHtml;
-  for (const [key, value] of Object.entries(tokens)) {
-    const safeValue = String(value ?? '');
-    html = html.replace(new RegExp(`{{${key}}}`, 'g'), safeValue);
-  }
-
-  // --------------------------------------
-  // PHASE 3.x — CALL DOCRAPTOR FOR PDF
-  // --------------------------------------
-  let pdfBase64 = null;
-  const pdfFilename = `${reportId}.pdf`;
-
-  try {
-    const baseUrl =
-      process.env.URL || process.env.DEPLOY_URL || 'http://localhost:8888';
-
-    const pdfResp = await fetch(`${baseUrl}/.netlify/functions/docraptor-pdf`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, reportId })
-    });
-
-    if (pdfResp.ok) {
-      // docraptor-pdf returns the PDF body as base64
-      pdfBase64 = await pdfResp.text();
-    } else {
-      const errText = await pdfResp.text();
-      console.error('DocRaptor PDF error:', pdfResp.status, errText);
-    }
-  } catch (err) {
-    console.error('DocRaptor PDF exception:', err);
-  }
-
-  // --------------------------------------
-  // STORE IN SUPABASE (HTML)
-  // --------------------------------------
-  const { error } = await supabase.from('reports').insert([
-    {
-      user_id,
-      email: email ? email.toLowerCase() : null,
-      url: siteUrl,
-      score: overallScore,
-      report_id: reportId,
-      html
-    }
-  ]);
-
-  if (error) {
-    console.log('SUPABASE REPORT INSERT ERROR:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: 'supabase insert failed',
-        details: error.message,
-        hint: error.hint || null,
-        code: error.code || null
-      })
-    };
-  }
-
-  // --------------------------------------
-  // RESPONSE (USED BY OSD + DOWNLOAD)
-  // --------------------------------------
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      ok: true,
-      report_id: reportId,
-      html,
-      report_html: html,
-      pdf_base64: pdfBase64,
-      pdf_filename: pdfFilename
-    })
-  };
 };

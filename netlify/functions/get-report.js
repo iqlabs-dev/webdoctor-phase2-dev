@@ -5,12 +5,12 @@
 // Called from: /report.html?report_id=59  (or ?id=59)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5_0.html from netlify/functions
+// - Loads report_template.html from netlify/functions
 // - Replaces {{placeholders}} with real values
 // - Responds with text/html
 
 const fs = require("fs");
-// 🚫 no path import – we’ll use __dirname directly
+const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 // --- Supabase (server-side key) ---
@@ -113,8 +113,8 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 2) Load the HTML template file (v5.0) ---
-    const templatePath = `${__dirname}/report_template.html`;
+    // --- 2) Load the HTML template file (single canonical name) ---
+    const templatePath = path.join(__dirname, "report_template.html");
     console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
@@ -129,7 +129,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // --- 3) Prepare values for placeholders (match v5.0 template names) ---
+    // --- 3) Prepare values for placeholders (match template names) ---
     const formattedDate = formatNZDate(record.created_at);
 
     const replacements = {
