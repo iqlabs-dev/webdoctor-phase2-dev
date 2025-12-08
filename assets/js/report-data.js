@@ -29,6 +29,14 @@ function formatScore(value) {
   return `${value} / 100`;
 }
 
+function bucketScore(score) {
+  if (typeof score !== "number" || Number.isNaN(score)) return "Unknown";
+  if (score >= 90) return "Excellent";
+  if (score >= 80) return "Good";
+  if (score >= 70) return "Fair";
+  return "Needs attention";
+}
+
 function wireNineSignalPills(scores) {
   const pills = document.querySelectorAll(".wd-diag-section .wd-score-pill");
   if (!pills || pills.length === 0) {
@@ -47,6 +55,50 @@ function wireNineSignalPills(scores) {
   for (let i = 2; i < pills.length; i++) {
     pills[i].textContent = formatScore(overall);
   }
+}
+
+function wireKeyMetrics(scores, metrics = {}) {
+  const perf = scores.performance;
+  const overall = scores.overall;
+
+  // PAGE LOAD
+  if (typeof perf === "number") {
+    const label = bucketScore(perf);
+    setText("metric-page-load-main", `${label} page speed`);
+    setText(
+      "metric-page-load-sub",
+      `Current score: ${formatScore(perf)}`
+    );
+  } else {
+    setText("metric-page-load-main", "Not yet measured");
+    setText(
+      "metric-page-load-sub",
+      "Page speed scoring will appear here when available."
+    );
+  }
+
+  // MOBILE USABILITY (derived from overall for now)
+  if (typeof overall === "number") {
+    const label = bucketScore(overall);
+    setText("metric-mobile-main", `${label} mobile experience`);
+    setText(
+      "metric-mobile-sub",
+      "Based on layout, spacing, and performance signals."
+    );
+  } else {
+    setText("metric-mobile-main", "Not yet measured");
+    setText(
+      "metric-mobile-sub",
+      "Mobile usability metrics will appear here when available."
+    );
+  }
+
+  // CORE WEB VITALS (placeholder until we wire Lighthouse / PSI)
+  setText("metric-cwv-main", "Not yet measured");
+  setText(
+    "metric-cwv-sub",
+    "Core Web Vitals integration is planned for a future iQWEB release."
+  );
 }
 
 async function loadReportData() {
@@ -75,7 +127,6 @@ async function loadReportData() {
       return;
     }
 
-    // Debug aid if you ever want to see raw metrics
     console.log("iQWEB report payload:", data);
 
     // Header fields
@@ -83,16 +134,18 @@ async function loadReportData() {
     setText("report-id", data.report_id || "—");
     setText("report-date", formatDate(data.created_at));
 
-    // Scores for the three main cards
     const scores = data.scores || {};
+
+    // Top three score cards
     setText("score-performance", formatScore(scores.performance));
     setText("score-seo", formatScore(scores.seo));
     setText("score-overall", formatScore(scores.overall));
 
-    // Wire the 9 signal score pills
+    // Nine signal pills
     wireNineSignalPills(scores);
 
-    // Later: use data.metrics.checks to drive Key Metrics, Top Issues, etc.
+    // Key metrics section
+    wireKeyMetrics(scores, data.metrics || {});
   } catch (err) {
     console.error("Error loading report data:", err);
   }
