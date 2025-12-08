@@ -3,5 +3,5 @@
   external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]
   included_files = [
     "node_modules/@sparticuz/chromium/bin/**",
-    "netlify/functions/report_template_v4_3.html"
+    "netlify/functions/report_template*.html"
   ]
