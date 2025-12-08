@@ -9,9 +9,9 @@
     iQWEB WEBSITE REPORT TEMPLATE
     Version: 5.0 (Production)
     Notes:
-    - This version is used for the LIVE web report.
-    - Header + key scores are filled by /assets/js/report-data.js.
-    - PDF export still uses /netlify/functions/report_template.html.
+    - Designed for HTML → PDF export (DocRaptor or similar).
+    - Dark mode is for on-screen viewing only; print/PDF is forced to light.
+    - Dynamic values are injected via {{mustache_style}} placeholders.
   -->
 
   <!-- Fonts -->
@@ -702,7 +702,8 @@
                 <span class="wd-diagnostic-score" data-field="score-performance">— / 100</span>
               </header>
               <p class="wd-diagnostic-insight">
-                How quickly key pages load and respond under real-world conditions.
+                How quickly key pages load and respond under real-world
+                conditions.
               </p>
             </article>
 
@@ -713,7 +714,8 @@
                 <span class="wd-diagnostic-score" data-field="score-seo">— / 100</span>
               </header>
               <p class="wd-diagnostic-insight">
-                Whether search engines can reliably discover and understand your site.
+                Whether search engines can reliably discover and understand your
+                site.
               </p>
             </article>
 
@@ -724,7 +726,8 @@
                 <span class="wd-diagnostic-score" data-field="score-overall">— / 100</span>
               </header>
               <p class="wd-diagnostic-insight">
-                A combined signal that reflects how well your core systems are working together.
+                A combined signal that reflects how well your core systems are
+                working together.
               </p>
             </article>
 
@@ -742,13 +745,19 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              Pages are usable, but heavy assets or blocking scripts may delay the first meaningful view,
-              especially for mobile and slower connections.
+              Pages are usable, but heavy assets or blocking scripts may delay
+              the first meaningful view, especially for mobile and slower
+              connections.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>Load and render time for key templates (home, service, blog).</li>
-              <li>Impact of image weight, third-party scripts, and hosting response time.</li>
+              <li>
+                Load and render time for key templates (home, service, blog).
+              </li>
+              <li>
+                Impact of image weight, third-party scripts, and hosting
+                response time.
+              </li>
             </ul>
           </article>
 
@@ -759,13 +768,18 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              Important pages can be indexed, but titles, descriptions, and headings may not consistently
-              align with the terms you most want to rank for.
+              Important pages can be indexed, but titles, descriptions, and
+              headings may not consistently align with the terms you most want
+              to rank for.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>Titles, meta descriptions, canonical tags, and robots rules.</li>
-              <li>Whether core pages send clear search-friendly relevance signals.</li>
+              <li>
+                Titles, meta descriptions, canonical tags, and robots rules.
+              </li>
+              <li>
+                Whether core pages send clear search-friendly relevance signals.
+              </li>
             </ul>
           </article>
 
@@ -776,8 +790,9 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              The HTML scaffolding is mostly sound, with occasional heading hierarchy issues or missing
-              landmarks that can confuse crawlers and assistive tech.
+              The HTML scaffolding is mostly sound, with occasional heading
+              hierarchy issues or missing landmarks that can confuse crawlers
+              and assistive tech.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -793,12 +808,14 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              The site is generally usable on phones, but spacing, tap targets, or text sizing may still
-              slow users down on smaller screens.
+              The site is generally usable on phones, but spacing, tap targets,
+              or text sizing may still slow users down on smaller screens.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>Responsive layout, viewport configuration, and content scaling.</li>
+              <li>
+                Responsive layout, viewport configuration, and content scaling.
+              </li>
               <li>Tap target sizing, spacing, and mobile legibility.</li>
             </ul>
           </article>
@@ -810,13 +827,16 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              Core safeguards are in place, but some HTTP or header configurations may reduce protection
-              against downgrade or clickjacking risks.
+              Core safeguards are in place, but some HTTP or header
+              configurations may reduce protection against downgrade or
+              clickjacking risks.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
               <li>HTTPS behaviour, redirects, and certificate basics.</li>
-              <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.).</li>
+              <li>
+                Key security headers (HSTS, CSP, X-Frame-Options, etc.).
+              </li>
             </ul>
           </article>
 
@@ -827,8 +847,9 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              The site is partially accessible, but contrast, labels, or structural cues may still make it
-              harder for assistive technologies to interpret the page.
+              The site is partially accessible, but contrast, labels, or
+              structural cues may still make it harder for assistive
+              technologies to interpret the page.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -844,8 +865,8 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              Under-the-hood signals like DNS, SSL, and email setup are checked for stability, deliverability,
-              and platform consistency.
+              Under-the-hood signals like DNS, SSL, and email setup are checked
+              for stability, deliverability, and platform consistency.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -861,12 +882,14 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              Page titles, descriptions, and on-page content are reviewed for clarity, relevance, and how
-              well they signal what matters most.
+              Page titles, descriptions, and on-page content are reviewed for
+              clarity, relevance, and how well they signal what matters most.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>Title and description length, duplication, and gaps.</li>
+              <li>
+                Title and description length, duplication, and gaps.
+              </li>
               <li>Thin or near-empty pages and social preview hygiene.</li>
             </ul>
           </article>
@@ -878,13 +901,15 @@
               <div class="wd-score-pill">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              All signals are combined into a plain-language action plan that ranks what to fix first and
-              what can safely wait until later.
+              All signals are combined into a plain-language action plan that
+              ranks what to fix first and what can safely wait until later.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
               <li>Executive summary in human language.</li>
-              <li>Ranked “Top Issues” and the Recommended Fix Sequence.</li>
+              <li>
+                Ranked “Top Issues” and the Recommended Fix Sequence.
+              </li>
             </ul>
           </article>
         </section>
@@ -921,19 +946,28 @@
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
               <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">The live report currently focuses on high-level scores. Detailed issues will be surfaced in a future update.</p>
+              <p class="wd-issue-text">
+                The live report currently focuses on high-level scores. Detailed
+                issues will be surfaced in a future update.
+              </p>
             </article>
 
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
               <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">Use this report as a directional guide while we finish wiring deeper diagnostics to live data.</p>
+              <p class="wd-issue-text">
+                Use this report as a directional guide while we finish wiring
+                deeper diagnostics to live data.
+              </p>
             </article>
 
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
               <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">The PDF export will continue to show the full narrative breakdown as the engine evolves.</p>
+              <p class="wd-issue-text">
+                The PDF export will continue to show the full narrative
+                breakdown as the engine evolves.
+              </p>
             </article>
           </div>
         </section>
@@ -942,10 +976,22 @@
         <section class="wd-section">
           <h3 class="wd-section-title">Recommended Fix Sequence</h3>
           <ol class="wd-reco-list">
-            <li>Address the highest impact technical issues affecting performance and SEO.</li>
-            <li>Review mobile layout and accessibility basics, especially contrast and tap targets.</li>
-            <li>Refine titles, descriptions, and key content signals on your primary pages.</li>
-            <li>Re-run this scan after changes to confirm improvements and validate stability.</li>
+            <li>
+              Address the highest impact technical issues affecting performance
+              and SEO.
+            </li>
+            <li>
+              Review mobile layout and accessibility basics, especially contrast
+              and tap targets.
+            </li>
+            <li>
+              Refine titles, descriptions, and key content signals on your
+              primary pages.
+            </li>
+            <li>
+              Re-run this scan after changes to confirm improvements and
+              validate stability.
+            </li>
           </ol>
         </section>
 
@@ -953,9 +999,10 @@
         <section class="wd-section">
           <h3 class="wd-section-title">Summary &amp; Notes</h3>
           <div class="wd-notes-body">
-            This live report gives you a snapshot of core website health. Scores and basic diagnostics are driven
-            directly from the latest scan. Deeper narrative analysis and tailored recommendations will expand over
-            future versions of the iQWEB engine.
+            This live report gives you a snapshot of core website health. Scores
+            and basic diagnostics are driven directly from the latest scan.
+            Deeper narrative analysis and tailored recommendations will expand
+            over future versions of the iQWEB engine.
           </div>
         </section>
 
@@ -968,20 +1015,20 @@
     </main>
   </div>
 
-  <!-- Theme toggle logic (unchanged) -->
+  <!-- Theme toggle logic -->
   <script>
     (function () {
       const body = document.body;
-      const toggle = document.getElementById('themeToggle');
+      const toggle = document.getElementById("themeToggle");
       if (!toggle) return;
 
-      const THEME_KEY = 'iqweb_report_theme';
+      const THEME_KEY = "iqweb_report_theme";
 
       function applyTheme(theme) {
-        if (theme === 'dark') {
-          body.classList.add('wd-dark');
+        if (theme === "dark") {
+          body.classList.add("wd-dark");
         } else {
-          body.classList.remove('wd-dark');
+          body.classList.remove("wd-dark");
         }
       }
 
@@ -992,11 +1039,11 @@
         saved = null;
       }
 
-      applyTheme(saved === 'dark' ? 'dark' : 'light');
+      applyTheme(saved === "dark" ? "dark" : "light");
 
-      toggle.addEventListener('click', function () {
-        const isDark = body.classList.contains('wd-dark');
-        const next = isDark ? 'light' : 'dark';
+      toggle.addEventListener("click", function () {
+        const isDark = body.classList.contains("wd-dark");
+        const next = isDark ? "light" : "dark";
         applyTheme(next);
         try {
           localStorage.setItem(THEME_KEY, next);
@@ -1009,5 +1056,6 @@
 
   <!-- Live data wiring -->
   <script type="module" src="/assets/js/report-data.js"></script>
+
 </body>
 </html>
