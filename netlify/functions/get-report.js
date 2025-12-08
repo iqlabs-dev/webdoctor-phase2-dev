@@ -1,17 +1,19 @@
 // netlify/functions/get-report.js
 //
-// Return a single iQWEB report as HTML.
+// Returns full HTML for a single iQWEB report.
 //
-// - Reads from scan_results (the table your dashboard uses).
-// - Loads report_template_v5.0.html from this folder.
-// - Injects real scores + URL into the v5.0 template.
-// - No dependency on the separate `reports` table for now.
+// Called from: /report.html?report_id=59  (or ?id=59)
+//
+// - Reads scan data from Supabase (scan_results table)
+// - Loads report_template_v5.0.html from netlify/functions
+// - Replaces {{placeholders}} with real values
+// - Responds with text/html
 
 const fs = require("fs");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
-// ---- Supabase (server-side) ----
+// --- Supabase (server-side key) ---
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -23,7 +25,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Format date as DD MMM YYYY (NZ style)
+// Helper: safely format date (NZ)
 function formatNZDate(iso) {
   if (!iso) return "-";
   const d = new Date(iso);
@@ -32,12 +34,14 @@ function formatNZDate(iso) {
   const day = String(d.getDate()).padStart(2, "0");
   const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
   const year = d.getFullYear();
-  return `${day} ${month} ${year}`;
+
+  return `${day} ${month} ${year}`; // DD MMM YYYY
 }
 
-// Safe getter
 function safe(val, fallback = "—") {
-  return val === null || val === undefined || val === "" ? fallback : String(val);
+  return val === null || val === undefined || val === ""
+    ? fallback
+    : String(val);
 }
 
 exports.handler = async (event) => {
@@ -53,14 +57,12 @@ exports.handler = async (event) => {
       };
     }
 
-    console.log("[get-report] Incoming id:", reportId);
+    console.log("[get-report] Incoming reportId:", reportId);
 
-    // --------------------------------------------------
-    // 1) Load scan row from scan_results
-    // --------------------------------------------------
-    let scanRow = null;
+    // --- 1) Load scan record from Supabase (scan_results) ---
+    let record = null;
 
-    // Dashboard is passing numeric ids (55, 56, 57...)
+    // First try numeric id (this is what your dashboard uses: 55, 56, 57…)
     const numericId = Number(reportId);
     if (!Number.isNaN(numericId)) {
       const { data, error } = await supabase
@@ -70,7 +72,7 @@ exports.handler = async (event) => {
         .maybeSingle();
 
       if (error) {
-        console.error("[get-report] Supabase error (scan_results.id):", error);
+        console.error("[get-report] Supabase error (by id):", error);
         return {
           statusCode: 500,
           headers: { "Content-Type": "text/plain" },
@@ -78,9 +80,14 @@ exports.handler = async (event) => {
         };
       }
 
-      scanRow = data;
-    } else {
-      // Optional: future support for WEB-YYDDD-#### style ids
+      if (data) {
+        record = data;
+        console.log("[get-report] Found record by numeric id");
+      }
+    }
+
+    // Optional: if later you start using string report_id (WDR-YYDDD-####)
+    if (!record) {
       const { data, error } = await supabase
         .from("scan_results")
         .select("*")
@@ -88,19 +95,17 @@ exports.handler = async (event) => {
         .maybeSingle();
 
       if (error) {
-        console.error("[get-report] Supabase error (scan_results.report_id):", error);
-        return {
-          statusCode: 500,
-          headers: { "Content-Type": "text/plain" },
-          body: "Error loading report from database.",
-        };
+        console.error("[get-report] Supabase error (by report_id):", error);
       }
 
-      scanRow = data;
+      if (data) {
+        record = data;
+        console.log("[get-report] Found record by report_id");
+      }
     }
 
-    if (!scanRow) {
-      console.warn("[get-report] No scan_results row found for id:", reportId);
+    if (!record) {
+      console.warn("[get-report] No record found for id:", reportId);
       return {
         statusCode: 404,
         headers: { "Content-Type": "text/plain" },
@@ -108,17 +113,15 @@ exports.handler = async (event) => {
       };
     }
 
-    // --------------------------------------------------
-    // 2) Load v5.0 HTML template
-    // --------------------------------------------------
+    // --- 2) Load the HTML template file (v5.0) ---
     const templatePath = path.join(__dirname, "report_template_v5.0.html");
-    console.log("[get-report] Using template:", templatePath);
+    console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
     try {
       templateHtml = fs.readFileSync(templatePath, "utf8");
-    } catch (err) {
-      console.error("[get-report] Could not read template:", err);
+    } catch (tplErr) {
+      console.error("[get-report] Could not read template:", tplErr);
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain" },
@@ -126,107 +129,76 @@ exports.handler = async (event) => {
       };
     }
 
-    // --------------------------------------------------
-    // 3) Build tokens for {{placeholders}}
-    // --------------------------------------------------
-    const dateStr = formatNZDate(scanRow.created_at);
+    // --- 3) Prepare values for placeholders (match v5.0 template names) ---
+    const formattedDate = formatNZDate(record.created_at);
 
-    const overallScore = safe(
-      scanRow.score_overall !== undefined ? scanRow.score_overall : scanRow.score,
-      "—"
-    );
+    // If you don’t yet have all these columns in scan_results,
+    // safe() will just fall back to "—" so the report still renders.
+    const replacements = {
+      "{{url}}": safe(record.url),
+      "{{date}}": safe(formattedDate),
+      "{{id}}": safe(record.report_id || record.id),
 
-    const perfScore = safe(scanRow.score_performance, "—");
-    const seoScore = safe(scanRow.score_seo, "—");
-    const mobileScore = safe(scanRow.score_mobile, "—");
-    const accessibilityScore = safe(scanRow.score_accessibility, "—");
-    const securityScore = safe(scanRow.score_security, "—");
-
-    // Base tokens – dynamic where we have data, static where we don’t (yet).
-    const tokens = {
-      // Header meta
-      url: safe(scanRow.url),
-      date: dateStr,
-      id: safe(scanRow.report_id || scanRow.id),
-
-      // Overall section
-      summary:
+      // Overall headline
+      "{{summary}}":
         safe(
-          scanRow.summary,
-          "Overall healthy — main opportunities in performance and SEO. Fix the highlighted issues first, then re-scan."
+          record.summary_text,
+          "The site is scan-ready. Fix the highlighted issues first, then re-scan to confirm improvements."
         ),
-      score: overallScore,
+      "{{score}}": safe(record.score_overall),
 
-      // Core scores (used in top cards + nine signals)
-      perf_score: perfScore,
-      seo_score: seoScore,
-      mobile_score: mobileScore,
-      accessibility_score: accessibilityScore,
-      security_score: securityScore,
+      // Nine signal scores
+      "{{perf_score}}": safe(record.score_performance),
+      "{{seo_score}}": safe(record.score_seo),
+      "{{structure_score}}": safe(record.score_structure),
+      "{{mobile_score}}": safe(record.score_mobile),
+      "{{security_score}}": safe(record.score_security),
+      "{{accessibility_score}}": safe(record.score_accessibility),
+      "{{domain_score}}": safe(record.score_domain),
+      "{{content_score}}": safe(record.score_content),
+      "{{summary_signal_score}}": safe(record.score_summary_signal),
 
-      // Extra signal scores – mirror existing ones for now
-      structure_score: seoScore,
-      domain_score: securityScore,
-      content_score: seoScore,
-      summary_signal_score: overallScore,
+      // Key metrics
+      "{{metric_page_load_value}}": safe(record.metric_page_load_value),
+      "{{metric_page_load_goal}}": safe(record.metric_page_load_goal),
+      "{{metric_mobile_status}}": safe(record.metric_mobile_status),
+      "{{metric_mobile_text}}": safe(record.metric_mobile_text),
+      "{{metric_cwv_status}}": safe(record.metric_cwv_status),
+      "{{metric_cwv_text}}": safe(record.metric_cwv_text),
 
-      // Key metrics – static placeholders until wired up
-      metric_page_load_value: safe(scanRow.metric_page_load_value, "—"),
-      metric_page_load_goal: safe(scanRow.metric_page_load_goal, "< 2.5s"),
-      metric_mobile_status: safe(scanRow.metric_mobile_status, "Pass"),
-      metric_mobile_text: safe(
-        scanRow.metric_mobile_text,
-        "Responsive layout detected across key viewports."
+      // Top issues (optional – will show “—” if not yet wired)
+      "{{issue1_severity}}": safe(record.issue1_severity),
+      "{{issue1_title}}": safe(record.issue1_title),
+      "{{issue1_text}}": safe(record.issue1_text),
+
+      "{{issue2_severity}}": safe(record.issue2_severity),
+      "{{issue2_title}}": safe(record.issue2_title),
+      "{{issue2_text}}": safe(record.issue2_text),
+
+      "{{issue3_severity}}": safe(record.issue3_severity),
+      "{{issue3_title}}": safe(record.issue3_title),
+      "{{issue3_text}}": safe(record.issue3_text),
+
+      // Recommendations
+      "{{recommendation1}}": safe(record.recommendation1),
+      "{{recommendation2}}": safe(record.recommendation2),
+      "{{recommendation3}}": safe(record.recommendation3),
+      "{{recommendation4}}": safe(record.recommendation4),
+
+      // Notes at the bottom
+      "{{notes}}": safe(
+        record.notes,
+        "No critical failures detected. Address red issues first, then re-scan to confirm improvements."
       ),
-      metric_cwv_status: safe(scanRow.metric_cwv_status, "Needs attention"),
-      metric_cwv_text: safe(
-        scanRow.metric_cwv_text,
-        "CLS slightly high on hero section."
-      ),
-
-      // Top issues – static for now (same as generate-report.js stub)
-      issue1_severity: "Critical",
-      issue1_title: "Uncompressed hero image",
-      issue1_text:
-        "Homepage hero image is ~1.8MB. Compress to <300KB and serve WebP/AVIF.",
-
-      issue2_severity: "Critical",
-      issue2_title: "Missing meta description",
-      issue2_text:
-        "No meta description found on homepage. Add a 140–160 character summary.",
-
-      issue3_severity: "Moderate",
-      issue3_title: "Heading structure",
-      issue3_text:
-        "Multiple H1s detected. Use a single H1 and downgrade others to H2/H3.",
-
-      // Recommended fix sequence – static stub
-      recommendation1:
-        "Optimize homepage media (hero + gallery) for size and format.",
-      recommendation2:
-        "Add SEO foundation: title, meta description, and Open Graph tags.",
-      recommendation3:
-        "Fix duplicate H1s and ensure semantic heading order.",
-      recommendation4:
-        "Re-scan with iQWEB to confirm score improvement.",
-
-      // Summary & Notes – temporary static text
-      notes:
-        "No critical failures. Key improvements relate to performance overhead, incomplete SEO signalling, and structural consistency. Address red issues first, then perform a follow-up scan to confirm improvements.",
     };
 
-    // --------------------------------------------------
-    // 4) Apply replacements
-    // --------------------------------------------------
+    // --- 4) Apply replacements ---
     let html = templateHtml;
-    for (const [key, value] of Object.entries(tokens)) {
-      const safeValue = String(value ?? "");
-      html = html.replace(new RegExp(`{{${key}}}`, "g"), safeValue);
+    for (const [token, value] of Object.entries(replacements)) {
+      html = html.split(token).join(value);
     }
 
-    // --------------------------------------------------
-    // 5) Return HTML
-    // --------------------------------------------------
+    // --- 5) Respond with HTML for /report.html to display ---
     return {
       statusCode: 200,
       headers: {
