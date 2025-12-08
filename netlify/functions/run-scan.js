@@ -7,11 +7,13 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // Service-role client (bypasses RLS, server-side only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// --------------------------------------------------
+// Report ID generator: WEB-YYYYJJJ-#####
+// --------------------------------------------------
 function makeReportId(prefix = 'WEB') {
   const now = new Date();
 
-  // Use full year, e.g. 2025
-  const year = now.getFullYear();
+  const year = now.getFullYear(); // e.g. 2025
 
   // Julian day (1..365), padded to 3 digits
   const start = new Date(now.getFullYear(), 0, 0);
@@ -27,6 +29,111 @@ function makeReportId(prefix = 'WEB') {
   return `${prefix}-${year}${ddd}-${suffix}`;
 }
 
+// --------------------------------------------------
+// Scoring engine helpers
+// --------------------------------------------------
+function scoreCategory(base = 100, penalties = []) {
+  let score = base;
+  for (const p of penalties) score -= p;
+  if (score < 0) score = 0;
+  if (score > 100) score = 100;
+  return score;
+}
+
+// Main scoring function – uses ONLY fields we actually calculate below
+function computeScores(checks) {
+  // PERFORMANCE
+  const perfPenalties = [];
+  if (checks.html_length > 300000) perfPenalties.push(20);     // very heavy HTML
+  if (checks.html_length > 600000) perfPenalties.push(15);     // extreme
+  if (checks.script_count > 20) perfPenalties.push(15);
+  if (checks.script_count > 40) perfPenalties.push(10);
+  const performance = scoreCategory(100, perfPenalties);
+
+  // SEO FOUNDATIONS
+  const seoPenalties = [];
+  if (!checks.title_present) seoPenalties.push(40);
+  if (!checks.meta_description_present) seoPenalties.push(20);
+  if (!checks.h1_present) seoPenalties.push(20);
+  if (checks.multiple_h1) seoPenalties.push(10);
+  if (checks.title_length < 10 || checks.title_length > 70) seoPenalties.push(10);
+  if (
+    checks.meta_description_length > 0 &&
+    (checks.meta_description_length < 30 || checks.meta_description_length > 180)
+  ) {
+    seoPenalties.push(10);
+  }
+  const seo = scoreCategory(100, seoPenalties);
+
+  // STRUCTURE & SEMANTICS
+  const structPenalties = [];
+  if (!checks.h1_present) structPenalties.push(10);
+  if (checks.multiple_h1) structPenalties.push(10);
+  const structure = scoreCategory(100, structPenalties);
+
+  // MOBILE EXPERIENCE
+  const mobilePenalties = [];
+  if (!checks.viewport_present) mobilePenalties.push(40);
+  const mobile = scoreCategory(100, mobilePenalties);
+
+  // SECURITY & TRUST
+  let security = 100;
+  const securityPenalties = [];
+
+  if (!checks.https) {
+    // non-HTTPS is basically a fail
+    security = 15;
+  } else {
+    if (!checks.hsts_present) securityPenalties.push(15);
+    if (!checks.x_frame_present) securityPenalties.push(10);
+    if (!checks.csp_present) securityPenalties.push(15);
+    security = scoreCategory(100, securityPenalties);
+  }
+
+  // ACCESSIBILITY
+  const a11yPenalties = [];
+  if (checks.missing_alt_count > 5) a11yPenalties.push(10);
+  if (checks.missing_alt_count > 20) a11yPenalties.push(10);
+  const accessibility = scoreCategory(100, a11yPenalties);
+
+  // DOMAIN & HOSTING HEALTH
+  // v1: we don’t have DNS/email checks yet, so neutral 100
+  const domain = 100;
+
+  // CONTENT SIGNALS
+  const contentPenalties = [];
+  if (checks.word_count < 150) contentPenalties.push(20);
+  if (checks.word_count < 80) contentPenalties.push(20);
+  const content = scoreCategory(100, contentPenalties);
+
+  // OVERALL (weighted)
+  const overall = Math.round(
+    performance * 0.25 +
+    seo         * 0.25 +
+    structure   * 0.10 +
+    mobile      * 0.10 +
+    security    * 0.10 +
+    accessibility * 0.05 +
+    domain      * 0.05 +
+    content     * 0.10
+  );
+
+  return {
+    performance,
+    seo,
+    structure,
+    mobile,
+    security,
+    accessibility,
+    domain,
+    content,
+    overall,
+  };
+}
+
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
 function normaliseUrl(raw) {
   if (!raw) return '';
   let url = raw.trim();
@@ -38,50 +145,80 @@ function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-function basicHtmlChecks(html) {
+// Extracts all the checks we need from the HTML + response
+function basicHtmlChecks(html, finalUrl, res) {
   const metrics = {};
 
+  // <title>
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   metrics.title_present = !!titleMatch;
-  metrics.title_text = titleMatch ? titleMatch[1].trim().slice(0, 120) : null;
+  metrics.title_text = titleMatch ? titleMatch[1].trim().slice(0, 200) : null;
+  metrics.title_length = metrics.title_text ? metrics.title_text.length : 0;
 
+  // <meta name="description">
   const descMatch = html.match(
     /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
   metrics.meta_description_present = !!descMatch;
-  metrics.meta_description_text = descMatch ? descMatch[1].trim().slice(0, 200) : null;
+  metrics.meta_description_text = descMatch ? descMatch[1].trim().slice(0, 260) : null;
+  metrics.meta_description_length = metrics.meta_description_text
+    ? metrics.meta_description_text.length
+    : 0;
 
-  const viewportMatch = html.match(
-    /<meta[^>]+name=["']viewport["'][^>]*>/i
-  );
+  // viewport
+  const viewportMatch = html.match(/<meta[^>]+name=["']viewport["'][^>]*>/i);
   metrics.viewport_present = !!viewportMatch;
 
-  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-  metrics.h1_present = !!h1Match;
+  // H1s
+  const h1Matches = html.match(/<h1\b[^>]*>/gi) || [];
+  metrics.h1_present = h1Matches.length > 0;
+  metrics.multiple_h1 = h1Matches.length > 1;
 
+  // Length
   metrics.html_length = html.length || 0;
+
+  // Scripts
+  const scriptMatches = html.match(/<script\b[^>]*>/gi);
+  metrics.script_count = scriptMatches ? scriptMatches.length : 0;
+
+  // Images + missing alt
+  const imgMatches = html.match(/<img\b[^>]*>/gi);
+  metrics.image_count = imgMatches ? imgMatches.length : 0;
+
+  let missingAlt = 0;
+  if (imgMatches) {
+    for (const imgTag of imgMatches) {
+      if (!/alt\s*=\s*["'][^"']*["']/i.test(imgTag)) {
+        missingAlt++;
+      }
+    }
+  }
+  metrics.missing_alt_count = missingAlt;
+
+  // Approximate word count (strip tags, scripts, styles)
+  const textContent = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ');
+  const words = textContent.split(/\s+/).filter(Boolean);
+  metrics.word_count = words.length;
+
+  // Security headers
+  metrics.https = typeof finalUrl === 'string'
+    ? finalUrl.startsWith('https://')
+    : false;
+
+  const headers = res?.headers;
+  metrics.hsts_present = headers ? !!headers.get('strict-transport-security') : false;
+  metrics.x_frame_present = headers ? !!headers.get('x-frame-options') : false;
+  metrics.csp_present = headers ? !!headers.get('content-security-policy') : false;
 
   return metrics;
 }
 
-// Very simple scoring for now – you’ll expand this later.
-function computeOverallScore(url, responseOk, metrics = {}) {
-  if (!responseOk) return 0;
-
-  let score = 60; // base
-
-  if (metrics.title_present) score += 10;
-  if (metrics.meta_description_present) score += 10;
-  if (metrics.viewport_present) score += 10;
-  if (metrics.h1_present) score += 5;
-
-  if (metrics.html_length > 0 && metrics.html_length < 100000) {
-    score += 5;
-  }
-
-  return Math.min(100, Math.max(0, score));
-}
-
+// --------------------------------------------------
+// Netlify handler
+// --------------------------------------------------
 export default async (request, context) => {
   if (request.method !== 'POST') {
     return new Response(
@@ -115,7 +252,6 @@ export default async (request, context) => {
 
   const rawUrl = body?.url;
   const userId = body?.userId || body?.user_id || null;
-
   const url = normaliseUrl(rawUrl);
 
   if (!url) {
@@ -125,7 +261,7 @@ export default async (request, context) => {
     );
   }
 
-  // ---- Fetch site + do basic checks ----
+  // ---- Fetch site + run checks ----
   let responseOk = false;
   let httpStatus = null;
   let metrics = {};
@@ -138,35 +274,55 @@ export default async (request, context) => {
     httpStatus = res.status;
     responseOk = res.ok;
 
+    const finalUrl = res.url || url;
     const html = await res.text();
-    metrics = basicHtmlChecks(html);
+    metrics = basicHtmlChecks(html, finalUrl, res);
   } catch (err) {
     console.error('Error fetching URL:', err);
     errorText = err.message || 'Fetch failed';
   }
 
   const scanTimeMs = Date.now() - start;
-  const score_overall = computeOverallScore(url, responseOk, metrics);
+
+  // If we couldn’t fetch, scores are zeroed
+  let scores;
+  if (responseOk) {
+    scores = computeScores(metrics);
+  } else {
+    scores = {
+      performance: 0,
+      seo: 0,
+      structure: 0,
+      mobile: 0,
+      security: 0,
+      accessibility: 0,
+      domain: 0,
+      content: 0,
+      overall: 0,
+    };
+  }
 
   const fullMetrics = {
     http_status: httpStatus,
     response_ok: responseOk,
     error: errorText,
-    checks: metrics
+    checks: metrics,
+    scores, // keep a copy inside metrics JSON
   };
 
-  // ---- Store result in scan_results (canonical table) ----
+  // ---- Store result in scan_results ----
   const reportId = makeReportId('WEB');
+
   const { data, error } = await supabase
-    .from('scan_results')   // <— IMPORTANT: scan_results table
+    .from('scan_results')
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
-      score_overall,
+      score_overall: scores.overall,
       metrics: fullMetrics,
       report_id: reportId,
-      scan_time_ms: scanTimeMs
+      scan_time_ms: scanTimeMs,
     })
     .select()
     .single();
@@ -177,21 +333,22 @@ export default async (request, context) => {
       JSON.stringify({
         success: false,
         message: 'Failed to save scan result',
-        supabaseError: error.message || error.details || null
+        supabaseError: error.message || error.details || null,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
+  // ---- Response back to dashboard ----
   return new Response(
     JSON.stringify({
       success: true,
       scan_id: data.id,          // internal numeric ID
-      report_id: data.report_id, // human-facing WEB-YYYYJJJ-#####
+      report_id: data.report_id, // WEB-YYYYJJJ-#####
       url,
       status: data.status,
-      score_overall,
-      metrics: fullMetrics
+      scores,
+      metrics: fullMetrics,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
