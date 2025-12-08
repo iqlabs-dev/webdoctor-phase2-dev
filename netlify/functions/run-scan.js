@@ -7,6 +7,26 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // Service-role client (bypasses RLS, server-side only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+function makeReportId(prefix = 'WEB') {
+  const now = new Date();
+
+  // Use full year, e.g. 2025
+  const year = now.getFullYear();
+
+  // Julian day (1..365), padded to 3 digits
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  const day = Math.floor(diff / (1000 * 60 * 60 * 24)); // 1..365
+  const ddd = String(day).padStart(3, '0');
+
+  // 5-digit random suffix
+  const random = Math.floor(Math.random() * 100000); // 0..99999
+  const suffix = String(random).padStart(5, '0');
+
+  // Example: WEB-2025361-04217
+  return `${prefix}-${year}${ddd}-${suffix}`;
+}
+
 function normaliseUrl(raw) {
   if (!raw) return '';
   let url = raw.trim();
@@ -38,21 +58,18 @@ function basicHtmlChecks(html) {
 
   const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   metrics.h1_present = !!h1Match;
-  metrics.h1_text = h1Match
-    ? h1Match[1].replace(/<[^>]*>/g, '').trim().slice(0, 120)
-    : null;
 
-  metrics.html_length = html.length;
+  metrics.html_length = html.length || 0;
 
   return metrics;
 }
 
-function computeOverallScore(url, responseOk, metrics) {
-  let score = 50;
-
+// Very simple scoring for now – you’ll expand this later.
+function computeOverallScore(url, responseOk, metrics = {}) {
   if (!responseOk) return 0;
 
-  if (/^https:\/\//i.test(url)) score += 10;
+  let score = 60; // base
+
   if (metrics.title_present) score += 10;
   if (metrics.meta_description_present) score += 10;
   if (metrics.viewport_present) score += 10;
@@ -97,7 +114,7 @@ export default async (request, context) => {
   }
 
   const rawUrl = body?.url;
-  const userId = body?.userId || null;
+  const userId = body?.userId || body?.user_id || null;
 
   const url = normaliseUrl(rawUrl);
 
@@ -139,14 +156,16 @@ export default async (request, context) => {
   };
 
   // ---- Store result in scan_results (canonical table) ----
+  const reportId = makeReportId('WEB');
   const { data, error } = await supabase
-    .from('scan_results')   // <— IMPORTANT: back to scan_results
+    .from('scan_results')   // <— IMPORTANT: scan_results table
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
       score_overall,
       metrics: fullMetrics,
+      report_id: reportId,
       scan_time_ms: scanTimeMs
     })
     .select()
@@ -167,7 +186,8 @@ export default async (request, context) => {
   return new Response(
     JSON.stringify({
       success: true,
-      scan_id: data.id,
+      scan_id: data.id,          // internal numeric ID
+      report_id: data.report_id, // human-facing WEB-YYYYJJJ-#####
       url,
       status: data.status,
       score_overall,
