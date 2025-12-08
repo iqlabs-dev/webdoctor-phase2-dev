@@ -1,27 +1,30 @@
 // netlify/functions/get-report.js
+//
+// Returns full HTML for a single iQWEB report.
+//
+// New behaviour (Dec 2025):
+// - Look in the `reports` table first (new engine).
+//   -> If a row is found and `html` is present, return it directly.
+// - Optional legacy fallback to `scan_results` for very old numeric IDs.
+// - Avoids any dependency on a particular template filename/version.
 
-const fs = require("fs");
-const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
 // --- Supabase (server-side key) ---
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Format date
-function formatNZDateTime(iso) {
-  if (!iso) return { date: "-", time: "-" };
-  const d = new Date(iso);
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn(
+    "[get-report] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars."
+  );
+}
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
-  const year = d.getFullYear();
-  const hours = String(d.getHours()).padStart(2, "0");
-  const mins = String(d.getMinutes()).padStart(2, "0");
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  return { date: `${day} ${month} ${year}`, time: `${hours}:${mins}` };
+// Helper: simple logger wrapper
+function log(...args) {
+  console.log("[get-report]", ...args);
 }
 
 exports.handler = async (event) => {
@@ -33,104 +36,109 @@ exports.handler = async (event) => {
       return {
         statusCode: 400,
         headers: { "Content-Type": "text/plain" },
-        body: "Missing report_id",
+        body: "Missing report_id in query string.",
       };
     }
 
-    console.log("[get-report] Looking for:", reportId);
+    log("Incoming reportId:", reportId);
 
-    // ------------------------------------------------------------------
-    // 1) Load from **reports** table only (not scan_results)
-    // ------------------------------------------------------------------
+    // --------------------------------------------------
+    // 1) NEW WORLD — look in `reports` table first
+    // --------------------------------------------------
+    let record = null;
 
-    const { data: record, error } = await supabase
+    // 1a) Try by report_id (WDR-YYDDD-#### etc)
+    const { data: byReportId, error: errReportId } = await supabase
       .from("reports")
       .select("*")
       .eq("report_id", reportId)
       .maybeSingle();
 
-    if (error) {
-      console.error("[get-report] Supabase error:", error);
-      return { statusCode: 500, body: "Database error" };
+    if (errReportId) {
+      console.error("[get-report] Supabase error (reports.report_id):", errReportId);
     }
 
-    if (!record) {
-      console.warn("[get-report] Report not found in reports table");
-      return { statusCode: 404, body: "Report not found" };
+    if (byReportId) {
+      record = byReportId;
+      log("Found record in reports by report_id");
+    } else {
+      // 1b) Try by primary key id (UUID) – in case links use that
+      const { data: byPk, error: errPk } = await supabase
+        .from("reports")
+        .select("*")
+        .eq("id", reportId)
+        .maybeSingle();
+
+      if (errPk) {
+        console.error("[get-report] Supabase error (reports.id):", errPk);
+      }
+
+      if (byPk) {
+        record = byPk;
+        log("Found record in reports by id (uuid)");
+      }
     }
 
-    // ------------------------------------------------------------------
-    // 2) Load report_template_v5.0.html
-    // ------------------------------------------------------------------
+    // If we found a row in `reports` and it has HTML, return it directly.
+    if (record && record.html) {
+      log("Returning HTML from reports.html");
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+        body: record.html,
+      };
+    }
 
-    const templatePath = path.join(__dirname, "report_template_v5.0.html");
-    console.log("Loading template:", templatePath);
+    // --------------------------------------------------
+    // 2) LEGACY FALLBACK — old numeric scans (scan_results)
+    //    Only here so old /report.html?id=55 style links
+    //    don’t just explode.
+    // --------------------------------------------------
+    const numericId = Number(reportId);
+    if (!Number.isNaN(numericId)) {
+      log("No row in reports, trying legacy scan_results for id:", numericId);
 
-    let html = fs.readFileSync(templatePath, "utf8");
+      const { data: legacyScan, error: errLegacy } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("id", numericId)
+        .maybeSingle();
 
-    // ------------------------------------------------------------------
-    // 3) Replace tokens
-    // ------------------------------------------------------------------
+      if (errLegacy) {
+        console.error("[get-report] Supabase error (scan_results.id):", errLegacy);
+      }
 
-    const { date } = formatNZDateTime(record.created_at);
+      if (legacyScan && legacyScan.html) {
+        log("Found legacy scan_results row with html; returning it.");
+        return {
+          statusCode: 200,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+          body: legacyScan.html,
+        };
+      }
+    }
 
-    const replace = (token, val) => {
-      html = html.replace(new RegExp(token, "g"), val ?? "—");
-    };
-
-    replace("{{url}}", record.url);
-    replace("{{date}}", date);
-    replace("{{id}}", record.report_id);
-
-    replace("{{summary}}", record.summary);
-    replace("{{score}}", record.score);
-
-    replace("{{perf_score}}", record.score_performance);
-    replace("{{seo_score}}", record.score_seo);
-    replace("{{mobile_score}}", record.score_mobile);
-    replace("{{accessibility_score}}", record.score_accessibility);
-    replace("{{security_score}}", record.score_security);
-    replace("{{domain_score}}", record.score_domain);
-    replace("{{content_score}}", record.score_content);
-    replace("{{summary_signal_score}}", record.score_summary);
-
-    replace("{{metric_page_load_value}}", record.metric_page_load_value);
-    replace("{{metric_page_load_goal}}", record.metric_page_load_goal);
-    replace("{{metric_mobile_status}}", record.metric_mobile_status);
-    replace("{{metric_mobile_text}}", record.metric_mobile_text);
-    replace("{{metric_cwv_status}}", record.metric_cwv_status);
-    replace("{{metric_cwv_text}}", record.metric_cwv_text);
-
-    replace("{{issue1_severity}}", record.issue1_severity);
-    replace("{{issue1_title}}", record.issue1_title);
-    replace("{{issue1_text}}", record.issue1_text);
-
-    replace("{{issue2_severity}}", record.issue2_severity);
-    replace("{{issue2_title}}", record.issue2_title);
-    replace("{{issue2_text}}", record.issue2_text);
-
-    replace("{{issue3_severity}}", record.issue3_severity);
-    replace("{{issue3_title}}", record.issue3_title);
-    replace("{{issue3_text}}", record.issue3_text);
-
-    replace("{{recommendation1}}", record.recommendation1);
-    replace("{{recommendation2}}", record.recommendation2);
-    replace("{{recommendation3}}", record.recommendation3);
-    replace("{{recommendation4}}", record.recommendation4);
-
-    replace("{{notes}}", record.notes);
-
-    // ------------------------------------------------------------------
-    // 4) Return final HTML
-    // ------------------------------------------------------------------
-
+    // --------------------------------------------------
+    // 3) Nothing found anywhere
+    // --------------------------------------------------
+    console.warn("[get-report] No record found for id:", reportId);
     return {
-      statusCode: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-      body: html,
+      statusCode: 404,
+      headers: { "Content-Type": "text/plain" },
+      body: "Report not found.",
     };
   } catch (err) {
-    console.error("[get-report] Fatal error:", err);
-    return { statusCode: 500, body: "Server error" };
+    console.error("[get-report] Unexpected error:", err);
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "text/plain" },
+      body: "Unexpected server error.",
+    };
   }
 };
