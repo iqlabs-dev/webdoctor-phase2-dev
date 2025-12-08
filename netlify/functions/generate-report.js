@@ -150,7 +150,7 @@ export const handler = async (event) => {
   let templateHtml;
   try {
     // ⬇️ Make sure this matches your actual file name
-    const templatePath = join(__dirname, 'report_template_v5_0.html');
+    const templatePath = join(__dirname, 'report_template.html');
     console.log('Loading report template from:', templatePath);
     templateHtml = readFileSync(templatePath, 'utf8');
   } catch (err) {

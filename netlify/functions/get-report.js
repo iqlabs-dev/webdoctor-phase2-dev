@@ -114,7 +114,7 @@ exports.handler = async (event) => {
     }
 
     // --- 2) Load the HTML template file (v5.0) ---
-    const templatePath = `${__dirname}/report_template_v5_0.html`;
+    const templatePath = `${__dirname}/report_template.html`;
     console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
