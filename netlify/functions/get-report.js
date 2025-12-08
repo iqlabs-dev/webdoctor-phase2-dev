@@ -5,7 +5,7 @@
 // Called from: /report.html?report_id=59  (or ?id=59)
 //
 // - Reads scan data from Supabase (scan_results table)
-// - Loads report_template_v5.0.html from netlify/functions
+// - Loads report_template_v5_0.html from netlify/functions
 // - Replaces {{placeholders}} with real values
 // - Responds with text/html
 
@@ -114,7 +114,7 @@ exports.handler = async (event) => {
     }
 
     // --- 2) Load the HTML template file (v5.0) ---
-    const templatePath = path.join(__dirname, "report_template_v5.0.html");
+    const templatePath = path.join(__dirname, "report_template_v5_0.html");
     console.log("[get-report] Using template path:", templatePath);
 
     let templateHtml;
