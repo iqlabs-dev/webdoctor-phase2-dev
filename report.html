@@ -1,39 +1,50 @@
 <body>
-  <div id="wd-report-shell">
-    Loading report…
+  <div class="report-page">
+    <header class="report-header">
+      <h1>iQWEB</h1>
+
+      <!-- Header badges (LIVE DATA TARGETS) -->
+      <div class="badge-grid">
+        <div class="badge">
+          <span class="label">Website</span>
+          <span class="value" data-field="website-url">https://placeholder.example/</span>
+        </div>
+        <div class="badge">
+          <span class="label">Report Date</span>
+          <span class="value" data-field="report-date">01 JAN 2025</span>
+        </div>
+        <div class="badge">
+          <span class="label">Report ID</span>
+          <span class="value" data-field="report-id">WEB-2025XXX-00000</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="report-main">
+      <!-- Overall health cards (LIVE DATA TARGETS) -->
+      <section class="overall-scores">
+        <div class="score-card">
+          <span class="label">Performance</span>
+          <span class="value" data-field="score-performance">— / 100</span>
+        </div>
+        <div class="score-card">
+          <span class="label">SEO</span>
+          <span class="value" data-field="score-seo">— / 100</span>
+        </div>
+        <div class="score-card">
+          <span class="label">Overall Score</span>
+          <span class="value" data-field="score-overall">— / 100</span>
+        </div>
+      </section>
+
+      <!-- Keep the rest of your existing report sections here:
+           - Nine Signals grid
+           - Findings / Notes
+           - Recommendations
+           etc. -->
+    </main>
   </div>
 
-  <script type="module">
-    async function loadReport() {
-      const params = new URLSearchParams(window.location.search);
-      const reportId = params.get('report_id');
-
-      if (!reportId) {
-        document.getElementById('wd-report-shell').textContent =
-          'Missing report ID.';
-        return;
-      }
-
-      try {
-        const resp = await fetch('/.netlify/functions/get-report?report_id=' + encodeURIComponent(reportId));
-        if (!resp.ok) {
-          document.getElementById('wd-report-shell').textContent =
-            'Could not load report.';
-          return;
-        }
-
-        const html = await resp.text();
-        // Replace the whole page with the report HTML
-        document.open();
-        document.write(html);
-        document.close();
-      } catch (err) {
-        console.error('get-report error', err);
-        document.getElementById('wd-report-shell').textContent =
-          'Error loading report.';
-      }
-    }
-
-    loadReport();
-  </script>
+  <!-- Live data wiring -->
+  <script type="module" src="/assets/js/report-data.js"></script>
 </body>

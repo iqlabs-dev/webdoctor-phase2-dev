@@ -12,10 +12,10 @@ function computeScoresFromMetrics(row) {
   const checks = metrics.checks || {};
   const responseOk = !!metrics.response_ok;
 
-  // Overall comes from the stored value
+  // Overall comes from stored score
   const overall = typeof row.score_overall === 'number' ? row.score_overall : 0;
 
-  // --- Performance (very simple for now, we can beef this up later) ---
+  // Simple performance score for now
   let performance = 0;
   if (responseOk) {
     performance = 70;
@@ -25,15 +25,13 @@ function computeScoresFromMetrics(row) {
     performance = Math.min(100, performance);
   }
 
-  // --- SEO (based on presence of key tags) ---
+  // Simple SEO score
   let seo = 0;
   if (responseOk) {
     let seoScore = 60;
-
     if (checks.title_present) seoScore += 15;
     if (checks.meta_description_present) seoScore += 15;
     if (checks.h1_present) seoScore += 10;
-
     seo = Math.min(100, seoScore);
   }
 
@@ -44,7 +42,7 @@ function computeScoresFromMetrics(row) {
   };
 }
 
-export default async (request, context) => {
+export default async (request) => {
   if (request.method !== 'GET') {
     return new Response(
       JSON.stringify({ success: false, message: 'Method not allowed' }),
