@@ -3,87 +3,93 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// Service-role client (server-side only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Basic score calculator – you can tweak later
-function computeScoresFromMetrics(row) {
-  const metrics = row?.metrics || {};
-  const checks = metrics.checks || {};
-  const responseOk = !!metrics.response_ok;
+// mirror of buildSignalScores in run-scan.js, used only as fallback
+function buildSignalScoresFromPsi(psiJson) {
+  const lighthouse = psiJson?.lighthouseResult || {};
+  const categories = lighthouse.categories || {};
+  const audits = lighthouse.audits || {};
 
-  // Overall – use stored score if present
-  const overall =
-    typeof row.score_overall === 'number' ? row.score_overall : 0;
+  const perf = Math.round((categories.performance?.score ?? 0) * 100);
+  const seo = Math.round((categories.seo?.score ?? 0) * 100);
+  const accessibility = Math.round((categories.accessibility?.score ?? 0) * 100);
+  const bestPractices = Math.round(
+    (categories['best-practices']?.score ?? 0) * 100
+  );
 
-  // Performance – simple placeholder logic for now
-  let performance = 0;
-  if (responseOk) {
-    performance = 70;
-    if (
-      checks.html_length &&
-      checks.html_length > 0 &&
-      checks.html_length < 200000
-    ) {
-      performance += 10;
-    }
-    performance = Math.min(100, performance);
+  let mobile = perf;
+  let mobilePenalty = 0;
+
+  const aViewport = audits['viewport'];
+  if (aViewport && aViewport.score !== null && aViewport.score < 1) {
+    mobilePenalty += 20;
   }
 
-  // SEO – simple based on some basic flags
-  let seo = 0;
-  if (responseOk) {
-    let seoScore = 60;
-    if (checks.title_present) seoScore += 15;
-    if (checks.meta_description_present) seoScore += 15;
-    if (checks.h1_present) seoScore += 10;
-    seo = Math.min(100, seoScore);
+  const aTapTargets = audits['tap-targets'];
+  if (aTapTargets && aTapTargets.score !== null && aTapTargets.score < 1) {
+    mobilePenalty += 20;
   }
 
-  return { performance, seo, overall };
+  const aFontSize = audits['font-size'];
+  if (aFontSize && aFontSize.score !== null && aFontSize.score < 1) {
+    mobilePenalty += 20;
+  }
+
+  mobile = Math.max(0, Math.min(100, mobile - mobilePenalty));
+
+  const structure = Math.round(
+    (accessibility || 0) * 0.6 + (bestPractices || 0) * 0.4
+  );
+
+  let security = 100;
+  function penalise(id, amount) {
+    const audit = audits[id];
+    if (!audit) return;
+    if (audit.score === null || audit.score === undefined) return;
+    if (audit.score < 1) security -= amount;
+  }
+  penalise('is-on-https', 40);
+  penalise('redirects-http', 10);
+  penalise('uses-text-compression', 10);
+  penalise('uses-http2', 10);
+  penalise('no-vulnerable-libraries', 15);
+  penalise('csp-xss', 15);
+
+  if (!psiJson?.id?.startsWith('https://')) {
+    security = Math.min(security, 40);
+  }
+
+  security = Math.max(0, Math.min(100, security));
+  const domain = Math.round(security * 0.6 + perf * 0.4);
+  const content = seo;
+
+  const overall = Math.round(
+    perf * 0.3 +
+      seo * 0.25 +
+      structure * 0.15 +
+      mobile * 0.1 +
+      accessibility * 0.1 +
+      security * 0.05 +
+      domain * 0.05
+  );
+
+  return {
+    performance: perf,
+    seo,
+    structure,
+    mobile,
+    accessibility,
+    security,
+    domain,
+    content,
+    overall
+  };
 }
 
-async function findByReportId(reportId) {
-  // 1) Try scan_results (newer table)
-  let { data, error } = await supabase
-    .from('scan_results')
-    .select('id, url, status, created_at, score_overall, metrics, report_id')
-    .eq('report_id', reportId)
-    .single();
-
-  if (data && !error) {
-    return { source: 'scan_results', row: data };
-  }
-
-  // 2) Fallback: try reports (older pipeline)
-  const res2 = await supabase
-    .from('reports')
-    .select('id, url, status, created_at, score_overall, metrics, report_id')
-    .eq('report_id', reportId)
-    .single();
-
-  if (res2.data && !res2.error) {
-    return { source: 'reports', row: res2.data };
-  }
-
-  // If both fail, return last error
-  return { source: null, row: null, error: error || res2.error };
-}
-
-export default async (request) => {
-  if (request.method !== 'GET') {
-    return new Response(
-      JSON.stringify({ success: false, message: 'Method not allowed' }),
-      {
-        status: 405,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  }
-
-  const urlObj = new URL(request.url);
-  const reportId = urlObj.searchParams.get('report_id');
+export default async (request, context) => {
+  const url = new URL(request.url);
+  const reportId = url.searchParams.get('report_id');
 
   if (!reportId) {
     return new Response(
@@ -92,10 +98,25 @@ export default async (request) => {
     );
   }
 
-  const { row, source, error } = await findByReportId(reportId);
+  const { data, error } = await supabase
+    .from('scan_results')
+    .select('id, report_id, url, created_at, score_overall, metrics')
+    .eq('report_id', reportId)
+    .maybeSingle();
 
-  if (!row || error) {
-    console.error('Report not found for report_id', reportId, 'error:', error);
+  if (error) {
+    console.error('Supabase get-report-data error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: 'Failed to load report data',
+        supabaseError: error.message || error.details || null
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!data) {
     return new Response(
       JSON.stringify({
         success: false,
@@ -105,18 +126,41 @@ export default async (request) => {
     );
   }
 
-  const scores = computeScoresFromMetrics(row);
+  const metrics = data.metrics || {};
+  let scores = metrics.scores || null;
+
+  // Fallback: re-derive scores from PSI raw if they weren't stored for some reason
+  if (!scores && metrics.psi_raw) {
+    try {
+      scores = buildSignalScoresFromPsi(metrics.psi_raw);
+    } catch (err) {
+      console.error('Error rebuilding scores from PSI:', err);
+    }
+  }
+
+  // Final fallback: at least give an overall
+  if (!scores) {
+    scores = {
+      performance: null,
+      seo: null,
+      structure: null,
+      mobile: null,
+      accessibility: null,
+      security: null,
+      domain: null,
+      content: null,
+      overall: data.score_overall ?? null
+    };
+  }
 
   return new Response(
     JSON.stringify({
       success: true,
-      source, // "scan_results" or "reports" – useful for debugging
-      report_id: row.report_id,
-      url: row.url,
-      status: row.status,
-      created_at: row.created_at,
+      report_id: data.report_id,
+      url: data.url,
+      created_at: data.created_at,
       scores,
-      metrics: row.metrics || null
+      metrics
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );

@@ -3,17 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const PSI_API_KEY = process.env.PSI_API_KEY;
 
-// Service-role client (bypasses RLS, server-side only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// --------------------------------------------------
-// Report ID generator: WEB-YYYYJJJ-#####
-// --------------------------------------------------
+const PSI_ENDPOINT =
+  'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
+
+// -----------------------------
+// Helpers
+// -----------------------------
+
 function makeReportId(prefix = 'WEB') {
   const now = new Date();
 
-  const year = now.getFullYear(); // e.g. 2025
+  // Full year, e.g. 2025
+  const year = now.getFullYear();
 
   // Julian day (1..365), padded to 3 digits
   const start = new Date(now.getFullYear(), 0, 0);
@@ -29,111 +34,6 @@ function makeReportId(prefix = 'WEB') {
   return `${prefix}-${year}${ddd}-${suffix}`;
 }
 
-// --------------------------------------------------
-// Scoring engine helpers
-// --------------------------------------------------
-function scoreCategory(base = 100, penalties = []) {
-  let score = base;
-  for (const p of penalties) score -= p;
-  if (score < 0) score = 0;
-  if (score > 100) score = 100;
-  return score;
-}
-
-// Main scoring function – uses ONLY fields we actually calculate below
-function computeScores(checks) {
-  // PERFORMANCE
-  const perfPenalties = [];
-  if (checks.html_length > 300000) perfPenalties.push(20);     // very heavy HTML
-  if (checks.html_length > 600000) perfPenalties.push(15);     // extreme
-  if (checks.script_count > 20) perfPenalties.push(15);
-  if (checks.script_count > 40) perfPenalties.push(10);
-  const performance = scoreCategory(100, perfPenalties);
-
-  // SEO FOUNDATIONS
-  const seoPenalties = [];
-  if (!checks.title_present) seoPenalties.push(40);
-  if (!checks.meta_description_present) seoPenalties.push(20);
-  if (!checks.h1_present) seoPenalties.push(20);
-  if (checks.multiple_h1) seoPenalties.push(10);
-  if (checks.title_length < 10 || checks.title_length > 70) seoPenalties.push(10);
-  if (
-    checks.meta_description_length > 0 &&
-    (checks.meta_description_length < 30 || checks.meta_description_length > 180)
-  ) {
-    seoPenalties.push(10);
-  }
-  const seo = scoreCategory(100, seoPenalties);
-
-  // STRUCTURE & SEMANTICS
-  const structPenalties = [];
-  if (!checks.h1_present) structPenalties.push(10);
-  if (checks.multiple_h1) structPenalties.push(10);
-  const structure = scoreCategory(100, structPenalties);
-
-  // MOBILE EXPERIENCE
-  const mobilePenalties = [];
-  if (!checks.viewport_present) mobilePenalties.push(40);
-  const mobile = scoreCategory(100, mobilePenalties);
-
-  // SECURITY & TRUST
-  let security = 100;
-  const securityPenalties = [];
-
-  if (!checks.https) {
-    // non-HTTPS is basically a fail
-    security = 15;
-  } else {
-    if (!checks.hsts_present) securityPenalties.push(15);
-    if (!checks.x_frame_present) securityPenalties.push(10);
-    if (!checks.csp_present) securityPenalties.push(15);
-    security = scoreCategory(100, securityPenalties);
-  }
-
-  // ACCESSIBILITY
-  const a11yPenalties = [];
-  if (checks.missing_alt_count > 5) a11yPenalties.push(10);
-  if (checks.missing_alt_count > 20) a11yPenalties.push(10);
-  const accessibility = scoreCategory(100, a11yPenalties);
-
-  // DOMAIN & HOSTING HEALTH
-  // v1: we don’t have DNS/email checks yet, so neutral 100
-  const domain = 100;
-
-  // CONTENT SIGNALS
-  const contentPenalties = [];
-  if (checks.word_count < 150) contentPenalties.push(20);
-  if (checks.word_count < 80) contentPenalties.push(20);
-  const content = scoreCategory(100, contentPenalties);
-
-  // OVERALL (weighted)
-  const overall = Math.round(
-    performance * 0.25 +
-    seo         * 0.25 +
-    structure   * 0.10 +
-    mobile      * 0.10 +
-    security    * 0.10 +
-    accessibility * 0.05 +
-    domain      * 0.05 +
-    content     * 0.10
-  );
-
-  return {
-    performance,
-    seo,
-    structure,
-    mobile,
-    security,
-    accessibility,
-    domain,
-    content,
-    overall,
-  };
-}
-
-// --------------------------------------------------
-// Helpers
-// --------------------------------------------------
 function normaliseUrl(raw) {
   if (!raw) return '';
   let url = raw.trim();
@@ -145,80 +45,133 @@ function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-// Extracts all the checks we need from the HTML + response
-function basicHtmlChecks(html, finalUrl, res) {
-  const metrics = {};
-
-  // <title>
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  metrics.title_present = !!titleMatch;
-  metrics.title_text = titleMatch ? titleMatch[1].trim().slice(0, 200) : null;
-  metrics.title_length = metrics.title_text ? metrics.title_text.length : 0;
-
-  // <meta name="description">
-  const descMatch = html.match(
-    /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
-  );
-  metrics.meta_description_present = !!descMatch;
-  metrics.meta_description_text = descMatch ? descMatch[1].trim().slice(0, 260) : null;
-  metrics.meta_description_length = metrics.meta_description_text
-    ? metrics.meta_description_text.length
-    : 0;
-
-  // viewport
-  const viewportMatch = html.match(/<meta[^>]+name=["']viewport["'][^>]*>/i);
-  metrics.viewport_present = !!viewportMatch;
-
-  // H1s
-  const h1Matches = html.match(/<h1\b[^>]*>/gi) || [];
-  metrics.h1_present = h1Matches.length > 0;
-  metrics.multiple_h1 = h1Matches.length > 1;
-
-  // Length
-  metrics.html_length = html.length || 0;
-
-  // Scripts
-  const scriptMatches = html.match(/<script\b[^>]*>/gi);
-  metrics.script_count = scriptMatches ? scriptMatches.length : 0;
-
-  // Images + missing alt
-  const imgMatches = html.match(/<img\b[^>]*>/gi);
-  metrics.image_count = imgMatches ? imgMatches.length : 0;
-
-  let missingAlt = 0;
-  if (imgMatches) {
-    for (const imgTag of imgMatches) {
-      if (!/alt\s*=\s*["'][^"']*["']/i.test(imgTag)) {
-        missingAlt++;
-      }
-    }
+/**
+ * Call Google PageSpeed Insights v5 (mobile strategy)
+ */
+async function fetchPsi(url) {
+  if (!PSI_API_KEY) {
+    throw new Error('PSI_API_KEY is not set in environment');
   }
-  metrics.missing_alt_count = missingAlt;
 
-  // Approximate word count (strip tags, scripts, styles)
-  const textContent = html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-    .replace(/<[^>]+>/g, ' ');
-  const words = textContent.split(/\s+/).filter(Boolean);
-  metrics.word_count = words.length;
+  const apiUrl =
+    `${PSI_ENDPOINT}?url=${encodeURIComponent(url)}` +
+    `&strategy=MOBILE` +
+    `&category=PERFORMANCE` +
+    `&category=SEO` +
+    `&category=ACCESSIBILITY` +
+    `&category=BEST_PRACTICES`;
 
-  // Security headers
-  metrics.https = typeof finalUrl === 'string'
-    ? finalUrl.startsWith('https://')
-    : false;
+  const res = await fetch(apiUrl);
 
-  const headers = res?.headers;
-  metrics.hsts_present = headers ? !!headers.get('strict-transport-security') : false;
-  metrics.x_frame_present = headers ? !!headers.get('x-frame-options') : false;
-  metrics.csp_present = headers ? !!headers.get('content-security-policy') : false;
+  const json = await res.json();
+  if (!res.ok) {
+    const msg = json?.error?.message || `PSI HTTP ${res.status}`;
+    throw new Error(msg);
+  }
 
-  return metrics;
+  return json;
 }
 
-// --------------------------------------------------
-// Netlify handler
-// --------------------------------------------------
+/**
+ * Build iQWEB 9-signal style scores from PSI JSON
+ * We keep this logic mirrored in get-report-data.js for safety.
+ */
+function buildSignalScores(psiJson) {
+  const lighthouse = psiJson?.lighthouseResult || {};
+  const categories = lighthouse.categories || {};
+  const audits = lighthouse.audits || {};
+
+  const perf = Math.round((categories.performance?.score ?? 0) * 100);
+  const seo = Math.round((categories.seo?.score ?? 0) * 100);
+  const accessibility = Math.round((categories.accessibility?.score ?? 0) * 100);
+  const bestPractices = Math.round(
+    (categories['best-practices']?.score ?? 0) * 100
+  );
+
+  // MOBILE EXPERIENCE – start from performance, penalise bad mobile audits
+  let mobile = perf;
+  let mobilePenalty = 0;
+
+  const aViewport = audits['viewport'];
+  if (aViewport && aViewport.score !== null && aViewport.score < 1) {
+    mobilePenalty += 20;
+  }
+
+  const aTapTargets = audits['tap-targets'];
+  if (aTapTargets && aTapTargets.score !== null && aTapTargets.score < 1) {
+    mobilePenalty += 20;
+  }
+
+  const aFontSize = audits['font-size'];
+  if (aFontSize && aFontSize.score !== null && aFontSize.score < 1) {
+    mobilePenalty += 20;
+  }
+
+  mobile = Math.max(0, Math.min(100, mobile - mobilePenalty));
+
+  // STRUCTURE & SEMANTICS – mostly accessibility + best practices
+  const structure = Math.round(
+    (accessibility || 0) * 0.6 + (bestPractices || 0) * 0.4
+  );
+
+  // SECURITY & TRUST – penalties from specific audits
+  let security = 100;
+
+  function penalise(id, amount) {
+    const audit = audits[id];
+    if (!audit) return;
+    if (audit.score === null || audit.score === undefined) return;
+    if (audit.score < 1) security -= amount;
+  }
+
+  penalise('is-on-https', 40);
+  penalise('redirects-http', 10);
+  penalise('uses-text-compression', 10);
+  penalise('uses-http2', 10);
+  penalise('no-vulnerable-libraries', 15);
+  penalise('csp-xss', 15);
+
+  if (!psiJson?.id?.startsWith('https://')) {
+    // Hard floor if still not https for some reason
+    security = Math.min(security, 40);
+  }
+
+  security = Math.max(0, Math.min(100, security));
+
+  // DOMAIN & HOSTING – derived from security + perf (rough but honest)
+  const domain = Math.round(security * 0.6 + perf * 0.4);
+
+  // CONTENT SIGNALS – for now, largely aligned with SEO
+  const content = seo;
+
+  // OVERALL – iQWEB weighted blend (can tune later)
+  const overall = Math.round(
+    perf * 0.3 +
+      seo * 0.25 +
+      structure * 0.15 +
+      mobile * 0.1 +
+      accessibility * 0.1 +
+      security * 0.05 +
+      domain * 0.05
+  );
+
+  return {
+    performance: perf,
+    seo,
+    structure,
+    mobile,
+    accessibility,
+    security,
+    domain,
+    content,
+    overall
+  };
+}
+
+// -----------------------------
+// Netlify Function Handler
+// -----------------------------
+
 export default async (request, context) => {
   if (request.method !== 'POST') {
     return new Response(
@@ -227,14 +180,17 @@ export default async (request, context) => {
     );
   }
 
-  // ---- Safely read + parse JSON body ----
+  // --- Parse JSON body ---
   let bodyText;
   try {
     bodyText = await request.text();
   } catch (err) {
     console.error('Error reading body:', err);
     return new Response(
-      JSON.stringify({ success: false, message: 'Could not read request body' }),
+      JSON.stringify({
+        success: false,
+        message: 'Could not read request body'
+      }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
@@ -252,6 +208,7 @@ export default async (request, context) => {
 
   const rawUrl = body?.url;
   const userId = body?.userId || body?.user_id || null;
+
   const url = normaliseUrl(rawUrl);
 
   if (!url) {
@@ -261,68 +218,100 @@ export default async (request, context) => {
     );
   }
 
-  // ---- Fetch site + run checks ----
-  let responseOk = false;
-  let httpStatus = null;
-  let metrics = {};
-  let errorText = null;
-  const start = Date.now();
+  if (!PSI_API_KEY) {
+    console.error('PSI_API_KEY missing');
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: 'Server is not configured for PSI (missing API key)'
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const reportId = makeReportId('WEB');
+  const started = Date.now();
+
+  let psiJson = null;
+  let psiError = null;
 
   try {
-    const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-
-    httpStatus = res.status;
-    responseOk = res.ok;
-
-    const finalUrl = res.url || url;
-    const html = await res.text();
-    metrics = basicHtmlChecks(html, finalUrl, res);
+    psiJson = await fetchPsi(url);
   } catch (err) {
-    console.error('Error fetching URL:', err);
-    errorText = err.message || 'Fetch failed';
+    console.error('PSI fetch error:', err);
+    psiError = err.message || 'PSI request failed';
   }
 
-  const scanTimeMs = Date.now() - start;
+  const scanTimeMs = Date.now() - started;
 
-  // If we couldn’t fetch, scores are zeroed
-  let scores;
-  if (responseOk) {
-    scores = computeScores(metrics);
-  } else {
-    scores = {
-      performance: 0,
-      seo: 0,
-      structure: 0,
-      mobile: 0,
-      security: 0,
-      accessibility: 0,
-      domain: 0,
-      content: 0,
-      overall: 0,
-    };
+  // If PSI failed entirely, store as error report
+  if (!psiJson) {
+    const { data, error } = await supabase
+      .from('scan_results')
+      .insert({
+        user_id: userId,
+        url,
+        status: 'error',
+        score_overall: 0,
+        metrics: {
+          psi_error: psiError,
+          psi_strategy: 'MOBILE'
+        },
+        report_id: reportId,
+        scan_time_ms: scanTimeMs
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase insert error (PSI fail):', error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Failed to save scan result',
+          supabaseError: error.message || error.details || null
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        scan_id: data.id,
+        report_id: data.report_id,
+        url,
+        status: data.status,
+        score_overall: 0,
+        scores: null,
+        metrics: {
+          psi_error: psiError
+        }
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
-  const fullMetrics = {
-    http_status: httpStatus,
-    response_ok: responseOk,
-    error: errorText,
-    checks: metrics,
-    scores, // keep a copy inside metrics JSON
+  // Build our iQWEB scores from PSI
+  const scores = buildSignalScores(psiJson);
+
+  const metrics = {
+    psi_strategy: 'MOBILE',
+    psi_version: 'v5',
+    psi_raw: psiJson, // full JSON for auditability
+    scores // store the computed scores so other functions can reuse
   };
-
-  // ---- Store result in scan_results ----
-  const reportId = makeReportId('WEB');
 
   const { data, error } = await supabase
     .from('scan_results')
     .insert({
       user_id: userId,
       url,
-      status: responseOk ? 'completed' : 'error',
+      status: 'completed',
       score_overall: scores.overall,
-      metrics: fullMetrics,
+      metrics,
       report_id: reportId,
-      scan_time_ms: scanTimeMs,
+      scan_time_ms: scanTimeMs
     })
     .select()
     .single();
@@ -333,22 +322,22 @@ export default async (request, context) => {
       JSON.stringify({
         success: false,
         message: 'Failed to save scan result',
-        supabaseError: error.message || error.details || null,
+        supabaseError: error.message || error.details || null
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // ---- Response back to dashboard ----
   return new Response(
     JSON.stringify({
       success: true,
-      scan_id: data.id,          // internal numeric ID
-      report_id: data.report_id, // WEB-YYYYJJJ-#####
+      scan_id: data.id,
+      report_id: data.report_id,
       url,
       status: data.status,
+      score_overall: scores.overall,
       scores,
-      metrics: fullMetrics,
+      metrics
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
