@@ -293,6 +293,9 @@ export default async (request, context) => {
 
   // ---- PageSpeed Insights (MOBILE ONLY) ----
   let psiMobile = null;
+  // desktop reserved for future use – keep explicit so JSON serialises cleanly
+  const psiDesktop = null;
+
   try {
     psiMobile = await runPsiMobile(url);
   } catch (err) {
@@ -325,13 +328,12 @@ export default async (request, context) => {
     http_status: httpStatus,
     response_ok: responseOk,
     error: errorText,
-    https,                 // <--- add this line
+    https,
     basic_checks: basicMetrics,
     psi_mobile: psiMobile,
     psi_desktop: psiDesktop,
-    scores                 // 9-signal scores live here
+    scores
   };
-
 
   // ---- Store in scan_results ----
   const reportId = makeReportId('WEB');
