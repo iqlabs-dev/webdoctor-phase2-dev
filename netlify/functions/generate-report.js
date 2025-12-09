@@ -59,7 +59,6 @@ Output *strict JSON*:
 
 // --------------------------------------
 // Build payload for Λ i Q
-// (adapts the new scan_results.metrics shape)
 // --------------------------------------
 function buildPayloadForAI(url, scores = {}, metrics = {}) {
   const psiMobile = metrics.psi_mobile || {};
@@ -124,7 +123,7 @@ function buildFallbackNarrative(url, scores = {}) {
 }
 
 // --------------------------------------
-// OpenAI client
+// OpenAI client (optional)
 // --------------------------------------
 const openaiKey = process.env.OPENAI_API_KEY || null;
 const openaiClient = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
@@ -159,96 +158,82 @@ async function generateNarrative(aiPayload) {
 // MAIN HANDLER
 // --------------------------------------
 export default async (request) => {
-  const search = new URL(request.url).searchParams;
-  const report_id = search.get("report_id");
-
-  if (!report_id) {
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Missing report_id",
-        scores: {},
-        narrative: null
-      }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-  }
-
-  // 1. Load scan result by report_id
-  const { data: scan, error: scanErr } = await supabase
-    .from("scan_results")
-    .select("*")
-    .eq("report_id", report_id)
-    .single();
-
-  if (scanErr || !scan) {
-    console.error("generate-report: scan not found", scanErr);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Scan result not found",
-        scores: {},
-        narrative: null
-      }),
-      {
-        status: 404,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-  }
-
-  // Scores come straight from the scan metrics blob
-  const scores = scan.metrics?.scores || {};
-
-  // 2. Build AI payload
-  const aiPayload = buildPayloadForAI(scan.url, scores, scan.metrics || {});
-
-  // 3. Try to generate Λ i Q narrative
-  let narrative = await generateNarrative(aiPayload);
-
-  // 4. Fallback narrative if AI failed
-  if (!narrative || typeof narrative !== "object") {
-    narrative = buildFallbackNarrative(scan.url, scores);
-  }
-
-  // 5. Upsert into report_data (keyed by report_id)
   try {
-    const { error: saveErr } = await supabase
-      .from("report_data")
-      .upsert(
+    const search = new URL(request.url).searchParams;
+    const report_id = search.get("report_id");
+
+    if (!report_id) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Missing report_id",
+          scores: {},
+          narrative: null
+        }),
         {
-          report_id: scan.report_id,
-          url: scan.url,
-          scores,
-          narrative,
-          updated_at: new Date().toISOString()
-        },
-        {
-          onConflict: "report_id"
+          status: 400,
+          headers: { "Content-Type": "application/json" }
         }
       );
-
-    if (saveErr) {
-      console.error("generate-report: saveErr", saveErr);
-      // We still return success so the UI can render the narrative
     }
+
+    // 1. Load scan result by report_id
+    const { data: scan, error: scanErr } = await supabase
+      .from("scan_results")
+      .select("*")
+      .eq("report_id", report_id)
+      .single();
+
+    if (scanErr || !scan) {
+      console.error("generate-report: scan not found", scanErr);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Scan result not found",
+          scores: {},
+          narrative: null
+        }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+
+    const scores = scan.metrics?.scores || {};
+    const aiPayload = buildPayloadForAI(scan.url, scores, scan.metrics || {});
+
+    // 2. Try Λ i Q narrative, fall back if needed
+    let narrative = await generateNarrative(aiPayload);
+    if (!narrative || typeof narrative !== "object") {
+      narrative = buildFallbackNarrative(scan.url, scores);
+    }
+
+    // 3. Return to front-end
+    return new Response(
+      JSON.stringify({
+        success: true,
+        scores,
+        narrative
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
   } catch (err) {
-    console.error("generate-report: unexpected upsert error", err);
+    console.error("generate-report: unexpected error", err);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Internal error",
+        scores: {},
+        narrative: null
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
   }
-
-  // 6. Final success response for /assets/js/report-data.js
-  return new Response(
-    JSON.stringify({
-      success: true,
-      scores,
-      narrative
-    }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    }
-  );
 };
