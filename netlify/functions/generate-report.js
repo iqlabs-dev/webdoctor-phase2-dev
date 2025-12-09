@@ -1,215 +1,217 @@
-// netlify/functions/get-report.js
-//
-// Returns full HTML for a single iQWEB report.
-//
-// Called from: /report.html?report_id=59  (or ?id=59)
-//
-// - Reads scan data from Supabase (scan_results table)
-// - Loads report_template.html from netlify/functions
-// - Replaces {{placeholders}} with real values
-// - Responds with text/html
+// /netlify/functions/generate-report.js
+import { createClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
 
-const fs = require("fs");
-const path = require("path");
-const { createClient } = require("@supabase/supabase-js");
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-// --- Supabase (server-side key) ---
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// --------------------------
+// Λ i Q — SYSTEM PROMPT
+// --------------------------
+const systemMessage = `
+You are Λ i Q — a senior web-performance and UX analyst.
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn(
-    "[get-report] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars."
-  );
-}
+You analyse ONLY the metrics provided.
+You do NOT guess about:
+- frameworks
+- CMS
+- hosting
+- plugins
+- server-side technologies
+- anything not shown in the data
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+Tone:
+- professional
+- concise
+- founder-friendly
+- evidence-based
+- contextual and opinionated
 
-// Helper: safely format date (NZ)
-function formatNZDate(iso) {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
+You receive data shaped roughly like:
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = d.toLocaleString("en-NZ", { month: "short" }).toUpperCase();
-  const year = d.getFullYear();
-
-  return `${day} ${month} ${year}`; // DD MMM YYYY
-}
-
-function safe(val, fallback = "—") {
-  return val === null || val === undefined || val === ""
-    ? fallback
-    : String(val);
-}
-
-exports.handler = async (event) => {
-  try {
-    const qs = event.queryStringParameters || {};
-    const reportId = qs.report_id || qs.id;
-
-    if (!reportId) {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "text/plain" },
-        body: "Missing report_id in query string.",
-      };
-    }
-
-    console.log("[get-report] Incoming reportId:", reportId);
-
-    // --- 1) Load scan record from Supabase (scan_results) ---
-    let record = null;
-
-    // First try numeric id (this is what your dashboard uses: 55, 56, 57…)
-    const numericId = Number(reportId);
-    if (!Number.isNaN(numericId)) {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("*")
-        .eq("id", numericId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[get-report] Supabase error (by id):", error);
-        return {
-          statusCode: 500,
-          headers: { "Content-Type": "text/plain" },
-          body: "Error loading report from database.",
-        };
-      }
-
-      if (data) {
-        record = data;
-        console.log("[get-report] Found record by numeric id");
-      }
-    }
-
-    // Optional: if later you start using string report_id (WDR-YYDDD-####)
-    if (!record) {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("*")
-        .eq("report_id", reportId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[get-report] Supabase error (by report_id):", error);
-      }
-
-      if (data) {
-        record = data;
-        console.log("[get-report] Found record by report_id");
-      }
-    }
-
-    if (!record) {
-      console.warn("[get-report] No record found for id:", reportId);
-      return {
-        statusCode: 404,
-        headers: { "Content-Type": "text/plain" },
-        body: "Report not found.",
-      };
-    }
-
-    // --- 2) Load the HTML template file (single canonical name) ---
-    const templatePath = path.join(__dirname, "report_template.html");
-    console.log("[get-report] Using template path:", templatePath);
-
-    let templateHtml;
-    try {
-      templateHtml = fs.readFileSync(templatePath, "utf8");
-    } catch (tplErr) {
-      console.error("[get-report] Could not read template:", tplErr);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain" },
-        body: "Report template missing on server.",
-      };
-    }
-
-    // --- 3) Prepare values for placeholders (match template names) ---
-    const formattedDate = formatNZDate(record.created_at);
-
-    const replacements = {
-      "{{url}}": safe(record.url),
-      "{{date}}": safe(formattedDate),
-      "{{id}}": safe(record.report_id || record.id),
-
-      // Overall headline
-      "{{summary}}": safe(
-        record.summary_text,
-        "The site is scan-ready. Fix the highlighted issues first, then re-scan to confirm improvements."
-      ),
-      "{{score}}": safe(record.score_overall),
-
-      // Nine signal scores
-      "{{perf_score}}": safe(record.score_performance),
-      "{{seo_score}}": safe(record.score_seo),
-      "{{structure_score}}": safe(record.score_structure),
-      "{{mobile_score}}": safe(record.score_mobile),
-      "{{security_score}}": safe(record.score_security),
-      "{{accessibility_score}}": safe(record.score_accessibility),
-      "{{domain_score}}": safe(record.score_domain),
-      "{{content_score}}": safe(record.score_content),
-      "{{summary_signal_score}}": safe(record.score_summary_signal),
-
-      // Key metrics
-      "{{metric_page_load_value}}": safe(record.metric_page_load_value),
-      "{{metric_page_load_goal}}": safe(record.metric_page_load_goal),
-      "{{metric_mobile_status}}": safe(record.metric_mobile_status),
-      "{{metric_mobile_text}}": safe(record.metric_mobile_text),
-      "{{metric_cwv_status}}": safe(record.metric_cwv_status),
-      "{{metric_cwv_text}}": safe(record.metric_cwv_text),
-
-      // Top issues
-      "{{issue1_severity}}": safe(record.issue1_severity),
-      "{{issue1_title}}": safe(record.issue1_title),
-      "{{issue1_text}}": safe(record.issue1_text),
-
-      "{{issue2_severity}}": safe(record.issue2_severity),
-      "{{issue2_title}}": safe(record.issue2_title),
-      "{{issue2_text}}": safe(record.issue2_text),
-
-      "{{issue3_severity}}": safe(record.issue3_severity),
-      "{{issue3_title}}": safe(record.issue3_title),
-      "{{issue3_text}}": safe(record.issue3_text),
-
-      // Recommendations
-      "{{recommendation1}}": safe(record.recommendation1),
-      "{{recommendation2}}": safe(record.recommendation2),
-      "{{recommendation3}}": safe(record.recommendation3),
-      "{{recommendation4}}": safe(record.recommendation4),
-
-      // Notes at the bottom
-      "{{notes}}": safe(
-        record.notes,
-        "No critical failures detected. Address red issues first, then re-scan to confirm improvements."
-      ),
-    };
-
-    // --- 4) Apply replacements ---
-    let html = templateHtml;
-    for (const [token, value] of Object.entries(replacements)) {
-      html = html.split(token).join(value);
-    }
-
-    // --- 5) Respond with HTML for /report.html to display ---
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-      body: html,
-    };
-  } catch (err) {
-    console.error("[get-report] Unexpected error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "text/plain" },
-      body: "Unexpected server error.",
-    };
+{
+  "url": "...",
+  "scores": {
+    "performance": 0-100,
+    "seo": 0-100,
+    "structure_semantics": 0-100,
+    "mobile_experience": 0-100,
+    "security_trust": 0-100,
+    "accessibility": 0-100,
+    "domain_hosting": 0-100,
+    "content_signals": 0-100,
+    "overall": 0-100
+  },
+  "metrics": {
+    "basic_checks": { ... },
+    "psi_mobile": {
+      "strategy": "mobile",
+      "scores": { "performance": ..., "seo": ..., "accessibility": ..., "best_practices": ... },
+      "coreWebVitals": { "FCP": ..., "LCP": ..., "CLS": ..., "INP": ... }
+    },
+    "psi_desktop": { ... },
+    "http_status": 200,
+    "response_ok": true
   }
+}
+
+Some fields may be null or missing — that is normal.
+Base all comments and opinions STRICTLY on the data you can see.
+
+Output *strict JSON*:
+
+{
+  "overall_summary": "",
+  "performance_comment": "",
+  "seo_comment": "",
+  "structure_comment": "",
+  "mobile_comment": "",
+  "security_comment": "",
+  "accessibility_comment": "",
+  "domain_comment": "",
+  "content_comment": "",
+  "top_issues": [
+    {
+      "title": "",
+      "impact": "",
+      "why_it_matters": "",
+      "suggested_fix": "",
+      "priority": 1
+    }
+  ],
+  "fix_sequence": ["", "", ""],
+  "closing_notes": ""
+}
+`;
+
+// --------------------------
+// Build the AI Payload
+// --------------------------
+function buildPayloadForAI(url, scores, metrics = {}) {
+  const basic = metrics.basic_checks || {};
+  const psiMobile = metrics.psi_mobile || null;
+  const psiDesktop = metrics.psi_desktop || null;
+
+  return {
+    url,
+    scores,
+    metrics: {
+      http_status: metrics.http_status ?? null,
+      response_ok: metrics.response_ok ?? null,
+      basic_checks: basic,
+      psi_mobile: psiMobile,
+      psi_desktop: psiDesktop
+    }
+  };
+}
+
+// --------------------------
+// OpenAI Narrative Generator
+// --------------------------
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+async function generateNarrative(aiPayload) {
+  try {
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4.1',
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: JSON.stringify(aiPayload) }
+      ]
+    });
+
+    return JSON.parse(completion.choices[0].message.content);
+  } catch (err) {
+    console.error('Narrative Engine Error:', err);
+    return null;
+  }
+}
+
+// --------------------------
+// MAIN HANDLER
+// --------------------------
+export default async (request) => {
+  const { report_id } = Object.fromEntries(new URL(request.url).searchParams);
+
+  if (!report_id) {
+    return new Response(
+      JSON.stringify({ success: false, message: 'Missing report_id' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 1. Load scan results for this report
+  const { data: scan, error: scanErr } = await supabase
+    .from('scan_results')
+    .select('*')
+    .eq('report_id', report_id)
+    .single();
+
+  if (scanErr || !scan) {
+    console.error('Scan lookup error:', scanErr);
+    return new Response(
+      JSON.stringify({ success: false, message: 'Scan result not found' }),
+      { status: 404, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // 2. Work out scores object (prefer new metrics.scores)
+  const scores =
+    (scan.metrics && scan.metrics.scores) ||
+    {
+      // fallback so older rows still work
+      performance: scan.score_overall ?? null,
+      seo: scan.score_overall ?? null,
+      structure_semantics: scan.score_overall ?? null,
+      mobile_experience: scan.score_overall ?? null,
+      security_trust: scan.score_overall ?? null,
+      accessibility: scan.score_overall ?? null,
+      domain_hosting: scan.score_overall ?? null,
+      content_signals: scan.score_overall ?? null,
+      overall: scan.score_overall ?? null
+    };
+
+  // 3. Build AI payload from new metrics structure
+  const aiPayload = buildPayloadForAI(scan.url, scores, scan.metrics || {});
+
+  // 4. Generate narrative using Λ i Q
+  const narrative = await generateNarrative(aiPayload);
+
+  // 5. Save (or update) in report_data
+  const { error: saveErr } = await supabase
+    .from('report_data')
+    .upsert(
+      {
+        report_id: scan.report_id,
+        url: scan.url,
+        scores,
+        narrative,
+        created_at: new Date().toISOString()
+      },
+      { onConflict: 'report_id' }
+    );
+
+  if (saveErr) {
+    console.error('report_data upsert error:', saveErr);
+    return new Response(
+      JSON.stringify({ success: false, message: 'Failed to save narrative' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      report_id: scan.report_id,
+      url: scan.url,
+      scores,
+      narrative
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
 };
