@@ -39,7 +39,9 @@ async function loadReportData() {
   }
 
   const scores = data.scores || {};
-  const narrative = data.narrative || {};
+const narrative = data.narrative || {};
+if (!narrative || typeof narrative !== "object") return;
+
 
   // --- Scores ---
   if (typeof scores.performance === "number") {

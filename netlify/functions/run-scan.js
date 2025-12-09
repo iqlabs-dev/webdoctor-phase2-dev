@@ -325,10 +325,13 @@ export default async (request, context) => {
     http_status: httpStatus,
     response_ok: responseOk,
     error: errorText,
+    https,                 // <--- add this line
     basic_checks: basicMetrics,
     psi_mobile: psiMobile,
-    scores
+    psi_desktop: psiDesktop,
+    scores                 // 9-signal scores live here
   };
+
 
   // ---- Store in scan_results ----
   const reportId = makeReportId('WEB');
