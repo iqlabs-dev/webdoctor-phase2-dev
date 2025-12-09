@@ -371,26 +371,28 @@ export default async (request, context) => {
     error: errorText,
     basic_checks: basicMetrics,
     psi_mobile: psiMobile,
-    psi_desktop: psiDesktop
+    psi_desktop: psiDesktop,
+    scores          // <-- 9-signal scores live inside metrics JSON
   };
+
 
   // ---- Store in scan_results ----
   const reportId = makeReportId('WEB');
 
-  const { data, error } = await supabase
+    const { data, error } = await supabase
     .from('scan_results')
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
-      score_overall: overallScore, // legacy column
-      scores,                      // structured 9-signal scores
-      metrics: storedMetrics,
+      score_overall: overallScore, // legacy column for now
+      metrics: storedMetrics,      // includes scores + PSI + basic checks
       report_id: reportId,
       scan_time_ms: scanTimeMs
     })
     .select()
     .single();
+
 
   if (error) {
     console.error('Supabase insert error:', error);
