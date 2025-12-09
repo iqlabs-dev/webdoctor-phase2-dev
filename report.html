@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report — v5.0</title>
+  <title>iQWEB Website Report — v5.1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!--
     iQWEB WEBSITE REPORT TEMPLATE
-    Version: 5.0 (Production)
+    Version: 5.1 (Section 0 header layout updated)
     Notes:
     - Designed for HTML → PDF export (DocRaptor or similar).
     - Dark mode is for on-screen viewing only; print/PDF is forced to light.
-    - Dynamic values are injected via {{mustache_style}} placeholders.
+    - Dynamic values are injected via data-field attributes + report-data.js.
   -->
 
   <!-- Fonts -->
@@ -77,9 +77,26 @@
 
     .wd-header-meta-row {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
+      flex-direction: column;
+      gap: 10px;
       margin-top: 18px;
+    }
+
+    /* New compact row for Date / ID / Score */
+    .wd-meta-row-compact {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .wd-meta-row-compact .wd-meta-pill {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    /* Optional: make website pill stretch full width nicely */
+    .wd-meta-pill-full {
+      width: 100%;
     }
 
     /* ---------- HEADER BAR + TOGGLE ---------- */
@@ -665,18 +682,28 @@
           <button class="wd-theme-toggle" id="themeToggle" type="button">— Λ —</button>
         </div>
 
+        <!-- UPDATED META LAYOUT -->
         <div class="wd-header-meta-row">
-          <div class="wd-meta-pill">
+          <!-- Website gets full-width pill -->
+          <div class="wd-meta-pill wd-meta-pill-full">
             <span class="wd-meta-label">Website</span>
             <span class="wd-meta-value" data-field="website-url">https://placeholder.example/</span>
           </div>
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report Date</span>
-            <span class="wd-meta-value" data-field="report-date">01 JAN 2025</span>
-          </div>
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report ID</span>
-            <span class="wd-meta-value" data-field="report-id">WEB-2025XXX-00000</span>
+
+          <!-- Compact row: Date | Report ID | Overall Score -->
+          <div class="wd-meta-row-compact">
+            <div class="wd-meta-pill">
+              <span class="wd-meta-label">Report Date</span>
+              <span class="wd-meta-value" data-field="report-date">01 JAN 2025</span>
+            </div>
+            <div class="wd-meta-pill">
+              <span class="wd-meta-label">Report ID</span>
+              <span class="wd-meta-value" data-field="report-id">WEB-2025XXX-00000</span>
+            </div>
+            <div class="wd-meta-pill">
+              <span class="wd-meta-label">Overall Score</span>
+              <span class="wd-meta-value" data-field="score-overall">— / 100</span>
+            </div>
           </div>
         </div>
       </section>
@@ -735,8 +762,9 @@
         </section>
 
         <!-- SIGNAL DIAGNOSTICS – NINE CHECKS -->
-        <section class="wd-section wd-diag-section">
-          <h3 class="wd-section-title">Signal Diagnostics — Nine Checks in This Scan</h3>
+ <section class="wd-section wd-diag-section">
+  <h3 class="wd-section-title">Λ i Q™ Delivery — Nine Signals</h3>
+
 
           <!-- 1. Performance -->
           <article class="wd-diag-block">
@@ -921,24 +949,23 @@
           <div class="wd-metrics-grid">
             <article class="wd-metric-card">
               <h4 class="wd-metric-label">Page Load</h4>
-              <div class="wd-metric-main" data-field="metric-page-load-main">—</div>
-              <div class="wd-metric-sub" data-field="metric-page-load-sub">Goal: —</div>
+              <div class="wd-metric-main">—</div>
+              <div class="wd-metric-sub">Goal: —</div>
             </article>
 
             <article class="wd-metric-card">
               <h4 class="wd-metric-label">Mobile Usability</h4>
-              <div class="wd-metric-main" data-field="metric-mobile-main">—</div>
-              <div class="wd-metric-sub" data-field="metric-mobile-sub">—</div>
+              <div class="wd-metric-main">—</div>
+              <div class="wd-metric-sub">—</div>
             </article>
 
             <article class="wd-metric-card">
               <h4 class="wd-metric-label">Core Web Vitals</h4>
-              <div class="wd-metric-main" data-field="metric-cwv-main">—</div>
-              <div class="wd-metric-sub" data-field="metric-cwv-sub">—</div>
+              <div class="wd-metric-main">—</div>
+              <div class="wd-metric-sub">—</div>
             </article>
           </div>
         </section>
-
 
         <!-- TOP ISSUES -->
         <section class="wd-section">
