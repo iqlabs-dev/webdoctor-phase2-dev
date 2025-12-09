@@ -1,6 +1,6 @@
 // /netlify/functions/generate-report.js
-import { createClient } from '@supabase/supabase-js';
-import OpenAI from 'openai';
+import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -13,7 +13,7 @@ const supabase = createClient(
 const systemMessage = `
 You are Λ i Q — a senior web-performance and UX analyst.
 
-You analyse ONLY the metrics provided.
+You analyse ONLY the metrics provided. 
 You do NOT guess about:
 - frameworks
 - CMS
@@ -29,39 +29,7 @@ Tone:
 - evidence-based
 - contextual and opinionated
 
-You receive data shaped roughly like:
-
-{
-  "url": "...",
-  "scores": {
-    "performance": 0-100,
-    "seo": 0-100,
-    "structure_semantics": 0-100,
-    "mobile_experience": 0-100,
-    "security_trust": 0-100,
-    "accessibility": 0-100,
-    "domain_hosting": 0-100,
-    "content_signals": 0-100,
-    "overall": 0-100
-  },
-  "metrics": {
-    "basic_checks": { ... },
-    "psi_mobile": {
-      "strategy": "mobile",
-      "scores": { "performance": ..., "seo": ..., "accessibility": ..., "best_practices": ... },
-      "coreWebVitals": { "FCP": ..., "LCP": ..., "CLS": ..., "INP": ... }
-    },
-    "psi_desktop": { ... },
-    "http_status": 200,
-    "response_ok": true
-  }
-}
-
-Some fields may be null or missing — that is normal.
-Base all comments and opinions STRICTLY on the data you can see.
-
 Output *strict JSON*:
-
 {
   "overall_summary": "",
   "performance_comment": "",
@@ -90,19 +58,32 @@ Output *strict JSON*:
 // Build the AI Payload
 // --------------------------
 function buildPayloadForAI(url, scores, metrics = {}) {
-  const basic = metrics.basic_checks || {};
   const psiMobile = metrics.psi_mobile || null;
   const psiDesktop = metrics.psi_desktop || null;
+  const basic = metrics.basic_checks || {};
 
   return {
     url,
     scores,
     metrics: {
-      http_status: metrics.http_status ?? null,
-      response_ok: metrics.response_ok ?? null,
-      basic_checks: basic,
-      psi_mobile: psiMobile,
-      psi_desktop: psiDesktop
+      psi: {
+        mobile_scores: psiMobile?.scores || null,
+        desktop_scores: psiDesktop?.scores || null,
+        core_web_vitals_mobile: psiMobile?.coreWebVitals || null,
+        core_web_vitals_desktop: psiDesktop?.coreWebVitals || null
+      },
+      html: {
+        title_present: basic.title_present ?? null,
+        meta_description_present: basic.meta_description_present ?? null,
+        h1_present: basic.h1_present ?? null,
+        viewport_present: basic.viewport_present ?? null,
+        html_length: basic.html_length ?? null
+      },
+      domain: {
+        https: url.toLowerCase().startsWith("https://"),
+        http_status: metrics.http_status ?? null,
+        response_ok: metrics.response_ok ?? null
+      }
     }
   };
 }
@@ -117,18 +98,34 @@ const client = new OpenAI({
 async function generateNarrative(aiPayload) {
   try {
     const completion = await client.chat.completions.create({
-      model: 'gpt-4.1',
-      response_format: { type: 'json_object' },
+      model: "gpt-4.1",
+      response_format: { type: "json_object" },
       messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: JSON.stringify(aiPayload) }
+        { role: "system", content: systemMessage },
+        { role: "user", content: JSON.stringify(aiPayload) }
       ]
     });
 
     return JSON.parse(completion.choices[0].message.content);
   } catch (err) {
-    console.error('Narrative Engine Error:', err);
-    return null;
+    console.error("Narrative Engine Error:", err);
+
+    // Safe fallback so the report still renders
+    return {
+      overall_summary:
+        "This report was generated successfully, but the narrative engine was unavailable. The scores still reflect real scan data; detailed written insights will be added in a future run.",
+      performance_comment: "",
+      seo_comment: "",
+      structure_comment: "",
+      mobile_comment: "",
+      security_comment: "",
+      accessibility_comment: "",
+      domain_comment: "",
+      content_comment: "",
+      top_issues: [],
+      fix_sequence: [],
+      closing_notes: ""
+    };
   }
 }
 
@@ -136,82 +133,48 @@ async function generateNarrative(aiPayload) {
 // MAIN HANDLER
 // --------------------------
 export default async (request) => {
-  const { report_id } = Object.fromEntries(new URL(request.url).searchParams);
+  const { searchParams } = new URL(request.url);
+  const report_id = searchParams.get("report_id");
 
   if (!report_id) {
     return new Response(
-      JSON.stringify({ success: false, message: 'Missing report_id' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, message: "Missing report_id" }),
+      { status: 400 }
     );
   }
 
-  // 1. Load scan results for this report
+  // 1. Load scan row
   const { data: scan, error: scanErr } = await supabase
-    .from('scan_results')
-    .select('*')
-    .eq('report_id', report_id)
+    .from("scan_results")
+    .select("*")
+    .eq("report_id", report_id)
     .single();
 
   if (scanErr || !scan) {
-    console.error('Scan lookup error:', scanErr);
+    console.error("Scan lookup error:", scanErr);
     return new Response(
-      JSON.stringify({ success: false, message: 'Scan result not found' }),
-      { status: 404, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, message: "Scan result not found" }),
+      { status: 404 }
     );
   }
 
-  // 2. Work out scores object (prefer new metrics.scores)
-  const scores =
-    (scan.metrics && scan.metrics.scores) ||
-    {
-      // fallback so older rows still work
-      performance: scan.score_overall ?? null,
-      seo: scan.score_overall ?? null,
-      structure_semantics: scan.score_overall ?? null,
-      mobile_experience: scan.score_overall ?? null,
-      security_trust: scan.score_overall ?? null,
-      accessibility: scan.score_overall ?? null,
-      domain_hosting: scan.score_overall ?? null,
-      content_signals: scan.score_overall ?? null,
-      overall: scan.score_overall ?? null
-    };
+  const scores = scan.metrics?.scores || {};
 
-  // 3. Build AI payload from new metrics structure
+  // 2. Build AI payload
   const aiPayload = buildPayloadForAI(scan.url, scores, scan.metrics || {});
 
-  // 4. Generate narrative using Λ i Q
+  // 3. Generate narrative using Λ i Q
   const narrative = await generateNarrative(aiPayload);
 
-  // 5. Save (or update) in report_data
-  const { error: saveErr } = await supabase
-    .from('report_data')
-    .upsert(
-      {
-        report_id: scan.report_id,
-        url: scan.url,
-        scores,
-        narrative,
-        created_at: new Date().toISOString()
-      },
-      { onConflict: 'report_id' }
-    );
-
-  if (saveErr) {
-    console.error('report_data upsert error:', saveErr);
-    return new Response(
-      JSON.stringify({ success: false, message: 'Failed to save narrative' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
+  // 4. Return scores + narrative directly (no DB write)
   return new Response(
     JSON.stringify({
       success: true,
-      report_id: scan.report_id,
+      report_id,
       url: scan.url,
       scores,
       narrative
     }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
+    { status: 200, headers: { "Content-Type": "application/json" } }
   );
 };
