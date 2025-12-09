@@ -8,8 +8,19 @@ function setText(field, text) {
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
+  if (!reportId) return;
 
-  const resp = await fetch(`/.netlify/functions/get-report-data?report_id=${reportId}`);
+  // 1) Ensure narrative exists (safe to call repeatedly)
+  try {
+    await fetch(`/.netlify/functions/generate-report?report_id=${reportId}`);
+  } catch (e) {
+    console.error("Error triggering narrative generation:", e);
+  }
+
+  // 2) Now fetch combined scores + narrative
+  const resp = await fetch(
+    `/.netlify/functions/get-report-data?report_id=${reportId}`
+  );
   const data = await resp.json();
   if (!data.success) return;
 
@@ -40,12 +51,14 @@ async function loadReportData() {
 
   // Fix sequence
   const list = document.querySelector('[data-field="fix-sequence"]');
-  list.innerHTML = "";
-  narrative.fix_sequence.forEach(step => {
-    const li = document.createElement("li");
-    li.textContent = step;
-    list.appendChild(li);
-  });
+  if (list) {
+    list.innerHTML = "";
+    narrative.fix_sequence.forEach(step => {
+      const li = document.createElement("li");
+      li.textContent = step;
+      list.appendChild(li);
+    });
+  }
 
   setText("closing-notes", narrative.closing_notes);
 }
