@@ -84,8 +84,22 @@ function computeFallbackScore(responseOk, metrics = {}) {
   return Math.min(100, Math.max(0, score));
 }
 
-// Call Google PageSpeed Insights for a given strategy
-async function runPsi(url, strategy = 'mobile') {
+// ---- Tiny helper to timeout fetch calls (e.g. PSI) ----
+async function fetchWithTimeout(url, ms = 7000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+}
+
+// Call Google PageSpeed Insights (MOBILE ONLY for now)
+async function runPsiMobile(url) {
   if (!psiApiKey) {
     throw new Error('PSI_API_KEY not configured');
   }
@@ -93,22 +107,19 @@ async function runPsi(url, strategy = 'mobile') {
   const apiUrl =
     'https://www.googleapis.com/pagespeedonline/v5/runPagespeed' +
     `?url=${encodeURIComponent(url)}` +
-    `&strategy=${strategy}` +
+    `&strategy=mobile` +
     '&category=PERFORMANCE' +
     '&category=SEO' +
     '&category=ACCESSIBILITY' +
     '&category=BEST_PRACTICES' +
     `&key=${encodeURIComponent(psiApiKey)}`;
 
-  const res = await fetch(apiUrl);
+  const res = await fetchWithTimeout(apiUrl, 7000); // hard 7s timeout
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(
-      `PSI ${strategy} call failed: ${res.status} ${res.statusText} ${text.slice(
-        0,
-        200
-      )}`
+      `PSI mobile call failed: ${res.status} ${res.statusText} ${text.slice(0, 200)}`
     );
   }
 
@@ -150,68 +161,27 @@ async function runPsi(url, strategy = 'mobile') {
   };
 
   return {
-    strategy,
+    strategy: 'mobile',
     scores,
     coreWebVitals
   };
 }
 
-// Compute blended + 9-signal scores
-function computeSignalScores({ psiMobile, psiDesktop, basicMetrics, https }) {
+// Compute 9-signal scores (mobile-only variant)
+function computeSignalScores({ psiMobile, basicMetrics, https }) {
   const mobilePerf = psiMobile?.scores.performance ?? null;
-  const desktopPerf = psiDesktop?.scores.performance ?? null;
 
-  // 70% mobile, 30% desktop blend
-  let blendedPerformance = null;
-  if (mobilePerf != null && desktopPerf != null) {
-    blendedPerformance = Math.round(mobilePerf * 0.7 + desktopPerf * 0.3);
-  } else if (mobilePerf != null) {
-    blendedPerformance = mobilePerf;
-  } else if (desktopPerf != null) {
-    blendedPerformance = desktopPerf;
-  }
+  // Performance = mobile performance
+  const blendedPerformance = mobilePerf;
 
-  // SEO – average mobile / desktop when available
-  const seoParts = [];
-  if (psiMobile?.scores.seo != null) seoParts.push(psiMobile.scores.seo);
-  if (psiDesktop?.scores.seo != null) seoParts.push(psiDesktop.scores.seo);
-  const seo =
-    seoParts.length > 0
-      ? Math.round(seoParts.reduce((a, b) => a + b, 0) / seoParts.length)
-      : null;
+  const seo = psiMobile?.scores.seo ?? null;
+  const accessibility = psiMobile?.scores.accessibility ?? null;
+  const structure = psiMobile?.scores.best_practices ?? null;
+  const mobileExperience = mobilePerf ?? null;
 
-  // Accessibility – average when available
-  const a11yParts = [];
-  if (psiMobile?.scores.accessibility != null)
-    a11yParts.push(psiMobile.scores.accessibility);
-  if (psiDesktop?.scores.accessibility != null)
-    a11yParts.push(psiDesktop.scores.accessibility);
-  const accessibility =
-    a11yParts.length > 0
-      ? Math.round(a11yParts.reduce((a, b) => a + b, 0) / a11yParts.length)
-      : null;
-
-  // Structure & Semantics – Lighthouse best-practices
-  const bestParts = [];
-  if (psiMobile?.scores.best_practices != null)
-    bestParts.push(psiMobile.scores.best_practices);
-  if (psiDesktop?.scores.best_practices != null)
-    bestParts.push(psiDesktop.scores.best_practices);
-  const structure =
-    bestParts.length > 0
-      ? Math.round(bestParts.reduce((a, b) => a + b, 0) / bestParts.length)
-      : null;
-
-  // Mobile experience – mobile performance specifically
-  const mobileExperience = mobilePerf ?? blendedPerformance ?? null;
-
-  // Very simple security score for now – we’ll deepen this later
   const securityTrust = https ? 80 : 0;
-
-  // Domain & hosting – piggyback on security for now
   const domainHosting = https ? 80 : 0;
 
-  // Content signals – lean on SEO but gently penalise missing basics
   let contentSignals = seo ?? null;
   if (contentSignals != null && !basicMetrics.title_present) {
     contentSignals -= 10;
@@ -227,7 +197,6 @@ function computeSignalScores({ psiMobile, psiDesktop, basicMetrics, https }) {
     if (contentSignals > 100) contentSignals = 100;
   }
 
-  // Overall score – weighted blend of the 8 signals
   function nz(v, fallback = 0) {
     return typeof v === 'number' && !Number.isNaN(v) ? v : fallback;
   }
@@ -292,7 +261,6 @@ export default async (request, context) => {
 
   const rawUrl = body?.url;
   const userId = body?.userId || body?.user_id || null;
-
   const url = normaliseUrl(rawUrl);
 
   if (!url) {
@@ -311,10 +279,8 @@ export default async (request, context) => {
 
   try {
     const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-
     httpStatus = res.status;
     responseOk = res.ok;
-
     const html = await res.text();
     basicMetrics = basicHtmlChecks(html);
   } catch (err) {
@@ -325,30 +291,21 @@ export default async (request, context) => {
   const scanTimeMs = Date.now() - start;
   const https = url.toLowerCase().startsWith('https://');
 
-  // ---- PageSpeed Insights (mobile + desktop) ----
+  // ---- PageSpeed Insights (MOBILE ONLY) ----
   let psiMobile = null;
-  let psiDesktop = null;
-
   try {
-    psiMobile = await runPsi(url, 'mobile');
+    psiMobile = await runPsiMobile(url);
   } catch (err) {
     console.error('PSI mobile error:', err);
-  }
-
-  try {
-    psiDesktop = await runPsi(url, 'desktop');
-  } catch (err) {
-    console.error('PSI desktop error:', err);
   }
 
   let scores;
   let overallScore;
 
-  if (psiMobile || psiDesktop) {
-    scores = computeSignalScores({ psiMobile, psiDesktop, basicMetrics, https });
+  if (psiMobile) {
+    scores = computeSignalScores({ psiMobile, basicMetrics, https });
     overallScore = scores.overall;
   } else {
-    // Fallback path if PSI is completely unavailable
     const fallback = computeFallbackScore(responseOk, basicMetrics);
     scores = {
       performance: fallback,
@@ -364,35 +321,31 @@ export default async (request, context) => {
     overallScore = fallback;
   }
 
-  // Compose metrics blob we store for later analysis / “Top Issues”
   const storedMetrics = {
     http_status: httpStatus,
     response_ok: responseOk,
     error: errorText,
     basic_checks: basicMetrics,
     psi_mobile: psiMobile,
-    psi_desktop: psiDesktop,
-    scores          // <-- 9-signal scores live inside metrics JSON
+    scores
   };
-
 
   // ---- Store in scan_results ----
   const reportId = makeReportId('WEB');
 
-    const { data, error } = await supabase
+  const { data, error } = await supabase
     .from('scan_results')
     .insert({
       user_id: userId,
       url,
       status: responseOk ? 'completed' : 'error',
-      score_overall: overallScore, // legacy column for now
-      metrics: storedMetrics,      // includes scores + PSI + basic checkss
+      score_overall: overallScore,
+      metrics: storedMetrics,
       report_id: reportId,
       scan_time_ms: scanTimeMs
     })
     .select()
     .single();
-
 
   if (error) {
     console.error('Supabase insert error:', error);
