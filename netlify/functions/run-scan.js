@@ -386,7 +386,7 @@ export default async (request, context) => {
       url,
       status: responseOk ? 'completed' : 'error',
       score_overall: overallScore, // legacy column for now
-      metrics: storedMetrics,      // includes scores + PSI + basic checks
+      metrics: storedMetrics,      // includes scores + PSI + basic checkss
       report_id: reportId,
       scan_time_ms: scanTimeMs
     })
