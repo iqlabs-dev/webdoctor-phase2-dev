@@ -2,16 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report — v5.0</title>
+  <title>iQWEB Website Report — v5.1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!--
     iQWEB WEBSITE REPORT TEMPLATE
-    Version: 5.0 (Production)
-    Notes:
-    - Designed for HTML → PDF export (DocRaptor or similar).
-    - Dark mode is for on-screen viewing only; print/PDF is forced to light.
-    - Dynamic values are injected via {{mustache_style}} placeholders.
+    Version: 5.1 (Narrative-ready)
+    - Layout matches current design
+    - Narrative + scores are wired via data-field attributes
   -->
 
   <!-- Fonts -->
@@ -93,7 +91,7 @@
     .wd-theme-toggle {
       background: none;
       border: none;
-      color: #0f172a;  /* iQWEB ink */
+      color: #0f172a;
       font-family: inherit;
       font-size: 0.9rem;
       font-weight: 400;
@@ -131,7 +129,7 @@
       }
     }
 
-    /* ---------- DARK MODE: LAYERED CARD SYSTEM ---------- */
+    /* ---------- DARK MODE ---------- */
     body.wd-dark {
       background: #030712;
       color: #e5e4e2;
@@ -153,10 +151,9 @@
     }
 
     body.wd-dark .wd-section,
-    body.wd-dark .wd-score-panel,
     body.wd-dark .wd-diag-block,
     body.wd-dark .wd-metric-card,
-    body.wd-dark .wd-diagnostic-card,
+    body.wd-dark .wd-issue-card,
     body.wd-dark .wd-signal-card {
       background: #0b1220;
       border-color: #1f2937;
@@ -175,7 +172,6 @@
 
     body.wd-dark .wd-header-title,
     body.wd-dark .wd-section-title,
-    body.wd-dark .wd-score-header h2,
     body.wd-dark .wd-metric-label,
     body.wd-dark .wd-issue-title,
     body.wd-dark .wd-diag-title,
@@ -184,7 +180,6 @@
     }
 
     body.wd-dark .wd-score-summary,
-    body.wd-dark .wd-diagnostic-insight,
     body.wd-dark .wd-diag-summary,
     body.wd-dark .wd-diag-list,
     body.wd-dark .wd-metric-main,
@@ -236,13 +231,11 @@
       }
 
       body .wd-section,
-      body .wd-score-panel,
       body .wd-diag-block,
       body .wd-metric-card,
       body .wd-issue-card,
       body .wd-signal-card,
       body.wd-dark .wd-section,
-      body.wd-dark .wd-score-panel,
       body.wd-dark .wd-diag-block,
       body.wd-dark .wd-metric-card,
       body.wd-dark .wd-issue-card,
@@ -261,7 +254,6 @@
       }
 
       body .wd-score-summary,
-      body .wd-diagnostic-insight,
       body .wd-diag-summary,
       body .wd-diag-list,
       body .wd-metric-main,
@@ -272,30 +264,9 @@
       body .wd-footer,
       body .wd-meta-label,
       body .wd-meta-value,
-      body .wd-signal-text,
-      body.wd-dark .wd-score-summary,
-      body.wd-dark .wd-diagnostic-insight,
-      body.wd-dark .wd-diag-summary,
-      body.wd-dark .wd-diag-list,
-      body.wd-dark .wd-metric-main,
-      body.wd-dark .wd-metric-sub,
-      body.wd-dark .wd-issue-text,
-      body.wd-dark .wd-reco-list,
-      body.wd-dark .wd-notes-body,
-      body.wd-dark .wd-footer,
-      body.wd-dark .wd-meta-label,
-      body.wd-dark .wd-meta-value,
-      body.wd-dark .wd-signal-text {
+      body .wd-signal-text {
         color: #111827 !important;
       }
-    }
-
-    body.wd-dark .wd-score-summary {
-      color: #e2e8f0 !important;
-    }
-
-    body.wd-dark .wd-section-title {
-      color: #f9fafb !important;
     }
 
     .wd-meta-pill {
@@ -382,55 +353,6 @@
       font-weight: 500;
     }
 
-    .wd-diagnostic-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-top: 14px;
-    }
-
-    .wd-diagnostic-card {
-      flex: 1 1 0;
-      min-width: 0;
-      padding: 14px 16px 16px;
-      border-radius: 16px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-    }
-
-    @media (max-width: 768px) {
-      .wd-diagnostic-card {
-        flex-basis: 100%;
-      }
-    }
-
-    .wd-diagnostic-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-
-    .wd-diagnostic-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #0f172a;
-    }
-
-    .wd-diagnostic-score {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #0b9380;
-    }
-
-    .wd-diagnostic-insight {
-      margin: 0;
-      font-size: 0.8rem;
-      line-height: 1.4;
-      color: #4b5563;
-    }
-
     .wd-diag-section {
       margin-top: 24px;
     }
@@ -469,21 +391,6 @@
       background: #f0fdfa;
       border: 1px solid #14b8a6;
       color: #0f172a;
-    }
-
-    .wd-score-pill-good {
-      background: rgba(22, 163, 74, 0.14);
-      border-color: rgba(34, 197, 94, 0.7);
-    }
-
-    .wd-score-pill-ok {
-      background: rgba(234, 179, 8, 0.16);
-      border-color: rgba(250, 204, 21, 0.7);
-    }
-
-    .wd-score-pill-poor {
-      background: rgba(248, 113, 113, 0.16);
-      border-color: rgba(248, 113, 113, 0.8);
     }
 
     .wd-diag-summary {
@@ -534,51 +441,6 @@
       font-size: 0.86rem;
       color: #475569;
       margin-top: 2px;
-    }
-
-    .wd-signal-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    @media (max-width: 768px) {
-      .wd-signal-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .wd-signal-card {
-      padding: 12px 13px 12px;
-      border-radius: 12px;
-      border: 1px solid #fee2e2;
-      background: #fff7f7;
-    }
-
-    .wd-signal-name-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-
-    .wd-signal-name {
-      font-size: 0.86rem;
-      font-weight: 600;
-      color: #7f1d1d;
-    }
-
-    .wd-signal-score {
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: #7f1d1d;
-    }
-
-    .wd-signal-text {
-      margin: 0;
-      font-size: 0.8rem;
-      color: #7f1d1d;
     }
 
     .wd-issues-grid {
@@ -643,7 +505,7 @@
       padding: 0 !important;
     }
 
-    /* ---------- UPDATED FOOTER ---------- */
+    /* ---------- FOOTER ---------- */
     .wd-footer {
       margin-top: 18px;
       padding-top: 14px;
@@ -689,63 +551,31 @@
             <span class="wd-meta-label">Report ID</span>
             <span class="wd-meta-value" data-field="report-id">WEB-2025XXX-00000</span>
           </div>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Overall Score</span>
+            <span class="wd-meta-value" data-field="score-overall">— / 100</span>
+          </div>
         </div>
       </section>
 
       <!-- BODY -->
       <section class="wd-report-body">
 
-        <!-- OVERALL SCORE PANEL -->
+        <!-- OVERALL NARRATIVE PANEL -->
         <section class="wd-score-panel">
           <header class="wd-score-header">
             <h2>Overall Website Health</h2>
-            <p class="wd-score-summary">
-              Fix the highlighted issues first, then re-scan to confirm improvements.
+            <p class="wd-score-summary" data-field="overall-summary">
+              This site shows solid fundamentals with room for meaningful improvements in performance
+              and mobile responsiveness. Search signals are stable but constrained by thin descriptions
+              and inconsistent semantic structure. Overall, the user experience is functional but not
+              yet optimised for speed, clarity, or modern ranking expectations. The fixes identified
+              here will elevate both usability and search reliability.
             </p>
           </header>
-
-          <div class="wd-diagnostic-grid">
-
-            <!-- Performance snapshot -->
-            <article class="wd-diagnostic-card">
-              <header class="wd-diagnostic-header">
-                <span class="wd-diagnostic-name">Performance</span>
-                <span class="wd-diagnostic-score" data-field="score-performance">— / 100</span>
-              </header>
-              <p class="wd-diagnostic-insight">
-                How quickly key pages load and respond under real-world
-                conditions.
-              </p>
-            </article>
-
-            <!-- SEO snapshot -->
-            <article class="wd-diagnostic-card">
-              <header class="wd-diagnostic-header">
-                <span class="wd-diagnostic-name">SEO</span>
-                <span class="wd-diagnostic-score" data-field="score-seo">— / 100</span>
-              </header>
-              <p class="wd-diagnostic-insight">
-                Whether search engines can reliably discover and understand your
-                site.
-              </p>
-            </article>
-
-            <!-- Overall snapshot -->
-            <article class="wd-diagnostic-card">
-              <header class="wd-diagnostic-header">
-                <span class="wd-diagnostic-name">Overall Score</span>
-                <span class="wd-diagnostic-score" data-field="score-overall">— / 100</span>
-              </header>
-              <p class="wd-diagnostic-insight">
-                A combined signal that reflects how well your core systems are
-                working together.
-              </p>
-            </article>
-
-          </div>
         </section>
 
-        <!-- SIGNAL DIAGNOSTICS – NINE CHECKS -->
+        <!-- Λ i Q™ DELIVERY – NINE SIGNALS -->
         <section class="wd-section wd-diag-section">
           <h3 class="wd-section-title">Λ i Q™ Delivery — Nine Signals</h3>
 
@@ -753,22 +583,16 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Performance</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-performance">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              Pages are usable, but heavy assets or blocking scripts may delay
-              the first meaningful view, especially for mobile and slower
-              connections.
+            <p class="wd-diag-summary" data-field="performance-comment">
+              Pages are usable, but heavy assets or blocking scripts may delay the first meaningful
+              view, especially for mobile and slower connections.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>
-                Load and render time for key templates (home, service, blog).
-              </li>
-              <li>
-                Impact of image weight, third-party scripts, and hosting
-                response time.
-              </li>
+              <li>Load and render time for key templates (home, service, blog).</li>
+              <li>Impact of image weight, third-party scripts, and hosting response time.</li>
             </ul>
           </article>
 
@@ -776,21 +600,16 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">SEO Foundations</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-seo">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              Important pages can be indexed, but titles, descriptions, and
-              headings may not consistently align with the terms you most want
-              to rank for.
+            <p class="wd-diag-summary" data-field="seo-comment">
+              Important pages can be indexed, but titles, descriptions, and headings may not
+              consistently align with the terms you most want to rank for.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>
-                Titles, meta descriptions, canonical tags, and robots rules.
-              </li>
-              <li>
-                Whether core pages send clear search-friendly relevance signals.
-              </li>
+              <li>Titles, meta descriptions, canonical tags, and robots rules.</li>
+              <li>Whether core pages send clear search-friendly relevance signals.</li>
             </ul>
           </article>
 
@@ -798,12 +617,11 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Structure &amp; Semantics</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-structure">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              The HTML scaffolding is mostly sound, with occasional heading
-              hierarchy issues or missing landmarks that can confuse crawlers
-              and assistive tech.
+            <p class="wd-diag-summary" data-field="structure-comment">
+              The HTML scaffolding is mostly sound, with occasional heading hierarchy issues or
+              missing landmarks that can confuse crawlers and assistive tech.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -816,17 +634,15 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Mobile Experience</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-mobile">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              The site is generally usable on phones, but spacing, tap targets,
-              or text sizing may still slow users down on smaller screens.
+            <p class="wd-diag-summary" data-field="mobile-comment">
+              The site is generally usable on phones, but spacing, tap targets, or text sizing may
+              still slow users down on smaller screens.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>
-                Responsive layout, viewport configuration, and content scaling.
-              </li>
+              <li>Responsive layout, viewport configuration, and content scaling.</li>
               <li>Tap target sizing, spacing, and mobile legibility.</li>
             </ul>
           </article>
@@ -835,19 +651,16 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Security &amp; Trust</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-security">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              Core safeguards are in place, but some HTTP or header
-              configurations may reduce protection against downgrade or
-              clickjacking risks.
+            <p class="wd-diag-summary" data-field="security-comment">
+              Core safeguards are in place, but some HTTP or header configurations may reduce
+              protection against downgrade or clickjacking risks.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
               <li>HTTPS behaviour, redirects, and certificate basics.</li>
-              <li>
-                Key security headers (HSTS, CSP, X-Frame-Options, etc.).
-              </li>
+              <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.).</li>
             </ul>
           </article>
 
@@ -855,12 +668,11 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Accessibility</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-accessibility">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              The site is partially accessible, but contrast, labels, or
-              structural cues may still make it harder for assistive
-              technologies to interpret the page.
+            <p class="wd-diag-summary" data-field="accessibility-comment">
+              The site is partially accessible, but contrast, labels, or structural cues may still
+              make it harder for assistive technologies to interpret the page.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -873,11 +685,11 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Domain &amp; Hosting Health</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-domain">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              Under-the-hood signals like DNS, SSL, and email setup are checked
-              for stability, deliverability, and platform consistency.
+            <p class="wd-diag-summary" data-field="domain-comment">
+              Under-the-hood signals like DNS, SSL, and email setup are checked for stability,
+              deliverability, and platform consistency.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
@@ -890,42 +702,38 @@
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Content Signals</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-content">— / 100</div>
             </header>
-            <p class="wd-diag-summary">
-              Page titles, descriptions, and on-page content are reviewed for
-              clarity, relevance, and how well they signal what matters most.
+            <p class="wd-diag-summary" data-field="content-comment">
+              Page titles, descriptions, and on-page content are reviewed for clarity, relevance,
+              and how well they signal what matters most.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
-              <li>
-                Title and description length, duplication, and gaps.
-              </li>
+              <li>Title and description length, duplication, and gaps.</li>
               <li>Thin or near-empty pages and social preview hygiene.</li>
             </ul>
           </article>
 
-          <!-- 9. Summary & Fix Plan -->
+          <!-- 9. Summary & Fix Plan score (optional score for the combined narrative) -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Summary &amp; Fix Plan</div>
-              <div class="wd-score-pill">— / 100</div>
+              <div class="wd-score-pill" data-field="score-summary">— / 100</div>
             </header>
             <p class="wd-diag-summary">
-              All signals are combined into a plain-language action plan that
-              ranks what to fix first and what can safely wait until later.
+              All signals are combined into a plain-language action plan that ranks what to fix
+              first and what can safely wait until later.
             </p>
             <div class="wd-section-subtitle">What this covers</div>
             <ul class="wd-diag-list">
               <li>Executive summary in human language.</li>
-              <li>
-                Ranked “Top Issues” and the Recommended Fix Sequence.
-              </li>
+              <li>Ranked “Top Issues” and the Recommended Fix Sequence.</li>
             </ul>
           </article>
         </section>
 
-        <!-- KEY METRICS -->
+        <!-- KEY METRICS (for future wiring – currently manual / static) -->
         <section class="wd-section">
           <h3 class="wd-section-title">Key Metrics</h3>
 
@@ -950,70 +758,65 @@
           </div>
         </section>
 
-        <!-- TOP ISSUES -->
+        <!-- TOP ISSUES (Λ i Q narrative) -->
         <section class="wd-section">
           <h3 class="wd-section-title">Top Issues Detected</h3>
           <div class="wd-issues-grid">
+            <!-- Issue 0 -->
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
-              <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">
-                The live report currently focuses on high-level scores. Detailed
-                issues will be surfaced in a future update.
+              <h4 class="wd-issue-title" data-field="issue-0-title">Issue title</h4>
+              <p class="wd-issue-text" data-field="issue-0-impact">
+                Brief impact summary.
+              </p>
+              <p class="wd-issue-text" data-field="issue-0-fix">
+                Suggested fix will appear here.
               </p>
             </article>
 
+            <!-- Issue 1 -->
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
-              <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">
-                Use this report as a directional guide while we finish wiring
-                deeper diagnostics to live data.
+              <h4 class="wd-issue-title" data-field="issue-1-title">Issue title</h4>
+              <p class="wd-issue-text" data-field="issue-1-impact">
+                Brief impact summary.
+              </p>
+              <p class="wd-issue-text" data-field="issue-1-fix">
+                Suggested fix will appear here.
               </p>
             </article>
 
+            <!-- Issue 2 -->
             <article class="wd-issue-card">
               <div class="wd-issue-badge">ISSUE</div>
-              <h4 class="wd-issue-title">Issue details coming soon</h4>
-              <p class="wd-issue-text">
-                The PDF export will continue to show the full narrative
-                breakdown as the engine evolves.
+              <h4 class="wd-issue-title" data-field="issue-2-title">Issue title</h4>
+              <p class="wd-issue-text" data-field="issue-2-impact">
+                Brief impact summary.
+              </p>
+              <p class="wd-issue-text" data-field="issue-2-fix">
+                Suggested fix will appear here.
               </p>
             </article>
           </div>
         </section>
 
-        <!-- RECOMMENDED FIX SEQUENCE -->
+        <!-- RECOMMENDED FIX SEQUENCE (Λ i Q narrative list) -->
         <section class="wd-section">
           <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-          <ol class="wd-reco-list">
-            <li>
-              Address the highest impact technical issues affecting performance
-              and SEO.
-            </li>
-            <li>
-              Review mobile layout and accessibility basics, especially contrast
-              and tap targets.
-            </li>
-            <li>
-              Refine titles, descriptions, and key content signals on your
-              primary pages.
-            </li>
-            <li>
-              Re-run this scan after changes to confirm improvements and
-              validate stability.
-            </li>
+          <ol class="wd-reco-list" data-field="fix-sequence">
+            <li>Step 1 placeholder (will be replaced by Λ i Q).</li>
+            <li>Step 2 placeholder.</li>
+            <li>Step 3 placeholder.</li>
           </ol>
         </section>
 
-        <!-- SUMMARY -->
+        <!-- SUMMARY & NOTES (Λ i Q closing notes) -->
         <section class="wd-section">
           <h3 class="wd-section-title">Summary &amp; Notes</h3>
-          <div class="wd-notes-body">
-            This live report gives you a snapshot of core website health. Scores
-            and basic diagnostics are driven directly from the latest scan.
-            Deeper narrative analysis and tailored recommendations will expand
-            over future versions of the iQWEB engine.
+          <div class="wd-notes-body" data-field="closing-notes">
+            This live report gives you a snapshot of core website health. Scores and diagnostics are
+            driven directly from the latest scan. Deeper narrative analysis and tailored
+            recommendations will expand over future versions of the iQWEB engine.
           </div>
         </section>
 
@@ -1060,7 +863,7 @@
         try {
           localStorage.setItem(THEME_KEY, next);
         } catch (e) {
-          // ignore storage issues
+          /* ignore */
         }
       });
     })();
