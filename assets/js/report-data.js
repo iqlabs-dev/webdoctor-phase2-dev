@@ -12,25 +12,12 @@ function setText(field, text) {
   }
 }
 
-function formatReportDate(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-  const month = months[d.getUTCMonth()] || "";
-  const year = d.getUTCFullYear();
-
-  return `${day} ${month} ${year}`;
-}
-
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
   if (!reportId) return;
 
-  // Single call: fetch scores + narrative from generate-report
+  // Single call: fetch scores + narrative (+ metrics) from generate-report
   let resp;
   try {
     resp = await fetch(
@@ -60,26 +47,15 @@ async function loadReportData() {
 
   const scores =
     data.scores && typeof data.scores === "object" ? data.scores : {};
+  const metrics =
+    data.metrics && typeof data.metrics === "object" ? data.metrics : {};
+  const psiMobile =
+    metrics.psi_mobile && typeof metrics.psi_mobile === "object"
+      ? metrics.psi_mobile
+      : null;
+
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
-
-  // -----------------------------
-  // Header meta (website, date, ID)
-  // -----------------------------
-  if (data.url) {
-    setText("website-url", data.url);
-  }
-
-  if (data.report_id) {
-    setText("report-id", data.report_id);
-  }
-
-  if (data.created_at) {
-    const prettyDate = formatReportDate(data.created_at);
-    if (prettyDate) {
-      setText("report-date", prettyDate);
-    }
-  }
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -167,6 +143,64 @@ async function loadReportData() {
     const overallText = `${scores.overall} / 100`;
     setText("score-overall", overallText);
     setText("score-overall-header", overallText);
+  }
+
+  // ------------------------------------------------------------------
+  // NEW: Key Metrics – Page Load, Mobile Usability, Core Web Vitals
+  // ------------------------------------------------------------------
+
+  // Simple label mapper for 0–100 scores
+  function scoreToLabel(score) {
+    if (typeof score !== "number" || Number.isNaN(score)) return "No data";
+    if (score >= 90) return "Excellent";
+    if (score >= 80) return "Strong";
+    if (score >= 65) return "Decent, can improve";
+    if (score >= 50) return "Under pressure";
+    return "Needs urgent attention";
+  }
+
+  // Page Load – use performance score
+  if (typeof scores.performance === "number") {
+    setText("metric-page-load", scoreToLabel(scores.performance));
+    setText(
+      "metric-page-load-goal",
+      "Goal: keep this in the Strong or Excellent range."
+    );
+  }
+
+  // Mobile Usability – use mobile_experience score
+  if (typeof scores.mobile_experience === "number") {
+    setText(
+      "metric-mobile-usability",
+      scoreToLabel(scores.mobile_experience)
+    );
+    setText(
+      "metric-mobile-usability-goal",
+      "Goal: ensure mobile experience is Strong or better."
+    );
+  }
+
+  // Core Web Vitals – based on whether PSI returned CWV data
+  const cwv = psiMobile && psiMobile.coreWebVitals ? psiMobile.coreWebVitals : null;
+
+  if (cwv && Object.keys(cwv).length > 0) {
+    setText(
+      "metric-core-web-vitals",
+      "Core Web Vitals data is available for this site."
+    );
+    setText(
+      "metric-core-web-vitals-goal",
+      "Goal: keep Web Vitals in the green range in Google Search Console."
+    );
+  } else {
+    setText(
+      "metric-core-web-vitals",
+      "No real-world Core Web Vitals data was returned yet."
+    );
+    setText(
+      "metric-core-web-vitals-goal",
+      "Goal: monitor Web Vitals once Google has enough traffic data."
+    );
   }
 
   // ------------------------------------------------------------------

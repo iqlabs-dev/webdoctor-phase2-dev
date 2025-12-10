@@ -304,18 +304,17 @@ export default async (request) => {
   }
 
   // --- 4. Return to UI ---
+  // --- 4. Return to UI ---
   return new Response(
     JSON.stringify({
       success: true,
-      // header/meta
-      url: scan.url,
-      report_id: scan.report_id,
-      created_at: scan.created_at,
-      // core payload
       scores,
       narrative,
       narrative_source: narrativeSource,
+      // NEW: expose raw metrics so the UI can show Key Metrics
+      metrics: scan.metrics || null,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 };
+
