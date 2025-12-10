@@ -38,6 +38,9 @@ async function loadReportData() {
     return;
   }
 
+  console.log("Λ i Q narrative source:", data.narrative_source, data);
+
+
   const scores = data.scores || {};
 const narrative = data.narrative || {};
 if (!narrative || typeof narrative !== "object") return;

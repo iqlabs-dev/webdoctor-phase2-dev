@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Service-role client (server only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ---------------------------------------------
@@ -13,7 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function generateNarrativeAI(payload) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.warn("OPENAI_API_KEY not set; skipping AI narrative.");
+    console.warn("OPENAI_API_KEY not set; using fallback narrative.");
     return null;
   }
 
@@ -25,7 +24,7 @@ async function generateNarrativeAI(payload) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini", // adjust if you prefer another model
+        model: "gpt-4.1-mini",        // adjust if you want a different model
         temperature: 0.45,
         max_tokens: 320,
         messages: [
@@ -36,12 +35,13 @@ async function generateNarrativeAI(payload) {
               "You receive numeric scores from 0–100 across several signals:",
               "overall, performance, seo, structure_semantics, mobile_experience,",
               "security_trust, accessibility, domain_hosting, content_signals.",
-              "Write a single concise narrative paragraph (3–6 sentences) describing:",
+              "You may also receive notes about HTTPS and Core Web Vitals.",
+              "Write a single narrative paragraph (3–6 sentences) describing:",
               "overall health in human language (no numbers), key strengths,",
-              "key weaknesses/risks, and what the recommended fixes will focus on.",
-              "Do NOT mention specific scores or numbers.",
+              "key weaknesses or risks, and what the recommended fixes will focus on.",
+              "Do NOT mention specific numeric scores or percent values.",
               "Do NOT invent technologies that are not implied.",
-              "Return plain text only, no bullet points, no headings."
+              "Return plain text only, no headings or bullet points."
             ].join(" "),
           },
           {
@@ -75,7 +75,7 @@ async function generateNarrativeAI(payload) {
 }
 
 // ---------------------------------------------
-// Simple scripted fallback if AI fails
+// Scripted fallback if AI fails completely
 // ---------------------------------------------
 function buildNarrativeFallback(scores) {
   if (!scores || typeof scores.overall !== "number") {
@@ -106,11 +106,13 @@ export default async (request) => {
         message: "Method not allowed",
         scores: {},
         narrative: null,
+        narrative_source: "none",
       }),
       { status: 405, headers: { "Content-Type": "application/json" } }
     );
   }
 
+  // --- Parse report_id from query ---
   let reportId;
   try {
     const url = new URL(request.url);
@@ -123,6 +125,7 @@ export default async (request) => {
         message: "Invalid request URL",
         scores: {},
         narrative: null,
+        narrative_source: "none",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
@@ -135,14 +138,13 @@ export default async (request) => {
         message: "Missing report_id",
         scores: {},
         narrative: null,
+        narrative_source: "none",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  // -----------------------------------------
-  // 1. Load scan_result for this report_id
-  // -----------------------------------------
+  // --- Load scan_results row for this report ---
   const { data: scan, error: scanError } = await supabase
     .from("scan_results")
     .select("id, url, metrics, report_id")
@@ -157,6 +159,7 @@ export default async (request) => {
         message: "Scan result not found",
         scores: {},
         narrative: null,
+        narrative_source: "none",
       }),
       { status: 404, headers: { "Content-Type": "application/json" } }
     );
@@ -166,10 +169,9 @@ export default async (request) => {
   const psiMobile = scan.metrics?.psi_mobile || null;
   const https = scan.metrics?.https ?? null;
 
-  // -----------------------------------------
-  // 2. Try to generate Λ i Q AI narrative
-  // -----------------------------------------
+  // --- 2. Try Λ i Q AI narrative ---
   let overall_summary = null;
+  let narrativeSource = "ai";
 
   try {
     overall_summary = await generateNarrativeAI({
@@ -183,8 +185,9 @@ export default async (request) => {
     console.error("Error during generateNarrativeAI:", err);
   }
 
-  // Fallback if AI failed or not available
+  // If AI failed, use fallback
   if (!overall_summary) {
+    narrativeSource = "fallback";
     overall_summary = buildNarrativeFallback(scores);
   }
 
@@ -203,9 +206,7 @@ export default async (request) => {
     closing_notes: null,
   };
 
-  // -----------------------------------------
-  // 3. Optionally cache narrative in report_data
-  // -----------------------------------------
+  // --- 3. Cache narrative in report_data (best-effort) ---
   try {
     const { error: saveErr } = await supabase.from("report_data").upsert(
       {
@@ -225,14 +226,13 @@ export default async (request) => {
     console.error("Exception during report_data upsert:", err);
   }
 
-  // -----------------------------------------
-  // 4. Return scores + narrative to the UI
-  // -----------------------------------------
+  // --- 4. Return to UI ---
   return new Response(
     JSON.stringify({
       success: true,
       scores,
       narrative,
+      narrative_source: narrativeSource,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
