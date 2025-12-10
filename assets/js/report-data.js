@@ -17,7 +17,7 @@ async function loadReportData() {
   const reportId = params.get("report_id");
   if (!reportId) return;
 
-  // Single call: fetch scores + narrative (+ metrics) from generate-report
+  // Single call: fetch scores + narrative (+ optional metrics) from generate-report
   let resp;
   try {
     resp = await fetch(
@@ -45,17 +45,18 @@ async function loadReportData() {
 
   console.log("Λ i Q narrative source:", data.narrative_source, data);
 
-  const scores =
-    data.scores && typeof data.scores === "object" ? data.scores : {};
-  const metrics =
-    data.metrics && typeof data.metrics === "object" ? data.metrics : {};
-  const psiMobile =
-    metrics.psi_mobile && typeof metrics.psi_mobile === "object"
-      ? metrics.psi_mobile
-      : null;
-
+  const scores = data.scores || {};
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
+
+  // Optional raw metrics – only present if generate-report sends them
+  const metrics = data.metrics || {};
+  const psiMobile = metrics.psi_mobile || {};
+  const cwv =
+    metrics.core_web_vitals ||
+    psiMobile.coreWebVitals ||
+    {};
+  const basicChecks = metrics.basic_checks || {};
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -146,62 +147,63 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // NEW: Key Metrics – Page Load, Mobile Usability, Core Web Vitals
+  // KEY METRICS (Page Load / Mobile / CWV)
   // ------------------------------------------------------------------
 
-  // Simple label mapper for 0–100 scores
-  function scoreToLabel(score) {
-    if (typeof score !== "number" || Number.isNaN(score)) return "No data";
+  function labelFromScore(score) {
+    if (typeof score !== "number") return "No data yet";
     if (score >= 90) return "Excellent";
-    if (score >= 80) return "Strong";
-    if (score >= 65) return "Decent, can improve";
-    if (score >= 50) return "Under pressure";
-    return "Needs urgent attention";
+    if (score >= 75) return "Strong";
+    if (score >= 50) return "Needs improvement";
+    return "Critical";
   }
 
-  // Page Load – use performance score
-  if (typeof scores.performance === "number") {
-    setText("metric-page-load", scoreToLabel(scores.performance));
-    setText(
-      "metric-page-load-goal",
-      "Goal: keep this in the Strong or Excellent range."
-    );
+  // Page Load — based on performance score
+  const pageLoadScore =
+    typeof scores.performance === "number" ? scores.performance : null;
+  const pageLoadLabel = labelFromScore(pageLoadScore);
+  const pageLoadNote =
+    pageLoadScore == null
+      ? "Goal: consistent, fast load behaviour."
+      : "Goal: keep pages feeling fast and stable, even on mobile connections.";
+
+  setText("metric-page-load", pageLoadLabel);
+  setText("metric-page-load-notes", pageLoadNote);
+
+  // Mobile Usability — based on mobile_experience + viewport tag
+  const mobileScore =
+    typeof scores.mobile_experience === "number"
+      ? scores.mobile_experience
+      : pageLoadScore;
+  let mobileLabel = labelFromScore(mobileScore);
+
+  if (!basicChecks.viewport_present) {
+    // If viewport is missing, we bump this down a tier
+    if (mobileLabel === "Excellent") mobileLabel = "Strong";
+    else if (mobileLabel === "Strong") mobileLabel = "Needs improvement";
   }
 
-  // Mobile Usability – use mobile_experience score
-  if (typeof scores.mobile_experience === "number") {
-    setText(
-      "metric-mobile-usability",
-      scoreToLabel(scores.mobile_experience)
-    );
-    setText(
-      "metric-mobile-usability-goal",
-      "Goal: ensure mobile experience is Strong or better."
-    );
-  }
+  const mobileNote = !basicChecks.viewport_present
+    ? "Goal: ensure the layout adapts cleanly on phones (add a proper viewport tag)."
+    : mobileScore == null
+    ? "Goal: confirm the site behaves comfortably on smaller screens."
+    : "Goal: keep interactions smooth and readable on mobile devices.";
 
-  // Core Web Vitals – based on whether PSI returned CWV data
-  const cwv = psiMobile && psiMobile.coreWebVitals ? psiMobile.coreWebVitals : null;
+  setText("metric-mobile", mobileLabel);
+  setText("metric-mobile-notes", mobileNote);
 
-  if (cwv && Object.keys(cwv).length > 0) {
-    setText(
-      "metric-core-web-vitals",
-      "Core Web Vitals data is available for this site."
-    );
-    setText(
-      "metric-core-web-vitals-goal",
-      "Goal: keep Web Vitals in the green range in Google Search Console."
-    );
-  } else {
-    setText(
-      "metric-core-web-vitals",
-      "No real-world Core Web Vitals data was returned yet."
-    );
-    setText(
-      "metric-core-web-vitals-goal",
-      "Goal: monitor Web Vitals once Google has enough traffic data."
-    );
-  }
+  // Core Web Vitals — based on presence of CWV data
+  const hasCwvData =
+    cwv &&
+    (cwv.FCP != null || cwv.LCP != null || cwv.CLS != null || cwv.INP != null);
+
+  const cwvLabel = hasCwvData ? "Tracked" : "Not tracked yet";
+  const cwvNote = hasCwvData
+    ? "Goal: keep Core Web Vitals in a healthy range so pages feel fast and stable."
+    : "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM).";
+
+  setText("metric-cwv", cwvLabel);
+  setText("metric-cwv-notes", cwvNote);
 
   // ------------------------------------------------------------------
   // Narrative hero block + per-signal comments (data-field="")
