@@ -160,6 +160,7 @@ async function generateNarrativeAI(scan) {
 
 // ---------------------------------------------
 // Scripted fallback if AI fails completely
+// (Only overall_summary; everything else blank)
 // ---------------------------------------------
 function buildFallbackNarrative(scores) {
   let overallText;
@@ -246,7 +247,7 @@ export default async (request) => {
   // --- Load scan_results row for this report ---
   const { data: scan, error: scanError } = await supabase
     .from("scan_results")
-    .select("id, url, metrics, report_id")
+    .select("id, url, metrics, report_id, created_at")
     .eq("report_id", reportId)
     .single();
 
@@ -306,6 +307,11 @@ export default async (request) => {
   return new Response(
     JSON.stringify({
       success: true,
+      // header/meta
+      url: scan.url,
+      report_id: scan.report_id,
+      created_at: scan.created_at,
+      // core payload
       scores,
       narrative,
       narrative_source: narrativeSource,

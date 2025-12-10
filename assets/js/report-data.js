@@ -4,13 +4,25 @@ function setText(field, text) {
   const el = document.querySelector(`[data-field="${field}"]`);
   if (!el) return;
 
-  if (text === null || text === undefined) {
+  if (typeof text === "string" && text.trim().length > 0) {
+    el.textContent = text.trim();
+  } else {
+    // AI-only rule: if nothing useful, leave blank
     el.textContent = "";
-    return;
   }
+}
 
-  const str = String(text).trim();
-  el.textContent = str.length > 0 ? str : "";
+function formatReportDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const month = months[d.getUTCMonth()] || "";
+  const year = d.getUTCFullYear();
+
+  return `${day} ${month} ${year}`;
 }
 
 async function loadReportData() {
@@ -46,9 +58,28 @@ async function loadReportData() {
 
   console.log("Λ i Q narrative source:", data.narrative_source, data);
 
-  const scores = data.scores || {};
+  const scores =
+    data.scores && typeof data.scores === "object" ? data.scores : {};
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
+
+  // -----------------------------
+  // Header meta (website, date, ID)
+  // -----------------------------
+  if (data.url) {
+    setText("website-url", data.url);
+  }
+
+  if (data.report_id) {
+    setText("report-id", data.report_id);
+  }
+
+  if (data.created_at) {
+    const prettyDate = formatReportDate(data.created_at);
+    if (prettyDate) {
+      setText("report-date", prettyDate);
+    }
+  }
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
