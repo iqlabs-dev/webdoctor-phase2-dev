@@ -1,259 +1,329 @@
 // /netlify/functions/generate-report.js
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// ---------- helpers ----------
-function nz(v, fallback = 0) {
-  return typeof v === 'number' && !Number.isNaN(v) ? v : fallback;
+// -----------------------------
+// Narrative builder v2.0 (deterministic)
+// -----------------------------
+function bucket(score) {
+  if (score == null || Number.isNaN(score)) return "unknown";
+  if (score >= 90) return "elite";
+  if (score >= 80) return "strong";
+  if (score >= 70) return "solid";
+  if (score >= 60) return "fragile";
+  return "poor";
 }
 
-function clampScore(v) {
-  if (typeof v !== 'number' || Number.isNaN(v)) return null;
-  if (v < 0) return 0;
-  if (v > 100) return 100;
-  return Math.round(v);
-}
-
-function overallLabel(score) {
-  if (score == null) return 'no-score';
-  if (score >= 90) return 'excellent';
-  if (score >= 75) return 'strong';
-  if (score >= 60) return 'solid';
-  if (score >= 45) return 'mixed';
-  return 'weak';
-}
-
-/**
- * Build a deterministic narrative based on scores only.
- * No AI – this is pure logic so it cannot explode.
- */
-function buildDeterministicNarrative(url, scores) {
-  const perf = nz(scores.performance, scores.overall);
-  const seo = nz(scores.seo, scores.overall);
-  const overall = nz(scores.overall, Math.round((perf + seo) / 2));
-
-  const label = overallLabel(overall);
-
-  let opener;
-  switch (label) {
-    case 'excellent':
-      opener =
-        'This site is performing at a very high standard, with fast load behaviour and generally strong search visibility.';
-      break;
-    case 'strong':
-      opener =
-        'This site shows strong fundamentals, with reliable performance and healthy search signals.';
-      break;
-    case 'solid':
-      opener =
-        'This site shows solid fundamentals with room for meaningful improvements in performance and search visibility.';
-      break;
-    case 'mixed':
-      opener =
-        'This site is functional but uneven, with noticeable gaps in performance, structure, or search visibility.';
-      break;
-    case 'weak':
-      opener =
-        'This site is currently under-optimised, with significant issues in performance, mobile usability, or search clarity.';
-      break;
+function labelForKey(key) {
+  switch (key) {
+    case "performance":
+      return "performance and load behaviour";
+    case "seo":
+      return "search clarity and meta structure";
+    case "structure_semantics":
+      return "structure & semantics";
+    case "mobile_experience":
+      return "mobile comfort and tap targets";
+    case "security_trust":
+      return "security & trust signals";
+    case "accessibility":
+      return "accessibility and assistive-tech support";
+    case "domain_hosting":
+      return "domain & hosting health";
+    case "content_signals":
+      return "content signals and on-page messaging";
     default:
-      opener =
-        'This report provides a snapshot of core website health based on the latest scan.';
+      return key;
+  }
+}
+
+function buildNarrativeFromScores({ url, scores = {}, metrics = {} }) {
+  // If we basically have no scores, fall back to a generic message
+  const scoreVals = Object.values(scores || {}).filter(
+    (v) => typeof v === "number" && !Number.isNaN(v)
+  );
+  if (!scoreVals.length) {
+    return {
+      overall_summary:
+        "This report could not load detailed scoring data, so the narrative is limited. Please try re-running the scan, and if the issue persists, check that the site is reachable and not blocking automated checks.",
+      performance_comment:
+        "Performance signals could not be reliably measured for this scan. Re-run the scan or verify that the site responds consistently.",
+      seo_comment:
+        "Search signals could not be fully evaluated. Check that titles, descriptions, and indexing rules are correctly configured.",
+      structure_comment:
+        "Structural and semantic signals were not clearly available. Consider reviewing heading order, landmarks, and HTML validity.",
+      mobile_comment:
+        "Mobile experience could not be fully measured. Verify that the layout is responsive and usable on a range of screen sizes.",
+      security_comment:
+        "Security and trust signals were not fully available. Confirm that HTTPS is enforced and basic security headers are in place.",
+      accessibility_comment:
+        "Accessibility checks were incomplete. A manual review with assistive technologies is recommended.",
+      domain_comment:
+        "Domain and hosting configuration could not be fully read. Verify DNS, SSL, and hosting stability.",
+      content_comment:
+        "Content signals were not clearly measurable. Review titles, descriptions, and on-page messaging for clarity and relevance.",
+      top_issues: [],
+      fix_sequence: [],
+      closing_notes:
+        "Once the site is responding consistently, re-run this scan to generate a full narrative with detailed scores."
+    };
   }
 
-  const perfLine =
-    perf >= 85
-      ? 'Pages load quickly for most users, and key templates remain responsive under normal conditions.'
-      : perf >= 70
-      ? 'Pages are usable, but some assets or scripts may be slowing the first meaningful view, especially on mobile and slower connections.'
-      : perf >= 50
-      ? 'Load times are likely to feel slow on mobile and mid-range devices, particularly on heavier pages.'
-      : 'Load performance is likely to be a major friction point, especially for new visitors and mobile users.';
+  const {
+    performance,
+    seo,
+    structure_semantics,
+    mobile_experience,
+    security_trust,
+    accessibility,
+    domain_hosting,
+    content_signals,
+    overall
+  } = scores;
 
-  const seoLine =
-    seo >= 85
-      ? 'Search engines can reliably discover and understand key pages, with titles and descriptions generally aligned to intent.'
-      : seo >= 70
-      ? 'Search signals are present but could be strengthened by clearer titles, richer descriptions, and more consistent on-page structure.'
-      : seo >= 50
-      ? 'Search signals appear thin or inconsistent, which may limit how well important pages are discovered and ranked.'
-      : 'Search visibility is likely constrained by weak or inconsistent meta data and on-page signals.';
+  const buckets = {
+    performance: bucket(performance),
+    seo: bucket(seo),
+    structure_semantics: bucket(structure_semantics),
+    mobile_experience: bucket(mobile_experience),
+    security_trust: bucket(security_trust),
+    accessibility: bucket(accessibility),
+    domain_hosting: bucket(domain_hosting),
+    content_signals: bucket(content_signals),
+    overall: bucket(overall)
+  };
 
-  const overallSummary = `${opener} ${perfLine} ${seoLine} The recommended fixes in this report focus on improving clarity, speed, and reliability for both users and search systems.`;
-
-  // For now, keep per-section comments simple but distinct.
-  const performanceComment =
-    perf >= 85
-      ? 'Performance is a strength. Focus on preserving current load times as new content and scripts are added.'
-      : perf >= 70
-      ? 'Performance is acceptable, but there are easy wins in script loading, image weight, and caching.'
-      : 'Performance should be treated as a priority area, especially for mobile traffic and first-time visitors.';
-
-  const seoComment =
-    seo >= 85
-      ? 'SEO foundations are strong, with clear, descriptive meta data on key pages.'
-      : seo >= 70
-      ? 'SEO foundations are in place, but titles and descriptions can be sharpened for intent and click-through.'
-      : 'SEO signals need attention. Improve titles, descriptions, and on-page structure for your most important pages first.';
-
-  const structureComment =
-    'Underlying HTML structure is inferred from best-practices checks. Ensuring clean heading hierarchies and landmarks will help both crawlers and assistive technologies.';
-
-  const mobileComment =
-    'Mobile experience is directly influenced by your performance score and layout behaviour. Prioritise above-the-fold clarity and touch-friendly controls.';
-
-  const securityComment =
-    'Security & trust are based on HTTPS behaviour and basic hosting checks. Adding modern security headers will further harden the surface without affecting day-to-day content work.';
-
-  const accessibilityComment =
-    'Accessibility is estimated from contrast and structural patterns. Small changes to contrast, labels, and keyboard behaviour can deliver outsized benefits.';
-
-  const domainComment =
-    'Domain & hosting health appear stable, with consistent responses from the origin. Keep SSL certificates, DNS, and email authentication records in good order.';
-
-  const contentComment =
-    'Content signals are driven by how clearly titles, descriptions, and key page content describe what each page is really for. Sharpen this language on your most important URLs first.';
-
-  const topIssues = [];
-  const fixSequence = [];
-
-  if (perf < 80) {
-    topIssues.push({
-      title: 'Performance can be improved for key templates',
-      impact:
-        'Slower pages increase bounce risk on mobile and can limit the perceived quality of your brand.',
-      suggested_fix:
-        'Optimise images, defer non-critical scripts, and review blocking resources on high-traffic pages.'
-    });
-    fixSequence.push(
-      'Address performance issues on home, service, and landing pages first.'
-    );
+  // --- Overall tone ---
+  let intro;
+  switch (buckets.overall) {
+    case "elite":
+      intro =
+        "This site is operating at an exceptional standard, with very fast load behaviour and strong supporting signals across search, structure, and mobile experience.";
+      break;
+    case "strong":
+      intro =
+        "This site is performing at a high standard, with reliable performance and healthy search signals. Most users experience a fast, stable site under normal conditions.";
+      break;
+    case "solid":
+      intro =
+        "This site shows solid fundamentals with clear room for improvement across key areas such as speed, mobile experience, and search clarity.";
+      break;
+    case "fragile":
+      intro =
+        "This site is working, but several core signals are fragile. Users and search engines are likely to notice slowdowns, structural friction, or unclear messaging.";
+      break;
+    case "poor":
+    default:
+      intro =
+        "This site is currently under-performing across multiple technical and experience signals. Load behaviour, structure, and clarity are likely limiting both user confidence and search performance.";
+      break;
   }
 
-  if (seo < 80) {
-    topIssues.push({
-      title: 'SEO signals are leaving relevance on the table',
-      impact:
-        'Weak or generic meta data makes it harder for search engines to understand which queries your pages should win.',
-      suggested_fix:
-        'Rewrite titles and descriptions for your priority pages with clear intent and value statements.'
-    });
-    fixSequence.push(
-      'Refresh titles and meta descriptions on your highest-value pages.'
-    );
+  // --- Strength & weakness lists ---
+  const strongAreas = [];
+  const weakAreas = [];
+
+  const keys = [
+    "performance",
+    "seo",
+    "structure_semantics",
+    "mobile_experience",
+    "security_trust",
+    "accessibility",
+    "domain_hosting",
+    "content_signals"
+  ];
+
+  for (const key of keys) {
+    const b = buckets[key];
+    if (b === "elite" || b === "strong") {
+      strongAreas.push(labelForKey(key));
+    } else if (b === "fragile" || b === "poor") {
+      weakAreas.push(labelForKey(key));
+    }
   }
 
-  if (!topIssues.length) {
-    topIssues.push({
-      title: 'No critical issues detected from this scan',
-      impact:
-        'The current snapshot suggests a healthy baseline. Future scans may surface more targeted opportunities.',
-      suggested_fix:
-        'Continue monitoring performance and SEO, and apply incremental improvements as your site evolves.'
-    });
+  function listToSentence(list) {
+    if (!list.length) return "";
+    if (list.length === 1) return list[0];
+    const head = list.slice(0, -1).join(", ");
+    const tail = list[list.length - 1];
+    return `${head} and ${tail}`;
   }
 
-  if (!fixSequence.length) {
-    fixSequence.push(
-      'Maintain current performance and SEO hygiene while iterating on content and design.'
-    );
+  let middle = "";
+  if (strongAreas.length) {
+    middle += ` Strengths include ${listToSentence(strongAreas)}.`;
+  }
+  if (weakAreas.length) {
+    middle += ` The main opportunities lie in ${listToSentence(
+      weakAreas
+    )}.`;
   }
 
-  const closingNotes =
-    'This narrative is generated from the current scan results and score profile. Use it as a directional guide: fix the most impactful issues first, re-scan to confirm improvements, and repeat as your site evolves.';
+  if (!weakAreas.length && strongAreas.length) {
+    middle +=
+      " Remaining improvements are mostly about fine-tuning details rather than fixing fundamental issues.";
+  }
+
+  if (!strongAreas.length && weakAreas.length) {
+    middle +=
+      " Addressing these weaknesses will have a noticeable impact on how fast, clear, and trustworthy the site feels.";
+  }
+
+  const closing =
+    "The recommended fixes in this report target the highest-impact issues first so you can improve stability, speed, and search reliability in a measurable way.";
+
+  const overall_summary = `${intro}${middle} ${closing}`.trim();
+
+  // --- Per-signal comments ---
+  function perSignalComment(key, scoreVal) {
+    const b = buckets[key];
+    const label = labelForKey(key);
+
+    if (b === "elite") {
+      return `This area is performing at an elite level. ${label[0].toUpperCase() + label.slice(
+        1
+      )} are unlikely to be a bottleneck right now.`;
+    }
+    if (b === "strong") {
+      return `This area is in good shape, with only minor optimisation headroom. Focus future work here after higher-risk issues are addressed.`;
+    }
+    if (b === "solid") {
+      return `This area is serviceable but not yet tuned for best-in-class performance. Moderately targeted fixes here will improve overall confidence.`;
+    }
+    if (b === "fragile") {
+      return `Signals in this area are fragile. Issues here are likely starting to affect user experience and search systems, and should be prioritised.`;
+    }
+    if (b === "poor") {
+      return `This is one of the weakest areas in the scan. Problems here are likely dragging down both perception and rankings and should be addressed urgently.`;
+    }
+    return `Signals for ${label} could not be fully evaluated, so this area should be reviewed manually.`;
+  }
 
   return {
-    overall_summary: overallSummary,
-    performance_comment: performanceComment,
-    seo_comment: seoComment,
-    structure_comment: structureComment,
-    mobile_comment: mobileComment,
-    security_comment: securityComment,
-    accessibility_comment: accessibilityComment,
-    domain_comment: domainComment,
-    content_comment: contentComment,
-    top_issues: topIssues,
-    fix_sequence: fixSequence,
-    closing_notes: closingNotes
+    overall_summary,
+
+    performance_comment: perSignalComment("performance", performance),
+    seo_comment: perSignalComment("seo", seo),
+    structure_comment: perSignalComment(
+      "structure_semantics",
+      structure_semantics
+    ),
+    mobile_comment: perSignalComment(
+      "mobile_experience",
+      mobile_experience
+    ),
+    security_comment: perSignalComment("security_trust", security_trust),
+    accessibility_comment: perSignalComment(
+      "accessibility",
+      accessibility
+    ),
+    domain_comment: perSignalComment("domain_hosting", domain_hosting),
+    content_comment: perSignalComment(
+      "content_signals",
+      content_signals
+    ),
+
+    top_issues: [],
+    fix_sequence: [],
+    closing_notes:
+      "Once high-priority fixes have been implemented, re-run this scan to confirm improvements and track progress over time."
   };
 }
 
-// ---------- Netlify handler ----------
+// -----------------------------
+// Netlify function handler
+// -----------------------------
 export default async (request, context) => {
-  try {
-    const url = new URL(request.url);
-    const reportId = url.searchParams.get('report_id');
-
-    if (!reportId) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          scores: {},
-          narrative: null,
-          message: 'Missing report_id'
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const { data: scan, error } = await supabase
-      .from('scan_results')
-      .select('id, url, metrics, score_overall, created_at')
-      .eq('report_id', reportId)
-      .single();
-
-    if (error || !scan) {
-      console.error('generate-report: scan lookup error', error);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          scores: {},
-          narrative: null,
-          message: 'Scan not found for this report_id'
-        }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const metrics = scan.metrics || {};
-    const metricScores = metrics.scores || {};
-
-    const performance = clampScore(
-      metricScores.performance ?? scan.score_overall ?? null
-    );
-    const seo = clampScore(metricScores.seo ?? scan.score_overall ?? null);
-    const overall = clampScore(
-      metricScores.overall ??
-        scan.score_overall ??
-        Math.round((nz(performance) + nz(seo)) / 2)
-    );
-
-    const scores = { performance, seo, overall };
-
-    const narrative = buildDeterministicNarrative(scan.url, scores);
-
+  if (request.method !== "GET") {
     return new Response(
-      JSON.stringify({
-        success: true,
-        scores,
-        narrative
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, message: "Method not allowed" }),
+      {
+        status: 405,
+        headers: { "Content-Type": "application/json" }
+      }
     );
-  } catch (err) {
-    console.error('generate-report: unhandled error', err);
+  }
+
+  const urlObj = new URL(request.url);
+  const reportId = urlObj.searchParams.get("report_id");
+
+  if (!reportId) {
+    return new Response(
+      JSON.stringify({ success: false, message: "Missing report_id" }),
+      {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
+
+  // Load the scan row from scan_results
+  const { data: scan, error } = await supabase
+    .from("scan_results")
+    .select("id, url, status, metrics")
+    .eq("report_id", reportId)
+    .single();
+
+  if (error || !scan) {
+    console.error("generate-report: scan lookup error", error);
     return new Response(
       JSON.stringify({
         success: false,
+        message: "Scan not found for this report_id",
         scores: {},
-        narrative: null,
-        message: 'Internal error while generating report'
+        narrative: null
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      {
+        status: 404,
+        headers: { "Content-Type": "application/json" }
+      }
     );
   }
+
+  const metrics = scan.metrics || {};
+  const scores = metrics.scores || {};
+
+  // Build deterministic narrative from scores
+  const narrative = buildNarrativeFromScores({
+    url: scan.url,
+    scores,
+    metrics
+  });
+
+  // Optional: upsert into report_data, but don't fail if this breaks
+  try {
+    await supabase
+      .from("report_data")
+      .upsert(
+        {
+          report_id: reportId,
+          url: scan.url,
+          scores,
+          narrative,
+          created_at: new Date().toISOString()
+        },
+        { onConflict: "report_id" }
+      );
+  } catch (err) {
+    console.error("generate-report: report_data upsert error", err);
+    // carry on; UI still gets the narrative
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      scores,
+      narrative
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    }
+  );
 };
