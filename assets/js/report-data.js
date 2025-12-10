@@ -49,7 +49,7 @@ async function loadReportData() {
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
 
-  // Small helper to safely drop AI text into any selector (for new hooks)
+  // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
     const el = document.querySelector(selector);
     if (!el) return;
@@ -66,7 +66,7 @@ async function loadReportData() {
   console.log("Λ i Q narrative payload:", n);
 
   // ------------------------------------------------------------------
-  // AI narrative → optional [data-ai-*] hooks (if present in HTML)
+  // Optional [data-ai-*] hooks (safe even if not in HTML)
   // ------------------------------------------------------------------
 
   // Top summary
@@ -81,111 +81,3 @@ async function loadReportData() {
   applyAiText(
     "[data-ai-structure]",
     n.structure || n.structureSemantics || n.structure_comment
-  );
-  applyAiText(
-    "[data-ai-mobile]",
-    n.mobile || n.mobileExperience || n.mobile_comment
-  );
-  applyAiText(
-    "[data-ai-security]",
-    n.security || n.securityTrust || n.security_comment
-  );
-  applyAiText(
-    "[data-ai-accessibility]",
-    n.accessibility || n.accessibility_comment
-  );
-  applyAiText(
-    "[data-ai-domain]",
-    n.domain || n.domainHosting || n.domain_comment
-  );
-  applyAiText(
-    "[data-ai-content]",
-    n.content || n.contentSignals || n.content_comment
-  );
-
-  // ------------------------------------------------------------------
-  // Scores
-  // ------------------------------------------------------------------
-
-  if (typeof scores.performance === "number") {
-    setText("score-performance", `${scores.performance} / 100`);
-  }
-  if (typeof scores.seo === "number") {
-    setText("score-seo", `${scores.seo} / 100`);
-  }
-  if (typeof scores.overall === "number") {
-    setText("score-overall", `${scores.overall} / 100`);
-  }
-
-  // ------------------------------------------------------------------
-  // Narrative hero block + per-signal comments (existing data-field=)
-  // Prefer new AI properties, fall back to *_summary / *_comment
-  // ------------------------------------------------------------------
-
-  // Main hero summary
-  setText("overall-summary", n.intro || n.overall_summary || "");
-
-  // Per-signal comments
-  setText(
-    "performance-comment",
-    n.performance || n.performance_comment || ""
-  );
-  setText("seo-comment", n.seo || n.seoFoundations || n.seo_comment || "");
-  setText(
-    "structure-comment",
-    n.structure || n.structureSemantics || n.structure_comment || ""
-  );
-  setText(
-    "mobile-comment",
-    n.mobile || n.mobileExperience || n.mobile_comment || ""
-  );
-  setText(
-    "security-comment",
-    n.security || n.securityTrust || n.security_comment || ""
-  );
-  setText(
-    "accessibility-comment",
-    n.accessibility || n.accessibility_comment || ""
-  );
-  setText(
-    "domain-comment",
-    n.domain || n.domainHosting || n.domain_comment || ""
-  );
-  setText(
-    "content-comment",
-    n.content || n.contentSignals || n.content_comment || ""
-  );
-
-  // ------------------------------------------------------------------
-  // Top issues (if present)
-  // ------------------------------------------------------------------
-  if (Array.isArray(n.top_issues)) {
-    n.top_issues.forEach((issue, idx) => {
-      if (!issue) return;
-      setText(`issue-${idx}-title`, issue.title || "");
-      setText(`issue-${idx}-impact`, issue.impact || "");
-      setText(`issue-${idx}-fix`, issue.suggested_fix || "");
-    });
-  }
-
-  // ------------------------------------------------------------------
-  // Fix sequence list (if placeholder block exists)
-  // ------------------------------------------------------------------
-  const list = document.querySelector('[data-field="fix-sequence"]');
-  if (list && Array.isArray(n.fix_sequence)) {
-    list.innerHTML = "";
-    n.fix_sequence.forEach((step) => {
-      if (!step) return;
-      const li = document.createElement("li");
-      li.textContent = step;
-      list.appendChild(li);
-    });
-  }
-
-  // ------------------------------------------------------------------
-  // Closing notes
-  // ------------------------------------------------------------------
-  setText("closing-notes", n.closing_notes || "");
-}
-
-document.addEventListener("DOMContentLoaded", loadReportData);
