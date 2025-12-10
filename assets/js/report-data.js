@@ -4,12 +4,13 @@ function setText(field, text) {
   const el = document.querySelector(`[data-field="${field}"]`);
   if (!el) return;
 
-  if (typeof text === "string" && text.trim().length > 0) {
-    el.textContent = text.trim();
-  } else {
-    // AI-only rule: if nothing useful, leave blank
+  if (text === null || text === undefined) {
     el.textContent = "";
+    return;
   }
+
+  const str = String(text).trim();
+  el.textContent = str.length > 0 ? str : "";
 }
 
 async function loadReportData() {
@@ -81,3 +82,130 @@ async function loadReportData() {
   applyAiText(
     "[data-ai-structure]",
     n.structure || n.structureSemantics || n.structure_comment
+  );
+  applyAiText(
+    "[data-ai-mobile]",
+    n.mobile || n.mobileExperience || n.mobile_comment
+  );
+  applyAiText(
+    "[data-ai-security]",
+    n.security || n.securityTrust || n.security_comment
+  );
+  applyAiText(
+    "[data-ai-accessibility]",
+    n.accessibility || n.accessibility_comment
+  );
+  applyAiText(
+    "[data-ai-domain]",
+    n.domain || n.domainHosting || n.domain_comment
+  );
+  applyAiText(
+    "[data-ai-content]",
+    n.content || n.contentSignals || n.content_comment
+  );
+
+  // ------------------------------------------------------------------
+  // Scores (all nine signals + header overall)
+  // ------------------------------------------------------------------
+
+  if (typeof scores.performance === "number") {
+    setText("score-performance", `${scores.performance} / 100`);
+  }
+  if (typeof scores.seo === "number") {
+    setText("score-seo", `${scores.seo} / 100`);
+  }
+  if (typeof scores.structure_semantics === "number") {
+    setText("score-structure", `${scores.structure_semantics} / 100`);
+  }
+  if (typeof scores.mobile_experience === "number") {
+    setText("score-mobile", `${scores.mobile_experience} / 100`);
+  }
+  if (typeof scores.security_trust === "number") {
+    setText("score-security", `${scores.security_trust} / 100`);
+  }
+  if (typeof scores.accessibility === "number") {
+    setText("score-accessibility", `${scores.accessibility} / 100`);
+  }
+  if (typeof scores.domain_hosting === "number") {
+    setText("score-domain", `${scores.domain_hosting} / 100`);
+  }
+  if (typeof scores.content_signals === "number") {
+    setText("score-content", `${scores.content_signals} / 100`);
+  }
+  if (typeof scores.overall === "number") {
+    const overallText = `${scores.overall} / 100`;
+    setText("score-overall", overallText);
+    setText("score-overall-header", overallText);
+  }
+
+  // ------------------------------------------------------------------
+  // Narrative hero block + per-signal comments (data-field="")
+  // ------------------------------------------------------------------
+
+  // Main hero summary
+  setText("overall-summary", n.intro || n.overall_summary || "");
+
+  // Per-signal comments
+  setText(
+    "performance-comment",
+    n.performance || n.performance_comment || ""
+  );
+  setText("seo-comment", n.seo || n.seoFoundations || n.seo_comment || "");
+  setText(
+    "structure-comment",
+    n.structure || n.structureSemantics || n.structure_comment || ""
+  );
+  setText(
+    "mobile-comment",
+    n.mobile || n.mobileExperience || n.mobile_comment || ""
+  );
+  setText(
+    "security-comment",
+    n.security || n.securityTrust || n.security_comment || ""
+  );
+  setText(
+    "accessibility-comment",
+    n.accessibility || n.accessibility_comment || ""
+  );
+  setText(
+    "domain-comment",
+    n.domain || n.domainHosting || n.domain_comment || ""
+  );
+  setText(
+    "content-comment",
+    n.content || n.contentSignals || n.content_comment || ""
+  );
+
+  // ------------------------------------------------------------------
+  // Top issues (if present)
+  // ------------------------------------------------------------------
+  if (Array.isArray(n.top_issues)) {
+    n.top_issues.forEach((issue, idx) => {
+      if (!issue) return;
+      setText(`issue-${idx}-title`, issue.title || "");
+      setText(`issue-${idx}-impact`, issue.impact || "");
+      setText(`issue-${idx}-fix`, issue.suggested_fix || "");
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Fix sequence list (if placeholder block exists)
+  // ------------------------------------------------------------------
+  const list = document.querySelector('[data-field="fix-sequence"]');
+  if (list && Array.isArray(n.fix_sequence)) {
+    list.innerHTML = "";
+    n.fix_sequence.forEach((step) => {
+      if (!step) return;
+      const li = document.createElement("li");
+      li.textContent = step;
+      list.appendChild(li);
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Closing notes
+  // ------------------------------------------------------------------
+  setText("closing-notes", n.closing_notes || "");
+}
+
+document.addEventListener("DOMContentLoaded", loadReportData);
