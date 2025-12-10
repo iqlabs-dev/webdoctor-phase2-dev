@@ -4,326 +4,236 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Service-role client (server only)
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// -----------------------------
-// Narrative builder v2.0 (deterministic)
-// -----------------------------
-function bucket(score) {
-  if (score == null || Number.isNaN(score)) return "unknown";
-  if (score >= 90) return "elite";
-  if (score >= 80) return "strong";
-  if (score >= 70) return "solid";
-  if (score >= 60) return "fragile";
-  return "poor";
+// ---------------------------------------------
+// Λ i Q — AI narrative generator (OpenAI)
+// ---------------------------------------------
+async function generateNarrativeAI(payload) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("OPENAI_API_KEY not set; skipping AI narrative.");
+    return null;
+  }
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4.1-mini", // adjust if you prefer another model
+        temperature: 0.45,
+        max_tokens: 320,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "You are Λ i Q, an AI website diagnostics specialist.",
+              "You receive numeric scores from 0–100 across several signals:",
+              "overall, performance, seo, structure_semantics, mobile_experience,",
+              "security_trust, accessibility, domain_hosting, content_signals.",
+              "Write a single concise narrative paragraph (3–6 sentences) describing:",
+              "overall health in human language (no numbers), key strengths,",
+              "key weaknesses/risks, and what the recommended fixes will focus on.",
+              "Do NOT mention specific scores or numbers.",
+              "Do NOT invent technologies that are not implied.",
+              "Return plain text only, no bullet points, no headings."
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: JSON.stringify(payload),
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error(
+        "OpenAI narrative error:",
+        res.status,
+        res.statusText,
+        txt.slice(0, 300)
+      );
+      return null;
+    }
+
+    const json = await res.json();
+    const content = json?.choices?.[0]?.message?.content?.trim();
+    if (!content) return null;
+
+    return content;
+  } catch (err) {
+    console.error("OpenAI narrative exception:", err);
+    return null;
+  }
 }
 
-function labelForKey(key) {
-  switch (key) {
-    case "performance":
-      return "performance and load behaviour";
-    case "seo":
-      return "search clarity and meta structure";
-    case "structure_semantics":
-      return "structure & semantics";
-    case "mobile_experience":
-      return "mobile comfort and tap targets";
-    case "security_trust":
-      return "security & trust signals";
-    case "accessibility":
-      return "accessibility and assistive-tech support";
-    case "domain_hosting":
-      return "domain & hosting health";
-    case "content_signals":
-      return "content signals and on-page messaging";
-    default:
-      return key;
+// ---------------------------------------------
+// Simple scripted fallback if AI fails
+// ---------------------------------------------
+function buildNarrativeFallback(scores) {
+  if (!scores || typeof scores.overall !== "number") {
+    return "This site shows a generally stable foundation. Once live diagnostics are fully available, this summary will expand to highlight specific strengths, risks, and the most important fixes.";
   }
+
+  const overall = scores.overall;
+
+  if (overall >= 85) {
+    return "This site is operating at an exceptional standard, with very fast load behaviour and strong supporting signals across search, structure, mobile experience, and security. Most remaining work is about fine-tuning details rather than fixing core issues, allowing you to focus on stability, resilience, and incremental gains.";
+  }
+
+  if (overall >= 65) {
+    return "This site shows solid fundamentals with reliable performance and healthy search signals, but there is still clear room to improve speed, clarity, and mobile comfort. The most important fixes will target high-impact areas first so that users and search systems experience the site more consistently.";
+  }
+
+  return "This site is currently under-optimised compared to modern expectations. Several key signals are holding back performance, search clarity, and overall reliability. Addressing the issues highlighted in this report will deliver noticeable gains in how quickly the site loads, how clearly it communicates intent, and how confidently users and search engines can trust it.";
 }
 
-function buildNarrativeFromScores({ url, scores = {}, metrics = {} }) {
-  // If we basically have no scores, fall back to a generic message
-  const scoreVals = Object.values(scores || {}).filter(
-    (v) => typeof v === "number" && !Number.isNaN(v)
-  );
-  if (!scoreVals.length) {
-    return {
-      overall_summary:
-        "This report could not load detailed scoring data, so the narrative is limited. Please try re-running the scan, and if the issue persists, check that the site is reachable and not blocking automated checks.",
-      performance_comment:
-        "Performance signals could not be reliably measured for this scan. Re-run the scan or verify that the site responds consistently.",
-      seo_comment:
-        "Search signals could not be fully evaluated. Check that titles, descriptions, and indexing rules are correctly configured.",
-      structure_comment:
-        "Structural and semantic signals were not clearly available. Consider reviewing heading order, landmarks, and HTML validity.",
-      mobile_comment:
-        "Mobile experience could not be fully measured. Verify that the layout is responsive and usable on a range of screen sizes.",
-      security_comment:
-        "Security and trust signals were not fully available. Confirm that HTTPS is enforced and basic security headers are in place.",
-      accessibility_comment:
-        "Accessibility checks were incomplete. A manual review with assistive technologies is recommended.",
-      domain_comment:
-        "Domain and hosting configuration could not be fully read. Verify DNS, SSL, and hosting stability.",
-      content_comment:
-        "Content signals were not clearly measurable. Review titles, descriptions, and on-page messaging for clarity and relevance.",
-      top_issues: [],
-      fix_sequence: [],
-      closing_notes:
-        "Once the site is responding consistently, re-run this scan to generate a full narrative with detailed scores."
-    };
-  }
-
-  const {
-    performance,
-    seo,
-    structure_semantics,
-    mobile_experience,
-    security_trust,
-    accessibility,
-    domain_hosting,
-    content_signals,
-    overall
-  } = scores;
-
-  const buckets = {
-    performance: bucket(performance),
-    seo: bucket(seo),
-    structure_semantics: bucket(structure_semantics),
-    mobile_experience: bucket(mobile_experience),
-    security_trust: bucket(security_trust),
-    accessibility: bucket(accessibility),
-    domain_hosting: bucket(domain_hosting),
-    content_signals: bucket(content_signals),
-    overall: bucket(overall)
-  };
-
-  // --- Overall tone ---
-  let intro;
-  switch (buckets.overall) {
-    case "elite":
-      intro =
-        "This site is operating at an exceptional standard, with very fast load behaviour and strong supporting signals across search, structure, and mobile experience.";
-      break;
-    case "strong":
-      intro =
-        "This site is performing at a high standard, with reliable performance and healthy search signals. Most users experience a fast, stable site under normal conditions.";
-      break;
-    case "solid":
-      intro =
-        "This site shows solid fundamentals with clear room for improvement across key areas such as speed, mobile experience, and search clarity.";
-      break;
-    case "fragile":
-      intro =
-        "This site is working, but several core signals are fragile. Users and search engines are likely to notice slowdowns, structural friction, or unclear messaging.";
-      break;
-    case "poor":
-    default:
-      intro =
-        "This site is currently under-performing across multiple technical and experience signals. Load behaviour, structure, and clarity are likely limiting both user confidence and search performance.";
-      break;
-  }
-
-  // --- Strength & weakness lists ---
-  const strongAreas = [];
-  const weakAreas = [];
-
-  const keys = [
-    "performance",
-    "seo",
-    "structure_semantics",
-    "mobile_experience",
-    "security_trust",
-    "accessibility",
-    "domain_hosting",
-    "content_signals"
-  ];
-
-  for (const key of keys) {
-    const b = buckets[key];
-    if (b === "elite" || b === "strong") {
-      strongAreas.push(labelForKey(key));
-    } else if (b === "fragile" || b === "poor") {
-      weakAreas.push(labelForKey(key));
-    }
-  }
-
-  function listToSentence(list) {
-    if (!list.length) return "";
-    if (list.length === 1) return list[0];
-    const head = list.slice(0, -1).join(", ");
-    const tail = list[list.length - 1];
-    return `${head} and ${tail}`;
-  }
-
-  let middle = "";
-  if (strongAreas.length) {
-    middle += ` Strengths include ${listToSentence(strongAreas)}.`;
-  }
-  if (weakAreas.length) {
-    middle += ` The main opportunities lie in ${listToSentence(
-      weakAreas
-    )}.`;
-  }
-
-  if (!weakAreas.length && strongAreas.length) {
-    middle +=
-      " Remaining improvements are mostly about fine-tuning details rather than fixing fundamental issues.";
-  }
-
-  if (!strongAreas.length && weakAreas.length) {
-    middle +=
-      " Addressing these weaknesses will have a noticeable impact on how fast, clear, and trustworthy the site feels.";
-  }
-
-  const closing =
-    "The recommended fixes in this report target the highest-impact issues first so you can improve stability, speed, and search reliability in a measurable way.";
-
-  const overall_summary = `${intro}${middle} ${closing}`.trim();
-
-  // --- Per-signal comments ---
-  function perSignalComment(key, scoreVal) {
-    const b = buckets[key];
-    const label = labelForKey(key);
-
-    if (b === "elite") {
-      return `This area is performing at an elite level. ${label[0].toUpperCase() + label.slice(
-        1
-      )} are unlikely to be a bottleneck right now.`;
-    }
-    if (b === "strong") {
-      return `This area is in good shape, with only minor optimisation headroom. Focus future work here after higher-risk issues are addressed.`;
-    }
-    if (b === "solid") {
-      return `This area is serviceable but not yet tuned for best-in-class performance. Moderately targeted fixes here will improve overall confidence.`;
-    }
-    if (b === "fragile") {
-      return `Signals in this area are fragile. Issues here are likely starting to affect user experience and search systems, and should be prioritised.`;
-    }
-    if (b === "poor") {
-      return `This is one of the weakest areas in the scan. Problems here are likely dragging down both perception and rankings and should be addressed urgently.`;
-    }
-    return `Signals for ${label} could not be fully evaluated, so this area should be reviewed manually.`;
-  }
-
-  return {
-    overall_summary,
-
-    performance_comment: perSignalComment("performance", performance),
-    seo_comment: perSignalComment("seo", seo),
-    structure_comment: perSignalComment(
-      "structure_semantics",
-      structure_semantics
-    ),
-    mobile_comment: perSignalComment(
-      "mobile_experience",
-      mobile_experience
-    ),
-    security_comment: perSignalComment("security_trust", security_trust),
-    accessibility_comment: perSignalComment(
-      "accessibility",
-      accessibility
-    ),
-    domain_comment: perSignalComment("domain_hosting", domain_hosting),
-    content_comment: perSignalComment(
-      "content_signals",
-      content_signals
-    ),
-
-    top_issues: [],
-    fix_sequence: [],
-    closing_notes:
-      "Once high-priority fixes have been implemented, re-run this scan to confirm improvements and track progress over time."
-  };
-}
-
-// -----------------------------
+// ---------------------------------------------
 // Netlify function handler
-// -----------------------------
-export default async (request, context) => {
+// ---------------------------------------------
+export default async (request) => {
   if (request.method !== "GET") {
-    return new Response(
-      JSON.stringify({ success: false, message: "Method not allowed" }),
-      {
-        status: 405,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-  }
-
-  const urlObj = new URL(request.url);
-  const reportId = urlObj.searchParams.get("report_id");
-
-  if (!reportId) {
-    return new Response(
-      JSON.stringify({ success: false, message: "Missing report_id" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-  }
-
-  // Load the scan row from scan_results
-  const { data: scan, error } = await supabase
-    .from("scan_results")
-    .select("id, url, status, metrics")
-    .eq("report_id", reportId)
-    .single();
-
-  if (error || !scan) {
-    console.error("generate-report: scan lookup error", error);
     return new Response(
       JSON.stringify({
         success: false,
-        message: "Scan not found for this report_id",
+        message: "Method not allowed",
         scores: {},
-        narrative: null
+        narrative: null,
       }),
-      {
-        status: 404,
-        headers: { "Content-Type": "application/json" }
-      }
+      { status: 405, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  const metrics = scan.metrics || {};
-  const scores = metrics.scores || {};
-
-  // Build deterministic narrative from scores
-  const narrative = buildNarrativeFromScores({
-    url: scan.url,
-    scores,
-    metrics
-  });
-
-  // Optional: upsert into report_data, but don't fail if this breaks
+  let reportId;
   try {
-    await supabase
-      .from("report_data")
-      .upsert(
-        {
-          report_id: reportId,
-          url: scan.url,
-          scores,
-          narrative,
-          created_at: new Date().toISOString()
-        },
-        { onConflict: "report_id" }
-      );
+    const url = new URL(request.url);
+    reportId = url.searchParams.get("report_id");
   } catch (err) {
-    console.error("generate-report: report_data upsert error", err);
-    // carry on; UI still gets the narrative
+    console.error("Error parsing request URL:", err);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Invalid request URL",
+        scores: {},
+        narrative: null,
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
   }
 
+  if (!reportId) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Missing report_id",
+        scores: {},
+        narrative: null,
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // -----------------------------------------
+  // 1. Load scan_result for this report_id
+  // -----------------------------------------
+  const { data: scan, error: scanError } = await supabase
+    .from("scan_results")
+    .select("id, url, metrics, report_id")
+    .eq("report_id", reportId)
+    .single();
+
+  if (scanError || !scan) {
+    console.error("Error loading scan_results:", scanError);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Scan result not found",
+        scores: {},
+        narrative: null,
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const scores = scan.metrics?.scores || {};
+  const psiMobile = scan.metrics?.psi_mobile || null;
+  const https = scan.metrics?.https ?? null;
+
+  // -----------------------------------------
+  // 2. Try to generate Λ i Q AI narrative
+  // -----------------------------------------
+  let overall_summary = null;
+
+  try {
+    overall_summary = await generateNarrativeAI({
+      report_id: scan.report_id,
+      url: scan.url,
+      scores,
+      https,
+      core_web_vitals: psiMobile?.coreWebVitals || null,
+    });
+  } catch (err) {
+    console.error("Error during generateNarrativeAI:", err);
+  }
+
+  // Fallback if AI failed or not available
+  if (!overall_summary) {
+    overall_summary = buildNarrativeFallback(scores);
+  }
+
+  const narrative = {
+    overall_summary,
+    performance_comment: null,
+    seo_comment: null,
+    structure_comment: null,
+    mobile_comment: null,
+    security_comment: null,
+    accessibility_comment: null,
+    domain_comment: null,
+    content_comment: null,
+    top_issues: [],
+    fix_sequence: [],
+    closing_notes: null,
+  };
+
+  // -----------------------------------------
+  // 3. Optionally cache narrative in report_data
+  // -----------------------------------------
+  try {
+    const { error: saveErr } = await supabase.from("report_data").upsert(
+      {
+        report_id: reportId,
+        url: scan.url,
+        scores,
+        narrative,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: "report_id" }
+    );
+
+    if (saveErr) {
+      console.error("Error saving narrative to report_data:", saveErr);
+    }
+  } catch (err) {
+    console.error("Exception during report_data upsert:", err);
+  }
+
+  // -----------------------------------------
+  // 4. Return scores + narrative to the UI
+  // -----------------------------------------
   return new Response(
     JSON.stringify({
       success: true,
       scores,
-      narrative
+      narrative,
     }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" }
-    }
+    { status: 200, headers: { "Content-Type": "application/json" } }
   );
 };
