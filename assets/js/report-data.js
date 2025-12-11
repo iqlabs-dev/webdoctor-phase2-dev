@@ -275,26 +275,115 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // Fix sequence list (if placeholder block exists) – otherwise hide
+  // Fix sequence — phased roadmap UI (hide section if empty)
   // ------------------------------------------------------------------
-  const list = document.querySelector('[data-field="fix-sequence"]');
-  let fixCount = 0;
+  const phaseContainer = document.querySelector(
+    '[data-field="fix-sequence-phases"]'
+  );
+  let totalFixSteps = 0;
 
-  if (list && Array.isArray(n.fix_sequence)) {
-    list.innerHTML = "";
-    n.fix_sequence.forEach((step) => {
-      if (!step || typeof step !== "string" || !step.trim()) return;
-      const li = document.createElement("li");
-      li.textContent = step.trim();
-      list.appendChild(li);
-      fixCount++;
+  if (phaseContainer && Array.isArray(n.fix_sequence)) {
+    phaseContainer.innerHTML = "";
+
+    // Parse AI strings like:
+    // "Phase 1 — Foundation: Add viewport meta tag — Impact: Ensures proper display on mobile devices"
+    const phaseMap = new Map();
+
+    n.fix_sequence.forEach((raw) => {
+      if (!raw || typeof raw !== "string") return;
+      const text = raw.trim();
+      if (!text) return;
+
+      // Split off impact
+      let [left, impactPart] = text.split("— Impact:");
+      left = left ? left.trim() : "";
+      const impact = impactPart ? impactPart.trim() : "";
+
+      // Extract phase label + action
+      let phaseLabel = "Other";
+      let action = left;
+
+      const colonIdx = left.indexOf(":");
+      if (colonIdx !== -1) {
+        phaseLabel = left.slice(0, colonIdx).trim();       // "Phase 1 — Foundation"
+        action = left.slice(colonIdx + 1).trim();          // "Add viewport meta tag"
+      }
+
+      if (!phaseMap.has(phaseLabel)) {
+        phaseMap.set(phaseLabel, []);
+      }
+      phaseMap.get(phaseLabel).push({
+        action,
+        impact,
+      });
+      totalFixSteps++;
+    });
+
+    // Preferred phase order for display
+    const phaseOrder = [
+      "Phase 1 — Foundation",
+      "Phase 2 — Experience & Clarity",
+      "Phase 3 — Trust & Professionalism",
+      "Phase 4 — Optional Enhancements",
+    ];
+
+    const addPhaseCard = (label) => {
+      const steps = phaseMap.get(label);
+      if (!steps || !steps.length) return;
+
+      const card = document.createElement("article");
+      card.className = "wd-phase-card";
+
+      const titleEl = document.createElement("h4");
+      titleEl.className = "wd-phase-title";
+      titleEl.textContent = label;
+      card.appendChild(titleEl);
+
+      const listEl = document.createElement("ol");
+      listEl.className = "wd-phase-steps";
+
+      steps.forEach((s) => {
+        if (!s || !s.action) return;
+
+        const li = document.createElement("li");
+        li.className = "wd-phase-step";
+
+        const main = document.createElement("div");
+        main.className = "wd-phase-step-main";
+        main.textContent = s.action;
+        li.appendChild(main);
+
+        if (s.impact) {
+          const impactEl = document.createElement("div");
+          impactEl.className = "wd-phase-step-impact";
+          impactEl.textContent = `Impact: ${s.impact}`;
+          li.appendChild(impactEl);
+        }
+
+        listEl.appendChild(li);
+      });
+
+      if (listEl.children.length === 0) return;
+      card.appendChild(listEl);
+      phaseContainer.appendChild(card);
+    };
+
+    // First, add known phases in canonical order
+    phaseOrder.forEach((label) => addPhaseCard(label));
+
+    // Then, add any unexpected phases (future-proofing)
+    phaseMap.forEach((_, label) => {
+      if (!phaseOrder.includes(label)) {
+        addPhaseCard(label);
+      }
     });
   }
 
-  if (!list || fixCount === 0) {
+  if (!phaseContainer || !totalFixSteps) {
     const fixSection = document.querySelector('[data-section="fix-sequence"]');
     if (fixSection) fixSection.style.display = "none";
   }
+
 
   // ------------------------------------------------------------------
   // Closing notes – hide entire section if empty

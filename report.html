@@ -541,6 +541,59 @@
     .wd-reco-list li + li {
       margin-top: 4px;
     }
+    /* Phased Fix Sequence Grid */
+.wd-phase-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 960px) {
+  .wd-phase-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.wd-phase-card {
+  background: #0d1724;
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wd-phase-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.4rem;
+  color: #7fc4ff;
+}
+
+.wd-phase-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wd-phase-step {
+  margin-bottom: 0.6rem;
+}
+
+.wd-phase-step:last-child {
+  margin-bottom: 0;
+}
+
+.wd-phase-step-main {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #e8f1ff;
+}
+
+.wd-phase-step-impact {
+  font-size: 0.8rem;
+  color: #9aa7c2;
+  margin-top: 0.15rem;
+}
 
     /* ---------- NARRATIVE SUMMARY BLOCK ---------- */
     .wd-narrative {
@@ -833,11 +886,16 @@
           </div>
         </section>
 
-        <!-- RECOMMENDED FIX SEQUENCE -->
-        <section class="wd-section" data-section="fix-sequence">
-          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-          <ol class="wd-fix-list" data-field="fix-sequence"></ol>
-        </section>
+<!-- RECOMMENDED FIX SEQUENCE -->
+<section class="wd-section" data-section="fix-sequence">
+  <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+
+  <!-- Phased roadmap, populated by JS -->
+  <div class="wd-phase-grid" data-field="fix-sequence-phases">
+    <!-- JS will inject Phase cards here -->
+  </div>
+</section>
+
 
         <!-- SUMMARY & NOTES -->
         <section class="wd-section" data-section="summary-notes">
