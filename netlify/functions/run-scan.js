@@ -98,6 +98,32 @@ async function fetchWithTimeout(url, ms = 7000) {
   }
 }
 
+// ---------------------------------------------
+// Helper: extract Core Web Vitals from PSI MOBILE wrapper
+// ---------------------------------------------
+function extractCoreWebVitals(psiMobile) {
+  if (!psiMobile || !psiMobile.coreWebVitals) return null;
+
+  const src = psiMobile.coreWebVitals;
+
+  function pickMetric(m) {
+    if (!m) return null;
+    return {
+      rating: m.category || null,        // "FAST" / "AVERAGE" / "SLOW"
+      value: m.percentile ?? null,       // raw percentile value from CrUX
+      unit: m.unit || null,              // e.g. "MILLISECONDS"
+    };
+  }
+
+  const lcp = pickMetric(src.LCP);
+  const cls = pickMetric(src.CLS);
+  const inp = pickMetric(src.INP);
+
+  if (!lcp && !cls && !inp) return null;
+
+  return { lcp, cls, inp };
+}
+
 // Call Google PageSpeed Insights (MOBILE ONLY for now)
 async function runPsiMobile(url) {
   if (!psiApiKey) {
@@ -145,7 +171,10 @@ async function runPsiMobile(url) {
   const cwvMetrics = loading.metrics || {};
 
   const coreWebVitals = {
-    FCP: cwvMetrics.FIRST_CONTENTFUL_PAINT_MS || cwvMetrics.FIRST_CONTENTFUL_PAINT || null,
+    FCP:
+      cwvMetrics.FIRST_CONTENTFUL_PAINT_MS ||
+      cwvMetrics.FIRST_CONTENTFUL_PAINT ||
+      null,
     LCP:
       cwvMetrics.LARGEST_CONTENTFUL_PAINT_MS ||
       cwvMetrics.LARGEST_CONTENTFUL_PAINT ||
@@ -324,6 +353,9 @@ export default async (request, context) => {
     overallScore = fallback;
   }
 
+  // Clean CWV struct for DB + report
+  const coreWebVitals = extractCoreWebVitals(psiMobile);
+
   const storedMetrics = {
     http_status: httpStatus,
     response_ok: responseOk,
@@ -332,7 +364,8 @@ export default async (request, context) => {
     basic_checks: basicMetrics,
     psi_mobile: psiMobile,
     psi_desktop: psiDesktop,
-    scores
+    scores,
+    core_web_vitals: coreWebVitals
   };
 
   // ---- Store in scan_results ----
