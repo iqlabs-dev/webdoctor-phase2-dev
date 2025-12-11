@@ -63,10 +63,6 @@ async function loadReportData() {
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
   const reportMeta = data.report || {};
-  const speedStability = data.speed_stability || null;
-
-  console.log("Speed & Stability payload:", speedStability);
-  console.log("Λ i Q narrative payload:", narrative);
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -80,7 +76,9 @@ async function loadReportData() {
     }
   }
 
+  // Convenience alias
   const n = narrative;
+  console.log("Λ i Q narrative payload:", n);
 
   // ------------------------------------------------------------------
   // HEADER META (website, date, report ID, overall score)
@@ -89,7 +87,17 @@ async function loadReportData() {
   const headerReportId = reportMeta.report_id || "";
   const headerDate = formatReportDate(reportMeta.created_at);
 
-  setText("site-url", headerUrl);
+  // Website link
+  const urlEl = document.querySelector("[data-field='site-url']");
+  if (urlEl) {
+    urlEl.textContent = headerUrl || "";
+    if (headerUrl) {
+      urlEl.setAttribute("href", headerUrl);
+    } else {
+      urlEl.removeAttribute("href");
+    }
+  }
+
   setText("report-id", headerReportId);
   setText("report-date", headerDate);
 
@@ -167,10 +175,10 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // Key Metrics (Page Load, Mobile, Speed & Stability)
+  // Key Metrics (Page Load, Mobile, Health & Security)
   // ------------------------------------------------------------------
 
-  // Page Load
+  // Page Load Experience
   setText(
     "metric-page-load",
     n.page_load_main || n.performance || n.performance_comment || ""
@@ -181,7 +189,7 @@ async function loadReportData() {
       "Goal: keep pages feeling fast and stable, even on mobile connections."
   );
 
-  // Mobile usability
+  // Mobile Comfort
   setText(
     "metric-mobile",
     n.mobile_main || n.mobile || n.mobileExperience || n.mobile_comment || ""
@@ -192,52 +200,21 @@ async function loadReportData() {
       "Goal: keep interactions smooth and readable on mobile devices."
   );
 
-  // Speed & Stability (lab metrics from Lighthouse)
-  if (speedStability && typeof speedStability === "object") {
-    const scoreVal =
-      typeof speedStability.score === "number"
-        ? `${speedStability.score} / 100`
-        : "Lab data available";
+  // Health & Security
+  // Blend security + domain + general reliability into a simple narrative
+  const healthSecurityMain =
+    n.health_security_main ||
+    n.security ||
+    n.security_comment ||
+    n.domain_comment ||
+    "";
 
-    setText("metric-speed", scoreVal);
+  const healthSecurityNotes =
+    n.health_security_notes ||
+    "Goal: maintain a secure, trustworthy site with clean structure and reliable hosting.";
 
-    const lcpMs =
-      typeof speedStability.lcp_ms === "number"
-        ? speedStability.lcp_ms
-        : null;
-    const clsVal =
-      typeof speedStability.cls === "number" ? speedStability.cls : null;
-    const inpMs =
-      typeof speedStability.inp_ms === "number"
-        ? speedStability.inp_ms
-        : null;
-
-    const bits = [];
-
-    if (lcpMs != null) {
-      const lcpSec = lcpMs / 1000;
-      bits.push(`LCP: ${lcpSec.toFixed(1)} s`);
-    }
-    if (clsVal != null) {
-      bits.push(`CLS: ${clsVal.toFixed(2)}`);
-    }
-    if (inpMs != null) {
-      bits.push(`INP: ${Math.round(inpMs)} ms`);
-    }
-
-    const detail =
-      bits.length > 0
-        ? bits.join(" · ")
-        : "Lab-based speed & stability metrics are available for this page.";
-
-    setText("metric-speed-notes", detail);
-  } else {
-    setText("metric-speed", "Not available yet");
-    setText(
-      "metric-speed-notes",
-      "This score appears once lab-based diagnostics have successfully run."
-    );
-  }
+  setText("metric-health-security", healthSecurityMain);
+  setText("metric-health-security-notes", healthSecurityNotes);
 
   // ------------------------------------------------------------------
   // Narrative hero block + per-signal comments (data-field="")
