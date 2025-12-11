@@ -65,7 +65,7 @@ async function loadReportData() {
   const reportMeta = data.report || {};
   const coreWebVitals = data.core_web_vitals || null;
 
-  console.log("Core Web Vitals data:", coreWebVitals);
+  console.log("Core Web Vitals payload:", coreWebVitals);
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
