@@ -1,4 +1,4 @@
-// /netlify/functions/run-san.js
+// /netlify/functions/run-scan.js
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -294,7 +294,10 @@ export default async (request, context) => {
   } catch (err) {
     console.error('Error reading body:', err);
     return new Response(
-      JSON.stringify({ success: false, message: 'Could not read request body' }),
+      JSON.stringify({
+        success: false,
+        message: 'Could not read request body'
+      }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
