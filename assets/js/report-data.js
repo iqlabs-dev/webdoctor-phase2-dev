@@ -18,8 +18,18 @@ function formatReportDate(isoString) {
   if (Number.isNaN(d.getTime())) return "";
   const day = String(d.getDate()).padStart(2, "0");
   const months = [
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
   ];
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
@@ -103,8 +113,8 @@ async function loadReportData() {
 
   if (typeof scores.overall === "number") {
     const overallText = `${scores.overall} / 100`;
-    setText("score-overall", overallText);         // summary block
-    setText("score-overall-header", overallText);  // header pill
+    setText("score-overall", overallText); // summary block
+    setText("score-overall-header", overallText); // header pill
   }
 
   // ------------------------------------------------------------------
@@ -175,46 +185,31 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // Key Metrics (Page Load, Mobile, Health & Security)
+  // Key Metrics — AI narrative only (3 metrics)
   // ------------------------------------------------------------------
 
-  // Page Load Experience
-  setText(
-    "metric-page-load",
-    n.page_load_main || n.performance || n.performance_comment || ""
-  );
-  setText(
-    "metric-page-load-notes",
-    n.page_load_notes ||
-      "Goal: keep pages feeling fast and stable, even on mobile connections."
-  );
+  const metrics = Array.isArray(n.three_key_metrics)
+    ? n.three_key_metrics
+    : [];
 
-  // Mobile Comfort
-  setText(
-    "metric-mobile",
-    n.mobile_main || n.mobile || n.mobileExperience || n.mobile_comment || ""
-  );
-  setText(
-    "metric-mobile-notes",
-    n.mobile_notes ||
-      "Goal: keep interactions smooth and readable on mobile devices."
-  );
+  const metricFields = [
+    { label: "metric-1-label", insight: "metric-1-insight" },
+    { label: "metric-2-label", insight: "metric-2-insight" },
+    { label: "metric-3-label", insight: "metric-3-insight" },
+  ];
 
-  // Health & Security
-  // Blend security + domain + general reliability into a simple narrative
-  const healthSecurityMain =
-    n.health_security_main ||
-    n.security ||
-    n.security_comment ||
-    n.domain_comment ||
-    "";
+  metricFields.forEach((fields, idx) => {
+    const metric = metrics[idx];
+    if (!metric) {
+      // If for some reason it's missing, leave blank (backend already provides honest fallback text)
+      setText(fields.label, "");
+      setText(fields.insight, "");
+      return;
+    }
 
-  const healthSecurityNotes =
-    n.health_security_notes ||
-    "Goal: maintain a secure, trustworthy site with clean structure and reliable hosting.";
-
-  setText("metric-health-security", healthSecurityMain);
-  setText("metric-health-security-notes", healthSecurityNotes);
+    setText(fields.label, metric.label || "");
+    setText(fields.insight, metric.insight || "");
+  });
 
   // ------------------------------------------------------------------
   // Narrative hero block + per-signal comments (data-field="")
