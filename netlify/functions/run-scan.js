@@ -99,32 +99,37 @@ async function fetchWithTimeout(url, ms = 7000) {
 }
 
 // ---------------------------------------------
-// Helper: extract Core Web Vitals from PSI MOBILE wrapper
+// Helper: extract Core Web Vitals from psiMobile
 // ---------------------------------------------
 function extractCoreWebVitals(psiMobile) {
   if (!psiMobile || !psiMobile.coreWebVitals) return null;
 
+  // psiMobile.coreWebVitals comes from runPsiMobile()
   const src = psiMobile.coreWebVitals;
 
-  function pickMetric(m) {
+  function pickMetric(key) {
+    const m = src[key];
     if (!m) return null;
+
     return {
-      rating: m.category || null,        // "FAST" / "AVERAGE" / "SLOW"
-      value: m.percentile ?? null,       // raw percentile value from CrUX
-      unit: m.unit || null,              // e.g. "MILLISECONDS"
+      rating: m.category || null,      // "FAST" / "AVERAGE" / "SLOW"
+      value: m.percentile ?? null,     // raw percentile
+      unit: m.unit || null,            // e.g. "MILLISECONDS"
     };
   }
 
-  const lcp = pickMetric(src.LCP);
-  const cls = pickMetric(src.CLS);
-  const inp = pickMetric(src.INP);
+  const lcp = pickMetric('LCP');
+  const cls = pickMetric('CLS');
+  const inp = pickMetric('INP');
 
   if (!lcp && !cls && !inp) return null;
 
   return { lcp, cls, inp };
 }
 
-// Call Google PageSpeed Insights (MOBILE ONLY for now)
+// ---------------------------------------------
+// Call Google PageSpeed Insights (MOBILE ONLY)
+// ---------------------------------------------
 async function runPsiMobile(url) {
   if (!psiApiKey) {
     throw new Error('PSI_API_KEY not configured');
@@ -163,10 +168,10 @@ async function runPsiMobile(url) {
     performance: catScore('performance'),
     seo: catScore('seo'),
     accessibility: catScore('accessibility'),
-    best_practices: catScore('best-practices')
+    best_practices: catScore('best-practices'),
   };
 
-  // Core Web Vitals (CrUX)
+  // CrUX Core Web Vitals metrics
   const loading = json.loadingExperience || json.originLoadingExperience || {};
   const cwvMetrics = loading.metrics || {};
 
@@ -186,17 +191,19 @@ async function runPsiMobile(url) {
     INP:
       cwvMetrics.INTERACTION_TO_NEXT_PAINT ||
       cwvMetrics.EXPERIMENTAL_INTERACTION_TO_NEXT_PAINT ||
-      null
+      null,
   };
 
   return {
     strategy: 'mobile',
     scores,
-    coreWebVitals
+    coreWebVitals,
   };
 }
 
+// ---------------------------------------------
 // Compute 9-signal scores (mobile-only variant)
+// ---------------------------------------------
 function computeSignalScores({ psiMobile, basicMetrics, https }) {
   const mobilePerf = psiMobile?.scores.performance ?? null;
 
@@ -250,7 +257,7 @@ function computeSignalScores({ psiMobile, basicMetrics, https }) {
     accessibility,
     domain_hosting: domainHosting,
     content_signals: contentSignals,
-    overall
+    overall,
   };
 }
 
@@ -333,10 +340,12 @@ export default async (request, context) => {
 
   let scores;
   let overallScore;
+  let coreWebVitalsClean = null;
 
   if (psiMobile) {
     scores = computeSignalScores({ psiMobile, basicMetrics, https });
     overallScore = scores.overall;
+    coreWebVitalsClean = extractCoreWebVitals(psiMobile);
   } else {
     const fallback = computeFallbackScore(responseOk, basicMetrics);
     scores = {
@@ -348,13 +357,11 @@ export default async (request, context) => {
       accessibility: fallback,
       domain_hosting: https ? fallback : 0,
       content_signals: fallback,
-      overall: fallback
+      overall: fallback,
     };
     overallScore = fallback;
+    coreWebVitalsClean = null;
   }
-
-  // Clean CWV struct for DB + report
-  const coreWebVitals = extractCoreWebVitals(psiMobile);
 
   const storedMetrics = {
     http_status: httpStatus,
@@ -365,7 +372,7 @@ export default async (request, context) => {
     psi_mobile: psiMobile,
     psi_desktop: psiDesktop,
     scores,
-    core_web_vitals: coreWebVitals
+    core_web_vitals: coreWebVitalsClean, // <<< THIS IS THE IMPORTANT NEW FIELD
   };
 
   // ---- Store in scan_results ----
@@ -380,7 +387,7 @@ export default async (request, context) => {
       score_overall: overallScore,
       metrics: storedMetrics,
       report_id: reportId,
-      scan_time_ms: scanTimeMs
+      scan_time_ms: scanTimeMs,
     })
     .select()
     .single();
@@ -391,7 +398,7 @@ export default async (request, context) => {
       JSON.stringify({
         success: false,
         message: 'Failed to save scan result',
-        supabaseError: error.message || error.details || null
+        supabaseError: error.message || error.details || null,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
@@ -405,7 +412,7 @@ export default async (request, context) => {
       url,
       status: data.status,
       scores,
-      metrics: storedMetrics
+      metrics: storedMetrics,
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
