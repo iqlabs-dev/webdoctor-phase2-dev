@@ -12,12 +12,26 @@ function setText(field, text) {
   }
 }
 
+function formatReportDate(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const months = [
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+  ];
+  const mon = months[d.getMonth()] || "";
+  const year = d.getFullYear();
+  return `${day} ${mon} ${year}`;
+}
+
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
   if (!reportId) return;
 
-  // Single call: fetch scores + narrative (+ optional metrics) from generate-report
+  // Single call: fetch scores + narrative + meta from generate-report
   let resp;
   try {
     resp = await fetch(
@@ -48,15 +62,7 @@ async function loadReportData() {
   const scores = data.scores || {};
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
-
-  // Optional raw metrics – only present if generate-report sends them
-  const metrics = data.metrics || {};
-  const psiMobile = metrics.psi_mobile || {};
-  const cwv =
-    metrics.core_web_vitals ||
-    psiMobile.coreWebVitals ||
-    {};
-  const basicChecks = metrics.basic_checks || {};
+  const reportMeta = data.report || {};
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -73,6 +79,23 @@ async function loadReportData() {
   // Convenience alias
   const n = narrative;
   console.log("Λ i Q narrative payload:", n);
+
+  // ------------------------------------------------------------------
+  // HEADER META (website, date, report ID, overall score)
+  // ------------------------------------------------------------------
+  const headerUrl = reportMeta.url || "";
+  const headerReportId = reportMeta.report_id || "";
+  const headerDate = formatReportDate(reportMeta.created_at);
+
+  setText("report-url", headerUrl);
+  setText("report-id", headerReportId);
+  setText("report-date", headerDate);
+
+  if (typeof scores.overall === "number") {
+    const overallText = `${scores.overall} / 100`;
+    setText("score-overall", overallText);         // summary block
+    setText("score-overall-header", overallText);  // header pill
+  }
 
   // ------------------------------------------------------------------
   // Optional [data-ai-*] hooks (safe even if not in HTML)
@@ -113,7 +136,7 @@ async function loadReportData() {
   );
 
   // ------------------------------------------------------------------
-  // Scores (all nine signals + header overall)
+  // Scores (all nine signals)
   // ------------------------------------------------------------------
 
   if (typeof scores.performance === "number") {
@@ -140,70 +163,44 @@ async function loadReportData() {
   if (typeof scores.content_signals === "number") {
     setText("score-content", `${scores.content_signals} / 100`);
   }
-  if (typeof scores.overall === "number") {
-    const overallText = `${scores.overall} / 100`;
-    setText("score-overall", overallText);
-    setText("score-overall-header", overallText);
-  }
 
   // ------------------------------------------------------------------
-  // KEY METRICS (Page Load / Mobile / CWV)
+  // Key Metrics (Page Load, Mobile, Core Web Vitals)
   // ------------------------------------------------------------------
+  // For now we keep these as qualitative labels drawn from the AI narrative.
+  // Later we can wire them directly to PSI metrics if you want.
 
-  function labelFromScore(score) {
-    if (typeof score !== "number") return "No data yet";
-    if (score >= 90) return "Excellent";
-    if (score >= 75) return "Strong";
-    if (score >= 50) return "Needs improvement";
-    return "Critical";
-  }
+  // Page Load
+  setText(
+    "metric-page-load",
+    n.page_load_main || n.performance || n.performance_comment || ""
+  );
+  setText(
+    "metric-page-load-notes",
+    n.page_load_notes || "Goal: keep pages feeling fast and stable, even on mobile connections."
+  );
 
-  // Page Load — based on performance score
-  const pageLoadScore =
-    typeof scores.performance === "number" ? scores.performance : null;
-  const pageLoadLabel = labelFromScore(pageLoadScore);
-  const pageLoadNote =
-    pageLoadScore == null
-      ? "Goal: consistent, fast load behaviour."
-      : "Goal: keep pages feeling fast and stable, even on mobile connections.";
+  // Mobile usability
+  setText(
+    "metric-mobile",
+    n.mobile_main || n.mobile || n.mobileExperience || n.mobile_comment || ""
+  );
+  setText(
+    "metric-mobile-notes",
+    n.mobile_notes ||
+      "Goal: keep interactions smooth and readable on mobile devices."
+  );
 
-  setText("metric-page-load", pageLoadLabel);
-  setText("metric-page-load-notes", pageLoadNote);
-
-  // Mobile Usability — based on mobile_experience + viewport tag
-  const mobileScore =
-    typeof scores.mobile_experience === "number"
-      ? scores.mobile_experience
-      : pageLoadScore;
-  let mobileLabel = labelFromScore(mobileScore);
-
-  if (!basicChecks.viewport_present) {
-    // If viewport is missing, we bump this down a tier
-    if (mobileLabel === "Excellent") mobileLabel = "Strong";
-    else if (mobileLabel === "Strong") mobileLabel = "Needs improvement";
-  }
-
-  const mobileNote = !basicChecks.viewport_present
-    ? "Goal: ensure the layout adapts cleanly on phones (add a proper viewport tag)."
-    : mobileScore == null
-    ? "Goal: confirm the site behaves comfortably on smaller screens."
-    : "Goal: keep interactions smooth and readable on mobile devices.";
-
-  setText("metric-mobile", mobileLabel);
-  setText("metric-mobile-notes", mobileNote);
-
-  // Core Web Vitals — based on presence of CWV data
-  const hasCwvData =
-    cwv &&
-    (cwv.FCP != null || cwv.LCP != null || cwv.CLS != null || cwv.INP != null);
-
-  const cwvLabel = hasCwvData ? "Tracked" : "Not tracked yet";
-  const cwvNote = hasCwvData
-    ? "Goal: keep Core Web Vitals in a healthy range so pages feel fast and stable."
-    : "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM).";
-
-  setText("metric-cwv", cwvLabel);
-  setText("metric-cwv-notes", cwvNote);
+  // Core Web Vitals
+  setText(
+    "metric-cwv",
+    n.cwv_main || n.core_web_vitals_main || "Not tracked yet"
+  );
+  setText(
+    "metric-cwv-notes",
+    n.cwv_notes ||
+      "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM)."
+  );
 
   // ------------------------------------------------------------------
   // Narrative hero block + per-signal comments (data-field="")
@@ -244,35 +241,64 @@ async function loadReportData() {
   );
 
   // ------------------------------------------------------------------
-  // Top issues (if present)
+  // Top issues (if present) – otherwise hide section
   // ------------------------------------------------------------------
+  let nonEmptyIssues = 0;
+
   if (Array.isArray(n.top_issues)) {
     n.top_issues.forEach((issue, idx) => {
       if (!issue) return;
-      setText(`issue-${idx}-title`, issue.title || "");
-      setText(`issue-${idx}-impact`, issue.impact || "");
-      setText(`issue-${idx}-fix`, issue.suggested_fix || "");
+      const title = issue.title || "";
+      const impact = issue.impact || "";
+      const fix = issue.suggested_fix || "";
+      if (title || impact || fix) {
+        nonEmptyIssues++;
+      }
+      setText(`issue-${idx}-title`, title);
+      setText(`issue-${idx}-impact`, impact);
+      setText(`issue-${idx}-fix`, fix);
     });
   }
 
+  if (nonEmptyIssues === 0) {
+    const issuesSection = document.querySelector('[data-section="top-issues"]');
+    if (issuesSection) issuesSection.style.display = "none";
+  }
+
   // ------------------------------------------------------------------
-  // Fix sequence list (if placeholder block exists)
+  // Fix sequence list (if placeholder block exists) – otherwise hide
   // ------------------------------------------------------------------
   const list = document.querySelector('[data-field="fix-sequence"]');
+  let fixCount = 0;
+
   if (list && Array.isArray(n.fix_sequence)) {
     list.innerHTML = "";
     n.fix_sequence.forEach((step) => {
-      if (!step) return;
+      if (!step || typeof step !== "string" || !step.trim()) return;
       const li = document.createElement("li");
-      li.textContent = step;
+      li.textContent = step.trim();
       list.appendChild(li);
+      fixCount++;
     });
   }
 
+  if (!list || fixCount === 0) {
+    const fixSection = document.querySelector('[data-section="fix-sequence"]');
+    if (fixSection) fixSection.style.display = "none";
+  }
+
   // ------------------------------------------------------------------
-  // Closing notes
+  // Closing notes – hide entire section if empty
   // ------------------------------------------------------------------
-  setText("closing-notes", n.closing_notes || "");
+  const closing = (n.closing_notes || "").trim();
+  if (closing) {
+    setText("closing-notes", closing);
+  } else {
+    const summarySection = document.querySelector(
+      '[data-section="summary-notes"]'
+    );
+    if (summarySection) summarySection.style.display = "none";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", loadReportData);

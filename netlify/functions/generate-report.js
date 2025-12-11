@@ -245,11 +245,12 @@ export default async (request) => {
   }
 
   // --- Load scan_results row for this report ---
-  const { data: scan, error: scanError } = await supabase
-    .from("scan_results")
-    .select("id, url, metrics, report_id, created_at")
-    .eq("report_id", reportId)
-    .single();
+const { data: scan, error: scanError } = await supabase
+  .from("scan_results")
+  .select("id, url, metrics, report_id, created_at")
+  .eq("report_id", reportId)
+  .single();
+
 
   if (scanError || !scan) {
     console.error("Error loading scan_results:", scanError);
@@ -284,26 +285,42 @@ export default async (request) => {
   }
 
   // --- 3. Cache narrative in report_data (best-effort) ---
-  try {
-    const { error: saveErr } = await supabase.from("report_data").upsert(
-      {
-        report_id: scan.report_id,
-        url: scan.url,
-        scores,
-        narrative,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: "report_id" }
+  // --- 3. Save narrative into report_data (best effort) ---
+  // At this point we MUST have a scan row; if not, bail out safely.
+  if (!scan) {
+    console.error("No scan row found for report_id:", reportId);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: "Scan not found for this report_id",
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  try {
+    const { error: saveErr } = await supabase
+      .from("report_data")
+      .upsert(
+        {
+          report_id: scan.report_id,
+          url: scan.url,
+          scores,
+          narrative,
+          created_at: scan.created_at || new Date().toISOString(),
+        },
+        { onConflict: "report_id" }
+      );
 
     if (saveErr) {
       console.error("Error saving narrative to report_data:", saveErr);
+      // non-fatal: we still return the narrative to the UI
     }
   } catch (err) {
     console.error("Exception during report_data upsert:", err);
+    // still non-fatal for the UI
   }
 
-  // --- 4. Return to UI ---
   // --- 4. Return to UI ---
   return new Response(
     JSON.stringify({
@@ -311,10 +328,12 @@ export default async (request) => {
       scores,
       narrative,
       narrative_source: narrativeSource,
-      // NEW: expose raw metrics so the UI can show Key Metrics
-      metrics: scan.metrics || null,
+      report: {
+        url: scan.url,
+        report_id: scan.report_id,
+        created_at: scan.created_at,
+      },
     }),
     { status: 200, headers: { "Content-Type": "application/json" } }
   );
 };
-
