@@ -18,18 +18,8 @@ function formatReportDate(isoString) {
   if (Number.isNaN(d.getTime())) return "";
   const day = String(d.getDate()).padStart(2, "0");
   const months = [
-    "JAN",
-    "FEB",
-    "MAR",
-    "APR",
-    "MAY",
-    "JUN",
-    "JUL",
-    "AUG",
-    "SEP",
-    "OCT",
-    "NOV",
-    "DEC",
+    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
   ];
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
@@ -73,9 +63,10 @@ async function loadReportData() {
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
   const reportMeta = data.report || {};
-  const coreWebVitals = data.core_web_vitals || null;
+  const speedStability = data.speed_stability || null;
 
-  console.log("Core Web Vitals payload:", coreWebVitals);
+  console.log("Speed & Stability payload:", speedStability);
+  console.log("Λ i Q narrative payload:", narrative);
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -89,9 +80,7 @@ async function loadReportData() {
     }
   }
 
-  // Convenience alias
   const n = narrative;
-  console.log("Λ i Q narrative payload:", n);
 
   // ------------------------------------------------------------------
   // HEADER META (website, date, report ID, overall score)
@@ -106,8 +95,8 @@ async function loadReportData() {
 
   if (typeof scores.overall === "number") {
     const overallText = `${scores.overall} / 100`;
-    setText("score-overall", overallText); // summary block
-    setText("score-overall-header", overallText); // header pill
+    setText("score-overall", overallText);         // summary block
+    setText("score-overall-header", overallText);  // header pill
   }
 
   // ------------------------------------------------------------------
@@ -178,8 +167,9 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // Key Metrics (Page Load, Mobile, Core Web Vitals)
+  // Key Metrics (Page Load, Mobile, Speed & Stability)
   // ------------------------------------------------------------------
+
   // Page Load
   setText(
     "metric-page-load",
@@ -202,46 +192,55 @@ async function loadReportData() {
       "Goal: keep interactions smooth and readable on mobile devices."
   );
 
-  // Core Web Vitals
-  if (coreWebVitals && typeof coreWebVitals === "object") {
-    setText("metric-cwv", "Tracked — Core Web Vitals field data available.");
+  // Speed & Stability (lab metrics from Lighthouse)
+  if (speedStability && typeof speedStability === "object") {
+    const scoreVal =
+      typeof speedStability.score === "number"
+        ? `${speedStability.score} / 100`
+        : "Lab data available";
 
-    const lcp = coreWebVitals.lcp || coreWebVitals.LCP || null;
-    const cls = coreWebVitals.cls || coreWebVitals.CLS || null;
-    const inp = coreWebVitals.inp || coreWebVitals.INP || null;
+    setText("metric-speed", scoreVal);
+
+    const lcpMs =
+      typeof speedStability.lcp_ms === "number"
+        ? speedStability.lcp_ms
+        : null;
+    const clsVal =
+      typeof speedStability.cls === "number" ? speedStability.cls : null;
+    const inpMs =
+      typeof speedStability.inp_ms === "number"
+        ? speedStability.inp_ms
+        : null;
 
     const bits = [];
 
-    if (lcp && (lcp.rating || lcp.value)) {
-      bits.push(`LCP: ${lcp.rating || lcp.value}`);
+    if (lcpMs != null) {
+      const lcpSec = lcpMs / 1000;
+      bits.push(`LCP: ${lcpSec.toFixed(1)} s`);
     }
-    if (cls && (cls.rating || cls.value)) {
-      bits.push(`CLS: ${cls.rating || cls.value}`);
+    if (clsVal != null) {
+      bits.push(`CLS: ${clsVal.toFixed(2)}`);
     }
-    if (inp && (inp.rating || inp.value)) {
-      bits.push(`INP: ${inp.rating || inp.value}`);
+    if (inpMs != null) {
+      bits.push(`INP: ${Math.round(inpMs)} ms`);
     }
 
     const detail =
       bits.length > 0
         ? bits.join(" · ")
-        : "Core Web Vitals are being monitored for real-world speed and stability.";
+        : "Lab-based speed & stability metrics are available for this page.";
 
-    setText("metric-cwv-notes", detail);
+    setText("metric-speed-notes", detail);
   } else {
+    setText("metric-speed", "Not available yet");
     setText(
-      "metric-cwv",
-      n.cwv_main || n.core_web_vitals_main || "Not tracked yet"
-    );
-    setText(
-      "metric-cwv-notes",
-      n.cwv_notes ||
-        "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM)."
+      "metric-speed-notes",
+      "This score appears once lab-based diagnostics have successfully run."
     );
   }
 
   // ------------------------------------------------------------------
-  // Narrative hero block + per-signal comments
+  // Narrative hero block + per-signal comments (data-field="")
   // ------------------------------------------------------------------
 
   // Main hero summary

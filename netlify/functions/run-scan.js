@@ -1,4 +1,4 @@
-// /netlify/functions/run-scan.js
+// /netlify/functions/run-san.js
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -51,7 +51,9 @@ function basicHtmlChecks(html) {
     /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
   metrics.meta_description_present = !!descMatch;
-  metrics.meta_description_text = descMatch ? descMatch[1].trim().slice(0, 200) : null;
+  metrics.meta_description_text = descMatch
+    ? descMatch[1].trim().slice(0, 200)
+    : null;
 
   const viewportMatch = html.match(
     /<meta[^>]+name=["']viewport["'][^>]*>/i
@@ -99,36 +101,8 @@ async function fetchWithTimeout(url, ms = 7000) {
 }
 
 // ---------------------------------------------
-// Helper: extract Core Web Vitals from psiMobile
-// ---------------------------------------------
-function extractCoreWebVitals(psiMobile) {
-  if (!psiMobile || !psiMobile.coreWebVitals) return null;
-
-  // psiMobile.coreWebVitals comes from runPsiMobile()
-  const src = psiMobile.coreWebVitals;
-
-  function pickMetric(key) {
-    const m = src[key];
-    if (!m) return null;
-
-    return {
-      rating: m.category || null,      // "FAST" / "AVERAGE" / "SLOW"
-      value: m.percentile ?? null,     // raw percentile
-      unit: m.unit || null,            // e.g. "MILLISECONDS"
-    };
-  }
-
-  const lcp = pickMetric('LCP');
-  const cls = pickMetric('CLS');
-  const inp = pickMetric('INP');
-
-  if (!lcp && !cls && !inp) return null;
-
-  return { lcp, cls, inp };
-}
-
-// ---------------------------------------------
 // Call Google PageSpeed Insights (MOBILE ONLY)
+// + extract lab metrics for Speed & Stability
 // ---------------------------------------------
 async function runPsiMobile(url) {
   if (!psiApiKey) {
@@ -150,7 +124,10 @@ async function runPsiMobile(url) {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(
-      `PSI mobile call failed: ${res.status} ${res.statusText} ${text.slice(0, 200)}`
+      `PSI mobile call failed: ${res.status} ${res.statusText} ${text.slice(
+        0,
+        200
+      )}`
     );
   }
 
@@ -168,13 +145,52 @@ async function runPsiMobile(url) {
     performance: catScore('performance'),
     seo: catScore('seo'),
     accessibility: catScore('accessibility'),
-    best_practices: catScore('best-practices'),
+    best_practices: catScore('best-practices')
   };
 
-  // CrUX Core Web Vitals metrics
+  // --- Lab metrics from Lighthouse audits ---
+  const audits = lighthouse.audits || {};
+  const getAudit = (key) => audits[key] || null;
+
+  const lcpAudit = getAudit('largest-contentful-paint');
+  const clsAudit = getAudit('cumulative-layout-shift');
+  const inpAudit =
+    getAudit('interaction-to-next-paint') ||
+    getAudit('experimental-interaction-to-next-paint');
+  const siAudit = getAudit('speed-index');
+  const ttiAudit = getAudit('interactive');
+  const tbtAudit = getAudit('total-blocking-time');
+
+  const lab = {
+    lcp_ms:
+      lcpAudit && typeof lcpAudit.numericValue === 'number'
+        ? lcpAudit.numericValue
+        : null,
+    cls:
+      clsAudit && typeof clsAudit.numericValue === 'number'
+        ? clsAudit.numericValue
+        : null,
+    inp_ms:
+      inpAudit && typeof inpAudit.numericValue === 'number'
+        ? inpAudit.numericValue
+        : null,
+    speed_index_ms:
+      siAudit && typeof siAudit.numericValue === 'number'
+        ? siAudit.numericValue
+        : null,
+    tti_ms:
+      ttiAudit && typeof ttiAudit.numericValue === 'number'
+        ? ttiAudit.numericValue
+        : null,
+    tbt_ms:
+      tbtAudit && typeof tbtAudit.numericValue === 'number'
+        ? tbtAudit.numericValue
+        : null
+  };
+
+  // (We keep this around in case we reintroduce CWV later)
   const loading = json.loadingExperience || json.originLoadingExperience || {};
   const cwvMetrics = loading.metrics || {};
-
   const coreWebVitals = {
     FCP:
       cwvMetrics.FIRST_CONTENTFUL_PAINT_MS ||
@@ -191,19 +207,18 @@ async function runPsiMobile(url) {
     INP:
       cwvMetrics.INTERACTION_TO_NEXT_PAINT ||
       cwvMetrics.EXPERIMENTAL_INTERACTION_TO_NEXT_PAINT ||
-      null,
+      null
   };
 
   return {
     strategy: 'mobile',
     scores,
     coreWebVitals,
+    lab
   };
 }
 
-// ---------------------------------------------
 // Compute 9-signal scores (mobile-only variant)
-// ---------------------------------------------
 function computeSignalScores({ psiMobile, basicMetrics, https }) {
   const mobilePerf = psiMobile?.scores.performance ?? null;
 
@@ -257,7 +272,7 @@ function computeSignalScores({ psiMobile, basicMetrics, https }) {
     accessibility,
     domain_hosting: domainHosting,
     content_signals: contentSignals,
-    overall,
+    overall
   };
 }
 
@@ -340,12 +355,10 @@ export default async (request, context) => {
 
   let scores;
   let overallScore;
-  let coreWebVitalsClean = null;
 
   if (psiMobile) {
     scores = computeSignalScores({ psiMobile, basicMetrics, https });
     overallScore = scores.overall;
-    coreWebVitalsClean = extractCoreWebVitals(psiMobile);
   } else {
     const fallback = computeFallbackScore(responseOk, basicMetrics);
     scores = {
@@ -357,10 +370,35 @@ export default async (request, context) => {
       accessibility: fallback,
       domain_hosting: https ? fallback : 0,
       content_signals: fallback,
-      overall: fallback,
+      overall: fallback
     };
     overallScore = fallback;
-    coreWebVitalsClean = null;
+  }
+
+  // ---- Speed & Stability block for the report ----
+  let speedStability = null;
+  if (
+    psiMobile &&
+    psiMobile.lab &&
+    psiMobile.scores &&
+    typeof psiMobile.scores.performance === 'number'
+  ) {
+    const lab = psiMobile.lab;
+    speedStability = {
+      score: psiMobile.scores.performance, // 0–100, our Speed & Stability score
+      lcp_ms:
+        typeof lab.lcp_ms === 'number' && !Number.isNaN(lab.lcp_ms)
+          ? lab.lcp_ms
+          : null,
+      cls:
+        typeof lab.cls === 'number' && !Number.isNaN(lab.cls)
+          ? lab.cls
+          : null,
+      inp_ms:
+        typeof lab.inp_ms === 'number' && !Number.isNaN(lab.inp_ms)
+          ? lab.inp_ms
+          : null
+    };
   }
 
   const storedMetrics = {
@@ -372,7 +410,7 @@ export default async (request, context) => {
     psi_mobile: psiMobile,
     psi_desktop: psiDesktop,
     scores,
-    core_web_vitals: coreWebVitalsClean, // <<< THIS IS THE IMPORTANT NEW FIELD
+    speed_stability: speedStability
   };
 
   // ---- Store in scan_results ----
@@ -387,7 +425,7 @@ export default async (request, context) => {
       score_overall: overallScore,
       metrics: storedMetrics,
       report_id: reportId,
-      scan_time_ms: scanTimeMs,
+      scan_time_ms: scanTimeMs
     })
     .select()
     .single();
@@ -398,7 +436,7 @@ export default async (request, context) => {
       JSON.stringify({
         success: false,
         message: 'Failed to save scan result',
-        supabaseError: error.message || error.details || null,
+        supabaseError: error.message || error.details || null
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
@@ -412,7 +450,7 @@ export default async (request, context) => {
       url,
       status: data.status,
       scores,
-      metrics: storedMetrics,
+      metrics: storedMetrics
     }),
     { status: 200, headers: { 'Content-Type': 'application/json' } }
   );
