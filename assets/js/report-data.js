@@ -63,6 +63,9 @@ async function loadReportData() {
   const narrative =
     data.narrative && typeof data.narrative === "object" ? data.narrative : {};
   const reportMeta = data.report || {};
+  const coreWebVitals = data.core_web_vitals || null;
+
+  console.log("Core Web Vitals data:", coreWebVitals);
 
   // Small helper to safely drop AI text into any selector (for optional hooks)
   function applyAiText(selector, text) {
@@ -90,12 +93,6 @@ async function loadReportData() {
   setText("site-url", headerUrl);
   setText("report-id", headerReportId);
   setText("report-date", headerDate);
-
-  // Update <a> href if the site-url field is a link
-  const urlEl = document.querySelector('[data-field="site-url"]');
-  if (urlEl && headerUrl && urlEl.tagName === "A") {
-    urlEl.href = headerUrl;
-  }
 
   if (typeof scores.overall === "number") {
     const overallText = `${scores.overall} / 100`;
@@ -173,6 +170,8 @@ async function loadReportData() {
   // ------------------------------------------------------------------
   // Key Metrics (Page Load, Mobile, Core Web Vitals)
   // ------------------------------------------------------------------
+  // For now we keep Page Load / Mobile as qualitative labels drawn from AI.
+  // Core Web Vitals uses real metrics presence + falls back to AI text.
 
   // Page Load
   setText(
@@ -197,15 +196,45 @@ async function loadReportData() {
   );
 
   // Core Web Vitals
-  setText(
-    "metric-cwv",
-    n.cwv_main || n.core_web_vitals_main || "Not tracked yet"
-  );
-  setText(
-    "metric-cwv-notes",
-    n.cwv_notes ||
-      "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM)."
-  );
+  if (coreWebVitals && typeof coreWebVitals === "object") {
+    setText(
+      "metric-cwv",
+      "Tracked — Core Web Vitals field data available."
+    );
+
+    const lcp = coreWebVitals.lcp || coreWebVitals.LCP || null;
+    const cls = coreWebVitals.cls || coreWebVitals.CLS || null;
+    const inp = coreWebVitals.inp || coreWebVitals.INP || null;
+
+    const bits = [];
+
+    if (lcp && (lcp.rating || lcp.value)) {
+      bits.push(`LCP: ${lcp.rating || lcp.value}`);
+    }
+    if (cls && (cls.rating || cls.value)) {
+      bits.push(`CLS: ${cls.rating || cls.value}`);
+    }
+    if (inp && (inp.rating || inp.value)) {
+      bits.push(`INP: ${inp.rating || inp.value}`);
+    }
+
+    const detail =
+      bits.length > 0
+        ? bits.join(" · ")
+        : "Core Web Vitals are being monitored for real-world speed and stability.";
+
+    setText("metric-cwv-notes", detail);
+  } else {
+    setText(
+      "metric-cwv",
+      n.cwv_main || n.core_web_vitals_main || "Not tracked yet"
+    );
+    setText(
+      "metric-cwv-notes",
+      n.cwv_notes ||
+        "Goal: enable Core Web Vitals monitoring over time (e.g. via analytics or RUM)."
+    );
+  }
 
   // ------------------------------------------------------------------
   // Narrative hero block + per-signal comments (data-field="")
