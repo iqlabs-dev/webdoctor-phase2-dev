@@ -67,7 +67,7 @@ async function generateNarrativeAI(scan) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
+        model: "gpt-4.1-mini-broken",
         temperature: 0.45,
         max_tokens: 900,
         response_format: { type: "json_object" },
