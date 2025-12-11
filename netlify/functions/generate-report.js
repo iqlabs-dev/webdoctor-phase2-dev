@@ -267,6 +267,7 @@ const { data: scan, error: scanError } = await supabase
   }
 
   const scores = scan.metrics?.scores || {};
+    const coreWebVitals = scan.metrics?.psi_mobile?.coreWebVitals || null;
 
   // --- 1. Try Λ i Q AI narrative (one-shot JSON) ---
   let narrative = null;
@@ -321,19 +322,24 @@ const { data: scan, error: scanError } = await supabase
     // still non-fatal for the UI
   }
 
-  // --- 4. Return to UI ---
-  return new Response(
-    JSON.stringify({
-      success: true,
-      scores,
-      narrative,
-      narrative_source: narrativeSource,
-      report: {
-        url: scan.url,
-        report_id: scan.report_id,
-        created_at: scan.created_at,
-      },
-    }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
-};
+// --- 4. Return to UI ---
+return new Response(
+  JSON.stringify({
+    success: true,
+    scores,
+    narrative,
+    narrative_source: narrativeSource,
+    report: {
+      url: scan.url,
+      report_id: scan.report_id,
+      created_at: scan.created_at,
+    },
+    core_web_vitals: coreWebVitals,  // <-- your new field
+  }),
+  {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  }
+);
+}; // ← close export default async (request) => { … }
+
