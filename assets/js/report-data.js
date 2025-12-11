@@ -87,7 +87,7 @@ async function loadReportData() {
   const headerReportId = reportMeta.report_id || "";
   const headerDate = formatReportDate(reportMeta.created_at);
 
-  setText("report-url", headerUrl);
+  setText("site-url", headerUrl);
   setText("report-id", headerReportId);
   setText("report-date", headerDate);
 
