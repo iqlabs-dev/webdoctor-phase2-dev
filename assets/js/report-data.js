@@ -45,17 +45,44 @@ async function loadReportData() {
   }
 
   let data;
-  try {
-    data = await resp.json();
-  } catch (e) {
-    console.error("Error parsing generate-report JSON:", e);
-    return;
-  }
+try {
+  data = await resp.json();
+} catch (e) {
+  console.error("Error parsing generate-report JSON:", e);
+  return;
+}
 
-  if (!data || !data.success) {
-    console.error("generate-report returned failure:", data);
-    return;
-  }
+if (!data || !data.success) {
+  return;
+}
+
+// -----------------------------------------
+// HEADER FIELDS: website, report ID, date
+// -----------------------------------------
+const reportMeta = data.report || {};
+
+// WEBSITE
+if (reportMeta.url) {
+  setText("site-url", reportMeta.url);
+}
+
+// REPORT ID
+if (reportMeta.report_id) {
+  setText("report-id", reportMeta.report_id);
+}
+
+// REPORT DATE formatted (01 JAN 2025)
+if (reportMeta.created_at) {
+  const d = new Date(reportMeta.created_at);
+  const day = String(d.getDate()).padStart(2, "0");
+  const monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const month = monthNames[d.getMonth()];
+  const year = d.getFullYear();
+  setText("report-date", `${day} ${month} ${year}`);
+}
+
+// ---- Continue with scores, narrative, metrics, etc below…
+
 
   console.log("Λ i Q narrative source:", data.narrative_source, data);
 
@@ -275,7 +302,7 @@ async function loadReportData() {
     list.innerHTML = "";
     n.fix_sequence.forEach((step) => {
       if (!step || typeof step !== "string" || !step.trim()) return;
-      const li = document.createElement("li");
+      const li = document.createElement("li"); 
       li.textContent = step.trim();
       list.appendChild(li);
       fixCount++;
