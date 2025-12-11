@@ -95,7 +95,8 @@ async function generateNarrativeAI(scan) {
               "content_comment (string or null),",
               "top_issues (array of objects with keys: title, impact, suggested_fix),",
               "fix_sequence (array of short strings describing steps in order),",
-              "closing_notes (string or null).",
+              "closing_notes (string or null),",
+              "three_key_metrics (array of EXACTLY 3 objects, each with keys: label (string), insight (string)).",
               "If you are unsure about a detail, stay general instead of guessing.",
             ].join(" "),
           },
@@ -139,6 +140,38 @@ async function generateNarrativeAI(scan) {
       return null;
     }
 
+    // Honest normalisation for three_key_metrics:
+    // - Use AI text when present & valid
+    // - Otherwise show an honest "metric unavailable" message
+    const inputMetrics = Array.isArray(parsed.three_key_metrics)
+      ? parsed.three_key_metrics
+      : [];
+
+    const honestMetricFallback = () => ({
+      label: "Metric unavailable",
+      insight:
+        "Unable to generate a reliable narrative for this metric based on the available scan data.",
+    });
+
+    const safeThreeKeyMetrics = [0, 1, 2].map((i) => {
+      const m = inputMetrics[i];
+
+      if (
+        m &&
+        typeof m.label === "string" &&
+        typeof m.insight === "string" &&
+        m.label.trim() &&
+        m.insight.trim()
+      ) {
+        return {
+          label: m.label.trim(),
+          insight: m.insight.trim(),
+        };
+      }
+
+      return honestMetricFallback();
+    });
+
     // Normalise optional fields
     return {
       overall_summary: parsed.overall_summary,
@@ -155,6 +188,7 @@ async function generateNarrativeAI(scan) {
         ? parsed.fix_sequence
         : [],
       closing_notes: parsed.closing_notes ?? null,
+      three_key_metrics: safeThreeKeyMetrics,
     };
   } catch (err) {
     console.error("OpenAI narrative exception:", err);
@@ -162,29 +196,26 @@ async function generateNarrativeAI(scan) {
   }
 }
 
-// ---------------------------------------------
-// Scripted fallback if AI fails completely
-// (Only overall_summary; everything else blank)
-// ---------------------------------------------
-function buildFallbackNarrative(scores) {
-  let overallText;
 
-  if (!scores || typeof scores.overall !== "number") {
-    overallText =
-      "This site shows a generally stable foundation. Once live diagnostics are fully available, this summary will expand to highlight specific strengths, risks, and the most important fixes.";
-  } else if (scores.overall >= 85) {
-    overallText =
-      "This site is operating at an exceptional standard, with very fast load behaviour and strong supporting signals across search, structure, mobile experience, and security. Most remaining work is about fine-tuning details rather than fixing core issues, allowing you to focus on stability, resilience, and incremental gains.";
-  } else if (scores.overall >= 65) {
-    overallText =
-      "This site shows solid fundamentals with reliable performance and healthy search signals, but there is still clear room to improve speed, clarity, and mobile comfort. The most important fixes will target high-impact areas first so that users and search systems experience the site more consistently.";
-  } else {
-    overallText =
-      "This site is currently under-optimised compared to modern expectations. Several key signals are holding back performance, search clarity, and overall reliability. Addressing the issues highlighted in this report will deliver noticeable gains in how quickly the site loads, how clearly it communicates intent, and how confidently users and search engines can trust it.";
-  }
+
+// ---------------------------------------------
+// Honest fallback if AI fails completely
+// ---------------------------------------------
+function buildFallbackNarrative(/* scores */) {
+  const overallText =
+    "The AI narrative could not be generated for this scan. This usually means there was an issue reaching the AI service or safely interpreting the scan data.";
+
+  const honestMetric = {
+    label: "Metric unavailable",
+    insight:
+      "This metric could not be generated because the AI narrative was not created for this scan.",
+  };
 
   return {
+    // No synthetic “site health” here — just honest status
     overall_summary: overallText,
+
+    // No scripted comments for sub-areas
     performance_comment: null,
     seo_comment: null,
     structure_comment: null,
@@ -193,11 +224,21 @@ function buildFallbackNarrative(scores) {
     accessibility_comment: null,
     domain_comment: null,
     content_comment: null,
+
+    // No fake issues or steps – if AI didn’t produce them, they stay empty
     top_issues: [],
     fix_sequence: [],
-    closing_notes: null,
+
+    // Optional closing note – still meta, not pretending to be site-specific
+    closing_notes:
+      "You can safely regenerate this report later. If the problem continues, please contact support so we can investigate the scan or AI connection.",
+
+    // 3 Key Metrics are also strictly honest: they say *why* they’re missing
+    three_key_metrics: [honestMetric, honestMetric, honestMetric],
   };
 }
+
+
 
 // ---------------------------------------------
 // Netlify function handler
