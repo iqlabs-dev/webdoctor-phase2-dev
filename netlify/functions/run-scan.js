@@ -188,7 +188,7 @@ async function runPsiMobile(url) {
         : null
   };
 
-  // (We keep this around in case we reintroduce CWV later)
+  // CrUX CWV (kept for future, not critical now)
   const loading = json.loadingExperience || json.originLoadingExperience || {};
   const cwvMetrics = loading.metrics || {};
   const coreWebVitals = {
@@ -294,10 +294,7 @@ export default async (request, context) => {
   } catch (err) {
     console.error('Error reading body:', err);
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Could not read request body'
-      }),
+      JSON.stringify({ success: false, message: 'Could not read request body' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
