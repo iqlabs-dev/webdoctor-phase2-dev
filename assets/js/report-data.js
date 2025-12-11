@@ -91,6 +91,12 @@ async function loadReportData() {
   setText("report-id", headerReportId);
   setText("report-date", headerDate);
 
+  // Update <a> href if the site-url field is a link
+  const urlEl = document.querySelector('[data-field="site-url"]');
+  if (urlEl && headerUrl && urlEl.tagName === "A") {
+    urlEl.href = headerUrl;
+  }
+
   if (typeof scores.overall === "number") {
     const overallText = `${scores.overall} / 100`;
     setText("score-overall", overallText);         // summary block
@@ -167,8 +173,6 @@ async function loadReportData() {
   // ------------------------------------------------------------------
   // Key Metrics (Page Load, Mobile, Core Web Vitals)
   // ------------------------------------------------------------------
-  // For now we keep these as qualitative labels drawn from the AI narrative.
-  // Later we can wire them directly to PSI metrics if you want.
 
   // Page Load
   setText(
@@ -177,7 +181,8 @@ async function loadReportData() {
   );
   setText(
     "metric-page-load-notes",
-    n.page_load_notes || "Goal: keep pages feeling fast and stable, even on mobile connections."
+    n.page_load_notes ||
+      "Goal: keep pages feeling fast and stable, even on mobile connections."
   );
 
   // Mobile usability
@@ -275,7 +280,7 @@ async function loadReportData() {
     list.innerHTML = "";
     n.fix_sequence.forEach((step) => {
       if (!step || typeof step !== "string" || !step.trim()) return;
-      const li = document.createElement("li"); 
+      const li = document.createElement("li");
       li.textContent = step.trim();
       list.appendChild(li);
       fixCount++;

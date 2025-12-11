@@ -543,38 +543,36 @@
     .wd-reco-list li + li {
       margin-top: 4px;
     }
-/* ---------- NARRATIVE SUMMARY BLOCK ---------- */
 
-.wd-narrative {
-  margin-top: 24px;
-  padding: 18px 22px 20px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-}
+    /* ---------- NARRATIVE SUMMARY BLOCK ---------- */
+    .wd-narrative {
+      margin-top: 24px;
+      padding: 18px 22px 20px;
+      border-radius: 18px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
 
-.wd-narrative-text {
-  font-size: 0.9rem;
-  line-height: 1.6;
-  color: #111827;
-  margin: 0;
-  white-space: normal;
-  word-break: normal;
-}
+    .wd-narrative-text {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #111827;
+      margin: 0;
+      white-space: normal;
+      word-break: normal;
+    }
 
-/* Dark mode for narrative */
-body.wd-dark .wd-narrative {
-  background: #020617;
-  border-color: #1f2937;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8);
-}
+    /* Dark mode for narrative */
+    body.wd-dark .wd-narrative {
+      background: #020617;
+      border-color: #1f2937;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8);
+    }
 
-body.wd-dark .wd-narrative-text {
-  color: #e5e7eb;
-}
-
-
+    body.wd-dark .wd-narrative-text {
+      color: #e5e7eb;
+    }
 
     .wd-notes-body {
       font-size: 0.88rem;
@@ -623,7 +621,15 @@ body.wd-dark .wd-narrative-text {
         <div class="wd-header-meta-row">
           <div class="wd-meta-pill wd-meta-pill-wide">
             <span class="wd-meta-label">Website</span>
-            <span class="wd-meta-value" data-field="website-url">https://placeholder.example/</span>
+            <a
+              href="https://placeholder.example/"
+              class="wd-meta-value"
+              data-field="site-url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              https://placeholder.example/
+            </a>
           </div>
         </div>
 
@@ -647,108 +653,104 @@ body.wd-dark .wd-narrative-text {
       <!-- BODY -->
       <section class="wd-report-body">
 
-<!-- NARRATIVE SUMMARY (Λ i Q output) -->
-<section class="wd-narrative">
-  <p class="wd-narrative-text" data-field="overall-summary">
-    This site shows solid fundamentals with room for meaningful improvements in performance and
-    mobile responsiveness. Search signals are stable but constrained by thin descriptions and
-    inconsistent semantic structure. Overall, the user experience is functional but not yet
-    optimised for speed, clarity, or modern ranking expectations. The fixes identified here
-    will elevate both usability and search reliability.
-  </p>
-</section>
+        <!-- NARRATIVE SUMMARY (Λ i Q output) -->
+        <section class="wd-narrative">
+          <p class="wd-narrative-text" data-field="overall-summary">
+            This site shows solid fundamentals with room for meaningful improvements in performance and
+            mobile responsiveness. Search signals are stable but constrained by thin descriptions and
+            inconsistent semantic structure. Overall, the user experience is functional but not yet
+            optimised for speed, clarity, or modern ranking expectations. The fixes identified here
+            will elevate both usability and search reliability.
+          </p>
+        </section>
 
+        <!-- SIGNAL DIAGNOSTICS – NINE CHECKS -->
+        <section class="wd-section wd-diag-section">
 
+          <h3 class="wd-section-title">Λ i Q™ Delivery — Nine Signals</h3>
 
+          <!-- 1. Performance -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Performance</div>
+              <div class="wd-score-pill" data-field="score-performance">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="performance-comment"></p>
+          </article>
 
- <!-- SIGNAL DIAGNOSTICS – NINE CHECKS -->
-<section class="wd-section wd-diag-section">
+          <!-- 2. SEO Foundations -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">SEO Foundations</div>
+              <div class="wd-score-pill" data-field="score-seo">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="seo-comment"></p>
+          </article>
 
-  <h3 class="wd-section-title">Λ i Q™ Delivery — Nine Signals</h3>
+          <!-- 3. Structure & Semantics -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Structure &amp; Semantics</div>
+              <div class="wd-score-pill" data-field="score-structure">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="structure-comment"></p>
+          </article>
 
-  <!-- 1. Performance -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Performance</div>
-      <div class="wd-score-pill" data-field="score-performance">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="performance-comment"></p>
-  </article>
+          <!-- 4. Mobile Experience -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Mobile Experience</div>
+              <div class="wd-score-pill" data-field="score-mobile">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="mobile-comment"></p>
+          </article>
 
-  <!-- 2. SEO Foundations -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">SEO Foundations</div>
-      <div class="wd-score-pill" data-field="score-seo">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="seo-comment"></p>
-  </article>
+          <!-- 5. Security & Trust -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Security &amp; Trust</div>
+              <div class="wd-score-pill" data-field="score-security">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="security-comment"></p>
+          </article>
 
-  <!-- 3. Structure & Semantics -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Structure &amp; Semantics</div>
-      <div class="wd-score-pill" data-field="score-structure">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="structure-comment"></p>
-  </article>
+          <!-- 6. Accessibility -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Accessibility</div>
+              <div class="wd-score-pill" data-field="score-accessibility">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="accessibility-comment"></p>
+          </article>
 
-  <!-- 4. Mobile Experience -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Mobile Experience</div>
-      <div class="wd-score-pill" data-field="score-mobile">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="mobile-comment"></p>
-  </article>
+          <!-- 7. Domain & Hosting -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Domain &amp; Hosting</div>
+              <div class="wd-score-pill" data-field="score-domain">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="domain-comment"></p>
+          </article>
 
-  <!-- 5. Security & Trust -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Security &amp; Trust</div>
-      <div class="wd-score-pill" data-field="score-security">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="security-comment"></p>
-  </article>
+          <!-- 8. Content Signals -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Content Signals</div>
+              <div class="wd-score-pill" data-field="score-content">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="content-comment"></p>
+          </article>
 
-  <!-- 6. Accessibility -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Accessibility</div>
-      <div class="wd-score-pill" data-field="score-accessibility">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="accessibility-comment"></p>
-  </article>
+          <!-- 9. Summary & Fix Plan -->
+          <article class="wd-diag-block">
+            <header class="wd-diag-header">
+              <div class="wd-diag-title">Summary &amp; Fix Plan</div>
+              <div class="wd-score-pill" data-field="score-overall">— / 100</div>
+            </header>
+            <p class="wd-diag-summary" data-field="closing-notes"></p>
+          </article>
 
-  <!-- 7. Domain & Hosting -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Domain &amp; Hosting</div>
-      <div class="wd-score-pill" data-field="score-domain">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="domain-comment"></p>
-  </article>
-
-  <!-- 8. Content Signals -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Content Signals</div>
-      <div class="wd-score-pill" data-field="score-content">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="content-comment"></p>
-  </article>
-
-  <!-- 9. Summary & Fix Plan -->
-  <article class="wd-diag-block">
-    <header class="wd-diag-header">
-      <div class="wd-diag-title">Summary &amp; Fix Plan</div>
-      <div class="wd-score-pill" data-field="score-overall">— / 100</div>
-    </header>
-    <p class="wd-diag-summary" data-field="closing-notes"></p>
-  </article>
-
-</section>
-
+        </section>
 
         <!-- KEY METRICS (optionally wired later) -->
         <section class="wd-section">
@@ -776,46 +778,43 @@ body.wd-dark .wd-narrative-text {
         </section>
 
         <!-- TOP ISSUES -->
-        <section class="wd-section">
-  <h3 class="wd-section-title">Top Issues Detected</h3>
-  <div class="wd-issues-grid">
-    <article class="wd-issue-card">
-      <div class="wd-issue-label">Issue #1</div>
-      <h4 class="wd-issue-title" data-field="issue-0-title"></h4>
-      <p class="wd-issue-text" data-field="issue-0-impact"></p>
-      <p class="wd-issue-text" data-field="issue-0-fix"></p>
-    </article>
+        <section class="wd-section" data-section="top-issues">
+          <h3 class="wd-section-title">Top Issues Detected</h3>
+          <div class="wd-issues-grid">
+            <article class="wd-issue-card">
+              <div class="wd-issue-badge">Issue #1</div>
+              <h4 class="wd-issue-title" data-field="issue-0-title"></h4>
+              <p class="wd-issue-text" data-field="issue-0-impact"></p>
+              <p class="wd-issue-text" data-field="issue-0-fix"></p>
+            </article>
 
-    <article class="wd-issue-card">
-      <div class="wd-issue-label">Issue #2</div>
-      <h4 class="wd-issue-title" data-field="issue-1-title"></h4>
-      <p class="wd-issue-text" data-field="issue-1-impact"></p>
-      <p class="wd-issue-text" data-field="issue-1-fix"></p>
-    </article>
+            <article class="wd-issue-card">
+              <div class="wd-issue-badge">Issue #2</div>
+              <h4 class="wd-issue-title" data-field="issue-1-title"></h4>
+              <p class="wd-issue-text" data-field="issue-1-impact"></p>
+              <p class="wd-issue-text" data-field="issue-1-fix"></p>
+            </article>
 
-    <article class="wd-issue-card">
-      <div class="wd-issue-label">Issue #3</div>
-      <h4 class="wd-issue-title" data-field="issue-2-title"></h4>
-      <p class="wd-issue-text" data-field="issue-2-impact"></p>
-      <p class="wd-issue-text" data-field="issue-2-fix"></p>
-    </article>
-  </div>
-</section>
-
+            <article class="wd-issue-card">
+              <div class="wd-issue-badge">Issue #3</div>
+              <h4 class="wd-issue-title" data-field="issue-2-title"></h4>
+              <p class="wd-issue-text" data-field="issue-2-impact"></p>
+              <p class="wd-issue-text" data-field="issue-2-fix"></p>
+            </article>
+          </div>
+        </section>
 
         <!-- RECOMMENDED FIX SEQUENCE -->
-   <section class="wd-section">
-  <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-  <ol class="wd-fix-list" data-field="fix-sequence"></ol>
-</section>
-
+        <section class="wd-section" data-section="fix-sequence">
+          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+          <ol class="wd-fix-list" data-field="fix-sequence"></ol>
+        </section>
 
         <!-- SUMMARY -->
-<section class="wd-section">
-  <h3 class="wd-section-title">Summary &amp; Notes</h3>
-  <p class="wd-notes-body" data-field="closing-notes"></p>
-</section>
-
+        <section class="wd-section" data-section="summary-notes">
+          <h3 class="wd-section-title">Summary &amp; Notes</h3>
+          <p class="wd-notes-body" data-field="closing-notes"></p>
+        </section>
 
       </section>
 
@@ -846,7 +845,7 @@ body.wd-dark .wd-narrative-text {
 
       let saved = null;
       try {
-        saved = localStorage.getItem(THEME_KEY); 
+        saved = localStorage.getItem(THEME_KEY);
       } catch (e) {
         saved = null;
       }
