@@ -31,11 +31,19 @@ async function loadReportData() {
   const reportId = params.get("report_id");
   if (!reportId) return;
 
+  // Decide base URL for the function:
+  // - Local/dev: use current origin (localhost / Netlify dev)
+  // - Production: force https://iqweb.ai
+  const origin = window.location.origin || "";
+  const isLocal =
+    origin.includes("localhost") || origin.includes("127.0.0.1");
+  const baseUrl = isLocal ? origin : "https://iqweb.ai";
+
   // Single call: fetch scores + narrative + meta from generate-report
   let resp;
   try {
     resp = await fetch(
-      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
+      `${baseUrl}/.netlify/functions/generate-report?report_id=${encodeURIComponent(
         reportId
       )}`
     );
@@ -61,7 +69,9 @@ async function loadReportData() {
 
   const scores = data.scores || {};
   const narrative =
-    data.narrative && typeof data.narrative === "object" ? data.narrative : {};
+    data.narrative && typeof data.narrative === "object"
+      ? data.narrative
+      : {};
   const reportMeta = data.report || {};
   const coreWebVitals = data.core_web_vitals || null;
 
@@ -96,8 +106,8 @@ async function loadReportData() {
 
   if (typeof scores.overall === "number") {
     const overallText = `${scores.overall} / 100`;
-    setText("score-overall", overallText);         // summary block
-    setText("score-overall-header", overallText);  // header pill
+    setText("score-overall", overallText); // summary block
+    setText("score-overall-header", overallText); // header pill
   }
 
   // ------------------------------------------------------------------
@@ -112,7 +122,10 @@ async function loadReportData() {
 
   // Per-signal narrative blocks (prefer new AI fields, fall back to *_comment)
   applyAiText("[data-ai-performance]", n.performance || n.performance_comment);
-  applyAiText("[data-ai-seo]", n.seo || n.seoFoundations || n.seo_comment);
+  applyAiText(
+    "[data-ai-seo]",
+    n.seo || n.seoFoundations || n.seo_comment
+  );
   applyAiText(
     "[data-ai-structure]",
     n.structure || n.structureSemantics || n.structure_comment
@@ -170,8 +183,6 @@ async function loadReportData() {
   // ------------------------------------------------------------------
   // Key Metrics (Page Load, Mobile, Core Web Vitals)
   // ------------------------------------------------------------------
-  // For now we keep Page Load / Mobile as qualitative labels drawn from AI.
-  // Core Web Vitals uses real metrics presence + falls back to AI text.
 
   // Page Load
   setText(
@@ -187,7 +198,11 @@ async function loadReportData() {
   // Mobile usability
   setText(
     "metric-mobile",
-    n.mobile_main || n.mobile || n.mobileExperience || n.mobile_comment || ""
+    n.mobile_main ||
+      n.mobile ||
+      n.mobileExperience ||
+      n.mobile_comment ||
+      ""
   );
   setText(
     "metric-mobile-notes",
