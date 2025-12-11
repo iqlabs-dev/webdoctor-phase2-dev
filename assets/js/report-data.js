@@ -18,8 +18,18 @@ function formatReportDate(isoString) {
   if (Number.isNaN(d.getTime())) return "";
   const day = String(d.getDate()).padStart(2, "0");
   const months = [
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
   ];
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
@@ -31,19 +41,11 @@ async function loadReportData() {
   const reportId = params.get("report_id");
   if (!reportId) return;
 
-  // Decide base URL for the function:
-  // - Local/dev: use current origin (localhost / Netlify dev)
-  // - Production: force https://iqweb.ai
-  const origin = window.location.origin || "";
-  const isLocal =
-    origin.includes("localhost") || origin.includes("127.0.0.1");
-  const baseUrl = isLocal ? origin : "https://iqweb.ai";
-
   // Single call: fetch scores + narrative + meta from generate-report
   let resp;
   try {
     resp = await fetch(
-      `${baseUrl}/.netlify/functions/generate-report?report_id=${encodeURIComponent(
+      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
         reportId
       )}`
     );
@@ -69,9 +71,7 @@ async function loadReportData() {
 
   const scores = data.scores || {};
   const narrative =
-    data.narrative && typeof data.narrative === "object"
-      ? data.narrative
-      : {};
+    data.narrative && typeof data.narrative === "object" ? data.narrative : {};
   const reportMeta = data.report || {};
   const coreWebVitals = data.core_web_vitals || null;
 
@@ -122,10 +122,7 @@ async function loadReportData() {
 
   // Per-signal narrative blocks (prefer new AI fields, fall back to *_comment)
   applyAiText("[data-ai-performance]", n.performance || n.performance_comment);
-  applyAiText(
-    "[data-ai-seo]",
-    n.seo || n.seoFoundations || n.seo_comment
-  );
+  applyAiText("[data-ai-seo]", n.seo || n.seoFoundations || n.seo_comment);
   applyAiText(
     "[data-ai-structure]",
     n.structure || n.structureSemantics || n.structure_comment
@@ -183,7 +180,6 @@ async function loadReportData() {
   // ------------------------------------------------------------------
   // Key Metrics (Page Load, Mobile, Core Web Vitals)
   // ------------------------------------------------------------------
-
   // Page Load
   setText(
     "metric-page-load",
@@ -198,11 +194,7 @@ async function loadReportData() {
   // Mobile usability
   setText(
     "metric-mobile",
-    n.mobile_main ||
-      n.mobile ||
-      n.mobileExperience ||
-      n.mobile_comment ||
-      ""
+    n.mobile_main || n.mobile || n.mobileExperience || n.mobile_comment || ""
   );
   setText(
     "metric-mobile-notes",
@@ -212,10 +204,7 @@ async function loadReportData() {
 
   // Core Web Vitals
   if (coreWebVitals && typeof coreWebVitals === "object") {
-    setText(
-      "metric-cwv",
-      "Tracked — Core Web Vitals field data available."
-    );
+    setText("metric-cwv", "Tracked — Core Web Vitals field data available.");
 
     const lcp = coreWebVitals.lcp || coreWebVitals.LCP || null;
     const cls = coreWebVitals.cls || coreWebVitals.CLS || null;
@@ -252,7 +241,7 @@ async function loadReportData() {
   }
 
   // ------------------------------------------------------------------
-  // Narrative hero block + per-signal comments (data-field="")
+  // Narrative hero block + per-signal comments
   // ------------------------------------------------------------------
 
   // Main hero summary
