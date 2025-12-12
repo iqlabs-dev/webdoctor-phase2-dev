@@ -569,8 +569,20 @@ export default async (request, context) => {
     };
   }
 
-  // ---- UX Signals v1 ----
+  // ---- UX Signals v1 (compute + blend into overall) ----
   const uxSignals = computeUxSignals({ basicMetrics, psiMobile });
+
+  if (
+    uxSignals &&
+    typeof uxSignals.ux_noise_score === 'number' &&
+    !Number.isNaN(uxSignals.ux_noise_score)
+  ) {
+    const blendedOverall = Math.round(
+      overallScore * 0.9 + uxSignals.ux_noise_score * 0.1
+    );
+    overallScore = blendedOverall;
+    scores.overall = blendedOverall;
+  }
 
   const storedMetrics = {
     http_status: httpStatus,
