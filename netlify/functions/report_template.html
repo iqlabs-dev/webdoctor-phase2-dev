@@ -5,6 +5,7 @@
   <title>iQWEB Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -34,6 +35,8 @@
       justify-content: center;
       z-index: 9999;
       transition: opacity 400ms ease;
+      opacity: 1;
+      pointer-events: all;
     }
 
     #buildingReport.is-hiding {
@@ -92,6 +95,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
     }
 
     .wd-header-title {
@@ -125,6 +129,7 @@
       border: 1px solid #e2e8f0;
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
 
     .wd-meta-pill-wide {
@@ -136,6 +141,7 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: #64748b;
+      margin-bottom: 3px;
     }
 
     .wd-meta-value {
@@ -145,8 +151,6 @@
       color: #0f172a;
       text-decoration: none;
     }
-
-    .wd-meta-value:hover { text-decoration: underline; }
 
     /* ---------------- BODY ---------------- */
     .wd-report-body {
@@ -190,13 +194,12 @@
       margin-bottom: 14px;
     }
 
-    .wd-diag-block:last-child { margin-bottom: 0; }
-
     .wd-diag-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 8px;
+      gap: 12px;
     }
 
     .wd-diag-title {
@@ -214,7 +217,7 @@
       border: 1px solid #14b8a6;
       background: #f0fdfa;
       font-weight: 600;
-      min-width: 88px;
+      min-width: 84px;
       text-align: center;
     }
 
@@ -232,54 +235,10 @@
       border-top: 1px solid #e2e8f0;
       display: flex;
       justify-content: space-between;
+      gap: 12px;
       font-size: 0.72rem;
       color: #64748b;
-    }
-
-    /* ---------------- DARK MODE (minimal) ---------------- */
-    body.wd-dark {
-      background: #030712;
-      color: #e5e4e2;
-    }
-
-    body.wd-dark .wd-report-card {
-      background: #050814;
-      border-color: #111827;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.85);
-    }
-
-    body.wd-dark .wd-header-top {
-      background: #050814;
-      border-color: #111827;
-    }
-
-    body.wd-dark .wd-report-body {
-      background: #020617;
-    }
-
-    body.wd-dark .wd-section,
-    body.wd-dark .wd-diag-block {
-      background: #0b1220;
-      border-color: #1f2937;
-    }
-
-    body.wd-dark .wd-meta-pill {
-      background: #020617;
-      border-color: #1f2937;
-    }
-
-    body.wd-dark .wd-header-title,
-    body.wd-dark .wd-diag-summary,
-    body.wd-dark .wd-narrative-text,
-    body.wd-dark .wd-meta-value {
-      color: #e5e7eb;
-    }
-
-    body.wd-dark .wd-meta-label,
-    body.wd-dark .wd-section-title,
-    body.wd-dark .wd-diag-title,
-    body.wd-dark .wd-footer {
-      color: #cbd5f5;
+      flex-wrap: nowrap;
     }
   </style>
 </head>
@@ -331,15 +290,15 @@
       <section class="wd-report-body">
 
         <!-- NARRATIVE -->
-        <section class="wd-section">
+        <section class="wd-section" data-section="executive-narrative">
           <p class="wd-narrative-text" data-field="overall-summary"></p>
         </section>
 
         <!-- SIGNALS -->
-        <section class="wd-section">
+        <section class="wd-section" data-section="signals">
           <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
 
-          <div class="wd-diag-block">
+          <div class="wd-diag-block" data-section="signal-performance">
             <div class="wd-diag-header">
               <div class="wd-diag-title">Performance</div>
               <div class="wd-score-pill" data-field="score-performance"></div>
@@ -347,7 +306,7 @@
             <p class="wd-diag-summary" data-field="performance-comment"></p>
           </div>
 
-          <div class="wd-diag-block">
+          <div class="wd-diag-block" data-section="signal-ux">
             <div class="wd-diag-header">
               <div class="wd-diag-title">UX &amp; Clarity</div>
               <div class="wd-score-pill" data-field="score-ux"></div>
@@ -355,13 +314,14 @@
             <p class="wd-diag-summary" data-field="ux-comment"></p>
           </div>
 
-          <div class="wd-diag-block">
+          <div class="wd-diag-block" data-section="signal-trust">
             <div class="wd-diag-header">
               <div class="wd-diag-title">Trust &amp; Professionalism</div>
               <div class="wd-score-pill" data-field="score-trust"></div>
             </div>
             <p class="wd-diag-summary" data-field="trust-comment"></p>
           </div>
+
         </section>
 
       </section>
@@ -375,27 +335,12 @@
   </div>
 
   <script>
-    // Theme toggle (restored)
+    // Theme toggle (optional, safe)
     (function () {
-      const body = document.body;
-      const toggle = document.getElementById("themeToggle");
-      if (!toggle) return;
-
-      const KEY = "iqweb_report_theme";
-
-      function apply(theme) {
-        if (theme === "dark") body.classList.add("wd-dark");
-        else body.classList.remove("wd-dark");
-      }
-
-      let saved = null;
-      try { saved = localStorage.getItem(KEY); } catch (e) {}
-      apply(saved === "dark" ? "dark" : "light");
-
-      toggle.addEventListener("click", () => {
-        const next = body.classList.contains("wd-dark") ? "light" : "dark";
-        apply(next);
-        try { localStorage.setItem(KEY, next); } catch (e) {}
+      const btn = document.getElementById("themeToggle");
+      if (!btn) return;
+      btn.addEventListener("click", () => {
+        document.body.classList.toggle("wd-dark"); // only if you later add dark CSS
       });
     })();
 
