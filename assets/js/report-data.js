@@ -1,14 +1,36 @@
 // /assets/js/report-data.js
+// iQWEB Report v5.2 — Full wiring
+// - AI-only text rule: empty strings stay empty (no fake placeholders)
+// - Hides sections if there is no usable content
+// - Signals scores are shown, but narrative always leads
+// - Dispatches iqweb:loaded so the "Building Report" loader can fade out
+
+function qs(sel) {
+  return document.querySelector(sel);
+}
+
+function qsa(sel) {
+  return Array.from(document.querySelectorAll(sel));
+}
 
 function setText(field, text) {
-  const el = document.querySelector(`[data-field="${field}"]`);
+  const el = qs(`[data-field="${field}"]`);
   if (!el) return;
 
   if (typeof text === "string" && text.trim().length > 0) {
     el.textContent = text.trim();
+  } else if (typeof text === "number" && !Number.isNaN(text)) {
+    el.textContent = String(text);
   } else {
-    // AI-only rule: if nothing useful, leave blank
-    el.textContent = "";
+    el.textContent = ""; // AI-only: leave blank
+  }
+}
+
+function setScore(field, score) {
+  if (typeof score === "number" && !Number.isNaN(score)) {
+    setText(field, `${score} / 100`);
+  } else {
+    setText(field, "");
   }
 }
 
@@ -16,47 +38,33 @@ function formatReportDate(isoString) {
   if (!isoString) return "";
   const d = new Date(isoString);
   if (Number.isNaN(d.getTime())) return "";
+
   const day = String(d.getDate()).padStart(2, "0");
-  const months = [
-    "JAN","FEB","MAR","APR","MAY","JUN",
-    "JUL","AUG","SEP","OCT","NOV","DEC",
-  ];
+  const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
   return `${day} ${mon} ${year}`;
 }
 
-// -----------------------------------------------------
-// Loader helpers (Building Report / Λ i Q)
-// -----------------------------------------------------
-function hideBuildingReport() {
-  const el = document.getElementById("buildingReport");
-  if (!el) return;
+function hideSectionByDataSection(key) {
+  const el = qs(`[data-section="${key}"]`);
+  if (el) el.style.display = "none";
+}
 
-  // fade out
-  el.classList.add("is-hiding");
+function hideIfAllEmpty(fields) {
+  // fields = array of data-field strings
+  let any = false;
+  fields.forEach((f) => {
+    const el = qs(`[data-field="${f}"]`);
+    if (!el) return;
+    const t = (el.textContent || "").trim();
+    if (t.length > 0) any = true;
+  });
+  return !any;
+}
 
-  // remove after transition (fallback to timeout)
-  const kill = () => {
-    try { el.remove(); } catch (e) { /* ignore */ }
-  };
-
-  let removed = false;
-  const onEnd = (ev) => {
-    if (ev && ev.target !== el) return;
-    if (removed) return;
-    removed = true;
-    el.removeEventListener("transitionend", onEnd);
-    kill();
-  };
-
-  el.addEventListener("transitionend", onEnd);
-  setTimeout(() => {
-    if (removed) return;
-    removed = true;
-    el.removeEventListener("transitionend", onEnd);
-    kill();
-  }, 650);
+function safeObj(o) {
+  return o && typeof o === "object" ? o : {};
 }
 
 async function loadReportData() {
@@ -64,13 +72,11 @@ async function loadReportData() {
   const reportId = params.get("report_id");
   if (!reportId) return;
 
-  // Single call: fetch scores + narrative + meta from generate-report
+  // Call generate-report (single source of truth)
   let resp;
   try {
     resp = await fetch(
-      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
-        reportId
-      )}`
+      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(reportId)}`
     );
   } catch (e) {
     console.error("Error calling generate-report:", e);
@@ -90,45 +96,24 @@ async function loadReportData() {
     return;
   }
 
-  // ✅ At this point we have valid data — hide the loader
-  hideBuildingReport();
+  const scores = safeObj(data.scores);
+  const narrative = safeObj(data.narrative);
+  const report = safeObj(data.report);
 
-  console.log("Λ i Q narrative source:", data.narrative_source, data);
+  // ------------------------------------------------------------
+  // HEADER META (website, date, report ID, overall)
+  // ------------------------------------------------------------
+  const headerUrl = report.url || "";
+  const headerReportId = report.report_id || "";
+  const headerDate = formatReportDate(report.created_at);
 
-  const scores = data.scores || {};
-  const narrative =
-    data.narrative && typeof data.narrative === "object" ? data.narrative : {};
-  const reportMeta = data.report || {};
-
-  // Small helper to safely drop AI text into any selector (for optional hooks)
-  function applyAiText(selector, text) {
-    const el = document.querySelector(selector);
-    if (!el) return;
-
-    if (typeof text === "string" && text.trim().length > 0) {
-      el.textContent = text.trim();
-    } else {
-      el.textContent = "";
-    }
-  }
-
-  // Convenience alias
-  const n = narrative;
-  console.log("Λ i Q narrative payload:", n);
-
-  // ------------------------------------------------------------------
-  // HEADER META (website, date, report ID, overall score)
-  // ------------------------------------------------------------------
-  const headerUrl = reportMeta.url || "";
-  const headerReportId = reportMeta.report_id || "";
-  const headerDate = formatReportDate(reportMeta.created_at);
-
-  // Website link
-  const urlEl = document.querySelector("[data-field='site-url']");
+  const urlEl = qs('[data-field="site-url"]');
   if (urlEl) {
     urlEl.textContent = headerUrl || "";
     if (headerUrl) {
       urlEl.setAttribute("href", headerUrl);
+      urlEl.setAttribute("target", "_blank");
+      urlEl.setAttribute("rel", "noopener noreferrer");
     } else {
       urlEl.removeAttribute("href");
     }
@@ -137,141 +122,84 @@ async function loadReportData() {
   setText("report-id", headerReportId);
   setText("report-date", headerDate);
 
-  if (typeof scores.overall === "number") {
-    const overallText = `${scores.overall} / 100`;
-    setText("score-overall", overallText); // summary block
-    setText("score-overall-header", overallText); // header pill
-  }
+  // Overall score shows in header pill AND in the Summary/Fix Plan block
+  setScore("score-overall-header", scores.overall);
+  setScore("score-overall", scores.overall);
 
-  // ------------------------------------------------------------------
-  // Optional [data-ai-*] hooks (safe even if not in HTML)
-  // ------------------------------------------------------------------
+  // ------------------------------------------------------------
+  // HERO / OVERALL SUMMARY
+  // ------------------------------------------------------------
+  // Prefer intro; fallback to overall_summary
+  setText("overall-summary", narrative.intro || narrative.overall_summary || "");
 
-  // Top summary
-  applyAiText("[data-ai-intro]", n.intro || n.overall_summary);
+  // ------------------------------------------------------------
+  // NINE SIGNALS — SCORES
+  // (These data-fields are in your HTML)
+  // ------------------------------------------------------------
+  setScore("score-performance", scores.performance);
+  setScore("score-seo", scores.seo);
+  setScore("score-structure", scores.structure_semantics);
+  setScore("score-mobile", scores.mobile_experience);
+  setScore("score-security", scores.security_trust);
+  setScore("score-accessibility", scores.accessibility);
+  setScore("score-domain", scores.domain_hosting);
+  setScore("score-content", scores.content_signals);
 
-  // Optional overview line above the Nine Signals grid
-  applyAiText("[data-ai-nine-signals]", n.nineSignalsOverview);
+  // ------------------------------------------------------------
+  // NINE SIGNALS — NARRATIVE COMMENTS
+  // (These data-fields are in your HTML)
+  // ------------------------------------------------------------
+  setText("performance-comment", narrative.performance || narrative.performance_comment || "");
+  setText("seo-comment", narrative.seo || narrative.seoFoundations || narrative.seo_comment || "");
+  setText("structure-comment", narrative.structure || narrative.structureSemantics || narrative.structure_comment || "");
+  setText("mobile-comment", narrative.mobile || narrative.mobileExperience || narrative.mobile_comment || "");
+  setText("security-comment", narrative.security || narrative.securityTrust || narrative.security_comment || "");
+  setText("accessibility-comment", narrative.accessibility || narrative.accessibility_comment || "");
+  setText("domain-comment", narrative.domain || narrative.domainHosting || narrative.domain_comment || "");
+  setText("content-comment", narrative.content || narrative.contentSignals || narrative.content_comment || "");
 
-  // Per-signal narrative blocks (prefer new AI fields, fall back to *_comment)
-  applyAiText("[data-ai-performance]", n.performance || n.performance_comment);
-  applyAiText("[data-ai-seo]", n.seo || n.seoFoundations || n.seo_comment);
-  applyAiText(
-    "[data-ai-structure]",
-    n.structure || n.structureSemantics || n.structure_comment
-  );
-  applyAiText(
-    "[data-ai-mobile]",
-    n.mobile || n.mobileExperience || n.mobile_comment
-  );
-  applyAiText(
-    "[data-ai-security]",
-    n.security || n.securityTrust || n.security_comment
-  );
-  applyAiText(
-    "[data-ai-accessibility]",
-    n.accessibility || n.accessibility_comment
-  );
-  applyAiText(
-    "[data-ai-domain]",
-    n.domain || n.domainHosting || n.domain_comment
-  );
-  applyAiText(
-    "[data-ai-content]",
-    n.content || n.contentSignals || n.content_comment
-  );
+  // "Summary & Fix Plan" narrative appears in closing-notes (you have it twice: block #9 + final summary)
+  setText("closing-notes", narrative.closing_notes || "");
 
-  // ------------------------------------------------------------------
-  // Scores (all nine signals)
-  // ------------------------------------------------------------------
-
-  if (typeof scores.performance === "number") {
-    setText("score-performance", `${scores.performance} / 100`);
-  }
-  if (typeof scores.seo === "number") {
-    setText("score-seo", `${scores.seo} / 100`);
-  }
-  if (typeof scores.structure_semantics === "number") {
-    setText("score-structure", `${scores.structure_semantics} / 100`);
-  }
-  if (typeof scores.mobile_experience === "number") {
-    setText("score-mobile", `${scores.mobile_experience} / 100`);
-  }
-  if (typeof scores.security_trust === "number") {
-    setText("score-security", `${scores.security_trust} / 100`);
-  }
-  if (typeof scores.accessibility === "number") {
-    setText("score-accessibility", `${scores.accessibility} / 100`);
-  }
-  if (typeof scores.domain_hosting === "number") {
-    setText("score-domain", `${scores.domain_hosting} / 100`);
-  }
-  if (typeof scores.content_signals === "number") {
-    setText("score-content", `${scores.content_signals} / 100`);
-  }
-
-  // ------------------------------------------------------------------
-  // Key Metrics — AI narrative only (3 metrics)
-  // ------------------------------------------------------------------
-
-  const metrics = Array.isArray(n.three_key_metrics)
-    ? n.three_key_metrics
-    : [];
-
+  // ------------------------------------------------------------
+  // KEY METRICS — expects narrative.three_key_metrics = [{label, insight}, ...]
+  // If missing or empty, hide Key Metrics section
+  // ------------------------------------------------------------
+  const km = Array.isArray(narrative.three_key_metrics) ? narrative.three_key_metrics : [];
   const metricFields = [
     { label: "metric-1-label", insight: "metric-1-insight" },
     { label: "metric-2-label", insight: "metric-2-insight" },
     { label: "metric-3-label", insight: "metric-3-insight" },
   ];
 
-  metricFields.forEach((fields, idx) => {
-    const metric = metrics[idx];
-    if (!metric) {
-      setText(fields.label, "");
-      setText(fields.insight, "");
-      return;
-    }
-
-    setText(fields.label, metric.label || "");
-    setText(fields.insight, metric.insight || "");
+  metricFields.forEach((f, idx) => {
+    const item = km[idx] || null;
+    setText(f.label, item?.label || "");
+    setText(f.insight, item?.insight || "");
   });
 
-  // ------------------------------------------------------------------
-  // Narrative hero block + per-signal comments (data-field="")
-  // ------------------------------------------------------------------
+  // Hide if all blank
+  const keyMetricsEmpty = hideIfAllEmpty([
+    "metric-1-label","metric-1-insight",
+    "metric-2-label","metric-2-insight",
+    "metric-3-label","metric-3-insight",
+  ]);
+  if (keyMetricsEmpty) hideSectionByDataSection("key-metrics");
 
-  setText("overall-summary", n.intro || n.overall_summary || "");
-
-  setText("performance-comment", n.performance || n.performance_comment || "");
-  setText("seo-comment", n.seo || n.seoFoundations || n.seo_comment || "");
-  setText(
-    "structure-comment",
-    n.structure || n.structureSemantics || n.structure_comment || ""
-  );
-  setText(
-    "mobile-comment",
-    n.mobile || n.mobileExperience || n.mobile_comment || ""
-  );
-  setText(
-    "security-comment",
-    n.security || n.securityTrust || n.security_comment || ""
-  );
-  setText("accessibility-comment", n.accessibility || n.accessibility_comment || "");
-  setText("domain-comment", n.domain || n.domainHosting || n.domain_comment || "");
-  setText("content-comment", n.content || n.contentSignals || n.content_comment || "");
-
-  // ------------------------------------------------------------------
-  // Top issues (if present) – otherwise hide section
-  // ------------------------------------------------------------------
+  // ------------------------------------------------------------
+  // TOP ISSUES — expects narrative.top_issues = [{title, impact, suggested_fix}, ...]
+  // If none, hide section
+  // ------------------------------------------------------------
   let nonEmptyIssues = 0;
 
-  if (Array.isArray(n.top_issues)) {
-    n.top_issues.forEach((issue, idx) => {
-      if (!issue) return;
-      const title = issue.title || "";
-      const impact = issue.impact || "";
-      const fix = issue.suggested_fix || "";
-      if (title || impact || fix) nonEmptyIssues++;
+  if (Array.isArray(narrative.top_issues)) {
+    narrative.top_issues.forEach((issue, idx) => {
+      if (idx > 2) return; // your HTML has 3 cards
+      const title = issue?.title || "";
+      const impact = issue?.impact || "";
+      const fix = issue?.suggested_fix || "";
+      if ((title + impact + fix).trim().length > 0) nonEmptyIssues++;
+
       setText(`issue-${idx}-title`, title);
       setText(`issue-${idx}-impact`, impact);
       setText(`issue-${idx}-fix`, fix);
@@ -279,29 +207,30 @@ async function loadReportData() {
   }
 
   if (nonEmptyIssues === 0) {
-    const issuesSection = document.querySelector('[data-section="top-issues"]');
-    if (issuesSection) issuesSection.style.display = "none";
+    hideSectionByDataSection("top-issues");
   }
 
-  // ------------------------------------------------------------------
-  // Fix sequence — phased roadmap UI (hide section if empty)
-  // ------------------------------------------------------------------
-  const phaseContainer = document.querySelector('[data-field="fix-sequence-phases"]');
+  // ------------------------------------------------------------
+  // FIX SEQUENCE — expects narrative.fix_sequence as an array of strings
+  // e.g. "Phase 1 — Foundation: Add viewport meta tag — Impact: Ensures proper display on mobile devices"
+  // If empty, hide section
+  // ------------------------------------------------------------
+  const phaseContainer = qs('[data-field="fix-sequence-phases"]');
   let totalFixSteps = 0;
 
-  if (phaseContainer && Array.isArray(n.fix_sequence)) {
+  if (phaseContainer && Array.isArray(narrative.fix_sequence)) {
     phaseContainer.innerHTML = "";
 
     const phaseMap = new Map();
 
-    n.fix_sequence.forEach((raw) => {
+    narrative.fix_sequence.forEach((raw) => {
       if (!raw || typeof raw !== "string") return;
       const text = raw.trim();
       if (!text) return;
 
       let [left, impactPart] = text.split("— Impact:");
-      left = left ? left.trim() : "";
-      const impact = impactPart ? impactPart.trim() : "";
+      left = (left || "").trim();
+      const impact = (impactPart || "").trim();
 
       let phaseLabel = "Other";
       let action = left;
@@ -326,7 +255,7 @@ async function loadReportData() {
 
     const addPhaseCard = (label) => {
       const steps = phaseMap.get(label);
-      if (!steps || !steps.length) return;
+      if (!steps || steps.length === 0) return;
 
       const card = document.createElement("article");
       card.className = "wd-phase-card";
@@ -365,27 +294,33 @@ async function loadReportData() {
       phaseContainer.appendChild(card);
     };
 
-    phaseOrder.forEach((label) => addPhaseCard(label));
+    // Canonical order first
+    phaseOrder.forEach(addPhaseCard);
+
+    // Any extra phases after
     phaseMap.forEach((_, label) => {
       if (!phaseOrder.includes(label)) addPhaseCard(label);
     });
   }
 
-  if (!phaseContainer || !totalFixSteps) {
-    const fixSection = document.querySelector('[data-section="fix-sequence"]');
-    if (fixSection) fixSection.style.display = "none";
+  if (!phaseContainer || totalFixSteps === 0) {
+    hideSectionByDataSection("fix-sequence");
   }
 
-  // ------------------------------------------------------------------
-  // Closing notes – hide entire section if empty
-  // ------------------------------------------------------------------
-  const closing = (n.closing_notes || "").trim();
-  if (closing) {
-    setText("closing-notes", closing);
-  } else {
-    const summarySection = document.querySelector('[data-section="summary-notes"]');
-    if (summarySection) summarySection.style.display = "none";
+  // ------------------------------------------------------------
+  // SUMMARY & NOTES — hide if empty
+  // (Your HTML uses data-field="closing-notes" twice.
+  //  If it's empty, hide the final Summary & Notes section to avoid an empty block.)
+  // ------------------------------------------------------------
+  const closing = (narrative.closing_notes || "").trim();
+  if (!closing) {
+    hideSectionByDataSection("summary-notes");
   }
+
+  // Done: signal loader to fade out
+  window.dispatchEvent(new Event("iqweb:loaded"));
 }
 
-document.addEventListener("DOMContentLoaded", loadReportData);
+document.addEventListener("DOMContentLoaded", () => {
+  loadReportData().catch((e) => console.error("report-data load error:", e));
+});
