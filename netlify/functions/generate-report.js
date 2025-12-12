@@ -7,124 +7,83 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ---------------------------------------------
-// Helpers: clamping + calibrated scoring model
+// Soft-rebalanced overall scoring (Option A)
 // ---------------------------------------------
-function clampScore(value) {
-  const n = typeof value === "number" ? value : 0;
-  if (Number.isNaN(n)) return 0;
-  return Math.max(0, Math.min(100, n));
-}
+function computeOverallScore(rawScores = {}, basicChecks = {}) {
+  const s = rawScores || {};
 
-/**
- * Hybrid scoring:
- * - Uses existing per-signal scores as a base.
- * - Applies strong penalties for missing fundamentals.
- * - Recomputes overall score using weighted categories.
- * - Keeps per-signal scale familiar, but enforces realistic ceilings.
- */
-function calibrateScores(rawScores = {}, basicChecks = {}) {
-  const base = {
-    performance: clampScore(rawScores.performance),
-    seo: clampScore(rawScores.seo),
-    structure_semantics: clampScore(rawScores.structure_semantics),
-    mobile_experience: clampScore(rawScores.mobile_experience),
-    security_trust: clampScore(rawScores.security_trust),
-    accessibility: clampScore(rawScores.accessibility),
-    domain_hosting: clampScore(rawScores.domain_hosting),
-    content_signals: clampScore(rawScores.content_signals),
+  // Soft weights – fair, realistic, founder-friendly
+  const weights = {
+    performance: 0.16,
+    seo: 0.16,
+    structure_semantics: 0.16,
+    mobile_experience: 0.16,
+    security_trust: 0.12,
+    accessibility: 0.08,
+    domain_hosting: 0.06,
+    content_signals: 0.10,
   };
 
-  const {
-    title_present,
-    meta_description_present,
-    viewport_present,
-    h1_present,
-    html_length,
-  } = basicChecks || {};
+  let weightedSum = 0;
+  let weightTotal = 0;
 
-  // --- 1. Hard penalties for missing fundamentals (site-wide impact) ---
+  for (const [key, w] of Object.entries(weights)) {
+    const v = s[key];
+    if (typeof v === "number" && !Number.isNaN(v)) {
+      weightedSum += v * w;
+      weightTotal += w;
+    }
+  }
+
+  if (weightTotal === 0) {
+    return null;
+  }
+
+  let baseScore = weightedSum / weightTotal;
+
+  // -----------------------------
+  // Soft penalties for foundations
+  // (A – fair & realistic)
+  // -----------------------------
   let penalty = 0;
 
-  if (viewport_present === false) penalty += 25;
-  if (h1_present === false) penalty += 20;
-  if (meta_description_present === false) penalty += 15;
-  if (title_present === false) penalty += 10;
-  if (typeof html_length === "number" && html_length > 0 && html_length < 400) {
-    penalty += 10;
+  if (basicChecks.viewport_present === false) {
+    // no viewport: hurts mobile quite a lot
+    penalty += 8;
   }
 
-  // Cap penalty so we don't annihilate the score completely
-  penalty = Math.min(penalty, 40);
-
-  // --- 2. Targeted ceilings on specific signals when fundamentals are missing ---
-  let mobile = base.mobile_experience;
-  if (viewport_present === false) {
-    // Missing viewport: mobile UX can never be "excellent"
-    mobile = Math.min(mobile, 60);
+  if (basicChecks.h1_present === false) {
+    // no H1: structure & clarity weakened
+    penalty += 6;
   }
 
-  let structure = base.structure_semantics;
-  if (h1_present === false) {
-    structure = Math.min(structure, 65);
-  }
-  if (typeof html_length === "number" && html_length > 0 && html_length < 400) {
-    structure = Math.min(structure, 70);
+  if (basicChecks.meta_description_present === false) {
+    // no meta description: weaker snippet clarity
+    penalty += 6;
   }
 
-  let seo = base.seo;
-  if (meta_description_present === false) {
-    seo = Math.min(seo, 70);
+  const htmlLength = basicChecks.html_length;
+  if (typeof htmlLength === "number") {
+    if (htmlLength < 500) {
+      // extremely thin markup – likely under-built
+      penalty += 4;
+    } else if (htmlLength > 200000) {
+      // absurdly large markup – mild hit for bloat
+      penalty += 3;
+    }
   }
-  if (title_present === false) {
-    seo = Math.min(seo, 60);
+
+  let finalScore = baseScore - penalty;
+
+  if (!Number.isFinite(finalScore)) {
+    return null;
   }
 
-  // Security, content, domain, accessibility remain mostly as-is
-  const performance = base.performance;
-  const security = base.security_trust;
-  const accessibility = base.accessibility;
-  const domain = base.domain_hosting;
-  const content = base.content_signals;
+  if (finalScore < 0) finalScore = 0;
+  if (finalScore > 100) finalScore = 100;
 
-  // --- 3. Weighted overall score (elite weighting model) ---
-  const weights = {
-    mobile_experience: 25,
-    structure_semantics: 20,
-    seo: 15,
-    content_signals: 10,
-    performance: 10,
-    security_trust: 10,
-    accessibility: 5,
-    domain_hosting: 5,
-  };
-
-  const weightedSum =
-    mobile * weights.mobile_experience +
-    structure * weights.structure_semantics +
-    seo * weights.seo +
-    content * weights.content_signals +
-    performance * weights.performance +
-    security * weights.security_trust +
-    accessibility * weights.accessibility +
-    domain * weights.domain_hosting;
-
-  let overall = weightedSum / 100;
-
-  // Apply global penalty
-  overall -= penalty;
-  overall = clampScore(overall);
-
-  return {
-    overall,
-    performance,
-    seo,
-    structure_semantics: structure,
-    mobile_experience: mobile,
-    security_trust: security,
-    accessibility,
-    domain_hosting: domain,
-    content_signals: content,
-  };
+  // keep one decimal place (eg. 65.5)
+  return Math.round(finalScore * 10) / 10;
 }
 
 // ---------------------------------------------
@@ -132,14 +91,11 @@ function calibrateScores(rawScores = {}, basicChecks = {}) {
 // ---------------------------------------------
 function buildAiPayloadFromScan(scan) {
   const metrics = scan.metrics || {};
-  const basic = metrics.basic_checks || {};
-  const rawScores = metrics.scores || {};
+  const scores = metrics.scores || {};
   const psiMobile = metrics.psi_mobile || null;
+  const basic = metrics.basic_checks || {};
   const https = metrics.https ?? null;
   const speedStability = metrics.speed_stability || null;
-
-  // Use calibrated scores for AI payload
-  const calibrated = calibrateScores(rawScores, basic);
 
   return {
     report_id: scan.report_id,
@@ -147,17 +103,17 @@ function buildAiPayloadFromScan(scan) {
     http_status: metrics.http_status ?? null,
     https,
     scores: {
-      overall: calibrated.overall ?? null,
-      performance: calibrated.performance ?? null,
-      seo: calibrated.seo ?? null,
-      structure_semantics: calibrated.structure_semantics ?? null,
-      mobile_experience: calibrated.mobile_experience ?? null,
-      security_trust: calibrated.security_trust ?? null,
-      accessibility: calibrated.accessibility ?? null,
-      domain_hosting: calibrated.domain_hosting ?? null,
-      content_signals: calibrated.content_signals ?? null,
+      overall: scores.overall ?? null,
+      performance: scores.performance ?? null,
+      seo: scores.seo ?? null,
+      structure_semantics: scores.structure_semantics ?? null,
+      mobile_experience: scores.mobile_experience ?? null,
+      security_trust: scores.security_trust ?? null,
+      accessibility: scores.accessibility ?? null,
+      domain_hosting: scores.domain_hosting ?? null,
+      content_signals: scores.content_signals ?? null,
     },
-    // keep CWV here in case we re-use it later
+    // keep CWV in payload in case we reuse later
     core_web_vitals:
       metrics.core_web_vitals || psiMobile?.coreWebVitals || null,
     speed_stability: speedStability,
@@ -199,81 +155,45 @@ async function generateNarrativeAI(scan) {
           {
             role: "system",
             content: [
-              // ------------------------------------------------------
-              // Λ i Q — Elite Narrative Engine (S-Tier)
-              // ------------------------------------------------------
               "You are Λ i Q, the narrative intelligence engine behind iQWEB.",
               "Your role is to translate raw scan data into clear, confident, founder-ready insights.",
-              "Tone: concise, direct, senior-agency level. No fluff, no filler, no academic padding.",
+              "Tone: concise, direct, senior-agency level. No fluff. No filler. No academic padding.",
               "Write as if advising a smart founder who values clarity, speed, and practical direction.",
               "Preferred voice: calm, expert, decisive. Short sentences. Strong verbs.",
-              "Avoid weak language such as 'appears to', 'suggests', 'may benefit'.",
+              "Avoid weak language such as ‘appears to’, ‘suggests’, ‘may benefit’.",
               "Never repeat the same idea using different words.",
               "Never mention numeric scores, percentages, or Core Web Vitals.",
               "Focus only on behaviour: speed, stability, clarity, search reliability, mobile comfort, trust signals, accessibility, domain integrity, and content strength.",
 
               // ------------------------------------------------------
-              // TONE ADJUSTMENT — based on overall quality (no numbers)
+              // ⭐ TONE RULES (Step 3) — Adjust based on site quality
               // ------------------------------------------------------
               "TONE ADJUSTMENT RULES BASED ON SCORES (do NOT mention numbers):",
-
               "If the site’s overall quality is strong:",
               "- Sound calm, assured, and precise.",
               "- Emphasise stability, polish, and small meaningful gains.",
               "- Focus on refinement and consistency, not heavy fixes.",
-
               "If the site is mid-range:",
               "- Be clear, direct, and constructive.",
               "- Highlight improvements that deliver noticeable user benefit.",
               "- Prioritise clarity, mobile experience, structure, and trust signals.",
-
               "If the site is under-performing:",
               "- Be firm but supportive.",
               "- Focus on fundamental weaknesses limiting usability, clarity, or trust.",
-              "- Use strong verbs: 'missing', 'hindering', 'reducing', 'limiting'.",
+              "- Use strong verbs: ‘missing’, ‘hindering’, ‘reducing’, ‘limiting’.",
               "- Recommend fixes that unlock meaningful progress without overwhelming the user.",
-
               "General tone rules:",
-              "- Never exaggerate ('major issue', 'critical failure').",
-              "- Never minimise ('just small things').",
+              "- Never exaggerate (‘major issue’, ‘critical failure’).",
+              "- Never minimise (‘just small things’).",
               "- Speak like a senior web strategist delivering a clean, honest assessment.",
               "- Every sentence must provide real value.",
 
               // ------------------------------------------------------
-              // FOUNDER SUMMARY LAYER
-              // ------------------------------------------------------
-              "FOUNDER SUMMARY LAYER:",
-              "Return a field called founder_summary (string).",
-              "This is a single paragraph that:",
-              "- speaks directly to the founder,",
-              "- describes the site’s current state in plain language,",
-              "- frames the opportunity unlocked by fixing fundamentals,",
-              "- avoids technical jargon,",
-              "- does not simply repeat the individual signal comments.",
-              "It should feel human, calm, and helpful, like a strategist summarising the whole picture.",
-
-              // ------------------------------------------------------
-              // CONFIDENCE INDICATOR
-              // ------------------------------------------------------
-              "CONFIDENCE INDICATOR:",
-              "Return a field called confidence_indicator (string).",
-              "Choose ONE short phrase that describes the site’s overall condition without mentioning numbers.",
-              "Examples:",
-              "- 'Strong foundation — refine clarity'",
-              "- 'Stable but under-structured'",
-              "- 'Moderate instability — fundamentals incomplete'",
-              "- 'Low clarity — fix foundation first'",
-              "- 'Healthy base — improve search presentation'",
-              "The phrase must be calm, objective, and non-dramatic.",
-
-              // ------------------------------------------------------
-              // OUTPUT FORMAT — strict JSON schema
+              // ⭐ OUTPUT FORMAT — strict JSON
               // ------------------------------------------------------
               "OUTPUT FORMAT:",
               "Return a JSON object with EXACT keys:",
               "overall_summary (string),",
-              "founder_summary (string),",
-              "confidence_indicator (string),",
               "performance_comment (string or null),",
               "seo_comment (string or null),",
               "structure_comment (string or null),",
@@ -288,43 +208,30 @@ async function generateNarrativeAI(scan) {
               "three_key_metrics (array of EXACTLY 3 objects with keys: label, insight).",
 
               // ------------------------------------------------------
-              // FIX SEQUENCE — Strategic 4-phase roadmap + impact
+              // ⭐ FIX SEQUENCE RULES (Step 4)
               // ------------------------------------------------------
               "FIX SEQUENCE RULES:",
-              "Instead of a plain unordered list, fix_sequence must represent a 4-phase roadmap.",
-              "Each item in fix_sequence is a single string using this pattern:",
-              "'Phase X — [Phase Name]: [Short fix action] — Impact: [Short human explanation of why it matters]'.",
-
-              "Use these four phases in this exact logical order:",
-              "Phase 1 — Foundation",
-              "Phase 2 — Experience & Clarity",
-              "Phase 3 — Trust & Professionalism",
-              "Phase 4 — Optional Enhancements",
-
-              "Phase rules:",
-              "- Phase 1 — Foundation: structural issues that block clarity, search, or basic mobile behaviour.",
-              "- Phase 2 — Experience & Clarity: usability, readability, layout, and interaction improvements.",
-              "- Phase 3 — Trust & Professionalism: policies, contact visibility, consistency, and reliability signals.",
-              "- Phase 4 — Optional Enhancements: low-impact polish and long-term refinements.",
-
-              "For each phase, include 0–4 fixes depending on the site’s needs.",
-              "Never exceed 12 total fixes across all phases.",
-              "Do not repeat the same fix in different words.",
-              "Keep each fix short, direct, and high-leverage.",
-              "The 'Impact' clause must be one short clause in plain language describing the user or business effect.",
-              "Never use technical jargon in the Impact clause.",
-              "If the site is strong, focus on refinement-level fixes.",
-              "If the site is weak, prioritise Phase 1 and Phase 2 fundamentals and keep phases 3–4 minimal.",
+              "- Always output fixes in four conceptual groups, in this exact order:",
+              "  1. Foundation fixes — structural issues blocking clarity, search, or mobile behaviour.",
+              "  2. Experience & clarity fixes — usability, readability, layout, and interaction improvements.",
+              "  3. Trust & professionalism fixes — policies, contact visibility, consistency, reliability.",
+              "  4. Optional enhancements — low-impact polish for long-term improvement.",
+              "- Write them as a single ordered list, but internally follow the above grouping.",
+              "- Never repeat the same fix in different words.",
+              "- Keep each fix short, direct, and high-leverage.",
+              "- Highlight root causes, not vague symptoms.",
+              "- Fixes must feel achievable and practical for a real business owner.",
+              "- If the site is strong, focus on refinement rather than major corrections.",
+              "- If the site is weak, prioritise fundamentals and remove low-impact suggestions.",
+              "- The fix sequence should feel like an expert action plan, not a checklist dump.",
 
               // ------------------------------------------------------
-              // STYLE RULES — no fluff, real insight
+              // ⭐ STYLE RULES — no fluff, real insight
               // ------------------------------------------------------
               "STYLE RULES:",
               "- Insights must be specific but free of unnecessary jargon.",
               "- Use active voice wherever possible.",
               "- Every sentence must deliver value — avoid padding.",
-              "- Highlight root causes, not vague symptoms.",
-              "- Fixes must feel achievable and practical for a real business owner.",
               "- Never invent details not supported by the scan payload.",
               "- If data is insufficient, provide a short, honest, high-level observation instead of guessing."
             ].join(" "),
@@ -369,19 +276,6 @@ async function generateNarrativeAI(scan) {
       return null;
     }
 
-    // Normalise founder_summary + confidence_indicator
-    const founderSummary =
-      typeof parsed.founder_summary === "string" &&
-      parsed.founder_summary.trim().length > 0
-        ? parsed.founder_summary.trim()
-        : parsed.overall_summary;
-
-    const confidenceIndicator =
-      typeof parsed.confidence_indicator === "string" &&
-      parsed.confidence_indicator.trim().length > 0
-        ? parsed.confidence_indicator.trim()
-        : "Assessment available — see summary for context.";
-
     // Honest normalisation for three_key_metrics
     const inputMetrics = Array.isArray(parsed.three_key_metrics)
       ? parsed.three_key_metrics
@@ -415,8 +309,6 @@ async function generateNarrativeAI(scan) {
     // Normalise optional fields
     return {
       overall_summary: parsed.overall_summary,
-      founder_summary: founderSummary,
-      confidence_indicator: confidenceIndicator,
       performance_comment: parsed.performance_comment ?? null,
       seo_comment: parsed.seo_comment ?? null,
       structure_comment: parsed.structure_comment ?? null,
@@ -452,13 +344,7 @@ function buildFallbackNarrative(/* scores */) {
   };
 
   return {
-    // No synthetic “site health” here — just honest status
     overall_summary: overallText,
-    founder_summary:
-      "We weren’t able to generate a narrative for this scan. Once the connection issue is resolved, you’ll see a clear, human summary of your site’s strengths, risks, and next steps here.",
-    confidence_indicator: "Narrative unavailable — retry scan later",
-
-    // No scripted comments for sub-areas
     performance_comment: null,
     seo_comment: null,
     structure_comment: null,
@@ -467,16 +353,10 @@ function buildFallbackNarrative(/* scores */) {
     accessibility_comment: null,
     domain_comment: null,
     content_comment: null,
-
-    // No fake issues or steps – if AI didn’t produce them, they stay empty
     top_issues: [],
     fix_sequence: [],
-
-    // Optional closing note – still meta, not pretending to be site-specific
     closing_notes:
       "You can safely regenerate this report later. If the problem continues, please contact support so we can investigate the scan or AI connection.",
-
-    // 3 Key Metrics are also strictly honest: they say *why* they’re missing
     three_key_metrics: [honestMetric, honestMetric, honestMetric],
   };
 }
@@ -551,16 +431,20 @@ export default async (request) => {
     );
   }
 
-  const metrics = scan.metrics || {};
-  const rawScores = metrics.scores || {};
-  const basicChecks = metrics.basic_checks || {};
-
-  // Use calibrated scores everywhere downstream
-  const scores = calibrateScores(rawScores, basicChecks);
-
+  // Original scores from metrics
+  const scores = scan.metrics?.scores || {};
+  const basicChecks = scan.metrics?.basic_checks || {};
   const coreWebVitals =
-    metrics.core_web_vitals || metrics.psi_mobile?.coreWebVitals || null;
-  const speedStability = metrics.speed_stability || null;
+    scan.metrics?.core_web_vitals ||
+    scan.metrics?.psi_mobile?.coreWebVitals ||
+    null;
+  const speedStability = scan.metrics?.speed_stability || null;
+
+  // Recompute overall using soft-rebalanced engine (Option A)
+  const recomputedOverall = computeOverallScore(scores, basicChecks);
+  if (typeof recomputedOverall === "number") {
+    scores.overall = recomputedOverall;
+  }
 
   // --- 1. Try Λ i Q AI narrative (one-shot JSON) ---
   let narrative = null;
@@ -579,17 +463,6 @@ export default async (request) => {
   }
 
   // --- 3. Save narrative into report_data (best effort) ---
-  if (!scan) {
-    console.error("No scan row found for report_id:", reportId);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        message: "Scan not found for this report_id",
-      }),
-      { status: 404, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
   try {
     const { error: saveErr } = await supabase
       .from("report_data")
@@ -606,11 +479,11 @@ export default async (request) => {
 
     if (saveErr) {
       console.error("Error saving narrative to report_data:", saveErr);
-      // non-fatal: we still return the narrative to the UI
+      // non-fatal
     }
   } catch (err) {
     console.error("Exception during report_data upsert:", err);
-    // still non-fatal for the UI
+    // still non-fatal
   }
 
   // --- 4. Return to UI ---
