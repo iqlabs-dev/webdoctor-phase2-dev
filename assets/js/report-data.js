@@ -18,22 +18,45 @@ function formatReportDate(isoString) {
   if (Number.isNaN(d.getTime())) return "";
   const day = String(d.getDate()).padStart(2, "0");
   const months = [
-    "JAN",
-    "FEB",
-    "MAR",
-    "APR",
-    "MAY",
-    "JUN",
-    "JUL",
-    "AUG",
-    "SEP",
-    "OCT",
-    "NOV",
-    "DEC",
+    "JAN","FEB","MAR","APR","MAY","JUN",
+    "JUL","AUG","SEP","OCT","NOV","DEC",
   ];
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
   return `${day} ${mon} ${year}`;
+}
+
+// -----------------------------------------------------
+// Loader helpers (Building Report / Λ i Q)
+// -----------------------------------------------------
+function hideBuildingReport() {
+  const el = document.getElementById("buildingReport");
+  if (!el) return;
+
+  // fade out
+  el.classList.add("is-hiding");
+
+  // remove after transition (fallback to timeout)
+  const kill = () => {
+    try { el.remove(); } catch (e) { /* ignore */ }
+  };
+
+  let removed = false;
+  const onEnd = (ev) => {
+    if (ev && ev.target !== el) return;
+    if (removed) return;
+    removed = true;
+    el.removeEventListener("transitionend", onEnd);
+    kill();
+  };
+
+  el.addEventListener("transitionend", onEnd);
+  setTimeout(() => {
+    if (removed) return;
+    removed = true;
+    el.removeEventListener("transitionend", onEnd);
+    kill();
+  }, 650);
 }
 
 async function loadReportData() {
@@ -66,6 +89,9 @@ async function loadReportData() {
     console.error("generate-report returned failure:", data);
     return;
   }
+
+  // ✅ At this point we have valid data — hide the loader
+  hideBuildingReport();
 
   console.log("Λ i Q narrative source:", data.narrative_source, data);
 
@@ -201,7 +227,6 @@ async function loadReportData() {
   metricFields.forEach((fields, idx) => {
     const metric = metrics[idx];
     if (!metric) {
-      // If for some reason it's missing, leave blank (backend already provides honest fallback text)
       setText(fields.label, "");
       setText(fields.insight, "");
       return;
@@ -215,14 +240,9 @@ async function loadReportData() {
   // Narrative hero block + per-signal comments (data-field="")
   // ------------------------------------------------------------------
 
-  // Main hero summary
   setText("overall-summary", n.intro || n.overall_summary || "");
 
-  // Per-signal comments
-  setText(
-    "performance-comment",
-    n.performance || n.performance_comment || ""
-  );
+  setText("performance-comment", n.performance || n.performance_comment || "");
   setText("seo-comment", n.seo || n.seoFoundations || n.seo_comment || "");
   setText(
     "structure-comment",
@@ -236,18 +256,9 @@ async function loadReportData() {
     "security-comment",
     n.security || n.securityTrust || n.security_comment || ""
   );
-  setText(
-    "accessibility-comment",
-    n.accessibility || n.accessibility_comment || ""
-  );
-  setText(
-    "domain-comment",
-    n.domain || n.domainHosting || n.domain_comment || ""
-  );
-  setText(
-    "content-comment",
-    n.content || n.contentSignals || n.content_comment || ""
-  );
+  setText("accessibility-comment", n.accessibility || n.accessibility_comment || "");
+  setText("domain-comment", n.domain || n.domainHosting || n.domain_comment || "");
+  setText("content-comment", n.content || n.contentSignals || n.content_comment || "");
 
   // ------------------------------------------------------------------
   // Top issues (if present) – otherwise hide section
@@ -260,9 +271,7 @@ async function loadReportData() {
       const title = issue.title || "";
       const impact = issue.impact || "";
       const fix = issue.suggested_fix || "";
-      if (title || impact || fix) {
-        nonEmptyIssues++;
-      }
+      if (title || impact || fix) nonEmptyIssues++;
       setText(`issue-${idx}-title`, title);
       setText(`issue-${idx}-impact`, impact);
       setText(`issue-${idx}-fix`, fix);
@@ -277,16 +286,12 @@ async function loadReportData() {
   // ------------------------------------------------------------------
   // Fix sequence — phased roadmap UI (hide section if empty)
   // ------------------------------------------------------------------
-  const phaseContainer = document.querySelector(
-    '[data-field="fix-sequence-phases"]'
-  );
+  const phaseContainer = document.querySelector('[data-field="fix-sequence-phases"]');
   let totalFixSteps = 0;
 
   if (phaseContainer && Array.isArray(n.fix_sequence)) {
     phaseContainer.innerHTML = "";
 
-    // Parse AI strings like:
-    // "Phase 1 — Foundation: Add viewport meta tag — Impact: Ensures proper display on mobile devices"
     const phaseMap = new Map();
 
     n.fix_sequence.forEach((raw) => {
@@ -294,32 +299,24 @@ async function loadReportData() {
       const text = raw.trim();
       if (!text) return;
 
-      // Split off impact
       let [left, impactPart] = text.split("— Impact:");
       left = left ? left.trim() : "";
       const impact = impactPart ? impactPart.trim() : "";
 
-      // Extract phase label + action
       let phaseLabel = "Other";
       let action = left;
 
       const colonIdx = left.indexOf(":");
       if (colonIdx !== -1) {
-        phaseLabel = left.slice(0, colonIdx).trim();       // "Phase 1 — Foundation"
-        action = left.slice(colonIdx + 1).trim();          // "Add viewport meta tag"
+        phaseLabel = left.slice(0, colonIdx).trim();
+        action = left.slice(colonIdx + 1).trim();
       }
 
-      if (!phaseMap.has(phaseLabel)) {
-        phaseMap.set(phaseLabel, []);
-      }
-      phaseMap.get(phaseLabel).push({
-        action,
-        impact,
-      });
+      if (!phaseMap.has(phaseLabel)) phaseMap.set(phaseLabel, []);
+      phaseMap.get(phaseLabel).push({ action, impact });
       totalFixSteps++;
     });
 
-    // Preferred phase order for display
     const phaseOrder = [
       "Phase 1 — Foundation",
       "Phase 2 — Experience & Clarity",
@@ -368,14 +365,9 @@ async function loadReportData() {
       phaseContainer.appendChild(card);
     };
 
-    // First, add known phases in canonical order
     phaseOrder.forEach((label) => addPhaseCard(label));
-
-    // Then, add any unexpected phases (future-proofing)
     phaseMap.forEach((_, label) => {
-      if (!phaseOrder.includes(label)) {
-        addPhaseCard(label);
-      }
+      if (!phaseOrder.includes(label)) addPhaseCard(label);
     });
   }
 
@@ -384,7 +376,6 @@ async function loadReportData() {
     if (fixSection) fixSection.style.display = "none";
   }
 
-
   // ------------------------------------------------------------------
   // Closing notes – hide entire section if empty
   // ------------------------------------------------------------------
@@ -392,9 +383,7 @@ async function loadReportData() {
   if (closing) {
     setText("closing-notes", closing);
   } else {
-    const summarySection = document.querySelector(
-      '[data-section="summary-notes"]'
-    );
+    const summarySection = document.querySelector('[data-section="summary-notes"]');
     if (summarySection) summarySection.style.display = "none";
   }
 }

@@ -16,9 +16,7 @@
 
   <style>
     /* ---------- CORE RESET ---------- */
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
@@ -89,9 +87,7 @@
       flex-direction: column;
     }
 
-    .wd-meta-pill-wide {
-      flex: 1 1 100%;
-    }
+    .wd-meta-pill-wide { flex: 1 1 100%; }
 
     .wd-meta-label {
       font-size: 0.7rem;
@@ -146,9 +142,7 @@
     }
 
     @media print {
-      .wd-theme-toggle {
-        display: none !important;
-      }
+      .wd-theme-toggle { display: none !important; }
     }
 
     /* ---------- DARK MODE ---------- */
@@ -168,9 +162,7 @@
       border-color: #111827;
     }
 
-    body.wd-dark .wd-report-body {
-      background: #020617;
-    }
+    body.wd-dark .wd-report-body { background: #020617; }
 
     body.wd-dark .wd-section,
     body.wd-dark .wd-score-panel,
@@ -313,90 +305,16 @@
       font-weight: 600;
     }
 
-    .wd-section-subtitle {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      opacity: 0.8;
-      margin-top: 10px;
-      margin-bottom: 4px;
-      letter-spacing: 0.08em;
-      color: #64748b;
-    }
-
-    .wd-score-panel {
-      margin-bottom: 28px;
-      padding: 22px 22px 24px;
-      background: #ffffff;
-      border-radius: 20px;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-      border: 1px solid #e2e8f0;
-    }
-
-    .wd-score-header h2 {
-      margin: 0 0 6px;
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: #020617 !important;
-    }
-
-    .wd-score-summary {
-      margin: 0;
-      font-size: 0.96rem;
-      color: #475569 !important;
-      font-weight: 500;
-    }
-
-    .wd-diagnostic-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-top: 14px;
-    }
-
-    .wd-diagnostic-card {
-      flex: 1 1 0;
-      min-width: 0;
-      padding: 14px 16px 16px;
-      border-radius: 16px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-    }
-
-    @media (max-width: 768px) {
-      .wd-diagnostic-card {
-        flex-basis: 100%;
-      }
-    }
-
-    .wd-diagnostic-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-
-    .wd-diagnostic-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #0f172a;
-    }
-
-    .wd-diagnostic-score {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #0b9380;
-    }
-
-    .wd-diagnostic-insight {
-      margin: 0;
+    .wd-score-pill {
+      min-width: 78px;
+      padding: 6px 11px;
+      border-radius: 999px;
       font-size: 0.8rem;
-      line-height: 1.4;
-      color: #4b5563;
-    }
-
-    .wd-diag-section {
-      margin-top: 24px;
+      font-weight: 600;
+      text-align: center;
+      background: #f0fdfa;
+      border: 1px solid #14b8a6;
+      color: #0f172a;
     }
 
     .wd-diag-block {
@@ -423,34 +341,11 @@
       color: #475569;
     }
 
-    .wd-score-pill {
-      min-width: 78px;
-      padding: 6px 11px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-align: center;
-      background: #f0fdfa;
-      border: 1px solid #14b8a6;
-      color: #0f172a;
-    }
-
     .wd-diag-summary {
       font-size: 0.85rem;
       line-height: 1.5;
       color: #374151;
       margin: 0 0 8px;
-    }
-
-    .wd-diag-list {
-      margin: 0;
-      padding-left: 18px;
-      font-size: 0.82rem;
-      color: #111827;
-    }
-
-    .wd-diag-list li + li {
-      margin-top: 3px;
     }
 
     .wd-metrics-grid {
@@ -479,12 +374,6 @@
       color: #0f172a;
     }
 
-    .wd-metric-sub {
-      font-size: 0.86rem;
-      color: #475569;
-      margin-top: 2px;
-    }
-
     .wd-issues-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -492,9 +381,7 @@
     }
 
     @media (max-width: 768px) {
-      .wd-issues-grid {
-        grid-template-columns: 1fr;
-      }
+      .wd-issues-grid { grid-template-columns: 1fr; }
     }
 
     .wd-issue-card {
@@ -531,69 +418,54 @@
       color: #475569;
     }
 
-    .wd-reco-list {
-      margin: 0;
-      padding-left: 18px;
-      font-size: 0.9rem;
-      color: #0f172a;
-    }
-
-    .wd-reco-list li + li {
-      margin-top: 4px;
-    }
     /* Phased Fix Sequence Grid */
-.wd-phase-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
+    .wd-phase-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
 
-@media (min-width: 960px) {
-  .wd-phase-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
+    @media (min-width: 960px) {
+      .wd-phase-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
 
-.wd-phase-card {
-  background: #0d1724;
-  border-radius: 12px;
-  padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-}
+    .wd-phase-card {
+      background: #0d1724;
+      border-radius: 12px;
+      padding: 16px 18px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
 
-.wd-phase-title {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  margin: 0 0 0.4rem;
-  color: #7fc4ff;
-}
+    .wd-phase-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      margin: 0 0 0.4rem;
+      color: #7fc4ff;
+    }
 
-.wd-phase-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+    .wd-phase-steps {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
 
-.wd-phase-step {
-  margin-bottom: 0.6rem;
-}
+    .wd-phase-step { margin-bottom: 0.6rem; }
+    .wd-phase-step:last-child { margin-bottom: 0; }
 
-.wd-phase-step:last-child {
-  margin-bottom: 0;
-}
+    .wd-phase-step-main {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #e8f1ff;
+    }
 
-.wd-phase-step-main {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: #e8f1ff;
-}
-
-.wd-phase-step-impact {
-  font-size: 0.8rem;
-  color: #9aa7c2;
-  margin-top: 0.15rem;
-}
+    .wd-phase-step-impact {
+      font-size: 0.8rem;
+      color: #9aa7c2;
+      margin-top: 0.15rem;
+    }
 
     /* ---------- NARRATIVE SUMMARY BLOCK ---------- */
     .wd-narrative {
@@ -614,16 +486,13 @@
       word-break: normal;
     }
 
-    /* Dark mode for narrative */
     body.wd-dark .wd-narrative {
       background: #020617;
       border-color: #1f2937;
       box-shadow: 0 18px 45px rgba(0, 0, 0, 0.8);
     }
 
-    body.wd-dark .wd-narrative-text {
-      color: #e5e7eb;
-    }
+    body.wd-dark .wd-narrative-text { color: #e5e7eb; }
 
     .wd-notes-body {
       font-size: 0.88rem;
@@ -649,13 +518,65 @@
       flex-wrap: wrap;
     }
 
-    .wd-footer span {
-      white-space: nowrap;
+    .wd-footer span { white-space: nowrap; }
+
+    /* ======================================================
+       BUILDING REPORT LOADER (INSERTED)
+       ====================================================== */
+    .building-report {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--report-bg, #0b0f14);
+      z-index: 9999;
+
+      transition: opacity 300ms ease;
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .building-report.is-hiding {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .building-report .title {
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.7;
+      margin-bottom: 10px;
+      color: #e5e4e2;
+    }
+
+    .building-report .iq {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #e5e4e2;
+      animation: iqPulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes iqPulse {
+      0%   { opacity: 0.4; }
+      50%  { opacity: 1; }
+      100% { opacity: 0.4; }
     }
   </style>
 </head>
 
 <body class="wd-isolated">
+
+  <!-- ======================================================
+       BUILDING REPORT LOADER (INSERTED)
+       ====================================================== -->
+  <div id="buildingReport" class="building-report" aria-live="polite">
+    <div class="title">Building Report</div>
+    <div class="iq">Λ i Q</div>
+  </div>
+
   <div class="wd-report-shell">
     <main class="wd-report-card">
 
@@ -706,21 +627,13 @@
 
         <!-- NARRATIVE SUMMARY (Λ i Q output) -->
         <section class="wd-narrative">
-          <p class="wd-narrative-text" data-field="overall-summary">
-            This site shows solid fundamentals with room for meaningful improvements in performance and
-            mobile responsiveness. Search signals are stable but constrained by thin descriptions and
-            inconsistent semantic structure. Overall, the user experience is functional but not yet
-            optimised for speed, clarity, or modern ranking expectations. The fixes identified here
-            will elevate both usability and search reliability.
-          </p>
+          <p class="wd-narrative-text" data-field="overall-summary"></p>
         </section>
 
         <!-- SIGNAL DIAGNOSTICS – NINE CHECKS -->
         <section class="wd-section wd-diag-section">
-
           <h3 class="wd-section-title">Λ i Q™ Delivery — Nine Signals</h3>
 
-          <!-- 1. Performance -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Performance</div>
@@ -729,7 +642,6 @@
             <p class="wd-diag-summary" data-field="performance-comment"></p>
           </article>
 
-          <!-- 2. SEO Foundations -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">SEO Foundations</div>
@@ -738,7 +650,6 @@
             <p class="wd-diag-summary" data-field="seo-comment"></p>
           </article>
 
-          <!-- 3. Structure & Semantics -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Structure &amp; Semantics</div>
@@ -747,7 +658,6 @@
             <p class="wd-diag-summary" data-field="structure-comment"></p>
           </article>
 
-          <!-- 4. Mobile Experience -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Mobile Experience</div>
@@ -756,7 +666,6 @@
             <p class="wd-diag-summary" data-field="mobile-comment"></p>
           </article>
 
-          <!-- 5. Security & Trust -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Security &amp; Trust</div>
@@ -765,7 +674,6 @@
             <p class="wd-diag-summary" data-field="security-comment"></p>
           </article>
 
-          <!-- 6. Accessibility -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Accessibility</div>
@@ -774,7 +682,6 @@
             <p class="wd-diag-summary" data-field="accessibility-comment"></p>
           </article>
 
-          <!-- 7. Domain & Hosting -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Domain &amp; Hosting</div>
@@ -783,7 +690,6 @@
             <p class="wd-diag-summary" data-field="domain-comment"></p>
           </article>
 
-          <!-- 8. Content Signals -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Content Signals</div>
@@ -792,7 +698,6 @@
             <p class="wd-diag-summary" data-field="content-comment"></p>
           </article>
 
-          <!-- 9. Summary & Fix Plan -->
           <article class="wd-diag-block">
             <header class="wd-diag-header">
               <div class="wd-diag-title">Summary &amp; Fix Plan</div>
@@ -800,64 +705,29 @@
             </header>
             <p class="wd-diag-summary" data-field="closing-notes"></p>
           </article>
-
         </section>
 
-<!-- KEY METRICS -->
-<section class="wd-section" data-section="key-metrics">
-  <h3 class="wd-section-title">Key Metrics</h3>
+        <!-- KEY METRICS -->
+        <section class="wd-section" data-section="key-metrics">
+          <h3 class="wd-section-title">Key Metrics</h3>
 
-  <div class="wd-metrics-grid">
-    <!-- Metric 1 -->
-    <article class="wd-metric-card">
-      <h4
-        class="wd-metric-label"
-        data-field="metric-1-label"
-      >
-        —
-      </h4>
-      <div
-        class="wd-metric-main"
-        data-field="metric-1-insight"
-      >
-        —
-      </div>
-    </article>
+          <div class="wd-metrics-grid">
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label" data-field="metric-1-label">—</h4>
+              <div class="wd-metric-main" data-field="metric-1-insight">—</div>
+            </article>
 
-    <!-- Metric 2 -->
-    <article class="wd-metric-card">
-      <h4
-        class="wd-metric-label"
-        data-field="metric-2-label"
-      >
-        —
-      </h4>
-      <div
-        class="wd-metric-main"
-        data-field="metric-2-insight"
-      >
-        —
-      </div>
-    </article>
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label" data-field="metric-2-label">—</h4>
+              <div class="wd-metric-main" data-field="metric-2-insight">—</div>
+            </article>
 
-    <!-- Metric 3 -->
-    <article class="wd-metric-card">
-      <h4
-        class="wd-metric-label"
-        data-field="metric-3-label"
-      >
-        —
-      </h4>
-      <div
-        class="wd-metric-main"
-        data-field="metric-3-insight"
-      >
-        —
-      </div>
-    </article>
-  </div>
-</section>
-
+            <article class="wd-metric-card">
+              <h4 class="wd-metric-label" data-field="metric-3-label">—</h4>
+              <div class="wd-metric-main" data-field="metric-3-insight">—</div>
+            </article>
+          </div>
+        </section>
 
         <!-- TOP ISSUES -->
         <section class="wd-section" data-section="top-issues">
@@ -886,16 +756,11 @@
           </div>
         </section>
 
-<!-- RECOMMENDED FIX SEQUENCE -->
-<section class="wd-section" data-section="fix-sequence">
-  <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-
-  <!-- Phased roadmap, populated by JS -->
-  <div class="wd-phase-grid" data-field="fix-sequence-phases">
-    <!-- JS will inject Phase cards here -->
-  </div>
-</section>
-
+        <!-- RECOMMENDED FIX SEQUENCE -->
+        <section class="wd-section" data-section="fix-sequence">
+          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+          <div class="wd-phase-grid" data-field="fix-sequence-phases"></div>
+        </section>
 
         <!-- SUMMARY & NOTES -->
         <section class="wd-section" data-section="summary-notes">
@@ -923,19 +788,12 @@
       const THEME_KEY = "iqweb_report_theme";
 
       function applyTheme(theme) {
-        if (theme === "dark") {
-          body.classList.add("wd-dark");
-        } else {
-          body.classList.remove("wd-dark");
-        }
+        if (theme === "dark") body.classList.add("wd-dark");
+        else body.classList.remove("wd-dark");
       }
 
       let saved = null;
-      try {
-        saved = localStorage.getItem(THEME_KEY);
-      } catch (e) {
-        saved = null;
-      }
+      try { saved = localStorage.getItem(THEME_KEY); } catch (e) { saved = null; }
 
       applyTheme(saved === "dark" ? "dark" : "light");
 
@@ -943,11 +801,7 @@
         const isDark = body.classList.contains("wd-dark");
         const next = isDark ? "light" : "dark";
         applyTheme(next);
-        try {
-          localStorage.setItem(THEME_KEY, next);
-        } catch (e) {
-          /* ignore */
-        }
+        try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
       });
     })();
   </script>
