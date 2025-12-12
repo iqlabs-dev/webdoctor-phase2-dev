@@ -7,38 +7,21 @@
 // - AI-only rule: empty stays empty (no placeholders)
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
-function qs(sel) {
-  return document.querySelector(sel);
-}
-
-function safeObj(o) {
-  return o && typeof o === "object" ? o : {};
-}
-
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
+function qs(sel) { return document.querySelector(sel); }
+function safeObj(o) { return o && typeof o === "object" ? o : {}; }
+function isNonEmptyString(v) { return typeof v === "string" && v.trim().length > 0; }
 
 function setText(field, text) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
-
-  if (isNonEmptyString(text)) {
-    el.textContent = text.trim();
-  } else {
-    el.textContent = "";
-  }
+  el.textContent = isNonEmptyString(text) ? text.trim() : "";
 }
 
 function setScore(field, score) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
-
-  if (typeof score === "number" && !Number.isNaN(score)) {
-    el.textContent = `${Math.round(score)} / 100`;
-  } else {
-    el.textContent = "";
-  }
+  if (typeof score === "number" && !Number.isNaN(score)) el.textContent = `${Math.round(score)} / 100`;
+  else el.textContent = "";
 }
 
 function formatReportDate(isoString) {
@@ -56,17 +39,14 @@ function formatReportDate(isoString) {
 function avg(nums) {
   const clean = nums.filter((n) => typeof n === "number" && !Number.isNaN(n));
   if (!clean.length) return null;
-  const s = clean.reduce((a,b) => a + b, 0);
-  return s / clean.length;
+  return clean.reduce((a,b) => a + b, 0) / clean.length;
 }
 
 // Build narrative from multiple candidate strings (AI-only, no invented text)
 function joinParts(parts, maxParts = 3) {
   const picked = [];
   for (const p of parts) {
-    if (isNonEmptyString(p) && !picked.includes(p.trim())) {
-      picked.push(p.trim());
-    }
+    if (isNonEmptyString(p) && !picked.includes(p.trim())) picked.push(p.trim());
     if (picked.length >= maxParts) break;
   }
   return picked.join("\n\n");
@@ -79,11 +59,9 @@ async function loadReportData() {
 
   let resp;
   try {
-    resp = await fetch(
-      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(reportId)}`
-    );
+    resp = await fetch(`/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`);
   } catch (e) {
-    console.error("Error calling generate-report:", e);
+    console.error("Error calling get-report-data:", e);
     return;
   }
 
@@ -91,12 +69,12 @@ async function loadReportData() {
   try {
     data = await resp.json();
   } catch (e) {
-    console.error("Error parsing generate-report JSON:", e);
+    console.error("Error parsing get-report-data JSON:", e);
     return;
   }
 
   if (!data || !data.success) {
-    console.error("generate-report returned failure:", data);
+    console.error("get-report-data returned failure:", data);
     return;
   }
 
@@ -124,22 +102,16 @@ async function loadReportData() {
   setText("report-date", headerDate);
   setText("report-id", headerReportId);
 
-  // ---------------- EXECUTIVE NARRATIVE (LEAD) ----------------
-  // Prefer intro; fallback to overall_summary
+  // ---------------- EXECUTIVE NARRATIVE ----------------
   const executive = narrative.intro || narrative.overall_summary || "";
   setText("overall-summary", executive);
 
   // ---------------- SIGNAL 1: PERFORMANCE ----------------
   setScore("score-performance", scores.performance);
-
-  const perfText = joinParts([
-    narrative.performance,
-    narrative.performance_comment
-  ], 2);
+  const perfText = joinParts([narrative.performance, narrative.performance_comment], 2);
   setText("performance-comment", perfText);
 
   // ---------------- SIGNAL 2: UX & CLARITY (DERIVED) ----------------
-  // UX score derived from SEO + Structure + Mobile + Content (if present)
   const uxScore = avg([
     scores.seo,
     scores.structure_semantics,
@@ -148,7 +120,6 @@ async function loadReportData() {
   ]);
   setScore("score-ux", uxScore);
 
-  // UX narrative assembled from the most relevant existing narrative fields
   const uxText = joinParts([
     narrative.mobile,
     narrative.mobileExperience,
@@ -169,7 +140,6 @@ async function loadReportData() {
   setText("ux-comment", uxText);
 
   // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM (DERIVED) ----------------
-  // Trust score derived from Security + Domain + Accessibility (if present)
   const trustScore = avg([
     scores.security_trust,
     scores.domain_hosting,

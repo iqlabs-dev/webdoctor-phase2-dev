@@ -11,7 +11,7 @@ export function normaliseUrl(raw) {
   return url.replace(/\s+/g, '');
 }
 
-// Call backend scan + report generator pipeline
+// Call backend scan pipeline (stores everything). Then fetch HTML for preview/PDF.
 export async function runScan(url) {
   const payload = {
     url,
@@ -19,61 +19,68 @@ export async function runScan(url) {
     email: window.currentUserEmail || null
   };
 
-  const response = await fetch('/.netlify/functions/generate-report', {
+  // 1) Run scan (this is the ONLY place narrative is generated/stored)
+  const scanRes = await fetch('/.netlify/functions/run-scan', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
 
-  let data = {};
-  try {
-    data = await response.json();
-  } catch {
-    // ignore JSON parse errors
-  }
+  let scanData = {};
+  try { scanData = await scanRes.json(); } catch {}
 
-  if (!response.ok) {
-    const msg = data?.error || data?.message || 'Scan failed';
+  if (!scanRes.ok || !scanData?.success) {
+    const msg = scanData?.error || scanData?.message || 'Scan failed';
     throw new Error(msg);
   }
 
-  // -------------------------------
-  // GET FULL REPORT HTML SAFELY
-  // -------------------------------
-  // Preferred field from backend is "report_html"
-  // We fallback to data.html only if needed
-  const fullHtml = data.report_html || data.html;
+  const reportId = scanData.report_id;
+  if (!reportId) throw new Error('Scan completed but no report_id returned');
 
-  // ---------------------------------------------------------
-  // PHASE 2.8 — Trigger PDF Generation (Background Process)
-  // ---------------------------------------------------------
-  if (data && fullHtml && data.report_id && window.currentUserId) {
+  // 2) Fetch the rendered report HTML (read-only display step)
+  // get-report already exists in your functions list; we use it to keep dashboard preview + PDF flow working.
+  let html = '';
+  try {
+    const htmlRes = await fetch(
+      `/.netlify/functions/get-report?report_id=${encodeURIComponent(reportId)}`
+    );
+
+    if (htmlRes.ok) {
+      html = await htmlRes.text();
+    }
+  } catch (e) {
+    // Non-fatal: scan is stored; preview/PDF can fail without breaking integrity.
+    console.warn('get-report fetch failed:', e);
+  }
+
+  // 3) Trigger PDF generation (best-effort)
+  if (html && reportId && window.currentUserId) {
     fetch('/.netlify/functions/generate-report-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        html: fullHtml,            // <-- Correct field for PDF generation
-        report_id: data.report_id, 
+        html,
+        report_id: reportId,
         user_id: window.currentUserId
       })
     })
       .then(async r => {
-        let txt = await r.text();
+        const txt = await r.text();
         try {
           return JSON.parse(txt);
         } catch {
-          console.error("PDF raw response:", txt);
-          return { error: "Invalid JSON from PDF function" };
+          console.error('PDF raw response:', txt);
+          return { error: 'Invalid JSON from PDF function' };
         }
       })
-      .then(pdfData => {
-        console.log('PDF generation requested:', pdfData);
-      })
-      .catch(err => {
-        console.error('PDF request failed:', err);
-      });
+      .then(pdfData => console.log('PDF generation requested:', pdfData))
+      .catch(err => console.error('PDF request failed:', err));
   }
 
-  // Return whatever the backend scan returned
-  return data;
+  // Keep dashboard.js compatible: it expects result.report_id + result.html :contentReference[oaicite:3]{index=3}
+  return {
+    ...scanData,
+    report_id: reportId,
+    html
+  };
 }
