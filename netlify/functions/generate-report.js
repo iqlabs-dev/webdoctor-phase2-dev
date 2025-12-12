@@ -7,15 +7,139 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ---------------------------------------------
+// Helpers: clamping + calibrated scoring model
+// ---------------------------------------------
+function clampScore(value) {
+  const n = typeof value === "number" ? value : 0;
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+/**
+ * Hybrid scoring:
+ * - Uses existing per-signal scores as a base.
+ * - Applies strong penalties for missing fundamentals.
+ * - Recomputes overall score using weighted categories.
+ * - Keeps per-signal scale familiar, but enforces realistic ceilings.
+ */
+function calibrateScores(rawScores = {}, basicChecks = {}) {
+  const base = {
+    performance: clampScore(rawScores.performance),
+    seo: clampScore(rawScores.seo),
+    structure_semantics: clampScore(rawScores.structure_semantics),
+    mobile_experience: clampScore(rawScores.mobile_experience),
+    security_trust: clampScore(rawScores.security_trust),
+    accessibility: clampScore(rawScores.accessibility),
+    domain_hosting: clampScore(rawScores.domain_hosting),
+    content_signals: clampScore(rawScores.content_signals),
+  };
+
+  const {
+    title_present,
+    meta_description_present,
+    viewport_present,
+    h1_present,
+    html_length,
+  } = basicChecks || {};
+
+  // --- 1. Hard penalties for missing fundamentals (site-wide impact) ---
+  let penalty = 0;
+
+  if (viewport_present === false) penalty += 25;
+  if (h1_present === false) penalty += 20;
+  if (meta_description_present === false) penalty += 15;
+  if (title_present === false) penalty += 10;
+  if (typeof html_length === "number" && html_length > 0 && html_length < 400) {
+    penalty += 10;
+  }
+
+  // Cap penalty so we don't annihilate the score completely
+  penalty = Math.min(penalty, 40);
+
+  // --- 2. Targeted ceilings on specific signals when fundamentals are missing ---
+  let mobile = base.mobile_experience;
+  if (viewport_present === false) {
+    // Missing viewport: mobile UX can never be "excellent"
+    mobile = Math.min(mobile, 60);
+  }
+
+  let structure = base.structure_semantics;
+  if (h1_present === false) {
+    structure = Math.min(structure, 65);
+  }
+  if (typeof html_length === "number" && html_length > 0 && html_length < 400) {
+    structure = Math.min(structure, 70);
+  }
+
+  let seo = base.seo;
+  if (meta_description_present === false) {
+    seo = Math.min(seo, 70);
+  }
+  if (title_present === false) {
+    seo = Math.min(seo, 60);
+  }
+
+  // Security, content, domain, accessibility remain mostly as-is
+  const performance = base.performance;
+  const security = base.security_trust;
+  const accessibility = base.accessibility;
+  const domain = base.domain_hosting;
+  const content = base.content_signals;
+
+  // --- 3. Weighted overall score (elite weighting model) ---
+  const weights = {
+    mobile_experience: 25,
+    structure_semantics: 20,
+    seo: 15,
+    content_signals: 10,
+    performance: 10,
+    security_trust: 10,
+    accessibility: 5,
+    domain_hosting: 5,
+  };
+
+  const weightedSum =
+    mobile * weights.mobile_experience +
+    structure * weights.structure_semantics +
+    seo * weights.seo +
+    content * weights.content_signals +
+    performance * weights.performance +
+    security * weights.security_trust +
+    accessibility * weights.accessibility +
+    domain * weights.domain_hosting;
+
+  let overall = weightedSum / 100;
+
+  // Apply global penalty
+  overall -= penalty;
+  overall = clampScore(overall);
+
+  return {
+    overall,
+    performance,
+    seo,
+    structure_semantics: structure,
+    mobile_experience: mobile,
+    security_trust: security,
+    accessibility,
+    domain_hosting: domain,
+    content_signals: content,
+  };
+}
+
+// ---------------------------------------------
 // Helper: build AI payload from scan row
 // ---------------------------------------------
 function buildAiPayloadFromScan(scan) {
   const metrics = scan.metrics || {};
-  const scores = metrics.scores || {};
-  const psiMobile = metrics.psi_mobile || null;
   const basic = metrics.basic_checks || {};
+  const rawScores = metrics.scores || {};
+  const psiMobile = metrics.psi_mobile || null;
   const https = metrics.https ?? null;
   const speedStability = metrics.speed_stability || null;
+
+  // Use calibrated scores for AI payload
+  const calibrated = calibrateScores(rawScores, basic);
 
   return {
     report_id: scan.report_id,
@@ -23,15 +147,15 @@ function buildAiPayloadFromScan(scan) {
     http_status: metrics.http_status ?? null,
     https,
     scores: {
-      overall: scores.overall ?? null,
-      performance: scores.performance ?? null,
-      seo: scores.seo ?? null,
-      structure_semantics: scores.structure_semantics ?? null,
-      mobile_experience: scores.mobile_experience ?? null,
-      security_trust: scores.security_trust ?? null,
-      accessibility: scores.accessibility ?? null,
-      domain_hosting: scores.domain_hosting ?? null,
-      content_signals: scores.content_signals ?? null,
+      overall: calibrated.overall ?? null,
+      performance: calibrated.performance ?? null,
+      seo: calibrated.seo ?? null,
+      structure_semantics: calibrated.structure_semantics ?? null,
+      mobile_experience: calibrated.mobile_experience ?? null,
+      security_trust: calibrated.security_trust ?? null,
+      accessibility: calibrated.accessibility ?? null,
+      domain_hosting: calibrated.domain_hosting ?? null,
+      content_signals: calibrated.content_signals ?? null,
     },
     // keep CWV here in case we re-use it later
     core_web_vitals:
@@ -258,9 +382,7 @@ async function generateNarrativeAI(scan) {
         ? parsed.confidence_indicator.trim()
         : "Assessment available — see summary for context.";
 
-    // Honest normalisation for three_key_metrics:
-    // - Use AI text when present & valid
-    // - Otherwise show an honest "metric unavailable" message
+    // Honest normalisation for three_key_metrics
     const inputMetrics = Array.isArray(parsed.three_key_metrics)
       ? parsed.three_key_metrics
       : [];
@@ -429,12 +551,16 @@ export default async (request) => {
     );
   }
 
-  const scores = scan.metrics?.scores || {};
+  const metrics = scan.metrics || {};
+  const rawScores = metrics.scores || {};
+  const basicChecks = metrics.basic_checks || {};
+
+  // Use calibrated scores everywhere downstream
+  const scores = calibrateScores(rawScores, basicChecks);
+
   const coreWebVitals =
-    scan.metrics?.core_web_vitals ||
-    scan.metrics?.psi_mobile?.coreWebVitals ||
-    null;
-  const speedStability = scan.metrics?.speed_stability || null;
+    metrics.core_web_vitals || metrics.psi_mobile?.coreWebVitals || null;
+  const speedStability = metrics.speed_stability || null;
 
   // --- 1. Try Λ i Q AI narrative (one-shot JSON) ---
   let narrative = null;
