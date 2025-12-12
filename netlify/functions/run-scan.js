@@ -75,7 +75,8 @@ function basicHtmlChecks(html) {
   const inlineStyleMatches = html.match(/\sstyle\s*=/gi) || [];
   metrics.inline_style_count = inlineStyleMatches.length;
 
-  const animatedGifMatches = html.match(/<img[^>]+src=["'][^"']+\.gif["'][^>]*>/gi) || [];
+  const animatedGifMatches =
+    html.match(/<img[^>]+src=["'][^"']+\.gif["'][^>]*>/gi) || [];
   metrics.animated_gif_count = animatedGifMatches.length;
 
   const bgImageMatches =
@@ -386,8 +387,11 @@ function computeUxSignals({ basicMetrics = {}, psiMobile = null }) {
   };
 }
 
+// -------------------------------------------------
 // Compute 9-signal scores (mobile-only variant)
-function computeSignalScores({ psiMobile, basicMetrics, https }) {
+// with UX blended into overall score
+// -------------------------------------------------
+function computeSignalScores({ psiMobile, basicMetrics, https, uxSignals }) {
   const mobilePerf = psiMobile?.scores.performance ?? null;
 
   // Performance = mobile performance
@@ -416,19 +420,27 @@ function computeSignalScores({ psiMobile, basicMetrics, https }) {
     if (contentSignals > 100) contentSignals = 100;
   }
 
+  const uxNoise = uxSignals?.ux_noise_score ?? null;
+  const clarity = uxSignals?.clarity_score ?? null;
+  const visualStability = uxSignals?.visual_stability_score ?? null;
+
   function nz(v, fallback = 0) {
     return typeof v === 'number' && !Number.isNaN(v) ? v : fallback;
   }
 
+  // Balanced weighting with UX layer (Version A)
   const overall = Math.round(
-    nz(blendedPerformance) * 0.25 +
-      nz(seo) * 0.25 +
-      nz(structure) * 0.1 +
-      nz(mobileExperience) * 0.1 +
-      nz(securityTrust) * 0.1 +
-      nz(accessibility) * 0.05 +
-      nz(domainHosting) * 0.05 +
-      nz(contentSignals) * 0.1
+    nz(blendedPerformance) * 0.20 +      // Performance
+      nz(seo) * 0.20 +                   // SEO
+      nz(structure) * 0.10 +             // Structure & Semantics
+      nz(mobileExperience) * 0.10 +      // Mobile Experience
+      nz(securityTrust) * 0.10 +         // Security & Trust
+      nz(accessibility) * 0.05 +         // Accessibility
+      nz(domainHosting) * 0.05 +         // Domain & Hosting
+      nz(contentSignals) * 0.05 +        // Content Signals (reduced)
+      nz(uxNoise) * 0.075 +              // UX Noise / clutter
+      nz(clarity) * 0.125 +              // Content clarity
+      nz(visualStability) * 0.05         // Visual stability (CLS/INP/LCP)
   );
 
   return {
@@ -521,11 +533,14 @@ export default async (request, context) => {
     console.error('PSI mobile error:', err);
   }
 
+  // ---- UX Signals v1 (always computed; may have null stability if no PSI) ----
+  const uxSignals = computeUxSignals({ basicMetrics, psiMobile });
+
   let scores;
   let overallScore;
 
   if (psiMobile) {
-    scores = computeSignalScores({ psiMobile, basicMetrics, https });
+    scores = computeSignalScores({ psiMobile, basicMetrics, https, uxSignals });
     overallScore = scores.overall;
   } else {
     const fallback = computeFallbackScore(responseOk, basicMetrics);
@@ -567,21 +582,6 @@ export default async (request, context) => {
           ? lab.inp_ms
           : null
     };
-  }
-
-  // ---- UX Signals v1 (compute + blend into overall) ----
-  const uxSignals = computeUxSignals({ basicMetrics, psiMobile });
-
-  if (
-    uxSignals &&
-    typeof uxSignals.ux_noise_score === 'number' &&
-    !Number.isNaN(uxSignals.ux_noise_score)
-  ) {
-    const blendedOverall = Math.round(
-      overallScore * 0.9 + uxSignals.ux_noise_score * 0.1
-    );
-    overallScore = blendedOverall;
-    scores.overall = blendedOverall;
   }
 
   const storedMetrics = {
