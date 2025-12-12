@@ -5,7 +5,6 @@
   <title>iQWEB Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -107,6 +106,9 @@
       font-size: 0.9rem;
       letter-spacing: 0.2em;
       cursor: pointer;
+      padding: 0;
+      margin: 0;
+      white-space: nowrap;
     }
 
     .wd-header-meta-row {
@@ -141,7 +143,10 @@
       font-weight: 600;
       word-break: break-all;
       color: #0f172a;
+      text-decoration: none;
     }
+
+    .wd-meta-value:hover { text-decoration: underline; }
 
     /* ---------------- BODY ---------------- */
     .wd-report-body {
@@ -164,7 +169,7 @@
       text-transform: uppercase;
       letter-spacing: 0.14em;
       color: #475569;
-      margin-bottom: 14px;
+      margin: 0 0 14px;
       font-weight: 600;
     }
 
@@ -184,6 +189,8 @@
       background: #ffffff;
       margin-bottom: 14px;
     }
+
+    .wd-diag-block:last-child { margin-bottom: 0; }
 
     .wd-diag-header {
       display: flex;
@@ -207,12 +214,15 @@
       border: 1px solid #14b8a6;
       background: #f0fdfa;
       font-weight: 600;
+      min-width: 88px;
+      text-align: center;
     }
 
     .wd-diag-summary {
       font-size: 0.88rem;
       line-height: 1.55;
       margin: 0;
+      color: #111827;
     }
 
     /* ---------------- FOOTER ---------------- */
@@ -225,108 +235,179 @@
       font-size: 0.72rem;
       color: #64748b;
     }
+
+    /* ---------------- DARK MODE (minimal) ---------------- */
+    body.wd-dark {
+      background: #030712;
+      color: #e5e4e2;
+    }
+
+    body.wd-dark .wd-report-card {
+      background: #050814;
+      border-color: #111827;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.85);
+    }
+
+    body.wd-dark .wd-header-top {
+      background: #050814;
+      border-color: #111827;
+    }
+
+    body.wd-dark .wd-report-body {
+      background: #020617;
+    }
+
+    body.wd-dark .wd-section,
+    body.wd-dark .wd-diag-block {
+      background: #0b1220;
+      border-color: #1f2937;
+    }
+
+    body.wd-dark .wd-meta-pill {
+      background: #020617;
+      border-color: #1f2937;
+    }
+
+    body.wd-dark .wd-header-title,
+    body.wd-dark .wd-diag-summary,
+    body.wd-dark .wd-narrative-text,
+    body.wd-dark .wd-meta-value {
+      color: #e5e7eb;
+    }
+
+    body.wd-dark .wd-meta-label,
+    body.wd-dark .wd-section-title,
+    body.wd-dark .wd-diag-title,
+    body.wd-dark .wd-footer {
+      color: #cbd5f5;
+    }
   </style>
 </head>
 
 <body>
 
-<!-- LOADER -->
-<div id="buildingReport">
-  <div class="building-inner">
-    <div class="building-title">Building Report</div>
-    <div class="building-iq">Λ i Q</div>
+  <!-- LOADER -->
+  <div id="buildingReport" aria-live="polite">
+    <div class="building-inner">
+      <div class="building-title">Building Report</div>
+      <div class="building-iq">Λ i Q</div>
+    </div>
   </div>
-</div>
 
-<div class="wd-report-shell">
-  <main class="wd-report-card">
+  <div class="wd-report-shell">
+    <main class="wd-report-card">
 
-    <!-- HEADER -->
-    <section class="wd-header-top">
-      <div class="wd-header-bar">
-        <h1 class="wd-header-title">iQWEB</h1>
-        <button class="wd-theme-toggle">— Λ —</button>
-      </div>
-
-      <div class="wd-header-meta-row">
-        <div class="wd-meta-pill wd-meta-pill-wide">
-          <span class="wd-meta-label">Website</span>
-          <a class="wd-meta-value" data-field="site-url" target="_blank"></a>
+      <!-- HEADER -->
+      <section class="wd-header-top">
+        <div class="wd-header-bar">
+          <h1 class="wd-header-title">iQWEB</h1>
+          <button class="wd-theme-toggle" id="themeToggle" type="button">— Λ —</button>
         </div>
-      </div>
 
-      <div class="wd-header-meta-row">
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Report Date</span>
-          <span class="wd-meta-value" data-field="report-date"></span>
+        <div class="wd-header-meta-row">
+          <div class="wd-meta-pill wd-meta-pill-wide">
+            <span class="wd-meta-label">Website</span>
+            <a class="wd-meta-value" data-field="site-url" target="_blank" rel="noopener noreferrer"></a>
+          </div>
         </div>
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Report ID</span>
-          <span class="wd-meta-value" data-field="report-id"></span>
-        </div>
-        <div class="wd-meta-pill">
-          <span class="wd-meta-label">Overall Score</span>
-          <span class="wd-meta-value" data-field="score-overall-header"></span>
-        </div>
-      </div>
-    </section>
 
-    <!-- BODY -->
-    <section class="wd-report-body">
-
-      <!-- NARRATIVE -->
-      <section class="wd-section">
-        <p class="wd-narrative-text" data-field="overall-summary"></p>
+        <div class="wd-header-meta-row">
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report Date</span>
+            <span class="wd-meta-value" data-field="report-date"></span>
+          </div>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report ID</span>
+            <span class="wd-meta-value" data-field="report-id"></span>
+          </div>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Overall Score</span>
+            <span class="wd-meta-value" data-field="score-overall-header"></span>
+          </div>
+        </div>
       </section>
 
-      <!-- SIGNALS -->
-      <section class="wd-section">
-        <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
+      <!-- BODY -->
+      <section class="wd-report-body">
 
-        <div class="wd-diag-block">
-          <div class="wd-diag-header">
-            <div class="wd-diag-title">Performance</div>
-            <div class="wd-score-pill" data-field="score-performance"></div>
-          </div>
-          <p class="wd-diag-summary" data-field="performance-comment"></p>
-        </div>
+        <!-- NARRATIVE -->
+        <section class="wd-section">
+          <p class="wd-narrative-text" data-field="overall-summary"></p>
+        </section>
 
-        <div class="wd-diag-block">
-          <div class="wd-diag-header">
-            <div class="wd-diag-title">UX & Clarity</div>
-            <div class="wd-score-pill" data-field="score-ux"></div>
-          </div>
-          <p class="wd-diag-summary" data-field="ux-comment"></p>
-        </div>
+        <!-- SIGNALS -->
+        <section class="wd-section">
+          <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
 
-        <div class="wd-diag-block">
-          <div class="wd-diag-header">
-            <div class="wd-diag-title">Trust & Professionalism</div>
-            <div class="wd-score-pill" data-field="score-trust"></div>
+          <div class="wd-diag-block">
+            <div class="wd-diag-header">
+              <div class="wd-diag-title">Performance</div>
+              <div class="wd-score-pill" data-field="score-performance"></div>
+            </div>
+            <p class="wd-diag-summary" data-field="performance-comment"></p>
           </div>
-          <p class="wd-diag-summary" data-field="trust-comment"></p>
-        </div>
+
+          <div class="wd-diag-block">
+            <div class="wd-diag-header">
+              <div class="wd-diag-title">UX &amp; Clarity</div>
+              <div class="wd-score-pill" data-field="score-ux"></div>
+            </div>
+            <p class="wd-diag-summary" data-field="ux-comment"></p>
+          </div>
+
+          <div class="wd-diag-block">
+            <div class="wd-diag-header">
+              <div class="wd-diag-title">Trust &amp; Professionalism</div>
+              <div class="wd-score-pill" data-field="score-trust"></div>
+            </div>
+            <p class="wd-diag-summary" data-field="trust-comment"></p>
+          </div>
+        </section>
 
       </section>
-    </section>
 
-    <footer class="wd-footer">
-      <span>© 2025 iQWEB – All rights reserved.</span>
-      <span>Powered by Λ i Q™.</span>
-    </footer>
+      <footer class="wd-footer">
+        <span>© 2025 iQWEB – All rights reserved.</span>
+        <span>Powered by Λ i Q™.</span>
+      </footer>
 
-  </main>
-</div>
+    </main>
+  </div>
 
-<script>
-  // Fade loader once report-data finishes
-  window.addEventListener("iqweb:loaded", () => {
-    const loader = document.getElementById("buildingReport");
-    loader.classList.add("is-hiding");
-    setTimeout(() => loader.remove(), 500);
-  });
-</script>
+  <script>
+    // Theme toggle (restored)
+    (function () {
+      const body = document.body;
+      const toggle = document.getElementById("themeToggle");
+      if (!toggle) return;
 
-<script type="module" src="/assets/js/report-data.js"></script>
+      const KEY = "iqweb_report_theme";
+
+      function apply(theme) {
+        if (theme === "dark") body.classList.add("wd-dark");
+        else body.classList.remove("wd-dark");
+      }
+
+      let saved = null;
+      try { saved = localStorage.getItem(KEY); } catch (e) {}
+      apply(saved === "dark" ? "dark" : "light");
+
+      toggle.addEventListener("click", () => {
+        const next = body.classList.contains("wd-dark") ? "light" : "dark";
+        apply(next);
+        try { localStorage.setItem(KEY, next); } catch (e) {}
+      });
+    })();
+
+    // Fade loader once report-data finishes
+    window.addEventListener("iqweb:loaded", () => {
+      const loader = document.getElementById("buildingReport");
+      if (!loader) return;
+      loader.classList.add("is-hiding");
+      setTimeout(() => loader.remove(), 520);
+    });
+  </script>
+
+  <script type="module" src="/assets/js/report-data.js"></script>
 </body>
 </html>
