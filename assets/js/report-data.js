@@ -1,31 +1,43 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Aligned wiring for the 3-signal layout
-// - AI-only rule: if empty, leave blank
-// - Hides whole blocks if they end up empty
-// - Always dispatches iqweb:loaded (so loader fades out)
+// iQWEB Report v5.2 — Wiring for 3 Gold-Standard signal blocks
+// - Performance (score + narrative)
+// - UX & Clarity (derived score + assembled narrative)
+// - Trust & Professionalism (derived score + assembled narrative)
+// - Executive Narrative leads
+// - AI-only rule: empty stays empty (no placeholders)
+// - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) {
   return document.querySelector(sel);
 }
 
-function setText(field, value) {
+function safeObj(o) {
+  return o && typeof o === "object" ? o : {};
+}
+
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function setText(field, text) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
 
-  if (typeof value === "string" && value.trim().length) {
-    el.textContent = value.trim();
-  } else if (typeof value === "number" && !Number.isNaN(value)) {
-    el.textContent = String(value);
+  if (isNonEmptyString(text)) {
+    el.textContent = text.trim();
   } else {
     el.textContent = "";
   }
 }
 
 function setScore(field, score) {
+  const el = qs(`[data-field="${field}"]`);
+  if (!el) return;
+
   if (typeof score === "number" && !Number.isNaN(score)) {
-    setText(field, `${Math.round(score)} / 100`);
+    el.textContent = `${Math.round(score)} / 100`;
   } else {
-    setText(field, "");
+    el.textContent = "";
   }
 }
 
@@ -33,7 +45,6 @@ function formatReportDate(isoString) {
   if (!isoString) return "";
   const d = new Date(isoString);
   if (Number.isNaN(d.getTime())) return "";
-
   const day = String(d.getDate()).padStart(2, "0");
   const months = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   const mon = months[d.getMonth()] || "";
@@ -41,106 +52,149 @@ function formatReportDate(isoString) {
   return `${day} ${mon} ${year}`;
 }
 
-function hideSection(key) {
-  const el = qs(`[data-section="${key}"]`);
-  if (el) el.style.display = "none";
+// Average only valid numbers
+function avg(nums) {
+  const clean = nums.filter((n) => typeof n === "number" && !Number.isNaN(n));
+  if (!clean.length) return null;
+  const s = clean.reduce((a,b) => a + b, 0);
+  return s / clean.length;
 }
 
-function isEmptyField(field) {
-  const el = qs(`[data-field="${field}"]`);
-  if (!el) return true;
-  return (el.textContent || "").trim().length === 0;
-}
-
-// Try multiple possible keys (backend drift-proof)
-function pick(obj, keys) {
-  for (const k of keys) {
-    if (obj && typeof obj[k] === "string" && obj[k].trim().length) return obj[k].trim();
-    if (obj && typeof obj[k] === "number" && !Number.isNaN(obj[k])) return obj[k];
+// Build narrative from multiple candidate strings (AI-only, no invented text)
+function joinParts(parts, maxParts = 3) {
+  const picked = [];
+  for (const p of parts) {
+    if (isNonEmptyString(p) && !picked.includes(p.trim())) {
+      picked.push(p.trim());
+    }
+    if (picked.length >= maxParts) break;
   }
-  return "";
+  return picked.join("\n\n");
 }
 
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
-  if (!reportId) {
-    window.dispatchEvent(new Event("iqweb:loaded"));
+  if (!reportId) return;
+
+  let resp;
+  try {
+    resp = await fetch(
+      `/.netlify/functions/generate-report?report_id=${encodeURIComponent(reportId)}`
+    );
+  } catch (e) {
+    console.error("Error calling generate-report:", e);
     return;
   }
 
-  let resp, data;
+  let data;
   try {
-    resp = await fetch(`/.netlify/functions/generate-report?report_id=${encodeURIComponent(reportId)}`);
     data = await resp.json();
   } catch (e) {
-    console.error("Report load failed:", e);
-    window.dispatchEvent(new Event("iqweb:loaded"));
+    console.error("Error parsing generate-report JSON:", e);
     return;
   }
 
   if (!data || !data.success) {
     console.error("generate-report returned failure:", data);
-    window.dispatchEvent(new Event("iqweb:loaded"));
     return;
   }
 
-  const report = data.report && typeof data.report === "object" ? data.report : {};
-  const scores = data.scores && typeof data.scores === "object" ? data.scores : {};
-  const narrative = data.narrative && typeof data.narrative === "object" ? data.narrative : {};
+  const scores = safeObj(data.scores);
+  const narrative = safeObj(data.narrative);
+  const report = safeObj(data.report);
 
   // ---------------- HEADER ----------------
-  const url = report.url || "";
+  const headerUrl = report.url || "";
+  const headerReportId = report.report_id || "";
+  const headerDate = formatReportDate(report.created_at);
+
   const urlEl = qs('[data-field="site-url"]');
   if (urlEl) {
-    urlEl.textContent = url;
-    if (url) urlEl.setAttribute("href", url);
+    urlEl.textContent = headerUrl || "";
+    if (headerUrl) {
+      urlEl.setAttribute("href", headerUrl);
+      urlEl.setAttribute("target", "_blank");
+      urlEl.setAttribute("rel", "noopener noreferrer");
+    } else {
+      urlEl.removeAttribute("href");
+    }
   }
 
-  setText("report-id", report.report_id || "");
-  setText("report-date", formatReportDate(report.created_at || report.report_date || ""));
-  setScore("score-overall-header", scores.overall);
+  setText("report-date", headerDate);
+  setText("report-id", headerReportId);
 
-  // ---------------- EXEC NARRATIVE ----------------
-  setText("overall-summary", pick(narrative, ["intro", "overall_summary", "executive_narrative"]));
+  // ---------------- EXECUTIVE NARRATIVE (LEAD) ----------------
+  // Prefer intro; fallback to overall_summary
+  const executive = narrative.intro || narrative.overall_summary || "";
+  setText("overall-summary", executive);
 
-  // If narrative empty, hide that section entirely
-  if (isEmptyField("overall-summary")) hideSection("executive-narrative");
-
-  // ---------------- 3 SIGNALS (SCORES) ----------------
-  // Performance is real from PSI (scores.performance)
+  // ---------------- SIGNAL 1: PERFORMANCE ----------------
   setScore("score-performance", scores.performance);
 
-  // UX & Trust:
-  // Your backend may not have these yet. We support them if present,
-  // otherwise leave blank (integrity > pretending).
-  setScore("score-ux", pick(scores, ["ux", "ux_score", "ux_signals", "ux_overall"]));
-  setScore("score-trust", pick(scores, ["trust", "trust_score", "trust_signals", "security_trust"]));
+  const perfText = joinParts([
+    narrative.performance,
+    narrative.performance_comment
+  ], 2);
+  setText("performance-comment", perfText);
 
-  // ---------------- 3 SIGNALS (NARRATIVE) ----------------
-  setText("performance-comment", pick(narrative, ["performance", "performance_comment"]));
-  setText("ux-comment", pick(narrative, ["ux", "ux_comment", "clarity", "clarity_comment"]));
-  setText("trust-comment", pick(narrative, ["trust", "trust_comment", "security", "security_comment"]));
+  // ---------------- SIGNAL 2: UX & CLARITY (DERIVED) ----------------
+  // UX score derived from SEO + Structure + Mobile + Content (if present)
+  const uxScore = avg([
+    scores.seo,
+    scores.structure_semantics,
+    scores.mobile_experience,
+    scores.content_signals
+  ]);
+  setScore("score-ux", uxScore);
 
-  // Hide any signal blocks that end up empty (both score + text)
-  const perfEmpty = isEmptyField("score-performance") && isEmptyField("performance-comment");
-  const uxEmpty = isEmptyField("score-ux") && isEmptyField("ux-comment");
-  const trustEmpty = isEmptyField("score-trust") && isEmptyField("trust-comment");
+  // UX narrative assembled from the most relevant existing narrative fields
+  const uxText = joinParts([
+    narrative.mobile,
+    narrative.mobileExperience,
+    narrative.mobile_comment,
 
-  if (perfEmpty) hideSection("signal-performance");
-  if (uxEmpty) hideSection("signal-ux");
-  if (trustEmpty) hideSection("signal-trust");
+    narrative.structure,
+    narrative.structureSemantics,
+    narrative.structure_comment,
 
-  // If all 3 hidden, hide the whole signals section
-  if (perfEmpty && uxEmpty && trustEmpty) hideSection("signals");
+    narrative.seo,
+    narrative.seoFoundations,
+    narrative.seo_comment,
 
-  // Done: allow loader fade-out
+    narrative.content,
+    narrative.contentSignals,
+    narrative.content_comment
+  ], 3);
+  setText("ux-comment", uxText);
+
+  // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM (DERIVED) ----------------
+  // Trust score derived from Security + Domain + Accessibility (if present)
+  const trustScore = avg([
+    scores.security_trust,
+    scores.domain_hosting,
+    scores.accessibility
+  ]);
+  setScore("score-trust", trustScore);
+
+  const trustText = joinParts([
+    narrative.security,
+    narrative.securityTrust,
+    narrative.security_comment,
+
+    narrative.domain,
+    narrative.domainHosting,
+    narrative.domain_comment,
+
+    narrative.accessibility,
+    narrative.accessibility_comment
+  ], 3);
+  setText("trust-comment", trustText);
+
+  // Done: fade loader
   window.dispatchEvent(new Event("iqweb:loaded"));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadReportData().catch((e) => {
-    console.error("report-data fatal:", e);
-    window.dispatchEvent(new Event("iqweb:loaded"));
-  });
+  loadReportData().catch((e) => console.error("report-data load error:", e));
 });
