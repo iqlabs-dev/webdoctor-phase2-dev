@@ -208,22 +208,26 @@ async function generateNarrativeAI(scan) {
               "three_key_metrics (array of EXACTLY 3 objects with keys: label, insight).",
 
               // ------------------------------------------------------
-              // ⭐ FIX SEQUENCE RULES (Step 4)
+              // ⭐ FIX SEQUENCE RULES (Step 4 + PHASE UI)
               // ------------------------------------------------------
               "FIX SEQUENCE RULES:",
-              "- Always output fixes in four conceptual groups, in this exact order:",
-              "  1. Foundation fixes — structural issues blocking clarity, search, or mobile behaviour.",
-              "  2. Experience & clarity fixes — usability, readability, layout, and interaction improvements.",
-              "  3. Trust & professionalism fixes — policies, contact visibility, consistency, reliability.",
-              "  4. Optional enhancements — low-impact polish for long-term improvement.",
-              "- Write them as a single ordered list, but internally follow the above grouping.",
+              "- fix_sequence MUST be an array of short strings.",
+              "- Each item MUST begin with EXACTLY one of these labels:",
+              "  'Phase 1 — Foundation: '",
+              "  'Phase 2 — Experience & Clarity: '",
+              "  'Phase 3 — Trust & Professionalism: '",
+              "  'Phase 4 — Optional Enhancements: '",
+              "- After the label and colon, describe a single clear action, e.g.",
+              "  'Phase 1 — Foundation: Add a viewport meta tag to enable responsive scaling.'",
+              "- Use Phase 1 for structural and semantic fundamentals (viewport, H1, meta description, core HTML semantics).",
+              "- Use Phase 2 for usability, layout, readability, and content clarity.",
+              "- Use Phase 3 for trust, contact visibility, policies, professionalism, and reliability signals.",
+              "- Use Phase 4 only for lower-priority polish and long-term enhancements.",
+              "- Do NOT invent new phase names or labels.",
+              "- Keep 1–4 fixes per phase depending on site needs.",
               "- Never repeat the same fix in different words.",
               "- Keep each fix short, direct, and high-leverage.",
-              "- Highlight root causes, not vague symptoms.",
-              "- Fixes must feel achievable and practical for a real business owner.",
-              "- If the site is strong, focus on refinement rather than major corrections.",
-              "- If the site is weak, prioritise fundamentals and remove low-impact suggestions.",
-              "- The fix sequence should feel like an expert action plan, not a checklist dump.",
+              "- The overall sequence should feel like an expert action plan, not a checklist dump.",
 
               // ------------------------------------------------------
               // ⭐ STYLE RULES — no fluff, real insight
@@ -276,7 +280,7 @@ async function generateNarrativeAI(scan) {
       return null;
     }
 
-    // Honest normalisation for three_key_metrics
+    // Honest normalisation for three_key_metrics:
     const inputMetrics = Array.isArray(parsed.three_key_metrics)
       ? parsed.three_key_metrics
       : [];
@@ -329,6 +333,7 @@ async function generateNarrativeAI(scan) {
     return null;
   }
 }
+
 
 // ---------------------------------------------
 // Honest fallback if AI fails completely
