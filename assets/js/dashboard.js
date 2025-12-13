@@ -290,11 +290,13 @@ async function loadScanHistory(downloadPdfBtn) {
   tbody.innerHTML = '';
 
   try {
-    const url =
-      `${SUPABASE_URL}/rest/v1/scan_results` +
-      `?select=id,url,created_at,report_id,metrics,pdf_url` +
-      `&order=created_at.desc` +
-      `&limit=20`;
+const url =
+  `${SUPABASE_URL}/rest/v1/scan_results` +
+  `?select=id,url,created_at,report_id,metrics,pdf_url` +
+  `&user_id=eq.${encodeURIComponent(currentUserId)}` +
+  `&order=created_at.desc` +
+  `&limit=20`;
+
 
     const res = await fetch(url, {
       headers: {
