@@ -1,4 +1,5 @@
 // /assets/js/scan.js
+import { supabase } from "./supabaseClient.js";
 
 export function normaliseUrl(raw) {
   if (!raw) return "";
@@ -8,20 +9,33 @@ export function normaliseUrl(raw) {
 }
 
 // Locked architecture:
-// - run-scan: performs scan + writes scan_results row (and returns scan_id + report_id string)
+// - run-scan (POST): performs scan + writes scan_results row (returns scan_id + report_id)
 // - generate-report (GET): read-only; returns stored narrative/scores for report_id (never calls OpenAI now)
 // - NO HTML generation here, NO placeholders
 export async function runScan(url) {
-  const payload = {
-    url,
-    user_id: window.currentUserId || null,
-    email: window.currentUserEmail || null,
-  };
+  // 0) Get Supabase session token (required for secure server-side writes)
+  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+  const accessToken = sessionData?.session?.access_token || null;
+
+  if (sessionErr) {
+    console.warn("supabase.auth.getSession error:", sessionErr);
+  }
+
+  if (!accessToken) {
+    // This is the #1 cause of “scan runs but nothing writes to scan_results”
+    throw new Error("Session expired. Please refresh and log in again.");
+  }
+
+  // NOTE: do NOT trust user_id/email from browser; backend should derive from JWT
+  const payload = { url };
 
   // 1) Run the scan (creates scan_results row)
   const scanRes = await fetch("/.netlify/functions/run-scan", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify(payload),
   });
 
@@ -29,7 +43,7 @@ export async function runScan(url) {
   try {
     scanData = await scanRes.json();
   } catch {
-    // return a clean error below
+    scanData = {};
   }
 
   if (!scanRes.ok || !scanData?.success) {
@@ -49,17 +63,14 @@ export async function runScan(url) {
   if (report_id) {
     try {
       const repRes = await fetch(
-        `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
-          report_id
-        )}`,
+        `/.netlify/functions/generate-report?report_id=${encodeURIComponent(report_id)}`,
         { method: "GET" }
       );
 
       const repJson = await repRes.json().catch(() => ({}));
       if (repRes.ok) reportData = repJson;
     } catch {
-      // silent fail: scan still succeeded; report may show narrative missing (honest nulls)
-      reportData = null;
+      reportData = null; // honest nulls
     }
   }
 
@@ -69,6 +80,6 @@ export async function runScan(url) {
     scan_id,
     report_id,
     scan: scanData,
-    report: reportData, // may be null if unavailable; no placeholders
+    report: reportData,
   };
 }
