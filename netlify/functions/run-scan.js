@@ -31,6 +31,7 @@ export async function handler(event) {
       return {
         statusCode: 401,
         body: JSON.stringify({
+          success: false,
           error: "Missing Authorization header",
           hint: "Request must include: Authorization: Bearer <supabase_access_token>",
         }),
@@ -47,6 +48,7 @@ export async function handler(event) {
       return {
         statusCode: 401,
         body: JSON.stringify({
+          success: false,
           error: "Invalid or expired token",
           details: authError?.message || null,
           debug: {
@@ -68,10 +70,30 @@ export async function handler(event) {
     const { url } = body;
 
     if (!url) {
-      return { statusCode: 400, body: JSON.stringify({ error: "URL is required" }) };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ success: false, error: "URL is required" }),
+      };
     }
 
     const report_id = `WEB-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    // ✅ IMPORTANT FIX: scan_results.metrics is NOT NULL, so we MUST send it.
+    // We can keep status="completed" for now (your existing behaviour),
+    // but we still provide a valid metrics object.
+    const metrics = {
+      meta: {
+        version: "run-scan-minimal-v1",
+        generated_at: new Date().toISOString(),
+      },
+      scores: {
+        overall: null,
+      },
+      notes: {
+        placeholder: true,
+        message: "Minimal record created by run-scan. Real scan metrics to be populated by scan pipeline.",
+      },
+    };
 
     const { data: scanRow, error: insertError } = await supabaseAdmin
       .from("scan_results")
@@ -81,12 +103,24 @@ export async function handler(event) {
         status: "completed",
         report_id,
         created_at: new Date().toISOString(),
+
+        // ✅ required / safety fields
+        metrics,               // <— fixes your 500 NOT NULL crash
+        score_overall: null,   // safe explicit (if column exists)
+        report_url: null,      // safe explicit (if column exists)
       })
       .select()
       .single();
 
     if (insertError) {
-      return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          success: false,
+          error: insertError.message,
+          details: insertError,
+        }),
+      };
     }
 
     return {
@@ -98,6 +132,9 @@ export async function handler(event) {
       }),
     };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ success: false, error: err.message }),
+    };
   }
 }
