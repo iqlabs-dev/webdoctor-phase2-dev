@@ -210,6 +210,57 @@ async function decrementScanBalance() {
 }
 
 // -----------------------------
+// Update LATEST SCAN card (LOCKED PIPELINE)
+// IDs in dashboard.html: ls-url, ls-date, ls-score, ls-view
+// -----------------------------
+function updateLatestScanCard(row) {
+  if (!row) return;
+
+  const elUrl = document.getElementById('ls-url');
+  const elDate = document.getElementById('ls-date');
+  const elScore = document.getElementById('ls-score');
+  const elView = document.getElementById('ls-view');
+
+  // URL (display without protocol)
+  if (elUrl) {
+    elUrl.textContent = (row.url || '—').replace(/^https?:\/\//i, '');
+  }
+
+  // Date line
+  if (elDate) {
+    const d = row.created_at ? new Date(row.created_at) : null;
+    elDate.textContent = d ? `Scanned on ${d.toLocaleString()}` : '';
+  }
+
+  // Score pill (unhide only if score exists)
+  const overall =
+    row.metrics?.scores?.overall ??
+    row.metrics?.scores?.overall_score ??
+    null;
+
+  if (elScore) {
+    if (typeof overall === 'number') {
+      elScore.textContent = String(Math.round(overall));
+      elScore.style.display = 'inline-flex';
+    } else {
+      elScore.textContent = '—';
+      elScore.style.display = 'none';
+    }
+  }
+
+  // View full report → uses scan_results.id
+  if (elView && row.id) {
+    elView.href = `/report.html?report_id=${encodeURIComponent(row.id)}`;
+  }
+
+  // Keep globals aligned for PDF button + context
+  window.currentReport = {
+    scan_id: row.id,
+    pdf_url: row.pdf_url || null,
+  };
+}
+
+// -----------------------------
 // SCAN HISTORY (REST API) — from scan_results (LOCKED PIPELINE)
 // -----------------------------
 async function loadScanHistory(downloadPdfBtn) {
@@ -243,6 +294,9 @@ async function loadScanHistory(downloadPdfBtn) {
     }
 
     const rows = await res.json();
+
+    // Update LATEST SCAN card from newest row
+    updateLatestScanCard(rows && rows.length ? rows[0] : null);
 
     if (!rows || rows.length === 0) {
       empty.textContent = 'No scans yet.';
