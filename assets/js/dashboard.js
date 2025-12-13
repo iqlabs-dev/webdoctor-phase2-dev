@@ -3,7 +3,7 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-console.log('DASHBOARD JS v3.2-latest-scan-wireup');
+console.log('DASHBOARD JS v3.3-latest-scan-hardfix');
 
 // ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
 // Make sure these match Stripe + your Netlify env vars.
@@ -105,7 +105,10 @@ async function startCreditCheckout(pack) {
   }
 }
 
-// Update banner, run button, and usage counters based on profile
+// -----------------------------
+// PROFILE / USAGE
+// -----------------------------
+
 function updateUsageUI(profile) {
   const banner = document.getElementById('subscription-banner');
   const runScanBtn = document.getElementById('run-scan');
@@ -206,45 +209,46 @@ async function decrementScanBalance() {
 }
 
 // -----------------------------
-// LATEST SCAN CARD (robust wiring)
+// AUTH HELPER
 // -----------------------------
-function pickEl(ids = [], fallbackSelector = null) {
-  for (const id of ids) {
-    const el = document.getElementById(id);
-    if (el) return el;
-  }
-  if (fallbackSelector) return document.querySelector(fallbackSelector);
-  return null;
+async function getAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token || null;
 }
 
+// -----------------------------
+// LATEST SCAN CARD (hard-fix wiring)
+// -----------------------------
 function updateLatestScanCard(row) {
-  const card = document.getElementById('latest-scan-card') || document.getElementById('latest-scan');
-  const elUrl = pickEl(['ls-url', 'latest-scan-url'], '#latest-scan-card .ls-url');
-  const elDate = pickEl(['ls-date', 'latest-scan-date'], '#latest-scan-card .ls-date');
-  const elScore = pickEl(['ls-score', 'latest-scan-score'], '#latest-scan-card .ls-score-pill');
-  const elView = pickEl(['ls-view', 'latest-scan-view'], '#latest-scan-card a.ls-footer');
+  const urlEl = document.getElementById('ls-url');
+  const dateEl = document.getElementById('ls-date');
+  const scoreEl = document.getElementById('ls-score');
+  const viewEl = document.getElementById('ls-view');
 
-  console.log('[LATEST SCAN] elements', {
-    card: !!card, elUrl: !!elUrl, elDate: !!elDate, elScore: !!elScore, elView: !!elView
-  });
-
-  if (!row) {
-    console.warn('[LATEST SCAN] No latest row supplied');
+  // If the card DOM isn't present, don't silently fail
+  if (!urlEl || !dateEl || !scoreEl || !viewEl) {
+    console.error('[LATEST SCAN] Missing one or more elements:', {
+      urlEl: !!urlEl, dateEl: !!dateEl, scoreEl: !!scoreEl, viewEl: !!viewEl
+    });
     return;
   }
 
-  console.log('[LATEST SCAN] row[0]', row);
+  if (!row) {
+    // Reset to default text (optional)
+    urlEl.textContent = 'No scans yet.';
+    dateEl.textContent = 'Run your first iQWEB scan to see it here.';
+    scoreEl.style.display = 'none';
+    viewEl.href = '#';
+    viewEl.onclick = (e) => e.preventDefault();
+    return;
+  }
 
   // URL
-  if (elUrl) {
-    elUrl.textContent = (row.url || '—').replace(/^https?:\/\//i, '');
-  }
+  urlEl.textContent = (row.url || '—').replace(/^https?:\/\//i, '');
 
   // Date
-  if (elDate) {
-    const d = row.created_at ? new Date(row.created_at) : null;
-    elDate.textContent = d ? `Scanned on ${d.toLocaleString()}` : '';
-  }
+  const d = row.created_at ? new Date(row.created_at) : null;
+  dateEl.textContent = d ? `Scanned on ${d.toLocaleString()}` : '';
 
   // Score
   const overall =
@@ -252,24 +256,27 @@ function updateLatestScanCard(row) {
     row.metrics?.scores?.overall_score ??
     null;
 
-  if (elScore) {
-    if (typeof overall === 'number') {
-      elScore.textContent = String(Math.round(overall));
-      elScore.style.display = 'inline-flex';
-    } else {
-      elScore.textContent = '—';
-      elScore.style.display = 'none';
-    }
+  if (typeof overall === 'number') {
+    scoreEl.textContent = String(Math.round(overall));
+    scoreEl.style.display = 'inline-flex';
+  } else {
+    scoreEl.textContent = '—';
+    scoreEl.style.display = 'none';
   }
 
-  // View link (scan_results.id)
-  if (elView && row.id) {
-    elView.href = `/report.html?report_id=${encodeURIComponent(row.id)}`;
-  }
+  // IMPORTANT: Set a real click handler so it can’t keep an old href
+  const scanId = row.id;
+  viewEl.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
+  viewEl.onclick = (e) => {
+    e.preventDefault();
+    window.currentReport = { scan_id: scanId, pdf_url: row.pdf_url || null };
+    window.lastScanResult = { scan_id: scanId, pdf_url: row.pdf_url || null };
+    window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
+  };
 
   // Globals (PDF + context)
   window.currentReport = {
-    scan_id: row.id,
+    scan_id: scanId,
     pdf_url: row.pdf_url || null,
   };
 }
@@ -286,36 +293,51 @@ async function loadScanHistory(downloadPdfBtn) {
     return;
   }
 
+  // Guard: if user not ready yet, do NOT fetch (this prevents stale/latest mismatch)
+  if (!currentUserId) {
+    console.warn('[HISTORY] currentUserId not set yet — skipping history fetch');
+    empty.textContent = 'Loading user…';
+    return;
+  }
+
   empty.textContent = 'Loading scan history…';
   tbody.innerHTML = '';
 
   try {
-const url =
-  `${SUPABASE_URL}/rest/v1/scan_results` +
-  `?select=id,url,created_at,report_id,metrics,pdf_url` +
-  `&user_id=eq.${encodeURIComponent(currentUserId)}` +
-  `&order=created_at.desc` +
-  `&limit=20`;
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      console.error('[HISTORY] No session access token');
+      empty.textContent = 'Session expired. Please refresh.';
+      return;
+    }
 
+    const url =
+      `${SUPABASE_URL}/rest/v1/scan_results` +
+      `?select=id,url,created_at,report_id,metrics,pdf_url` +
+      `&user_id=eq.${encodeURIComponent(currentUserId)}` +
+      `&order=created_at.desc` +
+      `&limit=20`;
 
     const res = await fetch(url, {
       headers: {
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Authorization: `Bearer ${accessToken}`,
       },
     });
 
     if (!res.ok) {
       const text = await res.text();
-      console.error('History load error:', res.status, text);
+      console.error('[HISTORY] load error:', res.status, text);
       empty.textContent = 'Unable to load scan history.';
+      // still attempt to clear latest
+      updateLatestScanCard(null);
       return;
     }
 
     const rows = await res.json();
     console.log('[HISTORY] rows length:', rows?.length || 0);
 
-    // 🔑 Update LATEST SCAN card from the newest row
+    // ✅ Always update latest card from newest row
     updateLatestScanCard(rows && rows.length ? rows[0] : null);
 
     if (!rows || rows.length === 0) {
@@ -400,8 +422,9 @@ const url =
       tbody.appendChild(tr);
     }
   } catch (err) {
-    console.error('loadScanHistory REST error:', err);
+    console.error('[HISTORY] REST error:', err);
     empty.textContent = 'Unable to load scan history.';
+    updateLatestScanCard(null);
   }
 
   if (window.justRanScan) {
@@ -505,6 +528,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Refresh usage UI
   await refreshProfile();
 
+  // Initial history load (also populates latest scan)
+  await loadScanHistory(downloadPdfBtn);
+
   // Run scan
   runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
@@ -582,6 +608,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     downloadPdfBtn.disabled = true;
 
     try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        statusEl.textContent = 'Session expired. Please refresh.';
+        return;
+      }
+
       if (!pdfUrl) {
         const url =
           `${SUPABASE_URL}/rest/v1/scan_results` +
@@ -592,7 +624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const res = await fetch(url, {
           headers: {
             apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         });
 
@@ -643,7 +675,4 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.location.href = '/login.html';
     }
   });
-
-  // Initial history load (also populates latest scan)
-  await loadScanHistory(downloadPdfBtn);
 });
