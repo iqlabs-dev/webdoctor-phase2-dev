@@ -943,7 +943,6 @@
     .history-site-link:hover {
       text-decoration: underline;
     }
-
   </style>
 </head>
 
@@ -1076,13 +1075,12 @@
               <span class="ls-score-text">Overall score</span>
             </div>
           </div>
-<a id="ls-view" class="ls-footer" href="#">
-  <span>View full report</span>
-  <svg class="ls-arrow" width="16" height="16" viewBox="0 0 24 24">
-    <path fill="currentColor" d="M9 18l6-6-6-6"/>
-  </svg>
-</a>
-
+          <a id="ls-view" class="ls-footer" href="#">
+            <span>View full report</span>
+            <svg class="ls-arrow" width="16" height="16" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M9 18l6-6-6-6"/>
+            </svg>
+          </a>
         </div>
       </div>
 
@@ -1090,9 +1088,7 @@
   </div><!-- /section (summary) -->
 
   <!-- MAIN GRID: HISTORY ONLY -->
-
   <div class="layout-grid">
-
     <div class="section">
       <div class="history-header">
         <div class="history-header-left">
@@ -1146,7 +1142,6 @@
         </button>
       </div>
     </div>
-
   </div>
 
 </div>
@@ -1224,7 +1219,7 @@
     }
 
     const credits = Number.isFinite(profile.credits) ? profile.credits : 0;
-    const plan = (profile.plan || "").toLowerCase();           // insight / intelligence / impact
+    const plan = (profile.plan || "").toLowerCase();              // insight / intelligence / impact
     const planStatus = (profile.plan_status || "").toLowerCase(); // active / cancelled / ""
     const planScansRemaining = Number.isFinite(profile.plan_scans_remaining)
       ? profile.plan_scans_remaining
@@ -1238,14 +1233,15 @@
       creditsEl.textContent = totalAvailable;
       creditsEl.classList.toggle("low-credits", totalAvailable <= 2);
     }
+
     // Show / hide the "Choose your plan" banner
-if (subscriptionBanner) {
-  if (totalAvailable === 0) {
-    subscriptionBanner.style.display = "block";  // no scans at all → show CTA
-  } else {
-    subscriptionBanner.style.display = "none";   // as soon as they have 1+ scan → hide
-  }
-}
+    if (subscriptionBanner) {
+      if (totalAvailable === 0) {
+        subscriptionBanner.style.display = "block";
+      } else {
+        subscriptionBanner.style.display = "none";
+      }
+    }
 
     // Small label row for "Plan scans remaining"
     if (planRemainingEl) {
@@ -1282,15 +1278,6 @@ if (subscriptionBanner) {
 
     if (planSummaryEl) {
       planSummaryEl.textContent = summary;
-    }
-
-    // Show / hide the "Choose your plan" banner
-    if (subscriptionBanner) {
-      if (planStatus !== "active" && totalAvailable === 0) {
-        subscriptionBanner.style.display = "block";
-      } else {
-        subscriptionBanner.style.display = "none";
-      }
     }
 
     if (adminBadgeEl) {
@@ -1445,7 +1432,7 @@ if (subscriptionBanner) {
         viewBtn.textContent = "View PDF";
         viewBtn.style.marginRight = "8px";
         viewBtn.addEventListener("click", () => {
-          window.open(`/report.html?report_id=${reportId}`, "_blank");
+          window.open(`/report.html?report_id=${encodeURIComponent(reportId)}`, "_blank");
         });
         tdActions.appendChild(viewBtn);
 
@@ -1461,7 +1448,6 @@ if (subscriptionBanner) {
       }
 
       tr.appendChild(tdActions);
-
       tbody.appendChild(tr);
     }
   }
@@ -1521,11 +1507,13 @@ if (subscriptionBanner) {
     const urlEl = document.getElementById("ls-url");
     const dateEl = document.getElementById("ls-date");
     const scoreEl = document.getElementById("ls-score");
+    const viewEl = document.getElementById("ls-view");
 
     if (!record) {
       if (urlEl) urlEl.textContent = "No scans yet";
       if (dateEl) dateEl.textContent = "Run your first iQWEB scan to see it here.";
       if (scoreEl) scoreEl.style.display = "none";
+      if (viewEl) viewEl.href = "#";
       card.dataset.reportId = "";
       card.onclick = null;
       return;
@@ -1534,9 +1522,7 @@ if (subscriptionBanner) {
     const hostname = getHostname(record.url);
     if (urlEl) urlEl.textContent = hostname;
     if (dateEl) {
-      dateEl.textContent = `Scanned on ${formatDate(
-        record.created_at
-      )} at ${formatTime(record.created_at)}`;
+      dateEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
     }
 
     if (scoreEl) {
@@ -1551,12 +1537,13 @@ if (subscriptionBanner) {
     const reportId = record.report_id || record.id;
     card.dataset.reportId = reportId || "";
 
+    if (viewEl) {
+      viewEl.href = reportId ? `/report.html?report_id=${encodeURIComponent(reportId)}` : "#";
+    }
+
     card.onclick = () => {
       if (!card.dataset.reportId) return;
-      window.open(
-        `/report.html?report_id=${encodeURIComponent(card.dataset.reportId)}`,
-        "_blank"
-      );
+      window.open(`/report.html?report_id=${encodeURIComponent(card.dataset.reportId)}`, "_blank");
     };
   }
 
@@ -1615,9 +1602,7 @@ if (subscriptionBanner) {
   async function loadScanHistory(userId) {
     let query = supabase
       .from("scan_results")
-      .select(
-        "id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms"
-      )
+      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
       .order("created_at", { ascending: false })
       .limit(100);
 
@@ -1676,107 +1661,141 @@ if (subscriptionBanner) {
     });
   }
 
+  // ✅ NEW: normalise URL + AUTHENTICATED run-scan (fixes 401)
+  function normaliseUrl(input) {
+    const raw = (input || "").trim();
+    if (!raw) return null;
+
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      const u = new URL(withScheme);
+      if (!u.hostname) return null;
+      return u.toString();
+    } catch {
+      return null;
+    }
+  }
+
   function setupInlineRun(user) {
     const runBtn = document.getElementById("wd-run-scan-btn");
     const urlInput = document.getElementById("wd-scan-url-input");
     if (!runBtn || !urlInput) return;
 
     runBtn.addEventListener("click", async () => {
-      const url = (urlInput.value || "").trim();
-      if (!url) {
-        alert("Please enter a URL to scan.");
+      const cleaned = normaliseUrl(urlInput.value);
+      if (!cleaned) {
+        alert("Please enter a valid URL to scan.");
         urlInput.focus();
         return;
       }
 
       runBtn.disabled = true;
-      runBtn.textContent = "Scanning…";
+      runBtn.innerHTML = `<span class="icon">⏳</span><span>Scanning…</span>`;
 
-      let json;
-      let res;
       try {
-        res = await fetch("/.netlify/functions/run-scan", {
+        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token || null;
+
+        console.log("[RUN-SCAN] sessionErr:", sessionErr || null);
+        console.log("[RUN-SCAN] token present:", !!accessToken);
+
+        if (!accessToken) {
+          alert("Session expired. Please log in again.");
+          window.location.href = "/login.html";
+          return;
+        }
+
+        const res = await fetch("/.netlify/functions/run-scan", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+          },
           body: JSON.stringify({
-            url,
-            userId: user?.id || null,
+            url: cleaned,
+            user_id: user?.id || null,
+            userId: user?.id || null,     // keep both keys to match whatever the function expects
+            email: user?.email || null,
           }),
         });
-        json = await res.json();
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || !json?.success) {
+          console.error("[RUN-SCAN] failed:", res.status, json);
+          alert("Scan failed: " + (json?.error || json?.message || `HTTP ${res.status}`));
+          return;
+        }
+
+        urlInput.value = "";
+        await loadScanHistory(user.id);
+
+        const scanId = json.scan_id ?? json.id ?? null;
+        if (scanId) {
+          window.open(`/report.html?report_id=${encodeURIComponent(scanId)}`, "_blank");
+        }
       } catch (err) {
-        console.error("Error calling run-scan:", err);
+        console.error("[RUN-SCAN] error:", err);
         alert("Scan failed. Please try again.");
+      } finally {
         runBtn.disabled = false;
-        runBtn.textContent = "Run Scan";
-        return;
+        runBtn.innerHTML = `<span class="icon">▶</span><span>Run Scan</span>`;
       }
-
-      runBtn.disabled = false;
-      runBtn.textContent = "Run Scan";
-
-      if (!res.ok || !json?.success) {
-        alert("Scan failed: " + (json?.message || "Unknown error"));
-        return;
-      }
-
-      urlInput.value = "";
-      await loadScanHistory(user.id);
     });
   }
 
-async function startPlanCheckout(planKey) {
-  const priceIds = {
-    insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",      // $29 – 100 scans (TEST)
-    intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k", // $75 – 250 scans (TEST)
-    impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",       // $149 – 500 scans (TEST)
-  };
+  async function startPlanCheckout(planKey) {
+    const priceIds = {
+      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",
+      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k",
+      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",
+    };
 
-  const priceId = priceIds[planKey];
-  if (!priceId) {
-    alert("Invalid plan selected.");
-    return;
-  }
-
-  const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-  const user = sessionData?.session?.user || null;
-
-  if (sessionErr || !user) {
-    console.error("startPlanCheckout: no active session", sessionErr);
-    alert("Please log in again to continue.");
-    window.location.href = "/login.html";
-    return;
-  }
-
-  const email = user.email;
-  const userId = user.id;
-
-  try {
-    const res = await fetch("/.netlify/functions/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        priceId,
-        email,
-        userId,            // 🔹 used as metadata.user_id
-        type: "subscription",
-        plan: planKey,     // 🔹 "insight" / "intelligence" / "impact"
-      }),
-    });
-
-    const json = await res.json();
-    if (!res.ok || !json?.url) {
-      console.error("Checkout session error:", json);
-      alert("Unable to start checkout. Please try again.");
+    const priceId = priceIds[planKey];
+    if (!priceId) {
+      alert("Invalid plan selected.");
       return;
     }
 
-    window.location.href = json.url;
-  } catch (err) {
-    console.error("Checkout error:", err);
-    alert("Checkout failed. Please try again.");
+    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+    const user = sessionData?.session?.user || null;
+
+    if (sessionErr || !user) {
+      console.error("startPlanCheckout: no active session", sessionErr);
+      alert("Please log in again to continue.");
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const email = user.email;
+    const userId = user.id;
+
+    try {
+      const res = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId,
+          email,
+          userId,
+          type: "subscription",
+          plan: planKey,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json?.url) {
+        console.error("Checkout session error:", json);
+        alert("Unable to start checkout. Please try again.");
+        return;
+      }
+
+      window.location.href = json.url;
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert("Checkout failed. Please try again.");
+    }
   }
-}
 
   function handleSelectedPlan() {
     const params = new URLSearchParams(window.location.search);
@@ -1798,42 +1817,6 @@ async function startPlanCheckout(planKey) {
     banner.style.display = "flex";
 
     cta.onclick = () => startPlanCheckout(plan);
-  }
-
-  async function startCreditsCheckout(pack, user) {
-    const activeUser = user;
-    if (!activeUser) {
-      alert("Please log in again to continue.");
-      window.location.href = "/login.html";
-      return;
-    }
-
-    const email = activeUser.email;
-
-    try {
-      const res = await fetch("/.netlify/functions/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: activeUser.id,
-          email,
-          type: "credits",
-          pack: String(pack),
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json?.url) {
-        console.error("Credit checkout session error:", json);
-        alert("Unable to start credit purchase. Please try again.");
-        return;
-      }
-
-      window.location.href = json.url;
-    } catch (err) {
-      console.error("Credit checkout error:", err);
-      alert("Unable to start credit purchase. Please try again.");
-    }
   }
 
   function setupCreditPackButtons(user) {
@@ -1874,8 +1857,7 @@ async function startPlanCheckout(planKey) {
     if (sessionId || billingStatus === "success") {
       const planSummaryEl = document.getElementById("wd-plan-summary");
       if (planSummaryEl) {
-        planSummaryEl.textContent =
-          "Your subscription is now active. Enjoy your scans.";
+        planSummaryEl.textContent = "Your subscription is now active. Enjoy your scans.";
       }
 
       setTimeout(() => {
@@ -1890,7 +1872,6 @@ async function startPlanCheckout(planKey) {
       }
     }
   });
-
 </script>
 
 </body>
