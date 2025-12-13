@@ -1,86 +1,74 @@
 // /assets/js/scan.js
 
 export function normaliseUrl(raw) {
-  if (!raw) return '';
+  if (!raw) return "";
   let url = raw.trim();
-
-  if (!/^https?:\/\//i.test(url)) {
-    url = 'https://' + url;
-  }
-
-  return url.replace(/\s+/g, '');
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  return url.replace(/\s+/g, "");
 }
 
-// Call backend scan pipeline (stores everything). Then fetch HTML for preview/PDF.
+// Locked architecture:
+// - run-scan: performs scan + writes scan_results row (and returns scan_id + report_id string)
+// - generate-report (GET): read-only; returns stored narrative/scores for report_id (never calls OpenAI now)
+// - NO HTML generation here, NO placeholders
 export async function runScan(url) {
   const payload = {
     url,
     user_id: window.currentUserId || null,
-    email: window.currentUserEmail || null
+    email: window.currentUserEmail || null,
   };
 
-  // 1) Run scan (this is the ONLY place narrative is generated/stored)
-  const scanRes = await fetch('/.netlify/functions/run-scan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+  // 1) Run the scan (creates scan_results row)
+  const scanRes = await fetch("/.netlify/functions/run-scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 
   let scanData = {};
-  try { scanData = await scanRes.json(); } catch {}
+  try {
+    scanData = await scanRes.json();
+  } catch {
+    // return a clean error below
+  }
 
   if (!scanRes.ok || !scanData?.success) {
-    const msg = scanData?.error || scanData?.message || 'Scan failed';
+    const msg = scanData?.message || scanData?.error || "Scan failed";
     throw new Error(msg);
   }
 
-  const reportId = scanData.report_id;
-  if (!reportId) throw new Error('Scan completed but no report_id returned');
+  // Expected from run-scan:
+  // - scan_id (numeric, scan_results.id)
+  // - report_id (string, e.g. WEB-YYYYDDD-xxxxx)
+  const scan_id = scanData.scan_id ?? scanData.id ?? null;
+  const report_id = scanData.report_id ?? null;
 
-  // 2) Fetch the rendered report HTML (read-only display step)
-  // get-report already exists in your functions list; we use it to keep dashboard preview + PDF flow working.
-  let html = '';
-  try {
-    const htmlRes = await fetch(
-      `/.netlify/functions/get-report?report_id=${encodeURIComponent(reportId)}`
-    );
+  // 2) Read-only pull of narrative/scores from generate-report
+  // (this MUST NOT generate anything new; it simply returns what exists)
+  let reportData = null;
+  if (report_id) {
+    try {
+      const repRes = await fetch(
+        `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
+          report_id
+        )}`,
+        { method: "GET" }
+      );
 
-    if (htmlRes.ok) {
-      html = await htmlRes.text();
+      const repJson = await repRes.json().catch(() => ({}));
+      if (repRes.ok) reportData = repJson;
+    } catch {
+      // silent fail: scan still succeeded; report may show narrative missing (honest nulls)
+      reportData = null;
     }
-  } catch (e) {
-    // Non-fatal: scan is stored; preview/PDF can fail without breaking integrity.
-    console.warn('get-report fetch failed:', e);
   }
 
-  // 3) Trigger PDF generation (best-effort)
-  if (html && reportId && window.currentUserId) {
-    fetch('/.netlify/functions/generate-report-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        html,
-        report_id: reportId,
-        user_id: window.currentUserId
-      })
-    })
-      .then(async r => {
-        const txt = await r.text();
-        try {
-          return JSON.parse(txt);
-        } catch {
-          console.error('PDF raw response:', txt);
-          return { error: 'Invalid JSON from PDF function' };
-        }
-      })
-      .then(pdfData => console.log('PDF generation requested:', pdfData))
-      .catch(err => console.error('PDF request failed:', err));
-  }
-
-  // Keep dashboard.js compatible: it expects result.report_id + result.html :contentReference[oaicite:3]{index=3}
   return {
-    ...scanData,
-    report_id: reportId,
-    html
+    success: true,
+    url,
+    scan_id,
+    report_id,
+    scan: scanData,
+    report: reportData, // may be null if unavailable; no placeholders
   };
 }
