@@ -1,4 +1,6 @@
 // /assets/js/dashboard.js
+console.log("🔥 DASHBOARD JS LOADED — AUTH VERSION —", location.pathname);
+
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase } from './supabaseClient.js';
 
