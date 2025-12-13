@@ -407,7 +407,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load history (also populates latest card)
   await loadScanHistory();
 
-  // Run scan
+    // -----------------------------
+  // RUN SCAN (AUTHENTICATED)
+  // -----------------------------
   runBtn.addEventListener('click', async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
@@ -415,28 +417,60 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Don’t clear the input (you complained it disappears) — keep it.
     statusEl.textContent = 'Running scan…';
     runBtn.disabled = true;
 
     try {
-      const result = await runScan(cleaned);
-      console.log('SCAN RESULT:', result);
+      // ✅ get REAL Supabase access token
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || null;
 
-      // IMPORTANT: dashboard won’t update unless scan_results is written server-side
-      // But we still refresh anyway:
+      console.log('[RUN-SCAN] sessionErr:', sessionErr || null);
+      console.log('[RUN-SCAN] token present:', !!accessToken);
+
+      if (!accessToken) {
+        throw new Error('Session expired. Please refresh and log in again.');
+      }
+
+      const payload = {
+        url: cleaned,
+        user_id: currentUserId,
+        email: window.currentUserEmail || null,
+      };
+
+      // ✅ IMPORTANT: use BACKTICKS so the token is actually injected
+      const res = await fetch('/.netlify/functions/run-scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const scanData = await res.json().catch(() => ({}));
+
+      if (!res.ok || !scanData?.success) {
+        console.error('[RUN-SCAN] server error:', res.status, scanData);
+        throw new Error(scanData?.error || scanData?.message || `Scan failed (${res.status})`);
+      }
+
+      console.log('[RUN-SCAN] success scanData:', scanData);
+
+      // Refresh UI
       await loadScanHistory();
       await decrementScanBalance();
 
-      // If the scan returns an id, go to report
-      const scanId = result?.scan_id || result?.id || null;
+      // ✅ Go to report (scan_results.id)
+      const scanId = scanData.scan_id ?? scanData.id ?? null;
       if (scanId) {
+        // ✅ IMPORTANT: backticks again
         window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
       } else {
         statusEl.textContent = 'Scan completed, but no scan id returned.';
       }
     } catch (err) {
-      console.error('SCAN ERROR:', err);
+      console.error('[RUN-SCAN] error:', err);
       statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
     } finally {
       runBtn.disabled = false;
