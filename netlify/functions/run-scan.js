@@ -9,7 +9,6 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // ---------------------------------------------
 // Helpers
 // ---------------------------------------------
-
 function safeDecodeJwt(token) {
   try {
     const payload = token.split(".")[1];
@@ -22,20 +21,12 @@ function safeDecodeJwt(token) {
   }
 }
 
-// WEB-YYYYJJJ-#####  (JJJ = day-of-year, ##### = 5-digit random)
-function makeReportId(date = new Date()) {
-  const year = date.getUTCFullYear();
-  const start = Date.UTC(year, 0, 1);
-  const now = Date.UTC(year, date.getUTCMonth(), date.getUTCDate());
-  const dayOfYear = Math.floor((now - start) / (24 * 60 * 60 * 1000)) + 1; // 1..366
-  const jjj = String(dayOfYear).padStart(3, "0");
-  const rand = Math.floor(Math.random() * 100000);
-  const tail = String(rand).padStart(5, "0");
-  return `WEB-${year}${jjj}-${tail}`;
+function safeObj(o) {
+  return o && typeof o === "object" ? o : {};
 }
 
-function safeStr(v) {
-  return typeof v === "string" ? v.trim() : "";
+function safeStr(s) {
+  return typeof s === "string" ? s.trim() : "";
 }
 
 function isValidHttpUrl(u) {
@@ -47,193 +38,193 @@ function isValidHttpUrl(u) {
   }
 }
 
-function withHttpsIfMissing(raw) {
-  const u = safeStr(raw);
-  if (!u) return "";
-  if (/^https?:\/\//i.test(u)) return u;
-  return `https://${u}`;
+// WEB-YYYYJJJ-#####  (JJJ = day-of-year, ##### = 5-digit random)
+function makeReportId(date = new Date()) {
+  const year = date.getUTCFullYear();
+
+  const start = Date.UTC(year, 0, 1);
+  const now = Date.UTC(year, date.getUTCMonth(), date.getUTCDate());
+  const dayOfYear = Math.floor((now - start) / (24 * 60 * 60 * 1000)) + 1; // 1..366
+  const jjj = String(dayOfYear).padStart(3, "0");
+
+  const rand = Math.floor(Math.random() * 100000); // 0..99999
+  const tail = String(rand).padStart(5, "0");
+
+  return `WEB-${year}${jjj}-${tail}`;
 }
 
-function boolOrNull(v) {
-  if (v === true) return true;
-  if (v === false) return false;
-  return null;
+// ---------------------------------------------
+// Step: HTML structure facts (server-side fetch + regex parsing)
+// ---------------------------------------------
+
+function parseHtmlStructure(html) {
+  const out = {
+    title_present: null,
+    title_text: null,
+    title_length: null,
+
+    meta_description_present: null,
+    meta_description_length: null,
+
+    h1_present: null,
+    h1_count: null,
+
+    canonical_present: null,
+    robots_present: null,
+    sitemap_present: null,
+    viewport_present: null,
+
+    html_length: null,
+  };
+
+  if (!safeStr(html)) return out;
+
+  out.html_length = html.length;
+
+  // Title
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) {
+    const t = safeStr(titleMatch[1]);
+    out.title_present = true;
+    out.title_text = t || null;
+    out.title_length = t ? t.length : 0;
+  } else {
+    out.title_present = false;
+  }
+
+  // Meta description (handles single/double quotes)
+  const descMatch = html.match(
+    /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
+  );
+  if (descMatch) {
+    const d = safeStr(descMatch[1]);
+    out.meta_description_present = true;
+    out.meta_description_length = d.length;
+  } else {
+    out.meta_description_present = false;
+  }
+
+  // H1 count
+  const h1Matches = html.match(/<h1\b[^>]*>/gi);
+  const h1Count = h1Matches ? h1Matches.length : 0;
+  out.h1_count = h1Count;
+  out.h1_present = h1Count > 0;
+
+  // Canonical
+  out.canonical_present = /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
+
+  // Robots
+  out.robots_present = /<meta[^>]+name=["']robots["'][^>]*>/i.test(html);
+
+  // Viewport
+  out.viewport_present = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
+
+  // Sitemap (HTML hint only)
+  out.sitemap_present = /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html);
+
+  return out;
 }
 
-function countMatches(html, re) {
-  if (!html) return 0;
-  const m = html.match(re);
-  return m ? m.length : 0;
-}
+async function fetchTextWithTimeout(url, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
-function extractFirst(html, re) {
-  const m = html.match(re);
-  return m && m[1] ? m[1].trim() : "";
-}
-
-async function fetchWithTimeout(url, opts = {}, ms = 12000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, { ...opts, signal: ctrl.signal });
-    return res;
+    const resp = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        // Be polite + reduce blocks
+        "User-Agent":
+          "iQWEB/1.0 (diagnostic; +https://iqweb.ai) NodeFetch",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+
+    const contentType = resp.headers.get("content-type") || "";
+    // Only parse HTML-ish responses
+    if (!resp.ok || !contentType.toLowerCase().includes("text/html")) {
+      return { ok: false, status: resp.status, text: "" };
+    }
+
+    const text = await resp.text();
+    return { ok: true, status: resp.status, text };
+  } catch (e) {
+    return { ok: false, status: 0, text: "" };
   } finally {
     clearTimeout(t);
   }
 }
 
-async function tryHead(url) {
+async function checkSitemap(url, timeoutMs = 8000) {
+  // Basic, cheap check: try GET /sitemap.xml
+  // (HEAD is often blocked; GET with small timeout tends to work more reliably)
   try {
-    const res = await fetchWithTimeout(url, { method: "HEAD", redirect: "follow" }, 10000);
-    return res;
-  } catch {
-    return null;
-  }
-}
+    const u = new URL(url);
+    const sitemapUrl = `${u.origin}/sitemap.xml`;
 
-async function tryGetText(url) {
-  try {
-    const res = await fetchWithTimeout(
-      url,
-      {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const resp = await fetch(sitemapUrl, {
         method: "GET",
         redirect: "follow",
+        signal: controller.signal,
         headers: {
-          // Keep it simple; some sites behave better with a UA
-          "User-Agent": "iQWEB/1.0 (+https://iqweb.ai)",
-          "Accept": "text/html,application/xhtml+xml",
+          "User-Agent":
+            "iQWEB/1.0 (diagnostic; +https://iqweb.ai) NodeFetch",
+          Accept: "application/xml,text/xml,*/*",
         },
-      },
-      14000
-    );
-    const ct = res.headers.get("content-type") || "";
-    const text = await res.text();
-    return { res, ct, text };
+      });
+
+      if (!resp.ok) return false;
+
+      const ct = (resp.headers.get("content-type") || "").toLowerCase();
+      // Accept typical sitemap content-types + fall back to “has body”
+      if (ct.includes("xml") || ct.includes("text") || ct.includes("application")) return true;
+
+      // If content-type is odd, still accept success response
+      return true;
+    } finally {
+      clearTimeout(t);
+    }
   } catch {
-    return { res: null, ct: "", text: "" };
+    return false;
   }
 }
 
-function looksLikeHtml(contentType, html) {
-  if ((contentType || "").toLowerCase().includes("text/html")) return true;
-  // fallback: crude sniff
-  return /<!doctype html|<html[\s>]/i.test(html || "");
-}
-
-function buildBasicChecks(html, baseUrl) {
-  const h = html || "";
-
-  const titleText = extractFirst(h, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const titlePresent = !!titleText;
-
-  const metaDescPresent = /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(h);
-
-  const h1Count = countMatches(h, /<h1[\s>]/gi);
-  const h1Present = h1Count > 0;
-
-  const canonicalPresent = /<link[^>]+rel=["']canonical["'][^>]*>/i.test(h);
-  const robotsMetaPresent = /<meta[^>]+name=["']robots["'][^>]*>/i.test(h);
-
-  const viewportPresent = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(h);
-
-  // sitemap "present" is tricky in HTML. We'll treat as "unknown here" and check via /sitemap.xml separately.
-  const htmlLength = Buffer.byteLength(h, "utf8");
-
-  // mixed content hint: if page is https but includes http:// assets
-  const mixedContentFound = /(?:src|href)\s*=\s*["']http:\/\//i.test(h);
-
-  // basic asset counts (not perfect, but real)
-  const scriptCount = countMatches(h, /<script[\s>]/gi);
-  const imgCount = countMatches(h, /<img[\s>]/gi);
-  const cssCount = countMatches(h, /<link[^>]+rel=["']stylesheet["'][^>]*>/gi);
-
-  // keep baseUrl if you want to enrich later
-  return {
-    title_present: titlePresent,
-    title_text: titleText ? titleText.slice(0, 120) : null,
-
-    meta_description_present: metaDescPresent,
-
-    h1_present: h1Present,
-    h1_count: h1Count,
-
-    canonical_present: canonicalPresent,
-    robots_present: robotsMetaPresent,
-    viewport_present: viewportPresent,
-
-    html_length: htmlLength,
-
-    mixed_content_found: mixedContentFound,
-
-    asset_hints: {
-      scripts: scriptCount,
-      images: imgCount,
-      stylesheets: cssCount,
-    },
-  };
-}
-
-function readSecurityHeaders(res, finalUrl) {
-  if (!res) {
+async function buildHtmlFacts(url) {
+  const fetched = await fetchTextWithTimeout(url, 12000);
+  if (!fetched.ok) {
+    // Return a shape that doesn’t break consumers (nulls/false where safe)
     return {
-      https: null,
-      hsts: null,
-      csp: null,
-      x_frame_options: null,
-      x_content_type_options: null,
-      referrer_policy: null,
+      title_present: null,
+      title_text: null,
+      title_length: null,
+      meta_description_present: null,
+      meta_description_length: null,
+      h1_present: null,
+      h1_count: null,
+      canonical_present: null,
+      robots_present: null,
+      sitemap_present: null,
+      viewport_present: null,
+      html_length: null,
     };
   }
 
-  const headers = res.headers;
-  const https = (() => {
-    try {
-      const u = new URL(finalUrl || res.url);
-      return u.protocol === "https:";
-    } catch {
-      return null;
-    }
-  })();
+  const html = fetched.text || "";
+  const facts = parseHtmlStructure(html);
 
-  const hsts = headers.get("strict-transport-security");
-  const csp = headers.get("content-security-policy");
-  const xfo = headers.get("x-frame-options");
-  const xcto = headers.get("x-content-type-options");
-  const ref = headers.get("referrer-policy");
-
-  return {
-    https: boolOrNull(https),
-    hsts: hsts ? true : false,
-    csp: csp ? true : false,
-    x_frame_options: xfo ? true : false,
-    x_content_type_options: xcto ? true : false,
-    referrer_policy: ref ? true : false,
-  };
-}
-
-async function checkSitemapExists(baseUrl) {
-  try {
-    const u = new URL(baseUrl);
-    const sitemapUrl = `${u.origin}/sitemap.xml`;
-    const head = await tryHead(sitemapUrl);
-    if (!head) return null;
-    // Consider 200/3xx as "exists-ish"
-    return head.status >= 200 && head.status < 400;
-  } catch {
-    return null;
+  // Upgrade sitemap_present with a direct check (if not already true)
+  if (facts.sitemap_present !== true) {
+    const hasSitemap = await checkSitemap(url, 8000);
+    facts.sitemap_present = hasSitemap;
   }
-}
 
-async function checkRobotsTxtExists(baseUrl) {
-  try {
-    const u = new URL(baseUrl);
-    const robotsUrl = `${u.origin}/robots.txt`;
-    const head = await tryHead(robotsUrl);
-    if (!head) return null;
-    return head.status >= 200 && head.status < 400;
-  } catch {
-    return null;
-  }
+  return facts;
 }
 
 // ---------------------------------------------
@@ -241,14 +232,16 @@ async function checkRobotsTxtExists(baseUrl) {
 // ---------------------------------------------
 export async function handler(event) {
   try {
-    const authHeader = event.headers.authorization || event.headers.Authorization || "";
+    const authHeader =
+      event.headers.authorization || event.headers.Authorization || "";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return {
         statusCode: 401,
         body: JSON.stringify({
           error: "Missing Authorization header",
-          hint: "Request must include: Authorization: Bearer <supabase_access_token>",
+          hint:
+            "Request must include: Authorization: Bearer <supabase_access_token>",
         }),
       };
     }
@@ -257,7 +250,8 @@ export async function handler(event) {
     const decoded = safeDecodeJwt(token);
 
     // Validate token (must be from same Supabase project)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.getUser(token);
 
     if (authError || !authData?.user) {
       return {
@@ -279,106 +273,82 @@ export async function handler(event) {
     const user = authData.user;
 
     const body = JSON.parse(event.body || "{}");
-    const rawUrl = withHttpsIfMissing(body.url);
-    const url = safeStr(rawUrl);
+    const url = safeStr(body.url);
 
     if (!url || !isValidHttpUrl(url)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "A valid URL is required (must start with http/https)" }),
+        body: JSON.stringify({
+          error: "A valid URL is required (must start with http/https)",
+        }),
       };
     }
 
     const report_id = makeReportId(new Date());
     const created_at = new Date().toISOString();
 
-    // -----------------------------
-    // REAL FACTS COLLECTION (Brick 1)
-    // -----------------------------
-    const { res: pageRes, ct, text: html } = await tryGetText(url);
+    // Start from any metrics passed in, but always ensure required structure exists.
+    const baseMetrics =
+      body.metrics && typeof body.metrics === "object" ? body.metrics : {};
 
-    const isHtml = looksLikeHtml(ct, html);
-    const finalUrl = pageRes?.url || url;
+    const metrics = safeObj(baseMetrics);
+    metrics.scores = safeObj(metrics.scores);
+    metrics.basic_checks = safeObj(metrics.basic_checks);
 
-    const basic_checks = isHtml ? buildBasicChecks(html, finalUrl) : {
-      title_present: null,
-      title_text: null,
-      meta_description_present: null,
-      h1_present: null,
-      h1_count: null,
-      canonical_present: null,
-      robots_present: null,
-      viewport_present: null,
-      html_length: null,
-      mixed_content_found: null,
-      asset_hints: { scripts: null, images: null, stylesheets: null },
-    };
+    // ---------------------------------------------
+    // ONE BRICK: populate HTML structure facts
+    // ---------------------------------------------
+    const htmlFacts = await buildHtmlFacts(url);
 
-    // strengthen robots/sitemap as “exists” checks (real, not guessed)
-    const robotsExists = await checkRobotsTxtExists(finalUrl);
-    const sitemapExists = await checkSitemapExists(finalUrl);
+    // Store into basic_checks (canonical place used by your scoring logic)
+    metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
+    metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
+    metrics.basic_checks.meta_description_present =
+      htmlFacts.meta_description_present ?? null;
+    metrics.basic_checks.h1_present = htmlFacts.h1_present ?? null;
+    metrics.basic_checks.h1_count = htmlFacts.h1_count ?? null;
+    metrics.basic_checks.canonical_present = htmlFacts.canonical_present ?? null;
+    metrics.basic_checks.robots_present = htmlFacts.robots_present ?? null;
+    metrics.basic_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
+    metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
+    metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
-    // If robots meta tag absent, robots.txt can still exist — so store separately
-    basic_checks.robots_txt_exists = robotsExists;
-    basic_checks.sitemap_xml_exists = sitemapExists;
-    // Also keep a combined "sitemap_present" meaning "we found /sitemap.xml"
-    basic_checks.sitemap_present = sitemapExists;
-
-    const security = readSecurityHeaders(pageRes, finalUrl);
-
-    const metrics = {
-      // keep scores empty for now (we’re not faking Lighthouse)
-      scores: {},
-      basic_checks,
-      security,
-      // lightweight “assets” rollup from asset_hints
-      assets: {
-        scripts: basic_checks.asset_hints?.scripts ?? null,
-        images: basic_checks.asset_hints?.images ?? null,
-        stylesheets: basic_checks.asset_hints?.stylesheets ?? null,
-      },
-      // optional note to help later
-      notes: {
-        content_type: ct || null,
-        final_url: finalUrl || null,
-      },
-    };
+    // Mirror into html_checks too (some of your older code looks for this)
+    metrics.html_checks = safeObj(metrics.html_checks);
+    metrics.html_checks.title_present = htmlFacts.title_present ?? null;
+    metrics.html_checks.title_text = htmlFacts.title_text ?? null;
+    metrics.html_checks.title_length = htmlFacts.title_length ?? null;
+    metrics.html_checks.meta_description_present =
+      htmlFacts.meta_description_present ?? null;
+    metrics.html_checks.meta_description_length =
+      htmlFacts.meta_description_length ?? null;
+    metrics.html_checks.h1_present = htmlFacts.h1_present ?? null;
+    metrics.html_checks.h1_count = htmlFacts.h1_count ?? null;
+    metrics.html_checks.canonical_present = htmlFacts.canonical_present ?? null;
+    metrics.html_checks.robots_present = htmlFacts.robots_present ?? null;
+    metrics.html_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
+    metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
+    metrics.html_checks.html_length = htmlFacts.html_length ?? null;
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
       .from("scan_results")
       .insert({
         user_id: user.id,
-        url: finalUrl, // store the resolved URL we actually scanned
+        url,
         status: "completed",
         report_id,
         created_at,
         metrics,
       })
-      .select("id, report_id, created_at, url")
+      .select("id, report_id")
       .single();
 
     if (insertError) {
-      return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
-    }
-
-    // 2) Ensure report_data row exists (narrative can be blank — integrity first)
-    try {
-      await supabaseAdmin
-        .from("report_data")
-        .upsert(
-          {
-            report_id: scanRow.report_id,
-            url: scanRow.url,
-            scores: metrics.scores,
-            narrative: {}, // blank for now
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "report_id" }
-        );
-    } catch (e) {
-      // non-fatal
-      console.warn("report_data upsert warning:", e?.message || e);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: insertError.message }),
+      };
     }
 
     return {
@@ -387,10 +357,13 @@ export async function handler(event) {
         success: true,
         scan_id: scanRow.id,
         report_id: scanRow.report_id,
-        created_at: scanRow.created_at,
+        html_facts_populated: true,
       }),
     };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || String(err) }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message || String(err) }),
+    };
   }
 }
