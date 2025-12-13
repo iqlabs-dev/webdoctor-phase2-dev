@@ -18,10 +18,9 @@ function setText(field, text) {
 }
 
 function formatReportTimeLocal(iso) {
-  if (!iso) return "—";
+  if (!iso) return "";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-
+  if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
@@ -45,6 +44,15 @@ function formatReportDate(isoString) {
   const mon = months[d.getMonth()] || "";
   const year = d.getFullYear();
   return `${day} ${mon} ${year}`;
+}
+
+// ✅ NEW: "15 JAN 2025 14:07" (user local time, 24hr)
+function formatReportDateTimeLocal(isoString) {
+  const date = formatReportDate(isoString);
+  const time = formatReportTimeLocal(isoString);
+  if (!date && !time) return "";
+  if (date && time) return `${date} ${time}`;
+  return date || time;
 }
 
 // Average only valid numbers
@@ -97,7 +105,6 @@ async function loadReportData() {
   // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
   const headerReportId = report.report_id || "";
-  const headerDate = formatReportDate(report.created_at);
 
   const urlEl = qs('[data-field="site-url"]');
   if (urlEl) {
@@ -111,8 +118,13 @@ async function loadReportData() {
     }
   }
 
-  setText("report-date", headerDate);
+  // ✅ Put local 24h date+time into Report Date field
+  setText("report-date", formatReportDateTimeLocal(report.created_at));
+
+  // ✅ Keep this line ONLY if you still have a separate report-time element in HTML.
+  // If you removed it (or never had it), this does nothing and is safe.
   setText("report-time", formatReportTimeLocal(report.created_at));
+
   setText("report-id", headerReportId);
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
