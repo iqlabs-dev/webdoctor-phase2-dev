@@ -21,6 +21,8 @@ function formatReportTimeLocal(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
+
+  // User-local 24-hour time
   return d.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
@@ -46,12 +48,12 @@ function formatReportDate(isoString) {
   return `${day} ${mon} ${year}`;
 }
 
-// ✅ NEW: "15 JAN 2025 14:07" (user local time, 24hr)
+// ✅ Canonical: "13 DEC 2025 at 23:51" (user local time, 24hr)
 function formatReportDateTimeLocal(isoString) {
   const date = formatReportDate(isoString);
   const time = formatReportTimeLocal(isoString);
   if (!date && !time) return "";
-  if (date && time) return `${date} ${time}`;
+  if (date && time) return `${date} at ${time}`;
   return date || time;
 }
 
@@ -118,11 +120,10 @@ async function loadReportData() {
     }
   }
 
-  // ✅ Put local 24h date+time into Report Date field
+  // ✅ Dashboard-consistent date display (Report Date includes time)
   setText("report-date", formatReportDateTimeLocal(report.created_at));
 
-  // ✅ Keep this line ONLY if you still have a separate report-time element in HTML.
-  // If you removed it (or never had it), this does nothing and is safe.
+  // ✅ Safe no-op if you don't have a separate report-time pill
   setText("report-time", formatReportTimeLocal(report.created_at));
 
   setText("report-id", headerReportId);
