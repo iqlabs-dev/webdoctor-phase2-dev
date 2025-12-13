@@ -1,4 +1,5 @@
 // /assets/js/scan.js
+import { supabase } from './supabaseClient.js';
 
 export function normaliseUrl(raw) {
   if (!raw) return "";
@@ -8,17 +9,17 @@ export function normaliseUrl(raw) {
 }
 
 // Locked architecture:
-// - run-scan: performs scan + writes scan_results row
-// - generate-report: read-only
-// - dashboard handles auth + UI
+// - run-scan performs scan + writes scan_results
+// - generate-report is read-only
 export async function runScan(url) {
-  // 🔑 Get Supabase session token
-  const { data: sessionData } = await window.supabase.auth.getSession();
-  const accessToken = sessionData?.session?.access_token;
+  // 🔑 Get Supabase session token (REAL one)
+  const { data: sessionData, error } = await supabase.auth.getSession();
 
-  if (!accessToken) {
-    throw new Error("Session expired. Please refresh and log in again.");
+  if (error || !sessionData?.session?.access_token) {
+    throw new Error("Session expired. Please log in again.");
   }
+
+  const accessToken = sessionData.session.access_token;
 
   const payload = {
     url,
@@ -26,49 +27,25 @@ export async function runScan(url) {
     email: window.currentUserEmail || null,
   };
 
-  // 1) Run scan (AUTHENTICATED)
   const scanRes = await fetch("/.netlify/functions/run-scan", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`, // ✅ THIS WAS MISSING
+      Authorization: `Bearer ${accessToken}`, // ✅ NOW REAL
     },
     body: JSON.stringify(payload),
   });
 
-  let scanData = {};
-  try {
-    scanData = await scanRes.json();
-  } catch {}
+  const scanData = await scanRes.json().catch(() => ({}));
 
   if (!scanRes.ok || !scanData?.success) {
-    const msg = scanData?.error || scanData?.message || "Scan failed";
-    throw new Error(msg);
-  }
-
-  const scan_id = scanData.scan_id ?? null;
-  const report_id = scanData.report_id ?? null;
-
-  // 2) Read-only report fetch (optional)
-  let reportData = null;
-  if (report_id) {
-    try {
-      const repRes = await fetch(
-        `/.netlify/functions/generate-report?report_id=${encodeURIComponent(
-          report_id
-        )}`
-      );
-      if (repRes.ok) reportData = await repRes.json();
-    } catch {
-      reportData = null;
-    }
+    throw new Error(scanData?.error || scanData?.message || "Scan failed");
   }
 
   return {
     success: true,
     url,
-    scan_id,
-    report_id,
-    report: reportData,
+    scan_id: scanData.scan_id,
+    report_id: scanData.report_id,
   };
 }
