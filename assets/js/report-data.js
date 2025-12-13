@@ -39,15 +39,6 @@ function formatReportDate(isoString) {
   return `${day} ${mon} ${year}`;
 }
 
-// ✅ "13 DEC 2025 at 23:51" (user local time, 24hr) — matches dashboard wording
-function formatScannedLocal(isoString) {
-  const date = formatReportDate(isoString);
-  const time = formatReportTimeLocal(isoString);
-  if (!date && !time) return "";
-  if (date && time) return `${date} at ${time}`;
-  return date || time;
-}
-
 function setScore(field, score) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
@@ -118,8 +109,9 @@ async function loadReportData() {
     }
   }
 
-  // ✅ Dashboard-consistent: "13 DEC 2025 at 23:51"
-  setText("report-scanned", formatScannedLocal(report.created_at));
+  // ✅ Dashboard-consistent pieces (separate pills)
+  setText("report-date", formatReportDate(report.created_at));
+  setText("report-time", formatReportTimeLocal(report.created_at));
   setText("report-id", headerReportId);
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
