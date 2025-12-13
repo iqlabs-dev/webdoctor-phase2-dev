@@ -3,10 +3,9 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-console.log('DASHBOARD JS v3.3-latest-scan-hardfix');
+console.log('DASHBOARD JS v3.4-scan-poll-latest-history-fix');
 
 // ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
-// Make sure these match Stripe + your Netlify env vars.
 const PLAN_PRICE_IDS = {
   insight: 'price_1SY1olHrtPY0HwDpXIy1WPH7',      // INSIGHT (TEST)
   intelligence: 'price_1SY1pdHrtPY0HwDpJP5hYLF2', // INTELLIGENCE (TEST)
@@ -20,9 +19,16 @@ window.currentProfile = null;
 window.currentUserEmail = null;
 
 // -----------------------------
+// AUTH HELPERS
+// -----------------------------
+async function getAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
+// -----------------------------
 // BILLING HELPERS
 // -----------------------------
-
 async function startSubscriptionCheckout(planKey) {
   const statusEl = document.getElementById('trial-info');
 
@@ -108,7 +114,6 @@ async function startCreditCheckout(pack) {
 // -----------------------------
 // PROFILE / USAGE
 // -----------------------------
-
 function updateUsageUI(profile) {
   const banner = document.getElementById('subscription-banner');
   const runScanBtn = document.getElementById('run-scan');
@@ -175,10 +180,7 @@ async function decrementScanBalance() {
   let planScansRemaining = profile.plan_scans_remaining ?? 0;
   let credits = profile.credits ?? 0;
 
-  if (planScansRemaining <= 0 && credits <= 0) {
-    console.warn('decrementScanBalance called but no scans/credits left');
-    return;
-  }
+  if (planScansRemaining <= 0 && credits <= 0) return;
 
   if (planScansRemaining > 0) planScansRemaining -= 1;
   else if (credits > 0) credits -= 1;
@@ -186,10 +188,7 @@ async function decrementScanBalance() {
   try {
     const { error } = await supabase
       .from('profiles')
-      .update({
-        plan_scans_remaining: planScansRemaining,
-        credits,
-      })
+      .update({ plan_scans_remaining: planScansRemaining, credits })
       .eq('user_id', currentUserId);
 
     if (error) {
@@ -209,15 +208,7 @@ async function decrementScanBalance() {
 }
 
 // -----------------------------
-// AUTH HELPER
-// -----------------------------
-async function getAccessToken() {
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token || null;
-}
-
-// -----------------------------
-// LATEST SCAN CARD (hard-fix wiring)
+// LATEST SCAN CARD
 // -----------------------------
 function updateLatestScanCard(row) {
   const urlEl = document.getElementById('ls-url');
@@ -225,16 +216,12 @@ function updateLatestScanCard(row) {
   const scoreEl = document.getElementById('ls-score');
   const viewEl = document.getElementById('ls-view');
 
-  // If the card DOM isn't present, don't silently fail
   if (!urlEl || !dateEl || !scoreEl || !viewEl) {
-    console.error('[LATEST SCAN] Missing one or more elements:', {
-      urlEl: !!urlEl, dateEl: !!dateEl, scoreEl: !!scoreEl, viewEl: !!viewEl
-    });
+    console.error('[LATEST SCAN] Missing elements (ls-url/ls-date/ls-score/ls-view)');
     return;
   }
 
   if (!row) {
-    // Reset to default text (optional)
     urlEl.textContent = 'No scans yet.';
     dateEl.textContent = 'Run your first iQWEB scan to see it here.';
     scoreEl.style.display = 'none';
@@ -243,14 +230,11 @@ function updateLatestScanCard(row) {
     return;
   }
 
-  // URL
   urlEl.textContent = (row.url || '—').replace(/^https?:\/\//i, '');
 
-  // Date
   const d = row.created_at ? new Date(row.created_at) : null;
   dateEl.textContent = d ? `Scanned on ${d.toLocaleString()}` : '';
 
-  // Score
   const overall =
     row.metrics?.scores?.overall ??
     row.metrics?.scores?.overall_score ??
@@ -260,11 +244,9 @@ function updateLatestScanCard(row) {
     scoreEl.textContent = String(Math.round(overall));
     scoreEl.style.display = 'inline-flex';
   } else {
-    scoreEl.textContent = '—';
     scoreEl.style.display = 'none';
   }
 
-  // IMPORTANT: Set a real click handler so it can’t keep an old href
   const scanId = row.id;
   viewEl.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
   viewEl.onclick = (e) => {
@@ -274,28 +256,60 @@ function updateLatestScanCard(row) {
     window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
   };
 
-  // Globals (PDF + context)
-  window.currentReport = {
-    scan_id: scanId,
-    pdf_url: row.pdf_url || null,
-  };
+  window.currentReport = { scan_id: scanId, pdf_url: row.pdf_url || null };
 }
 
 // -----------------------------
-// SCAN HISTORY (REST API) — from scan_results (LOCKED PIPELINE)
+// POLL: wait until scan_results row exists
 // -----------------------------
-async function loadScanHistory(downloadPdfBtn) {
+async function waitForScanRow(scanId, timeoutMs = 15000, intervalMs = 1000) {
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const accessToken = await getAccessToken();
+    if (!accessToken) return null;
+
+    const url =
+      `${SUPABASE_URL}/rest/v1/scan_results` +
+      `?select=id,url,created_at,report_id,metrics,pdf_url` +
+      `&id=eq.${encodeURIComponent(scanId)}` +
+      `&limit=1`;
+
+    try {
+      const res = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows && rows.length) return rows[0];
+      }
+    } catch (e) {
+      // ignore and keep polling
+    }
+
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+
+  return null;
+}
+
+// -----------------------------
+// SCAN HISTORY (REST)
+// -----------------------------
+async function loadScanHistory() {
   const tbody = document.getElementById('history-body');
   const empty = document.getElementById('history-empty');
 
   if (!tbody || !empty) {
-    console.error('[HISTORY] Missing history-body or history-empty elements');
+    console.error('[HISTORY] Missing history-body or history-empty');
     return;
   }
 
-  // Guard: if user not ready yet, do NOT fetch (this prevents stale/latest mismatch)
   if (!currentUserId) {
-    console.warn('[HISTORY] currentUserId not set yet — skipping history fetch');
     empty.textContent = 'Loading user…';
     return;
   }
@@ -303,21 +317,20 @@ async function loadScanHistory(downloadPdfBtn) {
   empty.textContent = 'Loading scan history…';
   tbody.innerHTML = '';
 
+  const accessToken = await getAccessToken();
+  if (!accessToken) {
+    empty.textContent = 'Session expired. Please refresh.';
+    return;
+  }
+
+  const url =
+    `${SUPABASE_URL}/rest/v1/scan_results` +
+    `?select=id,url,created_at,report_id,metrics,pdf_url` +
+    `&user_id=eq.${encodeURIComponent(currentUserId)}` +
+    `&order=created_at.desc` +
+    `&limit=20`;
+
   try {
-    const accessToken = await getAccessToken();
-    if (!accessToken) {
-      console.error('[HISTORY] No session access token');
-      empty.textContent = 'Session expired. Please refresh.';
-      return;
-    }
-
-    const url =
-      `${SUPABASE_URL}/rest/v1/scan_results` +
-      `?select=id,url,created_at,report_id,metrics,pdf_url` +
-      `&user_id=eq.${encodeURIComponent(currentUserId)}` +
-      `&order=created_at.desc` +
-      `&limit=20`;
-
     const res = await fetch(url, {
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -329,15 +342,13 @@ async function loadScanHistory(downloadPdfBtn) {
       const text = await res.text();
       console.error('[HISTORY] load error:', res.status, text);
       empty.textContent = 'Unable to load scan history.';
-      // still attempt to clear latest
       updateLatestScanCard(null);
       return;
     }
 
     const rows = await res.json();
-    console.log('[HISTORY] rows length:', rows?.length || 0);
 
-    // ✅ Always update latest card from newest row
+    // Latest card
     updateLatestScanCard(rows && rows.length ? rows[0] : null);
 
     if (!rows || rows.length === 0) {
@@ -351,13 +362,11 @@ async function loadScanHistory(downloadPdfBtn) {
     for (const row of rows) {
       const tr = document.createElement('tr');
 
-      // URL
       const urlTd = document.createElement('td');
       urlTd.className = 'col-url';
       urlTd.textContent = row.url || '—';
       tr.appendChild(urlTd);
 
-      // Score
       const scoreTd = document.createElement('td');
       scoreTd.className = 'col-score';
       const overall =
@@ -367,14 +376,12 @@ async function loadScanHistory(downloadPdfBtn) {
       scoreTd.textContent = typeof overall === 'number' ? String(Math.round(overall)) : '—';
       tr.appendChild(scoreTd);
 
-      // Date
       const dateTd = document.createElement('td');
       dateTd.className = 'col-date';
       const d = row.created_at ? new Date(row.created_at) : null;
       dateTd.textContent = d ? d.toLocaleString() : '—';
       tr.appendChild(dateTd);
 
-      // Actions
       const actionTd = document.createElement('td');
       actionTd.className = 'col-actions';
 
@@ -385,20 +392,11 @@ async function loadScanHistory(downloadPdfBtn) {
       const scanId = row.id;
       const pdfUrl = row.pdf_url || null;
 
-      if (!scanId) {
-        viewBtn.disabled = true;
-      } else {
-        viewBtn.onclick = () => {
-          const statusEl = document.getElementById('trial-info');
-
-          window.currentReport = { scan_id: scanId, pdf_url: pdfUrl };
-          window.lastScanResult = { scan_id: scanId, pdf_url: pdfUrl };
-
-          window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
-
-          if (statusEl) statusEl.textContent = `Opening report ${scanId}…`;
-        };
-      }
+      viewBtn.onclick = () => {
+        window.currentReport = { scan_id: scanId, pdf_url: pdfUrl };
+        window.lastScanResult = { scan_id: scanId, pdf_url: pdfUrl };
+        window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
+      };
 
       actionTd.appendChild(viewBtn);
       actionTd.appendChild(document.createTextNode(' '));
@@ -422,19 +420,13 @@ async function loadScanHistory(downloadPdfBtn) {
       tbody.appendChild(tr);
     }
   } catch (err) {
-    console.error('[HISTORY] REST error:', err);
+    console.error('[HISTORY] error:', err);
     empty.textContent = 'Unable to load scan history.';
-    updateLatestScanCard(null);
-  }
-
-  if (window.justRanScan) {
-    window.justRanScan = false;
-    setTimeout(() => loadScanHistory(downloadPdfBtn), 10000);
   }
 }
 
 // -----------------------------
-// MAIN DASHBOARD LOGIC
+// MAIN
 // -----------------------------
 document.addEventListener('DOMContentLoaded', async () => {
   const statusEl = document.getElementById('trial-info');
@@ -489,50 +481,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('auth.getUser failed:', e);
   }
 
-  // Stripe return handling
-  try {
-    const url = new URL(window.location.href);
-    const billingStatus = url.searchParams.get('billing');
-    const checkoutSessionId = url.searchParams.get('session_id');
-
-    if (billingStatus === 'success' && checkoutSessionId && currentUserId) {
-      statusEl.textContent = 'Finalising your subscription…';
-
-      const res = await fetch('/.netlify/functions/confirm-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: checkoutSessionId,
-          userId: currentUserId,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        console.error('confirm-subscription error:', data);
-        statusEl.textContent =
-          'We received your payment, but could not activate the plan automatically. Please contact support.';
-      } else {
-        statusEl.textContent = `Your ${data.plan.toUpperCase()} plan is now active.`;
-      }
-
-      url.searchParams.delete('billing');
-      url.searchParams.delete('session_id');
-      window.history.replaceState({}, '', url.toString());
-    }
-  } catch (err) {
-    console.error('Error in Stripe return handling:', err);
-  }
-
   // Refresh usage UI
   await refreshProfile();
 
-  // Initial history load (also populates latest scan)
-  await loadScanHistory(downloadPdfBtn);
+  // Initial history load
+  await loadScanHistory();
 
-  // Run scan
-  runBtn.addEventListener('click', async () => {
+  // Run scan (IMPORTANT: prevent default form behaviour)
+  runBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
       statusEl.textContent = 'Enter a valid URL.';
@@ -544,8 +503,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const credits = profile?.credits ?? 0;
 
     if (planStatus !== 'active' && credits <= 0) {
-      statusEl.textContent =
-        'You have no scans remaining. Purchase a subscription or credits to continue.';
+      statusEl.textContent = 'You have no scans remaining. Purchase a subscription or credits to continue.';
       return;
     }
 
@@ -558,109 +516,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('SCAN RESULT:', result);
 
       const scanId = result.scan_id;
-      const reportRef = result.report_id || '—';
+      if (!scanId) {
+        statusEl.textContent = 'Scan completed but no scan_id was returned.';
+        return;
+      }
 
-      window.lastScanResult = result;
-      window.currentReport = {
-        scan_id: scanId,
-        report_id: reportRef,
-        pdf_url: null
-      };
+      statusEl.textContent = 'Scan complete. Saving results…';
 
-      statusEl.textContent = `Scan complete. Ref: ${reportRef}. Opening report…`;
-
-      window.justRanScan = true;
-
-      // Refresh LATEST SCAN + history
-      await loadScanHistory(downloadPdfBtn);
-
-      // Decrement usage
+      // Decrement usage immediately (UX)
       await decrementScanBalance();
 
-      // Open report OSD
-      if (scanId) {
-        window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
+      // Wait for the row to exist, then update latest + history
+      statusEl.textContent = 'Finalising scan… (waiting for results)';
+      const row = await waitForScanRow(scanId, 15000, 1000);
+
+      if (row) {
+        updateLatestScanCard(row);
+        await loadScanHistory();
+        statusEl.textContent = 'Scan ready. You can open the report now.';
+      } else {
+        // Still let user proceed; pipeline might be slow
+        statusEl.textContent = 'Scan queued. Results may take a moment—refresh history shortly.';
       }
+
+      // DO NOT auto-redirect anymore (keeps dashboard stable)
+      // User can click "View full report" once it’s ready.
     } catch (err) {
       console.error('SCAN ERROR:', err);
       statusEl.textContent = 'Scan failed: ' + (err.message || 'Unknown error');
     } finally {
       runBtn.disabled = false;
-    }
-  });
-
-  // Download PDF for current report (scan_results.pdf_url by scan_id)
-  downloadPdfBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-
-    const current = window.currentReport || {};
-    const last = window.lastScanResult || {};
-
-    const scanId = current.scan_id || last.scan_id || null;
-    if (!scanId) {
-      statusEl.textContent = 'No report selected. Run a scan or open one from history first.';
-      return;
-    }
-
-    let pdfUrl = current.pdf_url || last.pdf_url || null;
-
-    statusEl.textContent = 'Checking for PDF...';
-    downloadPdfBtn.disabled = true;
-
-    try {
-      const accessToken = await getAccessToken();
-      if (!accessToken) {
-        statusEl.textContent = 'Session expired. Please refresh.';
-        return;
-      }
-
-      if (!pdfUrl) {
-        const url =
-          `${SUPABASE_URL}/rest/v1/scan_results` +
-          `?select=pdf_url` +
-          `&id=eq.${encodeURIComponent(scanId)}` +
-          `&limit=1`;
-
-        const res = await fetch(url, {
-          headers: {
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error('PDF lookup error:', res.status, text);
-          statusEl.textContent = 'Unable to fetch PDF. Try again shortly.';
-          return;
-        }
-
-        const rows = await res.json();
-        pdfUrl = rows[0]?.pdf_url || null;
-      }
-
-      if (!pdfUrl) {
-        statusEl.textContent = 'PDF is still generating. Please wait a few seconds and try again.';
-        return;
-      }
-
-      window.open(pdfUrl, '_blank');
-      statusEl.textContent = 'PDF opened in a new tab.';
-
-      window.currentReport = {
-        ...(window.currentReport || {}),
-        scan_id: scanId,
-        pdf_url: pdfUrl,
-      };
-      window.lastScanResult = {
-        ...(window.lastScanResult || {}),
-        scan_id: scanId,
-        pdf_url: pdfUrl,
-      };
-    } catch (err) {
-      console.error('PDF open error:', err);
-      statusEl.textContent = 'PDF failed: ' + (err.message || 'Unknown error');
-    } finally {
       downloadPdfBtn.disabled = false;
     }
   });
