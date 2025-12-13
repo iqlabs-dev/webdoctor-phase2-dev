@@ -25,13 +25,16 @@ function safeDecodeJwt(token) {
 
 export async function handler(event) {
   try {
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
+
     const authHeader = event.headers.authorization || event.headers.Authorization || "";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return {
         statusCode: 401,
         body: JSON.stringify({
-          success: false,
           error: "Missing Authorization header",
           hint: "Request must include: Authorization: Bearer <supabase_access_token>",
         }),
@@ -41,14 +44,13 @@ export async function handler(event) {
     const token = authHeader.replace("Bearer ", "").trim();
     const decoded = safeDecodeJwt(token);
 
-    // Validate token against the Supabase project configured in Netlify env
+    // Validate token (REAL user) using service role client
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !authData?.user) {
       return {
         statusCode: 401,
         body: JSON.stringify({
-          success: false,
           error: "Invalid or expired token",
           details: authError?.message || null,
           debug: {
@@ -66,75 +68,61 @@ export async function handler(event) {
 
     const user = authData.user;
 
-    const body = JSON.parse(event.body || "{}");
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      body = {};
+    }
+
     const { url } = body;
 
     if (!url) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ success: false, error: "URL is required" }),
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: "URL is required" }) };
     }
 
+    // Keep your existing pattern
     const report_id = `WEB-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
-    // ✅ IMPORTANT FIX: scan_results.metrics is NOT NULL, so we MUST send it.
-    // We can keep status="completed" for now (your existing behaviour),
-    // but we still provide a valid metrics object.
+    // IMPORTANT: metrics is NOT NULL in your schema, so always insert an object.
+    // This is not “fake results” — it’s a truthful placeholder that says "pending_metrics".
     const metrics = {
-      meta: {
-        version: "run-scan-minimal-v1",
-        generated_at: new Date().toISOString(),
-      },
+      pending_metrics: true,
       scores: {
         overall: null,
       },
-      notes: {
-        placeholder: true,
-        message: "Minimal record created by run-scan. Real scan metrics to be populated by scan pipeline.",
-      },
     };
+
+    const nowIso = new Date().toISOString();
 
     const { data: scanRow, error: insertError } = await supabaseAdmin
       .from("scan_results")
       .insert({
         user_id: user.id,
         url,
-        status: "completed",
+        status: "completed", // if you prefer, change to "in_progress"
         report_id,
-        created_at: new Date().toISOString(),
-
-        // ✅ required / safety fields
-        metrics,               // <— fixes your 500 NOT NULL crash
-        score_overall: null,   // safe explicit (if column exists)
-        report_url: null,      // safe explicit (if column exists)
+        metrics,            // ✅ fixes NOT NULL
+        score_overall: null,
+        report_url: null,
+        created_at: nowIso,
       })
-      .select()
+      .select("id, report_id")
       .single();
 
     if (insertError) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          success: false,
-          error: insertError.message,
-          details: insertError,
-        }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
-        scan_id: scanRow.id,
-        report_id,
+        scan_id: scanRow.id,     // numeric PK
+        report_id: scanRow.report_id,
       }),
     };
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ success: false, error: err.message }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 }
