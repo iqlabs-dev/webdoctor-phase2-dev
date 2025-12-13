@@ -3,7 +3,7 @@
 import { normaliseUrl, runScan } from './scan.js';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient.js';
 
-console.log('DASHBOARD JS v3.1-billing-wireup');
+console.log('DASHBOARD JS v3.2-latest-scan-wireup');
 
 // ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
 // Make sure these match Stripe + your Netlify env vars.
@@ -23,7 +23,6 @@ window.currentUserEmail = null;
 // BILLING HELPERS
 // -----------------------------
 
-// Start checkout for a specific subscription plan
 async function startSubscriptionCheckout(planKey) {
   const statusEl = document.getElementById('trial-info');
 
@@ -47,11 +46,11 @@ async function startSubscriptionCheckout(planKey) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        priceId,                  // Stripe price_xxx
+        priceId,
         email: window.currentUserEmail,
         userId: currentUserId,
         type: 'subscription',
-        selectedPlan: planKey,    // matches backend
+        selectedPlan: planKey,
       }),
     });
 
@@ -69,7 +68,6 @@ async function startSubscriptionCheckout(planKey) {
   }
 }
 
-// (Future) credit-pack checkout
 async function startCreditCheckout(pack) {
   const statusEl = document.getElementById('trial-info');
 
@@ -136,7 +134,6 @@ function updateUsageUI(profile) {
   if (scansRemainingEl) scansRemainingEl.textContent = planScansRemaining;
 }
 
-// Fetch latest profile and refresh usage UI
 async function refreshProfile() {
   if (!currentUserId) {
     console.warn('refreshProfile called without currentUserId');
@@ -166,7 +163,6 @@ async function refreshProfile() {
   }
 }
 
-// Decrement usage after a successful scan
 async function decrementScanBalance() {
   if (!currentUserId) return;
 
@@ -210,29 +206,47 @@ async function decrementScanBalance() {
 }
 
 // -----------------------------
-// Update LATEST SCAN card (LOCKED PIPELINE)
-// IDs in dashboard.html: ls-url, ls-date, ls-score, ls-view
+// LATEST SCAN CARD (robust wiring)
 // -----------------------------
+function pickEl(ids = [], fallbackSelector = null) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  if (fallbackSelector) return document.querySelector(fallbackSelector);
+  return null;
+}
+
 function updateLatestScanCard(row) {
-  if (!row) return;
+  const card = document.getElementById('latest-scan-card') || document.getElementById('latest-scan');
+  const elUrl = pickEl(['ls-url', 'latest-scan-url'], '#latest-scan-card .ls-url');
+  const elDate = pickEl(['ls-date', 'latest-scan-date'], '#latest-scan-card .ls-date');
+  const elScore = pickEl(['ls-score', 'latest-scan-score'], '#latest-scan-card .ls-score-pill');
+  const elView = pickEl(['ls-view', 'latest-scan-view'], '#latest-scan-card a.ls-footer');
 
-  const elUrl = document.getElementById('ls-url');
-  const elDate = document.getElementById('ls-date');
-  const elScore = document.getElementById('ls-score');
-  const elView = document.getElementById('ls-view');
+  console.log('[LATEST SCAN] elements', {
+    card: !!card, elUrl: !!elUrl, elDate: !!elDate, elScore: !!elScore, elView: !!elView
+  });
 
-  // URL (display without protocol)
+  if (!row) {
+    console.warn('[LATEST SCAN] No latest row supplied');
+    return;
+  }
+
+  console.log('[LATEST SCAN] row[0]', row);
+
+  // URL
   if (elUrl) {
     elUrl.textContent = (row.url || '—').replace(/^https?:\/\//i, '');
   }
 
-  // Date line
+  // Date
   if (elDate) {
     const d = row.created_at ? new Date(row.created_at) : null;
     elDate.textContent = d ? `Scanned on ${d.toLocaleString()}` : '';
   }
 
-  // Score pill (unhide only if score exists)
+  // Score
   const overall =
     row.metrics?.scores?.overall ??
     row.metrics?.scores?.overall_score ??
@@ -248,12 +262,12 @@ function updateLatestScanCard(row) {
     }
   }
 
-  // View full report → uses scan_results.id
+  // View link (scan_results.id)
   if (elView && row.id) {
     elView.href = `/report.html?report_id=${encodeURIComponent(row.id)}`;
   }
 
-  // Keep globals aligned for PDF button + context
+  // Globals (PDF + context)
   window.currentReport = {
     scan_id: row.id,
     pdf_url: row.pdf_url || null,
@@ -267,7 +281,10 @@ async function loadScanHistory(downloadPdfBtn) {
   const tbody = document.getElementById('history-body');
   const empty = document.getElementById('history-empty');
 
-  if (!tbody || !empty) return;
+  if (!tbody || !empty) {
+    console.error('[HISTORY] Missing history-body or history-empty elements');
+    return;
+  }
 
   empty.textContent = 'Loading scan history…';
   tbody.innerHTML = '';
@@ -294,8 +311,9 @@ async function loadScanHistory(downloadPdfBtn) {
     }
 
     const rows = await res.json();
+    console.log('[HISTORY] rows length:', rows?.length || 0);
 
-    // Update LATEST SCAN card from newest row
+    // 🔑 Update LATEST SCAN card from the newest row
     updateLatestScanCard(rows && rows.length ? rows[0] : null);
 
     if (!rows || rows.length === 0) {
@@ -315,15 +333,14 @@ async function loadScanHistory(downloadPdfBtn) {
       urlTd.textContent = row.url || '—';
       tr.appendChild(urlTd);
 
-      // Score (from metrics.scores.overall)
+      // Score
       const scoreTd = document.createElement('td');
       scoreTd.className = 'col-score';
       const overall =
         row.metrics?.scores?.overall ??
         row.metrics?.scores?.overall_score ??
         null;
-      scoreTd.textContent =
-        typeof overall === 'number' ? String(Math.round(overall)) : '—';
+      scoreTd.textContent = typeof overall === 'number' ? String(Math.round(overall)) : '—';
       tr.appendChild(scoreTd);
 
       // Date
@@ -341,7 +358,7 @@ async function loadScanHistory(downloadPdfBtn) {
       viewBtn.className = 'btn-link btn-view';
       viewBtn.textContent = 'View';
 
-      const scanId = row.id; // numeric scan_results.id
+      const scanId = row.id;
       const pdfUrl = row.pdf_url || null;
 
       if (!scanId) {
@@ -625,6 +642,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Initial history load
+  // Initial history load (also populates latest scan)
   await loadScanHistory(downloadPdfBtn);
 });
