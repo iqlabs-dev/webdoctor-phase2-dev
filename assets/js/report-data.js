@@ -17,6 +17,18 @@ function setText(field, text) {
   el.textContent = isNonEmptyString(text) ? text.trim() : "";
 }
 
+function formatReportTimeLocal(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+
+  return d.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
+
 function setScore(field, score) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
@@ -100,6 +112,7 @@ async function loadReportData() {
   }
 
   setText("report-date", headerDate);
+  setText("report-time", formatReportTimeLocal(report.created_at));
   setText("report-id", headerReportId);
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
