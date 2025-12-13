@@ -21,20 +21,11 @@ function formatReportTimeLocal(iso) {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-
-  // User-local 24-hour time
   return d.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
   });
-}
-
-function setScore(field, score) {
-  const el = qs(`[data-field="${field}"]`);
-  if (!el) return;
-  if (typeof score === "number" && !Number.isNaN(score)) el.textContent = `${Math.round(score)} / 100`;
-  else el.textContent = "";
 }
 
 function formatReportDate(isoString) {
@@ -48,13 +39,20 @@ function formatReportDate(isoString) {
   return `${day} ${mon} ${year}`;
 }
 
-// ✅ Canonical: "13 DEC 2025 at 23:51" (user local time, 24hr)
-function formatReportDateTimeLocal(isoString) {
+// ✅ "13 DEC 2025 at 23:51" (user local time, 24hr) — matches dashboard wording
+function formatScannedLocal(isoString) {
   const date = formatReportDate(isoString);
   const time = formatReportTimeLocal(isoString);
   if (!date && !time) return "";
   if (date && time) return `${date} at ${time}`;
   return date || time;
+}
+
+function setScore(field, score) {
+  const el = qs(`[data-field="${field}"]`);
+  if (!el) return;
+  if (typeof score === "number" && !Number.isNaN(score)) el.textContent = `${Math.round(score)} / 100`;
+  else el.textContent = "";
 }
 
 // Average only valid numbers
@@ -120,12 +118,8 @@ async function loadReportData() {
     }
   }
 
-  // ✅ Dashboard-consistent date display (Report Date includes time)
-  setText("report-date", formatReportDateTimeLocal(report.created_at));
-
-  // ✅ Safe no-op if you don't have a separate report-time pill
-  setText("report-time", formatReportTimeLocal(report.created_at));
-
+  // ✅ Dashboard-consistent: "13 DEC 2025 at 23:51"
+  setText("report-scanned", formatScannedLocal(report.created_at));
   setText("report-id", headerReportId);
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
