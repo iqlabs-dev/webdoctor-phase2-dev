@@ -15,9 +15,6 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 function safeObj(o) {
   return o && typeof o === "object" ? o : {};
 }
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
 function clampInt(n) {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
@@ -54,6 +51,20 @@ function isValidHttpUrl(u) {
   }
 }
 
+function extractMetaRobotsContent(html) {
+  const m = html.match(
+    /<meta[^>]+name=["']robots["'][^>]*content=["']([^"']*)["'][^>]*>/i
+  );
+  return m && m[1] ? m[1].toLowerCase().trim() : "";
+}
+
+function extractViewportContent(html) {
+  const m = html.match(
+    /<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i
+  );
+  return m && m[1] ? m[1].toLowerCase() : "";
+}
+
 // ---------------------------------------------
 // Brick 2A: HTML structure facts (no puppeteer)
 // ---------------------------------------------
@@ -76,7 +87,7 @@ async function fetchHtml(url) {
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
     const raw = await resp.text();
 
-    const MAX_CHARS = 350000;
+    const MAX_CHARS = 350000; // ~350KB of text
     const html = raw.length > MAX_CHARS ? raw.slice(0, MAX_CHARS) : raw;
 
     return { ok: resp.ok, status: resp.status, contentType, html };
@@ -101,7 +112,9 @@ function hasMetaViewport(html) {
   return /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
 }
 function hasMetaDescription(html) {
-  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(html);
+  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(
+    html
+  );
 }
 function hasCanonical(html) {
   return /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
@@ -110,7 +123,17 @@ function hasRobotsMeta(html) {
   return /<meta[^>]+name=["']robots["'][^>]*>/i.test(html);
 }
 function hasSitemapHint(html) {
-  return /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html);
+  return (
+    /sitemap\.xml/i.test(html) ||
+    /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html)
+  );
+}
+
+function hasCanonicalHrefNonEmpty(html) {
+  // True if canonical exists with a non-empty href
+  return /<link[^>]+rel=["']canonical["'][^>]*href=["']\s*[^"'\s>][^"'>]*["'][^>]*>/i.test(
+    html
+  );
 }
 
 async function buildHtmlFacts(url) {
@@ -118,15 +141,31 @@ async function buildHtmlFacts(url) {
     title_present: null,
     title_text: null,
     title_length: null,
+
     meta_description_present: null,
     meta_description_length: null,
+
     h1_present: null,
     h1_count: null,
+
     canonical_present: null,
     robots_present: null,
     sitemap_present: null,
     viewport_present: null,
+
     html_length: null,
+
+    // extra 2A+ signals
+    robots_content: null,
+    multiple_h1: null,
+    canonical_empty: null,
+    sitemap_reachable: null,
+    title_missing_or_short: null,
+    meta_desc_missing_or_short: null,
+    viewport_width_valid: null,
+    viewport_initial_scale: null,
+    html_mobile_risk: null,
+    above_the_fold_text_present: null,
   };
 
   const res = await fetchHtml(url);
@@ -135,6 +174,7 @@ async function buildHtmlFacts(url) {
   const html = res.html;
   out.html_length = clampInt(html.length);
 
+  // title
   const title = extractFirstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   if (title) {
     out.title_present = true;
@@ -146,6 +186,7 @@ async function buildHtmlFacts(url) {
     out.title_length = null;
   }
 
+  // meta description
   out.meta_description_present = hasMetaDescription(html);
   if (out.meta_description_present) {
     const desc = extractFirstMatch(
@@ -157,14 +198,75 @@ async function buildHtmlFacts(url) {
     out.meta_description_length = null;
   }
 
+  // h1
   const h1Count = countMatches(html, /<h1\b[^>]*>/gi);
   out.h1_count = clampInt(h1Count);
   out.h1_present = h1Count > 0;
 
+  // basic presence
   out.canonical_present = hasCanonical(html);
   out.robots_present = hasRobotsMeta(html);
   out.sitemap_present = hasSitemapHint(html);
   out.viewport_present = hasMetaViewport(html);
+
+  // --- extra signals (MUST be inside function, before return) ---
+
+  // robots content
+  const robotsContent = extractMetaRobotsContent(html);
+  out.robots_content = robotsContent || null;
+
+  // multiple H1
+  out.multiple_h1 =
+    typeof out.h1_count === "number" ? out.h1_count > 1 : null;
+
+  // canonical empty (canonical tag exists but href is missing/blank)
+  if (out.canonical_present === true) {
+    out.canonical_empty = hasCanonicalHrefNonEmpty(html) ? false : true;
+  } else {
+    out.canonical_empty = null;
+  }
+
+  // sitemap reachable (best-effort HEAD)
+  try {
+    const smUrl = new URL("/sitemap.xml", url).toString();
+    const sm = await fetch(smUrl, { method: "HEAD" });
+    out.sitemap_reachable = sm.ok;
+  } catch {
+    out.sitemap_reachable = false;
+  }
+
+  // title/meta quality (only meaningful if present)
+  out.title_missing_or_short =
+    typeof out.title_length === "number" ? out.title_length < 15 : null;
+
+  out.meta_desc_missing_or_short =
+    typeof out.meta_description_length === "number"
+      ? out.meta_description_length < 50
+      : null;
+
+  // viewport quality (only meaningful if present)
+  const viewport = extractViewportContent(html);
+  if (out.viewport_present === true) {
+    out.viewport_width_valid = viewport.includes("width=device-width");
+    out.viewport_initial_scale = viewport.includes("initial-scale");
+  } else {
+    out.viewport_width_valid = null;
+    out.viewport_initial_scale = null;
+  }
+
+  // mobile density heuristic
+  out.html_mobile_risk =
+    typeof out.html_length === "number" ? out.html_length > 120000 : null;
+
+  // above-the-fold-ish text presence (very rough, but useful)
+  const fold = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .trim()
+    .slice(0, 500);
+
+  out.above_the_fold_text_present = fold.length > 80;
 
   return out;
 }
@@ -201,14 +303,34 @@ function pickBasicFactsForPrompt(metrics = {}) {
     basic_checks: {
       title_present: basic.title_present ?? null,
       title_text: basic.title_text ?? null,
+      title_length: basic.title_length ?? null,
+
       meta_description_present: basic.meta_description_present ?? null,
+      meta_description_length: basic.meta_description_length ?? null,
+
       h1_present: basic.h1_present ?? null,
       h1_count: basic.h1_count ?? null,
+
       canonical_present: basic.canonical_present ?? null,
+      canonical_empty: basic.canonical_empty ?? null,
+
       robots_present: basic.robots_present ?? null,
+      robots_content: basic.robots_content ?? null,
+
       sitemap_present: basic.sitemap_present ?? null,
+      sitemap_reachable: basic.sitemap_reachable ?? null,
+
       viewport_present: basic.viewport_present ?? null,
+      viewport_width_valid: basic.viewport_width_valid ?? null,
+      viewport_initial_scale: basic.viewport_initial_scale ?? null,
+
       html_length: basic.html_length ?? null,
+      html_mobile_risk: basic.html_mobile_risk ?? null,
+
+      multiple_h1: basic.multiple_h1 ?? null,
+      title_missing_or_short: basic.title_missing_or_short ?? null,
+      meta_desc_missing_or_short: basic.meta_desc_missing_or_short ?? null,
+      above_the_fold_text_present: basic.above_the_fold_text_present ?? null,
     },
   };
 }
@@ -280,7 +402,7 @@ ${JSON.stringify(facts, null, 2)}
 
 Return strict JSON with these keys (strings only; empty string if not supported):
 {
-  "intro": "...executive narrative lead, 4-8 sentences, facts-based, no hype...",
+  "intro": "...executive narrative lead, 2+ paragraphs, facts-based, no hype...",
   "performance": "...1-3 short paragraphs, must relate to performance score if present...",
   "mobile_comment": "...optional...",
   "structure_comment": "...optional...",
@@ -297,7 +419,6 @@ Rules:
 - Keep it useful and diagnostic. No placeholders.
 `.trim();
 
-  // retry once (transient failures happen)
   const a = await openaiJson(prompt);
   if (a.ok && a.json) return stripNullStrings(a.json);
 
@@ -391,18 +512,38 @@ export async function handler(event) {
     // ---------------------------------------------
     const htmlFacts = await buildHtmlFacts(url);
 
+    // canonical place
     metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
     metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
+    metrics.basic_checks.title_length = htmlFacts.title_length ?? null;
+
     metrics.basic_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
+    metrics.basic_checks.meta_description_length = htmlFacts.meta_description_length ?? null;
+
     metrics.basic_checks.h1_present = htmlFacts.h1_present ?? null;
     metrics.basic_checks.h1_count = htmlFacts.h1_count ?? null;
+
     metrics.basic_checks.canonical_present = htmlFacts.canonical_present ?? null;
     metrics.basic_checks.robots_present = htmlFacts.robots_present ?? null;
     metrics.basic_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
     metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
+
     metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
-    // Keep compat copy (optional)
+    // extra signals
+    metrics.basic_checks.robots_content = htmlFacts.robots_content ?? null;
+    metrics.basic_checks.multiple_h1 = htmlFacts.multiple_h1 ?? null;
+    metrics.basic_checks.canonical_empty = htmlFacts.canonical_empty ?? null;
+    metrics.basic_checks.sitemap_reachable = htmlFacts.sitemap_reachable ?? null;
+    metrics.basic_checks.title_missing_or_short = htmlFacts.title_missing_or_short ?? null;
+    metrics.basic_checks.meta_desc_missing_or_short = htmlFacts.meta_desc_missing_or_short ?? null;
+    metrics.basic_checks.viewport_width_valid = htmlFacts.viewport_width_valid ?? null;
+    metrics.basic_checks.viewport_initial_scale = htmlFacts.viewport_initial_scale ?? null;
+    metrics.basic_checks.html_mobile_risk = htmlFacts.html_mobile_risk ?? null;
+    metrics.basic_checks.above_the_fold_text_present =
+      htmlFacts.above_the_fold_text_present ?? null;
+
+    // compat copy for older code paths (optional)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
     metrics.html_checks.title_text = htmlFacts.title_text ?? null;
