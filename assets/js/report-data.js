@@ -1,10 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Gold wiring for 3 signal blocks + Key Insight Metrics
-// - Performance (score + narrative)
-// - UX & Clarity (derived score + narrative)
-// - Trust & Professionalism (derived score + narrative)
-// - Executive Narrative lead
-// - Key Insight Metrics (deterministic facts from Brick 2A)
+// iQWEB Report v5.2 — Gold wiring
+// - Header
+// - Executive Narrative lead (AI narrative saved during scan)
+// - Delivery Signals (3 blocks for now)
+// - Key Insight Metrics (deterministic from metrics.basic_checks)
+// - Top Issues Detected (deterministic from metrics.basic_checks; calm language)
 // - Deterministic fallbacks for empty narrative blocks (NON-AI)
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
@@ -86,112 +86,131 @@ function fallbackIfEmpty(text, fallback) {
   return isNonEmptyString(text) ? text : fallback;
 }
 
-// -------- Key Insight Metrics (Deterministic facts) --------
-function chooseBasicFacts(metrics) {
-  const m = safeObj(metrics);
-  const basic = safeObj(m.basic_checks);
-  const html = safeObj(m.html_checks);
-
-  // prefer basic_checks (new path), fallback to html_checks (compat)
-  const hasBasic = Object.keys(basic).length > 0;
-  const hasHtml = Object.keys(html).length > 0;
-
-  if (hasBasic) return basic;
-  if (hasHtml) return html;
-  return {};
-}
-
-function pushIf(items, condition, text) {
-  if (items.length >= 6) return;
-  if (condition) items.push(text);
-}
-
-function buildKeyInsights(basic) {
-  const b = safeObj(basic);
-  const items = [];
-
-  // Title
-  if (typeof b.title_length === "number") {
-    if (b.title_length < 15) pushIf(items, true, `Title length: ${b.title_length} characters (short)`);
-    else pushIf(items, true, `Title length: ${b.title_length} characters`);
-  } else if (b.title_present === false) {
-    pushIf(items, true, "Title tag not detected");
-  }
-
-  // Meta description
-  if (typeof b.meta_description_length === "number") {
-    if (b.meta_description_length < 50) pushIf(items, true, `Meta description: ${b.meta_description_length} characters (short)`);
-    else pushIf(items, true, `Meta description: ${b.meta_description_length} characters`);
-  } else if (b.meta_description_present === false) {
-    pushIf(items, true, "Meta description not detected");
-  }
-
-  // H1
-  if (b.h1_present === false) {
-    pushIf(items, true, "Primary H1 heading not detected");
-  } else if (typeof b.h1_count === "number") {
-    if (b.h1_count === 1) pushIf(items, true, "H1 structure: 1 primary heading detected");
-    if (b.h1_count > 1) pushIf(items, true, `H1 structure: ${b.h1_count} headings detected (multiple H1)`);
-  }
-
-  // Canonical
-  if (b.canonical_present === false) {
-    pushIf(items, true, "Canonical tag not detected");
-  } else if (b.canonical_empty === true) {
-    pushIf(items, true, "Canonical tag detected but appears empty");
-  }
-
-  // Robots meta
-  if (b.robots_present === false) {
-    pushIf(items, true, "Robots meta tag not detected");
-  } else if (isNonEmptyString(b.robots_content)) {
-    pushIf(items, true, `Robots meta: "${String(b.robots_content).trim()}"`);
-  }
-
-  // Sitemap
-  if (b.sitemap_present === true && b.sitemap_reachable === false) {
-    pushIf(items, true, "Sitemap hint detected, but /sitemap.xml was not reachable");
-  } else if (b.sitemap_present === false && b.sitemap_reachable === false) {
-    // only add this if we still have room; it can be noisy
-    pushIf(items, items.length < 5, "Sitemap was not reachable at /sitemap.xml");
-  } else if (b.sitemap_reachable === true) {
-    pushIf(items, true, "Sitemap reachable at /sitemap.xml");
-  }
-
-  // Viewport
-  if (b.viewport_present === false) {
-    pushIf(items, true, "Viewport meta tag not detected (mobile configuration may be limited)");
-  } else if (b.viewport_present === true) {
-    if (b.viewport_width_valid === false) pushIf(items, true, "Viewport: width=device-width not detected");
-    if (b.viewport_initial_scale === false) pushIf(items, true, "Viewport: initial-scale not detected");
-    if (b.viewport_width_valid === true && b.viewport_initial_scale === true) {
-      pushIf(items, items.length < 5, "Viewport configuration detected (mobile-friendly baseline)");
-    }
-  }
-
-  // Above-the-fold text heuristic (quiet, only if room)
-  if (typeof b.above_the_fold_text_present === "boolean") {
-    pushIf(items, items.length < 6 && b.above_the_fold_text_present === true, "Above-the-fold text detected (content visible on load)");
-    pushIf(items, items.length < 6 && b.above_the_fold_text_present === false, "Above-the-fold text appears limited on initial load");
-  }
-
-  return items.slice(0, 6);
-}
-
-function renderKeyInsights(items) {
-  const ul = qs('[data-field="key-insights"]');
+// Render a UL list into [data-field="..."]
+function renderBullets(field, items) {
+  const ul = qs(`[data-field="${field}"]`);
   if (!ul) return;
-
   ul.innerHTML = "";
 
-  const clean = Array.isArray(items) ? items.filter(isNonEmptyString) : [];
-  if (!clean.length) return; // keep empty if no facts (integrity)
+  const clean = (items || []).filter((x) => isNonEmptyString(x));
+  if (!clean.length) return;
 
-  for (const t of clean) {
+  for (const line of clean) {
     const li = document.createElement("li");
-    li.textContent = t.trim();
+    li.textContent = line;
     ul.appendChild(li);
   }
+}
+
+// ------------------------------
+// Deterministic Key Insight Metrics
+// ------------------------------
+function buildKeyInsightsFromBasicChecks(bc = {}) {
+  const out = [];
+
+  if (typeof bc.title_length === "number") out.push(`Title length: ${bc.title_length} characters`);
+  else if (bc.title_present === false) out.push("Title tag not detected");
+
+  if (typeof bc.meta_description_length === "number") out.push(`Meta description: ${bc.meta_description_length} characters`);
+  else if (bc.meta_description_present === false) out.push("Meta description not detected");
+
+  if (bc.h1_present === false) out.push("Primary H1 heading not detected");
+  else if (typeof bc.h1_count === "number" && bc.h1_count > 1) out.push(`Multiple H1 headings detected (${bc.h1_count})`);
+
+  if (bc.canonical_present === false) out.push("Canonical tag not detected");
+  else if (bc.canonical_empty === true) out.push("Canonical tag present but appears empty");
+
+  if (bc.robots_present === false) out.push("Robots meta tag not detected");
+  else if (isNonEmptyString(bc.robots_content)) out.push(`Robots meta: ${bc.robots_content}`);
+
+  // Sitemap wording (align to your screenshot style)
+  if (bc.sitemap_reachable === true) out.push("Sitemap reachable at /sitemap.xml");
+  else if (bc.sitemap_present === true) out.push("Sitemap reference detected");
+  else if (bc.sitemap_present === false) out.push("Sitemap reference not detected");
+
+  return out;
+}
+
+// ------------------------------
+// Deterministic Top Issues Detected
+// Calm, contextual, not alarmist.
+// ------------------------------
+function buildTopIssuesFromBasicChecks(bc = {}) {
+  const issues = [];
+
+  // Helper to push ranked issues
+  function add(severityRank, label, line) {
+    issues.push({ severityRank, label, line });
+  }
+
+  // Severity ranks: lower = more important
+  // 1 Critical, 2 High, 3 Medium, 4 Low
+
+  // Structure / SEO foundations
+  if (bc.h1_present === false) {
+    add(2, "High", "Missing primary H1 heading — this can reduce clarity for both users and search engines.");
+  } else if (typeof bc.h1_count === "number" && bc.h1_count > 1) {
+    add(3, "Medium", `Multiple H1 headings detected (${bc.h1_count}) — consider keeping a single primary H1 for cleaner structure.`);
+  }
+
+  if (bc.canonical_present === false) {
+    add(2, "High", "Canonical tag not detected — this can make duplicate/variant URL handling less predictable.");
+  } else if (bc.canonical_empty === true) {
+    add(2, "High", "Canonical tag appears present but empty — this may not provide the intended indexing signal.");
+  }
+
+  // Meta description (calm: not a “bug”, just optimisation)
+  if (bc.meta_description_present === false) {
+    add(3, "Medium", "Meta description not detected — search snippets may be less controlled.");
+  } else if (bc.meta_desc_missing_or_short === true) {
+    add(4, "Low", "Meta description appears short — you may want a clearer summary for search previews.");
+  } else if (typeof bc.meta_description_length === "number" && bc.meta_description_length > 170) {
+    add(4, "Low", `Meta description is long (${bc.meta_description_length} chars) — it may be truncated in search results.`);
+  }
+
+  // Title quality
+  if (bc.title_present === false) {
+    add(2, "High", "Title tag not detected — this is a core page identity and SEO signal.");
+  } else if (bc.title_missing_or_short === true) {
+    add(4, "Low", "Title appears very short — consider making it more descriptive.");
+  }
+
+  // Robots
+  if (bc.robots_present === false) {
+    add(4, "Low", "Robots meta tag not detected — not required, but some sites use it for explicit indexing directives.");
+  } else if (isNonEmptyString(bc.robots_content) && /(noindex|nofollow)/i.test(bc.robots_content)) {
+    add(1, "Critical", `Robots meta includes restrictive directives ("${bc.robots_content}") — this may limit search visibility.`);
+  }
+
+  // Viewport / mobile foundations
+  if (bc.viewport_present === false) {
+    add(2, "High", "Viewport meta tag not detected — mobile layout may not render as intended.");
+  } else {
+    if (bc.viewport_width_valid === false) add(3, "Medium", "Viewport does not include width=device-width — mobile scaling may be inconsistent.");
+    if (bc.viewport_initial_scale === false) add(4, "Low", "Viewport does not include initial-scale — minor mobile rendering risk.");
+  }
+
+  // Sitemap reachability
+  if (bc.sitemap_present === false && bc.sitemap_reachable === false) {
+    add(4, "Low", "Sitemap not detected — indexing discovery may rely more heavily on internal linking.");
+  }
+
+  // “Heavy HTML” heuristic
+  if (bc.html_mobile_risk === true) {
+    add(4, "Low", "Large HTML payload detected — may affect load behaviour on slower devices (best confirmed with performance data).");
+  }
+
+  // Above-the-fold content heuristic
+  if (bc.above_the_fold_text_present === false) {
+    add(4, "Low", "Low visible text detected early in the document — consider ensuring key messaging appears quickly for users.");
+  }
+
+  // Sort by severity, then return top N
+  issues.sort((a, b) => a.severityRank - b.severityRank);
+
+  // Format lines: "HIGH — Missing primary H1 heading — ..."
+  const lines = issues.slice(0, 6).map((x) => `${x.label.toUpperCase()} — ${x.line}`);
+  return lines;
 }
 
 async function loadReportData() {
@@ -224,6 +243,7 @@ async function loadReportData() {
   const narrative = safeObj(data.narrative);
   const report = safeObj(data.report);
   const metrics = safeObj(data.metrics);
+  const basicChecks = safeObj(metrics.basic_checks);
 
   // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
@@ -280,7 +300,7 @@ async function loadReportData() {
     narrative.content_comment || ""
   ], 3);
 
-  setText("ux-comment", uxText);
+  setText("ux-comment", fallbackIfEmpty(uxText, "No material UX or clarity issues were detected from the available data."));
 
   // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM ----------------
   const trustScore = avg([
@@ -306,10 +326,19 @@ async function loadReportData() {
     )
   );
 
-  // ---------------- SECTION 5: KEY INSIGHT METRICS ----------------
-  const basicFacts = chooseBasicFacts(metrics);
-  const keyInsights = buildKeyInsights(basicFacts);
-  renderKeyInsights(keyInsights);
+  // ---------------- KEY INSIGHT METRICS (deterministic) ----------------
+  const keyInsights = buildKeyInsightsFromBasicChecks(basicChecks);
+  renderBullets("key-insights", keyInsights);
+
+  // ---------------- TOP ISSUES DETECTED (deterministic) ----------------
+  const topIssues = buildTopIssuesFromBasicChecks(basicChecks);
+  if (topIssues.length) {
+    renderBullets("top-issues", topIssues);
+  } else {
+    renderBullets("top-issues", [
+      "No material issues were detected from the available data."
+    ]);
+  }
 
   // Done: fade loader
   window.dispatchEvent(new Event("iqweb:loaded"));
