@@ -1,8 +1,8 @@
 // /assets/js/report-data.js
 // iQWEB Report v5.2 — Wiring for 3 Gold-Standard signal blocks
 // - Performance (score + narrative)
-// - UX & Clarity (derived score + assembled narrative)
-// - Trust & Professionalism (derived score + assembled narrative)
+// - UX & Clarity (DIRECT score now, derived later)
+// - Trust & Professionalism (DIRECT score now, derived later)
 // - Executive Narrative leads
 // - AI-only rule: empty stays empty (no placeholders)
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
@@ -123,13 +123,19 @@ async function loadReportData() {
   const perfText = joinParts([narrative.performance, narrative.performance_comment], 2);
   setText("performance-comment", perfText);
 
-  // ---------------- SIGNAL 2: UX & CLARITY (DERIVED) ----------------
-  const uxScore = avg([
+  // ---------------- SIGNAL 2: UX & CLARITY (DIRECT or DERIVED fallback) ----------------
+  const uxDerived = avg([
     scores.seo,
     scores.structure_semantics,
     scores.mobile_experience,
     scores.content_signals
   ]);
+
+  const uxScore =
+    (typeof scores.ux_clarity === "number" && !Number.isNaN(scores.ux_clarity))
+      ? scores.ux_clarity
+      : uxDerived;
+
   setScore("score-ux", uxScore);
 
   const uxText = joinParts([
@@ -151,12 +157,18 @@ async function loadReportData() {
   ], 3);
   setText("ux-comment", uxText);
 
-  // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM (DERIVED) ----------------
-  const trustScore = avg([
+  // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM (DIRECT or DERIVED fallback) ----------------
+  const trustDerived = avg([
     scores.security_trust,
     scores.domain_hosting,
     scores.accessibility
   ]);
+
+  const trustScore =
+    (typeof scores.trust_professionalism === "number" && !Number.isNaN(scores.trust_professionalism))
+      ? scores.trust_professionalism
+      : trustDerived;
+
   setScore("score-trust", trustScore);
 
   const trustText = joinParts([
