@@ -1,9 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections
+// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections + Human Signals
 // - Signals: Performance, SEO, Structure, Mobile, Security, Accessibility
 // - Executive Narrative lead (AI if present)
 // - Deterministic fallbacks (NON-AI) so blocks never look "broken"
 // - Builds: Key Insight Metrics, Top Issues Detected, Recommended Fix Sequence, Final Notes
+// - Human Signals: HS1 Clarity & Cognitive Load, HS2 Trust & Credibility
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) { return document.querySelector(sel); }
@@ -154,8 +155,16 @@ function renderIssuesUl(issues) {
   }
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function buildFixSequenceHTML(issues, bc = {}) {
-  // Keep it deterministic: derive phases from detected issues
   const hasH1 = issues.some(i => i.msg.toLowerCase().includes("h1"));
   const hasCanonical = issues.some(i => i.msg.toLowerCase().includes("canonical"));
   const hasViewport = issues.some(i => i.msg.toLowerCase().includes("viewport"));
@@ -212,21 +221,14 @@ function renderFinalNotes() {
   }
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+// ---------- HUMAN SIGNAL 1: Clarity & Cognitive Load ----------
 function classifyClarityCognitiveLoad(bc = {}) {
   // Deterministic classification only (no AI).
   // Returns: { level: "CLEAR"|"MODERATE"|"HIGH"|"INTENTIONAL", reasons: [] }
 
   const reasons = [];
 
-  const titlePresent = bc.title_present !== false; // null treated as "unknown"
+  const titlePresent = bc.title_present !== false;
   const titleLen = (typeof bc.title_length === "number") ? bc.title_length : null;
 
   const metaPresent = bc.meta_description_present !== false;
@@ -240,7 +242,6 @@ function classifyClarityCognitiveLoad(bc = {}) {
 
   const htmlLen = (typeof bc.html_length === "number") ? bc.html_length : null;
 
-  // Risk flags
   const missingTitle = bc.title_present === false;
   const missingMeta = bc.meta_description_present === false;
   const missingH1 = bc.h1_present === false;
@@ -248,20 +249,16 @@ function classifyClarityCognitiveLoad(bc = {}) {
 
   const missingViewport = bc.viewport_present === false;
 
-  // Heuristics (bounded)
   const titleVague = (typeof titleLen === "number") ? (titleLen < 15) : (bc.title_missing_or_short === true);
   const metaWeak = (typeof metaLen === "number") ? (metaLen < 50) : (bc.meta_desc_missing_or_short === true);
 
   const heavyHtml = (typeof htmlLen === "number") ? (htmlLen > 120000) : (bc.html_mobile_risk === true);
   const ultraHeavyHtml = (typeof htmlLen === "number") ? (htmlLen > 200000) : false;
 
-  // Intentional complexity pattern (for sites like badhtml.com):
-  // Structure-breaking signals exist, but "professional plumbing" signals are present.
-  // We do NOT "judge" — we classify likelihood of deliberate subversion.
+  // Intentional complexity pattern
   const deliberatePlumbing = (canonicalPresent === true && viewportPresent === true && titlePresent === true);
   const deliberateChaos = (missingH1 || multiH1 || titleVague) && deliberatePlumbing;
 
-  // Build reasons
   if (missingTitle) reasons.push("Title tag not detected.");
   else if (titleVague) reasons.push("Title appears very short, which can reduce immediate intent clarity.");
 
@@ -276,23 +273,17 @@ function classifyClarityCognitiveLoad(bc = {}) {
   if (ultraHeavyHtml) reasons.push("Page markup is very large, which can increase scanning effort and perceived complexity.");
   else if (heavyHtml) reasons.push("Page markup is heavy, which may increase cognitive load for new visitors.");
 
-  // Classification
-  if (deliberateChaos) {
-    return { level: "INTENTIONAL", reasons };
-  }
+  if (deliberateChaos) return { level: "INTENTIONAL", reasons };
 
-  // HIGH if major anchors are missing OR multiple problems stack
   const hardHits = [missingTitle, missingH1, missingMeta].filter(Boolean).length;
   const stackHits = [titleVague, metaWeak, multiH1, heavyHtml, missingViewport].filter(Boolean).length;
 
   if (hardHits >= 2) return { level: "HIGH", reasons };
   if (hardHits === 1 && stackHits >= 2) return { level: "HIGH", reasons };
 
-  // MODERATE if one anchor weak/missing OR several soft frictions
   if (hardHits === 1) return { level: "MODERATE", reasons };
   if (stackHits >= 2) return { level: "MODERATE", reasons };
 
-  // Otherwise CLEAR (or "none detected" style)
   return { level: "CLEAR", reasons };
 }
 
@@ -309,8 +300,10 @@ function renderHumanSignal1(basicChecks = {}) {
 
   setText("hs1-status", label);
 
-  // Narrative: one calm paragraph, evidence-based, no judgement.
-  // If no reasons, keep it simple.
+  // Drive HS1 bar (subtle, elite)
+  const barMap = { CLEAR: 85, MODERATE: 55, HIGH: 30, INTENTIONAL: 40 };
+  setBar("hs1", barMap[r.level] ?? 0);
+
   const reasonText = (r.reasons || []).slice(0, 3).join(" ");
   const msg =
     (r.level === "CLEAR")
@@ -322,18 +315,90 @@ function renderHumanSignal1(basicChecks = {}) {
           : `The page appears to intentionally subvert conventional clarity and structure. While this increases cognitive load for most visitors, it may be a deliberate design choice rather than an oversight. ${reasonText}`.trim();
 
   setText("hs1-comment", msg);
-
-  const barMap = {
-  CLEAR: 85,
-  MODERATE: 55,
-  HIGH: 30,
-  INTENTIONAL: 40
-};
-
-setBar("hs1", barMap[r.level] ?? 0);
-
 }
 
+// ---------- HUMAN SIGNAL 2: Trust & Credibility ----------
+function classifyTrustCredibility(bc = {}) {
+  // Deterministic classification only.
+  // Accepts either:
+  // - bc.trust_signals.{https, canonical_present, privacy_page_detected, terms_page_detected, contact_info_detected}
+  // - OR flat keys on bc (same names)
+  //
+  // Returns: { level: "HIGH"|"MODERATE"|"LOW"|"INTENTIONAL", reasons: [] }
+
+  const reasons = [];
+
+  const ts = safeObj(bc.trust_signals);
+
+  const readBool = (v) => (v === true ? true : v === false ? false : null);
+
+  const https = readBool(ts.https ?? bc.https);
+  const canonical = readBool(ts.canonical_present ?? bc.canonical_present);
+  const privacy = readBool(ts.privacy_page_detected ?? bc.privacy_page_detected);
+  const terms = readBool(ts.terms_page_detected ?? bc.terms_page_detected);
+  const contact = readBool(ts.contact_info_detected ?? bc.contact_info_detected);
+
+  // If scan didn’t provide trust signals yet, don’t fake certainty.
+  const anyKnown = [https, canonical, privacy, terms, contact].some(v => v !== null);
+  if (!anyKnown) {
+    return {
+      level: "MODERATE",
+      reasons: ["Trust signals were not available from this scan, so credibility assessment is limited."],
+    };
+  }
+
+  if (https === false) reasons.push("HTTPS not detected.");
+  if (canonical === false) reasons.push("Canonical URL not detected.");
+  if (privacy === false) reasons.push("Privacy policy not detected.");
+  if (terms === false) reasons.push("Terms of service not detected.");
+  if (contact === false) reasons.push("Clear contact information not detected.");
+
+  // Positive count (treat privacy OR terms as one “policy coverage” slot)
+  const policyCoverage = (privacy === true || terms === true);
+  const positives = [
+    https === true,
+    canonical === true,
+    policyCoverage,
+    contact === true
+  ].filter(Boolean).length;
+
+  if (positives >= 4) return { level: "HIGH", reasons };
+  if (positives >= 2) return { level: "MODERATE", reasons };
+  if (positives === 1) return { level: "LOW", reasons };
+
+  // If everything is known and negative, this might be deliberate minimalism / non-commercial page.
+  return { level: "INTENTIONAL", reasons };
+}
+
+function renderHumanSignal2(basicChecks = {}) {
+  const statusMap = {
+    HIGH: "HIGH TRUST",
+    MODERATE: "MODERATE TRUST",
+    LOW: "LOW TRUST",
+    INTENTIONAL: "INTENTIONAL MINIMALISM",
+  };
+
+  const r = classifyTrustCredibility(basicChecks);
+  const label = statusMap[r.level] || "MODERATE TRUST";
+
+  setText("hs2-status", label);
+
+  // Drive HS2 bar (requested mapping)
+  const barMap = { LOW: 25, MODERATE: 55, HIGH: 85, INTENTIONAL: 40 };
+  setBar("hs2", barMap[r.level] ?? 0);
+
+  const reasonText = (r.reasons || []).slice(0, 3).join(" ");
+  const msg =
+    (r.level === "HIGH")
+      ? "Key trust cues appear present, which supports credibility for first-time visitors and reduces hesitation."
+      : (r.level === "MODERATE")
+        ? `Some trust cues are present, but a few credibility anchors may be missing or unclear for first-time visitors. ${reasonText}`.trim()
+        : (r.level === "LOW")
+          ? `Trust signals appear limited, which may increase hesitation for first-time visitors. ${reasonText}`.trim()
+          : `This page appears to be intentionally minimal on conventional trust cues. That can be valid for non-commercial pages, but it may reduce confidence for first-time visitors. ${reasonText}`.trim();
+
+  setText("hs2-comment", msg);
+}
 
 // ---------- Main ----------
 async function loadReportData() {
@@ -366,11 +431,6 @@ async function loadReportData() {
   const narrative = safeObj(data.narrative);
   const report = safeObj(data.report);
   const basicChecks = safeObj(data.basic_checks);
-  // ---------------- Human Signals ----------------
-renderHumanSignal1(basicChecks);
-renderHumanSignal2(basicChecks);
-
-
 
   // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
@@ -469,6 +529,10 @@ renderHumanSignal2(basicChecks);
     a11yNarr,
     "No significant accessibility blockers were detected from the available signals."
   ));
+
+  // ---------------- HUMAN SIGNALS ----------------
+  renderHumanSignal1(basicChecks);
+  renderHumanSignal2(basicChecks);
 
   // ---------------- Key Insight Metrics ----------------
   const keyInsights = buildKeyInsights(basicChecks);
