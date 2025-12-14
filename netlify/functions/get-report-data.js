@@ -117,7 +117,7 @@ export async function handler(event) {
     body: JSON.stringify({
       success: true,
       scores,
-      basic_checks: basicChecks, // ✅ expose HTML facts for deterministic blocks
+      basic_checks: basicChecks, // ✅ expose HTML facts for deterministic block
       narrative,
       narrative_source: narrative ? "stored" : "none",
       report: {
