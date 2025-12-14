@@ -5,7 +5,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini"; // change any time
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -170,10 +170,9 @@ async function buildHtmlFacts(url) {
 }
 
 // ---------------------------------------------
-// Brick 2B: Executive narrative (OpenAI) + UPSERT to report_data
+// Brick 2B: Executive narrative (OpenAI) + UPSERT report_data
 // ---------------------------------------------
 function stripNullStrings(obj) {
-  // Convert null/undefined -> "" for narrative fields (front-end expects strings or empty)
   const out = {};
   for (const [k, v] of Object.entries(obj || {})) {
     if (v === null || v === undefined) out[k] = "";
@@ -269,7 +268,6 @@ async function openaiJson(prompt) {
 }
 
 async function buildNarrative(url, metrics) {
-  // Facts pack for honesty (no “vibes” without evidence)
   const facts = pickBasicFactsForPrompt(metrics);
 
   const prompt = `
@@ -297,17 +295,15 @@ Rules:
 - Do NOT mention tools by name unless explicitly in facts.
 - Do NOT claim specific issues unless supported by provided facts.
 - Keep it useful and diagnostic. No placeholders.
-`;
+`.trim();
 
-  // Two-shot attempt to hit your “90%+” requirement in real life
+  // retry once (transient failures happen)
   const a = await openaiJson(prompt);
   if (a.ok && a.json) return stripNullStrings(a.json);
 
-  // retry once (transient failures happen)
   const b = await openaiJson(prompt);
   if (b.ok && b.json) return stripNullStrings(b.json);
 
-  // total failure -> return empty object (front-end stays blank, but scan stays valid)
   return {};
 }
 
@@ -315,7 +311,6 @@ async function upsertReportData(report_id, url, created_at, metrics, narrativeOb
   const narrative = stripNullStrings(narrativeObj || {});
   const scores = safeObj(metrics?.scores);
 
-  // IMPORTANT: onConflict requires UNIQUE on report_id (you already have it)
   const { error } = await supabaseAdmin
     .from("report_data")
     .upsert(
@@ -407,6 +402,7 @@ export async function handler(event) {
     metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
+    // Keep compat copy (optional)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
     metrics.html_checks.title_text = htmlFacts.title_text ?? null;
@@ -439,9 +435,7 @@ export async function handler(event) {
       return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
     }
 
-    // ---------------------------------------------
-    // Brick 2B: generate narrative + upsert report_data
-    // ---------------------------------------------
+    // 2) Generate narrative + upsert report_data
     const narrativeObj = await buildNarrative(url, metrics);
     const up = await upsertReportData(report_id, url, created_at, metrics, narrativeObj);
 
@@ -457,6 +451,6 @@ export async function handler(event) {
       }),
     };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || String(err) }) };
+    return { statusCode: 500, body: JSON.stringify({ error: err?.message || String(err) }) };
   }
 }
