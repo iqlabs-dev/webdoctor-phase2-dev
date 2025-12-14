@@ -53,12 +53,16 @@ function clampInt(n) {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+function clampScore(n) {
+  if (!Number.isFinite(n)) return null;
+  const x = Math.round(n);
+  return Math.max(0, Math.min(100, x));
+}
+
 // ---------------------------------------------
 // Brick 2A: HTML structure facts (no puppeteer)
 // ---------------------------------------------
 async function fetchHtml(url) {
-  // Netlify supports global fetch in Node runtime.
-  // We keep it defensive: timeout, limited size, and HTML-only.
   const controller = new AbortController();
   const timeoutMs = 12000;
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -70,16 +74,13 @@ async function fetchHtml(url) {
       signal: controller.signal,
       headers: {
         "User-Agent": "iQWEB-Scanner/1.0 (+https://iqweb.ai)",
-        "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
       },
     });
 
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
-
-    // If it isn't HTML, still read a little (some sites mislabel), but keep it safe.
     const raw = await resp.text();
 
-    // Cap to prevent huge pages blowing memory
     const MAX_CHARS = 350000; // ~350KB of text
     const html = raw.length > MAX_CHARS ? raw.slice(0, MAX_CHARS) : raw;
 
@@ -123,7 +124,6 @@ function hasRobotsMeta(html) {
 }
 
 function hasSitemapHint(html) {
-  // Best-effort: either explicit "sitemap" link or common sitemap.xml mention.
   return /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html);
 }
 
@@ -144,10 +144,7 @@ async function buildHtmlFacts(url) {
   };
 
   const res = await fetchHtml(url);
-  if (!res.ok || !res.html) {
-    // keep nulls (integrity)
-    return out;
-  }
+  if (!res.ok || !res.html) return out;
 
   const html = res.html;
   out.html_length = clampInt(html.length);
@@ -163,7 +160,6 @@ async function buildHtmlFacts(url) {
     out.title_length = null;
   }
 
-  // meta description (content length only if present)
   out.meta_description_present = hasMetaDescription(html);
   if (out.meta_description_present) {
     const desc = extractFirstMatch(
@@ -175,7 +171,6 @@ async function buildHtmlFacts(url) {
     out.meta_description_length = null;
   }
 
-  // H1 count
   const h1Count = countMatches(html, /<h1\b[^>]*>/gi);
   out.h1_count = clampInt(h1Count);
   out.h1_present = h1Count > 0;
@@ -186,6 +181,96 @@ async function buildHtmlFacts(url) {
   out.viewport_present = hasMetaViewport(html);
 
   return out;
+}
+
+// ---------------------------------------------
+// Brick 2B: Deterministic scores from facts (NO AI)
+// ---------------------------------------------
+function computeScoresFromFacts(metrics) {
+  const m = safeObj(metrics);
+  const basic = safeObj(m.basic_checks || m.basicChecks || {});
+  const html = safeObj(m.html_checks || m.htmlChecks || {});
+
+  // Prefer basic_checks (canonical), fallback to html_checks
+  const title_present = basic.title_present ?? html.title_present ?? null;
+  const meta_description_present =
+    basic.meta_description_present ?? html.meta_description_present ?? null;
+  const viewport_present = basic.viewport_present ?? html.viewport_present ?? null;
+  const canonical_present = basic.canonical_present ?? html.canonical_present ?? null;
+  const robots_present = basic.robots_present ?? html.robots_present ?? null;
+  const sitemap_present = basic.sitemap_present ?? html.sitemap_present ?? null;
+
+  const h1_count = basic.h1_count ?? html.h1_count ?? null;
+  const html_length = basic.html_length ?? html.html_length ?? null;
+
+  // If we have literally no facts, return null scores (integrity)
+  const hasAny =
+    title_present !== null ||
+    meta_description_present !== null ||
+    viewport_present !== null ||
+    canonical_present !== null ||
+    robots_present !== null ||
+    sitemap_present !== null ||
+    h1_count !== null ||
+    html_length !== null;
+
+  if (!hasAny) {
+    return { performance: null, ux_clarity: null, trust_professionalism: null };
+  }
+
+  // ---- PERFORMANCE (today: only a weak proxy; real perf comes later via PSI/Lighthouse)
+  // We'll base this ONLY on page size hint (HTML length) so it's "real" but conservative.
+  let performance = 75; // neutral baseline
+  if (Number.isFinite(html_length)) {
+    // very rough: heavier HTML often correlates with slower parsing/rendering
+    if (html_length > 250000) performance -= 20;
+    else if (html_length > 150000) performance -= 12;
+    else if (html_length > 90000) performance -= 6;
+    else if (html_length < 40000) performance += 4;
+  }
+  performance = clampScore(performance);
+
+  // ---- UX & CLARITY (structure + mobile readiness signals)
+  let ux = 70; // baseline
+  if (viewport_present === true) ux += 10;
+  if (viewport_present === false) ux -= 18;
+
+  if (title_present === true) ux += 4;
+  if (title_present === false) ux -= 10;
+
+  if (meta_description_present === true) ux += 2;
+  if (meta_description_present === false) ux -= 6;
+
+  if (Number.isFinite(h1_count)) {
+    if (h1_count === 1) ux += 6;
+    else if (h1_count === 0) ux -= 10;
+    else if (h1_count > 1) ux -= 6; // multiple H1s can reduce semantic clarity
+  }
+
+  ux = clampScore(ux);
+
+  // ---- TRUST & PROFESSIONALISM (crawl/control + canonical hygiene)
+  let trust = 70; // baseline
+  if (canonical_present === true) trust += 10;
+  if (canonical_present === false) trust -= 10;
+
+  if (robots_present === true) trust += 4;
+  if (robots_present === false) trust -= 2; // not critical, just a maturity hint
+
+  if (sitemap_present === true) trust += 4;
+  if (sitemap_present === false) trust -= 2;
+
+  // Title + meta description contribute slightly to professional polish
+  if (title_present === true) trust += 2;
+  if (meta_description_present === true) trust += 2;
+
+  trust = clampScore(trust);
+
+  return {
+    performance,
+    ux_clarity: ux,
+    trust_professionalism: trust,
+  };
 }
 
 // ---------------------------------------------
@@ -208,7 +293,6 @@ export async function handler(event) {
     const token = authHeader.replace("Bearer ", "").trim();
     const decoded = safeDecodeJwt(token);
 
-    // Validate token (must be from same Supabase project)
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !authData?.user) {
@@ -255,7 +339,6 @@ export async function handler(event) {
     // ---------------------------------------------
     const htmlFacts = await buildHtmlFacts(url);
 
-    // Store into basic_checks (canonical place used by your scoring logic)
     metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
     metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
     metrics.basic_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
@@ -267,7 +350,6 @@ export async function handler(event) {
     metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
-    // Mirror into html_checks too (some older code looks for this)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
     metrics.html_checks.title_text = htmlFacts.title_text ?? null;
@@ -281,6 +363,14 @@ export async function handler(event) {
     metrics.html_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
     metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
+
+    // ---------------------------------------------
+    // Brick 2B: compute deterministic scores from facts
+    // ---------------------------------------------
+    const s = computeScoresFromFacts(metrics);
+    metrics.scores.performance = s.performance;
+    metrics.scores.ux_clarity = s.ux_clarity;
+    metrics.scores.trust_professionalism = s.trust_professionalism;
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
@@ -310,6 +400,7 @@ export async function handler(event) {
         scan_id: scanRow.id,
         report_id: scanRow.report_id,
         html_facts_populated: true,
+        scores_populated: true,
       }),
     };
   } catch (err) {
