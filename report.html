@@ -5,13 +5,11 @@
   <title>iQWEB Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     * { box-sizing: border-box; }
 
-    /* ---------------- THEME TOKENS ---------------- */
     :root{
       --page-bg: #e5edf4;
       --text: #0f172a;
@@ -36,16 +34,9 @@
       --score-bg: #f0fdfa;
 
       --footer-border: #e2e8f0;
-
       --link: #0f172a;
-
-      /* NEW: signal bar tokens */
-      --bar-track: rgba(15,23,42,0.10);
-      --bar-fill: rgba(20,184,166,0.95);
-      --bar-glow: rgba(20,184,166,0.18);
     }
 
-    /* Dark mode (LOCKED BEHAVIOUR): only swaps tokens, layout unchanged */
     body.wd-dark{
       --page-bg: #070b14;
       --text: #e6edf7;
@@ -70,13 +61,7 @@
       --score-bg: rgba(20,184,166,0.10);
 
       --footer-border: rgba(148,163,184,0.18);
-
       --link: #e6edf7;
-
-      /* NEW: signal bar tokens */
-      --bar-track: rgba(226,232,240,0.16);
-      --bar-fill: rgba(45,212,191,0.95);
-      --bar-glow: rgba(45,212,191,0.16);
     }
 
     html, body {
@@ -93,7 +78,7 @@
       padding: 24px 12px;
     }
 
-    /* ---------------- LOADER (LOCKED UX SIGNATURE) ---------------- */
+    /* LOADER (LOCKED UX SIGNATURE) */
     #buildingReport {
       position: fixed;
       inset: 0;
@@ -106,17 +91,9 @@
       opacity: 1;
       pointer-events: all;
     }
+    #buildingReport.is-hiding { opacity: 0; pointer-events: none; }
 
-    #buildingReport.is-hiding {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .building-inner {
-      text-align: center;
-      color: #e5e4e2;
-    }
-
+    .building-inner { text-align: center; color: #e5e4e2; }
     .building-title {
       font-size: 1rem;
       letter-spacing: 0.22em;
@@ -124,25 +101,18 @@
       opacity: 0.85;
       margin-bottom: 18px;
     }
-
     .building-iq {
       font-size: 2.2rem;
       font-weight: 600;
       animation: pulse 1.6s ease-in-out infinite;
     }
-
     @keyframes pulse {
       0% { opacity: 0.35; }
       50% { opacity: 1; }
       100% { opacity: 0.35; }
     }
 
-    /* ---------------- REPORT SHELL ---------------- */
-    .wd-report-shell {
-      width: 100%;
-      max-width: 900px;
-    }
-
+    .wd-report-shell { width: 100%; max-width: 900px; }
     .wd-report-card {
       background: var(--card-bg);
       border-radius: 28px;
@@ -151,26 +121,14 @@
       box-shadow: var(--shadow);
     }
 
-    /* ---------------- HEADER ---------------- */
     .wd-header-top {
       padding: 20px 24px;
       border-radius: 20px;
       background: var(--header-bg);
       border: 1px solid var(--card-border);
     }
-
-    .wd-header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .wd-header-title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin: 0;
-    }
+    .wd-header-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .wd-header-title { font-size: 1.6rem; font-weight: 700; margin: 0; }
 
     .wd-theme-toggle {
       background: none;
@@ -185,12 +143,7 @@
       opacity: 0.9;
     }
 
-    .wd-header-meta-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 14px;
-    }
+    .wd-header-meta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
 
     .wd-meta-pill {
       padding: 10px 16px;
@@ -201,10 +154,7 @@
       flex-direction: column;
       min-width: 0;
     }
-
-    .wd-meta-pill-wide {
-      flex: 1 1 100%;
-    }
+    .wd-meta-pill-wide { flex: 1 1 100%; }
 
     .wd-meta-label {
       font-size: 0.7rem;
@@ -222,13 +172,12 @@
       text-decoration: none;
     }
 
-    /* ---------------- BODY ---------------- */
     .wd-report-body {
       background: var(--body-bg);
       border-radius: 24px;
       padding: 28px 24px;
       margin-top: 22px;
-      border: 1px solid rgba(0,0,0,0); /* keeps spacing consistent across themes */
+      border: 1px solid rgba(0,0,0,0);
     }
 
     .wd-section {
@@ -248,21 +197,19 @@
       font-weight: 600;
     }
 
-    /* ---------------- NARRATIVE ---------------- */
     .wd-narrative-text {
       font-size: 0.95rem;
       line-height: 1.65;
       color: var(--diag-text);
       margin: 0;
-      white-space: pre-wrap; /* lets "In short:" blocks look right */
+      white-space: pre-wrap;
     }
 
-    /* ---------------- DIAGNOSTIC BLOCKS ---------------- */
     .wd-diag-block {
       padding: 16px 18px;
       border-radius: 16px;
       border: 1px solid var(--section-border);
-      background: rgba(255,255,255,0); /* rely on section bg */
+      background: rgba(255,255,255,0);
       margin-bottom: 14px;
     }
 
@@ -294,24 +241,20 @@
       color: var(--text);
     }
 
-    /* NEW: Signal bar (deterministic fill from score) */
     .wd-signal-bar {
-      height: 8px;
+      height: 6px;
       border-radius: 999px;
-      background: var(--bar-track);
-      position: relative;
+      background: rgba(148,163,184,0.22);
       overflow: hidden;
-      margin: 8px 0 12px;
+      margin: 10px 0 10px;
     }
-
     .wd-signal-bar > span {
-      position: absolute;
-      inset: 0 auto 0 0;
+      display: block;
+      height: 100%;
       width: 0%;
+      background: rgba(45,212,191,0.85);
       border-radius: 999px;
-      background: var(--bar-fill);
-      box-shadow: 0 0 0 1px var(--bar-glow), 0 10px 28px var(--bar-glow);
-      transition: width 520ms ease;
+      transition: width 400ms ease;
     }
 
     .wd-diag-summary {
@@ -322,7 +265,6 @@
       white-space: pre-wrap;
     }
 
-    /* ---------------- FOOTER ---------------- */
     .wd-footer {
       margin-top: 20px;
       padding-top: 14px;
@@ -334,12 +276,21 @@
       color: var(--muted);
       flex-wrap: nowrap;
     }
+
+    .wd-bullets {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--diag-text);
+      line-height: 1.6;
+      font-size: 0.9rem;
+      white-space: normal;
+    }
+    .wd-bullets li { margin: 4px 0; }
   </style>
 </head>
 
 <body>
 
-  <!-- LOADER (LOCKED) -->
   <div id="buildingReport" aria-live="polite">
     <div class="building-inner">
       <div class="building-title">Building Report</div>
@@ -350,7 +301,6 @@
   <div class="wd-report-shell">
     <main class="wd-report-card">
 
-      <!-- HEADER (LOCKED LAYOUT, NO SCORE PILL) -->
       <section class="wd-header-top">
         <div class="wd-header-bar">
           <h1 class="wd-header-title">iQWEB</h1>
@@ -365,7 +315,6 @@
         </div>
 
         <div class="wd-header-meta-row">
-          <!-- LOCKED ORDER: Report Date first, then Report Time, then Report ID -->
           <div class="wd-meta-pill">
             <span class="wd-meta-label">Report Date</span>
             <span class="wd-meta-value" data-field="report-date"></span>
@@ -383,15 +332,12 @@
         </div>
       </section>
 
-      <!-- BODY -->
       <section class="wd-report-body">
 
-        <!-- EXECUTIVE NARRATIVE (LEAD) -->
         <section class="wd-section" data-section="executive-narrative">
           <p class="wd-narrative-text" data-field="overall-summary"></p>
         </section>
 
-        <!-- DELIVERY SIGNALS -->
         <section class="wd-section" data-section="signals">
           <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
 
@@ -421,17 +367,28 @@
             <div class="wd-signal-bar" aria-hidden="true"><span data-bar="trust"></span></div>
             <p class="wd-diag-summary" data-field="trust-comment"></p>
           </div>
-<section class="wd-section" data-section="key-insights">
-  <h3 class="wd-section-title">Key Insight Metrics</h3>
-  <ul class="wd-insight-list" data-field="key-insights"></ul>
-</section>
+        </section>
 
-<section class="wd-section" data-section="top-issues">
-  <h3 class="wd-section-title">Top Issues Detected</h3>
-  <ul class="wd-insight-list" data-field="top-issues"></ul>
-</section>
+        <section class="wd-section" data-section="key-insights">
+          <h3 class="wd-section-title">Key Insight Metrics</h3>
+          <ul class="wd-bullets" data-field="key-insights"></ul>
+        </section>
 
+        <section class="wd-section" data-section="top-issues">
+          <h3 class="wd-section-title">Top Issues Detected</h3>
+          <ul class="wd-bullets" data-field="top-issues"></ul>
+        </section>
 
+        <!-- ✅ NEW: Recommended Fix Sequence -->
+        <section class="wd-section" data-section="fix-sequence">
+          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
+          <div data-field="fix-sequence"></div>
+        </section>
+
+        <!-- ✅ NEW: Final Notes -->
+        <section class="wd-section" data-section="final-notes">
+          <h3 class="wd-section-title">Final Notes from Λ i Q</h3>
+          <ul class="wd-bullets" data-field="final-notes"></ul>
         </section>
 
       </section>
@@ -445,23 +402,18 @@
   </div>
 
   <script>
-    // Dark mode toggle (WORKING + persists)
     (function () {
       const KEY = "iqweb_theme";
       const btn = document.getElementById("themeToggle");
       if (!btn) return;
-
-      // init from storage
       const saved = localStorage.getItem(KEY);
       if (saved === "dark") document.body.classList.add("wd-dark");
-
       btn.addEventListener("click", () => {
         document.body.classList.toggle("wd-dark");
         localStorage.setItem(KEY, document.body.classList.contains("wd-dark") ? "dark" : "light");
       });
     })();
 
-    // Fade loader once report-data finishes
     window.addEventListener("iqweb:loaded", () => {
       const loader = document.getElementById("buildingReport");
       if (!loader) return;
