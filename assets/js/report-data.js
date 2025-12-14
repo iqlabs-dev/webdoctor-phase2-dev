@@ -366,6 +366,9 @@ async function loadReportData() {
   const narrative = safeObj(data.narrative);
   const report = safeObj(data.report);
   const basicChecks = safeObj(data.basic_checks);
+  // ---------------- Human Signals ----------------
+renderHumanSignal1(basicChecks);
+
 
   // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
