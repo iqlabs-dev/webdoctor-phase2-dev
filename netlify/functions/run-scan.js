@@ -130,7 +130,6 @@ function hasSitemapHint(html) {
 }
 
 function hasCanonicalHrefNonEmpty(html) {
-  // True if canonical exists with a non-empty href
   return /<link[^>]+rel=["']canonical["'][^>]*href=["']\s*[^"'\s>][^"'>]*["'][^>]*>/i.test(
     html
   );
@@ -170,6 +169,25 @@ async function getText(url, maxChars = 20000) {
   }
 }
 
+// --- Trust cue detectors (deterministic, best-effort) ---
+function detectPrivacyPage(html = "") {
+  // looks for links mentioning privacy
+  return /<a\b[^>]*href=["'][^"']*(privacy|privacy-policy)[^"']*["'][^>]*>/i.test(html) ||
+         /\bprivacy policy\b/i.test(html);
+}
+function detectTermsPage(html = "") {
+  // looks for links mentioning terms/conditions
+  return /<a\b[^>]*href=["'][^"']*(terms|terms-of|conditions|terms-conditions)[^"']*["'][^>]*>/i.test(html) ||
+         /\bterms (of service|& conditions|and conditions)\b/i.test(html);
+}
+function detectContactInfo(html = "") {
+  // mailto/tel OR obvious contact link/text
+  return /mailto:/i.test(html) ||
+         /tel:/i.test(html) ||
+         /<a\b[^>]*href=["'][^"']*(contact|contact-us|about#contact)[^"']*["'][^>]*>/i.test(html) ||
+         /\bcontact\b/i.test(html);
+}
+
 async function buildHtmlFacts(url) {
   const out = {
     title_present: null,
@@ -201,30 +219,30 @@ async function buildHtmlFacts(url) {
     html_mobile_risk: null,
     above_the_fold_text_present: null,
 
-    // robots.txt facts (to stop narrative drift)
+    // robots.txt facts
     robots_txt_reachable: null,
     robots_txt_has_sitemap: null,
 
-    // HS2 Trust booleans (deterministic)
+    // NEW: HS2 / Trust Signals (deterministic)
     https: null,
     privacy_page_detected: null,
     terms_page_detected: null,
     contact_info_detected: null,
   };
 
-  const res = await fetchHtml(url);
-  if (!res.ok || !res.html) return out;
-
-  const html = res.html;
-  out.html_length = clampInt(html.length);
-
-  // HS2: https (from URL protocol)
+  // HTTPS is deterministic from URL
   try {
     const u = new URL(url);
     out.https = u.protocol === "https:";
   } catch {
     out.https = null;
   }
+
+  const res = await fetchHtml(url);
+  if (!res.ok || !res.html) return out;
+
+  const html = res.html;
+  out.html_length = clampInt(html.length);
 
   // title
   const title = extractFirstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -269,7 +287,7 @@ async function buildHtmlFacts(url) {
   out.multiple_h1 =
     typeof out.h1_count === "number" ? out.h1_count > 1 : null;
 
-  // canonical empty (canonical tag exists but href is missing/blank)
+  // canonical empty
   if (out.canonical_present === true) {
     out.canonical_empty = hasCanonicalHrefNonEmpty(html) ? false : true;
   } else {
@@ -285,7 +303,7 @@ async function buildHtmlFacts(url) {
     out.sitemap_reachable = false;
   }
 
-  // title/meta quality (only meaningful if present)
+  // title/meta quality
   out.title_missing_or_short =
     typeof out.title_length === "number" ? out.title_length < 15 : null;
 
@@ -294,7 +312,7 @@ async function buildHtmlFacts(url) {
       ? out.meta_description_length < 50
       : null;
 
-  // viewport quality (only meaningful if present)
+  // viewport quality
   const viewport = extractViewportContent(html);
   if (out.viewport_present === true) {
     out.viewport_width_valid = viewport.includes("width=device-width");
@@ -308,7 +326,7 @@ async function buildHtmlFacts(url) {
   out.html_mobile_risk =
     typeof out.html_length === "number" ? out.html_length > 120000 : null;
 
-  // above-the-fold-ish text presence (very rough, but useful)
+  // above-the-fold-ish text presence
   const fold = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -318,7 +336,7 @@ async function buildHtmlFacts(url) {
 
   out.above_the_fold_text_present = fold.length > 80;
 
-  // robots.txt reachable + does it declare a Sitemap:
+  // robots.txt reachable + Sitemap directive
   try {
     const rbUrl = new URL("/robots.txt", url).toString();
     out.robots_txt_reachable = await headOk(rbUrl);
@@ -335,10 +353,10 @@ async function buildHtmlFacts(url) {
     out.robots_txt_has_sitemap = null;
   }
 
-  // HS2 Trust detection hints (home page only, deterministic)
-  out.privacy_page_detected = /privacy\s*policy|\bprivacy\b/i.test(html);
-  out.terms_page_detected = /\bterms\b|\bterms\s+of\s+service\b|\bconditions\b/i.test(html);
-  out.contact_info_detected = /mailto:|tel:|\bcontact\b/i.test(html);
+  // NEW: Trust cue detection (best-effort, deterministic)
+  out.privacy_page_detected = detectPrivacyPage(html);
+  out.terms_page_detected = detectTermsPage(html);
+  out.contact_info_detected = detectContactInfo(html);
 
   return out;
 }
@@ -359,6 +377,7 @@ function stripNullStrings(obj) {
 function pickBasicFactsForPrompt(metrics = {}) {
   const basic = safeObj(metrics.basic_checks);
   const scores = safeObj(metrics.scores);
+  const trustSignals = safeObj(basic.trust_signals);
 
   return {
     scores: {
@@ -407,11 +426,14 @@ function pickBasicFactsForPrompt(metrics = {}) {
       robots_txt_reachable: basic.robots_txt_reachable ?? null,
       robots_txt_has_sitemap: basic.robots_txt_has_sitemap ?? null,
 
-      // HS2 trust booleans (facts only)
-      https: basic.https ?? null,
-      privacy_page_detected: basic.privacy_page_detected ?? null,
-      terms_page_detected: basic.terms_page_detected ?? null,
-      contact_info_detected: basic.contact_info_detected ?? null,
+      // NEW: Trust signals included for AI narrative (facts-only, optional usage)
+      trust_signals: {
+        https: trustSignals.https ?? basic.https ?? null,
+        canonical_present: trustSignals.canonical_present ?? basic.canonical_present ?? null,
+        privacy_page_detected: trustSignals.privacy_page_detected ?? basic.privacy_page_detected ?? null,
+        terms_page_detected: trustSignals.terms_page_detected ?? basic.terms_page_detected ?? null,
+        contact_info_detected: trustSignals.contact_info_detected ?? basic.contact_info_detected ?? null,
+      },
     },
   };
 }
@@ -632,7 +654,15 @@ export async function handler(event) {
     metrics.basic_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
     metrics.basic_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
 
-    // HS2 Trust booleans
+    // NEW: Trust signals (HS2 wiring)
+    metrics.basic_checks.trust_signals = safeObj(metrics.basic_checks.trust_signals);
+    metrics.basic_checks.trust_signals.https = htmlFacts.https ?? null;
+    metrics.basic_checks.trust_signals.canonical_present = htmlFacts.canonical_present ?? null;
+    metrics.basic_checks.trust_signals.privacy_page_detected = htmlFacts.privacy_page_detected ?? null;
+    metrics.basic_checks.trust_signals.terms_page_detected = htmlFacts.terms_page_detected ?? null;
+    metrics.basic_checks.trust_signals.contact_info_detected = htmlFacts.contact_info_detected ?? null;
+
+    // COMPAT: flat fields (so early HS2 code paths can still read them)
     metrics.basic_checks.https = htmlFacts.https ?? null;
     metrics.basic_checks.privacy_page_detected = htmlFacts.privacy_page_detected ?? null;
     metrics.basic_checks.terms_page_detected = htmlFacts.terms_page_detected ?? null;
@@ -653,9 +683,11 @@ export async function handler(event) {
     metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
 
+    // robots.txt compat
     metrics.html_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
     metrics.html_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
 
+    // trust compat
     metrics.html_checks.https = htmlFacts.https ?? null;
     metrics.html_checks.privacy_page_detected = htmlFacts.privacy_page_detected ?? null;
     metrics.html_checks.terms_page_detected = htmlFacts.terms_page_detected ?? null;
@@ -692,6 +724,7 @@ export async function handler(event) {
         html_facts_populated: true,
         narrative_saved: up.ok,
         narrative_error: up.error,
+        trust_signals_populated: true,
       }),
     };
   } catch (err) {
