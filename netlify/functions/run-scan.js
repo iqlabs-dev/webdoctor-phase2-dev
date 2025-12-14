@@ -136,6 +136,40 @@ function hasCanonicalHrefNonEmpty(html) {
   );
 }
 
+async function headOk(url) {
+  try {
+    const r = await fetch(url, { method: "HEAD", redirect: "follow" });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function getText(url, maxChars = 20000) {
+  const controller = new AbortController();
+  const timeoutMs = 12000;
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const r = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "iQWEB-Scanner/1.0 (+https://iqweb.ai)",
+        Accept: "text/plain,text/*;q=0.9,*/*;q=0.8",
+      },
+    });
+    if (!r.ok) return { ok: false, text: "" };
+    const txt = await r.text();
+    return { ok: true, text: txt.length > maxChars ? txt.slice(0, maxChars) : txt };
+  } catch {
+    return { ok: false, text: "" };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function buildHtmlFacts(url) {
   const out = {
     title_present: null,
@@ -166,6 +200,10 @@ async function buildHtmlFacts(url) {
     viewport_initial_scale: null,
     html_mobile_risk: null,
     above_the_fold_text_present: null,
+
+    // NEW: robots.txt facts (to stop narrative drift)
+    robots_txt_reachable: null,
+    robots_txt_has_sitemap: null,
   };
 
   const res = await fetchHtml(url);
@@ -209,9 +247,7 @@ async function buildHtmlFacts(url) {
   out.sitemap_present = hasSitemapHint(html);
   out.viewport_present = hasMetaViewport(html);
 
-  // --- extra signals (MUST be inside function, before return) ---
-
-  // robots content
+  // robots meta content
   const robotsContent = extractMetaRobotsContent(html);
   out.robots_content = robotsContent || null;
 
@@ -229,7 +265,7 @@ async function buildHtmlFacts(url) {
   // sitemap reachable (best-effort HEAD)
   try {
     const smUrl = new URL("/sitemap.xml", url).toString();
-    const sm = await fetch(smUrl, { method: "HEAD" });
+    const sm = await fetch(smUrl, { method: "HEAD", redirect: "follow" });
     out.sitemap_reachable = sm.ok;
   } catch {
     out.sitemap_reachable = false;
@@ -267,6 +303,23 @@ async function buildHtmlFacts(url) {
     .slice(0, 500);
 
   out.above_the_fold_text_present = fold.length > 80;
+
+  // NEW: robots.txt reachable + does it declare a Sitemap:
+  try {
+    const rbUrl = new URL("/robots.txt", url).toString();
+    out.robots_txt_reachable = await headOk(rbUrl);
+
+    if (out.robots_txt_reachable) {
+      const rb = await getText(rbUrl, 20000);
+      const txt = (rb.ok ? rb.text : "").toLowerCase();
+      out.robots_txt_has_sitemap = txt.includes("sitemap:");
+    } else {
+      out.robots_txt_has_sitemap = null;
+    }
+  } catch {
+    out.robots_txt_reachable = false;
+    out.robots_txt_has_sitemap = null;
+  }
 
   return out;
 }
@@ -331,12 +384,17 @@ function pickBasicFactsForPrompt(metrics = {}) {
       title_missing_or_short: basic.title_missing_or_short ?? null,
       meta_desc_missing_or_short: basic.meta_desc_missing_or_short ?? null,
       above_the_fold_text_present: basic.above_the_fold_text_present ?? null,
+
+      // NEW: robots.txt facts
+      robots_txt_reachable: basic.robots_txt_reachable ?? null,
+      robots_txt_has_sitemap: basic.robots_txt_has_sitemap ?? null,
     },
   };
 }
 
 async function openaiJson(prompt) {
-  if (!OPENAI_API_KEY) return { ok: false, json: null, error: "Missing OPENAI_API_KEY" };
+  if (!OPENAI_API_KEY)
+    return { ok: false, json: null, error: "Missing OPENAI_API_KEY" };
 
   const controller = new AbortController();
   const timeoutMs = 20000;
@@ -358,7 +416,7 @@ async function openaiJson(prompt) {
           {
             role: "system",
             content:
-              "You are Λ i Q for iQWEB. Produce ONLY strict JSON. Never invent facts. If a claim isn't supported by the facts provided, omit it. If unsure, leave the field as an empty string.",
+              "You are Λ i Q for iQWEB. Produce ONLY strict JSON. Never invent facts. ONLY discuss facts that appear as explicit keys in the FACTS object. If a claim isn't supported by FACTS, omit it and output an empty string for that field. Do not mention robots.txt unless robots_txt_reachable or robots_txt_has_sitemap is provided in FACTS.",
           },
           { role: "user", content: prompt },
         ],
@@ -367,7 +425,11 @@ async function openaiJson(prompt) {
 
     if (!resp.ok) {
       const txt = await resp.text().catch(() => "");
-      return { ok: false, json: null, error: `OpenAI HTTP ${resp.status}: ${txt.slice(0, 400)}` };
+      return {
+        ok: false,
+        json: null,
+        error: `OpenAI HTTP ${resp.status}: ${txt.slice(0, 400)}`,
+      };
     }
 
     const data = await resp.json();
@@ -414,8 +476,8 @@ Return strict JSON with these keys (strings only; empty string if not supported)
 }
 
 Rules:
-- Do NOT mention tools by name unless explicitly in facts.
-- Do NOT claim specific issues unless supported by provided facts.
+- Do NOT mention any attribute/tool/issue that is NOT present as a key in FACTS.
+- Do NOT claim specific issues unless supported by provided FACTS.
 - Keep it useful and diagnostic. No placeholders.
 `.trim();
 
@@ -512,7 +574,6 @@ export async function handler(event) {
     // ---------------------------------------------
     const htmlFacts = await buildHtmlFacts(url);
 
-    // canonical place
     metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
     metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
     metrics.basic_checks.title_length = htmlFacts.title_length ?? null;
@@ -543,6 +604,10 @@ export async function handler(event) {
     metrics.basic_checks.above_the_fold_text_present =
       htmlFacts.above_the_fold_text_present ?? null;
 
+    // NEW robots.txt facts
+    metrics.basic_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
+    metrics.basic_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
+
     // compat copy for older code paths (optional)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
@@ -557,6 +622,10 @@ export async function handler(event) {
     metrics.html_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
     metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
+
+    // NEW compat robots.txt facts
+    metrics.html_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
+    metrics.html_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
