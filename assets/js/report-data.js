@@ -1,10 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections + Human Signals
+// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections + Human Signals HS1/HS2/HS3
 // - Signals: Performance, SEO, Structure, Mobile, Security, Accessibility
 // - Executive Narrative lead (AI if present)
 // - Deterministic fallbacks (NON-AI) so blocks never look "broken"
 // - Builds: Key Insight Metrics, Top Issues Detected, Recommended Fix Sequence, Final Notes
-// - Human Signals: HS1 Clarity & Cognitive Load, HS2 Trust & Credibility
+// - Human Signals: HS1 Clarity, HS2 Trust, HS3 Intent
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) { return document.querySelector(sel); }
@@ -82,6 +82,20 @@ function fallbackIfEmpty(text, fallback) {
   return isNonEmptyString(text) ? text : fallback;
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function boolVal(v) {
+  // only treat explicit true as true
+  return v === true;
+}
+
 // ---------- Deterministic builders (NON-AI) ----------
 function buildKeyInsights(bc = {}) {
   const items = [];
@@ -155,16 +169,8 @@ function renderIssuesUl(issues) {
   }
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 function buildFixSequenceHTML(issues, bc = {}) {
+  // Keep it deterministic: derive phases from detected issues
   const hasH1 = issues.some(i => i.msg.toLowerCase().includes("h1"));
   const hasCanonical = issues.some(i => i.msg.toLowerCase().includes("canonical"));
   const hasViewport = issues.some(i => i.msg.toLowerCase().includes("viewport"));
@@ -221,14 +227,14 @@ function renderFinalNotes() {
   }
 }
 
-// ---------- HUMAN SIGNAL 1: Clarity & Cognitive Load ----------
-function classifyClarityCognitiveLoad(bc = {}) {
-  // Deterministic classification only (no AI).
-  // Returns: { level: "CLEAR"|"MODERATE"|"HIGH"|"INTENTIONAL", reasons: [] }
+// ---------- Human Signals ----------
 
+// HS1 — Clarity & Cognitive Load
+function classifyClarityCognitiveLoad(bc = {}) {
+  // Returns: { level: "CLEAR"|"MODERATE"|"HIGH"|"INTENTIONAL", reasons: [] }
   const reasons = [];
 
-  const titlePresent = bc.title_present !== false;
+  const titlePresent = bc.title_present !== false; // null treated as unknown
   const titleLen = (typeof bc.title_length === "number") ? bc.title_length : null;
 
   const metaPresent = bc.meta_description_present !== false;
@@ -246,7 +252,6 @@ function classifyClarityCognitiveLoad(bc = {}) {
   const missingMeta = bc.meta_description_present === false;
   const missingH1 = bc.h1_present === false;
   const multiH1 = (typeof h1Count === "number") ? (h1Count > 1) : (bc.multiple_h1 === true);
-
   const missingViewport = bc.viewport_present === false;
 
   const titleVague = (typeof titleLen === "number") ? (titleLen < 15) : (bc.title_missing_or_short === true);
@@ -255,7 +260,7 @@ function classifyClarityCognitiveLoad(bc = {}) {
   const heavyHtml = (typeof htmlLen === "number") ? (htmlLen > 120000) : (bc.html_mobile_risk === true);
   const ultraHeavyHtml = (typeof htmlLen === "number") ? (htmlLen > 200000) : false;
 
-  // Intentional complexity pattern
+  // Intentional complexity pattern (e.g., art/chaos sites):
   const deliberatePlumbing = (canonicalPresent === true && viewportPresent === true && titlePresent === true);
   const deliberateChaos = (missingH1 || multiH1 || titleVague) && deliberatePlumbing;
 
@@ -300,10 +305,6 @@ function renderHumanSignal1(basicChecks = {}) {
 
   setText("hs1-status", label);
 
-  // Drive HS1 bar (subtle, elite)
-  const barMap = { CLEAR: 85, MODERATE: 55, HIGH: 30, INTENTIONAL: 40 };
-  setBar("hs1", barMap[r.level] ?? 0);
-
   const reasonText = (r.reasons || []).slice(0, 3).join(" ");
   const msg =
     (r.level === "CLEAR")
@@ -315,58 +316,41 @@ function renderHumanSignal1(basicChecks = {}) {
           : `The page appears to intentionally subvert conventional clarity and structure. While this increases cognitive load for most visitors, it may be a deliberate design choice rather than an oversight. ${reasonText}`.trim();
 
   setText("hs1-comment", msg);
+
+  const barMap = {
+    CLEAR: 85,
+    MODERATE: 55,
+    HIGH: 30,
+    INTENTIONAL: 40,
+  };
+
+  setBar("hs1", barMap[r.level] ?? 0);
 }
 
-// ---------- HUMAN SIGNAL 2: Trust & Credibility ----------
+// HS2 — Trust & Credibility
 function classifyTrustCredibility(bc = {}) {
-  // Deterministic classification only.
-  // Accepts either:
-  // - bc.trust_signals.{https, canonical_present, privacy_page_detected, terms_page_detected, contact_info_detected}
-  // - OR flat keys on bc (same names)
-  //
-  // Returns: { level: "HIGH"|"MODERATE"|"LOW"|"INTENTIONAL", reasons: [] }
-
+  // Supports either: bc.trust_signals.* OR flattened keys on bc
   const reasons = [];
+  const t = safeObj(bc.trust_signals);
 
-  const ts = safeObj(bc.trust_signals);
+  const https = boolVal(t.https) || boolVal(bc.https);
+  const canonical = boolVal(t.canonical_present) || boolVal(bc.canonical_present);
+  const privacy = boolVal(t.privacy_page_detected) || boolVal(bc.privacy_page_detected);
+  const terms = boolVal(t.terms_page_detected) || boolVal(bc.terms_page_detected);
+  const contact = boolVal(t.contact_info_detected) || boolVal(bc.contact_info_detected);
 
-  const readBool = (v) => (v === true ? true : v === false ? false : null);
+  if (!https) reasons.push("HTTPS not detected.");
+  if (!canonical) reasons.push("Canonical URL not detected.");
+  if (!privacy) reasons.push("Privacy policy not detected.");
+  if (!terms) reasons.push("Terms of service not detected.");
+  if (!contact) reasons.push("Clear contact information not detected.");
 
-  const https = readBool(ts.https ?? bc.https);
-  const canonical = readBool(ts.canonical_present ?? bc.canonical_present);
-  const privacy = readBool(ts.privacy_page_detected ?? bc.privacy_page_detected);
-  const terms = readBool(ts.terms_page_detected ?? bc.terms_page_detected);
-  const contact = readBool(ts.contact_info_detected ?? bc.contact_info_detected);
-
-  // If scan didn’t provide trust signals yet, don’t fake certainty.
-  const anyKnown = [https, canonical, privacy, terms, contact].some(v => v !== null);
-  if (!anyKnown) {
-    return {
-      level: "MODERATE",
-      reasons: ["Trust signals were not available from this scan, so credibility assessment is limited."],
-    };
-  }
-
-  if (https === false) reasons.push("HTTPS not detected.");
-  if (canonical === false) reasons.push("Canonical URL not detected.");
-  if (privacy === false) reasons.push("Privacy policy not detected.");
-  if (terms === false) reasons.push("Terms of service not detected.");
-  if (contact === false) reasons.push("Clear contact information not detected.");
-
-  // Positive count (treat privacy OR terms as one “policy coverage” slot)
-  const policyCoverage = (privacy === true || terms === true);
-  const positives = [
-    https === true,
-    canonical === true,
-    policyCoverage,
-    contact === true
-  ].filter(Boolean).length;
+  const positives = [https, canonical, (privacy || terms), contact].filter(Boolean).length;
 
   if (positives >= 4) return { level: "HIGH", reasons };
   if (positives >= 2) return { level: "MODERATE", reasons };
   if (positives === 1) return { level: "LOW", reasons };
 
-  // If everything is known and negative, this might be deliberate minimalism / non-commercial page.
   return { level: "INTENTIONAL", reasons };
 }
 
@@ -375,29 +359,93 @@ function renderHumanSignal2(basicChecks = {}) {
     HIGH: "HIGH TRUST",
     MODERATE: "MODERATE TRUST",
     LOW: "LOW TRUST",
-    INTENTIONAL: "INTENTIONAL MINIMALISM",
+    INTENTIONAL: "TRUST UNCLEAR",
   };
 
   const r = classifyTrustCredibility(basicChecks);
   const label = statusMap[r.level] || "MODERATE TRUST";
-
   setText("hs2-status", label);
 
-  // Drive HS2 bar (requested mapping)
-  const barMap = { LOW: 25, MODERATE: 55, HIGH: 85, INTENTIONAL: 40 };
-  setBar("hs2", barMap[r.level] ?? 0);
-
-  const reasonText = (r.reasons || []).slice(0, 3).join(" ");
+  const reasonText = (r.reasons || []).slice(0, 2).join(" ");
   const msg =
     (r.level === "HIGH")
       ? "Key trust cues appear present, which supports credibility for first-time visitors and reduces hesitation."
       : (r.level === "MODERATE")
         ? `Some trust cues are present, but a few credibility anchors may be missing or unclear for first-time visitors. ${reasonText}`.trim()
         : (r.level === "LOW")
-          ? `Trust signals appear limited, which may increase hesitation for first-time visitors. ${reasonText}`.trim()
-          : `This page appears to be intentionally minimal on conventional trust cues. That can be valid for non-commercial pages, but it may reduce confidence for first-time visitors. ${reasonText}`.trim();
+          ? `Trust and credibility anchors appear limited, which can increase hesitation for first-time visitors. ${reasonText}`.trim()
+          : `Trust cues are not clearly signposted in a conventional way. This may be intentional, but can increase uncertainty for first-time visitors. ${reasonText}`.trim();
 
   setText("hs2-comment", msg);
+
+  const barMap = {
+    HIGH: 85,
+    MODERATE: 55,
+    LOW: 25,
+    INTENTIONAL: 40,
+  };
+
+  setBar("hs2", barMap[r.level] ?? 0);
+}
+
+// HS3 — Intent & Conversion Readiness
+function classifyIntentReadiness(bc = {}) {
+  // Supports either: bc.intent_signals.* OR flattened keys on bc
+  const reasons = [];
+  const i = safeObj(bc.intent_signals);
+
+  const cta = boolVal(i.primary_cta_detected) || boolVal(bc.primary_cta_detected);
+  const contact = boolVal(i.contact_path_detected) || boolVal(bc.contact_path_detected);
+  const form = boolVal(i.form_present) || boolVal(bc.form_present);
+  const pricing = boolVal(i.pricing_or_offer_detected) || boolVal(bc.pricing_or_offer_detected);
+  const direct = boolVal(i.phone_or_email_visible) || boolVal(bc.phone_or_email_visible);
+  const clutter = boolVal(i.multiple_ctas_detected) || boolVal(bc.multiple_ctas_detected);
+
+  if (!cta) reasons.push("Primary call-to-action not clearly detected.");
+  if (!contact && !form) reasons.push("No clear path to initiate contact.");
+  if (clutter) reasons.push("Multiple competing calls-to-action detected.");
+
+  const positives = [cta, (contact || form), (pricing || direct)].filter(Boolean).length;
+
+  if (positives >= 3 && !clutter) return { level: "HIGH", reasons };
+  if (positives >= 2) return { level: "MODERATE", reasons };
+  if (positives === 1) return { level: "LOW", reasons };
+
+  return { level: "INTENTIONAL", reasons };
+}
+
+function renderHumanSignal3(basicChecks = {}) {
+  const statusMap = {
+    HIGH: "STRONG INTENT",
+    MODERATE: "MODERATE INTENT",
+    LOW: "WEAK INTENT",
+    INTENTIONAL: "INTENT UNCLEAR",
+  };
+
+  const r = classifyIntentReadiness(basicChecks);
+  const label = statusMap[r.level] || "MODERATE INTENT";
+  setText("hs3-status", label);
+
+  const reasonText = (r.reasons || []).slice(0, 2).join(" ");
+  const msg =
+    (r.level === "HIGH")
+      ? "The page presents a clear next step for visitors, supported by visible contact paths and intent cues. This reduces hesitation and helps first-time users understand how to proceed."
+      : (r.level === "MODERATE")
+        ? `A path forward is present, though some intent cues may be less prominent or compete for attention. Clarifying the primary next step could reduce friction for first-time visitors. ${reasonText}`.trim()
+        : (r.level === "LOW")
+          ? `While information is available, the next step for visitors is not clearly signposted. This may increase hesitation for users seeking to engage or enquire. ${reasonText}`.trim()
+          : `The page does not appear designed around a specific conversion action. This may be intentional for informational or reference-focused content. ${reasonText}`.trim();
+
+  setText("hs3-comment", msg);
+
+  const barMap = {
+    HIGH: 85,
+    MODERATE: 55,
+    LOW: 25,
+    INTENTIONAL: 40,
+  };
+
+  setBar("hs3", barMap[r.level] ?? 0);
 }
 
 // ---------- Main ----------
@@ -530,9 +578,10 @@ async function loadReportData() {
     "No significant accessibility blockers were detected from the available signals."
   ));
 
-  // ---------------- HUMAN SIGNALS ----------------
-  renderHumanSignal1(basicChecks);
-  renderHumanSignal2(basicChecks);
+  // ---------------- Human Signals (HS1/HS2/HS3) ----------------
+  try { renderHumanSignal1(basicChecks); } catch (e) { console.warn("HS1 render failed:", e); }
+  try { renderHumanSignal2(basicChecks); } catch (e) { console.warn("HS2 render failed:", e); }
+  try { renderHumanSignal3(basicChecks); } catch (e) { console.warn("HS3 render failed:", e); }
 
   // ---------------- Key Insight Metrics ----------------
   const keyInsights = buildKeyInsights(basicChecks);
