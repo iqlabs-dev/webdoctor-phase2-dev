@@ -368,6 +368,8 @@ async function loadReportData() {
   const basicChecks = safeObj(data.basic_checks);
   // ---------------- Human Signals ----------------
 renderHumanSignal1(basicChecks);
+renderHumanSignal2(basicChecks);
+
 
 
   // ---------------- HEADER ----------------

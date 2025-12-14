@@ -201,9 +201,15 @@ async function buildHtmlFacts(url) {
     html_mobile_risk: null,
     above_the_fold_text_present: null,
 
-    // NEW: robots.txt facts (to stop narrative drift)
+    // robots.txt facts (to stop narrative drift)
     robots_txt_reachable: null,
     robots_txt_has_sitemap: null,
+
+    // HS2 Trust booleans (deterministic)
+    https: null,
+    privacy_page_detected: null,
+    terms_page_detected: null,
+    contact_info_detected: null,
   };
 
   const res = await fetchHtml(url);
@@ -211,6 +217,14 @@ async function buildHtmlFacts(url) {
 
   const html = res.html;
   out.html_length = clampInt(html.length);
+
+  // HS2: https (from URL protocol)
+  try {
+    const u = new URL(url);
+    out.https = u.protocol === "https:";
+  } catch {
+    out.https = null;
+  }
 
   // title
   const title = extractFirstMatch(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -304,7 +318,7 @@ async function buildHtmlFacts(url) {
 
   out.above_the_fold_text_present = fold.length > 80;
 
-  // NEW: robots.txt reachable + does it declare a Sitemap:
+  // robots.txt reachable + does it declare a Sitemap:
   try {
     const rbUrl = new URL("/robots.txt", url).toString();
     out.robots_txt_reachable = await headOk(rbUrl);
@@ -320,6 +334,11 @@ async function buildHtmlFacts(url) {
     out.robots_txt_reachable = false;
     out.robots_txt_has_sitemap = null;
   }
+
+  // HS2 Trust detection hints (home page only, deterministic)
+  out.privacy_page_detected = /privacy\s*policy|\bprivacy\b/i.test(html);
+  out.terms_page_detected = /\bterms\b|\bterms\s+of\s+service\b|\bconditions\b/i.test(html);
+  out.contact_info_detected = /mailto:|tel:|\bcontact\b/i.test(html);
 
   return out;
 }
@@ -385,9 +404,14 @@ function pickBasicFactsForPrompt(metrics = {}) {
       meta_desc_missing_or_short: basic.meta_desc_missing_or_short ?? null,
       above_the_fold_text_present: basic.above_the_fold_text_present ?? null,
 
-      // NEW: robots.txt facts
       robots_txt_reachable: basic.robots_txt_reachable ?? null,
       robots_txt_has_sitemap: basic.robots_txt_has_sitemap ?? null,
+
+      // HS2 trust booleans (facts only)
+      https: basic.https ?? null,
+      privacy_page_detected: basic.privacy_page_detected ?? null,
+      terms_page_detected: basic.terms_page_detected ?? null,
+      contact_info_detected: basic.contact_info_detected ?? null,
     },
   };
 }
@@ -604,9 +628,15 @@ export async function handler(event) {
     metrics.basic_checks.above_the_fold_text_present =
       htmlFacts.above_the_fold_text_present ?? null;
 
-    // NEW robots.txt facts
+    // robots.txt facts
     metrics.basic_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
     metrics.basic_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
+
+    // HS2 Trust booleans
+    metrics.basic_checks.https = htmlFacts.https ?? null;
+    metrics.basic_checks.privacy_page_detected = htmlFacts.privacy_page_detected ?? null;
+    metrics.basic_checks.terms_page_detected = htmlFacts.terms_page_detected ?? null;
+    metrics.basic_checks.contact_info_detected = htmlFacts.contact_info_detected ?? null;
 
     // compat copy for older code paths (optional)
     metrics.html_checks = safeObj(metrics.html_checks);
@@ -623,9 +653,13 @@ export async function handler(event) {
     metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
 
-    // NEW compat robots.txt facts
     metrics.html_checks.robots_txt_reachable = htmlFacts.robots_txt_reachable ?? null;
     metrics.html_checks.robots_txt_has_sitemap = htmlFacts.robots_txt_has_sitemap ?? null;
+
+    metrics.html_checks.https = htmlFacts.https ?? null;
+    metrics.html_checks.privacy_page_detected = htmlFacts.privacy_page_detected ?? null;
+    metrics.html_checks.terms_page_detected = htmlFacts.terms_page_detected ?? null;
+    metrics.html_checks.contact_info_detected = htmlFacts.contact_info_detected ?? null;
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
