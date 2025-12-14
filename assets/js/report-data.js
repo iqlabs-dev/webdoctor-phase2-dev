@@ -1,9 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — 6 signal wiring + deterministic sections
+// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections
 // - Signals: Performance, SEO, Structure, Mobile, Security, Accessibility
-// - Deterministic fallbacks (NON-AI) so “checked” doesn’t look broken
+// - Executive Narrative lead (AI if present)
+// - Deterministic fallbacks (NON-AI) so blocks never look "broken"
 // - Builds: Key Insight Metrics, Top Issues Detected, Recommended Fix Sequence, Final Notes
-// - Dispatches iqweb:loaded to fade loader
+// - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) { return document.querySelector(sel); }
 function safeObj(o) { return o && typeof o === "object" ? o : {}; }
@@ -19,6 +20,13 @@ function setHTML(field, html) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
   el.innerHTML = isNonEmptyString(html) ? html : "";
+}
+
+function clearEl(field) {
+  const el = qs(`[data-field="${field}"]`);
+  if (!el) return;
+  el.innerHTML = "";
+  el.textContent = "";
 }
 
 function formatReportTimeLocal(iso) {
@@ -60,7 +68,7 @@ function setBar(name, score) {
   el.style.width = (typeof s === "number") ? `${s}%` : "0%";
 }
 
-function joinParts(parts, maxParts = 2) {
+function joinParts(parts, maxParts = 3) {
   const picked = [];
   for (const p of parts) {
     if (isNonEmptyString(p) && !picked.includes(p.trim())) picked.push(p.trim());
@@ -73,109 +81,147 @@ function fallbackIfEmpty(text, fallback) {
   return isNonEmptyString(text) ? text : fallback;
 }
 
-function li(text) {
-  return isNonEmptyString(text) ? `<li>${escapeHtml(text)}</li>` : "";
+// ---------- Deterministic builders (NON-AI) ----------
+function buildKeyInsights(bc = {}) {
+  const items = [];
+
+  if (typeof bc.title_length === "number") items.push(`Title length: ${bc.title_length} characters`);
+  else if (bc.title_present === false) items.push("Title tag not detected");
+
+  if (typeof bc.meta_description_length === "number") items.push(`Meta description: ${bc.meta_description_length} characters`);
+  else if (bc.meta_description_present === false) items.push("Meta description not detected");
+
+  if (bc.h1_present === false) items.push("Primary H1 heading not detected");
+  if (bc.canonical_present === false) items.push("Canonical tag not detected");
+  if (bc.robots_meta_present === false) items.push("Robots meta tag not detected");
+
+  if (bc.sitemap_reachable === true) items.push("Sitemap reachable at /sitemap.xml");
+  else if (bc.sitemap_reachable === false) items.push("Sitemap not detected (or not reachable) at /sitemap.xml");
+
+  if (bc.viewport_present === false) items.push("Viewport meta tag not detected (mobile scaling may be incorrect)");
+
+  if (typeof bc.html_length === "number") items.push(`HTML size: ${bc.html_length.toLocaleString()} characters`);
+
+  return items;
+}
+
+function buildTopIssues(bc = {}) {
+  const issues = [];
+
+  if (bc.viewport_present === false) {
+    issues.push({ sev: "HIGH", msg: "Missing viewport meta tag — mobile layout and scaling may be incorrect." });
+  }
+
+  if (bc.h1_present === false) {
+    issues.push({ sev: "HIGH", msg: "Missing primary H1 heading — reduces clarity for users and search engines." });
+  }
+
+  if (bc.canonical_present === false) {
+    issues.push({ sev: "HIGH", msg: "Canonical tag not detected — duplicate/variant URL handling may be less predictable." });
+  }
+
+  if (typeof bc.meta_description_length === "number" && bc.meta_description_length > 170) {
+    issues.push({ sev: "LOW", msg: `Meta description is long (${bc.meta_description_length} chars) — may be truncated in search results.` });
+  }
+
+  if (bc.robots_meta_present === false) {
+    issues.push({ sev: "LOW", msg: "Robots meta tag not detected — not required, but some sites use it for explicit indexing directives." });
+  }
+
+  if (bc.sitemap_reachable === false) {
+    issues.push({ sev: "MED", msg: "Sitemap not detected at /sitemap.xml — can slow discovery/indexing of new pages." });
+  }
+
+  return issues;
+}
+
+function renderIssuesUl(issues) {
+  const ul = qs(`[data-field="top-issues"]`);
+  if (!ul) return;
+
+  ul.innerHTML = "";
+  if (!issues.length) {
+    const li = document.createElement("li");
+    li.textContent = "No material issues were detected from the available signals.";
+    ul.appendChild(li);
+    return;
+  }
+
+  for (const it of issues) {
+    const li = document.createElement("li");
+    li.textContent = `${it.sev} — ${it.msg}`;
+    ul.appendChild(li);
+  }
+}
+
+function buildFixSequenceHTML(issues, bc = {}) {
+  // Keep it deterministic: derive phases from detected issues
+  const hasH1 = issues.some(i => i.msg.toLowerCase().includes("h1"));
+  const hasCanonical = issues.some(i => i.msg.toLowerCase().includes("canonical"));
+  const hasViewport = issues.some(i => i.msg.toLowerCase().includes("viewport"));
+  const hasMetaLen = issues.some(i => i.msg.toLowerCase().includes("meta description"));
+  const hasSitemap = issues.some(i => i.msg.toLowerCase().includes("sitemap"));
+
+  const p1 = [];
+  const p2 = [];
+  const p3 = [];
+
+  if (hasH1) p1.push("Add a single clear primary H1 that matches the page’s main intent.");
+  if (hasCanonical) p1.push("Add/fix canonical link tag to the preferred URL (one canonical per page).");
+  if (hasViewport) p1.push("Add a viewport meta tag to ensure correct mobile scaling and layout.");
+
+  if (hasMetaLen) p2.push("Trim meta description closer to ~120–160 characters while keeping it specific and useful.");
+  if (bc.robots_meta_present === false) p2.push("Optional: add a robots meta tag only if you need explicit indexing directives for key pages.");
+  if (hasSitemap) p2.push("Add /sitemap.xml (or fix its path) so search engines can discover pages more reliably.");
+
+  p3.push("Re-run iQWEB after changes to confirm the signals move in the right direction.");
+  p3.push("If using Google Search Console: submit /sitemap.xml and monitor indexing coverage over the next 7–14 days.");
+
+  const toList = (arr) => arr.map(x => `<li>${escapeHtml(x)}</li>`).join("");
+
+  return `
+    <div class="wd-fix-phase">
+      <div class="wd-fix-title">PHASE 1 — FOUNDATIONS</div>
+      <ul class="wd-bullets">${p1.length ? toList(p1) : `<li>No foundation blockers were detected from the available signals.</li>`}</ul>
+    </div>
+    <div class="wd-fix-phase">
+      <div class="wd-fix-title">PHASE 2 — OPTIMISATION</div>
+      <ul class="wd-bullets">${p2.length ? toList(p2) : `<li>No optimisation items were triggered from the available signals.</li>`}</ul>
+    </div>
+    <div class="wd-fix-phase">
+      <div class="wd-fix-title">PHASE 3 — VERIFY & MONITOR</div>
+      <ul class="wd-bullets">${toList(p3)}</ul>
+    </div>
+  `;
+}
+
+function renderFinalNotes() {
+  const ul = qs(`[data-field="final-notes"]`);
+  if (!ul) return;
+
+  ul.innerHTML = "";
+  const items = [
+    "This report is based on the data available at the time of analysis.",
+    "After applying Phase 1 changes, re-scan to confirm improvements and avoid regressions.",
+  ];
+
+  for (const t of items) {
+    const li = document.createElement("li");
+    li.textContent = t;
+    ul.appendChild(li);
+  }
 }
 
 function escapeHtml(s) {
   return String(s)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-// ---------- Deterministic builders ----------
-function buildKeyInsightMetrics(basic = {}) {
-  const items = [];
-
-  if (typeof basic.title_length === "number") items.push(`Title length: ${basic.title_length} characters`);
-  if (typeof basic.meta_description_length === "number") items.push(`Meta description: ${basic.meta_description_length} characters`);
-
-  if (basic.h1_present === false) items.push("Primary H1 heading not detected");
-  if (basic.canonical_present === false) items.push("Canonical tag not detected");
-  if (basic.robots_meta_present === false) items.push("Robots meta tag not detected");
-  if (basic.sitemap_reachable === true) items.push("Sitemap reachable at /sitemap.xml");
-  if (basic.sitemap_reachable === false) items.push("Sitemap not detected or not reachable at /sitemap.xml");
-
-  // fallback if we have nothing
-  if (!items.length) return "";
-
-  return `<ul class="wd-bullets">${items.map(li).join("")}</ul>`;
-}
-
-function buildTopIssues(basic = {}) {
-  const issues = [];
-
-  // HIGH
-  if (basic.h1_present === false) issues.push({ sev: "HIGH", text: "Missing primary H1 heading — this can reduce clarity for both users and search engines." });
-  if (basic.canonical_present === false) issues.push({ sev: "HIGH", text: "Canonical tag not detected — this can make duplicate/variant URL handling less predictable." });
-
-  // MED
-  if (typeof basic.meta_description_length === "number" && basic.meta_description_length > 180) {
-    issues.push({ sev: "MED", text: `Meta description is long (${basic.meta_description_length} chars) — it may be truncated in search results.` });
-  }
-
-  // LOW / INFO
-  if (basic.robots_meta_present === false) issues.push({ sev: "LOW", text: "Robots meta tag not detected — not required, but some sites use it for explicit indexing directives." });
-  if (basic.sitemap_reachable === false) issues.push({ sev: "LOW", text: "Sitemap not reachable at /sitemap.xml — search engines may discover URLs slower on large sites." });
-
-  // If nothing, return empty (we don’t invent problems)
-  if (!issues.length) return { issues: [], html: "" };
-
-  const html = `<ul class="wd-bullets">${issues.map(i => li(`${i.sev} — ${i.text}`)).join("")}</ul>`;
-  return { issues, html };
-}
-
-function buildFixSequence(issues = []) {
-  if (!issues.length) {
-    return `<ul class="wd-bullets">
-      ${li("No critical issues were detected from the available signals.")}
-      ${li("If you make changes, re-run iQWEB to confirm the signals move in the right direction.")}
-    </ul>`;
-  }
-
-  const hasH1 = issues.some(i => i.text.toLowerCase().includes("h1"));
-  const hasCanonical = issues.some(i => i.text.toLowerCase().includes("canonical"));
-  const hasMetaLen = issues.some(i => i.text.toLowerCase().includes("meta description"));
-  const hasRobots = issues.some(i => i.text.toLowerCase().includes("robots meta"));
-  const hasSitemap = issues.some(i => i.text.toLowerCase().includes("sitemap"));
-
-  const p1 = [];
-  if (hasH1) p1.push("Add a single clear primary H1 that matches the page’s main intent.");
-  if (hasCanonical) p1.push("Add/fix canonical link tag to the preferred URL (one canonical per page).");
-
-  const p2 = [];
-  if (hasMetaLen) p2.push("Trim meta description closer to ~120–160 characters while keeping it specific and useful.");
-  if (hasRobots) p2.push("Optional: add robots meta tag only if you need explicit indexing directives for key pages.");
-  if (hasSitemap) p2.push("Ensure /sitemap.xml is generated and reachable (and kept updated).");
-
-  const p3 = [
-    "Re-run iQWEB after changes to confirm the signals move in the right direction.",
-    "If using Google Search Console: submit /sitemap.xml and monitor indexing coverage over the next 7–14 days."
-  ];
-
-  return `
-    <div class="wd-fix">
-      <div class="wd-fix-phase">PHASE 1 — FOUNDATIONS</div>
-      <ul class="wd-bullets">${p1.map(li).join("")}</ul>
-
-      <div class="wd-fix-phase">PHASE 2 — OPTIMISATION</div>
-      <ul class="wd-bullets">${p2.map(li).join("")}</ul>
-
-      <div class="wd-fix-phase">PHASE 3 — VERIFY &amp; MONITOR</div>
-      <ul class="wd-bullets">${p3.map(li).join("")}</ul>
-    </div>
-  `;
-}
-
-function buildFinalNotes() {
-  return `<ul class="wd-bullets">
-    ${li("This report is based on the data available at the time of analysis.")}
-    ${li("After applying Phase 1 changes, re-scan to confirm improvements and avoid regressions.")}
-  </ul>`;
-}
-
-// ---------- main ----------
+// ---------- Main ----------
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
@@ -205,9 +251,9 @@ async function loadReportData() {
   const scores = safeObj(data.scores);
   const narrative = safeObj(data.narrative);
   const report = safeObj(data.report);
-  const basic = safeObj(data.basic_checks);
+  const basicChecks = safeObj(data.basic_checks);
 
-  // HEADER
+  // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
   const headerReportId = report.report_id || "";
 
@@ -227,66 +273,113 @@ async function loadReportData() {
   setText("report-time", formatReportTimeLocal(report.created_at));
   setText("report-id", headerReportId);
 
-  // EXEC SUMMARY
-  setText("overall-summary", narrative.intro || narrative.overall_summary || "");
+  // ---------------- EXECUTIVE NARRATIVE ----------------
+  const execText = narrative.intro || narrative.overall_summary || "";
+  setText("overall-summary", execText);
 
-  // 6 SIGNALS (score + bar + narrative/fallback)
-  const perf = clampScore(scores.performance);
-  setScore("score-performance", perf); setBar("performance", perf);
-  setText("performance-comment",
-    fallbackIfEmpty(joinParts([narrative.performance, narrative.performance_comment], 2),
-      "No material performance issues were detected from the available data.")
-  );
+  // ---------------- SIGNALS (6) ----------------
 
-  const seo = clampScore(scores.seo);
-  setScore("score-seo", seo); setBar("seo", seo);
-  setText("seo-comment",
-    fallbackIfEmpty(joinParts([narrative.seo, narrative.seo_comment, narrative.seoFoundations], 2),
-      "SEO foundation signals look stable from the available data.")
-  );
+  // 1) Performance
+  const perfScore = clampScore(scores.performance);
+  setScore("score-performance", perfScore);
+  setBar("performance", perfScore);
 
-  const structure = clampScore(scores.structure_semantics);
-  setScore("score-structure", structure); setBar("structure", structure);
-  setText("structure-comment",
-    fallbackIfEmpty(joinParts([narrative.structure, narrative.structure_comment, narrative.structureSemantics], 2),
-      "No structural blockers were detected from the available signals.")
-  );
+  const perfNarr = joinParts([narrative.performance, narrative.performance_comment], 2);
+  setText("performance-comment", fallbackIfEmpty(
+    perfNarr,
+    "No material performance issues were detected from the available data."
+  ));
 
-  const mobile = clampScore(scores.mobile_experience);
-  setScore("score-mobile", mobile); setBar("mobile", mobile);
-  setText("mobile-comment",
-    fallbackIfEmpty(joinParts([narrative.mobile, narrative.mobile_comment, narrative.mobileExperience], 2),
-      "No mobile experience issues were detected from the available signals.")
-  );
+  // 2) SEO Foundations
+  const seoScore = clampScore(scores.seo);
+  setScore("score-seo", seoScore);
+  setBar("seo", seoScore);
 
-  const security = clampScore(scores.security_trust);
-  setScore("score-security", security); setBar("security", security);
-  setText("security-comment",
-    fallbackIfEmpty(joinParts([narrative.security, narrative.security_comment, narrative.securityTrust], 2),
-      "No security risks were identified at the time of analysis.")
-  );
+  const seoNarr = joinParts([narrative.seo, narrative.seoFoundations, narrative.seo_comment], 2);
+  setText("seo-comment", fallbackIfEmpty(
+    seoNarr,
+    (basicChecks.title_present === false || basicChecks.meta_description_present === false || basicChecks.h1_present === false || basicChecks.canonical_present === false)
+      ? "Some core SEO foundations are missing or incomplete (for example H1 and canonical). Addressing these improves clarity and indexing consistency."
+      : "Core SEO foundations appear present from the available signals."
+  ));
 
-  const access = clampScore(scores.accessibility);
-  setScore("score-accessibility", access); setBar("accessibility", access);
-  setText("accessibility-comment",
-    fallbackIfEmpty(joinParts([narrative.accessibility, narrative.accessibility_comment], 2),
-      "No significant accessibility blockers were detected from the available signals.")
-  );
+  // 3) Structure & Semantics
+  const structScore = clampScore(scores.structure_semantics);
+  setScore("score-structure", structScore);
+  setBar("structure", structScore);
 
-  // KEY INSIGHT METRICS
-  setHTML("key-insights", buildKeyInsightMetrics(basic));
+  const structNarr = joinParts([narrative.structure, narrative.structureSemantics, narrative.structure_comment], 2);
+  setText("structure-comment", fallbackIfEmpty(
+    structNarr,
+    (basicChecks.h1_present === false)
+      ? "A clear primary H1 heading was not detected, which can reduce content structure clarity."
+      : "No structural blockers were detected from the available signals."
+  ));
 
-  // TOP ISSUES
-  const { issues, html: issuesHtml } = buildTopIssues(basic);
-  setHTML("top-issues", issuesHtml);
+  // 4) Mobile Experience
+  const mobileScore = clampScore(scores.mobile_experience);
+  setScore("score-mobile", mobileScore);
+  setBar("mobile", mobileScore);
 
-  // FIX SEQUENCE
-  setHTML("fix-sequence", buildFixSequence(issues));
+  const mobileNarr = joinParts([narrative.mobile, narrative.mobileExperience, narrative.mobile_comment], 2);
+  setText("mobile-comment", fallbackIfEmpty(
+    mobileNarr,
+    (basicChecks.viewport_present === false)
+      ? "Viewport meta tag was not detected, which may affect mobile scaling and layout."
+      : "No mobile experience issues were detected from the available signals."
+  ));
 
-  // FINAL NOTES
-  setHTML("final-notes", buildFinalNotes());
+  // 5) Security
+  const secScore = clampScore(scores.security_trust);
+  setScore("score-security", secScore);
+  setBar("security", secScore);
 
-  // Done
+  const secNarr = joinParts([narrative.security, narrative.securityTrust, narrative.security_comment], 2);
+  setText("security-comment", fallbackIfEmpty(
+    secNarr,
+    "No security risks were identified at the time of analysis."
+  ));
+
+  // 6) Accessibility
+  const a11yScore = clampScore(scores.accessibility);
+  setScore("score-accessibility", a11yScore);
+  setBar("accessibility", a11yScore);
+
+  const a11yNarr = joinParts([narrative.accessibility, narrative.accessibility_comment], 2);
+  setText("accessibility-comment", fallbackIfEmpty(
+    a11yNarr,
+    "No significant accessibility blockers were detected from the available signals."
+  ));
+
+  // ---------------- Key Insight Metrics ----------------
+  const keyInsights = buildKeyInsights(basicChecks);
+  const kiEl = qs(`[data-field="key-insights"]`);
+  if (kiEl) {
+    kiEl.innerHTML = "";
+    if (!keyInsights.length) {
+      const li = document.createElement("li");
+      li.textContent = "No key insight metrics were available from the scan.";
+      kiEl.appendChild(li);
+    } else {
+      for (const t of keyInsights) {
+        const li = document.createElement("li");
+        li.textContent = t;
+        kiEl.appendChild(li);
+      }
+    }
+  }
+
+  // ---------------- Top Issues Detected ----------------
+  const issues = buildTopIssues(basicChecks);
+  renderIssuesUl(issues);
+
+  // ---------------- Fix Sequence ----------------
+  setHTML("fix-sequence", buildFixSequenceHTML(issues, basicChecks));
+
+  // ---------------- Final Notes ----------------
+  renderFinalNotes();
+
+  // Done: fade loader
   window.dispatchEvent(new Event("iqweb:loaded"));
 }
 
