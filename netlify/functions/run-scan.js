@@ -4,6 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini"; // change any time
+
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ---------------------------------------------
@@ -12,7 +15,12 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 function safeObj(o) {
   return o && typeof o === "object" ? o : {};
 }
-
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+function clampInt(n) {
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
 function safeDecodeJwt(token) {
   try {
     const payload = token.split(".")[1];
@@ -28,15 +36,12 @@ function safeDecodeJwt(token) {
 // WEB-YYYYJJJ-#####  (JJJ = day-of-year, ##### = 5-digit random)
 function makeReportId(date = new Date()) {
   const year = date.getUTCFullYear();
-
   const start = Date.UTC(year, 0, 1);
   const now = Date.UTC(year, date.getUTCMonth(), date.getUTCDate());
   const dayOfYear = Math.floor((now - start) / (24 * 60 * 60 * 1000)) + 1; // 1..366
   const jjj = String(dayOfYear).padStart(3, "0");
-
   const rand = Math.floor(Math.random() * 100000); // 0..99999
   const tail = String(rand).padStart(5, "0");
-
   return `WEB-${year}${jjj}-${tail}`;
 }
 
@@ -49,23 +54,10 @@ function isValidHttpUrl(u) {
   }
 }
 
-function clampInt(n) {
-  return Number.isFinite(n) ? Math.trunc(n) : null;
-}
-
-function clampScore(n) {
-  if (typeof n !== "number" || Number.isNaN(n)) return null;
-  if (n < 0) return 0;
-  if (n > 100) return 100;
-  return Math.round(n);
-}
-
 // ---------------------------------------------
 // Brick 2A: HTML structure facts (no puppeteer)
 // ---------------------------------------------
 async function fetchHtml(url) {
-  // Netlify supports global fetch in Node runtime.
-  // Defensive: timeout, limited size
   const controller = new AbortController();
   const timeoutMs = 12000;
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -82,41 +74,14 @@ async function fetchHtml(url) {
     });
 
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
-
-    // Read body (some sites mislabel content-type, so we still read safely)
     const raw = await resp.text();
 
-    // Cap to prevent huge pages blowing memory
-    const MAX_CHARS = 350000; // ~350KB of text
+    const MAX_CHARS = 350000;
     const html = raw.length > MAX_CHARS ? raw.slice(0, MAX_CHARS) : raw;
 
-    // Capture a small, stable subset of headers we care about for Brick 2B
-    const header = (name) => resp.headers.get(name) || "";
-
-    return {
-      ok: resp.ok,
-      status: resp.status,
-      finalUrl: resp.url || url,
-      contentType,
-      html,
-      headers: {
-        hsts: header("strict-transport-security"),
-        csp: header("content-security-policy"),
-        xfo: header("x-frame-options"),
-        xcto: header("x-content-type-options"),
-        refpol: header("referrer-policy"),
-        perms: header("permissions-policy"),
-      },
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      status: 0,
-      finalUrl: url,
-      contentType: "",
-      html: "",
-      headers: { hsts: "", csp: "", xfo: "", xcto: "", refpol: "", perms: "" },
-    };
+    return { ok: resp.ok, status: resp.status, contentType, html };
+  } catch {
+    return { ok: false, status: 0, contentType: "", html: "" };
   } finally {
     clearTimeout(t);
   }
@@ -135,26 +100,17 @@ function countMatches(html, regex) {
 function hasMetaViewport(html) {
   return /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
 }
-
 function hasMetaDescription(html) {
-  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(
-    html
-  );
+  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(html);
 }
-
 function hasCanonical(html) {
   return /<link[^>]+rel=["']canonical["'][^>]*>/i.test(html);
 }
-
 function hasRobotsMeta(html) {
   return /<meta[^>]+name=["']robots["'][^>]*>/i.test(html);
 }
-
 function hasSitemapHint(html) {
-  // Best-effort: either explicit "sitemap" link or common sitemap.xml mention.
-  return (
-    /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html)
-  );
+  return /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html);
 }
 
 async function buildHtmlFacts(url) {
@@ -174,10 +130,7 @@ async function buildHtmlFacts(url) {
   };
 
   const res = await fetchHtml(url);
-  if (!res.ok || !res.html) {
-    // keep nulls (integrity)
-    return out;
-  }
+  if (!res.ok || !res.html) return out;
 
   const html = res.html;
   out.html_length = clampInt(html.length);
@@ -217,97 +170,166 @@ async function buildHtmlFacts(url) {
 }
 
 // ---------------------------------------------
-// Brick 2B: Security posture facts (headers + mixed-content hint)
+// Brick 2B: Executive narrative (OpenAI) + UPSERT to report_data
 // ---------------------------------------------
-function hasAnyValue(s) {
-  return typeof s === "string" && s.trim().length > 0;
+function stripNullStrings(obj) {
+  // Convert null/undefined -> "" for narrative fields (front-end expects strings or empty)
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v === null || v === undefined) out[k] = "";
+    else if (typeof v === "string") out[k] = v.trim();
+    else out[k] = v;
+  }
+  return out;
 }
 
-function detectMixedContent(html) {
-  if (!html) return false;
+function pickBasicFactsForPrompt(metrics = {}) {
+  const basic = safeObj(metrics.basic_checks);
+  const scores = safeObj(metrics.scores);
 
-  // Very conservative hinting:
-  // flags obvious http:// loads in src/href or css url(http://...)
-  const patterns = [
-    /\bsrc=["']http:\/\//i,
-    /\bhref=["']http:\/\//i,
-    /url\(\s*["']?http:\/\//i,
-  ];
-  return patterns.some((r) => r.test(html));
-}
-
-function computeSecurityScore(facts) {
-  // Deterministic and explainable. No Lighthouse.
-  // Start 100, subtract for missing protections.
-  // If HTTPS is false => heavy penalty.
-  if (facts.https !== true) return 20;
-
-  let score = 100;
-
-  // Important headers (common modern baseline)
-  if (facts.hsts_present !== true) score -= 20;
-  if (facts.csp_present !== true) score -= 20;
-  if (facts.xfo_present !== true) score -= 10;
-  if (facts.xcto_present !== true) score -= 10;
-
-  // Nice-to-have signals
-  if (facts.referrer_policy_present !== true) score -= 5;
-  if (facts.permissions_policy_present !== true) score -= 5;
-
-  // Mixed content hint (only if https page)
-  if (facts.mixed_content_hints === true) score -= 10;
-
-  return clampScore(score);
-}
-
-async function buildSecurityFacts(url) {
-  const out = {
-    https: null,
-    final_url: null,
-    redirected_to_https: null,
-
-    hsts_present: null,
-    csp_present: null,
-    xfo_present: null,
-    xcto_present: null,
-    referrer_policy_present: null,
-    permissions_policy_present: null,
-
-    mixed_content_hints: null,
-    security_score: null,
+  return {
+    scores: {
+      overall: scores.overall ?? null,
+      performance: scores.performance ?? null,
+      seo: scores.seo ?? null,
+      structure_semantics: scores.structure_semantics ?? null,
+      mobile_experience: scores.mobile_experience ?? null,
+      security_trust: scores.security_trust ?? null,
+      accessibility: scores.accessibility ?? null,
+      domain_hosting: scores.domain_hosting ?? null,
+      content_signals: scores.content_signals ?? null,
+    },
+    basic_checks: {
+      title_present: basic.title_present ?? null,
+      title_text: basic.title_text ?? null,
+      meta_description_present: basic.meta_description_present ?? null,
+      h1_present: basic.h1_present ?? null,
+      h1_count: basic.h1_count ?? null,
+      canonical_present: basic.canonical_present ?? null,
+      robots_present: basic.robots_present ?? null,
+      sitemap_present: basic.sitemap_present ?? null,
+      viewport_present: basic.viewport_present ?? null,
+      html_length: basic.html_length ?? null,
+    },
   };
+}
 
-  const input = new URL(url);
-  out.https = input.protocol === "https:";
+async function openaiJson(prompt) {
+  if (!OPENAI_API_KEY) return { ok: false, json: null, error: "Missing OPENAI_API_KEY" };
 
-  const res = await fetchHtml(url);
-  if (!res.ok) return out;
-
-  out.final_url = res.finalUrl || null;
+  const controller = new AbortController();
+  const timeoutMs = 20000;
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const final = new URL(res.finalUrl || url);
-    out.redirected_to_https = input.protocol === "http:" && final.protocol === "https:";
-    // If we started https but ended http, treat that as not-https in reality
-    if (final.protocol === "http:") out.https = false;
-  } catch {
-    out.redirected_to_https = null;
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are Λ i Q for iQWEB. Produce ONLY strict JSON. Never invent facts. If a claim isn't supported by the facts provided, omit it. If unsure, leave the field as an empty string.",
+          },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      return { ok: false, json: null, error: `OpenAI HTTP ${resp.status}: ${txt.slice(0, 400)}` };
+    }
+
+    const data = await resp.json();
+    const content = data?.choices?.[0]?.message?.content;
+    if (!content) return { ok: false, json: null, error: "No content from OpenAI" };
+
+    let parsed = null;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return { ok: false, json: null, error: "OpenAI returned non-JSON despite json_object" };
+    }
+
+    return { ok: true, json: parsed, error: null };
+  } catch (e) {
+    return { ok: false, json: null, error: e?.message || String(e) };
+  } finally {
+    clearTimeout(t);
   }
+}
 
-  // Header presence
-  out.hsts_present = hasAnyValue(res.headers?.hsts);
-  out.csp_present = hasAnyValue(res.headers?.csp);
-  out.xfo_present = hasAnyValue(res.headers?.xfo);
-  out.xcto_present = hasAnyValue(res.headers?.xcto);
-  out.referrer_policy_present = hasAnyValue(res.headers?.refpol);
-  out.permissions_policy_present = hasAnyValue(res.headers?.perms);
+async function buildNarrative(url, metrics) {
+  // Facts pack for honesty (no “vibes” without evidence)
+  const facts = pickBasicFactsForPrompt(metrics);
 
-  // Mixed-content hint only matters if https is true
-  out.mixed_content_hints = out.https === true ? detectMixedContent(res.html) : null;
+  const prompt = `
+Generate iQWEB narrative JSON for ONE website report.
 
-  out.security_score = computeSecurityScore(out);
+URL: ${url}
 
-  return out;
+FACTS (truth source):
+${JSON.stringify(facts, null, 2)}
+
+Return strict JSON with these keys (strings only; empty string if not supported):
+{
+  "intro": "...executive narrative lead, 4-8 sentences, facts-based, no hype...",
+  "performance": "...1-3 short paragraphs, must relate to performance score if present...",
+  "mobile_comment": "...optional...",
+  "structure_comment": "...optional...",
+  "seo_comment": "...optional...",
+  "content_comment": "...optional...",
+  "security_comment": "...optional...",
+  "domain_comment": "...optional...",
+  "accessibility_comment": "...optional..."
+}
+
+Rules:
+- Do NOT mention tools by name unless explicitly in facts.
+- Do NOT claim specific issues unless supported by provided facts.
+- Keep it useful and diagnostic. No placeholders.
+`;
+
+  // Two-shot attempt to hit your “90%+” requirement in real life
+  const a = await openaiJson(prompt);
+  if (a.ok && a.json) return stripNullStrings(a.json);
+
+  // retry once (transient failures happen)
+  const b = await openaiJson(prompt);
+  if (b.ok && b.json) return stripNullStrings(b.json);
+
+  // total failure -> return empty object (front-end stays blank, but scan stays valid)
+  return {};
+}
+
+async function upsertReportData(report_id, url, created_at, metrics, narrativeObj) {
+  const narrative = stripNullStrings(narrativeObj || {});
+  const scores = safeObj(metrics?.scores);
+
+  // IMPORTANT: onConflict requires UNIQUE on report_id (you already have it)
+  const { error } = await supabaseAdmin
+    .from("report_data")
+    .upsert(
+      {
+        report_id,
+        url,
+        created_at,
+        scores,
+        narrative,
+      },
+      { onConflict: "report_id" }
+    );
+
+  return { ok: !error, error: error?.message || null };
 }
 
 // ---------------------------------------------
@@ -315,16 +337,14 @@ async function buildSecurityFacts(url) {
 // ---------------------------------------------
 export async function handler(event) {
   try {
-    const authHeader =
-      event.headers.authorization || event.headers.Authorization || "";
+    const authHeader = event.headers.authorization || event.headers.Authorization || "";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return {
         statusCode: 401,
         body: JSON.stringify({
           error: "Missing Authorization header",
-          hint:
-            "Request must include: Authorization: Bearer <supabase_access_token>",
+          hint: "Request must include: Authorization: Bearer <supabase_access_token>",
         }),
       };
     }
@@ -332,10 +352,7 @@ export async function handler(event) {
     const token = authHeader.replace("Bearer ", "").trim();
     const decoded = safeDecodeJwt(token);
 
-    // Validate token (must be from same Supabase project)
-    const { data: authData, error: authError } =
-      await supabaseAdmin.auth.getUser(token);
-
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !authData?.user) {
       return {
         statusCode: 401,
@@ -361,9 +378,7 @@ export async function handler(event) {
     if (!url || !isValidHttpUrl(url)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({
-          error: "A valid URL is required (must start with http/https)",
-        }),
+        body: JSON.stringify({ error: "A valid URL is required (must start with http/https)" }),
       };
     }
 
@@ -371,9 +386,7 @@ export async function handler(event) {
     const created_at = new Date().toISOString();
 
     // Start from any metrics passed in, but always ensure required structure exists.
-    const baseMetrics =
-      body.metrics && typeof body.metrics === "object" ? body.metrics : {};
-
+    const baseMetrics = body.metrics && typeof body.metrics === "object" ? body.metrics : {};
     const metrics = safeObj(baseMetrics);
     metrics.scores = safeObj(metrics.scores);
     metrics.basic_checks = safeObj(metrics.basic_checks);
@@ -383,11 +396,9 @@ export async function handler(event) {
     // ---------------------------------------------
     const htmlFacts = await buildHtmlFacts(url);
 
-    // Store into basic_checks (canonical place used by your scoring logic)
     metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
     metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
-    metrics.basic_checks.meta_description_present =
-      htmlFacts.meta_description_present ?? null;
+    metrics.basic_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
     metrics.basic_checks.h1_present = htmlFacts.h1_present ?? null;
     metrics.basic_checks.h1_count = htmlFacts.h1_count ?? null;
     metrics.basic_checks.canonical_present = htmlFacts.canonical_present ?? null;
@@ -396,15 +407,12 @@ export async function handler(event) {
     metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
-    // Mirror into html_checks too (some older code looks for this)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
     metrics.html_checks.title_text = htmlFacts.title_text ?? null;
     metrics.html_checks.title_length = htmlFacts.title_length ?? null;
-    metrics.html_checks.meta_description_present =
-      htmlFacts.meta_description_present ?? null;
-    metrics.html_checks.meta_description_length =
-      htmlFacts.meta_description_length ?? null;
+    metrics.html_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
+    metrics.html_checks.meta_description_length = htmlFacts.meta_description_length ?? null;
     metrics.html_checks.h1_present = htmlFacts.h1_present ?? null;
     metrics.html_checks.h1_count = htmlFacts.h1_count ?? null;
     metrics.html_checks.canonical_present = htmlFacts.canonical_present ?? null;
@@ -412,46 +420,6 @@ export async function handler(event) {
     metrics.html_checks.sitemap_present = htmlFacts.sitemap_present ?? null;
     metrics.html_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
-
-    // ---------------------------------------------
-    // Brick 2B: populate security posture facts
-    // ---------------------------------------------
-    const secFacts = await buildSecurityFacts(url);
-
-    // Store into basic_checks (truthy facts you can show in report later)
-    metrics.basic_checks.https = secFacts.https ?? null;
-    metrics.basic_checks.redirected_to_https = secFacts.redirected_to_https ?? null;
-    metrics.basic_checks.hsts_present = secFacts.hsts_present ?? null;
-    metrics.basic_checks.csp_present = secFacts.csp_present ?? null;
-    metrics.basic_checks.xfo_present = secFacts.xfo_present ?? null;
-    metrics.basic_checks.xcto_present = secFacts.xcto_present ?? null;
-    metrics.basic_checks.referrer_policy_present =
-      secFacts.referrer_policy_present ?? null;
-    metrics.basic_checks.permissions_policy_present =
-      secFacts.permissions_policy_present ?? null;
-    metrics.basic_checks.mixed_content_hints = secFacts.mixed_content_hints ?? null;
-
-    // Also keep a neat bucket for later UI use
-    metrics.security_checks = safeObj(metrics.security_checks);
-    metrics.security_checks.final_url = secFacts.final_url ?? null;
-    metrics.security_checks.https = secFacts.https ?? null;
-    metrics.security_checks.redirected_to_https = secFacts.redirected_to_https ?? null;
-    metrics.security_checks.hsts_present = secFacts.hsts_present ?? null;
-    metrics.security_checks.csp_present = secFacts.csp_present ?? null;
-    metrics.security_checks.xfo_present = secFacts.xfo_present ?? null;
-    metrics.security_checks.xcto_present = secFacts.xcto_present ?? null;
-    metrics.security_checks.referrer_policy_present =
-      secFacts.referrer_policy_present ?? null;
-    metrics.security_checks.permissions_policy_present =
-      secFacts.permissions_policy_present ?? null;
-    metrics.security_checks.mixed_content_hints = secFacts.mixed_content_hints ?? null;
-
-    // Deterministic derived score (feeds your Trust block immediately)
-    if (typeof secFacts.security_score === "number") {
-      metrics.scores.security_trust = secFacts.security_score;
-    } else {
-      metrics.scores.security_trust = metrics.scores.security_trust ?? null;
-    }
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
@@ -468,11 +436,14 @@ export async function handler(event) {
       .single();
 
     if (insertError) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: insertError.message }),
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
     }
+
+    // ---------------------------------------------
+    // Brick 2B: generate narrative + upsert report_data
+    // ---------------------------------------------
+    const narrativeObj = await buildNarrative(url, metrics);
+    const up = await upsertReportData(report_id, url, created_at, metrics, narrativeObj);
 
     return {
       statusCode: 200,
@@ -481,13 +452,11 @@ export async function handler(event) {
         scan_id: scanRow.id,
         report_id: scanRow.report_id,
         html_facts_populated: true,
-        security_facts_populated: true,
+        narrative_saved: up.ok,
+        narrative_error: up.error,
       }),
     };
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message || String(err) }),
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || String(err) }) };
   }
 }
