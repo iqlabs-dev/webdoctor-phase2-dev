@@ -54,15 +54,18 @@ function clampInt(n) {
 }
 
 function clampScore(n) {
-  if (!Number.isFinite(n)) return null;
-  const x = Math.round(n);
-  return Math.max(0, Math.min(100, x));
+  if (typeof n !== "number" || Number.isNaN(n)) return null;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return Math.round(n);
 }
 
 // ---------------------------------------------
 // Brick 2A: HTML structure facts (no puppeteer)
 // ---------------------------------------------
 async function fetchHtml(url) {
+  // Netlify supports global fetch in Node runtime.
+  // Defensive: timeout, limited size
   const controller = new AbortController();
   const timeoutMs = 12000;
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -79,19 +82,41 @@ async function fetchHtml(url) {
     });
 
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+
+    // Read body (some sites mislabel content-type, so we still read safely)
     const raw = await resp.text();
 
+    // Cap to prevent huge pages blowing memory
     const MAX_CHARS = 350000; // ~350KB of text
     const html = raw.length > MAX_CHARS ? raw.slice(0, MAX_CHARS) : raw;
+
+    // Capture a small, stable subset of headers we care about for Brick 2B
+    const header = (name) => resp.headers.get(name) || "";
 
     return {
       ok: resp.ok,
       status: resp.status,
+      finalUrl: resp.url || url,
       contentType,
       html,
+      headers: {
+        hsts: header("strict-transport-security"),
+        csp: header("content-security-policy"),
+        xfo: header("x-frame-options"),
+        xcto: header("x-content-type-options"),
+        refpol: header("referrer-policy"),
+        perms: header("permissions-policy"),
+      },
     };
   } catch (e) {
-    return { ok: false, status: 0, contentType: "", html: "" };
+    return {
+      ok: false,
+      status: 0,
+      finalUrl: url,
+      contentType: "",
+      html: "",
+      headers: { hsts: "", csp: "", xfo: "", xcto: "", refpol: "", perms: "" },
+    };
   } finally {
     clearTimeout(t);
   }
@@ -112,7 +137,9 @@ function hasMetaViewport(html) {
 }
 
 function hasMetaDescription(html) {
-  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(html);
+  return /<meta[^>]+name=["']description["'][^>]*content=["'][^"']*["'][^>]*>/i.test(
+    html
+  );
 }
 
 function hasCanonical(html) {
@@ -124,7 +151,10 @@ function hasRobotsMeta(html) {
 }
 
 function hasSitemapHint(html) {
-  return /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html);
+  // Best-effort: either explicit "sitemap" link or common sitemap.xml mention.
+  return (
+    /sitemap\.xml/i.test(html) || /<link[^>]+rel=["']sitemap["'][^>]*>/i.test(html)
+  );
 }
 
 async function buildHtmlFacts(url) {
@@ -144,7 +174,10 @@ async function buildHtmlFacts(url) {
   };
 
   const res = await fetchHtml(url);
-  if (!res.ok || !res.html) return out;
+  if (!res.ok || !res.html) {
+    // keep nulls (integrity)
+    return out;
+  }
 
   const html = res.html;
   out.html_length = clampInt(html.length);
@@ -184,93 +217,97 @@ async function buildHtmlFacts(url) {
 }
 
 // ---------------------------------------------
-// Brick 2B: Deterministic scores from facts (NO AI)
+// Brick 2B: Security posture facts (headers + mixed-content hint)
 // ---------------------------------------------
-function computeScoresFromFacts(metrics) {
-  const m = safeObj(metrics);
-  const basic = safeObj(m.basic_checks || m.basicChecks || {});
-  const html = safeObj(m.html_checks || m.htmlChecks || {});
+function hasAnyValue(s) {
+  return typeof s === "string" && s.trim().length > 0;
+}
 
-  // Prefer basic_checks (canonical), fallback to html_checks
-  const title_present = basic.title_present ?? html.title_present ?? null;
-  const meta_description_present =
-    basic.meta_description_present ?? html.meta_description_present ?? null;
-  const viewport_present = basic.viewport_present ?? html.viewport_present ?? null;
-  const canonical_present = basic.canonical_present ?? html.canonical_present ?? null;
-  const robots_present = basic.robots_present ?? html.robots_present ?? null;
-  const sitemap_present = basic.sitemap_present ?? html.sitemap_present ?? null;
+function detectMixedContent(html) {
+  if (!html) return false;
 
-  const h1_count = basic.h1_count ?? html.h1_count ?? null;
-  const html_length = basic.html_length ?? html.html_length ?? null;
+  // Very conservative hinting:
+  // flags obvious http:// loads in src/href or css url(http://...)
+  const patterns = [
+    /\bsrc=["']http:\/\//i,
+    /\bhref=["']http:\/\//i,
+    /url\(\s*["']?http:\/\//i,
+  ];
+  return patterns.some((r) => r.test(html));
+}
 
-  // If we have literally no facts, return null scores (integrity)
-  const hasAny =
-    title_present !== null ||
-    meta_description_present !== null ||
-    viewport_present !== null ||
-    canonical_present !== null ||
-    robots_present !== null ||
-    sitemap_present !== null ||
-    h1_count !== null ||
-    html_length !== null;
+function computeSecurityScore(facts) {
+  // Deterministic and explainable. No Lighthouse.
+  // Start 100, subtract for missing protections.
+  // If HTTPS is false => heavy penalty.
+  if (facts.https !== true) return 20;
 
-  if (!hasAny) {
-    return { performance: null, ux_clarity: null, trust_professionalism: null };
-  }
+  let score = 100;
 
-  // ---- PERFORMANCE (today: only a weak proxy; real perf comes later via PSI/Lighthouse)
-  // We'll base this ONLY on page size hint (HTML length) so it's "real" but conservative.
-  let performance = 75; // neutral baseline
-  if (Number.isFinite(html_length)) {
-    // very rough: heavier HTML often correlates with slower parsing/rendering
-    if (html_length > 250000) performance -= 20;
-    else if (html_length > 150000) performance -= 12;
-    else if (html_length > 90000) performance -= 6;
-    else if (html_length < 40000) performance += 4;
-  }
-  performance = clampScore(performance);
+  // Important headers (common modern baseline)
+  if (facts.hsts_present !== true) score -= 20;
+  if (facts.csp_present !== true) score -= 20;
+  if (facts.xfo_present !== true) score -= 10;
+  if (facts.xcto_present !== true) score -= 10;
 
-  // ---- UX & CLARITY (structure + mobile readiness signals)
-  let ux = 70; // baseline
-  if (viewport_present === true) ux += 10;
-  if (viewport_present === false) ux -= 18;
+  // Nice-to-have signals
+  if (facts.referrer_policy_present !== true) score -= 5;
+  if (facts.permissions_policy_present !== true) score -= 5;
 
-  if (title_present === true) ux += 4;
-  if (title_present === false) ux -= 10;
+  // Mixed content hint (only if https page)
+  if (facts.mixed_content_hints === true) score -= 10;
 
-  if (meta_description_present === true) ux += 2;
-  if (meta_description_present === false) ux -= 6;
+  return clampScore(score);
+}
 
-  if (Number.isFinite(h1_count)) {
-    if (h1_count === 1) ux += 6;
-    else if (h1_count === 0) ux -= 10;
-    else if (h1_count > 1) ux -= 6; // multiple H1s can reduce semantic clarity
-  }
+async function buildSecurityFacts(url) {
+  const out = {
+    https: null,
+    final_url: null,
+    redirected_to_https: null,
 
-  ux = clampScore(ux);
+    hsts_present: null,
+    csp_present: null,
+    xfo_present: null,
+    xcto_present: null,
+    referrer_policy_present: null,
+    permissions_policy_present: null,
 
-  // ---- TRUST & PROFESSIONALISM (crawl/control + canonical hygiene)
-  let trust = 70; // baseline
-  if (canonical_present === true) trust += 10;
-  if (canonical_present === false) trust -= 10;
-
-  if (robots_present === true) trust += 4;
-  if (robots_present === false) trust -= 2; // not critical, just a maturity hint
-
-  if (sitemap_present === true) trust += 4;
-  if (sitemap_present === false) trust -= 2;
-
-  // Title + meta description contribute slightly to professional polish
-  if (title_present === true) trust += 2;
-  if (meta_description_present === true) trust += 2;
-
-  trust = clampScore(trust);
-
-  return {
-    performance,
-    ux_clarity: ux,
-    trust_professionalism: trust,
+    mixed_content_hints: null,
+    security_score: null,
   };
+
+  const input = new URL(url);
+  out.https = input.protocol === "https:";
+
+  const res = await fetchHtml(url);
+  if (!res.ok) return out;
+
+  out.final_url = res.finalUrl || null;
+
+  try {
+    const final = new URL(res.finalUrl || url);
+    out.redirected_to_https = input.protocol === "http:" && final.protocol === "https:";
+    // If we started https but ended http, treat that as not-https in reality
+    if (final.protocol === "http:") out.https = false;
+  } catch {
+    out.redirected_to_https = null;
+  }
+
+  // Header presence
+  out.hsts_present = hasAnyValue(res.headers?.hsts);
+  out.csp_present = hasAnyValue(res.headers?.csp);
+  out.xfo_present = hasAnyValue(res.headers?.xfo);
+  out.xcto_present = hasAnyValue(res.headers?.xcto);
+  out.referrer_policy_present = hasAnyValue(res.headers?.refpol);
+  out.permissions_policy_present = hasAnyValue(res.headers?.perms);
+
+  // Mixed-content hint only matters if https is true
+  out.mixed_content_hints = out.https === true ? detectMixedContent(res.html) : null;
+
+  out.security_score = computeSecurityScore(out);
+
+  return out;
 }
 
 // ---------------------------------------------
@@ -278,14 +315,16 @@ function computeScoresFromFacts(metrics) {
 // ---------------------------------------------
 export async function handler(event) {
   try {
-    const authHeader = event.headers.authorization || event.headers.Authorization || "";
+    const authHeader =
+      event.headers.authorization || event.headers.Authorization || "";
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return {
         statusCode: 401,
         body: JSON.stringify({
           error: "Missing Authorization header",
-          hint: "Request must include: Authorization: Bearer <supabase_access_token>",
+          hint:
+            "Request must include: Authorization: Bearer <supabase_access_token>",
         }),
       };
     }
@@ -293,7 +332,9 @@ export async function handler(event) {
     const token = authHeader.replace("Bearer ", "").trim();
     const decoded = safeDecodeJwt(token);
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Validate token (must be from same Supabase project)
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.getUser(token);
 
     if (authError || !authData?.user) {
       return {
@@ -320,7 +361,9 @@ export async function handler(event) {
     if (!url || !isValidHttpUrl(url)) {
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "A valid URL is required (must start with http/https)" }),
+        body: JSON.stringify({
+          error: "A valid URL is required (must start with http/https)",
+        }),
       };
     }
 
@@ -328,7 +371,8 @@ export async function handler(event) {
     const created_at = new Date().toISOString();
 
     // Start from any metrics passed in, but always ensure required structure exists.
-    const baseMetrics = body.metrics && typeof body.metrics === "object" ? body.metrics : {};
+    const baseMetrics =
+      body.metrics && typeof body.metrics === "object" ? body.metrics : {};
 
     const metrics = safeObj(baseMetrics);
     metrics.scores = safeObj(metrics.scores);
@@ -339,9 +383,11 @@ export async function handler(event) {
     // ---------------------------------------------
     const htmlFacts = await buildHtmlFacts(url);
 
+    // Store into basic_checks (canonical place used by your scoring logic)
     metrics.basic_checks.title_present = htmlFacts.title_present ?? null;
     metrics.basic_checks.title_text = htmlFacts.title_text ?? null;
-    metrics.basic_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
+    metrics.basic_checks.meta_description_present =
+      htmlFacts.meta_description_present ?? null;
     metrics.basic_checks.h1_present = htmlFacts.h1_present ?? null;
     metrics.basic_checks.h1_count = htmlFacts.h1_count ?? null;
     metrics.basic_checks.canonical_present = htmlFacts.canonical_present ?? null;
@@ -350,12 +396,15 @@ export async function handler(event) {
     metrics.basic_checks.viewport_present = htmlFacts.viewport_present ?? null;
     metrics.basic_checks.html_length = htmlFacts.html_length ?? null;
 
+    // Mirror into html_checks too (some older code looks for this)
     metrics.html_checks = safeObj(metrics.html_checks);
     metrics.html_checks.title_present = htmlFacts.title_present ?? null;
     metrics.html_checks.title_text = htmlFacts.title_text ?? null;
     metrics.html_checks.title_length = htmlFacts.title_length ?? null;
-    metrics.html_checks.meta_description_present = htmlFacts.meta_description_present ?? null;
-    metrics.html_checks.meta_description_length = htmlFacts.meta_description_length ?? null;
+    metrics.html_checks.meta_description_present =
+      htmlFacts.meta_description_present ?? null;
+    metrics.html_checks.meta_description_length =
+      htmlFacts.meta_description_length ?? null;
     metrics.html_checks.h1_present = htmlFacts.h1_present ?? null;
     metrics.html_checks.h1_count = htmlFacts.h1_count ?? null;
     metrics.html_checks.canonical_present = htmlFacts.canonical_present ?? null;
@@ -365,12 +414,44 @@ export async function handler(event) {
     metrics.html_checks.html_length = htmlFacts.html_length ?? null;
 
     // ---------------------------------------------
-    // Brick 2B: compute deterministic scores from facts
+    // Brick 2B: populate security posture facts
     // ---------------------------------------------
-    const s = computeScoresFromFacts(metrics);
-    metrics.scores.performance = s.performance;
-    metrics.scores.ux_clarity = s.ux_clarity;
-    metrics.scores.trust_professionalism = s.trust_professionalism;
+    const secFacts = await buildSecurityFacts(url);
+
+    // Store into basic_checks (truthy facts you can show in report later)
+    metrics.basic_checks.https = secFacts.https ?? null;
+    metrics.basic_checks.redirected_to_https = secFacts.redirected_to_https ?? null;
+    metrics.basic_checks.hsts_present = secFacts.hsts_present ?? null;
+    metrics.basic_checks.csp_present = secFacts.csp_present ?? null;
+    metrics.basic_checks.xfo_present = secFacts.xfo_present ?? null;
+    metrics.basic_checks.xcto_present = secFacts.xcto_present ?? null;
+    metrics.basic_checks.referrer_policy_present =
+      secFacts.referrer_policy_present ?? null;
+    metrics.basic_checks.permissions_policy_present =
+      secFacts.permissions_policy_present ?? null;
+    metrics.basic_checks.mixed_content_hints = secFacts.mixed_content_hints ?? null;
+
+    // Also keep a neat bucket for later UI use
+    metrics.security_checks = safeObj(metrics.security_checks);
+    metrics.security_checks.final_url = secFacts.final_url ?? null;
+    metrics.security_checks.https = secFacts.https ?? null;
+    metrics.security_checks.redirected_to_https = secFacts.redirected_to_https ?? null;
+    metrics.security_checks.hsts_present = secFacts.hsts_present ?? null;
+    metrics.security_checks.csp_present = secFacts.csp_present ?? null;
+    metrics.security_checks.xfo_present = secFacts.xfo_present ?? null;
+    metrics.security_checks.xcto_present = secFacts.xcto_present ?? null;
+    metrics.security_checks.referrer_policy_present =
+      secFacts.referrer_policy_present ?? null;
+    metrics.security_checks.permissions_policy_present =
+      secFacts.permissions_policy_present ?? null;
+    metrics.security_checks.mixed_content_hints = secFacts.mixed_content_hints ?? null;
+
+    // Deterministic derived score (feeds your Trust block immediately)
+    if (typeof secFacts.security_score === "number") {
+      metrics.scores.security_trust = secFacts.security_score;
+    } else {
+      metrics.scores.security_trust = metrics.scores.security_trust ?? null;
+    }
 
     // 1) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
@@ -400,7 +481,7 @@ export async function handler(event) {
         scan_id: scanRow.id,
         report_id: scanRow.report_id,
         html_facts_populated: true,
-        scores_populated: true,
+        security_facts_populated: true,
       }),
     };
   } catch (err) {
