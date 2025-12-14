@@ -94,8 +94,9 @@ export async function handler(event) {
     };
   }
 
-  const scores = scan.metrics?.scores || {};
-  const basicChecks = scan.metrics?.basic_checks || {};
+  const metrics = scan.metrics || {};
+  const scores = metrics?.scores || {};
+  const basicChecks = metrics?.basic_checks || {};
 
   // recompute overall (safe, deterministic, no invention)
   const recomputedOverall = computeOverallScore(scores, basicChecks);
@@ -109,26 +110,34 @@ export async function handler(event) {
     .eq("report_id", reportId)
     .limit(1);
 
-  const narrative = repRows?.[0]?.narrative || null;
+  const narrative = repRows?.[0]?.narrative || {};
 
   return {
     statusCode: 200,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       success: true,
+
+      // ✅ what report-data.js needs
       scores,
       narrative,
-      narrative_source: narrative ? "stored" : "none",
+      metrics, // ✅ THIS is the missing piece for Key Insight Metrics
+
+      narrative_source: narrative && Object.keys(narrative).length ? "stored" : "none",
+
       report: {
         url: scan.url,
         report_id: scan.report_id,
         created_at: scan.created_at,
       },
-      speed_stability: scan.metrics?.speed_stability || null,
-      core_web_vitals:
-        scan.metrics?.core_web_vitals ||
-        scan.metrics?.psi_mobile?.coreWebVitals ||
-        null,
+
+      // existing convenience fields
+      speed_stability: metrics?.speed_stability || null,
+      core_web_vitals: metrics?.core_web_vitals || metrics?.psi_mobile?.coreWebVitals || null,
+
+      // optional debug helpers (safe, deterministic)
+      basic_checks: metrics?.basic_checks || null,
+      html_checks: metrics?.html_checks || null,
     }),
   };
 }
