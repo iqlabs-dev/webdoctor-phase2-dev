@@ -322,6 +322,16 @@ function renderHumanSignal1(basicChecks = {}) {
           : `The page appears to intentionally subvert conventional clarity and structure. While this increases cognitive load for most visitors, it may be a deliberate design choice rather than an oversight. ${reasonText}`.trim();
 
   setText("hs1-comment", msg);
+
+  const barMap = {
+  CLEAR: 85,
+  MODERATE: 55,
+  HIGH: 30,
+  INTENTIONAL: 40
+};
+
+setBar("hs1", barMap[r.level] ?? 0);
+
 }
 
 
