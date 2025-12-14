@@ -1,13 +1,14 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Wiring for 3 Gold-Standard signal blocks
+// iQWEB Report v5.2 — Gold wiring for 3 signal blocks
 // - Performance (score + narrative)
-// - UX & Clarity (DIRECT score now, derived later)
-// - Trust & Professionalism (DIRECT score now, derived later)
-// - Executive Narrative leads
+// - UX & Clarity (derived score + narrative)
+// - Trust & Professionalism (derived score + narrative)
+// - Executive Narrative lead
 // - AI-only rule: empty stays empty (no placeholders)
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) { return document.querySelector(sel); }
+function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 function safeObj(o) { return o && typeof o === "object" ? o : {}; }
 function isNonEmptyString(v) { return typeof v === "string" && v.trim().length > 0; }
 
@@ -39,18 +40,35 @@ function formatReportDate(isoString) {
   return `${day} ${mon} ${year}`;
 }
 
+function clampScore(n) {
+  if (typeof n !== "number" || Number.isNaN(n)) return null;
+  if (n < 0) return 0;
+  if (n > 100) return 100;
+  return n;
+}
+
 function setScore(field, score) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
-  if (typeof score === "number" && !Number.isNaN(score)) el.textContent = `${Math.round(score)} / 100`;
-  else el.textContent = "";
+  const s = clampScore(score);
+  el.textContent = (typeof s === "number") ? `${Math.round(s)} / 100` : "";
+}
+
+// NEW: set bar width (0–100)
+function setBar(name, score) {
+  const el = qs(`[data-bar="${name}"]`);
+  if (!el) return;
+  const s = clampScore(score);
+  el.style.width = (typeof s === "number") ? `${s}%` : "0%";
 }
 
 // Average only valid numbers
 function avg(nums) {
-  const clean = nums.filter((n) => typeof n === "number" && !Number.isNaN(n));
+  const clean = nums
+    .map(clampScore)
+    .filter((n) => typeof n === "number" && !Number.isNaN(n));
   if (!clean.length) return null;
-  return clean.reduce((a,b) => a + b, 0) / clean.length;
+  return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
 
 // Build narrative from multiple candidate strings (AI-only, no invented text)
@@ -109,80 +127,55 @@ async function loadReportData() {
     }
   }
 
-  // ✅ Dashboard-consistent pieces (separate pills)
   setText("report-date", formatReportDate(report.created_at));
   setText("report-time", formatReportTimeLocal(report.created_at));
   setText("report-id", headerReportId);
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
-  const executive = narrative.intro || narrative.overall_summary || "";
-  setText("overall-summary", executive);
+  setText("overall-summary", narrative.intro || "");
 
   // ---------------- SIGNAL 1: PERFORMANCE ----------------
-  setScore("score-performance", scores.performance);
-  const perfText = joinParts([narrative.performance, narrative.performance_comment], 2);
-  setText("performance-comment", perfText);
+  const perfScore = clampScore(scores.performance);
+  setScore("score-performance", perfScore);
+  setBar("performance", perfScore);
+  setText("performance-comment", joinParts([ narrative.performance || "" ], 2));
 
-  // ---------------- SIGNAL 2: UX & CLARITY (DIRECT or DERIVED fallback) ----------------
-  const uxDerived = avg([
+  // ---------------- SIGNAL 2: UX & CLARITY ----------------
+  const uxScore = avg([
     scores.seo,
     scores.structure_semantics,
     scores.mobile_experience,
     scores.content_signals
   ]);
 
-  const uxScore =
-    (typeof scores.ux_clarity === "number" && !Number.isNaN(scores.ux_clarity))
-      ? scores.ux_clarity
-      : uxDerived;
-
   setScore("score-ux", uxScore);
+  setBar("ux", uxScore);
 
   const uxText = joinParts([
-    narrative.mobile,
-    narrative.mobileExperience,
-    narrative.mobile_comment,
-
-    narrative.structure,
-    narrative.structureSemantics,
-    narrative.structure_comment,
-
-    narrative.seo,
-    narrative.seoFoundations,
-    narrative.seo_comment,
-
-    narrative.content,
-    narrative.contentSignals,
-    narrative.content_comment
+    narrative.mobile_comment || "",
+    narrative.structure_comment || "",
+    narrative.seo_comment || "",
+    narrative.content_comment || ""
   ], 3);
+
   setText("ux-comment", uxText);
 
-  // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM (DIRECT or DERIVED fallback) ----------------
-  const trustDerived = avg([
+  // ---------------- SIGNAL 3: TRUST & PROFESSIONALISM ----------------
+  const trustScore = avg([
     scores.security_trust,
     scores.domain_hosting,
     scores.accessibility
   ]);
 
-  const trustScore =
-    (typeof scores.trust_professionalism === "number" && !Number.isNaN(scores.trust_professionalism))
-      ? scores.trust_professionalism
-      : trustDerived;
-
   setScore("score-trust", trustScore);
+  setBar("trust", trustScore);
 
   const trustText = joinParts([
-    narrative.security,
-    narrative.securityTrust,
-    narrative.security_comment,
-
-    narrative.domain,
-    narrative.domainHosting,
-    narrative.domain_comment,
-
-    narrative.accessibility,
-    narrative.accessibility_comment
+    narrative.security_comment || "",
+    narrative.domain_comment || "",
+    narrative.accessibility_comment || ""
   ], 3);
+
   setText("trust-comment", trustText);
 
   // Done: fade loader

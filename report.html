@@ -38,6 +38,11 @@
       --footer-border: #e2e8f0;
 
       --link: #0f172a;
+
+      /* NEW: signal bar tokens */
+      --bar-track: rgba(15,23,42,0.10);
+      --bar-fill: rgba(20,184,166,0.95);
+      --bar-glow: rgba(20,184,166,0.18);
     }
 
     /* Dark mode (LOCKED BEHAVIOUR): only swaps tokens, layout unchanged */
@@ -67,6 +72,11 @@
       --footer-border: rgba(148,163,184,0.18);
 
       --link: #e6edf7;
+
+      /* NEW: signal bar tokens */
+      --bar-track: rgba(226,232,240,0.16);
+      --bar-fill: rgba(45,212,191,0.95);
+      --bar-glow: rgba(45,212,191,0.16);
     }
 
     html, body {
@@ -284,6 +294,26 @@
       color: var(--text);
     }
 
+    /* NEW: Signal bar (deterministic fill from score) */
+    .wd-signal-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bar-track);
+      position: relative;
+      overflow: hidden;
+      margin: 8px 0 12px;
+    }
+
+    .wd-signal-bar > span {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      border-radius: 999px;
+      background: var(--bar-fill);
+      box-shadow: 0 0 0 1px var(--bar-glow), 0 10px 28px var(--bar-glow);
+      transition: width 520ms ease;
+    }
+
     .wd-diag-summary {
       font-size: 0.88rem;
       line-height: 1.55;
@@ -335,22 +365,22 @@
         </div>
 
         <div class="wd-header-meta-row">
-  <!-- LOCKED ORDER: Report Date first, then Report Time, then Report ID -->
-<div class="wd-meta-pill">
-  <span class="wd-meta-label">Report Date</span>
-  <span class="wd-meta-value" data-field="report-date"></span>
-</div>
+          <!-- LOCKED ORDER: Report Date first, then Report Time, then Report ID -->
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report Date</span>
+            <span class="wd-meta-value" data-field="report-date"></span>
+          </div>
 
-<div class="wd-meta-pill">
-  <span class="wd-meta-label">Report Time</span>
-  <span class="wd-meta-value" data-field="report-time"></span>
-</div>
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report Time</span>
+            <span class="wd-meta-value" data-field="report-time"></span>
+          </div>
 
-<div class="wd-meta-pill">
-  <span class="wd-meta-label">Report ID</span>
-  <span class="wd-meta-value" data-field="report-id"></span>
-</div>
-
+          <div class="wd-meta-pill">
+            <span class="wd-meta-label">Report ID</span>
+            <span class="wd-meta-value" data-field="report-id"></span>
+          </div>
+        </div>
       </section>
 
       <!-- BODY -->
@@ -361,7 +391,7 @@
           <p class="wd-narrative-text" data-field="overall-summary"></p>
         </section>
 
-        <!-- DELIVERY SIGNALS (Narrative first, score second) -->
+        <!-- DELIVERY SIGNALS -->
         <section class="wd-section" data-section="signals">
           <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
 
@@ -370,6 +400,7 @@
               <div class="wd-diag-title">Performance</div>
               <div class="wd-score-pill" data-field="score-performance"></div>
             </div>
+            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="performance"></span></div>
             <p class="wd-diag-summary" data-field="performance-comment"></p>
           </div>
 
@@ -378,6 +409,7 @@
               <div class="wd-diag-title">UX &amp; Clarity</div>
               <div class="wd-score-pill" data-field="score-ux"></div>
             </div>
+            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="ux"></span></div>
             <p class="wd-diag-summary" data-field="ux-comment"></p>
           </div>
 
@@ -386,6 +418,7 @@
               <div class="wd-diag-title">Trust &amp; Professionalism</div>
               <div class="wd-score-pill" data-field="score-trust"></div>
             </div>
+            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="trust"></span></div>
             <p class="wd-diag-summary" data-field="trust-comment"></p>
           </div>
 
