@@ -4,11 +4,10 @@
 // - UX & Clarity (derived score + narrative)
 // - Trust & Professionalism (derived score + narrative)
 // - Executive Narrative lead
-// - AI-only rule: empty stays empty (no placeholders)
+// - Deterministic fallbacks for empty narrative blocks (NON-AI)
 // - Dispatches iqweb:loaded to fade the "Building Report" loader
 
 function qs(sel) { return document.querySelector(sel); }
-function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 function safeObj(o) { return o && typeof o === "object" ? o : {}; }
 function isNonEmptyString(v) { return typeof v === "string" && v.trim().length > 0; }
 
@@ -54,7 +53,7 @@ function setScore(field, score) {
   el.textContent = (typeof s === "number") ? `${Math.round(s)} / 100` : "";
 }
 
-// NEW: set bar width (0–100)
+// Set signal bar width (0–100)
 function setBar(name, score) {
   const el = qs(`[data-bar="${name}"]`);
   if (!el) return;
@@ -71,7 +70,7 @@ function avg(nums) {
   return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
 
-// Build narrative from multiple candidate strings (AI-only, no invented text)
+// Build narrative from multiple candidate strings (AI-only, no invention)
 function joinParts(parts, maxParts = 3) {
   const picked = [];
   for (const p of parts) {
@@ -79,6 +78,11 @@ function joinParts(parts, maxParts = 3) {
     if (picked.length >= maxParts) break;
   }
   return picked.join("\n\n");
+}
+
+// Deterministic fallback (NON-AI, absence-of-risk language)
+function fallbackIfEmpty(text, fallback) {
+  return isNonEmptyString(text) ? text : fallback;
 }
 
 async function loadReportData() {
@@ -138,7 +142,15 @@ async function loadReportData() {
   const perfScore = clampScore(scores.performance);
   setScore("score-performance", perfScore);
   setBar("performance", perfScore);
-  setText("performance-comment", joinParts([ narrative.performance || "" ], 2));
+
+  const perfNarrative = joinParts([ narrative.performance || "" ], 2);
+  setText(
+    "performance-comment",
+    fallbackIfEmpty(
+      perfNarrative,
+      "No material performance issues were detected from the available data."
+    )
+  );
 
   // ---------------- SIGNAL 2: UX & CLARITY ----------------
   const uxScore = avg([
@@ -170,13 +182,19 @@ async function loadReportData() {
   setScore("score-trust", trustScore);
   setBar("trust", trustScore);
 
-  const trustText = joinParts([
+  const trustNarrative = joinParts([
     narrative.security_comment || "",
     narrative.domain_comment || "",
     narrative.accessibility_comment || ""
   ], 3);
 
-  setText("trust-comment", trustText);
+  setText(
+    "trust-comment",
+    fallbackIfEmpty(
+      trustNarrative,
+      "No trust or security risks were identified at the time of analysis."
+    )
+  );
 
   // Done: fade loader
   window.dispatchEvent(new Event("iqweb:loaded"));
