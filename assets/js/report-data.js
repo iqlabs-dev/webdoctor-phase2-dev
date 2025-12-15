@@ -24,18 +24,27 @@ function setWidth(el, pct) {
 
 // -------------------- Loader / Screen switching --------------------
 function exitLoadingScreen() {
-  // Hide common loader elements (covers most templates)
+  // Hide common loader elements
   const hideSelectors = [
     "#loading-screen",
     "#loading",
     "#loader",
     "#report-loading",
     "#build-screen",
+    "#build-overlay",
+    "#loadingOverlay",
+    "#loading-overlay",
+    "#overlay",
     ".loading-screen",
     ".loading",
     ".loader",
     ".report-loading",
     ".build-screen",
+    ".build-overlay",
+    ".loading-overlay",
+    ".overlay",
+    "[data-loading]",
+    "[data-loader]",
   ];
 
   for (const sel of hideSelectors) {
@@ -46,6 +55,27 @@ function exitLoadingScreen() {
       el.style.pointerEvents = "none";
     });
   }
+
+  // EXTRA: hide any overlay that literally contains "BUILDING REPORT"
+  // (this matches your screenshot overlay even if the id/class differs)
+  document.querySelectorAll("body *").forEach((el) => {
+    try {
+      // only consider elements that could be overlays
+      const cs = window.getComputedStyle(el);
+      const isOverlayish =
+        cs.position === "fixed" || cs.position === "absolute" || cs.position === "sticky";
+
+      if (!isOverlayish) return;
+
+      const t = (el.textContent || "").toUpperCase();
+      if (t.includes("BUILDING REPORT")) {
+        el.style.display = "none";
+        el.style.visibility = "hidden";
+        el.style.opacity = "0";
+        el.style.pointerEvents = "none";
+      }
+    } catch (_) {}
+  });
 
   // Show common report containers
   const showSelectors = [
@@ -58,25 +88,22 @@ function exitLoadingScreen() {
 
   for (const sel of showSelectors) {
     document.querySelectorAll(sel).forEach((el) => {
-      // only force show if it looks intentionally hidden
       const cs = window.getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0") {
-        el.style.display = "block";
-        el.style.visibility = "visible";
-        el.style.opacity = "1";
-      }
+      if (cs.display === "none") el.style.display = "block";
+      if (cs.visibility === "hidden") el.style.visibility = "visible";
+      if (cs.opacity === "0") el.style.opacity = "1";
+      el.style.pointerEvents = "auto";
     });
   }
 
-  // Remove any "loading" class on body/html
-  document.documentElement.classList.remove("loading");
-  document.body.classList.remove("loading");
+  // Remove any "loading" class
+  document.documentElement.classList.remove("loading", "is-loading");
+  document.body.classList.remove("loading", "is-loading");
 }
 
 function showFatalError(msg) {
   console.error("[REPORT] fatal:", msg);
 
-  // Try to place error into any obvious error slot
   const target =
     document.getElementById("report-error") ||
     document.getElementById("error") ||
@@ -88,7 +115,6 @@ function showFatalError(msg) {
     target.textContent = msg;
   }
 
-  // Still exit loader so user isn't stuck
   exitLoadingScreen();
 }
 
@@ -168,8 +194,6 @@ function applyHeader(data) {
   const created = data.created_at || report.created_at || null;
   const reportId = data.report_id || report.report_id || "";
 
-  // These IDs must match your report.html.
-  // If they differ, header just won't populate — but report will still load.
   setText(document.getElementById("report-website"), url || "");
 
   if (created) {
@@ -194,12 +218,9 @@ function applyExecutiveNarrative(narrativeObj) {
     narrativeObj?.summary ||
     "";
 
-  if (!txt || !String(txt).trim()) {
-    execEl.textContent = "No executive narrative was available for this scan.";
-    return;
-  }
-
-  execEl.textContent = String(txt).trim();
+  execEl.textContent = (txt && String(txt).trim())
+    ? String(txt).trim()
+    : "No executive narrative was available for this scan.";
 }
 
 function applySignals(data) {
@@ -242,15 +263,12 @@ async function loadReportData() {
       return;
     }
 
-    // Populate UI (safe even if ids don't match)
     applyHeader(data);
-
     const narrative = resolveNarrative(data);
     applyExecutiveNarrative(narrative);
-
     applySignals(data);
 
-    // ✅ MOST IMPORTANT: exit the loader screen no matter what
+    // ✅ exit loader no matter what
     exitLoadingScreen();
 
     console.log("[REPORT] Loaded OK:", {
