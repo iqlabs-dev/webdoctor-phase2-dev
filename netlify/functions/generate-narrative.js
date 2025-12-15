@@ -168,11 +168,15 @@ const { error: upsertErr } = await supabase
   .from("report_data")
   .upsert(
     {
-      report_id,
-      narrative,
+      report_id: report_id,
+      url: scan.url,
+      user_id: scan.user_id,
+      created_at: scan.created_at,
+      narrative: narrative,
     },
     { onConflict: "report_id" }
   );
+
 
 
     if (upsertErr) {
