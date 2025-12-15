@@ -1,4 +1,12 @@
 // /.netlify/functions/get-report-data.js
+// iQWEB v5.2 — READ-ONLY report fetch
+//
+// RULES:
+// - Never generate AI narrative here
+// - Never write to DB here
+// - Scan truth source: scan_results.metrics
+// - Narrative (optional) source: report_data.narrative
+
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -25,8 +33,65 @@ function isNumeric(v) {
   return /^[0-9]+$/.test(String(v || "").trim());
 }
 
+// ---------------------------------------------
+// Soft-rebalanced overall scoring (Option A)
+// ---------------------------------------------
+function computeOverallScore(rawScores = {}, basicChecks = {}) {
+  const s = rawScores || {};
+
+  const weights = {
+    performance: 0.16,
+    seo: 0.16,
+    structure_semantics: 0.16,
+    mobile_experience: 0.16,
+    security_trust: 0.12,
+    accessibility: 0.08,
+    domain_hosting: 0.06,
+    content_signals: 0.10,
+  };
+
+  let weightedSum = 0;
+  let weightTotal = 0;
+
+  for (const [key, w] of Object.entries(weights)) {
+    const v = s[key];
+    if (typeof v === "number" && Number.isFinite(v)) {
+      weightedSum += v * w;
+      weightTotal += w;
+    }
+  }
+
+  if (weightTotal === 0) return null;
+
+  let baseScore = weightedSum / weightTotal;
+
+  // deterministic penalties based on HTML facts only
+  let penalty = 0;
+  if (basicChecks.viewport_present === false) penalty += 8;
+  if (basicChecks.h1_present === false) penalty += 6;
+  if (basicChecks.meta_description_present === false) penalty += 6;
+
+  const htmlLength = basicChecks.html_length ?? basicChecks.html_bytes ?? null;
+  if (typeof htmlLength === "number") {
+    if (htmlLength < 500) penalty += 4;
+    else if (htmlLength > 200000) penalty += 3;
+  }
+
+  let finalScore = baseScore - penalty;
+  if (!Number.isFinite(finalScore)) return null;
+
+  if (finalScore < 0) finalScore = 0;
+  if (finalScore > 100) finalScore = 100;
+
+  return Math.round(finalScore * 10) / 10;
+}
+
 export async function handler(event) {
   try {
+    if (event.httpMethod !== "GET") {
+      return json(405, { success: false, error: "Method not allowed" });
+    }
+
     const q = event.queryStringParameters || {};
     const reportIdRaw = q.report_id || q.reportId || q.id || q.scan_id || null;
 
@@ -38,87 +103,83 @@ export async function handler(event) {
 
     /* ---------------------------------
        1) Load scan_results (truth)
-       - if numeric -> treat as scan_results.id
-       - else -> treat as scan_results.report_id
+       - reportId may be numeric scan_results.id OR string scan_results.report_id
     --------------------------------- */
     let scan = null;
 
     if (isNumeric(reportId)) {
       const { data, error } = await supabase
         .from("scan_results")
-        .select("id, user_id, url, created_at, status, score_overall, metrics, report_id, report_url")
+        .select("id, user_id, url, created_at, status, score_overall, metrics, report_id")
         .eq("id", Number(reportId))
         .single();
 
-      if (!error && data) scan = data;
+      if (error) return json(404, { success: false, error: "Report not found for that report_id" });
+      scan = data;
     } else {
       const { data, error } = await supabase
         .from("scan_results")
-        .select("id, user_id, url, created_at, status, score_overall, metrics, report_id, report_url")
+        .select("id, user_id, url, created_at, status, score_overall, metrics, report_id")
         .eq("report_id", reportId)
         .order("created_at", { ascending: false })
         .limit(1);
 
-      if (!error && data && data.length) scan = data[0];
+      if (error || !data || !data.length) {
+        return json(404, { success: false, error: "Report not found for that report_id" });
+      }
+      scan = data[0];
     }
 
     if (!scan) {
-      return json(404, {
-        success: false,
-        error: "Report not found for that report_id",
-      });
+      return json(404, { success: false, error: "Report not found for that report_id" });
     }
+
+    const metrics = safeObj(scan.metrics);
+    const scores = safeObj(metrics.scores);
+    const basicChecks = safeObj(metrics.basic_checks);
+
+    // recompute overall (safe, deterministic)
+    const recomputedOverall = computeOverallScore(scores, basicChecks);
+    if (typeof recomputedOverall === "number") scores.overall = recomputedOverall;
 
     /* ---------------------------------
        2) Load narrative (optional layer)
-       - from report_data by report_id
     --------------------------------- */
-    const { data: narrativeRow } = await supabase
+    const { data: repRows } = await supabase
       .from("report_data")
       .select("narrative")
       .eq("report_id", scan.report_id)
-      .single();
+      .limit(1);
+
+    const narrative = repRows?.[0]?.narrative || null;
 
     /* ---------------------------------
-       3) Unified response (stable shape)
+       3) Unified response
     --------------------------------- */
-    const metrics = safeObj(scan.metrics);
-    const scores = safeObj(metrics.scores);
-    const basic_checks = safeObj(metrics.basic_checks);
-
-    // Your run-scan currently writes metrics.human_signals (not metrics.human_signals.* nesting)
-    const human_signals = safeObj(metrics.human_signals);
-
-    const narrative = narrativeRow?.narrative ?? null;
-
     return json(200, {
       success: true,
 
       report: {
         id: scan.id,
-        report_id: scan.report_id || null,
-        url: scan.url || null,
-        created_at: scan.created_at || null,
+        report_id: scan.report_id,
+        url: scan.url,
+        created_at: scan.created_at,
         status: scan.status || null,
-        report_url: scan.report_url || null,
       },
 
-      // keep both for compatibility with report-data.js
-      scores: scores,
-      metrics: metrics,
+      scores,
+      metrics,
+      basic_checks: basicChecks,
 
-      basic_checks: basic_checks,
-      human_signals: human_signals,
+      // expose computed human signals (if present)
+      human_signals: safeObj(metrics.human_signals),
 
-      narrative: safeObj(narrative),
-      hasNarrative: !!narrative,
+      narrative: narrative || {},
+      hasNarrative: !!(narrative && (narrative.intro || narrative.executive_summary || narrative.overall_summary)),
+      narrative_source: narrative ? "stored" : "none",
     });
   } catch (err) {
     console.error("[get-report-data]", err);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: String(err),
-    });
+    return json(500, { success: false, error: "Server error" });
   }
 }
