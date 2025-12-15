@@ -1,4 +1,4 @@
-// /netlify/functions/get-report-data.js
+// /.netlify/functions/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -6,167 +6,124 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+    body: JSON.stringify(obj),
+  };
+}
+
 function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
 
-function clampScore(n) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return null;
-  if (x < 0) return 0;
-  if (x > 100) return 100;
-  return Math.round(x);
+function isNumericId(v) {
+  if (typeof v !== "string") return false;
+  return /^[0-9]+$/.test(v.trim());
 }
 
-// Prefer scan.metrics.scores, but tolerate older nesting
-function resolveScores(scan) {
-  const m = safeObj(scan?.metrics);
-  const s1 = safeObj(m?.scores);
-  const s2 = safeObj(m?.report?.metrics?.scores);
-  const s3 = safeObj(m?.metrics?.scores);
+// Try: report_id param may be either
+// - numeric scan_results.id (e.g. 298)
+// - string scan_results.report_id (e.g. WEB-2025349-63963)
+async function fetchRowByEitherId(reportIdRaw) {
+  const rid = String(reportIdRaw || "").trim();
+  if (!rid) return { row: null, error: "Missing report_id" };
 
-  const src = Object.keys(s1).length ? s1 : Object.keys(s2).length ? s2 : s3;
+  // 1) Try as report_id (string)
+  {
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select(
+        "id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative"
+      )
+      .eq("report_id", rid)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-  // Normalize
-  const out = {
-    overall: clampScore(src.overall ?? src.overall_score ?? scan?.score_overall),
-    performance: clampScore(src.performance),
-    seo: clampScore(src.seo),
-    structure: clampScore(src.structure),
-    mobile: clampScore(src.mobile),
-    security: clampScore(src.security),
-    accessibility: clampScore(src.accessibility),
-  };
-
-  // If overall missing, compute a simple average of available signal scores
-  if (out.overall == null) {
-    const vals = [
-      out.performance,
-      out.seo,
-      out.structure,
-      out.mobile,
-      out.security,
-      out.accessibility,
-    ].filter((v) => typeof v === "number");
-    out.overall = vals.length ? clampScore(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+    if (!error && data && data.length) return { row: data[0], error: null };
   }
 
-  return out;
-}
+  // 2) If numeric, try as primary id
+  if (isNumericId(rid)) {
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select(
+        "id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative"
+      )
+      .eq("id", Number(rid))
+      .single();
 
-function resolveBasicChecks(scan) {
-  const m = safeObj(scan?.metrics);
-  // You’ve had a few shapes over time — we tolerate them all.
-  return (
-    safeObj(m?.basic_checks) ||
-    safeObj(m?.checks) ||
-    safeObj(m?.report?.basic_checks) ||
-    safeObj(m?.report?.checks) ||
-    {}
-  );
-}
+    if (!error && data) return { row: data, error: null };
+  }
 
-async function fetchNarrative(reportKey) {
-  if (!reportKey) return null;
-
-  // Try report_data first (your existing table)
-  const { data, error } = await supabase
-    .from("report_data")
-    .select("report_id, narrative, created_at")
-    .eq("report_id", reportKey)
-    .single();
-
-  if (error || !data) return null;
-  return data;
+  return { row: null, error: "Report not found for that report_id" };
 }
 
 export async function handler(event) {
-  if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, message: "Method not allowed" }),
-    };
-  }
-
   try {
-    const qs = event.queryStringParameters || {};
-    const rawId = (qs.report_id || "").trim();
+    const params = event.queryStringParameters || {};
+    const reportId = params.report_id || params.reportId || params.id || params.scan_id || null;
 
-    if (!rawId) {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, message: "Missing report_id" }),
-      };
+    if (!reportId) {
+      return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // If it looks numeric, we also try scan_results.id
-    const maybeInt = /^\d+$/.test(rawId) ? Number(rawId) : null;
-
-    // ✅ IMPORTANT: allow BOTH:
-    // - scan_results.report_id == rawId
-    // - scan_results.id == rawId (numeric)
-    let query = supabase
-      .from("scan_results")
-      .select("id, user_id, url, metrics, report_id, created_at, status, score_overall, report_url")
-      .limit(1);
-
-    if (maybeInt != null) {
-      query = query.or(`report_id.eq.${rawId},id.eq.${maybeInt}`);
-    } else {
-      query = query.eq("report_id", rawId);
+    const { row, error } = await fetchRowByEitherId(reportId);
+    if (error || !row) {
+      return json(404, { success: false, error: error || "Not found" });
     }
 
-    const { data: scan, error: scanError } = await query.single();
+    // Build a response shape that report-data.js can consume reliably
+    const metrics = safeObj(row.metrics);
+    const scores =
+      safeObj(metrics.scores).overall || safeObj(metrics.scores).performance
+        ? safeObj(metrics.scores)
+        : safeObj(metrics.report?.metrics?.scores);
 
-    if (scanError || !scan) {
-      return {
-        statusCode: 404,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, message: "Scan result not found" }),
-      };
-    }
+    const basic_checks =
+      safeObj(metrics.basic_checks).title_present !== undefined
+        ? safeObj(metrics.basic_checks)
+        : safeObj(metrics.report?.basic_checks);
 
-    const scores = resolveScores(scan);
-    const basic_checks = resolveBasicChecks(scan);
+    const narrative = safeObj(row.narrative);
 
-    // Narrative is keyed by scan.report_id (preferred). If missing, try a stable fallback key.
-    const narrativeKey = scan.report_id || null;
-    const narrativeRow = narrativeKey ? await fetchNarrative(narrativeKey) : null;
+    return json(200, {
+      success: true,
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        success: true,
+      // "report" header block
+      report: {
+        id: row.id,
+        report_id: row.report_id || null,
+        url: row.url || null,
+        created_at: row.created_at || null,
+        status: row.status || null,
+        report_url: row.report_url || null,
+      },
 
-        // Identity
-        report_id: scan.report_id || null,
-        scan_id: scan.id,
-        url: scan.url,
-        created_at: scan.created_at,
-        status: scan.status || "completed",
+      // Keep both: some code reads scores directly, some reads metrics.scores
+      scores: scores || {},
+      metrics: metrics || {},
 
-        // Data
-        scores,
-        basic_checks,
-        metrics: scan.metrics || {},
+      basic_checks: basic_checks || {},
 
-        // Optional narrative
-        hasNarrative: !!(narrativeRow && narrativeRow.narrative),
-        narrative: narrativeRow?.narrative || null,
+      // Executive narrative payload (if you store it)
+      narrative: narrative || {},
 
-        // PDF url if you want it later
-        report_url: scan.report_url || null,
-      }),
-    };
-  } catch (err) {
-    console.error("[get-report-data] error:", err);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, message: "Server error" }),
-    };
+      // Convenience flags
+      hasNarrative: !!(
+        narrative &&
+        (narrative.overall_summary ||
+          narrative.executive_summary ||
+          narrative.summary ||
+          narrative.narrative)
+      ),
+    });
+  } catch (e) {
+    console.error("[get-report-data] error:", e);
+    return json(500, { success: false, error: e?.message || "Server error" });
   }
 }

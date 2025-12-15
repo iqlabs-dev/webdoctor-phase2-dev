@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED — AUTH VERSION —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.4-NO-NUMERIC-REPORTID");
+console.log("DASHBOARD JS v3.3-FULLFIX-scan_results+latest_card");
 
 // ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
 const PLAN_PRICE_IDS = {
@@ -16,6 +16,7 @@ const PLAN_PRICE_IDS = {
 let currentUserId = null;
 
 window.currentReport = null;
+window.lastScanResult = null;
 window.currentProfile = null;
 window.currentUserEmail = null;
 
@@ -179,11 +180,7 @@ async function decrementScanBalance() {
     return;
   }
 
-  window.currentProfile = {
-    ...(window.currentProfile || {}),
-    plan_scans_remaining: planScansRemaining,
-    credits,
-  };
+  window.currentProfile = { ...(window.currentProfile || {}), plan_scans_remaining: planScansRemaining, credits };
   updateUsageUI(window.currentProfile);
 }
 
@@ -251,13 +248,9 @@ function updateLatestScanCard(row) {
     report_id: row.report_id || null,
   };
 
-  // View full report should ALWAYS use report_id if available
-  if (elView) {
-    if (row.report_id) {
-      elView.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
-    } else {
-      elView.href = "#";
-    }
+  if (elView && (row.report_id || row.id)) {
+    const rid = row.report_id || row.id;
+    elView.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
   }
 }
 
@@ -346,8 +339,8 @@ async function loadScanHistory() {
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
       viewBtn.onclick = () => {
-        if (!row.report_id) return;
-        window.location.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
+        const rid = row.report_id || row.id;
+        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
       };
       tdActions.appendChild(viewBtn);
 
@@ -391,7 +384,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Plan buttons
   const btnInsight = document.getElementById("btn-plan-insight");
   const btnIntelligence = document.getElementById("btn-plan-intelligence");
   const btnImpact = document.getElementById("btn-plan-impact");
@@ -400,7 +392,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
   if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
 
-  // Credit pack buttons
   const btnCredits10 = document.getElementById("btn-credits-10");
   const btnCredits25 = document.getElementById("btn-credits-25");
   const btnCredits50 = document.getElementById("btn-credits-50");
@@ -413,7 +404,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnCredits100) btnCredits100.addEventListener("click", () => startCreditCheckout(100));
   if (btnCredits500) btnCredits500.addEventListener("click", () => startCreditCheckout(500));
 
-  // Auth user
   const { data } = await supabase.auth.getUser();
   if (!data?.user) {
     window.location.href = "/login.html";
@@ -427,9 +417,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   await refreshProfile();
   await loadScanHistory();
 
-  // -----------------------------
-  // RUN SCAN (AUTHENTICATED)
-  // -----------------------------
   runBtn.addEventListener("click", async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
@@ -441,12 +428,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     runBtn.disabled = true;
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || null;
 
+      console.log("[RUN-SCAN] sessionErr:", sessionErr || null);
       console.log("[RUN-SCAN] token present:", !!accessToken);
 
-      if (!accessToken) throw new Error("Session expired. Please refresh and log in again.");
+      if (!accessToken) {
+        throw new Error("Session expired. Please refresh and log in again.");
+      }
 
       const payload = {
         url: cleaned,
@@ -472,38 +462,33 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       console.log("[RUN-SCAN] success scanData:", scanData);
 
-      // Refresh UI first (so latest report_id exists in DB/UI)
       await loadScanHistory();
       await decrementScanBalance();
 
-      // ✅ Only use the REAL report_id
-      let reportId =
+      // ✅ prefer STRING report_id if present, else fallback numeric scan id
+      const reportId =
         scanData.report_id ??
         scanData.reportId ??
         scanData.reportID ??
-        scanData.reportid ??
+        scanData.report?.report_id ??
         null;
 
-      // If the function didn't return it, pull from latest card/history
-      if (!reportId) {
-        const latest = window.currentReport?.report_id || null;
-        if (latest) reportId = latest;
+      const scanId = scanData.scan_id ?? scanData.id ?? scanData.scan?.id ?? null;
+
+      if (reportId) {
+        try {
+          await generateNarrative(reportId, accessToken);
+        } catch (e) {
+          console.warn("[GENERATE-NARRATIVE] skipped/failed:", e?.message || e);
+        }
       }
 
-      // Still none? don't navigate to numeric ids
-      if (!reportId) {
-        statusEl.textContent = "Scan completed, but report_id was not returned. Please refresh and try again.";
-        return;
+      const rid = reportId || scanId;
+      if (rid) {
+        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
+      } else {
+        statusEl.textContent = "Scan completed, but no report id returned.";
       }
-
-      // Try to generate narrative, but never block navigation
-      try {
-        await generateNarrative(reportId, accessToken);
-      } catch (e) {
-        console.warn("[GENERATE-NARRATIVE] skipped/failed:", e?.message || e);
-      }
-
-      window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
@@ -512,7 +497,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Logout
   logoutBtn.addEventListener("click", async () => {
     try {
       await supabase.auth.signOut();
