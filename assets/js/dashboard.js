@@ -184,6 +184,29 @@ async function decrementScanBalance() {
   updateUsageUI(window.currentProfile);
 }
 
+async function generateNarrative(reportId, accessToken) {
+  // If your generate-narrative function requires auth, we pass the same JWT.
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+  const res = await fetch('/.netlify/functions/generate-narrative', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ report_id: reportId }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || data?.success === false) {
+    const msg = data?.error || data?.message || `generate-narrative failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  return data;
+}
+
 // -----------------------------
 // LATEST SCAN CARD (matches your HTML ids)
 // -----------------------------
@@ -229,8 +252,9 @@ function updateLatestScanCard(row) {
     report_id: row.report_id || null,
   };
 
-  if (elView && row.id) {
-    elView.href = `/report.html?report_id=${encodeURIComponent(row.id)}`;
+  if (elView && (row.report_id || row.id)) {
+    const rid = row.report_id || row.id;
+    elView.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
   }
 }
 
@@ -325,7 +349,8 @@ async function loadScanHistory() {
       viewBtn.className = 'btn-link btn-view';
       viewBtn.textContent = 'View';
       viewBtn.onclick = () => {
-        window.location.href = `/report.html?report_id=${encodeURIComponent(row.id)}`;
+        const rid = row.report_id || row.id;
+        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
       };
       tdActions.appendChild(viewBtn);
 
@@ -409,7 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load history (also populates latest card)
   await loadScanHistory();
 
-    // -----------------------------
+  // -----------------------------
   // RUN SCAN (AUTHENTICATED)
   // -----------------------------
   runBtn.addEventListener('click', async () => {
@@ -463,13 +488,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       await loadScanHistory();
       await decrementScanBalance();
 
-      // ✅ Go to report (scan_results.id)
+      // ✅ Generate narrative (separate function) then go to report (report_id)
+      const reportId = scanData.report_id ?? scanData.reportId ?? scanData.reportID ?? null;
       const scanId = scanData.scan_id ?? scanData.id ?? null;
-      if (scanId) {
-        // ✅ IMPORTANT: backticks again
-        window.location.href = `/report.html?report_id=${encodeURIComponent(scanId)}`;
+
+      // Try to generate narrative, but never block navigation if it fails
+      if (reportId) {
+        try {
+          await generateNarrative(reportId, accessToken);
+        } catch (e) {
+          console.warn('[GENERATE-NARRATIVE] skipped/failed:', e?.message || e);
+        }
+      }
+
+      const rid = reportId || scanId;
+      if (rid) {
+        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
       } else {
-        statusEl.textContent = 'Scan completed, but no scan id returned.';
+        statusEl.textContent = 'Scan completed, but no report id returned.';
       }
     } catch (err) {
       console.error('[RUN-SCAN] error:', err);
