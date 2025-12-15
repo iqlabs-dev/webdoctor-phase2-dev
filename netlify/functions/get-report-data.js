@@ -26,101 +26,113 @@ function isNumericId(v) {
   return /^[0-9]+$/.test(v.trim());
 }
 
-// Try: report_id param may be either
-// - numeric scan_results.id (e.g. 298)
-// - string scan_results.report_id (e.g. WEB-2025349-63963)
-async function fetchRowByEitherId(reportIdRaw) {
+// report_id param may be either:
+// - numeric scan_results.id (legacy links, e.g. 298)
+// - string scan_results.report_id (correct, e.g. WEB-2025349-63963)
+async function fetchScanByEitherId(reportIdRaw) {
   const rid = String(reportIdRaw || "").trim();
-  if (!rid) return { row: null, error: "Missing report_id" };
+  if (!rid) return { scan: null, error: "Missing report_id" };
 
   // 1) Try as report_id (string)
   {
     const { data, error } = await supabase
       .from("scan_results")
-      .select(
-        "id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative"
-      )
+      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id")
       .eq("report_id", rid)
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length) return { row: data[0], error: null };
+    if (!error && data && data.length) return { scan: data[0], error: null };
   }
 
   // 2) If numeric, try as primary id
   if (isNumericId(rid)) {
     const { data, error } = await supabase
       .from("scan_results")
-      .select(
-        "id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative"
-      )
+      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id")
       .eq("id", Number(rid))
       .single();
 
-    if (!error && data) return { row: data, error: null };
+    if (!error && data) return { scan: data, error: null };
   }
 
-  return { row: null, error: "Report not found for that report_id" };
+  return { scan: null, error: "Report not found for that report_id" };
+}
+
+async function fetchNarrativeByReportId(reportId) {
+  if (!reportId) return null;
+
+  const { data, error } = await supabase
+    .from("report_data")
+    .select("narrative")
+    .eq("report_id", reportId)
+    .maybeSingle();
+
+  if (error) return null;
+  return safeObj(data?.narrative);
 }
 
 export async function handler(event) {
   try {
     const params = event.queryStringParameters || {};
-    const reportId = params.report_id || params.reportId || params.id || params.scan_id || null;
+    const reportId =
+      params.report_id || params.reportId || params.id || params.scan_id || null;
 
     if (!reportId) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    const { row, error } = await fetchRowByEitherId(reportId);
-    if (error || !row) {
+    const { scan, error } = await fetchScanByEitherId(reportId);
+    if (error || !scan) {
       return json(404, { success: false, error: error || "Not found" });
     }
 
-    // Build a response shape that report-data.js can consume reliably
-    const metrics = safeObj(row.metrics);
-    const scores =
-      safeObj(metrics.scores).overall || safeObj(metrics.scores).performance
-        ? safeObj(metrics.scores)
-        : safeObj(metrics.report?.metrics?.scores);
+    const metrics = safeObj(scan.metrics);
 
-    const basic_checks =
-      safeObj(metrics.basic_checks).title_present !== undefined
-        ? safeObj(metrics.basic_checks)
-        : safeObj(metrics.report?.basic_checks);
+    // scores live at metrics.scores in your run-scan.js
+    const scores = safeObj(metrics.scores);
 
-    const narrative = safeObj(row.narrative);
+    // basic checks live at metrics.basic_checks in your run-scan.js
+    const basic_checks = safeObj(metrics.basic_checks);
+
+    // narrative lives in report_data.narrative (NOT scan_results)
+    const narrative = await fetchNarrativeByReportId(scan.report_id);
+
+    const hasNarrative = !!(
+      narrative &&
+      (
+        narrative.intro ||
+        narrative.overall_summary ||
+        narrative.executive_summary ||
+        narrative.summary ||
+        narrative.performance ||
+        narrative.seo ||
+        narrative.structure ||
+        narrative.mobile ||
+        narrative.security ||
+        narrative.accessibility
+      )
+    );
 
     return json(200, {
       success: true,
 
-      // "report" header block
       report: {
-        id: row.id,
-        report_id: row.report_id || null,
-        url: row.url || null,
-        created_at: row.created_at || null,
-        status: row.status || null,
-        report_url: row.report_url || null,
+        id: scan.id,
+        report_id: scan.report_id || null,
+        url: scan.url || null,
+        created_at: scan.created_at || null,
+        status: scan.status || null,
+        report_url: scan.report_url || null,
+        user_id: scan.user_id || null,
       },
 
-      // Keep both: some code reads scores directly, some reads metrics.scores
-      scores: scores || {},
-      metrics: metrics || {},
+      scores,
+      metrics,
+      basic_checks,
 
-      basic_checks: basic_checks || {},
-
-      // Executive narrative payload (if you store it)
       narrative: narrative || {},
-
-      // Convenience flags
-      hasNarrative: !!(
-        narrative &&
-        (narrative.overall_summary ||
-          narrative.executive_summary ||
-          narrative.summary ||
-          narrative.narrative)
-      ),
+      hasNarrative,
     });
   } catch (e) {
     console.error("[get-report-data] error:", e);
