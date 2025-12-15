@@ -4,10 +4,13 @@
 // - Deterministic sections (Key Insights, Top Issues, Fix Sequence, Final Notes)
 // - Human Signals HS1–HS5 (deterministic classifiers + narrative + bar %)
 //
-// NOTE:
-// - Human Signals render ONLY if matching HTML placeholders exist:
-//   data-field="hs1-status", data-field="hs1-comment", data-bar="hs1" (and hs2..hs5).
-// - Bars render ONLY if you have: <span data-bar="..."></span>
+// Key fix in this version:
+// - Diagnostic Signals now read from multiple possible locations:
+//   1) data.scores.* (preferred)
+//   2) data.report.metrics.scores.*
+//   3) data.metrics.scores.*
+// - Clean fallback text if scores are missing (no empty blocks)
+// - HS5 uses basic_checks.freshness_signals.* from run-scan.js v5.2+
 
 function qs(sel) { return document.querySelector(sel); }
 function safeObj(o) { return o && typeof o === "object" ? o : {}; }
@@ -54,11 +57,10 @@ function setScore(field, score) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
   const s = clampScore(score);
-  el.textContent = (typeof s === "number") ? `${Math.round(s)} / 100` : "";
+  el.textContent = (typeof s === "number") ? `${Math.round(s)} / 100` : "—";
 }
 
 function setBar(name, score) {
-  // expects span[data-bar="name"]
   const el = qs(`[data-bar="${name}"]`);
   if (!el) return;
   const s = clampScore(score);
@@ -76,6 +78,44 @@ function joinParts(parts, maxParts = 3) {
 
 function fallbackIfEmpty(text, fallback) {
   return isNonEmptyString(text) ? text : fallback;
+}
+
+function numOrNull(v) {
+  return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+}
+
+/**
+ * Get scores from multiple possible locations (depending on your get-report-data implementation).
+ * Priority:
+ *  1) data.scores
+ *  2) data.report.metrics.scores
+ *  3) data.metrics.scores
+ */
+function resolveScores(data = {}) {
+  const a = safeObj(data.scores);
+  const b = safeObj(safeObj(safeObj(data.report).metrics).scores);
+  const c = safeObj(safeObj(data.metrics).scores);
+
+  // Merge with priority a > b > c
+  return { ...c, ...b, ...a };
+}
+
+/**
+ * Safe get of narrative object. Your get-report-data currently returns:
+ * - data.narrative (from report_data table)
+ */
+function resolveNarrative(data = {}) {
+  return safeObj(data.narrative);
+}
+
+/**
+ * basic_checks usually returned as data.basic_checks.
+ * Fallback to report.metrics.basic_checks if needed.
+ */
+function resolveBasicChecks(data = {}) {
+  const a = safeObj(data.basic_checks);
+  const b = safeObj(safeObj(safeObj(data.report).metrics).basic_checks);
+  return Object.keys(a).length ? a : b;
 }
 
 // -------------------- Deterministic builders (NON-AI) --------------------
@@ -102,9 +142,18 @@ function buildKeyInsights(bc = {}) {
 
   if (typeof bc.html_length === "number") items.push(`HTML size: ${bc.html_length.toLocaleString()} characters`);
 
-  // Optional “freshness” facts if your scan collects them later
-  if (isNonEmptyString(bc.http_last_modified)) items.push(`Last-Modified header: ${bc.http_last_modified}`);
-  if (typeof bc.last_modified_present === "boolean") items.push(`Last-Modified detected: ${bc.last_modified_present ? "Yes" : "No"}`);
+  // v5.2 freshness signals (from run-scan)
+  const fresh = safeObj(bc.freshness_signals);
+  if (fresh.last_modified_header_present === true && isNonEmptyString(fresh.last_modified_header_value)) {
+    items.push(`Last-Modified header: ${fresh.last_modified_header_value}`);
+  }
+  if (typeof fresh.copyright_year_min === "number" || typeof fresh.copyright_year_max === "number") {
+    const a = (typeof fresh.copyright_year_min === "number") ? fresh.copyright_year_min : "";
+    const b = (typeof fresh.copyright_year_max === "number") ? fresh.copyright_year_max : "";
+    if (a && b) items.push(`Copyright years detected: ${a}–${b}`);
+    else if (a) items.push(`Copyright year detected: ${a}`);
+    else if (b) items.push(`Copyright year detected: ${b}`);
+  }
 
   return items;
 }
@@ -222,7 +271,6 @@ function renderFinalNotes() {
 
 // -------------------- Human Signals: shared utilities --------------------
 function hsLevelToBarPct(level) {
-  // This is NOT a “score”, it’s a visual indicator of strength of signal.
   const map = {
     HIGH: 85,
     MODERATE: 55,
@@ -231,12 +279,13 @@ function hsLevelToBarPct(level) {
     INTENTIONAL: 40,
     MIXED: 55,
     UNKNOWN: 35,
+    STALE: 55,
+    RECENT: 85
   };
   return map[level] ?? 35;
 }
 
 function setHs(fieldStatus, fieldComment, barName, level, label, comment) {
-  // if HTML placeholders don’t exist, silently skip
   setText(fieldStatus, label);
   setText(fieldComment, comment);
   setBar(barName, hsLevelToBarPct(level));
@@ -326,14 +375,12 @@ function renderHumanSignal1(bc = {}) {
   setHs("hs1-status", "hs1-comment", "hs1", r.level, labelMap[r.level] || "CLEAR", comment);
 }
 
-// -------------------- HS2 — Trust & Credibility (deterministic) --------------------
+// -------------------- HS2 — Trust & Credibility --------------------
 function classifyTrustCredibility(bc = {}) {
   const reasons = [];
-
-  // We try both direct fields and nested trust_signals (if your scan adds them later)
   const trust = safeObj(bc.trust_signals);
 
-  const https = (bc.https === true) || (trust.https === true) || (bc.https_present === true);
+  const https = (trust.https === true) || (bc.https === true) || (bc.https_present === true);
   const canonical = (bc.canonical_present === true);
   const privacy = (trust.privacy_page_detected === true) || (bc.privacy_page_detected === true);
   const terms = (trust.terms_page_detected === true) || (bc.terms_page_detected === true);
@@ -347,11 +394,9 @@ function classifyTrustCredibility(bc = {}) {
 
   const positives = [https, canonical, (privacy || terms), contact].filter(Boolean).length;
 
-  if (positives >= 4) return { level: "HIGH", reasons, https, canonical, privacy, terms, contact };
-  if (positives >= 2) return { level: "MODERATE", reasons, https, canonical, privacy, terms, contact };
-  if (positives === 1) return { level: "LOW", reasons, https, canonical, privacy, terms, contact };
-
-  return { level: "LOW", reasons, https, canonical, privacy, terms, contact };
+  if (positives >= 4) return { level: "HIGH", reasons };
+  if (positives >= 2) return { level: "MODERATE", reasons };
+  return { level: "LOW", reasons };
 }
 
 function renderHumanSignal2(bc = {}) {
@@ -365,11 +410,12 @@ function renderHumanSignal2(bc = {}) {
 
   const top = (r.reasons || []).slice(0, 3).join(" ");
   const comment =
-    (r.level === "HIGH")
+    (r.level === " опыт"? "": (r.level === "HIGH")
       ? "Key trust signals are present, which supports credibility for first-time visitors and reduces hesitation."
       : (r.level === "MODERATE")
         ? `Some trust signals are present, but a few credibility anchors appear missing or unclear. ${top}`.trim()
-        : `Several credibility anchors appear missing or unclear, which can increase hesitation for new visitors. ${top}`.trim();
+        : `Several credibility anchors appear missing or unclear, which can increase hesitation for new visitors. ${top}`.trim()
+    );
 
   setHs("hs2-status", "hs2-comment", "hs2", r.level, labelMap[r.level] || "MODERATE", comment);
 }
@@ -463,7 +509,7 @@ function renderHumanSignal4(bc = {}) {
   setHs("hs4-status", "hs4-comment", "hs4", r.level, labelMap[r.level] || "MIXED", comment);
 }
 
-// -------------------- HS5 — Freshness Signals (recency/updates) --------------------
+// -------------------- HS5 — Freshness Signals (v5.2) --------------------
 function parseHttpDate(s) {
   if (!isNonEmptyString(s)) return null;
   const d = new Date(s);
@@ -480,31 +526,31 @@ function daysSince(d) {
 }
 
 function classifyFreshnessSignals(bc = {}) {
-  // We only use *detected* data; if not available, we say "unknown" without faking.
   const reasons = [];
+  const fresh = safeObj(bc.freshness_signals);
 
-  // These are optional fields your scan may add later:
-  // bc.http_last_modified (string) OR bc.last_modified (string) OR bc.last_modified_header (string)
-  const lastMod =
-    parseHttpDate(bc.http_last_modified) ||
-    parseHttpDate(bc.last_modified) ||
-    parseHttpDate(bc.last_modified_header);
-
+  const lastModStr = fresh.last_modified_header_value || "";
+  const lastMod = parseHttpDate(lastModStr);
   const ds = daysSince(lastMod);
 
-  // fallback “soft” signals (optional, if you add later)
-  const hasBlogHint = bc.blog_detected === true;
-  const hasNewsHint = bc.news_detected === true;
+  // copyright window (best-effort)
+  const cyMin = (typeof fresh.copyright_year_min === "number") ? fresh.copyright_year_min : null;
+  const cyMax = (typeof fresh.copyright_year_max === "number") ? fresh.copyright_year_max : null;
 
-  if (lastMod) reasons.push(`Last-Modified header detected (${ds} days ago).`);
-  else reasons.push("No Last-Modified signal was available from this scan.");
+  if (fresh.last_modified_header_present === true && isNonEmptyString(lastModStr)) {
+    if (ds === null) reasons.push(`Last-Modified header detected (${lastModStr}).`);
+    else reasons.push(`Last-Modified header detected (${ds} days ago).`);
+  } else {
+    reasons.push("No Last-Modified signal was available from this scan.");
+  }
 
-  if (hasBlogHint) reasons.push("Blog/content section detected.");
-  if (hasNewsHint) reasons.push("News/updates section detected.");
+  if (cyMin || cyMax) {
+    if (cyMin && cyMax && cyMin !== cyMax) reasons.push(`Copyright years detected: ${cyMin}–${cyMax}.`);
+    else reasons.push(`Copyright year detected: ${cyMax || cyMin}.`);
+  }
 
   if (ds === null) return { level: "UNKNOWN", reasons, days_since: null };
 
-  // Classification bands (deterministic)
   if (ds <= 90) return { level: "HIGH", reasons, days_since: ds };
   if (ds <= 365) return { level: "MODERATE", reasons, days_since: ds };
   return { level: "LOW", reasons, days_since: ds };
@@ -531,6 +577,21 @@ function renderHumanSignal5(bc = {}) {
           : `Freshness signals suggest the site may not have been updated in a long time. ${top}`.trim();
 
   setHs("hs5-status", "hs5-comment", "hs5", r.level, labelMap[r.level] || "UNKNOWN", comment);
+}
+
+// -------------------- Diagnostic signal helper --------------------
+function setSignalBlock({ scoreField, barName, commentField, scoreValue, narrativeText, fallbackText }) {
+  const s = clampScore(scoreValue);
+  setScore(scoreField, s);
+  setBar(barName, s);
+
+  // If no score AND no narrative, show a truthful fallback
+  const hasAny = (typeof s === "number") || isNonEmptyString(narrativeText);
+  const finalText = hasAny
+    ? fallbackIfEmpty(narrativeText, fallbackText)
+    : "Not available from this scan.";
+
+  setText(commentField, finalText);
 }
 
 // -------------------- Main loader --------------------
@@ -560,10 +621,10 @@ async function loadReportData() {
     return;
   }
 
-  const scores = safeObj(data.scores);
-  const narrative = safeObj(data.narrative);
+  const narrative = resolveNarrative(data);
   const report = safeObj(data.report);
-  const basicChecks = safeObj(data.basic_checks);
+  const basicChecks = resolveBasicChecks(data);
+  const scores = resolveScores(data);
 
   // ---------------- HEADER ----------------
   const headerUrl = report.url || "";
@@ -591,67 +652,76 @@ async function loadReportData() {
 
   // ---------------- DIAGNOSTIC SIGNALS (6) ----------------
   // 1) Performance
-  const perfScore = clampScore(scores.performance);
-  setScore("score-performance", perfScore);
-  setBar("performance", perfScore);
-
-  const perfNarr = joinParts([narrative.performance, narrative.performance_comment], 2);
-  setText("performance-comment", fallbackIfEmpty(perfNarr, "No material performance issues were detected from the available data."));
+  setSignalBlock({
+    scoreField: "score-performance",
+    barName: "performance",
+    commentField: "performance-comment",
+    scoreValue: numOrNull(scores.performance),
+    narrativeText: joinParts([narrative.performance, narrative.performance_comment], 2),
+    fallbackText: "No material performance issues were detected from the available data.",
+  });
 
   // 2) SEO Foundations
-  const seoScore = clampScore(scores.seo);
-  setScore("score-seo", seoScore);
-  setBar("seo", seoScore);
-
-  const seoNarr = joinParts([narrative.seo, narrative.seoFoundations, narrative.seo_comment], 2);
-  setText("seo-comment", fallbackIfEmpty(
-    seoNarr,
-    (basicChecks.title_present === false || basicChecks.meta_description_present === false || basicChecks.h1_present === false || basicChecks.canonical_present === false)
-      ? "Some core SEO foundations are missing or incomplete (for example H1 and canonical). Addressing these improves clarity and indexing consistency."
-      : "Core SEO foundations appear present from the available signals."
-  ));
+  setSignalBlock({
+    scoreField: "score-seo",
+    barName: "seo",
+    commentField: "seo-comment",
+    scoreValue: numOrNull(scores.seo),
+    narrativeText: joinParts([narrative.seo, narrative.seoFoundations, narrative.seo_comment], 2),
+    fallbackText:
+      (basicChecks.title_present === false ||
+        basicChecks.meta_description_present === false ||
+        basicChecks.h1_present === false ||
+        basicChecks.canonical_present === false)
+        ? "Some core SEO foundations are missing or incomplete (for example H1 and canonical). Addressing these improves clarity and indexing consistency."
+        : "Core SEO foundations appear present from the available signals.",
+  });
 
   // 3) Structure & Semantics
-  const structScore = clampScore(scores.structure_semantics);
-  setScore("score-structure", structScore);
-  setBar("structure", structScore);
-
-  const structNarr = joinParts([narrative.structure, narrative.structureSemantics, narrative.structure_comment], 2);
-  setText("structure-comment", fallbackIfEmpty(
-    structNarr,
-    (basicChecks.h1_present === false)
-      ? "A clear primary H1 heading was not detected, which can reduce content structure clarity."
-      : "No structural blockers were detected from the available signals."
-  ));
+  setSignalBlock({
+    scoreField: "score-structure",
+    barName: "structure",
+    commentField: "structure-comment",
+    scoreValue: numOrNull(scores.structure_semantics),
+    narrativeText: joinParts([narrative.structure, narrative.structureSemantics, narrative.structure_comment], 2),
+    fallbackText:
+      (basicChecks.h1_present === false)
+        ? "A clear primary H1 heading was not detected, which can reduce content structure clarity."
+        : "No structural blockers were detected from the available signals.",
+  });
 
   // 4) Mobile Experience
-  const mobileScore = clampScore(scores.mobile_experience);
-  setScore("score-mobile", mobileScore);
-  setBar("mobile", mobileScore);
+  setSignalBlock({
+    scoreField: "score-mobile",
+    barName: "mobile",
+    commentField: "mobile-comment",
+    scoreValue: numOrNull(scores.mobile_experience),
+    narrativeText: joinParts([narrative.mobile, narrative.mobileExperience, narrative.mobile_comment], 2),
+    fallbackText:
+      (basicChecks.viewport_present === false)
+        ? "Viewport meta tag was not detected, which may affect mobile scaling and layout."
+        : "No mobile experience issues were detected from the available signals.",
+  });
 
-  const mobileNarr = joinParts([narrative.mobile, narrative.mobileExperience, narrative.mobile_comment], 2);
-  setText("mobile-comment", fallbackIfEmpty(
-    mobileNarr,
-    (basicChecks.viewport_present === false)
-      ? "Viewport meta tag was not detected, which may affect mobile scaling and layout."
-      : "No mobile experience issues were detected from the available signals."
-  ));
-
-  // 5) Security
-  const secScore = clampScore(scores.security_trust);
-  setScore("score-security", secScore);
-  setBar("security", secScore);
-
-  const secNarr = joinParts([narrative.security, narrative.securityTrust, narrative.security_comment], 2);
-  setText("security-comment", fallbackIfEmpty(secNarr, "No security risks were identified at the time of analysis."));
+  // 5) Security / Trust
+  setSignalBlock({
+    scoreField: "score-security",
+    barName: "security",
+    commentField: "security-comment",
+    scoreValue: numOrNull(scores.security_trust),
+    narrativeText: joinParts([narrative.security, narrative.securityTrust, narrative.security_comment], 2),
+    fallbackText: "No security risks were identified at the time of analysis.",
+  });
 
   // 6) Accessibility
-  const a11yScore = clampScore(scores.accessibility);
-  setScore("score-accessibility", a11yScore);
-  setBar("accessibility", a11yScore);
-
-  const a11yNarr = joinParts([narrative.accessibility, narrative.accessibility_comment], 2);
-  setText("accessibility-comment", fallbackIfEmpty(a11yNarr, "No significant accessibility blockers were detected from the available signals."));
+  setSignalBlock({
+    scoreField: "score-accessibility",
+    barName: "accessibility",
+    commentField: "accessibility-comment",
+    scoreValue: numOrNull(scores.accessibility),
+    narrativeText: joinParts([narrative.accessibility, narrative.accessibility_comment], 2),
+    fallbackText: "No significant accessibility blockers were detected from the available signals.",
+  });
 
   // ---------------- HUMAN SIGNALS (HS1–HS5) ----------------
   renderHumanSignal1(basicChecks);
