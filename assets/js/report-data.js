@@ -1,454 +1,379 @@
-/* eslint-disable no-console */
-
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Gold wiring for:
-// - 6 Diagnostic Signal blocks (Performance, SEO, Structure, Mobile, Security, Accessibility)
-// - Human Signals (5)
-// - Key Insights, Top Issues, Recommended Fix Sequence
-//
-// IMPORTANT:
-// - This file expects /netlify/functions/get-report-data?report_id=...
-// - It is defensive: missing fields show "Not available from this scan."
+// iQWEB Report v5.2 — Signals-only, integrity-first renderers
+// - No PSI dependency
+// - Always renders: header, executive lead, 6 delivery signals, 5 human signals, insights/issues/fix sequence
+// - Never leaves blank UI states; when data is thin, we *penalise* and explain (no "not available")
 
-(function () {
-  // -----------------------------
-  // Small DOM helpers
-  // -----------------------------
-  function qs(sel) {
-    return document.querySelector(sel);
-  }
-  function byId(id) {
-    return document.getElementById(id);
-  }
-  function setText(id, text) {
-    const el = byId(id);
-    if (el) el.textContent = text ?? "";
-  }
-  function setHTML(id, html) {
-    const el = byId(id);
-    if (el) el.innerHTML = html ?? "";
-  }
+function safeObj(v) { return v && typeof v === "object" ? v : {}; }
+function safeStr(v) { return typeof v === "string" ? v : (v == null ? "" : String(v)); }
+function safeNum(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+function clamp(n, min = 0, max = 100) {
+  n = safeNum(n, min);
+  return Math.max(min, Math.min(max, n));
+}
+function pad2(n) { n = Math.trunc(safeNum(n, 0)); return String(n).padStart(2, "0"); }
 
-  function safeObj(v) {
-    return v && typeof v === "object" ? v : {};
-  }
-  function clamp0to100(n) {
-    const x = Number(n);
-    if (!Number.isFinite(x)) return 0;
-    return Math.max(0, Math.min(100, Math.round(x)));
-  }
+function setField(name, text) {
+  const el = document.querySelector(`[data-field="${name}"]`);
+  if (el) el.textContent = safeStr(text);
+}
 
-  function markLoaded() {
-    // Try to end the "BUILDING REPORT" overlay no matter what the markup is.
-    try {
-      document.body.classList.remove("is-loading", "loading", "building");
-      document.body.classList.add("is-loaded", "loaded");
-    } catch (_) {}
+function setBar(name, score01to100) {
+  const bar = document.querySelector(`[data-bar="${name}"]`);
+  if (!bar) return;
+  const val = clamp(score01to100, 0, 100);
+  bar.style.width = `${val}%`;
+}
 
-    const hideSelectors = [
-      "#loading-screen",
-      "#loadingScreen",
-      "#loading-overlay",
-      "#loadingOverlay",
-      ".loading-screen",
-      ".loadingScreen",
-      ".loading-overlay",
-      ".report-loader",
-      ".build-screen",
-      ".building-report",
-      "[data-loading-screen]",
-      "[data-loader]",
-    ];
+function formatDate(iso) {
+  const s = safeStr(iso);
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function formatTime(iso) {
+  const s = safeStr(iso);
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
 
-    hideSelectors.forEach((sel) => {
-      document.querySelectorAll(sel).forEach((el) => {
-        el.style.display = "none";
-        el.setAttribute("aria-hidden", "true");
-      });
-    });
+function labelForScore(score) {
+  const s = clamp(score);
+  if (s >= 90) return "Excellent";
+  if (s >= 75) return "Strong";
+  if (s >= 60) return "Needs work";
+  if (s >= 40) return "Weak";
+  return "Critical";
+}
 
-    const showSelectors = [
-      "#report",
-      "#report-shell",
-      ".report-shell",
-      ".report-container",
-      "#app",
-      "main",
-    ];
-
-    showSelectors.forEach((sel) => {
-      document.querySelectorAll(sel).forEach((el) => {
-        if (el.style.display === "none") el.style.display = "";
-        el.setAttribute("aria-busy", "false");
-      });
-    });
-  }
-
-  // -----------------------------
-  // Field resolvers (defensive)
-  // -----------------------------
-  function resolveScores(data) {
-    // Prefer: data.scores (top-level)
-    // Fallback: data.metrics.scores
-    // Fallback: data.metrics.report.metrics.scores (older shapes)
-    const a = safeObj(data.scores);
-    if (Object.keys(a).length) return a;
-
-    const b = safeObj(data.metrics?.scores);
-    if (Object.keys(b).length) return b;
-
-    const c = safeObj(data.metrics?.report?.metrics?.scores);
-    if (Object.keys(c).length) return c;
-
-    return {};
-  }
-
-  function resolveBasicChecks(data) {
-    // Prefer: top-level basic_checks
-    // Fallback: metrics.basic_checks
-    // Fallback: metrics.report.basic_checks
-    const a = safeObj(data.basic_checks);
-    if (Object.keys(a).length) return a;
-
-    const b = safeObj(data.metrics?.basic_checks);
-    if (Object.keys(b).length) return b;
-
-    const c = safeObj(data.metrics?.report?.basic_checks);
-    if (Object.keys(c).length) return c;
-
-    return {};
-  }
-
-  function resolveHumanSignals(data) {
-    // Prefer top-level human_signals, then metrics.human_signals
-    return safeObj(data.human_signals) || safeObj(data.metrics?.human_signals) || {};
-  }
-
-  // -----------------------------
-  // UI render helpers
-  // -----------------------------
-  function setBar(rootId, score) {
-    const root = byId(rootId);
-    if (!root) return;
-
-    const val = clamp0to100(score);
-    const pill = root.querySelector(".signal-pill");
-    const bar = root.querySelector(".signal-bar-fill");
-
-    if (pill) pill.textContent = `${val}/100`;
-    if (bar) bar.style.width = `${val}%`;
-  }
-
-  // -----------------------------
-  // Diagnostic Signal text helpers
-  // -----------------------------
-  function setSignalCopy(idPrefix, copy) {
-    const el = qs(`#${idPrefix} .signal-desc`);
-    if (el) el.textContent = copy || "Not available from this scan.";
-  }
-
-  function copyForSignal(name, score) {
-    const s = clamp0to100(score);
-
-    if (name === "performance") {
-      return s >= 85
-        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test — it reflects how well the page is built for speed."
-        : "Performance build-quality indicators need attention. Improve assets, layout stability, and render efficiency.";
-    }
-
-    if (name === "seo") {
-      return s >= 85
-        ? "SEO foundations look healthy. Title/meta, indexing signals, and crawl controls appear in place."
+function explanationFallback(key, score) {
+  const lbl = labelForScore(score);
+  switch (key) {
+    case "performance":
+      return (lbl === "Excellent" || lbl === "Strong")
+        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test — it reflects how the page is built for speed."
+        : "Build signals suggest avoidable performance overhead (markup weight, blocking scripts, or loading patterns).";
+    case "seo":
+      return (lbl === "Excellent" || lbl === "Strong")
+        ? "Core SEO foundations appear present (title/meta, canonical, crawl/index signals)."
         : "SEO foundations need work. Start with title/meta, canonical, and basic index/crawl signals.";
-    }
-
-    if (name === "structure") {
-      return s >= 85
+    case "structure":
+      return (lbl === "Excellent" || lbl === "Strong")
         ? "Excellent structural semantics. The page is easy for browsers, bots, and assistive tech to interpret."
-        : "Structure & semantics need work. Improve headings, document structure, and semantic HTML.";
-    }
-
-    if (name === "mobile") {
-      return s >= 85
+        : "Structural semantics are inconsistent. Improve heading hierarchy and core landmark structure.";
+    case "mobile":
+      return (lbl === "Excellent" || lbl === "Strong")
         ? "Excellent mobile readiness signals. Core mobile fundamentals look strong."
-        : "Mobile experience signals need attention. Review viewport, tap targets, and responsive layout.";
-    }
-
-    if (name === "security") {
-      return s >= 85
-        ? "Good security posture indicators. HTTPS and key headers appear to be in place."
+        : "Mobile readiness signals suggest viewport/layout fundamentals need attention.";
+    case "security":
+      return (lbl === "Excellent" || lbl === "Strong")
+        ? "Security posture looks strong. Key HTTPS and header controls appear present."
         : "Critical security posture issues. Start with HTTPS + key security headers.";
-    }
-
-    if (name === "accessibility") {
-      return s >= 85
+    case "accessibility":
+      return (lbl === "Excellent" || lbl === "Strong")
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
-        : "Accessibility baseline needs attention. Improve alt text, labels, contrast, and heading order.";
-    }
+        : "Accessibility fundamentals need attention (labels, alt text coverage, and semantic structure).";
+    default:
+      return "";
+  }
+}
 
-    return "Not available from this scan.";
+/* -----------------------------
+   Human signals (derived, always-on)
+----------------------------- */
+function deriveHumanSignals({ scores, basic, securityHeaders }) {
+  const perf = clamp(scores.performance);
+  const seo = clamp(scores.seo);
+  const structure = clamp(scores.structure);
+  const mobile = clamp(scores.mobile);
+  const security = clamp(scores.security);
+
+  const htmlBytes = safeNum(basic.html_bytes, 0);
+  const titlePresent = !!basic.title_present;
+  const descPresent = !!basic.meta_description_present;
+  const h1Present = !!basic.h1_present;
+  const canonicalPresent = !!basic.canonical_present;
+  const viewportPresent = !!basic.viewport_present;
+
+  const imgCount = safeNum(basic.img_count, 0);
+  const imgAltCount = safeNum(basic.img_alt_count, 0);
+  const altCoverage = imgCount > 0 ? (imgAltCount / Math.max(1, imgCount)) : 1;
+
+  // HS1: Clarity & cognitive load
+  let hs1 = 70 + (structure - 70) * 0.35 + (seo - 70) * 0.20;
+  if (htmlBytes > 250_000) hs1 -= 8;
+  if (!titlePresent) hs1 -= 10;
+  if (!descPresent) hs1 -= 6;
+  if (!h1Present) hs1 -= 8;
+  hs1 = clamp(hs1);
+
+  // HS2: Trust & credibility
+  let hs2 = 60 + (security - 60) * 0.60;
+  if (securityHeaders && securityHeaders.hsts) hs2 += 5;
+  if (securityHeaders) {
+    if (!securityHeaders.content_security_policy) hs2 -= 6;
+    if (!securityHeaders.x_frame_options) hs2 -= 3;
+    if (!securityHeaders.x_content_type_options) hs2 -= 2;
+    if (!securityHeaders.referrer_policy) hs2 -= 2;
+  }
+  hs2 = clamp(hs2);
+
+  // HS3: Intent & conversion readiness
+  let hs3 = 65 + (seo - 65) * 0.40 + (mobile - 65) * 0.25;
+  if (!viewportPresent) hs3 -= 10;
+  if (!descPresent) hs3 -= 8;
+  if (!h1Present) hs3 -= 8;
+  if (!canonicalPresent) hs3 -= 4;
+  hs3 = clamp(hs3);
+
+  // HS4: Maintenance hygiene
+  let hs4 = 65 + (structure - 70) * 0.20 + (perf - 70) * 0.15;
+  const inlineScripts = safeNum(basic.inline_script_count, 0);
+  if (inlineScripts > 8) hs4 -= 6;
+  if (htmlBytes > 300_000) hs4 -= 6;
+  const yrMax = safeNum(basic.copyright_year_max, 0);
+  const nowY = new Date().getFullYear();
+  if (yrMax && yrMax < nowY - 2) hs4 -= 8;
+  hs4 = clamp(hs4);
+
+  // HS5: Freshness signals
+  let hs5 = 60;
+  const yrMax2 = safeNum(basic.copyright_year_max, 0);
+  const yrMin2 = safeNum(basic.copyright_year_min, 0);
+  if (yrMax2) {
+    if (yrMax2 >= nowY) hs5 += 20;
+    else if (yrMax2 >= nowY - 1) hs5 += 12;
+    else if (yrMax2 >= nowY - 2) hs5 += 6;
+    else hs5 -= 10;
+    if (yrMin2 && (yrMax2 - yrMin2) > 15) hs5 -= 2;
+  } else {
+    hs5 -= 6;
+  }
+  const fs = safeObj(basic.freshness_signals);
+  if (fs.last_modified_header_present) hs5 += 6;
+  hs5 = clamp(hs5);
+
+  return { hs1, hs2, hs3, hs4, hs5, altCoverage };
+}
+
+function statusWordFromScore(score) {
+  const s = clamp(score);
+  if (s >= 85) return "CLEAR";
+  if (s >= 70) return "OK";
+  if (s >= 55) return "NEEDS_WORK";
+  return "WEAK";
+}
+function freshnessWordFromScore(score) {
+  const s = clamp(score);
+  if (s >= 80) return "FRESH";
+  if (s >= 60) return "OK";
+  return "UNKNOWN";
+}
+
+/* -----------------------------
+   Executive lead (deterministic fallback)
+----------------------------- */
+function buildExecutiveLead({ reportUrl, scores }) {
+  const s = safeObj(scores);
+  const pairs = [
+    ["Performance", clamp(s.performance)],
+    ["SEO Foundations", clamp(s.seo)],
+    ["Structure & Semantics", clamp(s.structure)],
+    ["Mobile Experience", clamp(s.mobile)],
+    ["Security & Trust", clamp(s.security)],
+    ["Accessibility", clamp(s.accessibility)],
+  ];
+  const sorted = [...pairs].sort((a, b) => b[1] - a[1]);
+  const strongest = sorted[0];
+  const weakest = sorted[sorted.length - 1];
+  const overall = clamp(s.overall ?? Math.round(pairs.reduce((acc, p) => acc + p[1], 0) / pairs.length));
+
+  return [
+    `This scan reviews observable build signals from the delivered HTML and headers for ${reportUrl || "this page"}.`,
+    `Overall build-quality looks ${overall >= 75 ? "strong" : overall >= 60 ? "mixed" : "below baseline"} (${overall}/100).`,
+    `Strongest area: ${strongest[0]} (${strongest[1]}/100). Highest priority: ${weakest[0]} (${weakest[1]}/100).`,
+    `Focus first on the weakest signal, then re-scan to confirm improvement.`
+  ].join(" ");
+}
+
+/* -----------------------------
+   List rendering
+----------------------------- */
+function renderList(listId, items) {
+  const root = document.querySelector(`[data-list="${listId}"]`);
+  if (!root) return;
+  root.innerHTML = "";
+  (items || []).forEach((t) => {
+    const li = document.createElement("li");
+    li.textContent = safeStr(t);
+    root.appendChild(li);
+  });
+}
+
+function buildTopIssues({ securityHeaders, basic }) {
+  const issues = [];
+
+  if (securityHeaders) {
+    if (!securityHeaders.content_security_policy) issues.push("Missing Content-Security-Policy (CSP) header.");
+    if (!securityHeaders.x_frame_options) issues.push("Missing X-Frame-Options (clickjacking protection).");
+    if (!securityHeaders.x_content_type_options) issues.push("Missing X-Content-Type-Options (nosniff).");
+    if (!securityHeaders.referrer_policy) issues.push("Missing Referrer-Policy header.");
+    if (!securityHeaders.permissions_policy) issues.push("Missing Permissions-Policy header.");
   }
 
-  // -----------------------------
-  // Human Signals (5)
-  // -----------------------------
-  function renderHumanSignal1(hs = {}) {
-    const el = document.querySelector("#hs1 .hs-status");
-    const desc = document.querySelector("#hs1 .hs-desc");
-    if (!el || !desc) return;
-
-    const v = (hs.clarity_cognitive_load || "").toString().trim();
-    if (!v) {
-      el.textContent = "—";
-      desc.textContent = "Not available — Human Signals were not provided for this scan.";
-      return;
-    }
-
-    el.textContent = v;
-    desc.textContent =
-      v === "CLEAR"
-        ? "Page intent and structure appear easy to understand from the available signals."
-        : "Clarity signals suggest the page may be harder to interpret (missing key intent cues like a clear title/H1).";
+  if (basic) {
+    if (!basic.meta_description_present) issues.push("Meta description is missing.");
+    if (!basic.canonical_present) issues.push("Canonical link is missing.");
+    if (!basic.h1_present) issues.push("Primary H1 heading is missing.");
+    const inlineScripts = safeNum(basic.inline_script_count, 0);
+    if (inlineScripts > 8) issues.push("High inline script count (potential render blocking / maintenance overhead).");
   }
 
-  function renderHumanSignal2(hs = {}) {
-    const el = document.querySelector("#hs2 .hs-status");
-    const desc = document.querySelector("#hs2 .hs-desc");
-    if (!el || !desc) return;
+  if (issues.length === 0) issues.push("No critical structural issues detected from HTML + header signals in this scan.");
+  return issues.slice(0, 6);
+}
 
-    const v = (hs.trust_credibility || "").toString().trim();
-    if (!v) {
-      el.textContent = "—";
-      desc.textContent = "Not available — Human Signals were not provided for this scan.";
-      return;
-    }
+function buildFixSequence(scores) {
+  const s = safeObj(scores);
+  const order = [
+    ["Security", clamp(s.security)],
+    ["Performance", clamp(s.performance)],
+    ["SEO Foundations", clamp(s.seo)],
+    ["Structure & Semantics", clamp(s.structure)],
+    ["Mobile Experience", clamp(s.mobile)],
+    ["Accessibility", clamp(s.accessibility)],
+  ].sort((a, b) => a[1] - b[1]);
+  return order.slice(0, 3).map((x, i) => `${i + 1}) Prioritise improvements in: ${x[0]} — it’s currently the weakest signal.`);
+}
 
-    el.textContent = v;
-    desc.textContent =
-      v === "OK"
-        ? "Trust posture looks reasonable from detectable security headers."
-        : "Trust posture looks weak or missing (security headers not detected).";
+function renderReport(payload) {
+  const report = safeObj(payload.report);
+  const metrics = safeObj(payload.metrics);
+
+  const scores =
+    (payload && payload.scores && typeof payload.scores === "object") ? safeObj(payload.scores)
+      : safeObj(metrics.scores);
+
+  const explanations = safeObj(metrics.explanations);
+  const basic = safeObj(payload.basic_checks);
+  const securityHeaders = safeObj(metrics.security_headers);
+
+  // Header
+  setField("website-url", report.url || "");
+  setField("report-date", formatDate(report.created_at));
+  setField("report-time", formatTime(report.created_at));
+  setField("report-id", report.report_id || "");
+
+  // Executive lead (AI narrative optional)
+  const narrative = safeObj(payload.narrative);
+  const hasNarrative = !!payload.hasNarrative && Object.keys(narrative).length > 0;
+
+  if (hasNarrative && typeof narrative.executive === "string" && narrative.executive.trim()) {
+    setField("exec-narrative", narrative.executive.trim());
+  } else {
+    setField("exec-narrative", buildExecutiveLead({ reportUrl: report.url, scores }));
   }
 
-  function renderHumanSignal3(hs = {}) {
-    const el = document.querySelector("#hs3 .hs-status");
-    const desc = document.querySelector("#hs3 .hs-desc");
-    if (!el || !desc) return;
+  // Delivery signals (always-on)
+  const keys = ["performance","seo","structure","mobile","security","accessibility"];
+  keys.forEach((k) => {
+    const v = clamp(scores[k]);
+    setField(`${k}-score`, `${v}/100`);
+    setBar(k, v);
+    const expl = explanations[k] || explanationFallback(k, v);
+    setField(`${k}-copy`, expl);
+  });
 
-    const v = (hs.intent_conversion_readiness || "").toString().trim();
-    if (!v) {
-      el.textContent = "—";
-      desc.textContent = "Not available — Human Signals were not provided for this scan.";
-      return;
-    }
+  // Human signals (derived, always-on)
+  const hs = deriveHumanSignals({ scores, basic, securityHeaders });
 
-    el.textContent = v;
-    desc.textContent =
-      v === "PRESENT"
-        ? "Intent signal is present (a primary H1 was detected)."
-        : "Intent is unclear (no primary H1 detected).";
+  setField("hs1-score", `${Math.round(hs.hs1)}/100`);
+  setField("hs2-score", `${Math.round(hs.hs2)}/100`);
+  setField("hs3-score", `${Math.round(hs.hs3)}/100`);
+  setField("hs4-score", `${Math.round(hs.hs4)}/100`);
+  setField("hs5-score", `${Math.round(hs.hs5)}/100`);
+
+  setBar("hs1", hs.hs1);
+  setBar("hs2", hs.hs2);
+  setBar("hs3", hs.hs3);
+  setBar("hs4", hs.hs4);
+  setBar("hs5", hs.hs5);
+
+  setField("hs1-copy", `Clarity signals read ${statusWordFromScore(hs.hs1)}. Derived from structure + SEO fundamentals, with penalties for thin content cues and heavy markup.`);
+  setField("hs2-copy", `Trust signals read ${statusWordFromScore(hs.hs2)}. Derived from HTTPS + security header posture (CSP, XFO, nosniff, Referrer-Policy) and overall hardening score.`);
+  setField("hs3-copy", `Intent signals read ${statusWordFromScore(hs.hs3)}. Derived from SEO foundations + mobile readiness to indicate conversion-readiness basics.`);
+  setField("hs4-copy", `Maintenance hygiene reads ${statusWordFromScore(hs.hs4)}. Derived from maintainability cues (markup weight, inline scripts) and stable structural fundamentals.`);
+  setField("hs5-copy", `Freshness signals read ${freshnessWordFromScore(hs.hs5)}. Derived from observable freshness cues (copyright year range and optional Last-Modified header when present).`);
+
+  // Key insights
+  const overall = clamp(scores.overall ?? Math.round(
+    (clamp(scores.performance) + clamp(scores.seo) + clamp(scores.structure) + clamp(scores.mobile) + clamp(scores.security) + clamp(scores.accessibility)) / 6
+  ));
+  const strongest = Object.entries({
+    "Performance": clamp(scores.performance),
+    "SEO Foundations": clamp(scores.seo),
+    "Structure & Semantics": clamp(scores.structure),
+    "Mobile Experience": clamp(scores.mobile),
+    "Security": clamp(scores.security),
+    "Accessibility": clamp(scores.accessibility),
+  }).sort((a,b)=>b[1]-a[1])[0];
+
+  const weakest = Object.entries({
+    "Performance": clamp(scores.performance),
+    "SEO Foundations": clamp(scores.seo),
+    "Structure & Semantics": clamp(scores.structure),
+    "Mobile Experience": clamp(scores.mobile),
+    "Security": clamp(scores.security),
+    "Accessibility": clamp(scores.accessibility),
+  }).sort((a,b)=>a[1]-b[1])[0];
+
+  renderList("key-insights", [
+    `Overall build-quality score: ${overall}/100.`,
+    `Strongest area: ${strongest[0]} (${strongest[1]}/100).`,
+    `Highest priority: ${weakest[0]} (${weakest[1]}/100).`,
+    `This report diagnoses build quality (structure, metadata, hardening) — not a single run “speed today” test.`,
+  ]);
+
+  // Issues + fix sequence + final notes
+  renderList("top-issues", buildTopIssues({ securityHeaders, basic }));
+  renderList("fix-sequence", buildFixSequence(scores));
+  renderList("final-notes", [
+    "This report analyses observable signals from delivered HTML + headers.",
+    "Re-scan after changes to confirm signal improvement.",
+    "Optional narrative layer can be enabled once signals are stable.",
+  ]);
+}
+
+async function loadReportData() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const rid = urlParams.get("report_id") || urlParams.get("reportId") || urlParams.get("id");
+
+  if (!rid) {
+    setField("exec-narrative", "Missing report_id. Append ?report_id=WEB-YYYYDDD-xxxxx to the URL.");
+    window.dispatchEvent(new Event("iqweb:loaded"));
+    return;
   }
 
-  function renderHumanSignal4(hs = {}) {
-    const el = document.querySelector("#hs4 .hs-status");
-    const desc = document.querySelector("#hs4 .hs-desc");
-    if (!el || !desc) return;
-
-    const v = (hs.maintenance_hygiene || "").toString().trim();
-    if (!v) {
-      el.textContent = "—";
-      desc.textContent = "Not available — Human Signals were not provided for this scan.";
-      return;
-    }
-
-    el.textContent = v;
-    desc.textContent =
-      v === "OK"
-        ? "Maintenance hygiene looks reasonable (basic crawl/index controls detected)."
-        : "Maintenance hygiene needs attention (canonical/robots signals may be incomplete).";
-  }
-
-  function renderHumanSignal5(hs = {}) {
-    const el = document.querySelector("#hs5 .hs-status");
-    const desc = document.querySelector("#hs5 .hs-desc");
-    if (!el || !desc) return;
-
-    const v = (hs.freshness_signals || "").toString().trim();
-    if (!v) {
-      el.textContent = "—";
-      desc.textContent = "Not available — Human Signals were not provided for this scan.";
-      return;
-    }
-
-    el.textContent = v;
-    desc.textContent =
-      v === "UNKNOWN"
-        ? "Freshness could not be confidently determined from available signals."
-        : "Freshness signals were detected.";
-  }
-
-  // -----------------------------
-  // Key Insights / Fix Sequence
-  // -----------------------------
-  function buildKeyInsights(scores) {
-    const overall = clamp0to100(scores.overall);
-    const pairs = [
-      ["Performance", clamp0to100(scores.performance)],
-      ["SEO", clamp0to100(scores.seo)],
-      ["Structure & Semantics", clamp0to100(scores.structure)],
-      ["Mobile Experience", clamp0to100(scores.mobile)],
-      ["Security", clamp0to100(scores.security)],
-      ["Accessibility", clamp0to100(scores.accessibility)],
-    ];
-
-    let strongest = pairs[0];
-    let weakest = pairs[0];
-
-    for (const p of pairs) {
-      if (p[1] > strongest[1]) strongest = p;
-      if (p[1] < weakest[1]) weakest = p;
-    }
-
-    setHTML(
-      "key-insights",
-      `
-      <ul>
-        <li>Overall build-quality score: ${overall}/100.</li>
-        <li>Strongest area: ${strongest[0]} (${strongest[1]}/100).</li>
-        <li>Highest priority: ${weakest[0]} (${weakest[1]}/100).</li>
-        <li>This report diagnoses build quality (structure, metadata, hardening) — not a single run “speed today” test.</li>
-      </ul>
-      `.trim()
-    );
-  }
-
-  function buildTopIssues(scores) {
-    const pairs = [
-      ["Performance", clamp0to100(scores.performance)],
-      ["SEO foundations", clamp0to100(scores.seo)],
-      ["Structure & semantics", clamp0to100(scores.structure)],
-      ["Mobile experience", clamp0to100(scores.mobile)],
-      ["Security hardening", clamp0to100(scores.security)],
-      ["Accessibility", clamp0to100(scores.accessibility)],
-    ];
-
-    pairs.sort((a, b) => a[1] - b[1]);
-
-    const weakest = pairs.slice(0, 2).map((p) => `<li>${p[0]} is below baseline.</li>`);
-
-    setHTML("top-issues", `<ul>${weakest.join("")}</ul>`);
-  }
-
-  function buildFixSequence(scores) {
-    const pairs = [
-      ["Performance", clamp0to100(scores.performance)],
-      ["SEO", clamp0to100(scores.seo)],
-      ["Structure", clamp0to100(scores.structure)],
-      ["Mobile", clamp0to100(scores.mobile)],
-      ["Security", clamp0to100(scores.security)],
-      ["Accessibility", clamp0to100(scores.accessibility)],
-    ];
-
-    pairs.sort((a, b) => a[1] - b[1]);
-
-    const first = pairs[0];
-    setHTML(
-      "fix-seq",
-      `<strong>1)</strong> Prioritise improvements in: <strong>${first[0]}</strong> — it’s currently the weakest signal.`
-    );
-  }
-
-  // -----------------------------
-  // Main loader
-  // -----------------------------
-  async function loadReportData() {
-    const params = new URLSearchParams(window.location.search);
-    const reportId = params.get("report_id") || params.get("reportId") || params.get("id") || params.get("scan_id");
-
-    if (!reportId) {
-      setText("overall-summary", "Missing report_id in URL.");
-      markLoaded();
-      return;
-    }
-
-    const endpoint = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
-
+  try {
+    const endpoint = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(rid)}`;
     const res = await fetch(endpoint, { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok || !data || !data.success) {
-      setText("overall-summary", data?.error || "Report not found for that report_id");
-      markLoaded();
-      return;
-    }
-
-    // Header block
-    const report = safeObj(data.report);
-    setText("website", report.url || "");
-    if (report.created_at) {
-      const dt = new Date(report.created_at);
-      const dd = String(dt.getDate()).padStart(2, "0");
-      const mm = String(dt.getMonth() + 1).padStart(2, "0");
-      const yyyy = dt.getFullYear();
-      const hh = String(dt.getHours()).padStart(2, "0");
-      const min = String(dt.getMinutes()).padStart(2, "0");
-      const ss = String(dt.getSeconds()).padStart(2, "0");
-      setText("report-date", `${dd}/${mm}/${yyyy}`);
-      setText("report-time", `${hh}:${min}:${ss}`);
-    }
-    setText("report-id", report.report_id || "");
-
-    const scores = resolveScores(data);
-    const basicChecks = resolveBasicChecks(data);
-    const humanSignals = resolveHumanSignals(data);
-    const narrative = safeObj(data.narrative);
-
-    // Executive narrative (intro)
-    if (narrative && narrative.intro) {
-      setText("overall-summary", narrative.intro);
-    } else {
-      setText("overall-summary", "No executive narrative was available for this scan.");
-    }
-
-    // Diagnostic signals
-    setBar("sig-performance", scores.performance);
-    setBar("sig-seo", scores.seo);
-    setBar("sig-structure", scores.structure);
-    setBar("sig-mobile", scores.mobile);
-    setBar("sig-security", scores.security);
-    setBar("sig-accessibility", scores.accessibility);
-
-    setSignalCopy("sig-performance", copyForSignal("performance", scores.performance));
-    setSignalCopy("sig-seo", copyForSignal("seo", scores.seo));
-    setSignalCopy("sig-structure", copyForSignal("structure", scores.structure));
-    setSignalCopy("sig-mobile", copyForSignal("mobile", scores.mobile));
-    setSignalCopy("sig-security", copyForSignal("security", scores.security));
-    setSignalCopy("sig-accessibility", copyForSignal("accessibility", scores.accessibility));
-
-    // Human signals (5)
-    renderHumanSignal1(humanSignals);
-    renderHumanSignal2(humanSignals);
-    renderHumanSignal3(humanSignals);
-    renderHumanSignal4(humanSignals);
-    renderHumanSignal5(humanSignals);
-
-    // Insights
-    buildKeyInsights(scores);
-    buildTopIssues(scores);
-    buildFixSequence(scores);
-
-    // Done: stop the BUILDING REPORT overlay (regardless of listener wiring)
-    markLoaded();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    if (!payload || payload.success !== true) throw new Error(payload?.error || "Unable to load report data.");
+    renderReport(payload);
+  } catch (err) {
+    setField("exec-narrative", `Unable to load report data. ${safeStr(err && err.message ? err.message : err)}`);
+  } finally {
     window.dispatchEvent(new Event("iqweb:loaded"));
   }
+}
 
-  // bootstrap
-  console.log("report-data.js loaded");
-  loadReportData().catch((e) => {
-    console.error("report-data load error:", e);
-    try {
-      setText("overall-summary", "Report failed to load. Please try again.");
-    } catch (_) {}
-    markLoaded();
-  });
-})();
+document.addEventListener("DOMContentLoaded", () => {
+  loadReportData();
+});
