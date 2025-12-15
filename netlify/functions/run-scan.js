@@ -1,11 +1,13 @@
 // /.netlify/functions/run-scan.js
-// iQWEB v5.2+ — Full scan pipeline (truth + narrative + human signals inputs)
+// iQWEB v5.2+ — Full scan pipeline (truth + PSI + narrative + human signals inputs)
 // - Inserts scan_results (truth source)
 // - Builds deterministic HTML facts into metrics.basic_checks
 // - Adds HS3/HS4/HS5 inputs (intent/authority/maintenance+freshness) as booleans/strings only
+// - Runs Google PageSpeed Insights (PSI) for mobile + desktop (HYBRID)
+// - Populates metrics.psi + metrics.scores (+ web vitals snapshot)
 // - Generates OpenAI narrative JSON (facts-locked; no invention)
 // - Upserts report_data (narrative store)
-// NOTE: This file assumes Node 18+ (Netlify) with global fetch.
+// NOTE: Node 18+ (Netlify) with global fetch.
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -14,6 +16,13 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+// PSI API key (set ONE of these in Netlify env)
+const PSI_API_KEY =
+  process.env.GOOGLE_PSI_API_KEY ||
+  process.env.PSI_API_KEY ||
+  process.env.PAGESPEED_API_KEY ||
+  "";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -80,6 +89,22 @@ function extractFirstMatch(html, regex) {
 function countMatches(html, regex) {
   const m = html.match(regex);
   return m ? m.length : 0;
+}
+
+function roundPct01(x) {
+  if (typeof x !== "number" || !Number.isFinite(x)) return null;
+  // PSI category score is 0..1
+  const pct = Math.round(x * 100);
+  if (pct < 0) return 0;
+  if (pct > 100) return 100;
+  return pct;
+}
+
+function avg(nums) {
+  const xs = (nums || []).filter((n) => typeof n === "number" && Number.isFinite(n));
+  if (!xs.length) return null;
+  const s = xs.reduce((a, b) => a + b, 0);
+  return Math.round(s / xs.length);
 }
 
 /* ---------------------------------------------
@@ -157,6 +182,92 @@ async function getText(url, maxChars = 20000) {
 }
 
 /* ---------------------------------------------
+   Google PageSpeed Insights (PSI) — Hybrid wiring
+--------------------------------------------- */
+async function fetchPsi(url, strategy = "mobile") {
+  if (!PSI_API_KEY) {
+    return { ok: false, data: null, error: "Missing PSI API key (GOOGLE_PSI_API_KEY)" };
+  }
+
+  const controller = new AbortController();
+  const timeoutMs = 25000;
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const endpoint = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
+    endpoint.searchParams.set("url", url);
+    endpoint.searchParams.set("strategy", strategy);
+    endpoint.searchParams.set("key", PSI_API_KEY);
+
+    // request the categories we care about
+    endpoint.searchParams.append("category", "performance");
+    endpoint.searchParams.append("category", "seo");
+    endpoint.searchParams.append("category", "accessibility");
+    endpoint.searchParams.append("category", "best-practices");
+
+    const resp = await fetch(endpoint.toString(), {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "iQWEB-Scanner/1.0 (+https://iqweb.ai)",
+        Accept: "application/json",
+      },
+    });
+
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      return { ok: false, data: null, error: `PSI HTTP ${resp.status}: ${txt.slice(0, 300)}` };
+    }
+
+    const data = await resp.json();
+    return { ok: true, data, error: null };
+  } catch (e) {
+    return { ok: false, data: null, error: e?.message || String(e) };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function extractPsiSnapshot(psiJson) {
+  const lr = psiJson?.lighthouseResult || null;
+  const cats = lr?.categories || {};
+  const audits = lr?.audits || {};
+
+  const performance = roundPct01(cats?.performance?.score);
+  const seo = roundPct01(cats?.seo?.score);
+  const accessibility = roundPct01(cats?.accessibility?.score);
+  const best_practices = roundPct01(cats?.["best-practices"]?.score);
+
+  // web vitals-ish (best effort)
+  const lcp = audits?.["largest-contentful-paint"];
+  const cls = audits?.["cumulative-layout-shift"];
+  const inp = audits?.["interaction-to-next-paint"]; // INP (newer LH)
+  const fcp = audits?.["first-contentful-paint"];
+
+  const vitals = {
+    lcp_ms: typeof lcp?.numericValue === "number" ? Math.round(lcp.numericValue) : null,
+    lcp_display: isNonEmptyString(lcp?.displayValue) ? lcp.displayValue : null,
+
+    cls: typeof cls?.numericValue === "number" ? Number(cls.numericValue) : null,
+    cls_display: isNonEmptyString(cls?.displayValue) ? cls.displayValue : null,
+
+    inp_ms: typeof inp?.numericValue === "number" ? Math.round(inp.numericValue) : null,
+    inp_display: isNonEmptyString(inp?.displayValue) ? inp.displayValue : null,
+
+    fcp_ms: typeof fcp?.numericValue === "number" ? Math.round(fcp.numericValue) : null,
+    fcp_display: isNonEmptyString(fcp?.displayValue) ? fcp.displayValue : null,
+  };
+
+  return {
+    final_url: lr?.finalUrl || null,
+    fetch_time: lr?.fetchTime || null,
+    categories: { performance, seo, accessibility, best_practices },
+    vitals,
+  };
+}
+
+/* ---------------------------------------------
    Basic HTML checks
 --------------------------------------------- */
 function hasMetaViewport(html) {
@@ -187,7 +298,9 @@ function extractViewportContent(html) {
    HS3 — Intent Signals (deterministic)
 --------------------------------------------- */
 function detectPrimaryCTA(html) {
-  return /<a[^>]+href=["'][^"']+["'][^>]*>(\s*(get|start|buy|book|contact|sign up|subscribe|learn more))/i.test(html);
+  return /<a[^>]+href=["'][^"']+["'][^>]*>(\s*(get|start|buy|book|contact|sign up|subscribe|learn more))/i.test(
+    html
+  );
 }
 function detectForms(html) {
   return /<form\b/i.test(html);
@@ -313,7 +426,7 @@ async function buildHtmlFacts(url) {
       schema_org_detected: null,
     },
 
-    // HS5 maintenance inputs (strong for agencies)
+    // HS5 maintenance inputs
     maintenance_signals: {
       sitemap_reachable: null,
       robots_txt_reachable: null,
@@ -328,7 +441,7 @@ async function buildHtmlFacts(url) {
       copyright_year_max: null,
     },
 
-    // HS2 trust plumbing inputs (so HS2 can stay truthful/deterministic)
+    // HS2 trust plumbing inputs
     trust_signals: {
       https: null,
       canonical_present: null,
@@ -417,16 +530,11 @@ async function buildHtmlFacts(url) {
   }
 
   // quick quality flags
-  out.title_missing_or_short =
-    typeof out.title_length === "number" ? out.title_length < 15 : null;
-
+  out.title_missing_or_short = typeof out.title_length === "number" ? out.title_length < 15 : null;
   out.meta_desc_missing_or_short =
-    typeof out.meta_description_length === "number"
-      ? out.meta_description_length < 50
-      : null;
+    typeof out.meta_description_length === "number" ? out.meta_description_length < 50 : null;
 
-  out.html_mobile_risk =
-    typeof out.html_length === "number" ? out.html_length > 120000 : null;
+  out.html_mobile_risk = typeof out.html_length === "number" ? out.html_length > 120000 : null;
 
   // above-the-fold-ish text presence
   const fold = html
@@ -435,7 +543,6 @@ async function buildHtmlFacts(url) {
     .replace(/<[^>]+>/g, "")
     .trim()
     .slice(0, 500);
-
   out.above_the_fold_text_present = fold.length > 80;
 
   // robots.txt reachable + has Sitemap:
@@ -463,7 +570,7 @@ async function buildHtmlFacts(url) {
   out.intent_signals.headline_action_oriented = detectActionHeadline(out.title_text || "");
   out.intent_signals.multiple_competing_ctas = detectMultipleCTAs(html);
 
-  // HS4 authority/social proof (careful)
+  // HS4 authority/social proof
   out.authority_signals.social_links_detected = detectSocialLinks(html);
   out.authority_signals.testimonials_or_reviews_detected = detectTestimonialsKeywords(html);
   out.authority_signals.press_or_awards_detected = detectPressKeywords(html);
@@ -475,12 +582,12 @@ async function buildHtmlFacts(url) {
   out.trust_signals.terms_page_detected = pt.terms_page_detected;
   out.trust_signals.contact_info_detected = detectContactInfo(html);
 
-  // HS5 maintenance signals
+  // HS5 maintenance
   out.maintenance_signals.sitemap_reachable = out.sitemap_reachable;
   out.maintenance_signals.robots_txt_reachable = out.robots_txt_reachable;
   out.maintenance_signals.robots_txt_has_sitemap = out.robots_txt_has_sitemap;
 
-  // HS5 freshness signals (best-effort)
+  // HS5 freshness (best-effort)
   out.freshness_signals.last_modified_header_present = !!(res.lastModified && String(res.lastModified).trim().length);
   out.freshness_signals.last_modified_header_value = res.lastModified ? String(res.lastModified).slice(0, 120) : null;
 
@@ -544,7 +651,6 @@ function pickBasicFactsForPrompt(metrics = {}) {
       robots_txt_reachable: basic.robots_txt_reachable ?? null,
       robots_txt_has_sitemap: basic.robots_txt_has_sitemap ?? null,
 
-      // Human-signal inputs (booleans / small strings only)
       trust_signals: safeObj(basic.trust_signals),
       intent_signals: safeObj(basic.intent_signals),
       authority_signals: safeObj(basic.authority_signals),
@@ -653,10 +759,7 @@ async function upsertReportData(report_id, url, created_at, metrics, narrativeOb
 
   const { error } = await supabaseAdmin
     .from("report_data")
-    .upsert(
-      { report_id, url, created_at, scores, narrative },
-      { onConflict: "report_id" }
-    );
+    .upsert({ report_id, url, created_at, scores, narrative }, { onConflict: "report_id" });
 
   return { ok: !error, error: error?.message || null };
 }
@@ -719,13 +822,11 @@ export async function handler(event) {
     metrics.scores = safeObj(metrics.scores);
     metrics.basic_checks = safeObj(metrics.basic_checks);
 
-    // Populate deterministic HTML facts + HS inputs
+    // 1) Deterministic HTML facts + HS inputs
     const htmlFacts = await buildHtmlFacts(url);
-
-    // Merge basic checks (keep existing keys if present, overwrite with our truth where we have values)
     metrics.basic_checks = { ...metrics.basic_checks, ...htmlFacts };
 
-    // Compatibility copy (optional, prevents older paths from breaking)
+    // Compatibility copy (prevents older paths from breaking)
     metrics.html_checks = safeObj(metrics.html_checks);
     for (const k of [
       "title_present",
@@ -751,7 +852,74 @@ export async function handler(event) {
       metrics.html_checks[k] = htmlFacts[k] ?? metrics.html_checks[k] ?? null;
     }
 
-    // 1) Write scan_results (truth source)
+    // 2) PSI (HYBRID): run mobile + desktop, but do NOT fail the scan if PSI fails
+    metrics.psi = safeObj(metrics.psi);
+
+    const psiMobile = await fetchPsi(url, "mobile");
+    const psiDesktop = await fetchPsi(url, "desktop");
+
+    if (psiMobile.ok && psiMobile.data) {
+      metrics.psi.mobile = extractPsiSnapshot(psiMobile.data);
+    } else {
+      metrics.psi.mobile = { error: psiMobile.error || "PSI mobile failed" };
+    }
+
+    if (psiDesktop.ok && psiDesktop.data) {
+      metrics.psi.desktop = extractPsiSnapshot(psiDesktop.data);
+    } else {
+      metrics.psi.desktop = { error: psiDesktop.error || "PSI desktop failed" };
+    }
+
+    // 3) Populate scores for Diagnostic Signals
+    // Mapping (consistent with your report blocks):
+    // - performance: prefer desktop performance score
+    // - mobile_experience: mobile performance score
+    // - seo: prefer desktop seo score
+    // - accessibility: prefer desktop accessibility score
+    // - security_trust: best-practices (closest proxy; still truthful as "quality/best practices")
+    // - structure_semantics: best-practices as a proxy OR null (we keep it aligned)
+    const dCats = safeObj(metrics.psi.desktop?.categories);
+    const mCats = safeObj(metrics.psi.mobile?.categories);
+
+    const perfDesktop = dCats.performance ?? null;
+    const perfMobile = mCats.performance ?? null;
+
+    const seoDesktop = dCats.seo ?? null;
+    const seoMobile = mCats.seo ?? null;
+
+    const accDesktop = dCats.accessibility ?? null;
+    const accMobile = mCats.accessibility ?? null;
+
+    const bpDesktop = dCats.best_practices ?? null;
+    const bpMobile = mCats.best_practices ?? null;
+
+    // Fill the standard score slots your UI expects
+    metrics.scores.performance = perfDesktop ?? perfMobile ?? metrics.scores.performance ?? null;
+    metrics.scores.mobile_experience = perfMobile ?? metrics.scores.mobile_experience ?? null;
+    metrics.scores.seo = seoDesktop ?? seoMobile ?? metrics.scores.seo ?? null;
+    metrics.scores.accessibility = accDesktop ?? accMobile ?? metrics.scores.accessibility ?? null;
+
+    // proxies (still data-based; sourced from PSI category)
+    metrics.scores.security_trust = bpDesktop ?? bpMobile ?? metrics.scores.security_trust ?? null;
+    metrics.scores.structure_semantics = bpDesktop ?? bpMobile ?? metrics.scores.structure_semantics ?? null;
+
+    // Optional: overall score = avg of the main visible ones (only where present)
+    metrics.scores.overall =
+      metrics.scores.overall ??
+      avg([
+        metrics.scores.performance,
+        metrics.scores.seo,
+        metrics.scores.accessibility,
+        metrics.scores.mobile_experience,
+        metrics.scores.security_trust,
+      ]);
+
+    // Optional: store a vitals snapshot (for later UI)
+    metrics.web_vitals = safeObj(metrics.web_vitals);
+    metrics.web_vitals.mobile = safeObj(metrics.psi.mobile?.vitals);
+    metrics.web_vitals.desktop = safeObj(metrics.psi.desktop?.vitals);
+
+    // 4) Write scan_results (truth source)
     const { data: scanRow, error: insertError } = await supabaseAdmin
       .from("scan_results")
       .insert({
@@ -769,7 +937,7 @@ export async function handler(event) {
       return { statusCode: 500, body: JSON.stringify({ error: insertError.message }) };
     }
 
-    // 2) Generate narrative + upsert report_data (non-blocking if OpenAI fails)
+    // 5) Generate narrative + upsert report_data (non-blocking if OpenAI fails)
     const narrativeObj = await buildNarrative(url, metrics);
     const up = await upsertReportData(report_id, url, created_at, metrics, narrativeObj);
 
@@ -779,10 +947,17 @@ export async function handler(event) {
         success: true,
         scan_id: scanRow.id,
         report_id: scanRow.report_id,
+
         html_facts_populated: true,
         hs3_inputs_added: true,
         hs4_inputs_added: true,
         hs5_inputs_added: true,
+
+        psi_mobile_ok: !!(metrics.psi.mobile && !metrics.psi.mobile.error),
+        psi_desktop_ok: !!(metrics.psi.desktop && !metrics.psi.desktop.error),
+
+        scores_populated: true,
+
         narrative_saved: up.ok,
         narrative_error: up.error,
       }),
