@@ -1,11 +1,13 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Gold wiring for 6 signal blocks + deterministic sections + Human Signals HS1/HS2/HS3
-// - Signals: Performance, SEO, Structure, Mobile, Security, Accessibility
-// - Executive Narrative lead (AI if present)
-// - Deterministic fallbacks (NON-AI) so blocks never look "broken"
-// - Builds: Key Insight Metrics, Top Issues Detected, Recommended Fix Sequence, Final Notes
-// - Human Signals: HS1 Clarity, HS2 Trust, HS3 Intent
-// - Dispatches iqweb:loaded to fade the "Building Report" loader
+// iQWEB Report v5.2 — Gold wiring for:
+// - 6 Diagnostic Signal blocks (Performance, SEO, Structure, Mobile, Security, Accessibility)
+// - Deterministic sections (Key Insights, Top Issues, Fix Sequence, Final Notes)
+// - Human Signals HS1–HS5 (deterministic classifiers + narrative + bar %)
+//
+// NOTE:
+// - Human Signals render ONLY if matching HTML placeholders exist:
+//   data-field="hs1-status", data-field="hs1-comment", data-bar="hs1" (and hs2..hs5).
+// - Bars render ONLY if you have: <span data-bar="..."></span>
 
 function qs(sel) { return document.querySelector(sel); }
 function safeObj(o) { return o && typeof o === "object" ? o : {}; }
@@ -21,13 +23,6 @@ function setHTML(field, html) {
   const el = qs(`[data-field="${field}"]`);
   if (!el) return;
   el.innerHTML = isNonEmptyString(html) ? html : "";
-}
-
-function clearEl(field) {
-  const el = qs(`[data-field="${field}"]`);
-  if (!el) return;
-  el.innerHTML = "";
-  el.textContent = "";
 }
 
 function formatReportTimeLocal(iso) {
@@ -63,6 +58,7 @@ function setScore(field, score) {
 }
 
 function setBar(name, score) {
+  // expects span[data-bar="name"]
   const el = qs(`[data-bar="${name}"]`);
   if (!el) return;
   const s = clampScore(score);
@@ -82,21 +78,7 @@ function fallbackIfEmpty(text, fallback) {
   return isNonEmptyString(text) ? text : fallback;
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function boolVal(v) {
-  // only treat explicit true as true
-  return v === true;
-}
-
-// ---------- Deterministic builders (NON-AI) ----------
+// -------------------- Deterministic builders (NON-AI) --------------------
 function buildKeyInsights(bc = {}) {
   const items = [];
 
@@ -108,14 +90,21 @@ function buildKeyInsights(bc = {}) {
 
   if (bc.h1_present === false) items.push("Primary H1 heading not detected");
   if (bc.canonical_present === false) items.push("Canonical tag not detected");
-  if (bc.robots_meta_present === false) items.push("Robots meta tag not detected");
+  if (bc.robots_meta_present === false || bc.robots_present === false) items.push("Robots meta tag not detected");
 
   if (bc.sitemap_reachable === true) items.push("Sitemap reachable at /sitemap.xml");
   else if (bc.sitemap_reachable === false) items.push("Sitemap not detected (or not reachable) at /sitemap.xml");
 
+  if (bc.robots_txt_reachable === true) items.push("robots.txt reachable");
+  else if (bc.robots_txt_reachable === false) items.push("robots.txt not reachable");
+
   if (bc.viewport_present === false) items.push("Viewport meta tag not detected (mobile scaling may be incorrect)");
 
   if (typeof bc.html_length === "number") items.push(`HTML size: ${bc.html_length.toLocaleString()} characters`);
+
+  // Optional “freshness” facts if your scan collects them later
+  if (isNonEmptyString(bc.http_last_modified)) items.push(`Last-Modified header: ${bc.http_last_modified}`);
+  if (typeof bc.last_modified_present === "boolean") items.push(`Last-Modified detected: ${bc.last_modified_present ? "Yes" : "No"}`);
 
   return items;
 }
@@ -137,10 +126,6 @@ function buildTopIssues(bc = {}) {
 
   if (typeof bc.meta_description_length === "number" && bc.meta_description_length > 170) {
     issues.push({ sev: "LOW", msg: `Meta description is long (${bc.meta_description_length} chars) — may be truncated in search results.` });
-  }
-
-  if (bc.robots_meta_present === false) {
-    issues.push({ sev: "LOW", msg: "Robots meta tag not detected — not required, but some sites use it for explicit indexing directives." });
   }
 
   if (bc.sitemap_reachable === false) {
@@ -169,8 +154,16 @@ function renderIssuesUl(issues) {
   }
 }
 
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function buildFixSequenceHTML(issues, bc = {}) {
-  // Keep it deterministic: derive phases from detected issues
   const hasH1 = issues.some(i => i.msg.toLowerCase().includes("h1"));
   const hasCanonical = issues.some(i => i.msg.toLowerCase().includes("canonical"));
   const hasViewport = issues.some(i => i.msg.toLowerCase().includes("viewport"));
@@ -186,7 +179,7 @@ function buildFixSequenceHTML(issues, bc = {}) {
   if (hasViewport) p1.push("Add a viewport meta tag to ensure correct mobile scaling and layout.");
 
   if (hasMetaLen) p2.push("Trim meta description closer to ~120–160 characters while keeping it specific and useful.");
-  if (bc.robots_meta_present === false) p2.push("Optional: add a robots meta tag only if you need explicit indexing directives for key pages.");
+  if (bc.robots_meta_present === false || bc.robots_present === false) p2.push("Optional: add a robots meta tag only if you need explicit indexing directives for key pages.");
   if (hasSitemap) p2.push("Add /sitemap.xml (or fix its path) so search engines can discover pages more reliably.");
 
   p3.push("Re-run iQWEB after changes to confirm the signals move in the right direction.");
@@ -227,14 +220,33 @@ function renderFinalNotes() {
   }
 }
 
-// ---------- Human Signals ----------
+// -------------------- Human Signals: shared utilities --------------------
+function hsLevelToBarPct(level) {
+  // This is NOT a “score”, it’s a visual indicator of strength of signal.
+  const map = {
+    HIGH: 85,
+    MODERATE: 55,
+    LOW: 25,
+    CLEAR: 85,
+    INTENTIONAL: 40,
+    MIXED: 55,
+    UNKNOWN: 35,
+  };
+  return map[level] ?? 35;
+}
 
-// HS1 — Clarity & Cognitive Load
+function setHs(fieldStatus, fieldComment, barName, level, label, comment) {
+  // if HTML placeholders don’t exist, silently skip
+  setText(fieldStatus, label);
+  setText(fieldComment, comment);
+  setBar(barName, hsLevelToBarPct(level));
+}
+
+// -------------------- HS1 — Clarity & Cognitive Load --------------------
 function classifyClarityCognitiveLoad(bc = {}) {
-  // Returns: { level: "CLEAR"|"MODERATE"|"HIGH"|"INTENTIONAL", reasons: [] }
   const reasons = [];
 
-  const titlePresent = bc.title_present !== false; // null treated as unknown
+  const titlePresent = bc.title_present !== false;
   const titleLen = (typeof bc.title_length === "number") ? bc.title_length : null;
 
   const metaPresent = bc.meta_description_present !== false;
@@ -260,7 +272,6 @@ function classifyClarityCognitiveLoad(bc = {}) {
   const heavyHtml = (typeof htmlLen === "number") ? (htmlLen > 120000) : (bc.html_mobile_risk === true);
   const ultraHeavyHtml = (typeof htmlLen === "number") ? (htmlLen > 200000) : false;
 
-  // Intentional complexity pattern (e.g., art/chaos sites):
   const deliberatePlumbing = (canonicalPresent === true && viewportPresent === true && titlePresent === true);
   const deliberateChaos = (missingH1 || multiH1 || titleVague) && deliberatePlumbing;
 
@@ -292,52 +303,41 @@ function classifyClarityCognitiveLoad(bc = {}) {
   return { level: "CLEAR", reasons };
 }
 
-function renderHumanSignal1(basicChecks = {}) {
-  const statusMap = {
+function renderHumanSignal1(bc = {}) {
+  const r = classifyClarityCognitiveLoad(bc);
+
+  const labelMap = {
     CLEAR: "CLEAR",
     MODERATE: "MODERATE LOAD",
     HIGH: "HIGH LOAD",
     INTENTIONAL: "INTENTIONAL COMPLEXITY",
   };
 
-  const r = classifyClarityCognitiveLoad(basicChecks);
-  const label = statusMap[r.level] || "CLEAR";
-
-  setText("hs1-status", label);
-
   const reasonText = (r.reasons || []).slice(0, 3).join(" ");
-  const msg =
+  const comment =
     (r.level === "CLEAR")
-      ? "The page presents a clear structure and intent, which helps first-time visitors orient quickly with low cognitive effort."
+      ? "The page presents a clear structure and intent, helping first-time visitors orient quickly with low cognitive effort."
       : (r.level === "MODERATE")
         ? `The page communicates its purpose, but some structural cues may increase the mental effort required for first-time visitors. ${reasonText}`.trim()
         : (r.level === "HIGH")
           ? `Key orientation cues appear weak or missing, which can increase cognitive load for first-time visitors trying to understand the page’s purpose. ${reasonText}`.trim()
           : `The page appears to intentionally subvert conventional clarity and structure. While this increases cognitive load for most visitors, it may be a deliberate design choice rather than an oversight. ${reasonText}`.trim();
 
-  setText("hs1-comment", msg);
-
-  const barMap = {
-    CLEAR: 85,
-    MODERATE: 55,
-    HIGH: 30,
-    INTENTIONAL: 40,
-  };
-
-  setBar("hs1", barMap[r.level] ?? 0);
+  setHs("hs1-status", "hs1-comment", "hs1", r.level, labelMap[r.level] || "CLEAR", comment);
 }
 
-// HS2 — Trust & Credibility
+// -------------------- HS2 — Trust & Credibility (deterministic) --------------------
 function classifyTrustCredibility(bc = {}) {
-  // Supports either: bc.trust_signals.* OR flattened keys on bc
   const reasons = [];
-  const t = safeObj(bc.trust_signals);
 
-  const https = boolVal(t.https) || boolVal(bc.https);
-  const canonical = boolVal(t.canonical_present) || boolVal(bc.canonical_present);
-  const privacy = boolVal(t.privacy_page_detected) || boolVal(bc.privacy_page_detected);
-  const terms = boolVal(t.terms_page_detected) || boolVal(bc.terms_page_detected);
-  const contact = boolVal(t.contact_info_detected) || boolVal(bc.contact_info_detected);
+  // We try both direct fields and nested trust_signals (if your scan adds them later)
+  const trust = safeObj(bc.trust_signals);
+
+  const https = (bc.https === true) || (trust.https === true) || (bc.https_present === true);
+  const canonical = (bc.canonical_present === true);
+  const privacy = (trust.privacy_page_detected === true) || (bc.privacy_page_detected === true);
+  const terms = (trust.terms_page_detected === true) || (bc.terms_page_detected === true);
+  const contact = (trust.contact_info_detected === true) || (bc.contact_info_detected === true);
 
   if (!https) reasons.push("HTTPS not detected.");
   if (!canonical) reasons.push("Canonical URL not detected.");
@@ -347,108 +347,193 @@ function classifyTrustCredibility(bc = {}) {
 
   const positives = [https, canonical, (privacy || terms), contact].filter(Boolean).length;
 
+  if (positives >= 4) return { level: "HIGH", reasons, https, canonical, privacy, terms, contact };
+  if (positives >= 2) return { level: "MODERATE", reasons, https, canonical, privacy, terms, contact };
+  if (positives === 1) return { level: "LOW", reasons, https, canonical, privacy, terms, contact };
+
+  return { level: "LOW", reasons, https, canonical, privacy, terms, contact };
+}
+
+function renderHumanSignal2(bc = {}) {
+  const r = classifyTrustCredibility(bc);
+
+  const labelMap = {
+    HIGH: "STRONG",
+    MODERATE: "MODERATE",
+    LOW: "WEAK / MISSING",
+  };
+
+  const top = (r.reasons || []).slice(0, 3).join(" ");
+  const comment =
+    (r.level === "HIGH")
+      ? "Key trust signals are present, which supports credibility for first-time visitors and reduces hesitation."
+      : (r.level === "MODERATE")
+        ? `Some trust signals are present, but a few credibility anchors appear missing or unclear. ${top}`.trim()
+        : `Several credibility anchors appear missing or unclear, which can increase hesitation for new visitors. ${top}`.trim();
+
+  setHs("hs2-status", "hs2-comment", "hs2", r.level, labelMap[r.level] || "MODERATE", comment);
+}
+
+// -------------------- HS3 — Intent & Conversion Path --------------------
+function classifyIntentConversion(bc = {}) {
+  const intent = safeObj(bc.intent_signals);
+
+  const primaryCTA = intent.primary_cta_detected === true;
+  const form = intent.form_present === true;
+  const ecommerce = intent.ecommerce_detected === true;
+  const nav = intent.navigation_present === true;
+  const actionHeadline = intent.headline_action_oriented === true;
+  const competing = intent.multiple_competing_ctas === true;
+
+  const reasons = [];
+  if (!nav) reasons.push("Navigation structure is not clearly detected.");
+  if (!primaryCTA && !form && !ecommerce) reasons.push("No clear action path detected (CTA / form / purchase).");
+  if (!actionHeadline) reasons.push("Headline/title appears less action-oriented (may be informational or unclear).");
+  if (competing) reasons.push("Multiple competing CTAs detected, which can dilute decision-making.");
+
+  const positives = [nav, (primaryCTA || form || ecommerce), actionHeadline].filter(Boolean).length;
+
+  if (positives === 3 && !competing) return { level: "HIGH", reasons };
+  if (positives >= 2) return { level: "MODERATE", reasons };
+  return { level: "LOW", reasons };
+}
+
+function renderHumanSignal3(bc = {}) {
+  const r = classifyIntentConversion(bc);
+
+  const labelMap = {
+    HIGH: "CLEAR PATH",
+    MODERATE: "PARTIAL",
+    LOW: "UNCLEAR",
+  };
+
+  const top = (r.reasons || []).slice(0, 3).join(" ");
+  const comment =
+    (r.level === "HIGH")
+      ? "The page appears to provide a clear action path, helping visitors understand what to do next without extra effort."
+      : (r.level === "MODERATE")
+        ? `The intent is partially clear, but some signals suggest visitors may need extra effort to find the next step. ${top}`.trim()
+        : `The next step may be unclear for first-time visitors, which can reduce conversion momentum. ${top}`.trim();
+
+  setHs("hs3-status", "hs3-comment", "hs3", r.level, labelMap[r.level] || "PARTIAL", comment);
+}
+
+// -------------------- HS4 — Maintenance Hygiene --------------------
+function classifyMaintenanceHygiene(bc = {}) {
+  const reasons = [];
+
+  const sitemapOk = (bc.sitemap_reachable === true);
+  const robotsOk = (bc.robots_txt_reachable === true);
+  const robotsHasSitemap = (bc.robots_txt_has_sitemap === true);
+
+  const canonical = (bc.canonical_present === true);
+  const viewport = (bc.viewport_present === true);
+
+  if (!sitemapOk) reasons.push("Sitemap not detected at /sitemap.xml.");
+  if (!robotsOk) reasons.push("robots.txt not reachable.");
+  else if (robotsOk && !robotsHasSitemap) reasons.push("robots.txt does not declare a Sitemap directive.");
+
+  if (!canonical) reasons.push("Canonical not detected (maintenance hygiene for URL consistency).");
+  if (!viewport) reasons.push("Viewport not detected (mobile hygiene).");
+
+  const positives = [sitemapOk, robotsOk, robotsHasSitemap, canonical, viewport].filter(Boolean).length;
+
   if (positives >= 4) return { level: "HIGH", reasons };
   if (positives >= 2) return { level: "MODERATE", reasons };
-  if (positives === 1) return { level: "LOW", reasons };
-
-  return { level: "INTENTIONAL", reasons };
+  return { level: "LOW", reasons };
 }
 
-function renderHumanSignal2(basicChecks = {}) {
-  const statusMap = {
-    HIGH: "HIGH TRUST",
-    MODERATE: "MODERATE TRUST",
-    LOW: "LOW TRUST",
-    INTENTIONAL: "TRUST UNCLEAR",
+function renderHumanSignal4(bc = {}) {
+  const r = classifyMaintenanceHygiene(bc);
+
+  const labelMap = {
+    HIGH: "HEALTHY",
+    MODERATE: "MIXED",
+    LOW: "NEEDS ATTENTION",
   };
 
-  const r = classifyTrustCredibility(basicChecks);
-  const label = statusMap[r.level] || "MODERATE TRUST";
-  setText("hs2-status", label);
-
-  const reasonText = (r.reasons || []).slice(0, 2).join(" ");
-  const msg =
+  const top = (r.reasons || []).slice(0, 3).join(" ");
+  const comment =
     (r.level === "HIGH")
-      ? "Key trust cues appear present, which supports credibility for first-time visitors and reduces hesitation."
+      ? "Maintenance hygiene signals look healthy, which reduces small technical drift and keeps the site easier to manage over time."
       : (r.level === "MODERATE")
-        ? `Some trust cues are present, but a few credibility anchors may be missing or unclear for first-time visitors. ${reasonText}`.trim()
-        : (r.level === "LOW")
-          ? `Trust and credibility anchors appear limited, which can increase hesitation for first-time visitors. ${reasonText}`.trim()
-          : `Trust cues are not clearly signposted in a conventional way. This may be intentional, but can increase uncertainty for first-time visitors. ${reasonText}`.trim();
+        ? `Some maintenance hygiene signals are present, but a few basics may need tightening. ${top}`.trim()
+        : `Several maintenance hygiene signals are missing or unclear, which can lead to technical drift over time. ${top}`.trim();
 
-  setText("hs2-comment", msg);
-
-  const barMap = {
-    HIGH: 85,
-    MODERATE: 55,
-    LOW: 25,
-    INTENTIONAL: 40,
-  };
-
-  setBar("hs2", barMap[r.level] ?? 0);
+  setHs("hs4-status", "hs4-comment", "hs4", r.level, labelMap[r.level] || "MIXED", comment);
 }
 
-// HS3 — Intent & Conversion Readiness
-function classifyIntentReadiness(bc = {}) {
-  // Supports either: bc.intent_signals.* OR flattened keys on bc
+// -------------------- HS5 — Freshness Signals (recency/updates) --------------------
+function parseHttpDate(s) {
+  if (!isNonEmptyString(s)) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+function daysSince(d) {
+  if (!d) return null;
+  const now = Date.now();
+  const diff = now - d.getTime();
+  if (!Number.isFinite(diff)) return null;
+  return Math.floor(diff / 86400000);
+}
+
+function classifyFreshnessSignals(bc = {}) {
+  // We only use *detected* data; if not available, we say "unknown" without faking.
   const reasons = [];
-  const i = safeObj(bc.intent_signals);
 
-  const cta = boolVal(i.primary_cta_detected) || boolVal(bc.primary_cta_detected);
-  const contact = boolVal(i.contact_path_detected) || boolVal(bc.contact_path_detected);
-  const form = boolVal(i.form_present) || boolVal(bc.form_present);
-  const pricing = boolVal(i.pricing_or_offer_detected) || boolVal(bc.pricing_or_offer_detected);
-  const direct = boolVal(i.phone_or_email_visible) || boolVal(bc.phone_or_email_visible);
-  const clutter = boolVal(i.multiple_ctas_detected) || boolVal(bc.multiple_ctas_detected);
+  // These are optional fields your scan may add later:
+  // bc.http_last_modified (string) OR bc.last_modified (string) OR bc.last_modified_header (string)
+  const lastMod =
+    parseHttpDate(bc.http_last_modified) ||
+    parseHttpDate(bc.last_modified) ||
+    parseHttpDate(bc.last_modified_header);
 
-  if (!cta) reasons.push("Primary call-to-action not clearly detected.");
-  if (!contact && !form) reasons.push("No clear path to initiate contact.");
-  if (clutter) reasons.push("Multiple competing calls-to-action detected.");
+  const ds = daysSince(lastMod);
 
-  const positives = [cta, (contact || form), (pricing || direct)].filter(Boolean).length;
+  // fallback “soft” signals (optional, if you add later)
+  const hasBlogHint = bc.blog_detected === true;
+  const hasNewsHint = bc.news_detected === true;
 
-  if (positives >= 3 && !clutter) return { level: "HIGH", reasons };
-  if (positives >= 2) return { level: "MODERATE", reasons };
-  if (positives === 1) return { level: "LOW", reasons };
+  if (lastMod) reasons.push(`Last-Modified header detected (${ds} days ago).`);
+  else reasons.push("No Last-Modified signal was available from this scan.");
 
-  return { level: "INTENTIONAL", reasons };
+  if (hasBlogHint) reasons.push("Blog/content section detected.");
+  if (hasNewsHint) reasons.push("News/updates section detected.");
+
+  if (ds === null) return { level: "UNKNOWN", reasons, days_since: null };
+
+  // Classification bands (deterministic)
+  if (ds <= 90) return { level: "HIGH", reasons, days_since: ds };
+  if (ds <= 365) return { level: "MODERATE", reasons, days_since: ds };
+  return { level: "LOW", reasons, days_since: ds };
 }
 
-function renderHumanSignal3(basicChecks = {}) {
-  const statusMap = {
-    HIGH: "STRONG INTENT",
-    MODERATE: "MODERATE INTENT",
-    LOW: "WEAK INTENT",
-    INTENTIONAL: "INTENT UNCLEAR",
+function renderHumanSignal5(bc = {}) {
+  const r = classifyFreshnessSignals(bc);
+
+  const labelMap = {
+    HIGH: "RECENT",
+    MODERATE: "STALE",
+    LOW: "OLD / UNKNOWN",
+    UNKNOWN: "UNKNOWN",
   };
 
-  const r = classifyIntentReadiness(basicChecks);
-  const label = statusMap[r.level] || "MODERATE INTENT";
-  setText("hs3-status", label);
-
-  const reasonText = (r.reasons || []).slice(0, 2).join(" ");
-  const msg =
+  const top = (r.reasons || []).slice(0, 2).join(" ");
+  const comment =
     (r.level === "HIGH")
-      ? "The page presents a clear next step for visitors, supported by visible contact paths and intent cues. This reduces hesitation and helps first-time users understand how to proceed."
+      ? `Freshness signals suggest the site has been updated relatively recently. ${top}`.trim()
       : (r.level === "MODERATE")
-        ? `A path forward is present, though some intent cues may be less prominent or compete for attention. Clarifying the primary next step could reduce friction for first-time visitors. ${reasonText}`.trim()
-        : (r.level === "LOW")
-          ? `While information is available, the next step for visitors is not clearly signposted. This may increase hesitation for users seeking to engage or enquire. ${reasonText}`.trim()
-          : `The page does not appear designed around a specific conversion action. This may be intentional for informational or reference-focused content. ${reasonText}`.trim();
+        ? `Freshness signals suggest updates exist, but not recently. ${top}`.trim()
+        : (r.level === "UNKNOWN")
+          ? `Freshness could not be determined from the available scan signals. ${top}`.trim()
+          : `Freshness signals suggest the site may not have been updated in a long time. ${top}`.trim();
 
-  setText("hs3-comment", msg);
-
-  const barMap = {
-    HIGH: 85,
-    MODERATE: 55,
-    LOW: 25,
-    INTENTIONAL: 40,
-  };
-
-  setBar("hs3", barMap[r.level] ?? 0);
+  setHs("hs5-status", "hs5-comment", "hs5", r.level, labelMap[r.level] || "UNKNOWN", comment);
 }
 
-// ---------- Main ----------
+// -------------------- Main loader --------------------
 async function loadReportData() {
   const params = new URLSearchParams(window.location.search);
   const reportId = params.get("report_id");
@@ -502,20 +587,16 @@ async function loadReportData() {
 
   // ---------------- EXECUTIVE NARRATIVE ----------------
   const execText = narrative.intro || narrative.overall_summary || "";
-  setText("overall-summary", execText);
+  setText("overall-summary", fallbackIfEmpty(execText, "No executive narrative was available for this scan."));
 
-  // ---------------- SIGNALS (6) ----------------
-
+  // ---------------- DIAGNOSTIC SIGNALS (6) ----------------
   // 1) Performance
   const perfScore = clampScore(scores.performance);
   setScore("score-performance", perfScore);
   setBar("performance", perfScore);
 
   const perfNarr = joinParts([narrative.performance, narrative.performance_comment], 2);
-  setText("performance-comment", fallbackIfEmpty(
-    perfNarr,
-    "No material performance issues were detected from the available data."
-  ));
+  setText("performance-comment", fallbackIfEmpty(perfNarr, "No material performance issues were detected from the available data."));
 
   // 2) SEO Foundations
   const seoScore = clampScore(scores.seo);
@@ -562,10 +643,7 @@ async function loadReportData() {
   setBar("security", secScore);
 
   const secNarr = joinParts([narrative.security, narrative.securityTrust, narrative.security_comment], 2);
-  setText("security-comment", fallbackIfEmpty(
-    secNarr,
-    "No security risks were identified at the time of analysis."
-  ));
+  setText("security-comment", fallbackIfEmpty(secNarr, "No security risks were identified at the time of analysis."));
 
   // 6) Accessibility
   const a11yScore = clampScore(scores.accessibility);
@@ -573,15 +651,14 @@ async function loadReportData() {
   setBar("accessibility", a11yScore);
 
   const a11yNarr = joinParts([narrative.accessibility, narrative.accessibility_comment], 2);
-  setText("accessibility-comment", fallbackIfEmpty(
-    a11yNarr,
-    "No significant accessibility blockers were detected from the available signals."
-  ));
+  setText("accessibility-comment", fallbackIfEmpty(a11yNarr, "No significant accessibility blockers were detected from the available signals."));
 
-  // ---------------- Human Signals (HS1/HS2/HS3) ----------------
-  try { renderHumanSignal1(basicChecks); } catch (e) { console.warn("HS1 render failed:", e); }
-  try { renderHumanSignal2(basicChecks); } catch (e) { console.warn("HS2 render failed:", e); }
-  try { renderHumanSignal3(basicChecks); } catch (e) { console.warn("HS3 render failed:", e); }
+  // ---------------- HUMAN SIGNALS (HS1–HS5) ----------------
+  renderHumanSignal1(basicChecks);
+  renderHumanSignal2(basicChecks);
+  renderHumanSignal3(basicChecks);
+  renderHumanSignal4(basicChecks);
+  renderHumanSignal5(basicChecks);
 
   // ---------------- Key Insight Metrics ----------------
   const keyInsights = buildKeyInsights(basicChecks);
