@@ -15,121 +15,148 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 function computeOverallScore(rawScores = {}, basicChecks = {}) {
   const s = rawScores || {};
 
-  const weights = {
-    performance: 0.16,
-    seo: 0.16,
-    structure_semantics: 0.16,
-    mobile_experience: 0.16,
-    security_trust: 0.12,
-    accessibility: 0.08,
-    domain_hosting: 0.06,
-    content_signals: 0.10,
+  // weights tuned for "Signals-first" readability
+  // (these are display-only — raw per-signal scores remain unchanged)
+  const w = {
+    performance: 0.18,
+    seo: 0.18,
+    structure_semantics: 0.18,
+    mobile_experience: 0.14,
+    security_trust: 0.16,
+    accessibility: 0.16,
   };
 
-  let weightedSum = 0;
-  let weightTotal = 0;
+  const score = (k) => {
+    const v = s?.[k];
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  };
 
-  for (const [key, w] of Object.entries(weights)) {
-    const v = s[key];
-    if (typeof v === "number" && !Number.isNaN(v)) {
-      weightedSum += v * w;
-      weightTotal += w;
+  const vals = [
+    ["performance", score("performance")],
+    ["seo", score("seo")],
+    ["structure_semantics", score("structure_semantics")],
+    ["mobile_experience", score("mobile_experience")],
+    ["security_trust", score("security_trust")],
+    ["accessibility", score("accessibility")],
+  ];
+
+  // If all missing, return null (UI can show a neutral message)
+  const any = vals.some(([, v]) => typeof v === "number");
+  if (!any) return null;
+
+  let total = 0;
+  let weightSum = 0;
+
+  for (const [k, v] of vals) {
+    if (typeof v === "number") {
+      total += v * (w[k] || 0);
+      weightSum += w[k] || 0;
     }
   }
 
-  if (weightTotal === 0) return null;
+  // Re-normalize if some components missing
+  if (weightSum > 0) total = total / weightSum;
 
-  let baseScore = weightedSum / weightTotal;
+  // Round to 1dp for display
+  return Math.round(total * 10) / 10;
+}
 
-  let penalty = 0;
-  if (basicChecks.viewport_present === false) penalty += 8;
-  if (basicChecks.h1_present === false) penalty += 6;
-  if (basicChecks.meta_description_present === false) penalty += 6;
-
-  const htmlLength = basicChecks.html_length;
-  if (typeof htmlLength === "number") {
-    if (htmlLength < 500) penalty += 4;
-    else if (htmlLength > 200000) penalty += 3;
-  }
-
-  let finalScore = baseScore - penalty;
-  if (!Number.isFinite(finalScore)) return null;
-
-  if (finalScore < 0) finalScore = 0;
-  if (finalScore > 100) finalScore = 100;
-
-  return Math.round(finalScore * 10) / 10;
+function safeObj(o) {
+  return o && typeof o === "object" ? o : {};
 }
 
 export async function handler(event) {
-  if (event.httpMethod !== "GET") {
+  try {
+    const reportId =
+      event.queryStringParameters?.report_id ||
+      event.queryStringParameters?.id ||
+      null;
+
+    if (!reportId) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: false, error: "Missing report_id" }),
+      };
+    }
+
+    // 1) Fetch scan_results (facts)
+    const { data: scan, error: scanErr } = await supabase
+      .from("scan_results")
+      .select("report_id,url,created_at,metrics,status,source,user_id")
+      .eq("report_id", reportId)
+      .maybeSingle();
+
+    if (scanErr) throw scanErr;
+    if (!scan) {
+      return {
+        statusCode: 404,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: false, error: "Report not found" }),
+      };
+    }
+
+    const metrics = safeObj(scan.metrics);
+    const rawScores = safeObj(metrics.scores);
+
+    // 2) Fetch narrative (AI output) if exists
+    const { data: rd, error: rdErr } = await supabase
+      .from("report_data")
+      .select("report_id,url,narrative")
+      .eq("report_id", reportId)
+      .maybeSingle();
+
+    // report_data may not exist for older reports; treat as optional
+    if (rdErr) {
+      // Do not fail the entire request
+      console.warn("get-report-data: report_data read error:", rdErr?.message || rdErr);
+    }
+
+    const narrative = rd?.narrative || null;
+
+    // 3) Derive deterministic basics from metrics (exposed to UI)
+    // NOTE: This preserves your existing UI contract.
+    const basicChecks = safeObj(metrics.basic_checks);
+
+    // 4) Compute "overall" display score
+    const overall = computeOverallScore(rawScores, basicChecks);
+
+    // 5) Return
+    const scores = {
+      performance: rawScores.performance ?? null,
+      seo: rawScores.seo ?? null,
+      structure_semantics: rawScores.structure_semantics ?? null,
+      mobile_experience: rawScores.mobile_experience ?? null,
+      security_trust: rawScores.security_trust ?? null,
+      accessibility: rawScores.accessibility ?? null,
+      overall,
+    };
+
     return {
-      statusCode: 405,
+      statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, message: "Method not allowed" }),
+      body: JSON.stringify({
+        success: true,
+        scores,
+        basic_checks: basicChecks, // ✅ expose HTML facts for deterministic block
+        narrative,
+        narrative_source: narrative ? "stored" : "none",
+        report: {
+          url: scan.url,
+          report_id: scan.report_id,
+          created_at: scan.created_at,
+        },
+      }),
+    };
+  } catch (err) {
+    console.error("get-report-data error:", err);
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        success: false,
+        error: err?.message || "Server error",
+      }),
     };
   }
-
-  const reportId = event.queryStringParameters?.report_id || null;
-  if (!reportId) {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, message: "Missing report_id" }),
-    };
-  }
-
-  // 1) Load scan_results (truth source for scores + metrics)
-  const { data: scan, error: scanError } = await supabase
-    .from("scan_results")
-    .select("id, url, metrics, report_id, created_at")
-    .eq("report_id", reportId)
-    .single();
-
-  if (scanError || !scan) {
-    return {
-      statusCode: 404,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, message: "Scan result not found" }),
-    };
-  }
-
-  const scores = scan.metrics?.scores || {};
-  const basicChecks = scan.metrics?.basic_checks || {};
-
-  // recompute overall (safe, deterministic, no invention)
-  const recomputedOverall = computeOverallScore(scores, basicChecks);
-  if (typeof recomputedOverall === "number") scores.overall = recomputedOverall;
-
-  // 2) Load stored narrative (if any). DO NOT generate.
-  // IMPORTANT: do NOT .single() here because missing row is normal.
-  const { data: repRows } = await supabase
-    .from("report_data")
-    .select("narrative")
-    .eq("report_id", reportId)
-    .limit(1);
-
-  const narrative = repRows?.[0]?.narrative || null;
-
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      success: true,
-      scores,
-      basic_checks: basicChecks, // ✅ expose HTML facts for deterministic block
-      narrative,
-      narrative_source: narrative ? "stored" : "none",
-      report: {
-        url: scan.url,
-        report_id: scan.report_id,
-        created_at: scan.created_at,
-      },
-      speed_stability: scan.metrics?.speed_stability || null,
-      core_web_vitals:
-        scan.metrics?.core_web_vitals ||
-        scan.metrics?.psi_mobile?.coreWebVitals ||
-        null,
-    }),
-  };
 }
