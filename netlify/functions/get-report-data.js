@@ -1,10 +1,10 @@
 // /.netlify/functions/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 function json(statusCode, obj) {
   return {
@@ -21,93 +21,84 @@ function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
 
-function isNumericId(v) {
-  if (typeof v !== "string") return false;
-  return /^[0-9]+$/.test(v.trim());
-}
-
-async function fetchRowByEitherId(reportIdRaw) {
-  const rid = String(reportIdRaw || "").trim();
-  if (!rid) return { row: null, error: "Missing report_id" };
-
-  // 1) Try as report_id (string)
-  {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative")
-      .eq("report_id", rid)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (!error && data && data.length) return { row: data[0], error: null };
-  }
-
-  // 2) If numeric, try as primary id
-  if (isNumericId(rid)) {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative")
-      .eq("id", Number(rid))
-      .single();
-
-    if (!error && data) return { row: data, error: null };
-  }
-
-  return { row: null, error: "Report not found for that report_id" };
+function isNumeric(v) {
+  return /^[0-9]+$/.test(String(v));
 }
 
 export async function handler(event) {
   try {
-    const params = event.queryStringParameters || {};
-    const reportId = params.report_id || params.reportId || params.id || params.scan_id || null;
+    const q = event.queryStringParameters || {};
+    const reportId = q.report_id || q.id || q.scan_id;
 
-    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
+    if (!reportId) {
+      return json(400, { success: false, error: "Missing report_id" });
+    }
 
-    const { row, error } = await fetchRowByEitherId(reportId);
-    if (error || !row) return json(404, { success: false, error: error || "Not found" });
+    /* ---------------------------------
+       1) Load scan_results (truth)
+    --------------------------------- */
+    let scan = null;
 
-    const metrics = safeObj(row.metrics);
-    const scores = safeObj(metrics.scores);
+    if (isNumeric(reportId)) {
+      const { data } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("id", Number(reportId))
+        .single();
+      scan = data;
+    } else {
+      const { data } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("report_id", reportId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      scan = data?.[0];
+    }
 
-    const basic_checks = safeObj(metrics.basic_checks);
-    const security_headers = safeObj(metrics.security_headers);
-    const human_signals = safeObj(metrics.human_signals);
-    const explanations = safeObj(metrics.explanations);
+    if (!scan) {
+      return json(404, {
+        success: false,
+        error: "Report not found for that report_id",
+      });
+    }
 
-    // Narrative: prefer row.narrative; fall back to metrics.narrative if you ever store it there
-    const narrative = safeObj(row.narrative) || safeObj(metrics.narrative);
+    /* ---------------------------------
+       2) Load narrative (optional layer)
+    --------------------------------- */
+    const { data: narrativeRow } = await supabase
+      .from("report_data")
+      .select("narrative")
+      .eq("report_id", scan.report_id)
+      .single();
 
-    const hasNarrative =
-      !!narrative &&
-      (typeof narrative.overall_summary === "string" ||
-        typeof narrative.performance_comment === "string" ||
-        typeof narrative.seo_comment === "string");
-
+    /* ---------------------------------
+       3) Unified response
+    --------------------------------- */
     return json(200, {
       success: true,
+
       report: {
-        id: row.id,
-        report_id: row.report_id || null,
-        url: row.url || null,
-        created_at: row.created_at || null,
-        status: row.status || null,
-        report_url: row.report_url || null,
-        user_id: row.user_id || null,
+        id: scan.id,
+        report_id: scan.report_id,
+        url: scan.url,
+        created_at: scan.created_at,
+        status: scan.status,
       },
 
-      scores: scores || {},
-      metrics: metrics || {},
+      scores: safeObj(scan.metrics?.scores),
+      metrics: safeObj(scan.metrics),
+      basic_checks: safeObj(scan.metrics?.basic_checks),
+      human_signals: safeObj(scan.metrics?.human_signals),
 
-      basic_checks: basic_checks || {},
-      security_headers: security_headers || {},
-      human_signals: human_signals || {},
-      explanations: explanations || {},
-
-      narrative: narrative || {},
-      hasNarrative,
+      narrative: safeObj(narrativeRow?.narrative),
+      hasNarrative: !!narrativeRow?.narrative,
     });
-  } catch (e) {
-    console.error("[get-report-data] error:", e);
-    return json(500, { success: false, error: e?.message || "Server error" });
+  } catch (err) {
+    console.error("[get-report-data]", err);
+    return json(500, {
+      success: false,
+      error: "Server error",
+    });
   }
 }
