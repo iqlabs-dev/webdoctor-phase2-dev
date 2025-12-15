@@ -1,274 +1,501 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — loader-safe renderer (never leaves blank overlay)
+// iQWEB Report v5.2 — “never blank” renderer (Signals-only friendly)
 
-function qs(sel) {
-  return document.querySelector(sel);
+function safeObj(v) {
+  return v && typeof v === "object" ? v : {};
 }
-function qsa(sel) {
-  return Array.from(document.querySelectorAll(sel));
+function isNum(v) {
+  return typeof v === "number" && Number.isFinite(v);
 }
-function safeObj(o) {
-  return o && typeof o === "object" ? o : {};
-}
-function isNum(n) {
-  return typeof n === "number" && Number.isFinite(n);
-}
-function clamp01(x) {
-  if (!isNum(x)) return 0;
+function clamp01(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return 0;
   return Math.max(0, Math.min(1, x));
 }
-function toScore100(v) {
-  // allow 0..1 or 0..100
-  if (!isNum(v)) return null;
-  if (v <= 1) return Math.round(v * 100);
-  return Math.round(v);
+function pctFromScore(score) {
+  if (!isNum(score)) return 0;
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
-function setText(field, value) {
-  const el = qs(`[data-field="${field}"]`);
+function qs(name) {
+  const u = new URL(window.location.href);
+  return u.searchParams.get(name);
+}
+function setText(selector, text) {
+  const el = document.querySelector(selector);
   if (!el) return;
-  el.textContent = value ?? "";
+  el.textContent = text == null ? "" : String(text);
 }
-function setLink(field, href, text) {
-  const el = qs(`[data-field="${field}"]`);
+function setField(fieldName, text) {
+  const el = document.querySelector(`[data-field="${fieldName}"]`);
   if (!el) return;
-  if (typeof href === "string" && href) el.setAttribute("href", href);
-  el.textContent = text ?? href ?? "";
+
+  // site-url is an anchor
+  if (fieldName === "site-url" && el.tagName === "A") {
+    el.textContent = text || "";
+    el.href = text || "#";
+    return;
+  }
+
+  el.textContent = text == null ? "" : String(text);
 }
-function setBar(key, score01) {
-  const el = qs(`[data-bar="${key}"]`);
+function setBar(barKey, score) {
+  const el = document.querySelector(`[data-bar="${barKey}"]`);
   if (!el) return;
-  el.style.width = `${Math.round(clamp01(score01) * 100)}%`;
+  el.style.width = `${pctFromScore(score)}%`;
 }
-function showBullets(field, items) {
-  const ul = qs(`[data-field="${field}"]`);
+
+function scoreLabel(score) {
+  return isNum(score) ? `${Math.round(score)}/100` : "—";
+}
+
+function tierFromScore(score) {
+  if (!isNum(score)) return "unknown";
+  if (score >= 90) return "excellent";
+  if (score >= 75) return "strong";
+  if (score >= 55) return "mixed";
+  if (score >= 35) return "weak";
+  return "critical";
+}
+
+function fallbackSignalCopy(signalName, score, basic) {
+  const t = tierFromScore(score);
+
+  // Add a couple of truthful “why” hints if we have basic checks
+  const b = safeObj(basic);
+  const hints = [];
+
+  // Generic hints from common fields (only if present)
+  if (signalName === "Security") {
+    const https = b?.security?.https_enabled ?? b?.https_enabled ?? b?.is_https;
+    const hsts = b?.security?.hsts ?? b?.security_headers?.hsts;
+    const csp = b?.security?.csp ?? b?.security_headers?.csp;
+
+    if (https === false) hints.push("HTTPS not detected");
+    if (hsts === false) hints.push("HSTS not detected");
+    if (csp === false) hints.push("CSP not detected");
+  }
+
+  if (signalName === "SEO Foundations") {
+    const title = b?.seo?.title_present ?? b?.title_present;
+    const desc = b?.seo?.meta_description_present ?? b?.meta_description_present;
+    const canonical = b?.seo?.canonical_present ?? b?.canonical_present;
+
+    if (title === false) hints.push("Missing <title>");
+    if (desc === false) hints.push("Missing meta description");
+    if (canonical === false) hints.push("Missing canonical");
+  }
+
+  if (signalName === "Structure & Semantics") {
+    const h1 = b?.structure?.h1_present ?? b?.h1_present;
+    const lang = b?.structure?.html_lang_present ?? b?.html_lang_present;
+    if (h1 === false) hints.push("Missing H1");
+    if (lang === false) hints.push("Missing html[lang]");
+  }
+
+  if (signalName === "Mobile Experience") {
+    const viewport = b?.mobile?.viewport_meta_present ?? b?.viewport_meta_present;
+    if (viewport === false) hints.push("Missing viewport meta tag");
+  }
+
+  // NOTE: Performance & Accessibility in Signals-only mode may be heuristic until you add deeper checks.
+  // We keep copy honest: “build-quality indicators”, not “speed today”.
+  const suffix = hints.length ? ` (${hints.slice(0, 3).join(", ")}).` : ".";
+
+  if (signalName === "Performance") {
+    if (t === "excellent") return `Strong build-quality indicators for performance readiness${suffix} This is not a “speed today” test — it reflects how well the page is built for speed.`;
+    if (t === "strong") return `Good performance readiness signals${suffix} This reflects build quality, not a single test-run speed result.`;
+    if (t === "mixed") return `Mixed performance readiness signals${suffix} Some build choices may limit real-world speed on slower devices.`;
+    if (t === "weak") return `Weak performance readiness signals${suffix} Improvements here usually produce immediate user-perceived gains.`;
+    return `Critical performance readiness signals${suffix} Prioritise performance fundamentals before visual polish.`;
+  }
+
+  if (signalName === "SEO Foundations") {
+    if (t === "excellent") return `Excellent SEO foundations${suffix} Core discovery signals look consistent.`;
+    if (t === "strong") return `Strong SEO foundations${suffix} A few refinements could tighten consistency.`;
+    if (t === "mixed") return `Mixed SEO foundations${suffix} Search engines may still index it, but clarity signals are inconsistent.`;
+    if (t === "weak") return `Weak SEO foundations${suffix} Fixing basics here improves visibility and snippet quality.`;
+    return `Critical SEO foundation issues${suffix} Start with title/description/canonical and crawlability basics.`;
+  }
+
+  if (signalName === "Structure & Semantics") {
+    if (t === "excellent") return `Excellent structural semantics${suffix} The page is easy for browsers, bots, and assistive tech to interpret.`;
+    if (t === "strong") return `Strong structure & semantics${suffix} Minor adjustments could improve consistency.`;
+    if (t === "mixed") return `Mixed structure & semantics${suffix} Some content may be harder to interpret programmatically.`;
+    if (t === "weak") return `Weak structure & semantics${suffix} This often cascades into SEO + accessibility problems.`;
+    return `Critical structure & semantics issues${suffix} Fix document structure before higher-level optimisation.`;
+  }
+
+  if (signalName === "Mobile Experience") {
+    if (t === "excellent") return `Excellent mobile readiness signals${suffix} Core mobile fundamentals look strong.`;
+    if (t === "strong") return `Strong mobile readiness signals${suffix} Small fixes can improve stability across devices.`;
+    if (t === "mixed") return `Mixed mobile readiness signals${suffix} The experience may feel inconsistent on smaller screens.`;
+    if (t === "weak") return `Weak mobile readiness signals${suffix} Mobile users may struggle with layout or scaling.`;
+    return `Critical mobile readiness issues${suffix} Fix mobile fundamentals first — it impacts every other metric.`;
+  }
+
+  if (signalName === "Security") {
+    if (t === "excellent") return `Strong security posture signals${suffix} Foundational protections appear in place.`;
+    if (t === "strong") return `Good security posture signals${suffix} A few missing headers can reduce hardening.`;
+    if (t === "mixed") return `Mixed security posture signals${suffix} Some standard hardening controls may be missing.`;
+    if (t === "weak") return `Weak security posture signals${suffix} This increases risk and can reduce user trust.`;
+    return `Critical security posture issues${suffix} Start with HTTPS + key security headers.`;
+  }
+
+  // Accessibility
+  if (t === "excellent") return `Strong accessibility readiness signals${suffix} Good baseline for inclusive access.`;
+  if (t === "strong") return `Good accessibility readiness signals${suffix} Some improvements may still be needed for best practice.`;
+  if (t === "mixed") return `Mixed accessibility readiness signals${suffix} Some users may face friction using assistive technologies.`;
+  if (t === "weak") return `Weak accessibility readiness signals${suffix} Fixing a few basics can dramatically improve usability.`;
+  return `Critical accessibility readiness issues${suffix} Address core issues first (structure, labels, contrast where applicable).`;
+}
+
+function setSignalBlock(opts) {
+  const { scoreField, commentField, barKey, score, comment } = opts;
+
+  setField(scoreField, scoreLabel(score));
+  setBar(barKey, score);
+
+  // Never show “Not available…” if we have a score.
+  if (isNum(score)) {
+    setField(commentField, comment && String(comment).trim().length ? comment : "");
+  } else {
+    setField(commentField, "Pending — this signal was not produced for this scan.");
+  }
+}
+
+function listFromArray(arr) {
+  if (!Array.isArray(arr) || arr.length === 0) return "";
+  return arr.map((s) => String(s)).filter(Boolean);
+}
+
+function renderBullets(fieldName, items, fallbackItems) {
+  const ul = document.querySelector(`[data-field="${fieldName}"]`);
   if (!ul) return;
   ul.innerHTML = "";
-  if (!Array.isArray(items) || items.length === 0) return;
-  for (const t of items) {
+
+  const list = (Array.isArray(items) && items.length ? items : fallbackItems) || [];
+  for (const it of list) {
     const li = document.createElement("li");
-    li.textContent = String(t);
+    li.textContent = String(it);
     ul.appendChild(li);
   }
 }
 
-function hideLoaderHard() {
-  const loader = document.getElementById("buildingReport");
-  if (!loader) return;
-  loader.classList.add("is-hiding");
-  setTimeout(() => loader.remove(), 520);
-}
+function renderFixSequence(fieldName, steps, fallbackSteps) {
+  const el = document.querySelector(`[data-field="${fieldName}"]`);
+  if (!el) return;
+  el.innerHTML = "";
 
-function getReportIdFromUrl() {
-  const sp = new URLSearchParams(location.search);
-  return sp.get("report_id") || sp.get("id") || "";
-}
-
-function formatDateTime(iso) {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return { date: "", time: "" };
-    return {
-      date: d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }),
-      time: d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
-    };
-  } catch {
-    return { date: "", time: "" };
+  const list = (Array.isArray(steps) && steps.length ? steps : fallbackSteps) || [];
+  for (const step of list) {
+    const p = document.createElement("p");
+    p.style.margin = "0 0 10px";
+    p.style.lineHeight = "1.6";
+    p.textContent = String(step);
+    el.appendChild(p);
   }
+}
+
+async function fetchReportData(reportId) {
+  const res = await fetch(`/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.success) {
+    const msg = data?.message || data?.error || `Unable to load report (${res.status})`;
+    throw new Error(msg);
+  }
+  return data;
+}
+
+function resolveNarrative(data) {
+  // Could be raw string narrative (your report_data table)
+  if (typeof data?.narrative === "string" && data.narrative.trim().length) return data.narrative.trim();
+
+  // Or nested (future)
+  const m = safeObj(data?.metrics);
+  const n1 = m?.report?.narrative;
+  if (typeof n1 === "string" && n1.trim().length) return n1.trim();
+
+  return null;
 }
 
 function resolveScores(data) {
-  // preferred: top-level scores
-  const top = safeObj(data.scores);
-  const metrics = safeObj(data.metrics);
-  const mScores = safeObj(metrics.scores);
+  // Your function returns `scores` now — but keep fallbacks.
+  const s0 = safeObj(data?.scores);
+  const m = safeObj(data?.metrics);
 
-  // allow nested variants
-  const alt1 = safeObj(metrics?.report?.metrics?.scores);
-  const alt2 = safeObj(metrics?.metrics?.scores);
+  const s1 = safeObj(m?.scores);
+  const s2 = safeObj(m?.report?.metrics?.scores);
+  const s3 = safeObj(m?.metrics?.scores);
 
-  // merge precedence: explicit top > metrics.scores > alt
-  return { ...alt2, ...alt1, ...mScores, ...top };
-}
-
-function scorePillText(score100) {
-  if (!isNum(score100)) return "—";
-  return `${Math.round(score100)}/100`;
-}
-
-function commentOrNA(txt) {
-  const s = typeof txt === "string" ? txt.trim() : "";
-  return s ? s : "Not available from this scan.";
-}
-
-function resolveSignalComments(metrics) {
-  // You can wire these later; for now we try a few places and fall back.
-  const m = safeObj(metrics);
-  const diag = safeObj(m.diagnostic_signals);
-  const comments = safeObj(m.comments);
-
-  const pick = (k) =>
-    diag?.[k]?.comment ??
-    comments?.[k] ??
-    null;
+  const src =
+    Object.keys(s0).length ? s0 :
+    Object.keys(s1).length ? s1 :
+    Object.keys(s2).length ? s2 :
+    s3;
 
   return {
-    performance: pick("performance"),
-    seo: pick("seo"),
-    structure: pick("structure"),
-    mobile: pick("mobile"),
-    security: pick("security"),
-    accessibility: pick("accessibility"),
+    overall: src.overall ?? src.overall_score ?? null,
+    performance: src.performance ?? null,
+    seo: src.seo ?? null,
+    structure: src.structure ?? null,
+    mobile: src.mobile ?? null,
+    security: src.security ?? null,
+    accessibility: src.accessibility ?? null,
   };
 }
 
-function resolveHumanSignals(metrics) {
-  const m = safeObj(metrics);
-  const hs = safeObj(m.human_signals);
-  const pick = (k) => safeObj(hs[k] || hs[`hs${k}`]);
-
-  // This is deliberately tolerant. If you don’t have them yet, it’ll show NA.
-  return {
-    hs1: { score: pick(1).score ?? null, comment: pick(1).comment ?? null, status: pick(1).status ?? null },
-    hs2: { score: pick(2).score ?? null, comment: pick(2).comment ?? null, status: pick(2).status ?? null },
-    hs3: { score: pick(3).score ?? null, comment: pick(3).comment ?? null, status: pick(3).status ?? null },
-    hs4: { score: pick(4).score ?? null, comment: pick(4).comment ?? null, status: pick(4).status ?? null },
-    hs5: { score: pick(5).score ?? null, comment: pick(5).comment ?? null, status: pick(5).status ?? null },
-  };
+function resolveBasic(data) {
+  return safeObj(data?.basic_checks) || safeObj(data?.metrics?.basic_checks) || {};
 }
 
-async function loadReport() {
-  const rid = getReportIdFromUrl();
-  if (!rid) {
-    setText("overall-summary", "Missing report_id in URL.");
-    return;
+function buildFallbackInsights(scores, basic) {
+  const out = [];
+
+  if (isNum(scores.overall)) out.push(`Overall build-quality score: ${Math.round(scores.overall)}/100.`);
+  else out.push("Overall build-quality score is pending.");
+
+  // A couple of “highest / lowest” insights
+  const pairs = [
+    ["Performance", scores.performance],
+    ["SEO Foundations", scores.seo],
+    ["Structure & Semantics", scores.structure],
+    ["Mobile Experience", scores.mobile],
+    ["Security", scores.security],
+    ["Accessibility", scores.accessibility],
+  ].filter(([, v]) => isNum(v));
+
+  pairs.sort((a, b) => b[1] - a[1]);
+
+  if (pairs.length) {
+    out.push(`Strongest area: ${pairs[0][0]} (${Math.round(pairs[0][1])}/100).`);
+    const last = pairs[pairs.length - 1];
+    out.push(`Highest priority: ${last[0]} (${Math.round(last[1])}/100).`);
   }
 
-  const res = await fetch(`/.netlify/functions/get-report-data?report_id=${encodeURIComponent(rid)}`, {
-    method: "GET",
-  });
+  // A truthful “mode” note
+  out.push("This report diagnoses build quality (structure, metadata, hardening) — not a single run “speed today” test.");
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.success) {
-    console.error("get-report-data failure:", res.status, data);
-    setText("overall-summary", data?.error || data?.message || `Unable to load report (${res.status}).`);
-    return;
-  }
+  // Basic-check hint if present
+  const https = basic?.security?.https_enabled ?? basic?.https_enabled ?? basic?.is_https;
+  if (https === false) out.push("HTTPS was not detected — fix this before anything else.");
 
-  const report = safeObj(data.report);
-  const metrics = safeObj(data.metrics);
-  const scores = resolveScores(data);
-
-  // Header
-  const url = report.url || "";
-  setLink("site-url", url, url);
-  const { date, time } = formatDateTime(report.created_at);
-  setText("report-date", date);
-  setText("report-time", time);
-  setText("report-id", report.report_id || String(report.id || rid));
-
-  // Executive narrative (keep honest: if none, say none)
-  const narrative = safeObj(data.narrative);
-  const executive = typeof narrative.executive_narrative === "string" ? narrative.executive_narrative.trim() : "";
-  setText("overall-summary", executive || "No executive narrative was available for this scan.");
-
-  // Diagnostic signal scores
-  const sPerf = toScore100(scores.performance);
-  const sSeo = toScore100(scores.seo);
-  const sStruct = toScore100(scores.structure);
-  const sMob = toScore100(scores.mobile);
-  const sSec = toScore100(scores.security);
-  const sAcc = toScore100(scores.accessibility);
-
-  setText("score-performance", scorePillText(sPerf));
-  setText("score-seo", scorePillText(sSeo));
-  setText("score-structure", scorePillText(sStruct));
-  setText("score-mobile", scorePillText(sMob));
-  setText("score-security", scorePillText(sSec));
-  setText("score-accessibility", scorePillText(sAcc));
-
-  setBar("performance", isNum(sPerf) ? sPerf / 100 : 0);
-  setBar("seo", isNum(sSeo) ? sSeo / 100 : 0);
-  setBar("structure", isNum(sStruct) ? sStruct / 100 : 0);
-  setBar("mobile", isNum(sMob) ? sMob / 100 : 0);
-  setBar("security", isNum(sSec) ? sSec / 100 : 0);
-  setBar("accessibility", isNum(sAcc) ? sAcc / 100 : 0);
-
-  // Diagnostic comments (optional; if not present -> NA)
-  const c = resolveSignalComments(metrics);
-  setText("performance-comment", commentOrNA(c.performance));
-  setText("seo-comment", commentOrNA(c.seo));
-  setText("structure-comment", commentOrNA(c.structure));
-  setText("mobile-comment", commentOrNA(c.mobile));
-  setText("security-comment", commentOrNA(c.security));
-  setText("accessibility-comment", commentOrNA(c.accessibility));
-
-  // Human signals (optional)
-  const hs = resolveHumanSignals(metrics);
-  const hsMap = [
-    ["hs1", "hs1-status", "hs1-comment"],
-    ["hs2", "hs2-status", "hs2-comment"],
-    ["hs3", "hs3-status", "hs3-comment"],
-    ["hs4", "hs4-status", "hs4-comment"],
-    ["hs5", "hs5-status", "hs5-comment"],
-  ];
-  for (const [key, statusField, commentField] of hsMap) {
-    const row = safeObj(hs[key]);
-    const score100 = toScore100(row.score);
-    setText(statusField, isNum(score100) ? scorePillText(score100) : (row.status || "—"));
-    setBar(key, isNum(score100) ? score100 / 100 : 0);
-    setText(commentField, commentOrNA(row.comment));
-  }
-
-  // Key Insights / Top Issues / Final Notes / Fix sequence
-  // (These are narrative-dependent; if missing, they remain empty — no fake filler.)
-  showBullets("key-insights", Array.isArray(narrative.key_insights) ? narrative.key_insights : []);
-  showBullets("top-issues", Array.isArray(narrative.top_issues) ? narrative.top_issues : []);
-  showBullets("final-notes", Array.isArray(narrative.final_notes) ? narrative.final_notes : []);
-
-  // Fix sequence: allow array of strings or plain string
-  const fixEl = qs(`[data-field="fix-sequence"]`);
-  if (fixEl) {
-    const fs = narrative.fix_sequence;
-    if (Array.isArray(fs)) {
-      fixEl.innerHTML = "";
-      const ul = document.createElement("ul");
-      ul.className = "wd-bullets";
-      for (const t of fs) {
-        const li = document.createElement("li");
-        li.textContent = String(t);
-        ul.appendChild(li);
-      }
-      fixEl.appendChild(ul);
-    } else if (typeof fs === "string" && fs.trim()) {
-      fixEl.textContent = fs.trim();
-    } else {
-      fixEl.textContent = "";
-    }
-  }
-
-  console.log("[REPORT] Loaded OK ->", {
-    report_id: report.report_id,
-    url: report.url,
-    hasNarrative: !!executive,
-  });
+  return out.slice(0, 6);
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  // Safety: never leave the loader up forever
-  const safetyTimeout = setTimeout(() => hideLoaderHard(), 6000);
+function buildFallbackIssues(scores, basic) {
+  const out = [];
+  const https = basic?.security?.https_enabled ?? basic?.https_enabled ?? basic?.is_https;
+  const viewport = basic?.mobile?.viewport_meta_present ?? basic?.viewport_meta_present;
+  const title = basic?.seo?.title_present ?? basic?.title_present;
+  const desc = basic?.seo?.meta_description_present ?? basic?.meta_description_present;
+
+  if (https === false) out.push("HTTPS not detected.");
+  if (viewport === false) out.push("Missing viewport meta tag (mobile scaling).");
+  if (title === false) out.push("Missing <title> tag.");
+  if (desc === false) out.push("Missing meta description.");
+
+  // Low-score driven issues (only if no basics produced anything)
+  const lows = [];
+  if (isNum(scores.security) && scores.security < 55) lows.push("Security hardening is below baseline.");
+  if (isNum(scores.seo) && scores.seo < 55) lows.push("SEO foundations are inconsistent.");
+  if (isNum(scores.structure) && scores.structure < 55) lows.push("Document structure & semantics need attention.");
+  if (isNum(scores.mobile) && scores.mobile < 55) lows.push("Mobile readiness needs improvement.");
+  if (isNum(scores.accessibility) && scores.accessibility < 55) lows.push("Accessibility readiness needs improvement.");
+
+  return (out.length ? out : lows).slice(0, 6);
+}
+
+function buildFallbackFixSequence(scores, basic) {
+  const steps = [];
+
+  const issues = buildFallbackIssues(scores, basic);
+
+  // Simple ordering
+  if (issues.some((x) => x.toLowerCase().includes("https"))) {
+    steps.push("1) Enable HTTPS everywhere (redirect HTTP → HTTPS) and confirm the certificate is valid.");
+    steps.push("2) Add core security headers (HSTS, X-Frame-Options/Frame-Ancestors, X-Content-Type-Options, Referrer-Policy; CSP when ready).");
+  }
+
+  if (issues.some((x) => x.toLowerCase().includes("viewport"))) {
+    steps.push("3) Add a correct viewport meta tag and confirm mobile scaling is consistent.");
+  }
+
+  if (issues.some((x) => x.toLowerCase().includes("<title>")) || issues.some((x) => x.toLowerCase().includes("meta description"))) {
+    steps.push("4) Fix page metadata: unique <title>, meta description, and canonical where applicable.");
+  }
+
+  // Lowest score
+  const pairs = [
+    ["Structure & Semantics", scores.structure],
+    ["SEO Foundations", scores.seo],
+    ["Mobile Experience", scores.mobile],
+    ["Security", scores.security],
+    ["Accessibility", scores.accessibility],
+    ["Performance", scores.performance],
+  ].filter(([, v]) => isNum(v));
+
+  pairs.sort((a, b) => a[1] - b[1]);
+  if (pairs.length) {
+    steps.push(`5) Prioritise improvements in: ${pairs[0][0]} — it’s currently the weakest signal.`);
+  }
+
+  if (!steps.length) {
+    steps.push("1) Review the diagnostic signals and start with the lowest score first.");
+    steps.push("2) Re-scan after changes to confirm the build-quality signals improved.");
+  }
+
+  return steps.slice(0, 8);
+}
+
+function setHumanSignalsPlaceholder() {
+  // Pills
+  setField("hs1-status", "—");
+  setField("hs2-status", "—");
+  setField("hs3-status", "—");
+  setField("hs4-status", "—");
+  setField("hs5-status", "—");
+
+  // Bars
+  setBar("hs1", 0);
+  setBar("hs2", 0);
+  setBar("hs3", 0);
+  setBar("hs4", 0);
+  setBar("hs5", 0);
+
+  // Copy
+  const msg =
+    "Pending — Human Signals are not included in Signals-only mode yet. " +
+    "This scan currently focuses on build-quality diagnostic signals.";
+  setField("hs1-comment", msg);
+  setField("hs2-comment", msg);
+  setField("hs3-comment", msg);
+  setField("hs4-comment", msg);
+  setField("hs5-comment", msg);
+}
+
+(async function main() {
+  const reportId = qs("report_id");
+  if (!reportId) {
+    console.error("[REPORT] Missing report_id in URL");
+    return;
+  }
 
   try {
-    await loadReport();
-  } catch (e) {
-    console.error("[REPORT] fatal:", e);
-    setText("overall-summary", "Report failed to load. Please try again.");
-  } finally {
-    clearTimeout(safetyTimeout);
+    const data = await fetchReportData(reportId);
 
-    // ✅ Always remove loader, no matter what
-    hideLoaderHard();
+    const url = data.url || "";
+    const created = data.created_at ? new Date(data.created_at) : null;
 
-    // Keep your event too (harmless if duplicate)
+    const reportKey = data.report_id || data.scan_id || reportId;
+
+    // Header
+    setField("site-url", url);
+    setField("report-id", reportKey);
+    setField("report-date", created ? created.toLocaleDateString() : "");
+    setField("report-time", created ? created.toLocaleTimeString() : "");
+
+    const scores = resolveScores(data);
+    const basic = resolveBasic(data);
+
+    // Executive narrative
+    const narrative = resolveNarrative(data);
+    if (narrative) {
+      setField("overall-summary", narrative);
+    } else {
+      setField(
+        "overall-summary",
+        "No executive narrative was available for this scan."
+      );
+    }
+
+    // Diagnostic Signals — always render with honest fallback copy
+    const perfCopy = fallbackSignalCopy("Performance", scores.performance, basic);
+    const seoCopy = fallbackSignalCopy("SEO Foundations", scores.seo, basic);
+    const structCopy = fallbackSignalCopy("Structure & Semantics", scores.structure, basic);
+    const mobileCopy = fallbackSignalCopy("Mobile Experience", scores.mobile, basic);
+    const secCopy = fallbackSignalCopy("Security", scores.security, basic);
+    const accCopy = fallbackSignalCopy("Accessibility", scores.accessibility, basic);
+
+    setSignalBlock({
+      scoreField: "score-performance",
+      commentField: "performance-comment",
+      barKey: "performance",
+      score: scores.performance,
+      comment: perfCopy,
+    });
+
+    setSignalBlock({
+      scoreField: "score-seo",
+      commentField: "seo-comment",
+      barKey: "seo",
+      score: scores.seo,
+      comment: seoCopy,
+    });
+
+    setSignalBlock({
+      scoreField: "score-structure",
+      commentField: "structure-comment",
+      barKey: "structure",
+      score: scores.structure,
+      comment: structCopy,
+    });
+
+    setSignalBlock({
+      scoreField: "score-mobile",
+      commentField: "mobile-comment",
+      barKey: "mobile",
+      score: scores.mobile,
+      comment: mobileCopy,
+    });
+
+    setSignalBlock({
+      scoreField: "score-security",
+      commentField: "security-comment",
+      barKey: "security",
+      score: scores.security,
+      comment: secCopy,
+    });
+
+    setSignalBlock({
+      scoreField: "score-accessibility",
+      commentField: "accessibility-comment",
+      barKey: "accessibility",
+      score: scores.accessibility,
+      comment: accCopy,
+    });
+
+    // Human Signals — placeholder (truthful, non-blank)
+    setHumanSignalsPlaceholder();
+
+    // Key Insight Metrics / Issues / Fix Sequence / Final Notes
+    const fallbackInsights = buildFallbackInsights(scores, basic);
+    renderBullets("key-insights", data?.metrics?.key_insights, fallbackInsights);
+
+    const fallbackIssues = buildFallbackIssues(scores, basic);
+    renderBullets("top-issues", data?.metrics?.top_issues, fallbackIssues);
+
+    const fallbackFix = buildFallbackFixSequence(scores, basic);
+    renderFixSequence("fix-sequence", data?.metrics?.fix_sequence, fallbackFix);
+
+    renderBullets(
+      "final-notes",
+      data?.metrics?.final_notes,
+      [
+        "This report diagnoses build quality — structure, foundations, and hardening.",
+        "Re-scan after changes to confirm signal improvement.",
+        "If you want the full AI narrative layer, enable narrative generation once Signals are stable.",
+      ]
+    );
+
+    console.log("[REPORT] Loaded OK:", { report_id: reportKey, url, hasNarrative: !!narrative });
+
+    // Tell the loader to disappear (your locked UX signature)
+    window.dispatchEvent(new Event("iqweb:loaded"));
+  } catch (err) {
+    console.error("[REPORT] Failed:", err);
+
+    // Still hide loader so user sees *something*
+    setField("overall-summary", "Unable to load full report data. Please refresh and try again.");
     window.dispatchEvent(new Event("iqweb:loaded"));
   }
-});
+})();
