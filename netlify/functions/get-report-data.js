@@ -25,14 +25,26 @@ function isNumeric(v) {
   return /^[0-9]+$/.test(String(v || "").trim());
 }
 
-// report_id can be either:
-// - numeric scan_results.id   (e.g. 301)
-// - string scan_results.report_id (e.g. WEB-2025349-22372)
-async function fetchScan(reportId) {
-  const rid = String(reportId || "").trim();
-  if (!rid) return { scan: null, error: "Missing report_id" };
+function hasAnyNarrative(n) {
+  if (!n || typeof n !== "object") return false;
+  // common keys we’ve used across versions
+  return Boolean(
+    n.overall_summary ||
+      n.executive_summary ||
+      n.summary ||
+      n.introduction ||
+      n.intro ||
+      n.narrative ||
+      n.sections ||
+      n.blocks
+  );
+}
 
-  // 1) Try by report_id (string)
+async function loadScanByEitherId(reportIdRaw) {
+  const rid = String(reportIdRaw || "").trim();
+  if (!rid) return null;
+
+  // 1) Try as scan_results.report_id (string)
   {
     const { data, error } = await supabase
       .from("scan_results")
@@ -41,10 +53,10 @@ async function fetchScan(reportId) {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length) return { scan: data[0], error: null };
+    if (!error && data && data.length) return data[0];
   }
 
-  // 2) If numeric, try by id
+  // 2) If numeric, try as scan_results.id
   if (isNumeric(rid)) {
     const { data, error } = await supabase
       .from("scan_results")
@@ -52,40 +64,52 @@ async function fetchScan(reportId) {
       .eq("id", Number(rid))
       .single();
 
-    if (!error && data) return { scan: data, error: null };
+    if (!error && data) return data;
   }
 
-  return { scan: null, error: "Report not found for that report_id" };
+  return null;
 }
 
 export async function handler(event) {
   try {
+    if (event.httpMethod !== "GET") {
+      return json(405, { success: false, error: "Method not allowed" });
+    }
+
     const q = event.queryStringParameters || {};
-    const reportId = q.report_id || q.reportId || q.id || q.scan_id || null;
+    const reportId =
+      q.report_id || q.reportId || q.id || q.scan_id || q.scanId || null;
 
     if (!reportId) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    const { scan, error } = await fetchScan(reportId);
+    // 1) Load scan_results (truth)
+    const scan = await loadScanByEitherId(reportId);
 
-    if (error || !scan) {
-      return json(404, { success: false, error: error || "Not found" });
+    if (!scan) {
+      return json(404, {
+        success: false,
+        error: "Report not found for that report_id",
+      });
     }
-
-    // Optional narrative layer (report_data table)
-    const { data: narrativeRow } = await supabase
-      .from("report_data")
-      .select("narrative")
-      .eq("report_id", scan.report_id)
-      .single();
 
     const metrics = safeObj(scan.metrics);
     const scores = safeObj(metrics.scores);
     const basic_checks = safeObj(metrics.basic_checks);
     const human_signals = safeObj(metrics.human_signals);
-    const narrative = safeObj(narrativeRow?.narrative);
 
+    // 2) Load narrative (optional layer). Missing row is normal.
+    const { data: repRows } = await supabase
+      .from("report_data")
+      .select("narrative")
+      .eq("report_id", scan.report_id)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const narrative = safeObj(repRows?.[0]?.narrative);
+
+    // 3) Unified response
     return json(200, {
       success: true,
 
@@ -98,23 +122,17 @@ export async function handler(event) {
         report_url: scan.report_url || null,
       },
 
-      // These are what report-data.js consumes
+      // Keep these top-level keys because report-data.js expects them
       scores,
       metrics,
       basic_checks,
       human_signals,
 
       narrative,
-      hasNarrative: !!(
-        narrative &&
-        (narrative.intro ||
-          narrative.overall_summary ||
-          narrative.executive_summary ||
-          narrative.summary)
-      ),
+      hasNarrative: hasAnyNarrative(narrative),
     });
   } catch (err) {
     console.error("[get-report-data]", err);
-    return json(500, { success: false, error: err?.message || "Server error" });
+    return json(500, { success: false, error: "Server error" });
   }
 }
