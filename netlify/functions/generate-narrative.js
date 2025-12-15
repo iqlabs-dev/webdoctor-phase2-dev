@@ -164,16 +164,16 @@ export async function handler(event) {
     const narrative = await generateNarrative(facts);
 
     // 3) Upsert narrative (idempotent)
-    const { error: upsertErr } = await supabase
-      .from("report_data")
-      .upsert(
-        {
-          report_id,
-          narrative,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "report_id" }
-      );
+const { error: upsertErr } = await supabase
+  .from("report_data")
+  .upsert(
+    {
+      report_id,
+      narrative,
+    },
+    { onConflict: "report_id" }
+  );
+
 
     if (upsertErr) {
       return { statusCode: 500, body: JSON.stringify({ error: upsertErr.message }) };
