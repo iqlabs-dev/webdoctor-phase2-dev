@@ -26,110 +26,82 @@ function isNumericId(v) {
   return /^[0-9]+$/.test(v.trim());
 }
 
-// report_id param may be either:
-// - numeric scan_results.id (legacy links, e.g. 298)
-// - string scan_results.report_id (correct, e.g. WEB-2025349-63963)
-async function fetchScanByEitherId(reportIdRaw) {
+async function fetchRowByEitherId(reportIdRaw) {
   const rid = String(reportIdRaw || "").trim();
-  if (!rid) return { scan: null, error: "Missing report_id" };
+  if (!rid) return { row: null, error: "Missing report_id" };
 
   // 1) Try as report_id (string)
   {
     const { data, error } = await supabase
       .from("scan_results")
-      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id")
+      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative")
       .eq("report_id", rid)
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length) return { scan: data[0], error: null };
+    if (!error && data && data.length) return { row: data[0], error: null };
   }
 
   // 2) If numeric, try as primary id
   if (isNumericId(rid)) {
     const { data, error } = await supabase
       .from("scan_results")
-      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id")
+      .select("id, user_id, url, created_at, status, score_overall, metrics, report_url, report_id, narrative")
       .eq("id", Number(rid))
       .single();
 
-    if (!error && data) return { scan: data, error: null };
+    if (!error && data) return { row: data, error: null };
   }
 
-  return { scan: null, error: "Report not found for that report_id" };
-}
-
-async function fetchNarrativeByReportId(reportId) {
-  if (!reportId) return null;
-
-  const { data, error } = await supabase
-    .from("report_data")
-    .select("narrative")
-    .eq("report_id", reportId)
-    .maybeSingle();
-
-  if (error) return null;
-  return safeObj(data?.narrative);
+  return { row: null, error: "Report not found for that report_id" };
 }
 
 export async function handler(event) {
   try {
     const params = event.queryStringParameters || {};
-    const reportId =
-      params.report_id || params.reportId || params.id || params.scan_id || null;
+    const reportId = params.report_id || params.reportId || params.id || params.scan_id || null;
 
-    if (!reportId) {
-      return json(400, { success: false, error: "Missing report_id" });
-    }
+    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    const { scan, error } = await fetchScanByEitherId(reportId);
-    if (error || !scan) {
-      return json(404, { success: false, error: error || "Not found" });
-    }
+    const { row, error } = await fetchRowByEitherId(reportId);
+    if (error || !row) return json(404, { success: false, error: error || "Not found" });
 
-    const metrics = safeObj(scan.metrics);
-
-    // scores live at metrics.scores in your run-scan.js
+    const metrics = safeObj(row.metrics);
     const scores = safeObj(metrics.scores);
 
-    // basic checks live at metrics.basic_checks in your run-scan.js
     const basic_checks = safeObj(metrics.basic_checks);
+    const security_headers = safeObj(metrics.security_headers);
+    const human_signals = safeObj(metrics.human_signals);
+    const explanations = safeObj(metrics.explanations);
 
-    // narrative lives in report_data.narrative (NOT scan_results)
-    const narrative = await fetchNarrativeByReportId(scan.report_id);
+    // Narrative: prefer row.narrative; fall back to metrics.narrative if you ever store it there
+    const narrative = safeObj(row.narrative) || safeObj(metrics.narrative);
 
-    const hasNarrative = !!(
-      narrative &&
-      (
-        narrative.intro ||
-        narrative.overall_summary ||
-        narrative.executive_summary ||
-        narrative.summary ||
-        narrative.performance ||
-        narrative.seo ||
-        narrative.structure ||
-        narrative.mobile ||
-        narrative.security ||
-        narrative.accessibility
-      )
-    );
+    const hasNarrative =
+      !!narrative &&
+      (typeof narrative.overall_summary === "string" ||
+        typeof narrative.performance_comment === "string" ||
+        typeof narrative.seo_comment === "string");
 
     return json(200, {
       success: true,
-
       report: {
-        id: scan.id,
-        report_id: scan.report_id || null,
-        url: scan.url || null,
-        created_at: scan.created_at || null,
-        status: scan.status || null,
-        report_url: scan.report_url || null,
-        user_id: scan.user_id || null,
+        id: row.id,
+        report_id: row.report_id || null,
+        url: row.url || null,
+        created_at: row.created_at || null,
+        status: row.status || null,
+        report_url: row.report_url || null,
+        user_id: row.user_id || null,
       },
 
-      scores,
-      metrics,
-      basic_checks,
+      scores: scores || {},
+      metrics: metrics || {},
+
+      basic_checks: basic_checks || {},
+      security_headers: security_headers || {},
+      human_signals: human_signals || {},
+      explanations: explanations || {},
 
       narrative: narrative || {},
       hasNarrative,

@@ -1,18 +1,19 @@
 // /.netlify/functions/generate-narrative.js
-// iQWEB v5.2+ — AI NARRATIVE ONLY
+// iQWEB v5.2+ — AI NARRATIVE ONLY (NO SDK DEPENDENCIES)
 //
 // RULES:
 // - NEVER fetch HTML
-// - NEVER call PSI (only read if already present in metrics)
+// - NEVER call PSI
 // - NEVER compute scores
 // - READ ONLY from scan_results.metrics
-// - WRITE to scan_results.narrative (primary) and report_data.narrative (secondary)
+// - WRITE ONLY to scan_results.narrative
 // - Safe to re-run (idempotent)
 
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
@@ -21,120 +22,83 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 function safeObj(o) {
   return o && typeof o === "object" ? o : {};
 }
-
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
-
-function isNumericId(v) {
-  return typeof v === "string" && /^[0-9]+$/.test(v.trim());
-}
-
 function num(n) {
   return typeof n === "number" && Number.isFinite(n) ? n : null;
 }
 
-function pickNumber(...vals) {
-  for (const v of vals) {
-    if (typeof v === "number" && Number.isFinite(v)) return v;
-  }
-  return null;
-}
-
-function pickObj(...vals) {
-  for (const v of vals) {
-    if (v && typeof v === "object") return v;
-  }
-  return {};
-}
-
-// Find scan row by either WEB-... report_id or numeric scan_results.id
-async function fetchScanByEitherId(reportIdRaw) {
-  const rid = String(reportIdRaw || "").trim();
-  if (!rid) return { scan: null, error: "Missing report_id" };
-
-  // 1) try as report_id (string)
-  if (isNonEmptyString(rid) && !isNumericId(rid)) {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("id, user_id, url, report_id, created_at, metrics, narrative")
-      .eq("report_id", rid)
-      .single();
-
-    if (!error && data) return { scan: data, error: null };
-  }
-
-  // 2) if numeric, try as id
-  if (isNumericId(rid)) {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("id, user_id, url, report_id, created_at, metrics, narrative")
-      .eq("id", Number(rid))
-      .single();
-
-    if (!error && data) return { scan: data, error: null };
-  }
-
-  // 3) fallback: maybe they passed WEB-... but with numeric-like junk
-  {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("id, user_id, url, report_id, created_at, metrics, narrative")
-      .eq("report_id", rid)
-      .single();
-
-    if (!error && data) return { scan: data, error: null };
-  }
-
-  return { scan: null, error: "Scan not found" };
-}
-
 function buildFacts(scan) {
   const metrics = safeObj(scan.metrics);
-
-  // metrics.scores can be in a couple of shapes depending on your pipeline
-  const scoresRoot = pickObj(metrics.scores, metrics.report?.metrics?.scores, metrics.metrics?.scores);
-
-  // basic_checks can be in a couple shapes too
-  const bcRoot = pickObj(metrics.basic_checks, metrics.report?.basic_checks, metrics.basic_checks);
-
-  // ✅ Normalize score key names to what the narrative prompt expects
-  const scores = {
-    overall: pickNumber(scoresRoot.overall, scoresRoot.overall_score),
-    performance: pickNumber(scoresRoot.performance),
-    seo: pickNumber(scoresRoot.seo),
-    structure: pickNumber(scoresRoot.structure, scoresRoot.structure_semantics),
-    mobile: pickNumber(scoresRoot.mobile, scoresRoot.mobile_experience),
-    security: pickNumber(scoresRoot.security, scoresRoot.security_trust),
-    accessibility: pickNumber(scoresRoot.accessibility),
-  };
+  const scores = safeObj(metrics.scores);
+  const bc = safeObj(metrics.basic_checks);
+  const sh = safeObj(metrics.security_headers);
+  const hs = safeObj(metrics.human_signals);
+  const ex = safeObj(metrics.explanations);
 
   return {
-    url: scan.url || null,
-    report_id: scan.report_id || null,
-    created_at: scan.created_at || null,
+    url: scan.url,
+    report_id: scan.report_id,
+    created_at: scan.created_at,
 
-    scores,
-
-    basic_checks: {
-      title_present: bcRoot.title_present,
-      title_length: bcRoot.title_length,
-      meta_description_present: bcRoot.meta_description_present,
-      meta_description_length: bcRoot.meta_description_length,
-      h1_present: bcRoot.h1_present,
-      h1_count: bcRoot.h1_count,
-      canonical_present: bcRoot.canonical_present,
-      viewport_present: bcRoot.viewport_present,
-      sitemap_reachable: bcRoot.sitemap_reachable,
-      robots_txt_reachable: bcRoot.robots_txt_reachable,
-      html_length: bcRoot.html_length,
-      freshness_signals: bcRoot.freshness_signals || {},
+    scores: {
+      overall: num(scores.overall),
+      performance: num(scores.performance),
+      seo: num(scores.seo),
+      structure: num(scores.structure),
+      mobile: num(scores.mobile),
+      security: num(scores.security),
+      accessibility: num(scores.accessibility),
     },
 
-    // Allowed: only if it already exists inside metrics (we do NOT call PSI)
-    psi: {
-      mobile: metrics.psi?.mobile?.categories || {},
-      desktop: metrics.psi?.desktop?.categories || {},
+    basic_checks: {
+      http_status: bc.http_status ?? null,
+      content_type: bc.content_type ?? null,
+
+      title_present: bc.title_present ?? null,
+      title_text: bc.title_text ?? null,
+      meta_description_present: bc.meta_description_present ?? null,
+      meta_description_text: bc.meta_description_text ?? null,
+
+      h1_present: bc.h1_present ?? null,
+      canonical_present: bc.canonical_present ?? null,
+      viewport_present: bc.viewport_present ?? null,
+      viewport_content: bc.viewport_content ?? null,
+
+      robots_meta_present: bc.robots_meta_present ?? null,
+      robots_meta_content: bc.robots_meta_content ?? null,
+
+      img_count: bc.img_count ?? null,
+      img_alt_count: bc.img_alt_count ?? null,
+
+      html_bytes: bc.html_bytes ?? null,
+
+      copyright_year_min: bc.copyright_year_min ?? null,
+      copyright_year_max: bc.copyright_year_max ?? null,
+    },
+
+    security_headers: {
+      content_security_policy: sh.content_security_policy ?? null,
+      hsts: sh.hsts ?? null,
+      x_frame_options: sh.x_frame_options ?? null,
+      x_content_type_options: sh.x_content_type_options ?? null,
+      referrer_policy: sh.referrer_policy ?? null,
+      permissions_policy: sh.permissions_policy ?? null,
+    },
+
+    human_signals: {
+      clarity_cognitive_load: hs.clarity_cognitive_load ?? null,
+      trust_credibility: hs.trust_credibility ?? null,
+      intent_conversion_readiness: hs.intent_conversion_readiness ?? null,
+      maintenance_hygiene: hs.maintenance_hygiene ?? null,
+      freshness_signals: hs.freshness_signals ?? null,
+    },
+
+    deterministic_explanations: {
+      performance: ex.performance ?? null,
+      seo: ex.seo ?? null,
+      structure: ex.structure ?? null,
+      mobile: ex.mobile ?? null,
+      security: ex.security ?? null,
+      accessibility: ex.accessibility ?? null,
     },
   };
 }
@@ -181,14 +145,18 @@ STRICT RULES:
 - Tone: calm, professional, diagnostic (not sales).
 - Output VALID JSON only. No markdown. No prose outside JSON.
 
-Narrative keys MUST match exactly:
-intro
-performance
-seo
-structure
-mobile
-security
-accessibility
+Return EXACT keys:
+overall_summary
+performance_comment
+seo_comment
+structure_comment
+mobile_comment
+security_comment
+accessibility_comment
+key_insights (array of short bullets)
+top_issues (array of short bullets)
+fix_sequence (array of short steps)
+final_notes (array of short bullets)
 `.trim();
 
   const user = `
@@ -196,94 +164,61 @@ FACTS:
 ${JSON.stringify(facts, null, 2)}
 
 TASK:
-Produce a concise diagnostic narrative for each section.
-Do not repeat numbers unnecessarily.
-Avoid generic advice.
-If a signal is missing, state that the scan did not provide sufficient evidence.
+Write a concise executive narrative + section narratives that match the scores and checks.
+- Do not repeat the same numbers everywhere.
+- If a score is null, say "Not available from this scan."
+- Keep each comment 1–2 sentences max.
 `.trim();
 
   return openaiJson({ system, user });
 }
 
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-    },
-    body: JSON.stringify(obj),
-  };
-}
-
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
-      return json(405, { success: false, error: "Method not allowed" });
+      return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
     }
 
     const body = JSON.parse(event.body || "{}");
-    const report_id_in = body.report_id || body.reportId || body.id || null;
+    const report_id = body.report_id;
 
-    if (!report_id_in) {
-      return json(400, { success: false, error: "Missing report_id" });
+    if (!report_id) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Missing report_id" }) };
     }
 
     // 1) Load scan (truth source)
-    const { scan, error } = await fetchScanByEitherId(report_id_in);
-    if (error || !scan) {
-      return json(404, { success: false, error: error || "Scan not found" });
+    const { data: scan, error: scanErr } = await supabase
+      .from("scan_results")
+      .select("id, user_id, url, report_id, created_at, metrics")
+      .eq("report_id", report_id)
+      .single();
+
+    if (scanErr || !scan) {
+      return { statusCode: 404, body: JSON.stringify({ error: "Scan not found" }) };
     }
 
-    // Ensure we have a stable report_id string for storage/URL usage
-    const canonicalReportId = scan.report_id || String(scan.id);
-
-    // 2) Build facts + generate narrative
+    // 2) Generate narrative
     const facts = buildFacts(scan);
     const narrative = await generateNarrative(facts);
 
-    // 3a) Write to scan_results.narrative (primary)
+    // 3) Save narrative onto the same row the report loader reads
     const { error: updErr } = await supabase
       .from("scan_results")
       .update({ narrative })
       .eq("id", scan.id);
 
     if (updErr) {
-      return json(500, { success: false, error: updErr.message });
+      return { statusCode: 500, body: JSON.stringify({ error: updErr.message }) };
     }
 
-    // 3b) Upsert to report_data (secondary, optional but useful)
-    const { error: upsertErr } = await supabase
-      .from("report_data")
-      .upsert(
-        {
-          report_id: canonicalReportId,
-          url: scan.url,
-          user_id: scan.user_id,
-          created_at: scan.created_at,
-          narrative,
-        },
-        { onConflict: "report_id" }
-      );
-
-    if (upsertErr) {
-      // Not fatal for the report page now that scan_results is updated
-      console.warn("[generate-narrative] report_data upsert failed:", upsertErr.message);
-    }
-
-    return json(200, {
-      success: true,
-      report_id: canonicalReportId,
-      scan_id: scan.id,
-      narrative_generated: true,
-      report_data_upserted: !upsertErr,
-    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ success: true, report_id, narrative_generated: true }),
+    };
   } catch (err) {
-    console.error("[generate-narrative] error:", err);
-    return json(500, {
-      success: false,
-      error: "Narrative generation failed",
-      detail: String(err?.message || err),
-    });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Narrative generation failed", detail: String(err) }),
+    };
   }
 }
