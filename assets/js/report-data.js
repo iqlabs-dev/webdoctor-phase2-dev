@@ -1,20 +1,16 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.1 (LOCKED)
+// iQWEB Report UI — Contract v1.0.2 (LOCKED)
 // - Cards must never be missing
-// - Every score must show evidence: observations + deductions + issues
-// - Missing is never neutral: explicit penalties are displayed
+// - Discussion-first: compact cards with 2-line deterministic summary
+// - Evidence is ALWAYS available (collapsed by default)
+// - Missing is never neutral: explicit penalties and reasons shown in Evidence
 // - Narrative is optional and must never block render
 
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  function safeObj(v) {
-    return v && typeof v === "object" ? v : {};
-  }
-
-  function asArray(v) {
-    return Array.isArray(v) ? v : [];
-  }
+  function safeObj(v) { return v && typeof v === "object" ? v : {}; }
+  function asArray(v) { return Array.isArray(v) ? v : []; }
 
   function asInt(v, fallback = 0) {
     const n = Number(v);
@@ -41,11 +37,8 @@
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
     return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit"
+      year: "numeric", month: "short", day: "2-digit",
+      hour: "2-digit", minute: "2-digit"
     });
   }
 
@@ -57,32 +50,22 @@
     return "Needs attention";
   }
 
-  function setBar(el, score) {
-    if (!el) return;
-    el.style.width = `${asInt(score, 0)}%`;
-  }
-
   // -----------------------------
-  // Theme (simple + stable)
+  // Theme
   // -----------------------------
   function getTheme() {
     const saved = localStorage.getItem("iqweb_theme");
     return saved === "light" ? "light" : "dark";
   }
-
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("iqweb_theme", theme);
   }
-
   function wireThemeToggle() {
     const btn = $("btnToggleTheme");
     if (!btn) return;
-    btn.addEventListener("click", () => {
-      applyTheme(getTheme() === "dark" ? "light" : "dark");
-    });
+    btn.addEventListener("click", () => applyTheme(getTheme() === "dark" ? "light" : "dark"));
   }
-
   function wireRefresh() {
     const btn = $("btnRefresh");
     if (!btn) return;
@@ -104,13 +87,11 @@
       a.removeAttribute("href");
     }
   }
-
   function setHeaderReportId(reportId) {
     const el = $("hdrReportId");
     if (!el) return;
     el.textContent = reportId ? String(reportId) : "—";
   }
-
   function setHeaderReportDate(isoString) {
     const el = $("hdrReportDate");
     if (!el) return;
@@ -128,7 +109,6 @@
   async function fetchReportData(reportId) {
     const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
     const res = await fetch(url, { method: "GET" });
-
     const text = await res.text().catch(() => "");
     let data = null;
     try { data = JSON.parse(text); } catch { /* ignore */ }
@@ -137,125 +117,159 @@
       const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
       throw new Error(msg);
     }
-
     if (data && data.success === false) {
       const msg = data?.detail || data?.error || "Unknown error";
       throw new Error(msg);
     }
-
     return data;
   }
 
   // -----------------------------
-  // Render: Overall
+  // Overall
   // -----------------------------
   function renderOverall(scores) {
     const overall = asInt(scores.overall, 0);
-
     const pill = $("overallPill");
     if (pill) pill.textContent = `${overall}/100`;
 
-    setBar($("overallBar"), overall);
+    const bar = $("overallBar");
+    if (bar) bar.style.width = `${overall}%`;
 
     const note = $("overallNote");
     if (note) {
-      note.textContent = `Overall: ${verdict(overall)} (${overall}/100). Every score is backed by visible evidence and explicit deductions.`;
+      note.textContent =
+        `Overall: ${verdict(overall)} (${overall}/100). Evidence and deductions are available inside each signal.`;
     }
   }
 
   // -----------------------------
-  // Delivery Signals — Locked card format
-  // Title + Impact + Evidence + Severity
-  // Plus explicit deductions for missing/failed signals.
+  // Deterministic 2-line summaries (no AI)
+  // - First line: what the score means in plain English
+  // - Second line: why (based on penalties / key issues / missing observability)
   // -----------------------------
-  function severityFromSignal(signal) {
-    // If any "high" issues exist -> high; else if any "med" -> med; else low.
-    const issues = asArray(signal.issues);
-    if (issues.some(i => i?.severity === "high")) return "high";
-    if (issues.some(i => i?.severity === "med")) return "med";
-    if (issues.some(i => i?.severity === "low")) return "low";
-    return "low";
-  }
+  function summaryTwoLines(signal) {
+    const label = String(signal?.label || signal?.id || "Signal");
+    const score = asInt(signal?.score, 0);
+    const base = asInt(signal?.base_score, score);
+    const penalty = Number.isFinite(Number(signal?.penalty_points))
+      ? Math.max(0, Math.round(Number(signal.penalty_points)))
+      : Math.max(0, base - score);
 
-  function signalImpactText(signal) {
-    // Prefer first issue impact; otherwise a safe framing statement.
-    const issues = asArray(signal.issues);
-    const first = issues.find(i => typeof i?.impact === "string" && i.impact.trim());
-    if (first) return first.impact.trim();
-    return "This score reflects deterministic checks from this scan. Any missing observability is penalised explicitly to preserve report completeness.";
-  }
+    const issues = asArray(signal?.issues);
+    const deds = asArray(signal?.deductions);
 
-  function renderObservations(observations) {
-    const obs = asArray(observations);
-    if (!obs.length) return `<div class="small-note">No observations recorded.</div>`;
+    // Line 1: plain outcome
+    const line1 = `${label}: ${verdict(score)} (${score}/100).`;
 
-    const rows = obs.map(o => {
-      const label = escapeHtml(o?.label ?? "Observation");
-      const value = escapeHtml(String(o?.value ?? "null"));
-      const src = escapeHtml(String(o?.source ?? ""));
-      return `<div style="display:flex;justify-content:space-between;gap:10px;">
-        <span style="color:var(--muted);">${label}</span>
-        <span title="${src}" style="font-weight:700;">${value}</span>
-      </div>`;
-    }).join("");
+    // Line 2: reason priority
+    // 1) If penalties exist: call out penalties
+    // 2) Else if issues exist: call out that issues exist
+    // 3) Else: clean pass
+    let line2 = "";
 
-    return `<div style="margin-top:10px;display:grid;gap:6px;">${rows}</div>`;
-  }
-
-  function renderDeductions(deductions) {
-    const deds = asArray(deductions);
-    if (!deds.length) return `<div class="small-note" style="margin-top:10px;">No deductions applied.</div>`;
-
-    const items = deds.map(d => {
-      const reason = escapeHtml(d?.reason ?? "Deduction");
-      const pts = escapeHtml(String(d?.points ?? 0));
-      const code = escapeHtml(d?.code ?? "");
-      return `<li style="margin:6px 0;color:var(--muted);">
-        <strong style="color:var(--text);">-${pts}</strong> ${reason}
-        ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
-      </li>`;
-    }).join("");
-
-    return `<div style="margin-top:10px;">
-      <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Deductions (explicit)</div>
-      <ul style="margin:8px 0 0 18px;padding:0;">${items}</ul>
-    </div>`;
-  }
-
-  function renderIssues(issues) {
-    const list = asArray(issues);
-    if (!list.length) {
-      return `<div class="small-note" style="margin-top:10px;">No issues detected for this signal.</div>`;
+    if (penalty > 0) {
+      // Try to use the first deduction reason (most concrete)
+      const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
+      const reason = first ? first.reason.trim() : "Explicit deductions applied from observed checks.";
+      line2 = `Deductions: -${penalty}. ${reason}`;
+    } else if (issues.length > 0) {
+      const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
+      line2 = first ? `Issue detected: ${first.title.trim()}` : "Issues detected in deterministic checks.";
+    } else {
+      line2 = "No penalties. Deterministic checks passed based on observed signals in this scan.";
     }
 
-    // Keep it compact: title + severity + impact + evidence JSON
-    const blocks = list.map(i => {
-      const title = escapeHtml(i?.title ?? "Issue");
-      const sev = escapeHtml(i?.severity ?? "low");
-      const impact = escapeHtml(i?.impact ?? "—");
-      const ev = i?.evidence ?? {};
-      return `
-        <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
-            <div style="font-weight:750;">${title}</div>
-            <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
-              ${sev}
+    // Keep both lines short
+    return {
+      line1,
+      line2
+    };
+  }
+
+  // -----------------------------
+  // Evidence renderer (collapsed)
+  // -----------------------------
+  function renderEvidenceBlock(signal) {
+    const obs = asArray(signal?.observations);
+    const deds = asArray(signal?.deductions);
+    const issues = asArray(signal?.issues);
+
+    const obsRows = obs.length
+      ? obs.map(o => {
+          const label = escapeHtml(o?.label ?? "Observation");
+          const value = escapeHtml(String(o?.value ?? "null"));
+          const src = escapeHtml(String(o?.source ?? ""));
+          return `<div style="display:flex;justify-content:space-between;gap:10px;">
+            <span style="color:var(--muted);">${label}</span>
+            <span title="${src}" style="font-weight:750;">${value}</span>
+          </div>`;
+        }).join("")
+      : `<div class="small-note">No observations recorded.</div>`;
+
+    const dedRows = deds.length
+      ? `<ul style="margin:8px 0 0 18px;padding:0;">
+          ${deds.map(d => {
+            const reason = escapeHtml(d?.reason ?? "Deduction");
+            const pts = escapeHtml(String(d?.points ?? 0));
+            const code = escapeHtml(d?.code ?? "");
+            return `<li style="margin:6px 0;color:var(--muted);">
+              <strong style="color:var(--text);">-${pts}</strong> ${reason}
+              ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
+            </li>`;
+          }).join("")}
+        </ul>`
+      : `<div class="small-note">No deductions applied.</div>`;
+
+    const issueBlocks = issues.length
+      ? issues.map(i => {
+          const title = escapeHtml(i?.title ?? "Issue");
+          const sev = escapeHtml(i?.severity ?? "low");
+          const impact = escapeHtml(i?.impact ?? "—");
+          const ev = i?.evidence ?? {};
+          return `
+            <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                <div style="font-weight:760;">${title}</div>
+                <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
+                  ${sev}
+                </div>
+              </div>
+              <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
+                <b style="color:var(--text);">Impact:</b> ${impact}
+              </div>
+              <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
             </div>
-          </div>
-          <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
-            <b style="color:var(--text);">Impact:</b> ${impact}
-          </div>
-          <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
-        </div>
-      `;
-    }).join("");
+          `;
+        }).join("")
+      : `<div class="small-note">No issues detected for this signal.</div>`;
 
-    return `<div style="margin-top:10px;">
-      <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Issues (visible)</div>
-      ${blocks}
-    </div>`;
+    // Collapsed by default (discussion-first)
+    return `
+      <details>
+        <summary>Evidence (click to expand)</summary>
+
+        <div style="margin-top:10px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+          Observations (inputs)
+        </div>
+        <div style="margin-top:8px;display:grid;gap:6px;">${obsRows}</div>
+
+        <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+          Explicit Deductions
+        </div>
+        ${dedRows}
+
+        <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+          Issues (if any)
+        </div>
+        ${issueBlocks}
+      </details>
+    `;
   }
 
+  // -----------------------------
+  // Delivery Signals (compact cards)
+  // Locked order comes from backend delivery_signals[]
+  // -----------------------------
   function renderSignals(deliverySignals) {
     const grid = $("signalsGrid");
     if (!grid) return;
@@ -263,21 +277,15 @@
 
     const list = asArray(deliverySignals);
     if (!list.length) {
-      // This should never happen if backend obeys contract.
       grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
       return;
     }
 
     for (const sig of list) {
-      const id = String(sig?.id ?? "");
-      const label = String(sig?.label ?? id);
+      const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
-      const base = asInt(sig?.base_score, score);
-      const penalty = Number(sig?.penalty_points);
-      const penaltyPts = Number.isFinite(penalty) ? penalty : (base - score);
 
-      const severity = severityFromSignal(sig);
-      const impact = signalImpactText(sig);
+      const { line1, line2 } = summaryTwoLines(sig);
 
       const card = document.createElement("div");
       card.className = "card card-wide";
@@ -286,32 +294,19 @@
         <div class="card-top">
           <div>
             <h3>${escapeHtml(label)}</h3>
-            <div class="det-badge">Deterministic • Evidence-backed</div>
+            <div class="det-badge">Deterministic • Discussion-first • Evidence-backed</div>
           </div>
           <div class="score-mini">${score}/100</div>
         </div>
 
         <div class="bar"><div style="width:${score}%;"></div></div>
 
-        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <div class="pill">Base: <b>${base}</b></div>
-          <div class="pill">Penalty: <b>${Math.max(0, Math.round(penaltyPts))}</b></div>
-          <div class="pill">Severity: <b>${escapeHtml(severity)}</b></div>
+        <div class="summary" style="min-height:unset;">
+          <div style="color:var(--text); font-weight:700;">${escapeHtml(line1)}</div>
+          <div style="margin-top:6px;">${escapeHtml(line2)}</div>
         </div>
 
-        <div style="margin-top:10px;">
-          <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Impact</div>
-          <div class="summary" style="min-height:unset;margin-top:6px;">${escapeHtml(impact)}</div>
-        </div>
-
-        <div style="margin-top:10px;">
-          <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Evidence (observations)</div>
-          ${renderObservations(sig?.observations)}
-        </div>
-
-        ${renderDeductions(sig?.deductions)}
-
-        ${renderIssues(sig?.issues)}
+        ${renderEvidenceBlock(sig)}
       `;
 
       grid.appendChild(card);
@@ -328,6 +323,7 @@
 
     const textEl = $("narrativeText");
     const statusEl = $("narrativeStatus");
+    if (!textEl || !statusEl) return;
 
     if (lead) {
       textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
@@ -337,11 +333,13 @@
 
     textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
     const reason = typeof status.reason === "string" ? status.reason : "";
-    statusEl.textContent = reason ? `Signal Contract: narrative optional. (${reason})` : "Signal Contract: narrative optional.";
+    statusEl.textContent = reason
+      ? `Signal Contract: narrative optional. (${reason})`
+      : "Signal Contract: narrative optional.";
   }
 
   // -----------------------------
-  // Key Metrics
+  // Key Metrics (unchanged)
   // -----------------------------
   function renderMetrics(keyMetrics) {
     const root = $("metricsRoot");
@@ -349,7 +347,6 @@
     root.innerHTML = "";
 
     const km = safeObj(keyMetrics);
-
     const http = safeObj(km.http);
     const page = safeObj(km.page);
     const content = safeObj(km.content);
@@ -410,7 +407,6 @@
     root.innerHTML = "";
 
     const list = asArray(findings);
-
     if (!list.length) {
       root.innerHTML = `<div class="summary">No issues returned from this scan.</div>`;
       return;
@@ -425,7 +421,6 @@
 
       const el = document.createElement("div");
       el.className = "finding";
-
       el.innerHTML = `
         <div class="finding-head">
           <div>
@@ -437,13 +432,12 @@
         <div class="finding-block"><b>Evidence:</b></div>
         <div class="mono">${escapeHtml(prettyJSON(ev))}</div>
       `;
-
       root.appendChild(el);
     }
   }
 
   // -----------------------------
-  // Fix Plan
+  // Fix plan
   // -----------------------------
   function renderFixPlan(plan) {
     const root = $("fixPlanRoot");
@@ -451,7 +445,6 @@
     root.innerHTML = "";
 
     const phases = asArray(plan);
-
     if (!phases.length) {
       root.innerHTML = `<div class="summary">No fix plan returned from this scan.</div>`;
       return;
@@ -478,7 +471,6 @@
         <div class="phase-why"><b>Why:</b> ${why}</div>
         <ul>${items}</ul>
       `;
-
       root.appendChild(el);
     }
   }
@@ -505,7 +497,6 @@
       statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
 
-      // Contract v1.0.1
       const header = safeObj(data.header);
       const scores = safeObj(data.scores);
 
@@ -514,7 +505,7 @@
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-      renderSignals(data.delivery_signals);
+      renderSignals(data.delivery_signals);   // locked order from backend
       renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
