@@ -12,6 +12,7 @@ function json(statusCode, obj) {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
     },
     body: JSON.stringify(obj),
   };
@@ -22,114 +23,82 @@ function safeObj(v) {
 }
 
 function isNumeric(v) {
-  return /^[0-9]+$/.test(String(v || "").trim());
-}
-
-function hasAnyNarrative(n) {
-  if (!n || typeof n !== "object") return false;
-  // common keys we’ve used across versions
-  return Boolean(
-    n.overall_summary ||
-      n.executive_summary ||
-      n.summary ||
-      n.introduction ||
-      n.intro ||
-      n.narrative ||
-      n.sections ||
-      n.blocks
-  );
-}
-
-async function loadScanByEitherId(reportIdRaw) {
-  const rid = String(reportIdRaw || "").trim();
-  if (!rid) return null;
-
-  // 1) Try as scan_results.report_id (string)
-  {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("*")
-      .eq("report_id", rid)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (!error && data && data.length) return data[0];
-  }
-
-  // 2) If numeric, try as scan_results.id
-  if (isNumeric(rid)) {
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("*")
-      .eq("id", Number(rid))
-      .single();
-
-    if (!error && data) return data;
-  }
-
-  return null;
+  return /^[0-9]+$/.test(String(v));
 }
 
 export async function handler(event) {
   try {
-    if (event.httpMethod !== "GET") {
-      return json(405, { success: false, error: "Method not allowed" });
-    }
-
     const q = event.queryStringParameters || {};
-    const reportId =
-      q.report_id || q.reportId || q.id || q.scan_id || q.scanId || null;
+    const reportId = q.report_id || q.id || q.scan_id;
 
-    if (!reportId) {
-      return json(400, { success: false, error: "Missing report_id" });
-    }
+    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
     // 1) Load scan_results (truth)
-    const scan = await loadScanByEitherId(reportId);
+    let scan = null;
 
-    if (!scan) {
-      return json(404, {
-        success: false,
-        error: "Report not found for that report_id",
-      });
+    if (isNumeric(reportId)) {
+      const { data, error } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("id", Number(reportId))
+        .single();
+
+      if (error) console.warn("[get-report-data] scan by id error:", error.message);
+      scan = data || null;
+    } else {
+      const { data, error } = await supabase
+        .from("scan_results")
+        .select("*")
+        .eq("report_id", reportId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) console.warn("[get-report-data] scan by report_id error:", error.message);
+      scan = data?.[0] || null;
     }
 
-    const metrics = safeObj(scan.metrics);
-    const scores = safeObj(metrics.scores);
-    const basic_checks = safeObj(metrics.basic_checks);
-    const human_signals = safeObj(metrics.human_signals);
+    if (!scan) {
+      return json(404, { success: false, error: "Report not found for that report_id" });
+    }
 
-    // 2) Load narrative (optional layer). Missing row is normal.
-    const { data: repRows } = await supabase
+    // 2) Load narrative (optional layer)
+    // IMPORTANT: do NOT use .single() because you may have 0 or multiple rows.
+    const { data: repRows, error: repErr } = await supabase
       .from("report_data")
-      .select("narrative")
+      .select("narrative, created_at")
       .eq("report_id", scan.report_id)
       .order("created_at", { ascending: false })
       .limit(1);
 
-    const narrative = safeObj(repRows?.[0]?.narrative);
+    if (repErr) console.warn("[get-report-data] narrative error:", repErr.message);
 
-    // 3) Unified response
+    const narrative = repRows?.[0]?.narrative || null;
+
+    // 3) Unified response (stable contract)
     return json(200, {
       success: true,
 
       report: {
         id: scan.id,
-        report_id: scan.report_id || null,
-        url: scan.url || null,
-        created_at: scan.created_at || null,
-        status: scan.status || null,
+        report_id: scan.report_id,
+        url: scan.url,
+        created_at: scan.created_at,
+        status: scan.status,
         report_url: scan.report_url || null,
       },
 
-      // Keep these top-level keys because report-data.js expects them
-      scores,
-      metrics,
-      basic_checks,
-      human_signals,
+      // primary score surface
+      scores: safeObj(scan.metrics?.scores),
 
-      narrative,
-      hasNarrative: hasAnyNarrative(narrative),
+      // full metrics surface
+      metrics: safeObj(scan.metrics),
+
+      // convenience aliases
+      basic_checks: safeObj(scan.metrics?.basic_checks),
+      human_signals: safeObj(scan.metrics?.human_signals),
+
+      narrative: safeObj(narrative),
+      hasNarrative: !!narrative,
     });
   } catch (err) {
     console.error("[get-report-data]", err);
