@@ -28,11 +28,6 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-function scoreFromChecks({ ok, total }) {
-  if (!total) return 0;
-  return Math.round((ok / total) * 100);
-}
-
 async function fetchWithTimeout(url, ms = 12000) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), ms);
@@ -58,7 +53,29 @@ async function fetchWithTimeout(url, ms = 12000) {
   }
 }
 
-function basicHtmlSignals(html) {
+function safeTextLen(v) {
+  if (!v || typeof v !== "string") return 0;
+  return v.trim().length;
+}
+
+function tryParseUrl(u) {
+  try {
+    return new URL(u);
+  } catch {
+    return null;
+  }
+}
+
+function stripTags(s) {
+  return String(s || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function basicHtmlSignals(html, pageUrl) {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const descMatch = html.match(
     /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
@@ -69,7 +86,11 @@ function basicHtmlSignals(html) {
   const viewportMatch = html.match(
     /<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
-  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+
+  const h1All = Array.from(html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)).map((m) =>
+    stripTags(m[1]).slice(0, 200)
+  );
+  const h1Text = h1All.length ? h1All[0] : null;
 
   const robotsMatch = html.match(
     /<meta[^>]+name=["']robots["'][^>]*content=["']([^"']*)["'][^>]*>/i
@@ -89,23 +110,72 @@ function basicHtmlSignals(html) {
   const yearMin = years.length ? Math.min(...years) : null;
   const yearMax = years.length ? Math.max(...years) : null;
 
+  const titleText = titleMatch ? stripTags(titleMatch[1]).slice(0, 120) : null;
+  const descText = descMatch ? String(descMatch[1] || "").trim().slice(0, 200) : null;
+  const canonicalHref = canonicalMatch ? String(canonicalMatch[1] || "").trim() : null;
+
+  const page = tryParseUrl(pageUrl);
+  const canon = canonicalHref ? tryParseUrl(canonicalHref) : null;
+
+  // Canonical match heuristic:
+  // - If canonical is absolute, compare origin + pathname (+ trailing slash normalization)
+  // - If canonical is relative, resolve against page origin
+  let canonicalMatchesUrl = null;
+  if (canonicalHref && page) {
+    let resolved = canon;
+    if (!resolved) {
+      try {
+        resolved = new URL(canonicalHref, page.origin);
+      } catch {
+        resolved = null;
+      }
+    }
+    if (resolved) {
+      const norm = (u) => {
+        const p = u.pathname.endsWith("/") ? u.pathname : u.pathname + "/";
+        return `${u.origin}${p}`;
+      };
+      canonicalMatchesUrl = norm(resolved) === norm(page);
+    } else {
+      canonicalMatchesUrl = false;
+    }
+  }
+
+  const robotsContent = robotsMatch ? String(robotsMatch[1] || "").trim() : null;
+  const robotsBlocksIndex =
+    robotsContent && /(^|,|\s)noindex(\s|,|$)/i.test(robotsContent);
+
   return {
     title_present: !!titleMatch,
-    title_text: titleMatch ? titleMatch[1].trim().slice(0, 120) : null,
+    title_text: titleText,
+    title_length: safeTextLen(titleText),
+
     meta_description_present: !!descMatch,
-    meta_description_text: descMatch ? descMatch[1].trim().slice(0, 200) : null,
+    meta_description_text: descText,
+    meta_description_length: safeTextLen(descText),
+
     canonical_present: !!canonicalMatch,
-    canonical_href: canonicalMatch ? canonicalMatch[1].trim() : null,
+    canonical_href: canonicalHref,
+    canonical_matches_url: canonicalMatchesUrl,
+
     viewport_present: !!viewportMatch,
-    viewport_content: viewportMatch ? viewportMatch[1].trim() : null,
-    h1_present: !!h1Match,
+    viewport_content: viewportMatch ? String(viewportMatch[1] || "").trim() : null,
+
+    h1_present: h1All.length > 0,
+    h1_count: h1All.length,
+    h1_text: h1Text,
+    h1_length: safeTextLen(h1Text),
+
     robots_meta_present: !!robotsMatch,
-    robots_meta_content: robotsMatch ? robotsMatch[1].trim() : null,
+    robots_meta_content: robotsContent,
+    robots_blocks_index: !!robotsBlocksIndex,
+
     img_count: imgCount,
     img_alt_count: imgAltCount,
     html_bytes: htmlBytes,
     inline_script_count: inlineScriptCount,
     head_script_block_present: scriptHeadCount > 0,
+
     copyright_year_min: yearMin,
     copyright_year_max: yearMax,
   };
@@ -124,11 +194,137 @@ function headerSignals(res, url) {
   };
 }
 
+// ---------- Delivery Signal Builders ----------
+
+function buildSeoSignal(basic, pageUrl) {
+  const base_score = 100;
+  const deductions = [];
+
+  // Hard-block: if explicitly noindex, treat as SEO=0 (this is intentional)
+  if (basic.robots_meta_present && basic.robots_blocks_index) {
+    deductions.push({
+      points: 100,
+      reason: "Robots meta includes noindex (page is blocked from indexing).",
+    });
+    return {
+      id: "seo",
+      label: "SEO Foundations",
+      score: 0,
+      base_score,
+      penalty_points: 100,
+      deductions,
+      evidence: {
+        url: pageUrl,
+        title_present: basic.title_present,
+        title_text: basic.title_text,
+        title_length: basic.title_length,
+        meta_description_present: basic.meta_description_present,
+        meta_description_text: basic.meta_description_text,
+        meta_description_length: basic.meta_description_length,
+        h1_present: basic.h1_present,
+        h1_count: basic.h1_count,
+        h1_text: basic.h1_text,
+        h1_length: basic.h1_length,
+        canonical_present: basic.canonical_present,
+        canonical_href: basic.canonical_href,
+        canonical_matches_url: basic.canonical_matches_url,
+        robots_meta_present: basic.robots_meta_present,
+        robots_meta_content: basic.robots_meta_content,
+        robots_blocks_index: basic.robots_blocks_index,
+      },
+    };
+  }
+
+  // Title
+  if (!basic.title_present) {
+    deductions.push({ points: 25, reason: "Missing <title> tag." });
+  } else {
+    if (basic.title_length < 10) deductions.push({ points: 5, reason: "Title is very short (< 10 chars)." });
+    if (basic.title_length > 70) deductions.push({ points: 5, reason: "Title is long (> 70 chars)." });
+  }
+
+  // Meta description
+  if (!basic.meta_description_present) {
+    deductions.push({ points: 15, reason: "Missing meta description." });
+  } else {
+    if (basic.meta_description_length < 50)
+      deductions.push({ points: 5, reason: "Meta description is short (< 50 chars)." });
+    if (basic.meta_description_length > 160)
+      deductions.push({ points: 5, reason: "Meta description is long (> 160 chars)." });
+  }
+
+  // H1
+  if (!basic.h1_present) {
+    deductions.push({ points: 15, reason: "Missing H1 heading." });
+  } else {
+    if (basic.h1_count > 1) deductions.push({ points: 5, reason: "Multiple H1 headings detected." });
+    if (basic.h1_length < 6) deductions.push({ points: 3, reason: "H1 is very short (< 6 chars)." });
+  }
+
+  // Canonical
+  if (!basic.canonical_present) {
+    deductions.push({ points: 10, reason: "Canonical link missing." });
+  } else {
+    if (basic.canonical_matches_url === false)
+      deductions.push({ points: 10, reason: "Canonical does not match the scanned URL." });
+  }
+
+  // Robots meta missing is not fatal, but it’s a hygiene signal
+  if (!basic.robots_meta_present) {
+    deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity)." });
+  }
+
+  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
+  const score = clamp(base_score - penalty_points, 0, 100);
+
+  return {
+    id: "seo",
+    label: "SEO Foundations",
+    score,
+    base_score,
+    penalty_points,
+    deductions,
+    evidence: {
+      url: pageUrl,
+      title_present: basic.title_present,
+      title_text: basic.title_text,
+      title_length: basic.title_length,
+      meta_description_present: basic.meta_description_present,
+      meta_description_text: basic.meta_description_text,
+      meta_description_length: basic.meta_description_length,
+      h1_present: basic.h1_present,
+      h1_count: basic.h1_count,
+      h1_text: basic.h1_text,
+      h1_length: basic.h1_length,
+      canonical_present: basic.canonical_present,
+      canonical_href: basic.canonical_href,
+      canonical_matches_url: basic.canonical_matches_url,
+      robots_meta_present: basic.robots_meta_present,
+      robots_meta_content: basic.robots_meta_content,
+      robots_blocks_index: basic.robots_blocks_index,
+    },
+  };
+}
+
+function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [] }) {
+  const base_score = 100;
+  const penalty_points = clamp(base_score - clamp(score, 0, 100), 0, 100);
+  return {
+    id,
+    label,
+    score: clamp(score, 0, 100),
+    base_score,
+    penalty_points,
+    deductions,
+    evidence,
+  };
+}
+
 function buildScores(url, html, res, isHtml) {
-  // If we couldn't fetch HTML, degrade gracefully (still store a scan row)
-  const basic = isHtml ? basicHtmlSignals(html) : basicHtmlSignals("");
+  const basic = isHtml ? basicHtmlSignals(html, url) : basicHtmlSignals("", url);
   const headers = headerSignals(res, url);
 
+  // Performance (signals-based, simple)
   let perf = 100;
   if (basic.html_bytes > 250_000) perf -= 20;
   if (basic.html_bytes > 500_000) perf -= 20;
@@ -136,18 +332,19 @@ function buildScores(url, html, res, isHtml) {
   if (basic.head_script_block_present) perf -= 10;
   perf = clamp(perf, 0, 100);
 
-  const seoChecks = [basic.title_present, basic.meta_description_present, basic.h1_present, basic.canonical_present];
-  const seo = scoreFromChecks({ ok: seoChecks.filter(Boolean).length, total: seoChecks.length });
-
+  // Structure
   const structureChecks = [basic.title_present, basic.h1_present, basic.viewport_present];
-  const structure = scoreFromChecks({ ok: structureChecks.filter(Boolean).length, total: structureChecks.length });
+  const structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
 
+  // Mobile
   const mobileChecks = [basic.viewport_present, (basic.viewport_content || "").includes("width=device-width")];
-  const mobile = scoreFromChecks({ ok: mobileChecks.filter(Boolean).length, total: mobileChecks.length });
+  const mobile = Math.round((mobileChecks.filter(Boolean).length / mobileChecks.length) * 100);
 
+  // Security (headers only)
   const secChecks = [headers.hsts, headers.x_frame_options, headers.x_content_type_options, headers.referrer_policy];
-  const security = scoreFromChecks({ ok: secChecks.filter(Boolean).length, total: secChecks.length });
+  const security = Math.round((secChecks.filter(Boolean).length / secChecks.length) * 100);
 
+  // Accessibility (alt coverage heuristic)
   let accessibility = 100;
   if (basic.img_count > 0) {
     const ratio = basic.img_alt_count / basic.img_count;
@@ -157,10 +354,23 @@ function buildScores(url, html, res, isHtml) {
   }
   accessibility = clamp(accessibility, 0, 100);
 
+  // ✅ SEO as a real deterministic penalty-based signal
+  const seoSignal = buildSeoSignal(basic, url);
+  const seo = seoSignal.score;
+
   const overall = Math.round((perf + seo + structure + mobile + security + accessibility) / 6);
 
-  const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility };
+  const scores = {
+    overall,
+    performance: perf,
+    seo,
+    structure,
+    mobile,
+    security,
+    accessibility,
+  };
 
+  // Human summary (unchanged)
   const human = {
     clarity: basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
     trust: headers.hsts || headers.referrer_policy ? "OK" : "WEAK / MISSING",
@@ -169,6 +379,7 @@ function buildScores(url, html, res, isHtml) {
     freshness: "UNKNOWN",
   };
 
+  // Short explanations (unchanged, but SEO now aligns with deductions)
   const notes = {
     performance:
       perf >= 90
@@ -176,8 +387,10 @@ function buildScores(url, html, res, isHtml) {
         : "Some build signals suggest avoidable performance overhead (HTML weight / blocking scripts).",
     seo:
       seo >= 90
-        ? "Core SEO foundations appear present (title/description/H1/canonical)."
-        : `Some SEO foundations are missing or incomplete (title/description/H1/canonical).`,
+        ? "Core SEO foundations appear present and consistent."
+        : seo === 0 && seoSignal?.evidence?.robots_blocks_index
+        ? "SEO is blocked (noindex detected)."
+        : "Some SEO foundations are missing, incomplete, or inconsistent (see deductions & evidence).",
     structure:
       structure >= 90
         ? "Excellent structural semantics. The page is easy for browsers, bots, and assistive tech to interpret."
@@ -196,14 +409,64 @@ function buildScores(url, html, res, isHtml) {
         : "Image alt coverage suggests potential accessibility improvements.",
   };
 
-  return { basic, headers, scores, human, notes };
+  // ✅ Delivery signals array (UI-friendly)
+  const delivery_signals = [
+    buildSimpleSignal({
+      id: "performance",
+      label: "Performance",
+      score: perf,
+      evidence: {
+        html_bytes: basic.html_bytes,
+        inline_script_count: basic.inline_script_count,
+        head_script_block_present: basic.head_script_block_present,
+      },
+    }),
+    buildSimpleSignal({
+      id: "mobile",
+      label: "Mobile Experience",
+      score: mobile,
+      evidence: {
+        viewport_present: basic.viewport_present,
+        viewport_content: basic.viewport_content,
+        device_width_present: (basic.viewport_content || "").includes("width=device-width"),
+      },
+    }),
+    seoSignal,
+    buildSimpleSignal({
+      id: "security",
+      label: "Security & Trust",
+      score: security,
+      evidence: { ...headers, https: headers.https },
+      deductions: headers.https
+        ? []
+        : [{ points: 46, reason: "Missing HTTPS (scheme is not https://)." }],
+    }),
+    buildSimpleSignal({
+      id: "structure",
+      label: "Structure & Semantics",
+      score: structure,
+      evidence: {
+        title_present: basic.title_present,
+        h1_present: basic.h1_present,
+        viewport_present: basic.viewport_present,
+      },
+    }),
+    buildSimpleSignal({
+      id: "accessibility",
+      label: "Accessibility",
+      score: accessibility,
+      evidence: {
+        img_count: basic.img_count,
+        img_alt_count: basic.img_alt_count,
+        alt_ratio: basic.img_count ? Number((basic.img_alt_count / basic.img_count).toFixed(3)) : null,
+      },
+    }),
+  ];
+
+  return { basic, headers, scores, human, notes, delivery_signals };
 }
 
 function getSiteOrigin(event) {
-  // Most reliable in Netlify functions:
-  // - process.env.URL is your primary site URL (production)
-  // - DEPLOY_PRIME_URL is the deploy preview URL
-  // - fallback to request header
   return (
     process.env.URL ||
     process.env.DEPLOY_PRIME_URL ||
@@ -246,10 +509,7 @@ export async function handler(event) {
     const url = normaliseUrl(body.url || "");
     const user_id = body.user_id || null;
 
-    // Allow client-supplied report_id, else generate
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
-
-    // Optional switch: if you ever want to disable narrative calls from client
     const generate_narrative = body.generate_narrative !== false;
 
     if (!url || !report_id) {
@@ -260,13 +520,13 @@ export async function handler(event) {
       };
     }
 
-    // Fetch HTML (signals-only)
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
 
-    const { basic, headers, scores, human, notes } = buildScores(url, html, res, isHtml);
+    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(url, html, res, isHtml);
 
     const metrics = {
       scores,
+      delivery_signals, // ✅ NEW (this is what your grid + evidence should prefer)
       basic_checks: {
         ...basic,
         http_status: res.status,
@@ -308,7 +568,6 @@ export async function handler(event) {
       };
     }
 
-    // ✅ Trigger AI narrative after scan save (best-effort)
     let narrative_ok = null;
     if (generate_narrative) {
       const origin = getSiteOrigin(event);
