@@ -1,11 +1,10 @@
 // /assets/js/report-data.js
 // iQWEB Report UI — Contract v1.0.3 (LOCKED)
-// - Cards must never be missing
-// - Discussion-first: compact 6-card grid + 2-line deterministic summary
-// - Evidence is ALWAYS available (collapsed by default)
-// - Missing is never neutral: explicit penalties and reasons shown in Evidence
-// - Narrative is optional and must never block render
-// - UI enforces locked card order (even if backend changes order)
+// - Six-card grid (3×2 desktop; responsive fallback)
+// - Score shown ONCE (right side only)
+// - No evidence expanders inside cards
+// - Evidence rendered in dedicated "Signal Evidence" section below
+// - Narrative optional; never blocks render
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -126,84 +125,27 @@
   }
 
   // -----------------------------
-  // Overall (single number)
+  // Overall
   // -----------------------------
   function renderOverall(scores) {
     const overall = asInt(scores.overall, 0);
 
-    const num = $("overallPill");
-    if (num) num.textContent = `${overall}`; // single number only
+    const pill = $("overallPill");
+    if (pill) pill.textContent = String(overall);
 
     const bar = $("overallBar");
     if (bar) bar.style.width = `${overall}%`;
 
     const note = $("overallNote");
     if (note) {
-      note.textContent =
-        `Overall: ${verdict(overall)} (${overall}). Scores are backed by deterministic checks. Evidence is available per signal.`;
+      note.textContent = `Overall: ${verdict(overall)} (${overall}). Scores are backed by deterministic checks. Evidence is listed below in “Signal Evidence”.`;
     }
   }
 
   // -----------------------------
-  // Locked UI order (rule)
-  // Performance → Mobile → SEO → Security → Structure → Accessibility
-  // Match by id OR label (case-insensitive).
-  // -----------------------------
-  const ORDER = [
-    { key: "performance", match: ["performance"] },
-    { key: "mobile", match: ["mobile", "mobile experience"] },
-    { key: "seo", match: ["seo", "seo foundations"] },
-    { key: "security", match: ["security", "security & trust", "trust"] },
-    { key: "structure", match: ["structure", "structure & semantics", "semantics"] },
-    { key: "accessibility", match: ["accessibility"] },
-  ];
-
-  function norm(s) {
-    return String(s || "").trim().toLowerCase();
-  }
-
-  function indexSignals(deliverySignals) {
-    const list = asArray(deliverySignals);
-    const byKey = new Map();
-
-    for (const sig of list) {
-      const id = norm(sig?.id);
-      const label = norm(sig?.label);
-
-      for (const spec of ORDER) {
-        if (spec.match.includes(id) || spec.match.includes(label)) {
-          if (!byKey.has(spec.key)) byKey.set(spec.key, sig);
-        }
-      }
-    }
-
-    return { list, byKey };
-  }
-
-  function orderedSignals(deliverySignals) {
-    const { list, byKey } = indexSignals(deliverySignals);
-
-    // If we can map all 6 by rule: return in that exact order.
-    const out = [];
-    for (const spec of ORDER) {
-      const s = byKey.get(spec.key);
-      if (s) out.push(s);
-    }
-
-    // Fill any missing with remaining signals (stable) to avoid gaps.
-    if (out.length < list.length) {
-      const used = new Set(out);
-      for (const s of list) if (!used.has(s)) out.push(s);
-    }
-
-    return out;
-  }
-
-  // -----------------------------
-  // Deterministic 2-line summaries (no AI)
+  // Two-line deterministic summary (compact)
   // -----------------------------
   function summaryTwoLines(signal) {
-    const label = String(signal?.label || signal?.id || "Signal");
     const score = asInt(signal?.score, 0);
     const base = asInt(signal?.base_score, score);
     const penalty = Number.isFinite(Number(signal?.penalty_points))
@@ -213,8 +155,10 @@
     const issues = asArray(signal?.issues);
     const deds = asArray(signal?.deductions);
 
+    // Line 1: verdict + score (single number)
     const line1 = `${verdict(score)} (${score}).`;
 
+    // Line 2: simplest cause statement
     let line2 = "";
     if (penalty > 0) {
       const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
@@ -224,156 +168,146 @@
       const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
       line2 = first ? `Issue detected: ${first.title.trim()}` : "Issues detected in deterministic checks.";
     } else {
-      line2 = "No penalties. Deterministic checks passed based on observed signals in this scan.";
+      line2 = "No penalties. Deterministic checks passed based on observed signals.";
     }
 
-    // Keep tight
-    return { title: label, line1, line2 };
+    return { line1, line2 };
   }
 
   // -----------------------------
-  // Evidence renderer (collapsed)
-  // IMPORTANT: don’t spam empty blocks — show a compact message.
-  // -----------------------------
-  function renderEvidenceBlock(signal) {
-    const obs = asArray(signal?.observations);
-    const deds = asArray(signal?.deductions);
-    const issues = asArray(signal?.issues);
-
-    const hasObs = obs.length > 0;
-    const hasDeds = deds.length > 0;
-    const hasIssues = issues.length > 0;
-
-    // If literally nothing, still show evidence container (rule),
-    // but keep it minimal and honest.
-    if (!hasObs && !hasDeds && !hasIssues) {
-      return `
-        <details>
-          <summary>Evidence (click to expand)</summary>
-          <div class="small-note" style="margin-top:10px;">
-            No evidence objects returned for this signal in the current scan payload.
-            If the score exists, the backend should return observations and/or deductions explaining it.
-          </div>
-        </details>
-      `;
-    }
-
-    const obsRows = hasObs
-      ? obs.map(o => {
-          const label = escapeHtml(o?.label ?? "Observation");
-          const value = escapeHtml(String(o?.value ?? "null"));
-          const src = escapeHtml(String(o?.source ?? ""));
-          return `<div style="display:flex;justify-content:space-between;gap:10px;">
-            <span style="color:var(--muted);">${label}</span>
-            <span title="${src}" style="font-weight:750;">${value}</span>
-          </div>`;
-        }).join("")
-      : `<div class="small-note">No observations returned for this signal.</div>`;
-
-    const dedRows = hasDeds
-      ? `<ul style="margin:8px 0 0 18px;padding:0;">
-          ${deds.map(d => {
-            const reason = escapeHtml(d?.reason ?? "Deduction");
-            const pts = escapeHtml(String(d?.points ?? 0));
-            const code = escapeHtml(d?.code ?? "");
-            return `<li style="margin:6px 0;color:var(--muted);">
-              <strong style="color:var(--text);">-${pts}</strong> ${reason}
-              ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
-            </li>`;
-          }).join("")}
-        </ul>`
-      : `<div class="small-note">No explicit deductions returned for this signal.</div>`;
-
-    const issueBlocks = hasIssues
-      ? issues.map(i => {
-          const title = escapeHtml(i?.title ?? "Issue");
-          const sev = escapeHtml(i?.severity ?? "low");
-          const impact = escapeHtml(i?.impact ?? "—");
-          const ev = i?.evidence ?? {};
-          return `
-            <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
-              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
-                <div style="font-weight:760;">${title}</div>
-                <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
-                  ${sev}
-                </div>
-              </div>
-              <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
-                <b style="color:var(--text);">Impact:</b> ${impact}
-              </div>
-              <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
-            </div>
-          `;
-        }).join("")
-      : `<div class="small-note">No issues returned for this signal.</div>`;
-
-    return `
-      <details>
-        <summary>Evidence (click to expand)</summary>
-
-        <div style="margin-top:10px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-          Observations (inputs)
-        </div>
-        <div style="margin-top:8px;display:grid;gap:6px;">${obsRows}</div>
-
-        <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-          Explicit Deductions
-        </div>
-        ${dedRows}
-
-        <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-          Issues (if any)
-        </div>
-        ${issueBlocks}
-      </details>
-    `;
-  }
-
-  // -----------------------------
-  // Delivery Signals (6-card grid)
-  // IMPORTANT:
-  // - Use "card" (span 6) not "card-wide"
-  // - Score: single number only
+  // Delivery Signals — six clean cards (NO expanders)
   // -----------------------------
   function renderSignals(deliverySignals) {
     const grid = $("signalsGrid");
     if (!grid) return;
     grid.innerHTML = "";
 
-    const ordered = orderedSignals(deliverySignals);
-
-    if (!ordered.length) {
+    const list = asArray(deliverySignals);
+    if (!list.length) {
       grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
       return;
     }
 
-    for (const sig of ordered) {
+    for (const sig of list) {
+      const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
-      const { title, line1, line2 } = summaryTwoLines(sig);
+      const { line1, line2 } = summaryTwoLines(sig);
 
       const card = document.createElement("div");
-      card.className = "card"; // <-- 6-card grid
+      card.className = "card";
 
       card.innerHTML = `
         <div class="card-top">
-          <div>
-            <h3>${escapeHtml(title)}</h3>
-          </div>
-          <div class="score-mini">${score}</div>
+          <h3>${escapeHtml(label)}</h3>
+          <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
 
         <div class="bar"><div style="width:${score}%;"></div></div>
 
         <div class="summary" style="min-height:unset;">
-          <div style="color:var(--text); font-weight:700;">${escapeHtml(line1)}</div>
+          <div class="summary-strong">${escapeHtml(line1)}</div>
           <div style="margin-top:6px;">${escapeHtml(line2)}</div>
         </div>
-
-        ${renderEvidenceBlock(sig)}
       `;
 
       grid.appendChild(card);
     }
+  }
+
+  // -----------------------------
+  // Signal Evidence section (separate from cards)
+  // -----------------------------
+  function renderSignalEvidence(deliverySignals) {
+    const root = $("signalEvidenceRoot");
+    if (!root) return;
+    root.innerHTML = "";
+
+    const list = asArray(deliverySignals);
+    if (!list.length) {
+      root.innerHTML = `<div class="summary">No signal evidence available (delivery_signals missing).</div>`;
+      return;
+    }
+
+    const blocks = list.map(sig => {
+      const label = String(sig?.label ?? sig?.id ?? "Signal");
+      const score = asInt(sig?.score, 0);
+
+      const obs = asArray(sig?.observations);
+      const deds = asArray(sig?.deductions);
+      const issues = asArray(sig?.issues);
+
+      const obsRows = obs.length
+        ? obs.map(o => {
+            const k = escapeHtml(o?.label ?? "Observation");
+            const v = escapeHtml(String(o?.value ?? "null"));
+            const src = escapeHtml(String(o?.source ?? ""));
+            return `<div style="display:flex;justify-content:space-between;gap:10px;">
+              <span style="color:var(--muted);">${k}</span>
+              <span title="${src}" style="font-weight:750;">${v}</span>
+            </div>`;
+          }).join("")
+        : `<div class="small-note">No observations recorded.</div>`;
+
+      const dedRows = deds.length
+        ? `<ul style="margin:8px 0 0 18px;padding:0;">
+            ${deds.map(d => {
+              const reason = escapeHtml(d?.reason ?? "Deduction");
+              const pts = escapeHtml(String(d?.points ?? 0));
+              const code = escapeHtml(d?.code ?? "");
+              return `<li style="margin:6px 0;color:var(--muted);">
+                <strong style="color:var(--text);">-${pts}</strong> ${reason}
+                ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
+              </li>`;
+            }).join("")}
+          </ul>`
+        : `<div class="small-note">No deductions applied.</div>`;
+
+      const issueBlocks = issues.length
+        ? issues.map(i => {
+            const title = escapeHtml(i?.title ?? "Issue");
+            const sev = escapeHtml(i?.severity ?? "low");
+            const impact = escapeHtml(i?.impact ?? "—");
+            const ev = i?.evidence ?? {};
+            return `
+              <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
+                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                  <div style="font-weight:760;">${title}</div>
+                  <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
+                    ${sev}
+                  </div>
+                </div>
+                <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
+                  <b style="color:var(--text);">Impact:</b> ${impact}
+                </div>
+                <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
+              </div>
+            `;
+          }).join("")
+        : `<div class="small-note">No issues detected for this signal.</div>`;
+
+      return `
+        <details>
+          <summary>${escapeHtml(label)} — ${escapeHtml(String(score))}</summary>
+
+          <div style="margin-top:10px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+            Observations (inputs)
+          </div>
+          <div style="margin-top:8px;display:grid;gap:6px;">${obsRows}</div>
+
+          <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+            Explicit Deductions
+          </div>
+          ${dedRows}
+
+          <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
+            Issues (if any)
+          </div>
+          ${issueBlocks}
+        </details>
+      `;
+    }).join("");
+
+    root.innerHTML = blocks;
   }
 
   // -----------------------------
@@ -534,7 +468,6 @@
         <div class="phase-why"><b>Why:</b> ${why}</div>
         <ul>${items}</ul>
       `;
-
       root.appendChild(el);
     }
   }
@@ -569,7 +502,8 @@
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-      renderSignals(data.delivery_signals);   // backend provides signals, UI enforces order
+      renderSignals(data.delivery_signals);         // clean cards only
+      renderSignalEvidence(data.delivery_signals);  // evidence lives below
       renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);

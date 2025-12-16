@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iQWEB Website Report — v5.2</title>
 
-  <!-- Optional: Montserrat for brand text if you want it -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
@@ -27,7 +26,6 @@
       --gradSoft: linear-gradient(90deg, rgba(20,220,200,.18), rgba(38,140,255,.18));
     }
 
-    /* Light theme (kept for toggle) */
     [data-theme="light"]{
       --bg: #e8eef5;
       --panel: rgba(0,0,0,.04);
@@ -71,9 +69,10 @@
     }
 
     .topbar-left{
-      flex: 1;
+      flex: 0 0 auto;
       display:flex;
       align-items:center;
+      min-width: 110px;
     }
 
     .brand{
@@ -92,17 +91,22 @@
     }
 
     .topbar-right{
+      flex: 1 1 auto;
       display:flex;
       align-items:center;
       gap:12px;
+      justify-content:flex-end;
+      min-width: 0;
     }
 
-    /* Meta cards as a 4-column grid so WEBSITE can span 2 columns */
+    /* Make WEBSITE box wider */
     .meta-grid{
       display:grid;
-      grid-template-columns: 2fr 1fr 1fr; /* WEBSITE is 2x */
+      grid-template-columns: 2.2fr 1fr 1fr;
       gap:10px;
-      align-items:stretch;
+      min-width: 0;
+      flex: 1 1 auto;
+      max-width: 780px;
     }
 
     .meta-card{
@@ -116,10 +120,7 @@
       border: 1px solid var(--border);
       min-width: 0;
     }
-
-    [data-theme="light"] .meta-card{
-      background: rgba(255,255,255,.65);
-    }
+    [data-theme="light"] .meta-card{ background: rgba(255,255,255,.65); }
 
     .meta-label{
       font-size:11px;
@@ -137,6 +138,7 @@
       text-overflow:ellipsis;
       white-space:nowrap;
       max-width: 100%;
+      display:block;
     }
 
     .action-row{
@@ -144,6 +146,7 @@
       gap:10px;
       align-items:center;
       white-space:nowrap;
+      flex: 0 0 auto;
     }
 
     .btn{
@@ -157,7 +160,6 @@
       transition: transform .08s ease;
     }
     [data-theme="light"] .btn{ background: rgba(255,255,255,.65); }
-
     .btn:active{ transform: scale(.98); }
     .btn-primary{
       background: rgba(0,0,0,.28);
@@ -178,10 +180,7 @@
       padding: 16px 16px 10px;
       border-bottom: 1px solid rgba(255,255,255,.06);
     }
-
-    [data-theme="light"] .section-head{
-      border-bottom: 1px solid rgba(0,0,0,.06);
-    }
+    [data-theme="light"] .section-head{ border-bottom: 1px solid rgba(0,0,0,.06); }
 
     .section-title{
       margin:0;
@@ -268,7 +267,7 @@
     .score-row{
       display:flex;
       justify-content:space-between;
-      align-items:baseline;
+      align-items:center;
       gap:12px;
       margin-top: 10px;
     }
@@ -278,17 +277,13 @@
       font-weight:750;
     }
 
-    /* Single-number score (no /100, no pill) */
-    .score-number{
-      font-size: 26px;
-      font-weight: 820;
-      letter-spacing: .4px;
-      line-height: 1;
-      padding: 0;
-      margin: 0;
-      color: var(--text);
-      min-width: 40px;
-      text-align: right;
+    .pill{
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      font-size: 12px;
+      font-weight:750;
     }
 
     .bar{
@@ -315,20 +310,30 @@
       color: var(--muted);
     }
 
-    /* Signal cards */
+    /* SIGNAL GRID — 3×2 on desktop, 2×3 on medium, 1×6 on mobile */
     .grid{
       display:grid;
-      grid-template-columns: repeat(12, 1fr);
       gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    @media (max-width: 1020px){
+      .grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px){
+      .grid{ grid-template-columns: 1fr; }
     }
 
     .card{
-      grid-column: span 6;
       padding: 14px 14px 14px;
       border-radius: var(--radius2);
       background: var(--panel2);
       border: 1px solid var(--border);
       overflow:hidden;
+      min-height: 150px;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-start;
     }
 
     .card-top{
@@ -346,20 +351,18 @@
       color: var(--muted);
     }
 
-    /* Single-number score in cards */
-    .score-mini{
-      font-size: 18px;
-      font-weight: 850;
-      opacity:.98;
-      padding: 0;
-      margin: 0;
-      border: none;
-      background: transparent;
+    /* Score shown ONCE, right-aligned */
+    .score-right{
+      font-size: 13px;
+      font-weight: 800;
+      opacity:.95;
       white-space:nowrap;
       color: var(--text);
+      padding-top: 1px;
     }
 
     .card .bar{ margin-top: 10px; height: 8px; }
+
     .summary{
       margin-top: 10px;
       font-size: 12.5px;
@@ -367,6 +370,55 @@
       line-height: 1.45;
       min-height: 34px;
     }
+
+    .summary-strong{
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    /* Evidence section blocks */
+    details{
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--panel2);
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+    details:first-child{ margin-top:0; }
+    summary{
+      cursor:pointer;
+      list-style:none;
+      font-weight: 750;
+      color: var(--text);
+    }
+    summary::-webkit-details-marker{ display:none; }
+
+    .kv{
+      margin-top: 10px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .kv div b{
+      color: var(--text);
+      font-weight: 750;
+    }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      color: var(--text);
+      background: rgba(0,0,0,.18);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      overflow:auto;
+      margin-top: 8px;
+      white-space: pre;
+    }
+    [data-theme="light"] .mono{ background: rgba(255,255,255,.6); }
 
     /* Findings */
     .finding{
@@ -384,14 +436,12 @@
       align-items:flex-start;
       gap: 10px;
     }
-
     .finding-title{
       margin:0;
       font-size: 14px;
       font-weight: 760;
       letter-spacing:.2px;
     }
-
     .sev{
       padding: 6px 10px;
       border-radius: 999px;
@@ -402,27 +452,12 @@
       opacity:.95;
       white-space:nowrap;
     }
-
     .finding-block{
       margin-top: 10px;
       color: var(--muted);
       font-size: 12.5px;
       line-height: 1.55;
     }
-
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      color: var(--text);
-      background: rgba(0,0,0,.18);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 12px;
-      overflow:auto;
-      margin-top: 8px;
-      white-space: pre;
-    }
-    [data-theme="light"] .mono{ background: rgba(255,255,255,.6); }
 
     /* Fix plan */
     .phase{
@@ -433,7 +468,6 @@
       margin-top: 12px;
     }
     .phase:first-child{ margin-top:0; }
-
     .phase-title{
       margin:0;
       font-size: 14px;
@@ -457,35 +491,6 @@
     }
     .phase li strong{ color: var(--text); }
 
-    /* Metrics (evidence) */
-    details{
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: var(--panel2);
-      padding: 10px 12px;
-      margin-top: 10px;
-    }
-    details:first-child{ margin-top:0; }
-    summary{
-      cursor:pointer;
-      list-style:none;
-      font-weight: 750;
-      color: var(--text);
-    }
-    summary::-webkit-details-marker{ display:none; }
-    .kv{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-    .kv div b{
-      color: var(--text);
-      font-weight: 750;
-    }
-
     /* Footer */
     .footer{
       margin-top: 18px;
@@ -498,12 +503,15 @@
     @media (max-width: 980px){
       .topbar{ flex-direction: column; }
       .topbar-right{ flex-direction: column; align-items: stretch; }
-      .meta-grid{ grid-template-columns: 1fr; }
+      .meta-grid{ grid-template-columns: 1fr; max-width: none; }
       .action-row{ justify-content:flex-end; width:100%; }
-      .card{ grid-column: span 12; }
       .kv{ grid-template-columns: 1fr; }
-      .meta-value{ max-width: 100%; }
-      .score-number{ text-align:left; }
+    }
+
+    /* Print/PDF: keep clean */
+    @media print{
+      body{ padding: 0; }
+      .topbar, .section{ box-shadow: none; }
     }
   </style>
 </head>
@@ -511,7 +519,6 @@
 <body>
   <div class="wrap">
 
-    <!-- HEADER -->
     <header class="topbar">
       <div class="topbar-left">
         <div class="brand">
@@ -544,7 +551,6 @@
       </div>
     </header>
 
-    <!-- LOADER (KEEP SIMPLE + CENTERED) -->
     <section id="loaderSection" class="loader-wrap">
       <div class="loader">
         <div class="orb"><span>Λ i Q</span></div>
@@ -554,10 +560,8 @@
       </div>
     </section>
 
-    <!-- MAIN CONTENT -->
     <main id="reportRoot" style="display:none;">
 
-      <!-- OVERALL -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Overall Snapshot</h2>
@@ -565,14 +569,13 @@
         <div class="section-body">
           <div class="score-row">
             <div class="score-big" id="overallLabel">Overall Score</div>
-            <div class="score-number" id="overallPill">—</div>
+            <div class="pill" id="overallPill">—</div>
           </div>
           <div class="bar"><div id="overallBar"></div></div>
           <div class="small-note" id="overallNote"></div>
         </div>
       </section>
 
-      <!-- SIGNALS -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Delivery Signals</h2>
@@ -582,7 +585,14 @@
         </div>
       </section>
 
-      <!-- NARRATIVE -->
+      <!-- Evidence is NOT inside cards; it lives here -->
+      <section class="section">
+        <div class="section-head">
+          <h2 class="section-title">Signal Evidence</h2>
+        </div>
+        <div class="section-body" id="signalEvidenceRoot"></div>
+      </section>
+
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Λ i Q Executive Narrative</h2>
@@ -593,7 +603,6 @@
         </div>
       </section>
 
-      <!-- KEY METRICS / EVIDENCE -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Key Insight Metrics</h2>
@@ -601,7 +610,6 @@
         <div class="section-body" id="metricsRoot"></div>
       </section>
 
-      <!-- FINDINGS -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Top Issues Detected</h2>
@@ -609,7 +617,6 @@
         <div class="section-body" id="findingsRoot"></div>
       </section>
 
-      <!-- FIX PLAN -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Recommended Fix Sequence</h2>
