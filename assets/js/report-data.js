@@ -204,10 +204,10 @@
 
         <div class="bar"><div style="width:${score}%;"></div></div>
 
-        <div class="summary" style="min-height:unset;">
-          <div class="summary-strong">${escapeHtml(line1)}</div>
-          <div style="margin-top:6px;">${escapeHtml(line2)}</div>
-        </div>
+       <div class="summary" style="min-height:unset;">
+  <div style="margin-top:6px;">
+    ${escapeHtml(line2)}
+  </div>
       `;
 
       grid.appendChild(card);
