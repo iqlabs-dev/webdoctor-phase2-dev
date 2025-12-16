@@ -114,6 +114,12 @@ function parseViewport(content) {
   };
 }
 
+function countMatches(re, s) {
+  if (!s) return 0;
+  const m = String(s).match(re);
+  return m ? m.length : 0;
+}
+
 // ---------------------------------------------
 // HTML Signals (expanded for SEO + Mobile + A11y evidence)
 // ---------------------------------------------
@@ -191,6 +197,21 @@ function basicHtmlSignals(html, pageUrl) {
 
   const imgAltRatio = imgCount > 0 ? imgAltCount / imgCount : null;
 
+  // -----------------------------
+  // Accessibility foundations (deterministic)
+  // -----------------------------
+  const htmlLangPresent = /<html[^>]+lang=["'][^"']+["']/i.test(html);
+
+  const formControlsCount =
+    countMatches(/<input\b/gi, html) +
+    countMatches(/<textarea\b/gi, html) +
+    countMatches(/<select\b/gi, html);
+
+  const labelsWithForCount = countMatches(/<label\b[^>]*\bfor\s*=\s*["'][^"']+["']/gi, html);
+
+  const emptyButtonCount = countMatches(/<button\b[^>]*>\s*<\/button>/gi, html);
+  const emptyLinkCount = countMatches(/<a\b[^>]*>\s*<\/a>/gi, html);
+
   return {
     title_present: !!titleMatch,
     title_text: titleText,
@@ -230,6 +251,13 @@ function basicHtmlSignals(html, pageUrl) {
 
     copyright_year_min: yearMin,
     copyright_year_max: yearMax,
+
+    // A11y expanded (new)
+    html_lang_present: htmlLangPresent,
+    form_controls_count: formControlsCount,
+    labels_with_for_count: labelsWithForCount,
+    empty_buttons_detected: emptyButtonCount,
+    empty_links_detected: emptyLinkCount,
   };
 }
 
@@ -426,63 +454,89 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 }
 
 // ---------------------------------------------
-// Integrity-critical scoring for Mobile + Accessibility
+// Integrity-critical scoring for Mobile + Accessibility (EXPANDED)
 // ---------------------------------------------
 function scoreMobileFromBasic(basic, isHtml) {
   const base_score = 100;
   const deductions = [];
   const issues = [];
 
+  const add = (points, reason, code, severity, evidence) => {
+    deductions.push({ points, reason, code });
+    issues.push({
+      id: code,
+      title: `Mobile Experience: ${reason}`,
+      severity,
+      impact:
+        "Mobile foundations affect readability and layout on phones. These checks validate baseline viewport configuration.",
+      evidence: evidence || {},
+    });
+  };
+
   // Required inputs: must have HTML + viewport
   if (!isHtml || basic.viewport_present !== true) {
-    deductions.push({
-      points: 75,
-      reason: "Required mobile inputs missing (viewport not observable).",
-      code: "mob_required_inputs_missing",
-    });
-    issues.push({
-      id: "mob_required_inputs_missing",
-      title: "Mobile Experience: required signal missing",
-      severity: "high",
-      impact:
-        "This scan could not observe required mobile inputs (viewport). Missing inputs are treated as a penalty to preserve integrity.",
-      evidence: { viewport_present: basic.viewport_present ?? null, is_html: !!isHtml },
-    });
-
+    add(
+      75,
+      "Required mobile inputs missing (viewport not observable).",
+      "mob_required_inputs_missing",
+      "high",
+      { viewport_present: basic.viewport_present ?? null, is_html: !!isHtml }
+    );
     return { score: 25, base_score, deductions, issues };
   }
 
   // Deterministic mobile checks
   if (!basic.device_width_present) {
-    deductions.push({
-      points: 50,
-      reason: "Viewport missing width=device-width.",
-      code: "mob_device_width_missing",
-    });
-    issues.push({
-      id: "mob_device_width_missing",
-      title: "Mobile Experience: viewport missing device-width",
-      severity: "high",
-      impact:
-        "Without width=device-width, the page may render zoomed-out or incorrectly on phones.",
-      evidence: { viewport_content: basic.viewport_content ?? null },
-    });
+    add(
+      25,
+      "Viewport missing width=device-width.",
+      "mob_device_width_missing",
+      "high",
+      { viewport_content: basic.viewport_content ?? null }
+    );
   }
 
+  // Missing initial-scale is a common baseline miss
+  if (basic.viewport_initial_scale === null || basic.viewport_initial_scale === undefined) {
+    add(
+      8,
+      "Viewport missing initial-scale.",
+      "mob_initial_scale_missing",
+      "low",
+      { viewport_content: basic.viewport_content ?? null }
+    );
+  } else if (Number(basic.viewport_initial_scale) < 1) {
+    add(
+      6,
+      "Viewport initial-scale < 1.",
+      "mob_initial_scale_low",
+      "low",
+      { viewport_initial_scale: basic.viewport_initial_scale, viewport_content: basic.viewport_content ?? null }
+    );
+  }
+
+  // Zoom disabled is both UX + accessibility impact, but keep it in Mobile as "foundations"
   if (basic.viewport_user_scalable_disabled) {
-    deductions.push({
-      points: 15,
-      reason: "User zoom is disabled (user-scalable=0/no).",
-      code: "mob_user_scalable_disabled",
-    });
+    add(
+      10,
+      "User zoom is disabled (user-scalable=0/no).",
+      "mob_user_scalable_disabled",
+      "med",
+      { viewport_content: basic.viewport_content ?? null }
+    );
   }
 
-  if (basic.viewport_maximum_scale !== null && basic.viewport_maximum_scale <= 1) {
-    deductions.push({
-      points: 10,
-      reason: "maximum-scale is restrictive (<= 1).",
-      code: "mob_maximum_scale_restrictive",
-    });
+  // Restrictive maximum-scale can effectively block zoom too
+  if (basic.viewport_maximum_scale !== null && basic.viewport_maximum_scale !== undefined) {
+    if (Number(basic.viewport_maximum_scale) <= 1) {
+      add(
+        6,
+        "maximum-scale is restrictive (<= 1).",
+        "mob_maximum_scale_restrictive",
+        "low",
+        { viewport_maximum_scale: basic.viewport_maximum_scale, viewport_content: basic.viewport_content ?? null }
+      );
+    }
   }
 
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
@@ -496,6 +550,18 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
   const deductions = [];
   const issues = [];
 
+  const add = (points, reason, code, severity, evidence) => {
+    deductions.push({ points, reason, code });
+    issues.push({
+      id: code,
+      title: `Accessibility: ${reason}`,
+      severity,
+      impact:
+        "Accessibility foundations improve usability for assistive technologies and reduce friction for real users.",
+      evidence: evidence || {},
+    });
+  };
+
   // Required inputs: must have HTML + img counts observable
   const missingImgCounts =
     !isHtml ||
@@ -505,34 +571,106 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
     basic.img_alt_count === undefined;
 
   if (missingImgCounts) {
-    deductions.push({
-      points: 75,
-      reason: "Required accessibility inputs missing (img_count/img_alt_count not observable).",
-      code: "acc_required_inputs_missing",
-    });
-    issues.push({
-      id: "acc_required_inputs_missing",
-      title: "Accessibility: required signal missing",
-      severity: "high",
-      impact:
-        "This scan could not observe required accessibility inputs for image alt coverage. Missing inputs are treated as a penalty to preserve integrity.",
-      evidence: {
+    add(
+      75,
+      "Required accessibility inputs missing (img_count/img_alt_count not observable).",
+      "acc_required_inputs_missing",
+      "high",
+      {
         img_count: basic.img_count ?? null,
         img_alt_count: basic.img_alt_count ?? null,
         is_html: !!isHtml,
-      },
-    });
-
+      }
+    );
     return { score: 25, base_score, deductions, issues };
+  }
+
+  // A11y: html lang is a baseline requirement
+  if (basic.html_lang_present === false) {
+    add(
+      12,
+      "Missing <html lang> attribute.",
+      "acc_lang_missing",
+      "med",
+      { html_lang_present: false }
+    );
+  }
+
+  // A11y: form labels heuristic
+  const formControls = Number(basic.form_controls_count || 0);
+  const labelsFor = Number(basic.labels_with_for_count || 0);
+
+  if (formControls >= 3 && labelsFor === 0) {
+    add(
+      18,
+      "Form controls detected but no <label for=> relationships found.",
+      "acc_form_labels_missing",
+      "high",
+      { form_controls_count: formControls, labels_with_for_count: labelsFor }
+    );
+  } else if (formControls >= 3 && labelsFor < Math.ceil(formControls * 0.3)) {
+    add(
+      10,
+      "Some form controls may be missing labels.",
+      "acc_form_labels_partial",
+      "med",
+      { form_controls_count: formControls, labels_with_for_count: labelsFor }
+    );
+  }
+
+  // A11y: empty interactive elements
+  const emptyButtons = Number(basic.empty_buttons_detected || 0);
+  const emptyLinks = Number(basic.empty_links_detected || 0);
+
+  if (emptyButtons > 0) {
+    add(
+      12,
+      "Empty <button> elements detected.",
+      "acc_empty_buttons",
+      "med",
+      { empty_buttons_detected: emptyButtons }
+    );
+  }
+  if (emptyLinks > 0) {
+    add(
+      12,
+      "Empty <a> link elements detected.",
+      "acc_empty_links",
+      "med",
+      { empty_links_detected: emptyLinks }
+    );
   }
 
   // Alt coverage heuristic (deterministic)
   if (basic.img_count > 0) {
     const ratio = basic.img_alt_ratio ?? (basic.img_alt_count / basic.img_count);
 
-    if (ratio < 0.9) deductions.push({ points: 10, reason: "Alt coverage below 90%.", code: "acc_alt_below_90" });
-    if (ratio < 0.7) deductions.push({ points: 15, reason: "Alt coverage below 70%.", code: "acc_alt_below_70" });
-    if (ratio < 0.5) deductions.push({ points: 25, reason: "Alt coverage below 50%.", code: "acc_alt_below_50" });
+    // Use tiered penalties, but avoid double-counting too aggressively
+    if (ratio < 0.5) {
+      add(
+        25,
+        "Alt coverage below 50%.",
+        "acc_alt_below_50",
+        "high",
+        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
+      );
+    } else if (ratio < 0.7) {
+      add(
+        15,
+        "Alt coverage below 70%.",
+        "acc_alt_below_70",
+        "high",
+        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
+      );
+    } else if (ratio < 0.9) {
+      add(
+        10,
+        "Alt coverage below 90%.",
+        "acc_alt_below_90",
+        "med",
+        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
+      );
+    }
   }
 
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
@@ -546,38 +684,47 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 // ---------------------------------------------
 function buildScores(url, html, res, isHtml) {
   // If not HTML, produce a “null-evidence” basic pack so signals can enforce integrity caps
-  const basic = isHtml ? basicHtmlSignals(html, url) : {
-    title_present: null,
-    title_text: null,
-    title_length: null,
-    meta_description_present: null,
-    meta_description_text: null,
-    meta_description_length: null,
-    canonical_present: null,
-    canonical_href: null,
-    canonical_matches_url: null,
-    viewport_present: null,
-    viewport_content: null,
-    device_width_present: null,
-    viewport_user_scalable_disabled: null,
-    viewport_maximum_scale: null,
-    viewport_initial_scale: null,
-    h1_present: null,
-    h1_count: null,
-    h1_text: null,
-    h1_length: null,
-    robots_meta_present: null,
-    robots_meta_content: null,
-    robots_blocks_index: null,
-    img_count: null,
-    img_alt_count: null,
-    img_alt_ratio: null,
-    html_bytes: null,
-    inline_script_count: null,
-    head_script_block_present: null,
-    copyright_year_min: null,
-    copyright_year_max: null,
-  };
+  const basic = isHtml
+    ? basicHtmlSignals(html, url)
+    : {
+        title_present: null,
+        title_text: null,
+        title_length: null,
+        meta_description_present: null,
+        meta_description_text: null,
+        meta_description_length: null,
+        canonical_present: null,
+        canonical_href: null,
+        canonical_matches_url: null,
+        viewport_present: null,
+        viewport_content: null,
+        device_width_present: null,
+        viewport_user_scalable_disabled: null,
+        viewport_maximum_scale: null,
+        viewport_initial_scale: null,
+        h1_present: null,
+        h1_count: null,
+        h1_text: null,
+        h1_length: null,
+        robots_meta_present: null,
+        robots_meta_content: null,
+        robots_blocks_index: null,
+        img_count: null,
+        img_alt_count: null,
+        img_alt_ratio: null,
+        html_bytes: null,
+        inline_script_count: null,
+        head_script_block_present: null,
+        copyright_year_min: null,
+        copyright_year_max: null,
+
+        // A11y expanded (null-safe)
+        html_lang_present: null,
+        form_controls_count: null,
+        labels_with_for_count: null,
+        empty_buttons_detected: null,
+        empty_links_detected: null,
+      };
 
   const headers = headerSignals(res, url);
 
@@ -600,7 +747,7 @@ function buildScores(url, html, res, isHtml) {
     structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
   }
 
-  // Mobile (integrity scoring)
+  // Mobile (integrity scoring) — expanded
   const mobilePack = scoreMobileFromBasic(basic, isHtml);
   const mobile = mobilePack.score;
 
@@ -608,7 +755,7 @@ function buildScores(url, html, res, isHtml) {
   const secChecks = [headers.hsts, headers.x_frame_options, headers.x_content_type_options, headers.referrer_policy];
   const security = Math.round((secChecks.filter(Boolean).length / secChecks.length) * 100);
 
-  // Accessibility (integrity scoring)
+  // Accessibility (integrity scoring) — expanded
   const accPack = scoreAccessibilityFromBasic(basic, isHtml);
   const accessibility = accPack.score;
 
@@ -679,7 +826,7 @@ function buildScores(url, html, res, isHtml) {
     accessibility:
       accessibility >= 90
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
-        : "Accessibility coverage is incomplete or indicates missing/low alt coverage (see evidence).",
+        : "Accessibility coverage is incomplete or indicates missing/low a11y foundations (see evidence).",
   };
 
   // Delivery signals (UI-ready; includes observations)
@@ -788,9 +935,17 @@ function buildScores(url, html, res, isHtml) {
       evidence: {
         img_count: basic.img_count,
         img_alt_count: basic.img_alt_count,
-        alt_ratio: basic.img_alt_ratio !== null && basic.img_alt_ratio !== undefined
-          ? Number(basic.img_alt_ratio.toFixed(3))
-          : null,
+        alt_ratio:
+          basic.img_alt_ratio !== null && basic.img_alt_ratio !== undefined
+            ? Number(basic.img_alt_ratio.toFixed(3))
+            : null,
+
+        // Expanded evidence (new)
+        html_lang_present: basic.html_lang_present,
+        form_controls_count: basic.form_controls_count,
+        labels_with_for_count: basic.labels_with_for_count,
+        empty_buttons_detected: basic.empty_buttons_detected,
+        empty_links_detected: basic.empty_links_detected,
       },
       deductions: accPack.deductions,
       issues: accPack.issues,
