@@ -1,365 +1,532 @@
-// /.netlify/functions/get-report-data.js
-import { createClient } from "@supabase/supabase-js";
+// /assets/js/report-data.js
+// iQWEB Report UI — Contract v1.0.1 (LOCKED)
+// - Cards must never be missing
+// - Every score must show evidence: observations + deductions + issues
+// - Missing is never neutral: explicit penalties are displayed
+// - Narrative is optional and must never block render
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+(function () {
+  const $ = (id) => document.getElementById(id);
 
-// -----------------------------
-// Response helpers
-// -----------------------------
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json",
-      "Cache-Control": "no-store",
-      "Access-Control-Allow-Origin": "*",
-    },
-    body: JSON.stringify(obj),
-  };
-}
-
-function safeObj(v) {
-  return v && typeof v === "object" ? v : {};
-}
-
-function isNumeric(v) {
-  return /^[0-9]+$/.test(String(v));
-}
-
-function toInt0_100(v) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return null;
-  const r = Math.round(n);
-  return Math.max(0, Math.min(100, r));
-}
-
-function requireField(cond, msg) {
-  if (!cond) throw new Error(msg);
-}
-
-// -----------------------------
-// Contract builders (LOCKED)
-// -----------------------------
-function buildDeliverySignals(scores) {
-  // LOCKED discussion order:
-  // Performance → Mobile → SEO → Security → Structure → Accessibility
-  return [
-    {
-      id: "performance",
-      label: "Performance",
-      score: toInt0_100(scores.performance) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-    {
-      id: "mobile",
-      label: "Mobile Experience",
-      score: toInt0_100(scores.mobile) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-    {
-      id: "seo",
-      label: "SEO Foundations",
-      score: toInt0_100(scores.seo) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-    {
-      id: "security",
-      label: "Security & Trust",
-      score: toInt0_100(scores.security) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-    {
-      id: "structure",
-      label: "Structure & Semantics",
-      score: toInt0_100(scores.structure) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-    {
-      id: "accessibility",
-      label: "Accessibility",
-      score: toInt0_100(scores.accessibility) ?? 0,
-      summary: "",
-      finding_ids: [],
-    },
-  ];
-}
-
-function buildKeyMetricsFromScan(metrics) {
-  // We map from your existing scan.metrics.basic_checks.*
-  // This is deterministic and non-AI.
-  const m = safeObj(metrics);
-  const bc = safeObj(m.basic_checks);
-
-  // Your scan already includes these (based on your earlier payloads):
-  // http_status, content_type, canonical_href, title_present/title_text, viewport_present/viewport_content,
-  // h1_present, html_bytes, img_count, img_alt_count, plus freshness_signals + security headers.
-  const freshness = safeObj(bc.freshness_signals);
-  const headers = safeObj(bc.security_headers); // if you have it
-  const sec = safeObj(bc.security); // if you have it
-
-  // Prefer explicit security header booleans if present, otherwise fall back to whatever exists.
-  const keySecurity = {
-    https: bc.https ?? bc.ssl ?? null,
-    hsts_present: headers.hsts_present ?? sec.hsts_present ?? null,
-    csp_present: headers.csp_present ?? sec.csp_present ?? null,
-    x_frame_options_present: headers.x_frame_options_present ?? sec.x_frame_options_present ?? null,
-    x_content_type_options_present: headers.x_content_type_options_present ?? sec.x_content_type_options_present ?? null,
-    referrer_policy_present: headers.referrer_policy_present ?? sec.referrer_policy_present ?? null,
-  };
-
-  return {
-    http: {
-      status: bc.http_status ?? null,
-      final_url: bc.final_url ?? bc.final_url_resolved ?? bc.canonical_href ?? null,
-      content_type: bc.content_type ?? null,
-    },
-    page: {
-      title_present: bc.title_present ?? null,
-      title_text: bc.title_text ?? null,
-      meta_description_present: bc.meta_description_present ?? bc.description_present ?? null,
-      canonical_present: bc.canonical_present ?? null,
-      canonical_href: bc.canonical_href ?? null,
-      h1_present: bc.h1_present ?? null,
-      viewport_present: bc.viewport_present ?? null,
-      viewport_content: bc.viewport_content ?? null,
-    },
-    content: {
-      html_bytes: bc.html_bytes ?? null,
-      img_count: bc.img_count ?? null,
-      img_alt_count: bc.img_alt_count ?? null,
-    },
-    freshness: {
-      last_modified_header_present: freshness.last_modified_header_present ?? null,
-      last_modified_header_value: freshness.last_modified_header_value ?? null,
-      copyright_year_min: freshness.copyright_year_min ?? null,
-      copyright_year_max: freshness.copyright_year_max ?? null,
-    },
-    security: keySecurity,
-  };
-}
-
-function buildNarrativeLayer(narrativeRow) {
-  const n = safeObj(narrativeRow);
-
-  // If you already stored narrative as an object with executive_lead etc, preserve it.
-  // If it's empty/absent, enforce locked status block.
-  const hasLead = typeof n.executive_lead === "string" && n.executive_lead.trim().length > 0;
-
-  if (!n || Object.keys(n).length === 0 || !hasLead) {
-    return {
-      executive_lead: "",
-      final_notes: "",
-      signal_summaries: {
-        performance: "",
-        mobile: "",
-        seo: "",
-        security: "",
-        structure: "",
-        accessibility: "",
-      },
-      status: {
-        generated: false,
-        reason: "insufficient_signal_context_at_this_stage",
-      },
-    };
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
   }
 
-  // Ensure status exists even when narrative exists (good hygiene)
-  const status = safeObj(n.status);
-  return {
-    executive_lead: typeof n.executive_lead === "string" ? n.executive_lead : "",
-    final_notes: typeof n.final_notes === "string" ? n.final_notes : "",
-    signal_summaries: safeObj(n.signal_summaries),
-    status: {
-      generated: status.generated === true,
-      reason: typeof status.reason === "string" ? status.reason : "",
-    },
-  };
-}
-
-function validatePayload(payload) {
-  // Header required
-  requireField(payload?.header?.website, "Contract violation: missing header.website");
-  requireField(payload?.header?.report_id, "Contract violation: missing header.report_id");
-  requireField(payload?.header?.created_at, "Contract violation: missing header.created_at");
-
-  // Scores required
-  const s = safeObj(payload?.scores);
-  const required = ["overall", "performance", "mobile", "seo", "security", "structure", "accessibility"];
-  for (const k of required) {
-    requireField(Number.isFinite(Number(s[k])), `Contract violation: missing scores.${k}`);
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
   }
 
-  // Delivery signals required (exactly 6)
-  requireField(Array.isArray(payload.delivery_signals), "Contract violation: missing delivery_signals array");
-  requireField(payload.delivery_signals.length === 6, "Contract violation: delivery_signals must have 6 items");
+  function asInt(v, fallback = 0) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
 
-  const order = payload.delivery_signals.map(x => x?.id).join(",");
-  const lockedOrder = "performance,mobile,seo,security,structure,accessibility";
-  requireField(order === lockedOrder, `Contract violation: delivery_signals order must be ${lockedOrder} (got ${order})`);
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
 
-  // Key metrics required (object; can contain nulls, but must exist)
-  requireField(payload?.key_metrics && typeof payload.key_metrics === "object", "Contract violation: missing key_metrics object");
+  function prettyJSON(obj) {
+    try { return JSON.stringify(obj, null, 2); }
+    catch { return String(obj); }
+  }
 
-  // Findings + fix_plan must exist (can be empty arrays)
-  requireField(Array.isArray(payload.findings), "Contract violation: findings must be an array (can be empty)");
-  requireField(Array.isArray(payload.fix_plan), "Contract violation: fix_plan must be an array (can be empty)");
-
-  // Narrative must exist with status
-  requireField(payload?.narrative && typeof payload.narrative === "object", "Contract violation: missing narrative object");
-  requireField(payload?.narrative?.status && typeof payload.narrative.status === "object", "Contract violation: missing narrative.status");
-  requireField(payload?.narrative?.status?.generated === false || payload?.narrative?.status?.generated === true, "Contract violation: narrative.status.generated must be boolean");
-}
-
-// -----------------------------
-// Handler
-// -----------------------------
-export async function handler(event) {
-  try {
-    const q = event.queryStringParameters || {};
-    const reportId = q.report_id || q.id || q.scan_id;
-
-    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
-
-    // 1) Load scan_results (truth)
-    let scan = null;
-
-    if (isNumeric(reportId)) {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("*")
-        .eq("id", Number(reportId))
-        .single();
-
-      if (error) console.warn("[get-report-data] scan by id error:", error.message);
-      scan = data || null;
-    } else {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("*")
-        .eq("report_id", reportId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (error) console.warn("[get-report-data] scan by report_id error:", error.message);
-      scan = data?.[0] || null;
-    }
-
-    if (!scan) {
-      return json(404, { success: false, error: "Report not found for that report_id" });
-    }
-
-    // 2) Load narrative (optional)
-    const { data: repRows, error: repErr } = await supabase
-      .from("report_data")
-      .select("narrative, created_at")
-      .eq("report_id", scan.report_id)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (repErr) console.warn("[get-report-data] narrative error:", repErr.message);
-    const narrativeRow = repRows?.[0]?.narrative || null;
-
-    // 3) Build LOCKED payload v1.0
-    const scanMetrics = safeObj(scan.metrics);
-    const scanScores = safeObj(scanMetrics.scores);
-
-    // Enforce numeric score fields (no gaps)
-    const scores = {
-      overall: toInt0_100(scanScores.overall) ?? 0,
-      performance: toInt0_100(scanScores.performance) ?? 0,
-      mobile: toInt0_100(scanScores.mobile) ?? 0,
-      seo: toInt0_100(scanScores.seo) ?? 0,
-      security: toInt0_100(scanScores.security) ?? 0,
-      structure: toInt0_100(scanScores.structure) ?? 0,
-      accessibility: toInt0_100(scanScores.accessibility) ?? 0,
-    };
-
-    const payload = {
-      success: true,
-
-      contract: {
-        name: "iqweb_scan_payload",
-        version: "1.0",
-        psi: false,
-        narrative_optional: true,
-      },
-
-      header: {
-        website: scan.url,
-        report_id: scan.report_id,
-        created_at: scan.created_at,
-        scanner_version: "get-report-data@1.0",
-      },
-
-      scores,
-
-      // LOCKED discussion order cards always present
-      delivery_signals: buildDeliverySignals(scores),
-
-      // Deterministic evidence surface (must exist)
-      key_metrics: buildKeyMetricsFromScan(scanMetrics),
-
-      // Day 1–2: allow empty arrays, but must exist
-      findings: [],
-
-      fix_plan: [
-        {
-          phase: 1,
-          title: "Baseline fixes (highest confidence)",
-          why: "Deterministic improvements that strengthen trust and user experience.",
-          actions: [],
-        },
-        {
-          phase: 2,
-          title: "Clarity & structure improvements",
-          why: "Improves understanding for users and search engines.",
-          actions: [],
-        },
-        {
-          phase: 3,
-          title: "Optimisation & refinement (optional)",
-          why: "Enhancements once fundamentals are resolved.",
-          actions: [],
-        },
-      ],
-
-      narrative: buildNarrativeLayer(narrativeRow),
-
-      // Optional: include legacy raw surfaces for debugging only (does not affect UI)
-      _legacy: {
-        report: {
-          id: scan.id,
-          report_id: scan.report_id,
-          url: scan.url,
-          created_at: scan.created_at,
-          status: scan.status,
-          report_url: scan.report_url || null,
-        },
-        metrics: scanMetrics,
-      },
-    };
-
-    // 4) Contract validation: fail loudly (no gap reports)
-    validatePayload(payload);
-
-    return json(200, payload);
-  } catch (err) {
-    console.error("[get-report-data]", err);
-
-    // Fail loudly with contract detail so you can fix fast
-    return json(500, {
-      success: false,
-      error: "Report payload incomplete (contract violation).",
-      detail: err?.message || String(err),
+  function formatDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso);
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
     });
   }
-}
+
+  function verdict(score) {
+    const n = asInt(score, 0);
+    if (n >= 90) return "Strong";
+    if (n >= 75) return "Good";
+    if (n >= 55) return "Needs work";
+    return "Needs attention";
+  }
+
+  function setBar(el, score) {
+    if (!el) return;
+    el.style.width = `${asInt(score, 0)}%`;
+  }
+
+  // -----------------------------
+  // Theme (simple + stable)
+  // -----------------------------
+  function getTheme() {
+    const saved = localStorage.getItem("iqweb_theme");
+    return saved === "light" ? "light" : "dark";
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("iqweb_theme", theme);
+  }
+
+  function wireThemeToggle() {
+    const btn = $("btnToggleTheme");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      applyTheme(getTheme() === "dark" ? "light" : "dark");
+    });
+  }
+
+  function wireRefresh() {
+    const btn = $("btnRefresh");
+    if (!btn) return;
+    btn.addEventListener("click", () => window.location.reload());
+  }
+
+  // -----------------------------
+  // Header setters
+  // -----------------------------
+  function setHeaderWebsite(url) {
+    const a = $("hdrWebsite");
+    if (!a) return;
+    if (typeof url === "string" && url.trim()) {
+      const u = url.trim();
+      a.textContent = u;
+      a.href = u;
+    } else {
+      a.textContent = "—";
+      a.removeAttribute("href");
+    }
+  }
+
+  function setHeaderReportId(reportId) {
+    const el = $("hdrReportId");
+    if (!el) return;
+    el.textContent = reportId ? String(reportId) : "—";
+  }
+
+  function setHeaderReportDate(isoString) {
+    const el = $("hdrReportDate");
+    if (!el) return;
+    el.textContent = formatDate(isoString);
+  }
+
+  // -----------------------------
+  // Fetch
+  // -----------------------------
+  function getReportIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("report_id") || params.get("id") || "";
+  }
+
+  async function fetchReportData(reportId) {
+    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
+    const res = await fetch(url, { method: "GET" });
+
+    const text = await res.text().catch(() => "");
+    let data = null;
+    try { data = JSON.parse(text); } catch { /* ignore */ }
+
+    if (!res.ok) {
+      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+
+    if (data && data.success === false) {
+      const msg = data?.detail || data?.error || "Unknown error";
+      throw new Error(msg);
+    }
+
+    return data;
+  }
+
+  // -----------------------------
+  // Render: Overall
+  // -----------------------------
+  function renderOverall(scores) {
+    const overall = asInt(scores.overall, 0);
+
+    const pill = $("overallPill");
+    if (pill) pill.textContent = `${overall}/100`;
+
+    setBar($("overallBar"), overall);
+
+    const note = $("overallNote");
+    if (note) {
+      note.textContent = `Overall: ${verdict(overall)} (${overall}/100). Every score is backed by visible evidence and explicit deductions.`;
+    }
+  }
+
+  // -----------------------------
+  // Delivery Signals — Locked card format
+  // Title + Impact + Evidence + Severity
+  // Plus explicit deductions for missing/failed signals.
+  // -----------------------------
+  function severityFromSignal(signal) {
+    // If any "high" issues exist -> high; else if any "med" -> med; else low.
+    const issues = asArray(signal.issues);
+    if (issues.some(i => i?.severity === "high")) return "high";
+    if (issues.some(i => i?.severity === "med")) return "med";
+    if (issues.some(i => i?.severity === "low")) return "low";
+    return "low";
+  }
+
+  function signalImpactText(signal) {
+    // Prefer first issue impact; otherwise a safe framing statement.
+    const issues = asArray(signal.issues);
+    const first = issues.find(i => typeof i?.impact === "string" && i.impact.trim());
+    if (first) return first.impact.trim();
+    return "This score reflects deterministic checks from this scan. Any missing observability is penalised explicitly to preserve report completeness.";
+  }
+
+  function renderObservations(observations) {
+    const obs = asArray(observations);
+    if (!obs.length) return `<div class="small-note">No observations recorded.</div>`;
+
+    const rows = obs.map(o => {
+      const label = escapeHtml(o?.label ?? "Observation");
+      const value = escapeHtml(String(o?.value ?? "null"));
+      const src = escapeHtml(String(o?.source ?? ""));
+      return `<div style="display:flex;justify-content:space-between;gap:10px;">
+        <span style="color:var(--muted);">${label}</span>
+        <span title="${src}" style="font-weight:700;">${value}</span>
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-top:10px;display:grid;gap:6px;">${rows}</div>`;
+  }
+
+  function renderDeductions(deductions) {
+    const deds = asArray(deductions);
+    if (!deds.length) return `<div class="small-note" style="margin-top:10px;">No deductions applied.</div>`;
+
+    const items = deds.map(d => {
+      const reason = escapeHtml(d?.reason ?? "Deduction");
+      const pts = escapeHtml(String(d?.points ?? 0));
+      const code = escapeHtml(d?.code ?? "");
+      return `<li style="margin:6px 0;color:var(--muted);">
+        <strong style="color:var(--text);">-${pts}</strong> ${reason}
+        ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
+      </li>`;
+    }).join("");
+
+    return `<div style="margin-top:10px;">
+      <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Deductions (explicit)</div>
+      <ul style="margin:8px 0 0 18px;padding:0;">${items}</ul>
+    </div>`;
+  }
+
+  function renderIssues(issues) {
+    const list = asArray(issues);
+    if (!list.length) {
+      return `<div class="small-note" style="margin-top:10px;">No issues detected for this signal.</div>`;
+    }
+
+    // Keep it compact: title + severity + impact + evidence JSON
+    const blocks = list.map(i => {
+      const title = escapeHtml(i?.title ?? "Issue");
+      const sev = escapeHtml(i?.severity ?? "low");
+      const impact = escapeHtml(i?.impact ?? "—");
+      const ev = i?.evidence ?? {};
+      return `
+        <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+            <div style="font-weight:750;">${title}</div>
+            <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
+              ${sev}
+            </div>
+          </div>
+          <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
+            <b style="color:var(--text);">Impact:</b> ${impact}
+          </div>
+          <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
+        </div>
+      `;
+    }).join("");
+
+    return `<div style="margin-top:10px;">
+      <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Issues (visible)</div>
+      ${blocks}
+    </div>`;
+  }
+
+  function renderSignals(deliverySignals) {
+    const grid = $("signalsGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    const list = asArray(deliverySignals);
+    if (!list.length) {
+      // This should never happen if backend obeys contract.
+      grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
+      return;
+    }
+
+    for (const sig of list) {
+      const id = String(sig?.id ?? "");
+      const label = String(sig?.label ?? id);
+      const score = asInt(sig?.score, 0);
+      const base = asInt(sig?.base_score, score);
+      const penalty = Number(sig?.penalty_points);
+      const penaltyPts = Number.isFinite(penalty) ? penalty : (base - score);
+
+      const severity = severityFromSignal(sig);
+      const impact = signalImpactText(sig);
+
+      const card = document.createElement("div");
+      card.className = "card card-wide";
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div>
+            <h3>${escapeHtml(label)}</h3>
+            <div class="det-badge">Deterministic • Evidence-backed</div>
+          </div>
+          <div class="score-mini">${score}/100</div>
+        </div>
+
+        <div class="bar"><div style="width:${score}%;"></div></div>
+
+        <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <div class="pill">Base: <b>${base}</b></div>
+          <div class="pill">Penalty: <b>${Math.max(0, Math.round(penaltyPts))}</b></div>
+          <div class="pill">Severity: <b>${escapeHtml(severity)}</b></div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Impact</div>
+          <div class="summary" style="min-height:unset;margin-top:6px;">${escapeHtml(impact)}</div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div style="font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">Evidence (observations)</div>
+          ${renderObservations(sig?.observations)}
+        </div>
+
+        ${renderDeductions(sig?.deductions)}
+
+        ${renderIssues(sig?.issues)}
+      `;
+
+      grid.appendChild(card);
+    }
+  }
+
+  // -----------------------------
+  // Narrative (optional)
+  // -----------------------------
+  function renderNarrative(narrative) {
+    const n = safeObj(narrative);
+    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
+    const status = safeObj(n.status);
+
+    const textEl = $("narrativeText");
+    const statusEl = $("narrativeStatus");
+
+    if (lead) {
+      textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
+      statusEl.textContent = "";
+      return;
+    }
+
+    textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
+    const reason = typeof status.reason === "string" ? status.reason : "";
+    statusEl.textContent = reason ? `Signal Contract: narrative optional. (${reason})` : "Signal Contract: narrative optional.";
+  }
+
+  // -----------------------------
+  // Key Metrics
+  // -----------------------------
+  function renderMetrics(keyMetrics) {
+    const root = $("metricsRoot");
+    if (!root) return;
+    root.innerHTML = "";
+
+    const km = safeObj(keyMetrics);
+
+    const http = safeObj(km.http);
+    const page = safeObj(km.page);
+    const content = safeObj(km.content);
+    const freshness = safeObj(km.freshness);
+    const sec = safeObj(km.security);
+
+    root.innerHTML = `
+      <details open>
+        <summary>HTTP & Page Basics</summary>
+        <div class="kv">
+          <div><b>Status:</b> ${escapeHtml(http.status ?? "—")}</div>
+          <div><b>Content-Type:</b> ${escapeHtml(http.content_type ?? "—")}</div>
+          <div><b>Final URL:</b> ${escapeHtml(http.final_url ?? "—")}</div>
+
+          <div><b>Title Present:</b> ${escapeHtml(page.title_present ?? "—")}</div>
+          <div><b>Canonical Present:</b> ${escapeHtml(page.canonical_present ?? "—")}</div>
+          <div><b>H1 Present:</b> ${escapeHtml(page.h1_present ?? "—")}</div>
+          <div><b>Viewport Present:</b> ${escapeHtml(page.viewport_present ?? "—")}</div>
+
+          <div><b>HTML Bytes:</b> ${escapeHtml(content.html_bytes ?? "—")}</div>
+          <div><b>Images:</b> ${escapeHtml(content.img_count ?? "—")}</div>
+          <div><b>Images w/ ALT:</b> ${escapeHtml(content.img_alt_count ?? "—")}</div>
+        </div>
+        <div class="mono">${escapeHtml(prettyJSON({ http, page, content }))}</div>
+      </details>
+
+      <details>
+        <summary>Freshness Signals</summary>
+        <div class="kv">
+          <div><b>Last-Modified Present:</b> ${escapeHtml(freshness.last_modified_header_present ?? "—")}</div>
+          <div><b>Last-Modified Value:</b> ${escapeHtml(freshness.last_modified_header_value ?? "—")}</div>
+          <div><b>Copyright:</b> ${escapeHtml((freshness.copyright_year_min ?? "—") + "–" + (freshness.copyright_year_max ?? "—"))}</div>
+        </div>
+        <div class="mono">${escapeHtml(prettyJSON(freshness))}</div>
+      </details>
+
+      <details>
+        <summary>Security Headers Snapshot</summary>
+        <div class="kv">
+          <div><b>HTTPS:</b> ${escapeHtml(sec.https ?? "—")}</div>
+          <div><b>HSTS:</b> ${escapeHtml(sec.hsts_present ?? "—")}</div>
+          <div><b>CSP:</b> ${escapeHtml(sec.csp_present ?? "—")}</div>
+          <div><b>X-Frame-Options:</b> ${escapeHtml(sec.x_frame_options_present ?? "—")}</div>
+          <div><b>X-Content-Type-Options:</b> ${escapeHtml(sec.x_content_type_options_present ?? "—")}</div>
+          <div><b>Referrer-Policy:</b> ${escapeHtml(sec.referrer_policy_present ?? "—")}</div>
+        </div>
+        <div class="mono">${escapeHtml(prettyJSON(sec))}</div>
+      </details>
+    `;
+  }
+
+  // -----------------------------
+  // Findings
+  // -----------------------------
+  function renderFindings(findings) {
+    const root = $("findingsRoot");
+    if (!root) return;
+    root.innerHTML = "";
+
+    const list = asArray(findings);
+
+    if (!list.length) {
+      root.innerHTML = `<div class="summary">No issues returned from this scan.</div>`;
+      return;
+    }
+
+    for (const f of list) {
+      const id = escapeHtml(f?.id ?? "");
+      const title = escapeHtml(f?.title ?? "Finding");
+      const impact = escapeHtml(f?.impact ?? "—");
+      const severity = escapeHtml(f?.severity ?? "low");
+      const ev = safeObj(f?.evidence);
+
+      const el = document.createElement("div");
+      el.className = "finding";
+
+      el.innerHTML = `
+        <div class="finding-head">
+          <div>
+            <div class="finding-title">${title} ${id ? `<span style="color:var(--muted2);font-weight:650;">(${id})</span>` : ""}</div>
+            <div class="finding-block"><b>Impact:</b> ${impact}</div>
+          </div>
+          <div class="sev">${severity}</div>
+        </div>
+        <div class="finding-block"><b>Evidence:</b></div>
+        <div class="mono">${escapeHtml(prettyJSON(ev))}</div>
+      `;
+
+      root.appendChild(el);
+    }
+  }
+
+  // -----------------------------
+  // Fix Plan
+  // -----------------------------
+  function renderFixPlan(plan) {
+    const root = $("fixPlanRoot");
+    if (!root) return;
+    root.innerHTML = "";
+
+    const phases = asArray(plan);
+
+    if (!phases.length) {
+      root.innerHTML = `<div class="summary">No fix plan returned from this scan.</div>`;
+      return;
+    }
+
+    for (const p of phases) {
+      const phaseNum = escapeHtml(p?.phase ?? "");
+      const title = escapeHtml(p?.title ?? `Phase ${phaseNum}`);
+      const why = escapeHtml(p?.why ?? "—");
+      const actions = asArray(p?.actions);
+
+      const items = actions.length
+        ? actions.map(a => {
+            const actionText = escapeHtml(a?.action ?? "Action");
+            const fid = escapeHtml(a?.finding_id ?? "");
+            return `<li><strong style="color:var(--text);">${actionText}</strong>${fid ? ` <span style="color:var(--muted2);">(${fid})</span>` : ""}</li>`;
+          }).join("")
+        : `<li><strong style="color:var(--text);">No actions listed for this phase yet.</strong></li>`;
+
+      const el = document.createElement("div");
+      el.className = "phase";
+      el.innerHTML = `
+        <div class="phase-title">${phaseNum ? `Phase ${phaseNum} — ` : ""}${title}</div>
+        <div class="phase-why"><b>Why:</b> ${why}</div>
+        <ul>${items}</ul>
+      `;
+
+      root.appendChild(el);
+    }
+  }
+
+  // -----------------------------
+  // Main
+  // -----------------------------
+  async function main() {
+    applyTheme(getTheme());
+    wireThemeToggle();
+    wireRefresh();
+
+    const loaderSection = $("loaderSection");
+    const reportRoot = $("reportRoot");
+    const statusEl = $("loaderStatus");
+
+    const reportId = getReportIdFromUrl();
+    if (!reportId) {
+      statusEl.textContent = "Missing report_id in URL. Example: report.html?report_id=WEB-XXXX";
+      return;
+    }
+
+    try {
+      statusEl.textContent = "Fetching report payload…";
+      const data = await fetchReportData(reportId);
+
+      // Contract v1.0.1
+      const header = safeObj(data.header);
+      const scores = safeObj(data.scores);
+
+      setHeaderWebsite(header.website);
+      setHeaderReportId(header.report_id || reportId);
+      setHeaderReportDate(header.created_at);
+
+      renderOverall(scores);
+      renderSignals(data.delivery_signals);
+      renderNarrative(data.narrative);
+      renderMetrics(data.key_metrics);
+      renderFindings(data.findings);
+      renderFixPlan(data.fix_plan);
+
+      loaderSection.style.display = "none";
+      reportRoot.style.display = "block";
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", main);
+})();
