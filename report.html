@@ -5,536 +5,466 @@
   <title>iQWEB Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    * { box-sizing: border-box; }
-
     :root{
-      --page-bg: #e5edf4;
-      --text: #0f172a;
-
-      --card-bg: #ffffff;
-      --card-border: #e2e8f0;
-      --shadow: 0 18px 45px rgba(15,23,42,0.10);
-
-      --header-bg: #f8fafc;
-      --body-bg: #f1f5f9;
-
-      --section-bg: #ffffff;
-      --section-border: #e2e8f0;
-
-      --muted: #64748b;
-      --muted-2: #475569;
-
-      --diag-title: #475569;
-      --diag-text: #111827;
-
-      --score-border: #14b8a6;
-      --score-bg: #f0fdfa;
-
-      --footer-border: #e2e8f0;
-      --link: #0f172a;
+      --bg: #070b14;
+      --panel: rgba(255,255,255,0.06);
+      --panel2: rgba(255,255,255,0.08);
+      --stroke: rgba(255,255,255,0.10);
+      --text: rgba(255,255,255,0.92);
+      --muted: rgba(255,255,255,0.70);
+      --muted2: rgba(255,255,255,0.55);
+      --brand: #27e0c3;
+      --brand2:#12b9ff;
+      --warn: rgba(255, 204, 0, 0.95);
+      --bad: rgba(255, 96, 96, 0.95);
+      --good: rgba(80, 220, 160, 0.95);
+      --shadow: 0 18px 45px rgba(0,0,0,0.55);
+      --radius: 18px;
     }
 
-    body.wd-dark{
-      --page-bg: #070b14;
-      --text: #e6edf7;
-
-      --card-bg: #0b1220;
-      --card-border: rgba(148,163,184,0.18);
-      --shadow: 0 18px 55px rgba(0,0,0,0.40);
-
-      --header-bg: rgba(15,23,42,0.55);
-      --body-bg: rgba(15,23,42,0.35);
-
-      --section-bg: rgba(15,23,42,0.55);
-      --section-border: rgba(148,163,184,0.18);
-
-      --muted: rgba(226,232,240,0.70);
-      --muted-2: rgba(226,232,240,0.80);
-
-      --diag-title: rgba(226,232,240,0.85);
-      --diag-text: rgba(226,232,240,0.92);
-
-      --score-border: rgba(45,212,191,0.75);
-      --score-bg: rgba(20,184,166,0.10);
-
-      --footer-border: rgba(148,163,184,0.18);
-      --link: #e6edf7;
+    /* Light mode (optional) */
+    [data-theme="light"]{
+      --bg:#e5edf4;
+      --panel: rgba(15,23,42,0.06);
+      --panel2: rgba(15,23,42,0.08);
+      --stroke: rgba(15,23,42,0.12);
+      --text: rgba(15,23,42,0.92);
+      --muted: rgba(15,23,42,0.70);
+      --muted2: rgba(15,23,42,0.55);
+      --shadow: 0 14px 36px rgba(2,6,23,0.18);
     }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: "Montserrat", system-ui, sans-serif;
-      background: var(--page-bg);
+    *{ box-sizing:border-box; }
+    html, body{
+      margin:0; padding:0;
+      font-family:"Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
       color: var(--text);
     }
 
-    body {
-      display: flex;
-      justify-content: center;
-      padding: 24px 12px;
+    a{ color: var(--brand2); text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+
+    .wrap{
+      width:min(1100px, 100%);
+      margin:0 auto;
+      padding: 24px 14px 56px;
     }
 
-    /* LOADER (LOCKED UX SIGNATURE) */
-    #buildingReport {
-      position: fixed;
-      inset: 0;
-      background: #030712;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      transition: opacity 400ms ease;
-      opacity: 1;
-      pointer-events: all;
-    }
-    #buildingReport.is-hiding { opacity: 0; pointer-events: none; }
-
-    .building-inner { text-align: center; color: #e5e4e2; }
-    .building-title {
-      font-size: 1rem;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      opacity: 0.85;
-      margin-bottom: 18px;
-    }
-    .building-iq {
-      font-size: 2.2rem;
-      font-weight: 600;
-      animation: pulse 1.6s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 0.35; }
-      50% { opacity: 1; }
-      100% { opacity: 0.35; }
-    }
-
-    .wd-report-shell { width: 100%; max-width: 900px; }
-    .wd-report-card {
-      background: var(--card-bg);
-      border-radius: 28px;
-      padding: 24px;
-      border: 1px solid var(--card-border);
+    /* Top bar */
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding: 14px 16px;
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, rgba(39,224,195,0.10), rgba(18,185,255,0.06));
       box-shadow: var(--shadow);
     }
-
-    .wd-header-top {
-      padding: 20px 24px;
-      border-radius: 20px;
-      background: var(--header-bg);
-      border: 1px solid var(--card-border);
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      min-width: 240px;
     }
-    .wd-header-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .wd-header-title { font-size: 1.6rem; font-weight: 700; margin: 0; }
-
-    .wd-theme-toggle {
-      background: none;
-      border: none;
-      font-size: 0.9rem;
-      letter-spacing: 0.2em;
-      cursor: pointer;
-      padding: 0;
-      margin: 0;
-      white-space: nowrap;
-      color: var(--text);
-      opacity: 0.9;
+    .mark{
+      width:44px; height:44px;
+      border-radius:14px;
+      border:1px solid var(--stroke);
+      background: radial-gradient(circle at 30% 30%, rgba(39,224,195,0.35), rgba(18,185,255,0.08));
+      display:grid; place-items:center;
+      font-weight:800;
+      letter-spacing: 0.06em;
     }
-
-    .wd-header-meta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
-
-    .wd-meta-pill {
-      padding: 10px 16px;
-      border-radius: 999px;
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
+    .brand h1{
+      margin:0;
+      font-size:16px;
+      line-height:1.2;
+      font-weight:800;
     }
-    .wd-meta-pill-wide { flex: 1 1 100%; }
-
-    .wd-meta-label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    .brand .sub{
+      margin-top:2px;
+      font-size:12px;
       color: var(--muted);
-      margin-bottom: 3px;
+      font-weight:600;
+      letter-spacing:0.03em;
     }
 
-    .wd-meta-value {
-      font-size: 0.9rem;
-      font-weight: 600;
-      word-break: break-all;
-      color: var(--link);
-      text-decoration: none;
+    .meta{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:10px 14px;
+      text-align:right;
+      width:100%;
     }
-
-    .wd-report-body {
-      background: var(--body-bg);
-      border-radius: 24px;
-      padding: 28px 24px;
-      margin-top: 22px;
-      border: 1px solid rgba(0,0,0,0);
+    .meta .item{
+      padding:8px 10px;
+      border:1px solid var(--stroke);
+      border-radius: 14px;
+      background: var(--panel);
+      min-width: 220px;
     }
-
-    .wd-section {
-      margin-top: 24px;
-      padding: 20px 22px;
-      background: var(--section-bg);
-      border-radius: 18px;
-      border: 1px solid var(--section-border);
+    .meta .k{
+      font-size:11px;
+      color: var(--muted2);
+      font-weight:700;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
     }
-
-    .wd-section-title {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--muted-2);
-      margin: 0 0 14px;
-      font-weight: 600;
-    }
-
-    .wd-narrative-text {
-      font-size: 0.95rem;
-      line-height: 1.65;
-      color: var(--diag-text);
-      margin: 0;
-      white-space: pre-wrap;
-    }
-
-    .wd-diag-block {
-      padding: 16px 18px;
-      border-radius: 16px;
-      border: 1px solid var(--section-border);
-      background: rgba(255,255,255,0);
-      margin-bottom: 14px;
-    }
-
-    .wd-diag-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      gap: 12px;
-    }
-
-    .wd-diag-title {
-      font-size: 0.82rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 600;
-      color: var(--diag-title);
-    }
-
-    .wd-score-pill {
-      font-size: 0.8rem;
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--score-border);
-      background: var(--score-bg);
-      font-weight: 600;
-      min-width: 84px;
-      text-align: center;
+    .meta .v{
+      margin-top:3px;
+      font-size:13px;
+      font-weight:700;
       color: var(--text);
+      word-break: break-word;
     }
 
-    .wd-signal-bar {
-      height: 6px;
-      border-radius: 999px;
-      background: rgba(148,163,184,0.22);
-      overflow: hidden;
-      margin: 10px 0 10px;
+    .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-end;
+      min-width: 170px;
     }
-    .wd-signal-bar > span {
-      display: block;
-      height: 100%;
-      width: 0%;
-      background: rgba(45,212,191,0.85);
+
+    .btn{
+      border:1px solid var(--stroke);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 9px 12px;
+      font-weight:700;
+      font-size:12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:hover{ background: var(--panel2); }
+    .btn.primary{
+      background: linear-gradient(135deg, rgba(39,224,195,0.20), rgba(18,185,255,0.16));
+      border-color: rgba(39,224,195,0.25);
+    }
+
+    /* Loader (non-negotiable UX signature) */
+    .loaderStage{
+      margin-top: 18px;
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 22px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height: 170px;
+      position:relative;
+      overflow:hidden;
+    }
+    .loaderInner{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      text-align:center;
+    }
+    .pulse{
+      width:78px; height:78px;
       border-radius: 999px;
+      border: 1px solid rgba(39,224,195,0.35);
+      background: radial-gradient(circle at 30% 30%, rgba(39,224,195,0.28), rgba(18,185,255,0.06));
+      position:relative;
+      box-shadow: 0 0 0 0 rgba(39,224,195,0.25);
+      animation: pulse 1.65s infinite;
+    }
+    .pulse::after{
+      content:"Λ i Q";
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      font-weight:900;
+      letter-spacing:0.08em;
+      font-size:14px;
+      color: var(--text);
+      opacity:0.95;
+    }
+    @keyframes pulse{
+      0% { box-shadow: 0 0 0 0 rgba(39,224,195,0.30); transform: scale(1); }
+      70%{ box-shadow: 0 0 0 24px rgba(39,224,195,0.00); transform: scale(1.03); }
+      100%{ box-shadow: 0 0 0 0 rgba(39,224,195,0.00); transform: scale(1); }
+    }
+    .loaderTitle{
+      font-weight:900;
+      letter-spacing:0.06em;
+    }
+    .loaderSub{
+      font-size:12px;
+      color: var(--muted);
+      font-weight:600;
+      max-width: 560px;
+    }
+
+    /* Grid */
+    .grid{
+      margin-top: 18px;
+      display:grid;
+      gap: 14px;
+      grid-template-columns: repeat(12, 1fr);
+    }
+    .card{
+      border:1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: var(--panel);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card h2{
+      margin:0 0 10px 0;
+      font-size: 13px;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+    }
+    .span-12{ grid-column: span 12; }
+    .span-6{ grid-column: span 6; }
+    .span-4{ grid-column: span 4; }
+    .span-8{ grid-column: span 8; }
+
+    @media (max-width: 940px){
+      .span-6,.span-4,.span-8{ grid-column: span 12; }
+      .meta{ justify-content:flex-start; text-align:left; }
+      .actions{ justify-content:flex-start; min-width:auto; }
+    }
+
+    /* Signal row */
+    .signalRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 10px;
+    }
+    .badge{
+      border:1px solid var(--stroke);
+      background: rgba(0,0,0,0.12);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight:800;
+      letter-spacing:0.03em;
+    }
+    [data-theme="light"] .badge{ background: rgba(255,255,255,0.55); }
+
+    .bar{
+      width:100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border:1px solid var(--stroke);
+      overflow:hidden;
+    }
+    [data-theme="light"] .bar{ background: rgba(15,23,42,0.08); }
+    .fill{
+      height:100%;
+      width:0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(39,224,195,0.95), rgba(18,185,255,0.95));
       transition: width 400ms ease;
     }
+    .desc{
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height:1.5;
+    }
 
-    .wd-diag-summary {
-      font-size: 0.88rem;
+    /* Narrative */
+    .narrative{
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .note{
+      margin-top: 8px;
+      color: var(--muted2);
+      font-size: 12px;
+      line-height:1.5;
+    }
+
+    /* Human signals list */
+    .hs{
+      display:grid;
+      gap: 10px;
+    }
+    .hsItem{
+      padding: 12px 12px;
+      border:1px solid var(--stroke);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+    }
+    [data-theme="light"] .hsItem{ background: rgba(15,23,42,0.04); }
+    .hsTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .hsTitle{
+      font-weight:900;
+      letter-spacing:0.02em;
+      font-size: 12.5px;
+      margin:0;
+    }
+    .hsMeta{
+      font-size: 11px;
+      color: var(--muted2);
+      font-weight:700;
+      letter-spacing:0.03em;
+      text-transform:uppercase;
+      white-space: nowrap;
+    }
+    .hsBody{
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
       line-height: 1.55;
-      margin: 0;
-      color: var(--diag-text);
       white-space: pre-wrap;
     }
 
-    .wd-footer {
-      margin-top: 20px;
-      padding-top: 14px;
-      border-top: 1px solid var(--footer-border);
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 0.72rem;
-      color: var(--muted);
-      flex-wrap: nowrap;
+    /* Footer */
+    .footer{
+      margin-top: 18px;
+      color: var(--muted2);
+      font-size: 12px;
+      text-align:center;
     }
 
-    .wd-bullets {
-      margin: 0;
-      padding-left: 18px;
-      color: var(--diag-text);
-      line-height: 1.6;
-      font-size: 0.9rem;
-      white-space: normal;
-    }
-    .wd-bullets li { margin: 4px 0; }
+    /* Hide */
+    .hidden{ display:none !important; }
   </style>
 </head>
 
 <body>
+  <div class="wrap">
 
-  <div id="buildingReport" aria-live="polite">
-    <div class="building-inner">
-      <div class="building-title">Building Report</div>
-      <div class="building-iq">Λ i Q</div>
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">iQ</div>
+        <div>
+          <h1>iQWEB Website Report <span style="opacity:.7;font-weight:800">— v5.2</span></h1>
+          <div class="sub">Powered by Λ i Q™ • Deterministic-first rendering</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="item">
+          <div class="k">Website</div>
+          <div class="v"><a id="siteUrl" href="#" target="_blank" rel="noopener">—</a></div>
+        </div>
+        <div class="item">
+          <div class="k">Report ID</div>
+          <div class="v" id="reportId">—</div>
+        </div>
+        <div class="item">
+          <div class="k">Report Date</div>
+          <div class="v" id="reportDate">—</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="themeToggle" type="button">Toggle Theme</button>
+        <button class="btn primary" id="refreshBtn" type="button">Refresh</button>
+      </div>
     </div>
+
+    <!-- Loader (shown only while data fetch runs) -->
+    <div class="loaderStage" id="loaderStage">
+      <div class="loaderInner">
+        <div class="pulse" aria-hidden="true"></div>
+        <div class="loaderTitle">Building Report</div>
+        <div class="loaderSub">Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.</div>
+      </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="grid hidden" id="contentGrid">
+
+      <!-- Overall -->
+      <div class="card span-12">
+        <h2>Overall Snapshot</h2>
+        <div class="signalRow">
+          <div style="font-weight:900; letter-spacing:0.03em;">Overall Score</div>
+          <div class="badge" id="overallScore">—</div>
+        </div>
+        <div class="bar"><div class="fill" id="overallFill"></div></div>
+        <div class="desc" id="overallDesc">—</div>
+      </div>
+
+      <!-- 6 deterministic signals -->
+      <div class="card span-6">
+        <h2>Performance</h2>
+        <div class="signalRow"><div class="badge" id="perfScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="perfFill"></div></div>
+        <div class="desc" id="perfDesc">—</div>
+      </div>
+
+      <div class="card span-6">
+        <h2>Security</h2>
+        <div class="signalRow"><div class="badge" id="secScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="secFill"></div></div>
+        <div class="desc" id="secDesc">—</div>
+      </div>
+
+      <div class="card span-4">
+        <h2>SEO</h2>
+        <div class="signalRow"><div class="badge" id="seoScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="seoFill"></div></div>
+        <div class="desc" id="seoDesc">—</div>
+      </div>
+
+      <div class="card span-4">
+        <h2>Structure</h2>
+        <div class="signalRow"><div class="badge" id="strScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="strFill"></div></div>
+        <div class="desc" id="strDesc">—</div>
+      </div>
+
+      <div class="card span-4">
+        <h2>Accessibility</h2>
+        <div class="signalRow"><div class="badge" id="accScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="accFill"></div></div>
+        <div class="desc" id="accDesc">—</div>
+      </div>
+
+      <div class="card span-12">
+        <h2>Mobile</h2>
+        <div class="signalRow"><div class="badge" id="mobScore">—</div><div style="color:var(--muted);font-size:12px;font-weight:700">Deterministic</div></div>
+        <div class="bar"><div class="fill" id="mobFill"></div></div>
+        <div class="desc" id="mobDesc">—</div>
+      </div>
+
+      <!-- Narrative (optional) -->
+      <div class="card span-12">
+        <h2>Λ i Q Executive Narrative</h2>
+        <div class="narrative" id="narrativeText">—</div>
+        <div class="note" id="narrativeNote">—</div>
+      </div>
+
+      <!-- Human signals -->
+      <div class="card span-12">
+        <h2>Human Signals</h2>
+        <div class="hs" id="humanSignalsList"></div>
+        <div class="note" id="humanSignalsNote"></div>
+      </div>
+
+    </div>
+
+    <div class="footer">© 2025 iQLABS Ltd | All Rights Reserved | Made in New Zealand.</div>
   </div>
 
-  <div class="wd-report-shell">
-    <main class="wd-report-card">
-
-      <section class="wd-header-top">
-        <div class="wd-header-bar">
-          <h1 class="wd-header-title">iQWEB</h1>
-          <button class="wd-theme-toggle" id="themeToggle" type="button">— Λ —</button>
-        </div>
-
-        <div class="wd-header-meta-row">
-          <div class="wd-meta-pill wd-meta-pill-wide">
-            <span class="wd-meta-label">Website</span>
-            <a class="wd-meta-value" data-field="site-url" target="_blank" rel="noopener noreferrer"></a>
-          </div>
-        </div>
-
-        <div class="wd-header-meta-row">
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report Date</span>
-            <span class="wd-meta-value" data-field="report-date"></span>
-          </div>
-
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report Time</span>
-            <span class="wd-meta-value" data-field="report-time"></span>
-          </div>
-
-          <div class="wd-meta-pill">
-            <span class="wd-meta-label">Report ID</span>
-            <span class="wd-meta-value" data-field="report-id"></span>
-          </div>
-        </div>
-      </section>
-
-      <section class="wd-report-body">
-
-        <section class="wd-section" data-section="executive-narrative">
-          <p class="wd-narrative-text" data-field="overall-summary"></p>
-        </section>
-
-        <!-- Λ i Q™ DIAGNOSTIC SIGNALS -->
-        <section class="wd-section" data-section="signals">
-          <h3 class="wd-section-title">Λ i Q™ Diagnostic Signals</h3>
-
-          <!-- PERFORMANCE -->
-          <div class="wd-diag-block" data-section="signal-performance">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Performance</div>
-              <div class="wd-score-pill" data-field="score-performance"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="performance"></span></div>
-            <p class="wd-diag-summary" data-field="performance-comment"></p>
-          </div>
-
-          <!-- SEO FOUNDATIONS -->
-          <div class="wd-diag-block" data-section="signal-seo">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">SEO Foundations</div>
-              <div class="wd-score-pill" data-field="score-seo"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="seo"></span></div>
-            <p class="wd-diag-summary" data-field="seo-comment"></p>
-          </div>
-
-          <!-- STRUCTURE & SEMANTICS -->
-          <div class="wd-diag-block" data-section="signal-structure">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Structure &amp; Semantics</div>
-              <div class="wd-score-pill" data-field="score-structure"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="structure"></span></div>
-            <p class="wd-diag-summary" data-field="structure-comment"></p>
-          </div>
-
-          <!-- MOBILE EXPERIENCE -->
-          <div class="wd-diag-block" data-section="signal-mobile">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Mobile Experience</div>
-              <div class="wd-score-pill" data-field="score-mobile"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="mobile"></span></div>
-            <p class="wd-diag-summary" data-field="mobile-comment"></p>
-          </div>
-
-          <!-- SECURITY -->
-          <div class="wd-diag-block" data-section="signal-security">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Security</div>
-              <div class="wd-score-pill" data-field="score-security"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="security"></span></div>
-            <p class="wd-diag-summary" data-field="security-comment"></p>
-          </div>
-
-          <!-- ACCESSIBILITY -->
-          <div class="wd-diag-block" data-section="signal-accessibility">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Accessibility</div>
-              <div class="wd-score-pill" data-field="score-accessibility"></div>
-            </div>
-            <div class="wd-signal-bar" aria-hidden="true"><span data-bar="accessibility"></span></div>
-            <p class="wd-diag-summary" data-field="accessibility-comment"></p>
-          </div>
-
-        </section>
-
-        <!-- ✅ HUMAN SIGNALS -->
-        <section class="wd-section" data-section="human-signals">
-          <h3 class="wd-section-title">Human Signals</h3>
-
-          <!-- HS1 -->
-          <div class="wd-diag-block" data-section="human-clarity">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Clarity &amp; Cognitive Load</div>
-              <div class="wd-score-pill" data-field="hs1-status"></div>
-            </div>
-
-            <div class="wd-signal-bar" aria-hidden="true">
-              <span data-bar="hs1"></span>
-            </div>
-
-            <p class="wd-diag-summary" data-field="hs1-comment"></p>
-          </div>
-
-          <!-- HS2 -->
-          <div class="wd-diag-block" data-section="human-trust">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Trust &amp; Credibility</div>
-              <div class="wd-score-pill" data-field="hs2-status"></div>
-            </div>
-
-            <div class="wd-signal-bar" aria-hidden="true">
-              <span data-bar="hs2"></span>
-            </div>
-
-            <p class="wd-diag-summary" data-field="hs2-comment"></p>
-          </div>
-
-          <!-- HS3 -->
-          <div class="wd-diag-block" data-section="human-intent">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Intent &amp; Conversion Readiness</div>
-              <div class="wd-score-pill" data-field="hs3-status"></div>
-            </div>
-
-            <div class="wd-signal-bar" aria-hidden="true">
-              <span data-bar="hs3"></span>
-            </div>
-
-            <p class="wd-diag-summary" data-field="hs3-comment"></p>
-          </div>
-
-          <!-- ✅ HS4 (NEW) -->
-          <div class="wd-diag-block" data-section="human-maintenance">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Maintenance Hygiene</div>
-              <div class="wd-score-pill" data-field="hs4-status"></div>
-            </div>
-
-            <div class="wd-signal-bar" aria-hidden="true">
-              <span data-bar="hs4"></span>
-            </div>
-
-            <p class="wd-diag-summary" data-field="hs4-comment"></p>
-          </div>
-
-          <!-- ✅ HS5 (NEW) -->
-          <div class="wd-diag-block" data-section="human-freshness">
-            <div class="wd-diag-header">
-              <div class="wd-diag-title">Freshness Signals</div>
-              <div class="wd-score-pill" data-field="hs5-status"></div>
-            </div>
-
-            <div class="wd-signal-bar" aria-hidden="true">
-              <span data-bar="hs5"></span>
-            </div>
-
-            <p class="wd-diag-summary" data-field="hs5-comment"></p>
-          </div>
-
-        </section>
-
-        <!-- ✅ Key Insight Metrics -->
-        <section class="wd-section" data-section="key-insights">
-          <h3 class="wd-section-title">Key Insight Metrics</h3>
-          <ul class="wd-bullets" data-field="key-insights"></ul>
-        </section>
-
-        <!-- ✅ Top Issues Detected -->
-        <section class="wd-section" data-section="top-issues">
-          <h3 class="wd-section-title">Top Issues Detected</h3>
-          <ul class="wd-bullets" data-field="top-issues"></ul>
-        </section>
-
-        <!-- ✅ Recommended Fix Sequence -->
-        <section class="wd-section" data-section="fix-sequence">
-          <h3 class="wd-section-title">Recommended Fix Sequence</h3>
-          <div data-field="fix-sequence"></div>
-        </section>
-
-        <!-- ✅ Final Notes -->
-        <section class="wd-section" data-section="final-notes">
-          <h3 class="wd-section-title">Final Notes from Λ i Q</h3>
-          <ul class="wd-bullets" data-field="final-notes"></ul>
-        </section>
-
-      </section>
-
-      <footer class="wd-footer">
-        <span>© 2025 iQWEB – All rights reserved.</span>
-        <span></span>
-      </footer>
-
-    </main>
-  </div>
-
-  <script>
-    (function () {
-      const KEY = "iqweb_theme";
-      const btn = document.getElementById("themeToggle");
-      if (!btn) return;
-      const saved = localStorage.getItem(KEY);
-      if (saved === "dark") document.body.classList.add("wd-dark");
-      btn.addEventListener("click", () => {
-        document.body.classList.toggle("wd-dark");
-        localStorage.setItem(KEY, document.body.classList.contains("wd-dark") ? "dark" : "light");
-      });
-    })();
-
-    window.addEventListener("iqweb:loaded", () => {
-      const loader = document.getElementById("buildingReport");
-      if (!loader) return;
-      loader.classList.add("is-hiding");
-      setTimeout(() => loader.remove(), 520);
-    });
-  </script>
-
-  <script type="module" src="/assets/js/report-data.js"></script>
+  <script src="/assets/js/report-data.js"></script>
 </body>
 </html>

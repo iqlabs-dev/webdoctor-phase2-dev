@@ -1,350 +1,329 @@
 // /assets/js/report-data.js
-// iQWEB Report v5.2 — Signals-only renderer (NO PSI)
-// Fixes:
-// - Loader overlay never hiding (dispatches iqweb:ready + iqweb:loaded)
-// - Human Signals no longer "Pending" (maps from API response)
-// - Executive Narrative fallback if narrative is missing
-// - Robust score fallbacks: data.scores -> data.metrics.scores -> 0
+// iQWEB Report v5.2 — Deterministic-first renderer
+// Goal: render fully even when narrative is empty (Signal Contract v1)
 
 (function () {
   // -----------------------------
   // Helpers
   // -----------------------------
-  const $ = (sel) => document.querySelector(sel);
+  const $ = (id) => document.getElementById(id);
 
-  function safeObj(v) {
-    return v && typeof v === "object" ? v : {};
+  function safeObj(o) {
+    return o && typeof o === "object" ? o : {};
   }
 
-  function clamp01(n) {
-    n = Number(n);
-    if (!Number.isFinite(n)) return 0;
+  function asNumber(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function clampScore(v) {
+    const n = asNumber(v);
+    if (n === null) return null;
     return Math.max(0, Math.min(100, Math.round(n)));
   }
 
-  function getParam(name) {
+  function formatDate(isoOrDate) {
+    try {
+      const d = isoOrDate ? new Date(isoOrDate) : new Date();
+      if (Number.isNaN(d.getTime())) return "—";
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+    } catch {
+      return "—";
+    }
+  }
+
+  function pickFirstNonNull(...vals) {
+    for (const v of vals) {
+      if (v !== undefined && v !== null) return v;
+    }
+    return null;
+  }
+
+  function getQuery() {
     const u = new URL(window.location.href);
-    return u.searchParams.get(name);
-  }
-
-  function setText(sel, text) {
-    const el = $(sel);
-    if (!el) return;
-    el.textContent = text == null ? "" : String(text);
-  }
-
-  function setHTML(sel, html) {
-    const el = $(sel);
-    if (!el) return;
-    el.innerHTML = html == null ? "" : String(html);
-  }
-
-  function setBar(sel, score) {
-    const el = $(sel);
-    if (!el) return;
-    const n = clamp01(score);
-    el.style.width = `${n}%`;
-    el.setAttribute("aria-valuenow", String(n));
-  }
-
-  function setPill(sel, score) {
-    const el = $(sel);
-    if (!el) return;
-    const n = clamp01(score);
-    el.textContent = `${n}/100`;
-  }
-
-  function pickScore(data, key) {
-    // Prefer: data.scores[key] -> data.metrics.scores[key] -> data.metrics?.report?.metrics?.scores?.[key] (just in case)
-    const s1 = safeObj(data.scores);
-    const s2 = safeObj(safeObj(data.metrics).scores);
-    const n = s1[key] ?? s2[key];
-    return clamp01(n);
-  }
-
-  function bestWorst(scores) {
-    const entries = Object.entries(scores);
-    entries.sort((a, b) => b[1] - a[1]);
     return {
-      best: entries[0] || ["", 0],
-      worst: entries[entries.length - 1] || ["", 0],
+      report_id: u.searchParams.get("report_id"),
+      id: u.searchParams.get("id"),
+      url: u.searchParams.get("url"),
     };
   }
 
-  function titleCase(s) {
-    return String(s || "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (m) => m.toUpperCase());
-  }
+  // -----------------------------
+  // Endpoint
+  // -----------------------------
+  // Adjust if your function path differs.
+  const GET_REPORT_DATA_ENDPOINT = "/.netlify/functions/get-report-data";
 
-  function formatDate(iso) {
-    try {
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
-    } catch {
-      return "";
-    }
-  }
+  async function fetchReportData(query) {
+    const u = new URL(GET_REPORT_DATA_ENDPOINT, window.location.origin);
 
-  function formatTime(iso) {
-    try {
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    } catch {
-      return "";
-    }
+    // Support: ?report_id=WEB-... or ?id=310 or ?url=https://...
+    if (query.report_id) u.searchParams.set("report_id", query.report_id);
+    if (query.id) u.searchParams.set("id", query.id);
+    if (query.url) u.searchParams.set("url", query.url);
+
+    const res = await fetch(u.toString(), { method: "GET" });
+    if (!res.ok) throw new Error(`get-report-data failed: ${res.status}`);
+    return await res.json();
   }
 
   // -----------------------------
-  // Executive narrative fallback (signals-only)
+  // UI wiring
   // -----------------------------
-  function buildExecNarrative({ url, scores, basic_checks, security_headers }) {
-    const { best, worst } = bestWorst(scores);
-    const bestName = titleCase(best[0]);
-    const bestScore = best[1];
-    const worstName = titleCase(worst[0]);
-    const worstScore = worst[1];
+  function setText(id, text) {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = text;
+  }
 
-    const bc = safeObj(basic_checks);
-    const sh = safeObj(security_headers);
+  function setLink(id, href, text) {
+    const el = $(id);
+    if (!el) return;
+    el.href = href || "#";
+    el.textContent = text || "—";
+  }
 
-    const headline =
-      worst[0] === "security"
-        ? `Your biggest risk area is **Security & Trust** (${worstScore}/100).`
-        : `Your highest priority is **${worstName}** (${worstScore}/100).`;
+  function setBar(fillId, score) {
+    const el = $(fillId);
+    if (!el) return;
+    const s = clampScore(score);
+    el.style.width = s === null ? "0%" : `${s}%`;
+  }
 
-    const positives = [];
-    if (bestScore >= 90) positives.push(`Strong **${bestName}** signals (${bestScore}/100).`);
-    if (bc.title_present && bc.meta_description_present && bc.canonical_present) {
-      positives.push(`Core on-page SEO basics (title/description/canonical) are present.`);
+  function scoreBand(score) {
+    const s = clampScore(score);
+    if (s === null) return "Not available";
+    if (s >= 85) return "Strong";
+    if (s >= 70) return "Good";
+    if (s >= 50) return "Mixed";
+    return "Needs attention";
+  }
+
+  function explainSignal(label, score) {
+    const s = clampScore(score);
+    if (s === null) return `${label}: Not available from this scan.`;
+    const band = scoreBand(s);
+    return `${label}: ${band} (${s}/100) based on deterministic checks from this scan (no PSI).`;
+  }
+
+  function renderHumanSignals(humanSignals) {
+    const list = $("humanSignalsList");
+    const note = $("humanSignalsNote");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    const arr = Array.isArray(humanSignals) ? humanSignals : [];
+
+    if (!arr.length) {
+      const empty = document.createElement("div");
+      empty.className = "hsItem";
+      empty.innerHTML = `
+        <div class="hsTop">
+          <p class="hsTitle">No Human Signals returned</p>
+          <div class="hsMeta">Signal Contract v1</div>
+        </div>
+        <div class="hsBody">This scan returned deterministic scores + metrics, but no human_signals list.</div>
+      `;
+      list.appendChild(empty);
+      if (note) note.textContent = "Tip: human_signals can be populated from metrics/basic_checks without requiring narrative.";
+      return;
     }
-    if (bc.viewport_present) positives.push(`Mobile viewport is present (good baseline for responsiveness).`);
 
-    const risks = [];
-    // Security header gaps → explain why Security is low
-    if (scores.security <= 40) {
-      const missing = [];
-      if (!sh.content_security_policy) missing.push("CSP");
-      if (!sh.x_frame_options) missing.push("X-Frame-Options");
-      if (!sh.x_content_type_options) missing.push("X-Content-Type-Options");
-      if (!sh.referrer_policy) missing.push("Referrer-Policy");
-      if (!sh.permissions_policy) missing.push("Permissions-Policy");
-      if (missing.length) {
-        risks.push(`Missing key security headers: ${missing.join(", ")}.`);
-      } else {
-        risks.push(`Security posture is below baseline (header hardening).`);
+    for (const item of arr) {
+      const o = safeObj(item);
+      const title = o.title || o.name || "Human Signal";
+      const code = o.code || o.id || "";
+      const body =
+        o.body ||
+        o.detail ||
+        o.description ||
+        o.message ||
+        (typeof o === "string" ? o : "") ||
+        "—";
+
+      const severity = (o.severity || o.level || "").toString().toUpperCase();
+      const metaBits = [];
+      if (code) metaBits.push(code);
+      if (severity) metaBits.push(severity);
+
+      const div = document.createElement("div");
+      div.className = "hsItem";
+      div.innerHTML = `
+        <div class="hsTop">
+          <p class="hsTitle">${escapeHtml(title)}</p>
+          <div class="hsMeta">${escapeHtml(metaBits.join(" • ") || "HUMAN SIGNAL")}</div>
+        </div>
+        <div class="hsBody">${escapeHtml(body)}</div>
+      `;
+      list.appendChild(div);
+    }
+
+    if (note) note.textContent = "Human Signals are optional and independent of Λ i Q narrative generation.";
+  }
+
+  function renderNarrative(narrativeValue) {
+    const textEl = $("narrativeText");
+    const noteEl = $("narrativeNote");
+    if (!textEl) return;
+
+    // Narrative may be empty by design
+    const n = typeof narrativeValue === "string" ? narrativeValue.trim() : "";
+
+    if (!n) {
+      textEl.textContent =
+        "Narrative not generated (by design). This report is rendered from deterministic scan data only.";
+      if (noteEl) {
+        noteEl.textContent =
+          "Signal Contract v1: Narrative is optional. Deterministic signals + human signals must always render.";
       }
+      return;
     }
 
-    // Performance heuristic
-    if (bc.html_bytes && bc.html_bytes > 250000) {
-      risks.push(`HTML payload is heavy (~${Math.round(bc.html_bytes / 1024)}KB) which can increase load overhead.`);
-    }
-    if (bc.inline_script_count && bc.inline_script_count > 8) {
-      risks.push(`High script density (${bc.inline_script_count} inline scripts detected) can hurt load readiness.`);
-    }
-
-    const line2 = positives.length ? positives.join(" ") : `Build-quality signals were detected across the page structure.`;
-    const line3 = risks.length
-      ? `Next focus: ${risks.join(" ")}`
-      : `Next focus: address the weakest area first, then re-scan to confirm lift.`;
-
-    return `${headline}<br><br>${line2}<br>${line3}`;
+    textEl.textContent = n;
+    if (noteEl) noteEl.textContent = "Narrative present.";
   }
 
-  // -----------------------------
-  // Human Signals mapping (no “Pending”)
-  // -----------------------------
-  function mapHumanSignals(hsRaw) {
-    // Your API currently returns:
-    // human_signals: { freshness_signals, trust_credibility, maintenance_hygiene, clarity_cognitive_load, intent_conversion_readiness }
-    // Values like: "UNKNOWN" | "OK" | "CLEAR" | "PRESENT"
-    const hs = safeObj(hsRaw);
-
-    function scoreFromLabel(v) {
-      const s = String(v || "").toUpperCase();
-      if (s === "CLEAR" || s === "PRESENT") return 85;
-      if (s === "OK") return 70;
-      if (s === "UNKNOWN") return 55;
-      if (s === "WEAK" || s === "MISSING") return 35;
-      return 55;
-    }
-
-    function textFromLabel(v) {
-      const s = String(v || "").toUpperCase();
-      if (s === "CLEAR") return "Clear structure and readable content signals detected.";
-      if (s === "PRESENT") return "Conversion/intent signals are present at a basic level.";
-      if (s === "OK") return "Baseline signals detected, but improvement opportunities exist.";
-      if (s === "UNKNOWN") return "Signals are limited from HTML-only observation; treat as a review cue.";
-      if (s === "WEAK" || s === "MISSING") return "Signals appear weak or missing; treat as a priority review area.";
-      return "Signals observed from HTML-only scan; treat as a review cue.";
-    }
-
-    return {
-      clarity: {
-        label: hs.clarity_cognitive_load ?? "UNKNOWN",
-        score: scoreFromLabel(hs.clarity_cognitive_load),
-        text: textFromLabel(hs.clarity_cognitive_load),
-      },
-      trust: {
-        label: hs.trust_credibility ?? "UNKNOWN",
-        score: scoreFromLabel(hs.trust_credibility),
-        text: textFromLabel(hs.trust_credibility),
-      },
-      intent: {
-        label: hs.intent_conversion_readiness ?? "UNKNOWN",
-        score: scoreFromLabel(hs.intent_conversion_readiness),
-        text: textFromLabel(hs.intent_conversion_readiness),
-      },
-      maintenance: {
-        label: hs.maintenance_hygiene ?? "UNKNOWN",
-        score: scoreFromLabel(hs.maintenance_hygiene),
-        text: textFromLabel(hs.maintenance_hygiene),
-      },
-      freshness: {
-        label: hs.freshness_signals ?? "UNKNOWN",
-        score: scoreFromLabel(hs.freshness_signals),
-        text: textFromLabel(hs.freshness_signals),
-      },
-    };
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   // -----------------------------
   // Main render
   // -----------------------------
-  async function fetchReport(reportId) {
-    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
-    const res = await fetch(url, { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      const msg = data.error || data.message || `Report fetch failed (${res.status})`;
-      throw new Error(msg);
-    }
-    return data;
-  }
+  async function render() {
+    const loader = $("loaderStage");
+    const grid = $("contentGrid");
 
-  function render(data) {
-    const report = safeObj(data.report);
-    const metrics = safeObj(data.metrics);
-    const basic_checks = safeObj(data.basic_checks);
-    const security_headers = safeObj(metrics.security_headers);
-    const explanations = safeObj(safeObj(metrics).explanations);
+    if (loader) loader.classList.remove("hidden");
+    if (grid) grid.classList.add("hidden");
 
-    // Header
-    setText('[data-field="website"]', report.url || "");
-    setText('[data-field="report_id"]', report.report_id || "");
-    setText('[data-field="report_date"]', formatDate(report.created_at));
-    setText('[data-field="report_time"]', formatTime(report.created_at));
-
-    // 6 Diagnostic scores
-    const scores = {
-      performance: pickScore(data, "performance"),
-      seo: pickScore(data, "seo"),
-      structure: pickScore(data, "structure"),
-      mobile: pickScore(data, "mobile"),
-      security: pickScore(data, "security"),
-      accessibility: pickScore(data, "accessibility"),
-    };
-
-    // Bars + pills
-    setBar('[data-bar="performance"]', scores.performance);
-    setPill('[data-pill="performance"]', scores.performance);
-    setHTML('[data-text="performance"]', explanations.performance || "Build-quality indicators for performance readiness.");
-
-    setBar('[data-bar="seo"]', scores.seo);
-    setPill('[data-pill="seo"]', scores.seo);
-    setHTML('[data-text="seo"]', explanations.seo || "SEO foundation signals derived from delivered HTML.");
-
-    setBar('[data-bar="structure"]', scores.structure);
-    setPill('[data-pill="structure"]', scores.structure);
-    setHTML('[data-text="structure"]', explanations.structure || "Structure & semantics signals derived from markup patterns.");
-
-    setBar('[data-bar="mobile"]', scores.mobile);
-    setPill('[data-pill="mobile"]', scores.mobile);
-    setHTML('[data-text="mobile"]', explanations.mobile || "Mobile readiness signals derived from viewport and layout hints.");
-
-    setBar('[data-bar="security"]', scores.security);
-    setPill('[data-pill="security"]', scores.security);
-    setHTML('[data-text="security"]', explanations.security || "Security posture derived from HTTPS + header hardening.");
-
-    setBar('[data-bar="accessibility"]', scores.accessibility);
-    setPill('[data-pill="accessibility"]', scores.accessibility);
-    setHTML('[data-text="accessibility"]', explanations.accessibility || "Accessibility readiness derived from structural indicators.");
-
-    // Human signals (now always filled)
-    const hsMapped = mapHumanSignals(data.human_signals || metrics.human_signals);
-
-    setBar('[data-bar="hs_clarity"]', hsMapped.clarity.score);
-    setPill('[data-pill="hs_clarity"]', hsMapped.clarity.score);
-    setHTML('[data-text="hs_clarity"]', hsMapped.clarity.text);
-
-    setBar('[data-bar="hs_trust"]', hsMapped.trust.score);
-    setPill('[data-pill="hs_trust"]', hsMapped.trust.score);
-    setHTML('[data-text="hs_trust"]', hsMapped.trust.text);
-
-    setBar('[data-bar="hs_intent"]', hsMapped.intent.score);
-    setPill('[data-pill="hs_intent"]', hsMapped.intent.score);
-    setHTML('[data-text="hs_intent"]', hsMapped.intent.text);
-
-    setBar('[data-bar="hs_maintenance"]', hsMapped.maintenance.score);
-    setPill('[data-pill="hs_maintenance"]', hsMapped.maintenance.score);
-    setHTML('[data-text="hs_maintenance"]', hsMapped.maintenance.text);
-
-    setBar('[data-bar="hs_freshness"]', hsMapped.freshness.score);
-    setPill('[data-pill="hs_freshness"]', hsMapped.freshness.score);
-    setHTML('[data-text="hs_freshness"]', hsMapped.freshness.text);
-
-    // Executive narrative
-    const narrative = safeObj(data.narrative);
-    const hasNarrative = !!data.hasNarrative && narrative && Object.keys(narrative).length;
-
-    if (hasNarrative && narrative.executive_narrative) {
-      setHTML('[data-field="exec_narrative"]', narrative.executive_narrative);
-    } else {
-      const fallback = buildExecNarrative({
-        url: report.url,
-        scores,
-        basic_checks,
-        security_headers,
-      });
-      setHTML('[data-field="exec_narrative"]', fallback);
-    }
-
-    // Key Insight Metrics (simple, deterministic)
-    const overall = clamp01((scores.performance + scores.seo + scores.structure + scores.mobile + scores.security + scores.accessibility) / 6);
-    setHTML(
-      '[data-field="key_insights"]',
-      `
-      <li>Overall build-quality score: <strong>${overall}/100</strong>.</li>
-      <li>Strongest area: <strong>${titleCase(bestWorst(scores).best[0])}</strong> (${bestWorst(scores).best[1]}/100).</li>
-      <li>Highest priority: <strong>${titleCase(bestWorst(scores).worst[0])}</strong> (${bestWorst(scores).worst[1]}/100).</li>
-      <li>This report reflects observable build signals (HTML + headers) — not a single-run “speed test”.</li>
-      `
-    );
-
-    // Signal “ready” event(s) — FIXES loader overlay mismatch
-    window.dispatchEvent(new CustomEvent("iqweb:ready", { detail: { report_id: report.report_id } }));
-    window.dispatchEvent(new CustomEvent("iqweb:loaded", { detail: { report_id: report.report_id } }));
-  }
-
-  async function main() {
     try {
-      const reportId = getParam("report_id");
-      if (!reportId) throw new Error("Missing report_id in URL");
+      const query = getQuery();
+      const data = await fetchReportData(query);
 
-      const data = await fetchReport(reportId);
-      render(data);
+      const report = safeObj(data.report);
+      const scores =
+        safeObj(data.scores) ||
+        safeObj(safeObj(data.metrics).scores) ||
+        safeObj(safeObj(safeObj(data.report).metrics).scores);
+
+      const metrics = safeObj(data.metrics);
+      const humanSignals = data.human_signals;
+
+      // Header meta
+      const siteUrl =
+        pickFirstNonNull(report.url, metrics.url, query.url) || "—";
+      setLink("siteUrl", siteUrl !== "—" ? siteUrl : "#", siteUrl);
+
+      setText("reportId", pickFirstNonNull(report.report_id, query.report_id, query.id, "—") || "—");
+      setText("reportDate", formatDate(pickFirstNonNull(report.created_at, metrics.created_at, new Date())));
+
+      // Overall
+      const overall = clampScore(scores.overall);
+      setText("overallScore", overall === null ? "—" : `${overall}/100`);
+      setBar("overallFill", overall);
+      setText(
+        "overallDesc",
+        overall === null
+          ? "Overall: Not available from this scan."
+          : `Overall: ${scoreBand(overall)} (${overall}/100). This is a deterministic snapshot (no PSI).`
+      );
+
+      // 6 deterministic signals (your contract)
+      const perf = clampScore(scores.performance);
+      const seo = clampScore(scores.seo);
+      const structure = clampScore(scores.structure);
+      const mobile = clampScore(scores.mobile);
+      const security = clampScore(scores.security);
+      const access = clampScore(scores.accessibility);
+
+      setText("perfScore", perf === null ? "—" : `${perf}/100`);
+      setBar("perfFill", perf);
+      setText("perfDesc", explainSignal("Performance", perf));
+
+      setText("seoScore", seo === null ? "—" : `${seo}/100`);
+      setBar("seoFill", seo);
+      setText("seoDesc", explainSignal("SEO", seo));
+
+      setText("strScore", structure === null ? "—" : `${structure}/100`);
+      setBar("strFill", structure);
+      setText("strDesc", explainSignal("Structure", structure));
+
+      setText("mobScore", mobile === null ? "—" : `${mobile}/100`);
+      setBar("mobFill", mobile);
+      setText("mobDesc", explainSignal("Mobile", mobile));
+
+      setText("secScore", security === null ? "—" : `${security}/100`);
+      setBar("secFill", security);
+      setText("secDesc", explainSignal("Security", security));
+
+      setText("accScore", access === null ? "—" : `${access}/100`);
+      setBar("accFill", access);
+      setText("accDesc", explainSignal("Accessibility", access));
+
+      // Narrative is OPTIONAL: render whatever exists, otherwise render the “empty by design” message.
+      renderNarrative(data.narrative);
+
+      // Human signals
+      renderHumanSignals(humanSignals);
+
+      // Show content, hide loader (NO looping / NO polling)
+      if (loader) loader.classList.add("hidden");
+      if (grid) grid.classList.remove("hidden");
     } catch (err) {
-      console.error("[report-data]", err);
-      // Show error in the narrative box if present
-      setHTML('[data-field="exec_narrative"]', `Report load failed: ${String(err.message || err)}`);
-      // Still stop loader so you can see the error
-      window.dispatchEvent(new CustomEvent("iqweb:ready"));
-      window.dispatchEvent(new CustomEvent("iqweb:loaded"));
+      console.error(err);
+
+      // Fail-safe: show content area with explicit error so it never "loops"
+      const loader = $("loaderStage");
+      const grid = $("contentGrid");
+      if (loader) loader.classList.add("hidden");
+      if (grid) grid.classList.remove("hidden");
+
+      setText("overallDesc", "Could not load report data. Check the get-report-data function response and query parameters.");
+      renderNarrative(""); // shows safe fallback
+      renderHumanSignals([]); // shows safe fallback
     }
   }
 
-  main();
+  // -----------------------------
+  // Theme toggle
+  // -----------------------------
+  function initTheme() {
+    const btn = $("themeToggle");
+    const key = "iqweb_theme_v1";
+    const saved = localStorage.getItem(key);
+    if (saved === "light" || saved === "dark") {
+      document.documentElement.setAttribute("data-theme", saved);
+    } else {
+      // Default to dark (premium dashboard)
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+
+    if (btn) {
+      btn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "dark";
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem(key, next);
+      });
+    }
+  }
+
+  function initRefresh() {
+    const btn = $("refreshBtn");
+    if (!btn) return;
+    btn.addEventListener("click", () => render());
+  }
+
+  // Boot
+  initTheme();
+  initRefresh();
+  render();
 })();
