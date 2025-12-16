@@ -78,6 +78,21 @@ function stripTags(s) {
     .trim();
 }
 
+function niceLabel(k) {
+  return String(k)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function makeObservationsFromEvidence(evidence, source = "scan") {
+  const e = evidence && typeof evidence === "object" ? evidence : {};
+  return Object.keys(e).map((k) => {
+    let v = e[k];
+    // keep booleans/numbers as-is; UI converts to String() safely
+    return { label: niceLabel(k), value: v ?? null, source };
+  });
+}
+
 // ---------------------------------------------
 // HTML Signals (expanded for SEO)
 // ---------------------------------------------
@@ -121,14 +136,14 @@ function basicHtmlSignals(html, pageUrl) {
   const canonicalHref = canonicalMatch ? String(canonicalMatch[1] || "").trim() : null;
 
   const page = tryParseUrl(pageUrl);
-  const canon = canonicalHref ? tryParseUrl(canonicalHref) : null;
+  const canonAbs = canonicalHref ? tryParseUrl(canonicalHref) : null;
 
   // Canonical match heuristic:
   // - If canonical is absolute, compare origin + pathname (+ trailing slash normalization)
   // - If canonical is relative, resolve against page origin
   let canonicalMatchesUrl = null;
   if (canonicalHref && page) {
-    let resolved = canon;
+    let resolved = canonAbs;
     if (!resolved) {
       try {
         resolved = new URL(canonicalHref, page.origin);
@@ -206,13 +221,43 @@ function headerSignals(res, url) {
 function buildSeoSignal(basic, pageUrl) {
   const base_score = 100;
   const deductions = [];
+  const issues = [];
 
-  // Hard-block: explicit noindex => SEO = 0
+  const evidence = {
+    url: pageUrl,
+    title_present: basic.title_present,
+    title_text: basic.title_text,
+    title_length: basic.title_length,
+    meta_description_present: basic.meta_description_present,
+    meta_description_text: basic.meta_description_text,
+    meta_description_length: basic.meta_description_length,
+    h1_present: basic.h1_present,
+    h1_count: basic.h1_count,
+    h1_text: basic.h1_text,
+    h1_length: basic.h1_length,
+    canonical_present: basic.canonical_present,
+    canonical_href: basic.canonical_href,
+    canonical_matches_url: basic.canonical_matches_url,
+    robots_meta_present: basic.robots_meta_present,
+    robots_meta_content: basic.robots_meta_content,
+    robots_blocks_index: basic.robots_blocks_index,
+  };
+
+  // Hard-block: noindex => SEO = 0
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     deductions.push({
       points: 100,
       reason: "Robots meta includes noindex (page is blocked from indexing).",
+      code: "seo_noindex",
     });
+    issues.push({
+      id: "seo_noindex",
+      title: "SEO Foundations: Indexing blocked (noindex)",
+      severity: "high",
+      impact: "Search engines are instructed not to index this page, which can eliminate organic visibility.",
+      evidence: { robots_meta_content: basic.robots_meta_content },
+    });
+
     return {
       id: "seo",
       label: "SEO Foundations",
@@ -220,69 +265,108 @@ function buildSeoSignal(basic, pageUrl) {
       base_score,
       penalty_points: 100,
       deductions,
-      evidence: {
-        url: pageUrl,
-        title_present: basic.title_present,
-        title_text: basic.title_text,
-        title_length: basic.title_length,
-        meta_description_present: basic.meta_description_present,
-        meta_description_text: basic.meta_description_text,
-        meta_description_length: basic.meta_description_length,
-        h1_present: basic.h1_present,
-        h1_count: basic.h1_count,
-        h1_text: basic.h1_text,
-        h1_length: basic.h1_length,
-        canonical_present: basic.canonical_present,
-        canonical_href: basic.canonical_href,
-        canonical_matches_url: basic.canonical_matches_url,
-        robots_meta_present: basic.robots_meta_present,
-        robots_meta_content: basic.robots_meta_content,
-        robots_blocks_index: basic.robots_blocks_index,
-      },
+      issues,
+      evidence,
+      observations: [
+        { label: "Title Present", value: basic.title_present, source: "html" },
+        { label: "Meta Description Present", value: basic.meta_description_present, source: "html" },
+        { label: "H1 Present", value: basic.h1_present, source: "html" },
+        { label: "Canonical Present", value: basic.canonical_present, source: "html" },
+        { label: "Robots Meta Present", value: basic.robots_meta_present, source: "html" },
+        { label: "Robots Blocks Index", value: basic.robots_blocks_index, source: "html" },
+      ],
     };
   }
 
   // Title
   if (!basic.title_present) {
-    deductions.push({ points: 25, reason: "Missing <title> tag." });
+    deductions.push({ points: 25, reason: "Missing <title> tag.", code: "seo_title_missing" });
+    issues.push({
+      id: "seo_title_missing",
+      title: "SEO Foundations: Missing <title>",
+      severity: "high",
+      impact: "Page titles are a primary signal for search result relevance and click-through.",
+      evidence: { title_present: false },
+    });
   } else {
-    if (basic.title_length < 10) deductions.push({ points: 5, reason: "Title is very short (< 10 chars)." });
-    if (basic.title_length > 70) deductions.push({ points: 5, reason: "Title is long (> 70 chars)." });
+    if (basic.title_length < 10)
+      deductions.push({ points: 5, reason: "Title is very short (< 10 chars).", code: "seo_title_short" });
+    if (basic.title_length > 70)
+      deductions.push({ points: 5, reason: "Title is long (> 70 chars).", code: "seo_title_long" });
   }
 
   // Meta description
   if (!basic.meta_description_present) {
-    deductions.push({ points: 15, reason: "Missing meta description." });
+    deductions.push({ points: 15, reason: "Missing meta description.", code: "seo_meta_description_missing" });
+    issues.push({
+      id: "seo_meta_description_missing",
+      title: "SEO Foundations: Missing meta description",
+      severity: "med",
+      impact: "Search snippets may be less controlled, reducing click-through quality from results pages.",
+      evidence: { meta_description_present: false },
+    });
   } else {
     if (basic.meta_description_length < 50)
-      deductions.push({ points: 5, reason: "Meta description is short (< 50 chars)." });
+      deductions.push({ points: 5, reason: "Meta description is short (< 50 chars).", code: "seo_meta_description_short" });
     if (basic.meta_description_length > 160)
-      deductions.push({ points: 5, reason: "Meta description is long (> 160 chars)." });
+      deductions.push({ points: 5, reason: "Meta description is long (> 160 chars).", code: "seo_meta_description_long" });
   }
 
   // H1
   if (!basic.h1_present) {
-    deductions.push({ points: 15, reason: "Missing H1 heading." });
+    deductions.push({ points: 15, reason: "Missing H1 heading.", code: "seo_h1_missing" });
+    issues.push({
+      id: "seo_h1_missing",
+      title: "SEO Foundations: Missing H1",
+      severity: "med",
+      impact: "A clear primary heading improves clarity for users and helps search engines interpret page intent.",
+      evidence: { h1_present: false },
+    });
   } else {
-    if (basic.h1_count > 1) deductions.push({ points: 5, reason: "Multiple H1 headings detected." });
-    if (basic.h1_length < 6) deductions.push({ points: 3, reason: "H1 is very short (< 6 chars)." });
+    if (basic.h1_count > 1)
+      deductions.push({ points: 5, reason: "Multiple H1 headings detected.", code: "seo_h1_multiple" });
+    if (basic.h1_length < 6)
+      deductions.push({ points: 3, reason: "H1 is very short (< 6 chars).", code: "seo_h1_short" });
   }
 
   // Canonical
   if (!basic.canonical_present) {
-    deductions.push({ points: 10, reason: "Canonical link missing." });
-  } else {
-    if (basic.canonical_matches_url === false)
-      deductions.push({ points: 10, reason: "Canonical does not match the scanned URL." });
+    deductions.push({ points: 10, reason: "Canonical link missing.", code: "seo_canonical_missing" });
+    issues.push({
+      id: "seo_canonical_missing",
+      title: "SEO Foundations: Canonical missing",
+      severity: "med",
+      impact: "Without a canonical, duplicate URL variants can dilute SEO signals.",
+      evidence: { observed: false },
+    });
+  } else if (basic.canonical_matches_url === false) {
+    deductions.push({ points: 10, reason: "Canonical does not match the scanned URL.", code: "seo_canonical_mismatch" });
+    issues.push({
+      id: "seo_canonical_mismatch",
+      title: "SEO Foundations: Canonical mismatch",
+      severity: "med",
+      impact: "A canonical pointing elsewhere can move authority away from this URL or cause indexing confusion.",
+      evidence: { canonical_href: basic.canonical_href, canonical_matches_url: false },
+    });
   }
 
-  // Robots meta missing = hygiene signal
+  // Robots meta missing is hygiene
   if (!basic.robots_meta_present) {
-    deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity)." });
+    deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity).", code: "seo_robots_meta_missing" });
   }
 
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
   const score = clamp(base_score - penalty_points, 0, 100);
+
+  const observations = [
+    { label: "Title Present", value: basic.title_present, source: "html" },
+    { label: "Meta Description Present", value: basic.meta_description_present, source: "html" },
+    { label: "H1 Present", value: basic.h1_present, source: "html" },
+    { label: "Canonical Present", value: basic.canonical_present, source: "html" },
+    { label: "Canonical Matches URL", value: basic.canonical_matches_url, source: "html" },
+    { label: "Robots Meta Present", value: basic.robots_meta_present, source: "html" },
+    { label: "Robots Blocks Index", value: basic.robots_blocks_index, source: "html" },
+  ];
 
   return {
     id: "seo",
@@ -291,39 +375,27 @@ function buildSeoSignal(basic, pageUrl) {
     base_score,
     penalty_points,
     deductions,
-    evidence: {
-      url: pageUrl,
-      title_present: basic.title_present,
-      title_text: basic.title_text,
-      title_length: basic.title_length,
-      meta_description_present: basic.meta_description_present,
-      meta_description_text: basic.meta_description_text,
-      meta_description_length: basic.meta_description_length,
-      h1_present: basic.h1_present,
-      h1_count: basic.h1_count,
-      h1_text: basic.h1_text,
-      h1_length: basic.h1_length,
-      canonical_present: basic.canonical_present,
-      canonical_href: basic.canonical_href,
-      canonical_matches_url: basic.canonical_matches_url,
-      robots_meta_present: basic.robots_meta_present,
-      robots_meta_content: basic.robots_meta_content,
-      robots_blocks_index: basic.robots_blocks_index,
-    },
+    issues,
+    evidence,
+    observations,
   };
 }
 
-function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [] }) {
+function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], issues = [], observations = null }) {
   const base_score = 100;
-  const penalty_points = clamp(base_score - clamp(score, 0, 100), 0, 100);
+  const s = clamp(score, 0, 100);
+  const penalty_points = clamp(base_score - s, 0, 100);
+
   return {
     id,
     label,
-    score: clamp(score, 0, 100),
+    score: s,
     base_score,
     penalty_points,
     deductions,
+    issues,
     evidence,
+    observations: Array.isArray(observations) ? observations : makeObservationsFromEvidence(evidence, "scan"),
   };
 }
 
@@ -364,7 +436,7 @@ function buildScores(url, html, res, isHtml) {
   }
   accessibility = clamp(accessibility, 0, 100);
 
-  // ✅ SEO (deterministic penalty-based)
+  // SEO (deterministic penalty-based)
   const seoSignal = buildSeoSignal(basic, url);
   const seo = seoSignal.score;
 
@@ -409,7 +481,7 @@ function buildScores(url, html, res, isHtml) {
         : "Image alt coverage suggests potential accessibility improvements.",
   };
 
-  // ✅ delivery_signals (UI-friendly + evidence-friendly)
+  // Delivery signals (UI-ready; includes observations)
   const delivery_signals = [
     buildSimpleSignal({
       id: "performance",
@@ -421,6 +493,7 @@ function buildScores(url, html, res, isHtml) {
         head_script_block_present: basic.head_script_block_present,
       },
     }),
+
     buildSimpleSignal({
       id: "mobile",
       label: "Mobile Experience",
@@ -431,7 +504,9 @@ function buildScores(url, html, res, isHtml) {
         device_width_present: (basic.viewport_content || "").includes("width=device-width"),
       },
     }),
+
     seoSignal,
+
     buildSimpleSignal({
       id: "security",
       label: "Security & Trust",
@@ -445,8 +520,24 @@ function buildScores(url, html, res, isHtml) {
         referrer_policy_present: headers.referrer_policy,
         permissions_policy_present: headers.permissions_policy,
       },
-      deductions: headers.https ? [] : [{ points: 46, reason: "Missing HTTPS (scheme is not https://)." }],
+      deductions: [
+        ...(headers.https ? [] : [{ points: 30, reason: "Missing HTTPS (scheme is not https://).", code: "sec_https_not_confirmed" }]),
+        ...(headers.hsts ? [] : [{ points: 8, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" }]),
+        ...(headers.content_security_policy ? [] : [{ points: 8, reason: "Missing: CSP Present", code: "sec_csp_not_observed" }]),
+      ],
+      issues: [
+        ...(headers.https
+          ? []
+          : [{
+              id: "sec_https_not_confirmed",
+              title: "Security & Trust: required signal missing",
+              severity: "high",
+              impact: "This scan could not observe HTTPS. Missing inputs are treated as a penalty to preserve completeness.",
+              evidence: { missing: "HTTPS" },
+            }]),
+      ],
     }),
+
     buildSimpleSignal({
       id: "structure",
       label: "Structure & Semantics",
@@ -457,6 +548,7 @@ function buildScores(url, html, res, isHtml) {
         viewport_present: basic.viewport_present,
       },
     }),
+
     buildSimpleSignal({
       id: "accessibility",
       label: "Accessibility",
@@ -540,7 +632,7 @@ export async function handler(event) {
 
     const metrics = {
       scores,
-      delivery_signals, // ✅ preferred source for your grid + evidence
+      delivery_signals, // ✅ UI should use this
       basic_checks: {
         ...basic,
         http_status: res.status,
