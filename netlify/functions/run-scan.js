@@ -454,6 +454,81 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 }
 
 // ---------------------------------------------
+// Security scoring (HTTPS baseline + evidence-only hardening)
+// ---------------------------------------------
+function scoreSecurityFromHeaders(headers) {
+  const base_score = 100;
+
+  // Evidence-based weighted scoring:
+  // - HTTPS is baseline (transport security), NOT “hardening”
+  // - Hardening comes from observable headers
+  const weights = {
+    https: 25,
+    hsts: 15,
+    csp: 15,
+    x_frame_options: 15,
+    x_content_type_options: 10,
+    referrer_policy: 10,
+    permissions_policy: 10,
+  };
+
+  const deductions = [];
+  const issues = [];
+
+  const httpsOk = headers.https === true;
+
+  if (!httpsOk) {
+    deductions.push({
+      points: weights.https,
+      reason: "Missing HTTPS (scheme is not https://).",
+      code: "sec_https_not_confirmed",
+    });
+    issues.push({
+      id: "sec_https_not_confirmed",
+      title: "Security & Trust: HTTPS not confirmed",
+      severity: "high",
+      impact:
+        "Without HTTPS, traffic can be intercepted or modified in transit. Enable HTTPS site-wide before any other security work.",
+      evidence: { https: headers.https ?? null },
+    });
+  }
+
+  if (!headers.hsts) {
+    deductions.push({ points: weights.hsts, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" });
+  }
+  if (!headers.content_security_policy) {
+    deductions.push({ points: weights.csp, reason: "Missing: CSP Present", code: "sec_csp_not_observed" });
+  }
+  if (!headers.x_frame_options) {
+    deductions.push({ points: weights.x_frame_options, reason: "Missing: X-Frame-Options Present", code: "sec_xfo_not_observed" });
+  }
+  if (!headers.x_content_type_options) {
+    deductions.push({ points: weights.x_content_type_options, reason: "Missing: X-Content-Type-Options Present", code: "sec_xcto_not_observed" });
+  }
+  if (!headers.referrer_policy) {
+    deductions.push({ points: weights.referrer_policy, reason: "Missing: Referrer-Policy Present", code: "sec_referrer_policy_not_observed" });
+  }
+  if (!headers.permissions_policy) {
+    deductions.push({ points: weights.permissions_policy, reason: "Missing: Permissions-Policy Present", code: "sec_permissions_policy_not_observed" });
+  }
+
+  let score = 0;
+  if (httpsOk) score += weights.https;
+  if (headers.hsts) score += weights.hsts;
+  if (headers.content_security_policy) score += weights.csp;
+  if (headers.x_frame_options) score += weights.x_frame_options;
+  if (headers.x_content_type_options) score += weights.x_content_type_options;
+  if (headers.referrer_policy) score += weights.referrer_policy;
+  if (headers.permissions_policy) score += weights.permissions_policy;
+
+  score = clamp(score, 0, 100);
+
+  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
+
+  return { score, base_score, deductions, issues, penalty_points };
+}
+
+// ---------------------------------------------
 // Integrity-critical scoring for Mobile + Accessibility (EXPANDED)
 // ---------------------------------------------
 function scoreMobileFromBasic(basic, isHtml) {
@@ -751,9 +826,9 @@ function buildScores(url, html, res, isHtml) {
   const mobilePack = scoreMobileFromBasic(basic, isHtml);
   const mobile = mobilePack.score;
 
-  // Security (headers only) — keep as before (headers are still observable)
-  const secChecks = [headers.hsts, headers.x_frame_options, headers.x_content_type_options, headers.referrer_policy];
-  const security = Math.round((secChecks.filter(Boolean).length / secChecks.length) * 100);
+  // Security (HTTPS baseline + evidence-only header hardening)
+  const secPack = scoreSecurityFromHeaders(headers);
+  const security = secPack.score;
 
   // Accessibility (integrity scoring) — expanded
   const accPack = scoreAccessibilityFromBasic(basic, isHtml);
@@ -821,8 +896,10 @@ function buildScores(url, html, res, isHtml) {
         : "Mobile readiness looks incomplete (viewport missing or not device-width).",
     security:
       security >= 90
-        ? "Security headers show healthy defaults (where detectable)."
-        : "Critical security posture issues. Start with HTTPS + key security headers.",
+        ? "Security posture shows strong baseline + hardening signals (where observable)."
+        : security >= 25
+        ? "HTTPS is present (transport security), but site hardening headers appear incomplete or missing (see deductions & evidence)."
+        : "Security posture issues. Start with HTTPS + key security headers.",
     accessibility:
       accessibility >= 90
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
@@ -886,22 +963,8 @@ function buildScores(url, html, res, isHtml) {
         referrer_policy_present: headers.referrer_policy,
         permissions_policy_present: headers.permissions_policy,
       },
-      deductions: [
-        ...(headers.https ? [] : [{ points: 30, reason: "Missing HTTPS (scheme is not https://).", code: "sec_https_not_confirmed" }]),
-        ...(headers.hsts ? [] : [{ points: 8, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" }]),
-        ...(headers.content_security_policy ? [] : [{ points: 8, reason: "Missing: CSP Present", code: "sec_csp_not_observed" }]),
-      ],
-      issues: [
-        ...(headers.https
-          ? []
-          : [{
-              id: "sec_https_not_confirmed",
-              title: "Security & Trust: required signal missing",
-              severity: "high",
-              impact: "This scan could not observe HTTPS. Missing inputs are treated as a penalty to preserve completeness.",
-              evidence: { missing: "HTTPS" },
-            }]),
-      ],
+      deductions: secPack.deductions,
+      issues: secPack.issues,
     }),
 
     buildSimpleSignal({
