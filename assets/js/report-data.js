@@ -175,100 +175,6 @@
   }
 
   // -----------------------------
-  // Evidence helpers
-  // -----------------------------
-  function formatValue(v) {
-    if (v === null || v === undefined) return "null";
-    if (typeof v === "boolean") return v ? "true" : "false";
-    if (typeof v === "number") return String(v);
-    if (typeof v === "string") return v.length ? v : "null";
-    return prettyJSON(v);
-  }
-
-  // Prefer sig.observations[], but if missing, derive from sig.evidence{}
-  function deriveObservations(sig) {
-    const existing = asArray(sig?.observations);
-    if (existing.length) return existing;
-
-    const ev = safeObj(sig?.evidence);
-    if (!Object.keys(ev).length) return [];
-
-    const id = String(sig?.id || "").toLowerCase();
-
-    // Ordered label maps per signal (keeps UI stable + readable)
-    const maps = {
-      seo: [
-        ["title_present", "Title Present"],
-        ["meta_description_present", "Meta Description Present"],
-        ["canonical_present", "Canonical Present"],
-        ["canonical_matches_url", "Canonical Matches URL"],
-        ["h1_present", "H1 Present"],
-        ["h1_count", "H1 Count"],
-        ["robots_meta_present", "Robots Meta Present"],
-        ["robots_blocks_index", "Robots Blocks Index (noindex)"],
-        ["title_length", "Title Length"],
-        ["meta_description_length", "Meta Description Length"],
-        ["h1_length", "H1 Length"],
-        ["canonical_href", "Canonical Href"],
-        ["robots_meta_content", "Robots Meta Content"],
-        ["url", "URL"]
-      ],
-      security: [
-        ["https", "HTTPS"],
-        ["hsts", "HSTS Present"],
-        ["content_security_policy", "CSP Present"],
-        ["x_frame_options", "X-Frame-Options Present"],
-        ["x_content_type_options", "X-Content-Type-Options Present"],
-        ["referrer_policy", "Referrer-Policy Present"],
-        ["permissions_policy", "Permissions-Policy Present"]
-      ],
-      performance: [
-        ["html_bytes", "HTML Bytes"],
-        ["inline_script_count", "Inline Script Count"],
-        ["head_script_block_present", "Head Script Block Present"]
-      ],
-      mobile: [
-        ["viewport_present", "Viewport Present"],
-        ["device_width_present", "Device Width Present"],
-        ["viewport_content", "Viewport Content"]
-      ],
-      structure: [
-        ["title_present", "Title Present"],
-        ["h1_present", "H1 Present"],
-        ["viewport_present", "Viewport Present"]
-      ],
-      accessibility: [
-        ["img_count", "Image Count"],
-        ["img_alt_count", "Images w/ ALT"],
-        ["alt_ratio", "ALT Ratio"]
-      ]
-    };
-
-    const order = maps[id];
-
-    const rows = [];
-    if (order && order.length) {
-      for (const [key, label] of order) {
-        if (Object.prototype.hasOwnProperty.call(ev, key)) {
-          rows.push({ label, value: ev[key], source: "evidence" });
-        }
-      }
-      // Also include any extra evidence keys not in the ordered list (so nothing “disappears”)
-      const orderedKeys = new Set(order.map(([k]) => k));
-      for (const k of Object.keys(ev)) {
-        if (!orderedKeys.has(k)) rows.push({ label: k, value: ev[k], source: "evidence" });
-      }
-      return rows;
-    }
-
-    // Fallback: dump all evidence keys
-    for (const k of Object.keys(ev)) {
-      rows.push({ label: k, value: ev[k], source: "evidence" });
-    }
-    return rows;
-  }
-
-  // -----------------------------
   // Delivery Signals — six clean cards (NO expanders)
   // -----------------------------
   function renderSignals(deliverySignals) {
@@ -285,7 +191,7 @@
     for (const sig of list) {
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
-      const { line1, line2 } = summaryTwoLines(sig);
+      const { line2 } = summaryTwoLines(sig);
 
       const card = document.createElement("div");
       card.className = "card";
@@ -310,6 +216,60 @@
   }
 
   // -----------------------------
+  // Evidence fallback: if observations missing, derive from evidence object
+  // -----------------------------
+  function prettifyKey(k) {
+    return String(k || "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (m) => m.toUpperCase());
+  }
+
+  function evidenceToObs(evidence) {
+    const ev = safeObj(evidence);
+    const entries = Object.entries(ev);
+    if (!entries.length) return [];
+
+    const priority = [
+      "title_present",
+      "meta_description_present",
+      "canonical_present",
+      "canonical_matches_url",
+      "h1_present",
+      "h1_count",
+      "viewport_present",
+      "device_width_present",
+      "https",
+      "hsts",
+      "content_security_policy",
+      "x_frame_options",
+      "x_content_type_options",
+      "referrer_policy",
+      "permissions_policy",
+      "img_count",
+      "img_alt_count",
+      "alt_ratio",
+      "html_bytes",
+      "inline_script_count",
+      "head_script_block_present",
+    ];
+
+    const ranked = entries.sort((a, b) => {
+      const ai = priority.indexOf(a[0]);
+      const bi = priority.indexOf(b[0]);
+      const ar = ai === -1 ? 999 : ai;
+      const br = bi === -1 ? 999 : bi;
+      if (ar !== br) return ar - br;
+      return String(a[0]).localeCompare(String(b[0]));
+    });
+
+    return ranked.map(([key, value]) => ({
+      label: prettifyKey(key),
+      value: value === undefined ? null : value,
+      source: "evidence",
+    }));
+  }
+
+  // -----------------------------
   // Signal Evidence section (separate from cards)
   // -----------------------------
   function renderSignalEvidence(deliverySignals) {
@@ -327,14 +287,18 @@
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
 
-      const obs = deriveObservations(sig); // ✅ FIX: build from evidence if observations missing
+      let obs = asArray(sig?.observations);
+      if (!obs.length) {
+        obs = evidenceToObs(sig?.evidence);
+      }
+
       const deds = asArray(sig?.deductions);
       const issues = asArray(sig?.issues);
 
       const obsRows = obs.length
         ? obs.map(o => {
             const k = escapeHtml(o?.label ?? "Observation");
-            const v = escapeHtml(formatValue(o?.value));
+            const v = escapeHtml(String(o?.value ?? "null"));
             const src = escapeHtml(String(o?.source ?? ""));
             return `<div style="display:flex;justify-content:space-between;gap:10px;">
               <span style="color:var(--muted);">${k}</span>
@@ -348,7 +312,7 @@
             ${deds.map(d => {
               const reason = escapeHtml(d?.reason ?? "Deduction");
               const pts = escapeHtml(String(d?.points ?? 0));
-              const code = escapeHtml(d?.code ?? d?.id ?? "");
+              const code = escapeHtml(d?.code ?? "");
               return `<li style="margin:6px 0;color:var(--muted);">
                 <strong style="color:var(--text);">-${pts}</strong> ${reason}
                 ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
