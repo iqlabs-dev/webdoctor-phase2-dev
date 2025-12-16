@@ -6,6 +6,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// ---------------------------------------------
+// Helpers
+// ---------------------------------------------
 function normaliseUrl(raw) {
   if (!raw) return "";
   let url = String(raw).trim();
@@ -75,6 +78,9 @@ function stripTags(s) {
     .trim();
 }
 
+// ---------------------------------------------
+// HTML Signals (expanded for SEO)
+// ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   const descMatch = html.match(
@@ -194,13 +200,14 @@ function headerSignals(res, url) {
   };
 }
 
-// ---------- Delivery Signal Builders ----------
-
+// ---------------------------------------------
+// Delivery Signal Builders
+// ---------------------------------------------
 function buildSeoSignal(basic, pageUrl) {
   const base_score = 100;
   const deductions = [];
 
-  // Hard-block: if explicitly noindex, treat as SEO=0 (this is intentional)
+  // Hard-block: if explicitly noindex, treat as SEO=0
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     deductions.push({
       points: 100,
@@ -269,7 +276,7 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 10, reason: "Canonical does not match the scanned URL." });
   }
 
-  // Robots meta missing is not fatal, but it’s a hygiene signal
+  // Robots meta missing is a hygiene signal
   if (!basic.robots_meta_present) {
     deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity)." });
   }
@@ -320,6 +327,9 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [] })
   };
 }
 
+// ---------------------------------------------
+// Build all Scores + Delivery Signals
+// ---------------------------------------------
 function buildScores(url, html, res, isHtml) {
   const basic = isHtml ? basicHtmlSignals(html, url) : basicHtmlSignals("", url);
   const headers = headerSignals(res, url);
@@ -354,7 +364,7 @@ function buildScores(url, html, res, isHtml) {
   }
   accessibility = clamp(accessibility, 0, 100);
 
-  // ✅ SEO as a real deterministic penalty-based signal
+  // SEO (deterministic penalty-based)
   const seoSignal = buildSeoSignal(basic, url);
   const seo = seoSignal.score;
 
@@ -370,7 +380,6 @@ function buildScores(url, html, res, isHtml) {
     accessibility,
   };
 
-  // Human summary (unchanged)
   const human = {
     clarity: basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
     trust: headers.hsts || headers.referrer_policy ? "OK" : "WEAK / MISSING",
@@ -379,7 +388,6 @@ function buildScores(url, html, res, isHtml) {
     freshness: "UNKNOWN",
   };
 
-  // Short explanations (unchanged, but SEO now aligns with deductions)
   const notes = {
     performance:
       perf >= 90
@@ -409,7 +417,7 @@ function buildScores(url, html, res, isHtml) {
         : "Image alt coverage suggests potential accessibility improvements.",
   };
 
-  // ✅ Delivery signals array (UI-friendly)
+  // Delivery signals array (UI-friendly)
   const delivery_signals = [
     buildSimpleSignal({
       id: "performance",
@@ -494,6 +502,9 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
   }
 }
 
+// ---------------------------------------------
+// Handler
+// ---------------------------------------------
 export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -522,11 +533,16 @@ export async function handler(event) {
 
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
 
-    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(url, html, res, isHtml);
+    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+      url,
+      html,
+      res,
+      isHtml
+    );
 
     const metrics = {
       scores,
-      delivery_signals, // ✅ NEW (this is what your grid + evidence should prefer)
+      delivery_signals, // ✅ NEW: preferred source for your grid + evidence
       basic_checks: {
         ...basic,
         http_status: res.status,
