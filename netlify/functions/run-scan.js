@@ -88,13 +88,34 @@ function makeObservationsFromEvidence(evidence, source = "scan") {
   const e = evidence && typeof evidence === "object" ? evidence : {};
   return Object.keys(e).map((k) => {
     let v = e[k];
-    // keep booleans/numbers as-is; UI converts to String() safely
     return { label: niceLabel(k), value: v ?? null, source };
   });
 }
 
+function parseViewport(content) {
+  const raw = typeof content === "string" ? content : "";
+  const s = raw.toLowerCase();
+
+  const has = (needle) => s.includes(needle);
+
+  const getNum = (key) => {
+    const m = s.match(new RegExp(`${key}\\s*=\\s*([0-9.]+)`));
+    return m ? Number(m[1]) : null;
+  };
+
+  const deviceWidthPresent = has("width=device-width");
+  const userScalableDisabled = has("user-scalable=0") || has("user-scalable=no");
+
+  return {
+    device_width_present: deviceWidthPresent,
+    viewport_user_scalable_disabled: userScalableDisabled,
+    viewport_maximum_scale: getNum("maximum-scale"),
+    viewport_initial_scale: getNum("initial-scale"),
+  };
+}
+
 // ---------------------------------------------
-// HTML Signals (expanded for SEO)
+// HTML Signals (expanded for SEO + Mobile + A11y evidence)
 // ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -118,10 +139,12 @@ function basicHtmlSignals(html, pageUrl) {
   );
 
   const imgCount = (html.match(/<img\b/gi) || []).length;
-  const imgAltCount = (html.match(/<img\b[^>]*\balt=["'][^"']*["']/gi) || []).length;
+  // counts alt="" too (present-but-empty still counts as “has attribute”)
+  const imgAltCount =
+    (html.match(/<img\b[^>]*\balt\s*=\s*(["'][\s\S]*?["']|[^\s>]+)/gi) || []).length;
 
-  const scriptHeadCount = (html.match(/<head[\s\S]*?<script[\s\S]*?<\/script>/i) || []).length;
   const inlineScriptCount = (html.match(/<script\b(?![^>]*\bsrc=)[^>]*>/gi) || []).length;
+  const scriptHeadCount = (html.match(/<head[\s\S]*?<script[\s\S]*?<\/script>/i) || []).length;
 
   const htmlBytes = new TextEncoder().encode(html || "").length;
 
@@ -135,12 +158,12 @@ function basicHtmlSignals(html, pageUrl) {
   const descText = descMatch ? String(descMatch[1] || "").trim().slice(0, 200) : null;
   const canonicalHref = canonicalMatch ? String(canonicalMatch[1] || "").trim() : null;
 
+  const viewportContent = viewportMatch ? String(viewportMatch[1] || "").trim() : null;
+  const vp = parseViewport(viewportContent);
+
   const page = tryParseUrl(pageUrl);
   const canonAbs = canonicalHref ? tryParseUrl(canonicalHref) : null;
 
-  // Canonical match heuristic:
-  // - If canonical is absolute, compare origin + pathname (+ trailing slash normalization)
-  // - If canonical is relative, resolve against page origin
   let canonicalMatchesUrl = null;
   if (canonicalHref && page) {
     let resolved = canonAbs;
@@ -166,6 +189,8 @@ function basicHtmlSignals(html, pageUrl) {
   const robotsBlocksIndex =
     robotsContent && /(^|,|\s)noindex(\s|,|$)/i.test(robotsContent);
 
+  const imgAltRatio = imgCount > 0 ? imgAltCount / imgCount : null;
+
   return {
     title_present: !!titleMatch,
     title_text: titleText,
@@ -180,7 +205,11 @@ function basicHtmlSignals(html, pageUrl) {
     canonical_matches_url: canonicalMatchesUrl,
 
     viewport_present: !!viewportMatch,
-    viewport_content: viewportMatch ? String(viewportMatch[1] || "").trim() : null,
+    viewport_content: viewportContent,
+    device_width_present: vp.device_width_present,
+    viewport_user_scalable_disabled: vp.viewport_user_scalable_disabled,
+    viewport_maximum_scale: vp.viewport_maximum_scale,
+    viewport_initial_scale: vp.viewport_initial_scale,
 
     h1_present: h1All.length > 0,
     h1_count: h1All.length,
@@ -193,6 +222,8 @@ function basicHtmlSignals(html, pageUrl) {
 
     img_count: imgCount,
     img_alt_count: imgAltCount,
+    img_alt_ratio: imgAltRatio,
+
     html_bytes: htmlBytes,
     inline_script_count: inlineScriptCount,
     head_script_block_present: scriptHeadCount > 0,
@@ -243,7 +274,6 @@ function buildSeoSignal(basic, pageUrl) {
     robots_blocks_index: basic.robots_blocks_index,
   };
 
-  // Hard-block: noindex => SEO = 0
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     deductions.push({
       points: 100,
@@ -254,7 +284,8 @@ function buildSeoSignal(basic, pageUrl) {
       id: "seo_noindex",
       title: "SEO Foundations: Indexing blocked (noindex)",
       severity: "high",
-      impact: "Search engines are instructed not to index this page, which can eliminate organic visibility.",
+      impact:
+        "Search engines are instructed not to index this page, which can eliminate organic visibility.",
       evidence: { robots_meta_content: basic.robots_meta_content },
     });
 
@@ -278,7 +309,6 @@ function buildSeoSignal(basic, pageUrl) {
     };
   }
 
-  // Title
   if (!basic.title_present) {
     deductions.push({ points: 25, reason: "Missing <title> tag.", code: "seo_title_missing" });
     issues.push({
@@ -295,7 +325,6 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 5, reason: "Title is long (> 70 chars).", code: "seo_title_long" });
   }
 
-  // Meta description
   if (!basic.meta_description_present) {
     deductions.push({ points: 15, reason: "Missing meta description.", code: "seo_meta_description_missing" });
     issues.push({
@@ -312,7 +341,6 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 5, reason: "Meta description is long (> 160 chars).", code: "seo_meta_description_long" });
   }
 
-  // H1
   if (!basic.h1_present) {
     deductions.push({ points: 15, reason: "Missing H1 heading.", code: "seo_h1_missing" });
     issues.push({
@@ -329,7 +357,6 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 3, reason: "H1 is very short (< 6 chars).", code: "seo_h1_short" });
   }
 
-  // Canonical
   if (!basic.canonical_present) {
     deductions.push({ points: 10, reason: "Canonical link missing.", code: "seo_canonical_missing" });
     issues.push({
@@ -350,7 +377,6 @@ function buildSeoSignal(basic, pageUrl) {
     });
   }
 
-  // Robots meta missing is hygiene
   if (!basic.robots_meta_present) {
     deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity).", code: "seo_robots_meta_missing" });
   }
@@ -400,55 +426,224 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 }
 
 // ---------------------------------------------
+// Integrity-critical scoring for Mobile + Accessibility
+// ---------------------------------------------
+function scoreMobileFromBasic(basic, isHtml) {
+  const base_score = 100;
+  const deductions = [];
+  const issues = [];
+
+  // Required inputs: must have HTML + viewport
+  if (!isHtml || basic.viewport_present !== true) {
+    deductions.push({
+      points: 75,
+      reason: "Required mobile inputs missing (viewport not observable).",
+      code: "mob_required_inputs_missing",
+    });
+    issues.push({
+      id: "mob_required_inputs_missing",
+      title: "Mobile Experience: required signal missing",
+      severity: "high",
+      impact:
+        "This scan could not observe required mobile inputs (viewport). Missing inputs are treated as a penalty to preserve integrity.",
+      evidence: { viewport_present: basic.viewport_present ?? null, is_html: !!isHtml },
+    });
+
+    return { score: 25, base_score, deductions, issues };
+  }
+
+  // Deterministic mobile checks
+  if (!basic.device_width_present) {
+    deductions.push({
+      points: 50,
+      reason: "Viewport missing width=device-width.",
+      code: "mob_device_width_missing",
+    });
+    issues.push({
+      id: "mob_device_width_missing",
+      title: "Mobile Experience: viewport missing device-width",
+      severity: "high",
+      impact:
+        "Without width=device-width, the page may render zoomed-out or incorrectly on phones.",
+      evidence: { viewport_content: basic.viewport_content ?? null },
+    });
+  }
+
+  if (basic.viewport_user_scalable_disabled) {
+    deductions.push({
+      points: 15,
+      reason: "User zoom is disabled (user-scalable=0/no).",
+      code: "mob_user_scalable_disabled",
+    });
+  }
+
+  if (basic.viewport_maximum_scale !== null && basic.viewport_maximum_scale <= 1) {
+    deductions.push({
+      points: 10,
+      reason: "maximum-scale is restrictive (<= 1).",
+      code: "mob_maximum_scale_restrictive",
+    });
+  }
+
+  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
+  const score = clamp(base_score - penalty_points, 0, 100);
+
+  return { score, base_score, deductions, issues };
+}
+
+function scoreAccessibilityFromBasic(basic, isHtml) {
+  const base_score = 100;
+  const deductions = [];
+  const issues = [];
+
+  // Required inputs: must have HTML + img counts observable
+  const missingImgCounts =
+    !isHtml ||
+    basic.img_count === null ||
+    basic.img_count === undefined ||
+    basic.img_alt_count === null ||
+    basic.img_alt_count === undefined;
+
+  if (missingImgCounts) {
+    deductions.push({
+      points: 75,
+      reason: "Required accessibility inputs missing (img_count/img_alt_count not observable).",
+      code: "acc_required_inputs_missing",
+    });
+    issues.push({
+      id: "acc_required_inputs_missing",
+      title: "Accessibility: required signal missing",
+      severity: "high",
+      impact:
+        "This scan could not observe required accessibility inputs for image alt coverage. Missing inputs are treated as a penalty to preserve integrity.",
+      evidence: {
+        img_count: basic.img_count ?? null,
+        img_alt_count: basic.img_alt_count ?? null,
+        is_html: !!isHtml,
+      },
+    });
+
+    return { score: 25, base_score, deductions, issues };
+  }
+
+  // Alt coverage heuristic (deterministic)
+  if (basic.img_count > 0) {
+    const ratio = basic.img_alt_ratio ?? (basic.img_alt_count / basic.img_count);
+
+    if (ratio < 0.9) deductions.push({ points: 10, reason: "Alt coverage below 90%.", code: "acc_alt_below_90" });
+    if (ratio < 0.7) deductions.push({ points: 15, reason: "Alt coverage below 70%.", code: "acc_alt_below_70" });
+    if (ratio < 0.5) deductions.push({ points: 25, reason: "Alt coverage below 50%.", code: "acc_alt_below_50" });
+  }
+
+  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
+  const score = clamp(base_score - penalty_points, 0, 100);
+
+  return { score, base_score, deductions, issues };
+}
+
+// ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
 function buildScores(url, html, res, isHtml) {
-  const basic = isHtml ? basicHtmlSignals(html, url) : basicHtmlSignals("", url);
+  // If not HTML, produce a “null-evidence” basic pack so signals can enforce integrity caps
+  const basic = isHtml ? basicHtmlSignals(html, url) : {
+    title_present: null,
+    title_text: null,
+    title_length: null,
+    meta_description_present: null,
+    meta_description_text: null,
+    meta_description_length: null,
+    canonical_present: null,
+    canonical_href: null,
+    canonical_matches_url: null,
+    viewport_present: null,
+    viewport_content: null,
+    device_width_present: null,
+    viewport_user_scalable_disabled: null,
+    viewport_maximum_scale: null,
+    viewport_initial_scale: null,
+    h1_present: null,
+    h1_count: null,
+    h1_text: null,
+    h1_length: null,
+    robots_meta_present: null,
+    robots_meta_content: null,
+    robots_blocks_index: null,
+    img_count: null,
+    img_alt_count: null,
+    img_alt_ratio: null,
+    html_bytes: null,
+    inline_script_count: null,
+    head_script_block_present: null,
+    copyright_year_min: null,
+    copyright_year_max: null,
+  };
+
   const headers = headerSignals(res, url);
 
-  // Performance (signals-based, simple)
+  // Performance (signals-based, simple) — if non-HTML, treat as 0 evidence but do not fake “good”
   let perf = 100;
-  if (basic.html_bytes > 250_000) perf -= 20;
-  if (basic.html_bytes > 500_000) perf -= 20;
-  if (basic.inline_script_count >= 6) perf -= 10;
-  if (basic.head_script_block_present) perf -= 10;
-  perf = clamp(perf, 0, 100);
+  if (!isHtml) {
+    perf = 25; // integrity cap: cannot infer performance build signals without HTML
+  } else {
+    if (basic.html_bytes > 250_000) perf -= 20;
+    if (basic.html_bytes > 500_000) perf -= 20;
+    if (basic.inline_script_count >= 6) perf -= 10;
+    if (basic.head_script_block_present) perf -= 10;
+    perf = clamp(perf, 0, 100);
+  }
 
   // Structure
-  const structureChecks = [basic.title_present, basic.h1_present, basic.viewport_present];
-  const structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
+  let structure = 25;
+  if (isHtml) {
+    const structureChecks = [basic.title_present, basic.h1_present, basic.viewport_present];
+    structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
+  }
 
-  // Mobile
-  const mobileChecks = [basic.viewport_present, (basic.viewport_content || "").includes("width=device-width")];
-  const mobile = Math.round((mobileChecks.filter(Boolean).length / mobileChecks.length) * 100);
+  // Mobile (integrity scoring)
+  const mobilePack = scoreMobileFromBasic(basic, isHtml);
+  const mobile = mobilePack.score;
 
-  // Security (headers only)
+  // Security (headers only) — keep as before (headers are still observable)
   const secChecks = [headers.hsts, headers.x_frame_options, headers.x_content_type_options, headers.referrer_policy];
   const security = Math.round((secChecks.filter(Boolean).length / secChecks.length) * 100);
 
-  // Accessibility (alt coverage heuristic)
-  let accessibility = 100;
-  if (basic.img_count > 0) {
-    const ratio = basic.img_alt_count / basic.img_count;
-    if (ratio < 0.9) accessibility -= 10;
-    if (ratio < 0.7) accessibility -= 15;
-    if (ratio < 0.5) accessibility -= 25;
-  }
-  accessibility = clamp(accessibility, 0, 100);
+  // Accessibility (integrity scoring)
+  const accPack = scoreAccessibilityFromBasic(basic, isHtml);
+  const accessibility = accPack.score;
 
-  // SEO (deterministic penalty-based)
-  const seoSignal = buildSeoSignal(basic, url);
-  const seo = seoSignal.score;
+  // SEO (deterministic penalty-based) — only valid if HTML; otherwise cap
+  let seoSignal = null;
+  let seo = 25;
+  if (isHtml) {
+    seoSignal = buildSeoSignal(basic, url);
+    seo = seoSignal.score;
+  } else {
+    seoSignal = buildSimpleSignal({
+      id: "seo",
+      label: "SEO Foundations",
+      score: 25,
+      evidence: { required_inputs_missing: true },
+      deductions: [{ points: 75, reason: "Required SEO inputs missing (HTML not observable).", code: "seo_required_inputs_missing" }],
+      issues: [{
+        id: "seo_required_inputs_missing",
+        title: "SEO Foundations: required signal missing",
+        severity: "high",
+        impact: "This scan could not observe HTML inputs required for SEO checks. Missing inputs are penalised to preserve integrity.",
+        evidence: { is_html: false },
+      }],
+    });
+  }
 
   const overall = Math.round((perf + seo + structure + mobile + security + accessibility) / 6);
 
   const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility };
 
   const human = {
-    clarity: basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
+    clarity: isHtml && basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
     trust: headers.hsts || headers.referrer_policy ? "OK" : "WEAK / MISSING",
-    intent: basic.h1_present ? "PRESENT" : "UNCLEAR",
-    maintenance: basic.canonical_present && basic.robots_meta_present ? "OK" : "NEEDS ATTENTION",
+    intent: isHtml && basic.h1_present ? "PRESENT" : "UNCLEAR",
+    maintenance: isHtml && basic.canonical_present && basic.robots_meta_present ? "OK" : "NEEDS ATTENTION",
     freshness: "UNKNOWN",
   };
 
@@ -456,16 +651,22 @@ function buildScores(url, html, res, isHtml) {
     performance:
       perf >= 90
         ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test — it reflects how well the page is built for speed."
+        : perf === 25 && !isHtml
+        ? "Performance signals not observable (HTML not available). Missing inputs are penalised to preserve integrity."
         : "Some build signals suggest avoidable performance overhead (HTML weight / blocking scripts).",
     seo:
       seo >= 90
         ? "Core SEO foundations appear present and consistent."
         : seo === 0 && seoSignal?.evidence?.robots_blocks_index
         ? "SEO is blocked (noindex detected)."
+        : seo === 25 && !isHtml
+        ? "SEO signals not observable (HTML not available). Missing inputs are penalised to preserve integrity."
         : "Some SEO foundations are missing, incomplete, or inconsistent (see deductions & evidence).",
     structure:
       structure >= 90
         ? "Excellent structural semantics. The page is easy for browsers, bots, and assistive tech to interpret."
+        : structure === 25 && !isHtml
+        ? "Structure signals not observable (HTML not available). Missing inputs are penalised to preserve integrity."
         : "Some structure signals are missing (title/H1/viewport).",
     mobile:
       mobile >= 90
@@ -478,7 +679,7 @@ function buildScores(url, html, res, isHtml) {
     accessibility:
       accessibility >= 90
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
-        : "Image alt coverage suggests potential accessibility improvements.",
+        : "Accessibility coverage is incomplete or indicates missing/low alt coverage (see evidence).",
   };
 
   // Delivery signals (UI-ready; includes observations)
@@ -491,7 +692,20 @@ function buildScores(url, html, res, isHtml) {
         html_bytes: basic.html_bytes,
         inline_script_count: basic.inline_script_count,
         head_script_block_present: basic.head_script_block_present,
+        required_inputs_missing: !isHtml,
       },
+      deductions: !isHtml
+        ? [{ points: 75, reason: "Required inputs missing (HTML not observable).", code: "perf_required_inputs_missing" }]
+        : [],
+      issues: !isHtml
+        ? [{
+            id: "perf_required_inputs_missing",
+            title: "Performance: required signal missing",
+            severity: "high",
+            impact: "This scan could not observe HTML inputs required for performance build signals. Missing inputs are penalised to preserve integrity.",
+            evidence: { is_html: false },
+          }]
+        : [],
     }),
 
     buildSimpleSignal({
@@ -501,8 +715,13 @@ function buildScores(url, html, res, isHtml) {
       evidence: {
         viewport_present: basic.viewport_present,
         viewport_content: basic.viewport_content,
-        device_width_present: (basic.viewport_content || "").includes("width=device-width"),
+        device_width_present: basic.device_width_present,
+        viewport_user_scalable_disabled: basic.viewport_user_scalable_disabled,
+        viewport_maximum_scale: basic.viewport_maximum_scale,
+        viewport_initial_scale: basic.viewport_initial_scale,
       },
+      deductions: mobilePack.deductions,
+      issues: mobilePack.issues,
     }),
 
     seoSignal,
@@ -546,7 +765,20 @@ function buildScores(url, html, res, isHtml) {
         title_present: basic.title_present,
         h1_present: basic.h1_present,
         viewport_present: basic.viewport_present,
+        required_inputs_missing: !isHtml,
       },
+      deductions: !isHtml
+        ? [{ points: 75, reason: "Required inputs missing (HTML not observable).", code: "structure_required_inputs_missing" }]
+        : [],
+      issues: !isHtml
+        ? [{
+            id: "structure_required_inputs_missing",
+            title: "Structure & Semantics: required signal missing",
+            severity: "high",
+            impact: "This scan could not observe HTML inputs required for structure checks. Missing inputs are penalised to preserve integrity.",
+            evidence: { is_html: false },
+          }]
+        : [],
     }),
 
     buildSimpleSignal({
@@ -556,8 +788,12 @@ function buildScores(url, html, res, isHtml) {
       evidence: {
         img_count: basic.img_count,
         img_alt_count: basic.img_alt_count,
-        alt_ratio: basic.img_count ? Number((basic.img_alt_count / basic.img_count).toFixed(3)) : null,
+        alt_ratio: basic.img_alt_ratio !== null && basic.img_alt_ratio !== undefined
+          ? Number(basic.img_alt_ratio.toFixed(3))
+          : null,
       },
+      deductions: accPack.deductions,
+      issues: accPack.issues,
     }),
   ];
 

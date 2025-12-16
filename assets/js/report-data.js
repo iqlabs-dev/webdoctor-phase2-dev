@@ -530,6 +530,21 @@
       root.appendChild(el);
     }
   }
+// ------------------------------
+// Evidence display helpers (integrity-critical)
+// ------------------------------
+function isMissing(v) {
+  return v === null || v === undefined || (typeof v === "number" && !Number.isFinite(v));
+}
+
+function showValue(v) {
+  return isMissing(v) ? "—" : String(v);
+}
+
+function showPercent01(v) {
+  if (isMissing(v)) return "—";
+  return `${Math.round(Number(v) * 100)}%`;
+}
 
   // -----------------------------
   // Main
