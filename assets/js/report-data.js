@@ -127,20 +127,26 @@
   // -----------------------------
   // Overall
   // -----------------------------
-  function renderOverall(scores) {
-    const overall = asInt(scores.overall, 0);
+ function renderOverall(scores) {
+  const overall = asInt(scores.overall, 0);
 
-    const pill = $("overallPill");
-    if (pill) pill.textContent = String(overall);
+  // Top-right score (same style as cards)
+  const scoreEl = $("overallScore");
+  if (scoreEl) scoreEl.textContent = String(overall);
 
-    const bar = $("overallBar");
-    if (bar) bar.style.width = `${overall}%`;
+  // Progress bar
+  const bar = $("overallBar");
+  if (bar) bar.style.width = `${overall}%`;
 
-    const note = $("overallNote");
-    if (note) {
-      note.textContent = `Overall: ${verdict(overall)} (${overall}). Scores are backed by deterministic checks. Evidence is listed below in “Signal Evidence”.`;
-    }
+  // Short narrative under the bar (max ~5 lines)
+  const narrative = $("overallNarrative");
+  if (narrative) {
+    narrative.textContent =
+      `Overall delivery is ${verdict(overall).toLowerCase()}. ` +
+      `This score reflects deterministic checks only and does not measure brand or content effectiveness.`;
   }
+}
+
 
   // -----------------------------
   // Two-line deterministic summary (compact)

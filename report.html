@@ -360,6 +360,12 @@
       color: var(--text);
       padding-top: 1px;
     }
+    .score-right{
+  font-size: 16px;
+  font-weight: 800;
+  opacity: .95;
+}
+
 
     .card .bar{ margin-top: 10px; height: 8px; }
 
@@ -566,14 +572,17 @@
         <div class="section-head">
           <h2 class="section-title">Overall Snapshot</h2>
         </div>
-        <div class="section-body">
-          <div class="score-row">
-            <div class="score-big" id="overallLabel">Overall Score</div>
-            <div class="pill" id="overallPill">—</div>
-          </div>
-          <div class="bar"><div id="overallBar"></div></div>
-          <div class="small-note" id="overallNote"></div>
-        </div>
+       <div class="section-body">
+  <div class="card-top">
+    <h3 id="overallLabel">Overall Score</h3>
+    <div class="score-right" id="overallScore">—</div>
+  </div>
+
+  <div class="bar"><div id="overallBar"></div></div>
+
+  <div class="summary" id="overallNarrative" style="min-height:unset;"></div>
+</div>
+
       </section>
 
       <section class="section">
