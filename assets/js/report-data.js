@@ -127,24 +127,22 @@
   // -----------------------------
   // Overall
   // -----------------------------
- function renderOverall(scores) {
-  const overall = asInt(scores?.overall, 0);
+  function renderOverall(scores) {
+    const overall = asInt(scores?.overall, 0);
 
-  const pill = $("overallPill");
-  if (pill) pill.textContent = String(overall); // show number at top-right
+    const pill = $("overallPill");
+    if (pill) pill.textContent = String(overall);
 
-  const bar = $("overallBar");
-  if (bar) bar.style.width = `${overall}%`;
+    const bar = $("overallBar");
+    if (bar) bar.style.width = `${overall}%`;
 
-  const note = $("overallNote");
-  if (note) {
-    note.textContent =
-      `Overall delivery is ${verdict(overall).toLowerCase()}. ` +
-      `This score reflects deterministic checks only and does not measure brand or content effectiveness.`;
+    const note = $("overallNote");
+    if (note) {
+      note.textContent =
+        `Overall delivery is ${verdict(overall).toLowerCase()}. ` +
+        `This score reflects deterministic checks only and does not measure brand or content effectiveness.`;
+    }
   }
-}
-
-
 
   // -----------------------------
   // Two-line deterministic summary (compact)
@@ -159,10 +157,8 @@
     const issues = asArray(signal?.issues);
     const deds = asArray(signal?.deductions);
 
-    // Line 1: verdict + score (single number)
     const line1 = `${verdict(score)} (${score}).`;
 
-    // Line 2: simplest cause statement
     let line2 = "";
     if (penalty > 0) {
       const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
@@ -176,6 +172,100 @@
     }
 
     return { line1, line2 };
+  }
+
+  // -----------------------------
+  // Evidence helpers
+  // -----------------------------
+  function formatValue(v) {
+    if (v === null || v === undefined) return "null";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    if (typeof v === "number") return String(v);
+    if (typeof v === "string") return v.length ? v : "null";
+    return prettyJSON(v);
+  }
+
+  // Prefer sig.observations[], but if missing, derive from sig.evidence{}
+  function deriveObservations(sig) {
+    const existing = asArray(sig?.observations);
+    if (existing.length) return existing;
+
+    const ev = safeObj(sig?.evidence);
+    if (!Object.keys(ev).length) return [];
+
+    const id = String(sig?.id || "").toLowerCase();
+
+    // Ordered label maps per signal (keeps UI stable + readable)
+    const maps = {
+      seo: [
+        ["title_present", "Title Present"],
+        ["meta_description_present", "Meta Description Present"],
+        ["canonical_present", "Canonical Present"],
+        ["canonical_matches_url", "Canonical Matches URL"],
+        ["h1_present", "H1 Present"],
+        ["h1_count", "H1 Count"],
+        ["robots_meta_present", "Robots Meta Present"],
+        ["robots_blocks_index", "Robots Blocks Index (noindex)"],
+        ["title_length", "Title Length"],
+        ["meta_description_length", "Meta Description Length"],
+        ["h1_length", "H1 Length"],
+        ["canonical_href", "Canonical Href"],
+        ["robots_meta_content", "Robots Meta Content"],
+        ["url", "URL"]
+      ],
+      security: [
+        ["https", "HTTPS"],
+        ["hsts", "HSTS Present"],
+        ["content_security_policy", "CSP Present"],
+        ["x_frame_options", "X-Frame-Options Present"],
+        ["x_content_type_options", "X-Content-Type-Options Present"],
+        ["referrer_policy", "Referrer-Policy Present"],
+        ["permissions_policy", "Permissions-Policy Present"]
+      ],
+      performance: [
+        ["html_bytes", "HTML Bytes"],
+        ["inline_script_count", "Inline Script Count"],
+        ["head_script_block_present", "Head Script Block Present"]
+      ],
+      mobile: [
+        ["viewport_present", "Viewport Present"],
+        ["device_width_present", "Device Width Present"],
+        ["viewport_content", "Viewport Content"]
+      ],
+      structure: [
+        ["title_present", "Title Present"],
+        ["h1_present", "H1 Present"],
+        ["viewport_present", "Viewport Present"]
+      ],
+      accessibility: [
+        ["img_count", "Image Count"],
+        ["img_alt_count", "Images w/ ALT"],
+        ["alt_ratio", "ALT Ratio"]
+      ]
+    };
+
+    const order = maps[id];
+
+    const rows = [];
+    if (order && order.length) {
+      for (const [key, label] of order) {
+        if (Object.prototype.hasOwnProperty.call(ev, key)) {
+          rows.push({ label, value: ev[key], source: "evidence" });
+        }
+      }
+      // Also include any extra evidence keys not in the ordered list (so nothing “disappears”)
+      const orderedKeys = new Set(order.map(([k]) => k));
+      for (const k of Object.keys(ev)) {
+        if (!orderedKeys.has(k)) rows.push({ label: k, value: ev[k], source: "evidence" });
+      }
+      return rows;
+    }
+
+    // Fallback: dump all evidence keys
+    for (const k of Object.keys(ev)) {
+      rows.push({ label: k, value: ev[k], source: "evidence" });
+    }
+    return rows;
   }
 
   // -----------------------------
@@ -208,10 +298,11 @@
 
         <div class="bar"><div style="width:${score}%;"></div></div>
 
-       <div class="summary" style="min-height:unset;">
-  <div style="margin-top:6px;">
-    ${escapeHtml(line2)}
-  </div>
+        <div class="summary" style="min-height:unset;">
+          <div style="margin-top:6px;">
+            ${escapeHtml(line2)}
+          </div>
+        </div>
       `;
 
       grid.appendChild(card);
@@ -236,14 +327,14 @@
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
 
-      const obs = asArray(sig?.observations);
+      const obs = deriveObservations(sig); // ✅ FIX: build from evidence if observations missing
       const deds = asArray(sig?.deductions);
       const issues = asArray(sig?.issues);
 
       const obsRows = obs.length
         ? obs.map(o => {
             const k = escapeHtml(o?.label ?? "Observation");
-            const v = escapeHtml(String(o?.value ?? "null"));
+            const v = escapeHtml(formatValue(o?.value));
             const src = escapeHtml(String(o?.source ?? ""));
             return `<div style="display:flex;justify-content:space-between;gap:10px;">
               <span style="color:var(--muted);">${k}</span>
@@ -257,7 +348,7 @@
             ${deds.map(d => {
               const reason = escapeHtml(d?.reason ?? "Deduction");
               const pts = escapeHtml(String(d?.points ?? 0));
-              const code = escapeHtml(d?.code ?? "");
+              const code = escapeHtml(d?.code ?? d?.id ?? "");
               return `<li style="margin:6px 0;color:var(--muted);">
                 <strong style="color:var(--text);">-${pts}</strong> ${reason}
                 ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
@@ -506,8 +597,8 @@
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-      renderSignals(data.delivery_signals);         // clean cards only
-      renderSignalEvidence(data.delivery_signals);  // evidence lives below
+      renderSignals(data.delivery_signals);
+      renderSignalEvidence(data.delivery_signals);
       renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
