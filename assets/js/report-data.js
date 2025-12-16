@@ -128,24 +128,22 @@
   // Overall
   // -----------------------------
  function renderOverall(scores) {
-  const overall = asInt(scores.overall, 0);
+  const overall = asInt(scores?.overall, 0);
 
-  // Top-right score (same style as cards)
-  const scoreEl = $("overallScore");
-  if (scoreEl) scoreEl.textContent = String(overall);
+  const pill = $("overallPill");
+  if (pill) pill.textContent = String(overall); // show number at top-right
 
-  // Progress bar
   const bar = $("overallBar");
   if (bar) bar.style.width = `${overall}%`;
 
-  // Short narrative under the bar (max ~5 lines)
-  const narrative = $("overallNarrative");
-  if (narrative) {
-    narrative.textContent =
+  const note = $("overallNote");
+  if (note) {
+    note.textContent =
       `Overall delivery is ${verdict(overall).toLowerCase()}. ` +
       `This score reflects deterministic checks only and does not measure brand or content effectiveness.`;
   }
 }
+
 
 
   // -----------------------------
