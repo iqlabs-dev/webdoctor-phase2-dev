@@ -50,10 +50,7 @@ async function fetchWithTimeout(url, ms = 12000) {
     const isHtml = ct.includes("text/html") || ct.includes("application/xhtml+xml");
     const text = isHtml ? await res.text() : "";
 
-    // IMPORTANT: res.url is the FINAL URL after redirects
-    const finalUrl = res.url || url;
-
-    return { res, text, contentType: ct, isHtml, finalUrl };
+    return { res, text, contentType: ct, isHtml };
   } finally {
     clearTimeout(t);
   }
@@ -126,6 +123,9 @@ function basicHtmlSignals(html, pageUrl) {
   const page = tryParseUrl(pageUrl);
   const canon = canonicalHref ? tryParseUrl(canonicalHref) : null;
 
+  // Canonical match heuristic:
+  // - If canonical is absolute, compare origin + pathname (+ trailing slash normalization)
+  // - If canonical is relative, resolve against page origin
   let canonicalMatchesUrl = null;
   if (canonicalHref && page) {
     let resolved = canon;
@@ -187,36 +187,16 @@ function basicHtmlSignals(html, pageUrl) {
   };
 }
 
-function headerSignals(res, finalUrl) {
+function headerSignals(res, url) {
   const h = (name) => res.headers.get(name);
-
-  const cspVal = h("content-security-policy");
-  const hstsVal = h("strict-transport-security");
-  const xfoVal = h("x-frame-options");
-  const xctoVal = h("x-content-type-options");
-  const rpVal = h("referrer-policy");
-  const ppVal = h("permissions-policy");
-
-  const https = String(finalUrl || "").toLowerCase().startsWith("https://");
-
   return {
-    https,
-
-    // booleans (easy scoring)
-    content_security_policy: !!cspVal,
-    hsts: !!hstsVal,
-    x_frame_options: !!xfoVal,
-    x_content_type_options: !!xctoVal,
-    referrer_policy: !!rpVal,
-    permissions_policy: !!ppVal,
-
-    // raw values (evidence)
-    content_security_policy_value: cspVal || null,
-    hsts_value: hstsVal || null,
-    x_frame_options_value: xfoVal || null,
-    x_content_type_options_value: xctoVal || null,
-    referrer_policy_value: rpVal || null,
-    permissions_policy_value: ppVal || null,
+    https: String(url || "").toLowerCase().startsWith("https://"),
+    content_security_policy: !!h("content-security-policy"),
+    hsts: !!h("strict-transport-security"),
+    x_frame_options: !!h("x-frame-options"),
+    x_content_type_options: !!h("x-content-type-options"),
+    referrer_policy: !!h("referrer-policy"),
+    permissions_policy: !!h("permissions-policy"),
   };
 }
 
@@ -227,6 +207,7 @@ function buildSeoSignal(basic, pageUrl) {
   const base_score = 100;
   const deductions = [];
 
+  // Hard-block: explicit noindex => SEO = 0
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     deductions.push({
       points: 100,
@@ -261,6 +242,7 @@ function buildSeoSignal(basic, pageUrl) {
     };
   }
 
+  // Title
   if (!basic.title_present) {
     deductions.push({ points: 25, reason: "Missing <title> tag." });
   } else {
@@ -268,6 +250,7 @@ function buildSeoSignal(basic, pageUrl) {
     if (basic.title_length > 70) deductions.push({ points: 5, reason: "Title is long (> 70 chars)." });
   }
 
+  // Meta description
   if (!basic.meta_description_present) {
     deductions.push({ points: 15, reason: "Missing meta description." });
   } else {
@@ -277,6 +260,7 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 5, reason: "Meta description is long (> 160 chars)." });
   }
 
+  // H1
   if (!basic.h1_present) {
     deductions.push({ points: 15, reason: "Missing H1 heading." });
   } else {
@@ -284,6 +268,7 @@ function buildSeoSignal(basic, pageUrl) {
     if (basic.h1_length < 6) deductions.push({ points: 3, reason: "H1 is very short (< 6 chars)." });
   }
 
+  // Canonical
   if (!basic.canonical_present) {
     deductions.push({ points: 10, reason: "Canonical link missing." });
   } else {
@@ -291,6 +276,7 @@ function buildSeoSignal(basic, pageUrl) {
       deductions.push({ points: 10, reason: "Canonical does not match the scanned URL." });
   }
 
+  // Robots meta missing = hygiene signal
   if (!basic.robots_meta_present) {
     deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity)." });
   }
@@ -327,74 +313,6 @@ function buildSeoSignal(basic, pageUrl) {
   };
 }
 
-function buildSecuritySignal(headers, inputUrl, finalUrl) {
-  const base_score = 100;
-  const deductions = [];
-
-  // Hard-block if the page is not actually served over HTTPS
-  if (!headers.https) {
-    deductions.push({ points: 100, reason: "Page is not served over HTTPS (final URL is http://)." });
-    return {
-      id: "security",
-      label: "Security & Trust",
-      score: 0,
-      base_score,
-      penalty_points: 100,
-      deductions,
-      evidence: {
-        input_url: inputUrl,
-        final_url: finalUrl,
-        https: headers.https,
-      },
-    };
-  }
-
-  // HTTPS is good; now evaluate security headers as best-practice signals.
-  // Points are calibrated so missing multiple headers meaningfully impacts score,
-  // but doesn't automatically zero-out a site.
-  if (!headers.hsts) deductions.push({ points: 18, reason: "HSTS missing (Strict-Transport-Security)." });
-  if (!headers.x_frame_options) deductions.push({ points: 12, reason: "X-Frame-Options missing (clickjacking defense)." });
-  if (!headers.x_content_type_options) deductions.push({ points: 10, reason: "X-Content-Type-Options missing (MIME sniffing defense)." });
-  if (!headers.referrer_policy) deductions.push({ points: 8, reason: "Referrer-Policy missing (leakage control)." });
-  if (!headers.content_security_policy) deductions.push({ points: 18, reason: "Content-Security-Policy missing (XSS / injection mitigation)." });
-  if (!headers.permissions_policy) deductions.push({ points: 6, reason: "Permissions-Policy missing (browser feature control)." });
-
-  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
-  const score = clamp(base_score - penalty_points, 0, 100);
-
-  return {
-    id: "security",
-    label: "Security & Trust",
-    score,
-    base_score,
-    penalty_points,
-    deductions,
-    evidence: {
-      input_url: inputUrl,
-      final_url: finalUrl,
-      https: headers.https,
-
-      hsts: headers.hsts,
-      hsts_value: headers.hsts_value,
-
-      x_frame_options: headers.x_frame_options,
-      x_frame_options_value: headers.x_frame_options_value,
-
-      x_content_type_options: headers.x_content_type_options,
-      x_content_type_options_value: headers.x_content_type_options_value,
-
-      referrer_policy: headers.referrer_policy,
-      referrer_policy_value: headers.referrer_policy_value,
-
-      content_security_policy: headers.content_security_policy,
-      content_security_policy_value: headers.content_security_policy_value,
-
-      permissions_policy: headers.permissions_policy,
-      permissions_policy_value: headers.permissions_policy_value,
-    },
-  };
-}
-
 function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [] }) {
   const base_score = 100;
   const penalty_points = clamp(base_score - clamp(score, 0, 100), 0, 100);
@@ -412,9 +330,9 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [] })
 // ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
-function buildScores(inputUrl, finalUrl, html, res, isHtml) {
-  const basic = isHtml ? basicHtmlSignals(html, finalUrl) : basicHtmlSignals("", finalUrl);
-  const headers = headerSignals(res, finalUrl);
+function buildScores(url, html, res, isHtml) {
+  const basic = isHtml ? basicHtmlSignals(html, url) : basicHtmlSignals("", url);
+  const headers = headerSignals(res, url);
 
   // Performance (signals-based, simple)
   let perf = 100;
@@ -432,6 +350,10 @@ function buildScores(inputUrl, finalUrl, html, res, isHtml) {
   const mobileChecks = [basic.viewport_present, (basic.viewport_content || "").includes("width=device-width")];
   const mobile = Math.round((mobileChecks.filter(Boolean).length / mobileChecks.length) * 100);
 
+  // Security (headers only)
+  const secChecks = [headers.hsts, headers.x_frame_options, headers.x_content_type_options, headers.referrer_policy];
+  const security = Math.round((secChecks.filter(Boolean).length / secChecks.length) * 100);
+
   // Accessibility (alt coverage heuristic)
   let accessibility = 100;
   if (basic.img_count > 0) {
@@ -443,24 +365,12 @@ function buildScores(inputUrl, finalUrl, html, res, isHtml) {
   accessibility = clamp(accessibility, 0, 100);
 
   // ✅ SEO (deterministic penalty-based)
-  const seoSignal = buildSeoSignal(basic, finalUrl);
+  const seoSignal = buildSeoSignal(basic, url);
   const seo = seoSignal.score;
-
-  // ✅ Security (deterministic penalty-based)
-  const securitySignal = buildSecuritySignal(headers, inputUrl, finalUrl);
-  const security = securitySignal.score;
 
   const overall = Math.round((perf + seo + structure + mobile + security + accessibility) / 6);
 
-  const scores = {
-    overall,
-    performance: perf,
-    seo,
-    structure,
-    mobile,
-    security,
-    accessibility,
-  };
+  const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility };
 
   const human = {
     clarity: basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
@@ -490,17 +400,16 @@ function buildScores(inputUrl, finalUrl, html, res, isHtml) {
         ? "Excellent mobile readiness signals. Core mobile fundamentals look strong."
         : "Mobile readiness looks incomplete (viewport missing or not device-width).",
     security:
-      securitySignal?.score === 0 && securitySignal?.evidence && securitySignal?.evidence?.https === false
-        ? "Security is blocked by missing HTTPS (final URL is not https://)."
-        : security >= 90
-        ? "Strong security posture signals detected (HTTPS + key security headers)."
-        : "Security posture has gaps (see deductions & evidence). Start with HTTPS, then harden headers.",
+      security >= 90
+        ? "Security headers show healthy defaults (where detectable)."
+        : "Critical security posture issues. Start with HTTPS + key security headers.",
     accessibility:
       accessibility >= 90
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
         : "Image alt coverage suggests potential accessibility improvements.",
   };
 
+  // ✅ delivery_signals (UI-friendly + evidence-friendly)
   const delivery_signals = [
     buildSimpleSignal({
       id: "performance",
@@ -523,7 +432,21 @@ function buildScores(inputUrl, finalUrl, html, res, isHtml) {
       },
     }),
     seoSignal,
-    securitySignal,
+    buildSimpleSignal({
+      id: "security",
+      label: "Security & Trust",
+      score: security,
+      evidence: {
+        https: headers.https,
+        hsts_present: headers.hsts,
+        csp_present: headers.content_security_policy,
+        x_frame_options_present: headers.x_frame_options,
+        x_content_type_options_present: headers.x_content_type_options,
+        referrer_policy_present: headers.referrer_policy,
+        permissions_policy_present: headers.permissions_policy,
+      },
+      deductions: headers.https ? [] : [{ points: 46, reason: "Missing HTTPS (scheme is not https://)." }],
+    }),
     buildSimpleSignal({
       id: "structure",
       label: "Structure & Semantics",
@@ -606,11 +529,10 @@ export async function handler(event) {
       };
     }
 
-    const { res, text: html, contentType, isHtml, finalUrl } = await fetchWithTimeout(url, 12000);
+    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
 
     const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
-      url,       // input url
-      finalUrl,  // final fetched url (after redirects)
+      url,
       html,
       res,
       isHtml
@@ -618,12 +540,11 @@ export async function handler(event) {
 
     const metrics = {
       scores,
-      delivery_signals, // preferred source for your grid + evidence
+      delivery_signals, // ✅ preferred source for your grid + evidence
       basic_checks: {
         ...basic,
         http_status: res.status,
         content_type: contentType || null,
-        fetched_url: finalUrl || null,
       },
       security_headers: headers,
       human_signals: {
@@ -639,7 +560,7 @@ export async function handler(event) {
 
     const insertRow = {
       user_id,
-      url: finalUrl || url, // store final URL if available
+      url,
       status: "complete",
       report_id,
       score_overall: scores.overall,
@@ -676,7 +597,7 @@ export async function handler(event) {
         id: saved.id,
         scan_id: saved.id,
         report_id: saved.report_id || report_id,
-        url: finalUrl || url,
+        url,
         scores,
         narrative_requested: !!generate_narrative,
         narrative_ok,
