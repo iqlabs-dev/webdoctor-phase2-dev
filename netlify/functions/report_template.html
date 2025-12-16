@@ -83,18 +83,6 @@
       user-select:none;
     }
 
-    .brand-badge{
-      width:44px; height:44px;
-      border-radius: 14px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:800;
-      letter-spacing:.02em;
-      background: rgba(0,0,0,.22);
-      border: 1px solid var(--border);
-    }
-
     .brand-name{
       font-family: "Montserrat", Inter, system-ui, sans-serif;
       font-size:18px;
@@ -103,23 +91,18 @@
       line-height:1.1;
     }
 
-    .brand-sub{
-      font-size:12px;
-      color: var(--muted);
-      margin-top:2px;
-    }
-
     .topbar-right{
       display:flex;
       align-items:center;
       gap:12px;
     }
 
+    /* Meta cards as a 4-column grid so WEBSITE can span 2 columns */
     .meta-grid{
       display:grid;
-      grid-auto-flow:column;
-      grid-auto-columns:minmax(180px, 1fr);
+      grid-template-columns: 2fr 1fr 1fr; /* WEBSITE is 2x */
       gap:10px;
+      align-items:stretch;
     }
 
     .meta-card{
@@ -131,6 +114,7 @@
       justify-content:center;
       background: rgba(0,0,0,.22);
       border: 1px solid var(--border);
+      min-width: 0;
     }
 
     [data-theme="light"] .meta-card{
@@ -152,7 +136,7 @@
       overflow:hidden;
       text-overflow:ellipsis;
       white-space:nowrap;
-      max-width:240px;
+      max-width: 100%;
     }
 
     .action-row{
@@ -284,7 +268,7 @@
     .score-row{
       display:flex;
       justify-content:space-between;
-      align-items:center;
+      align-items:baseline;
       gap:12px;
       margin-top: 10px;
     }
@@ -294,13 +278,17 @@
       font-weight:750;
     }
 
-    .pill{
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--panel2);
-      font-size: 12px;
-      font-weight:750;
+    /* Single-number score (no /100, no pill) */
+    .score-number{
+      font-size: 26px;
+      font-weight: 820;
+      letter-spacing: .4px;
+      line-height: 1;
+      padding: 0;
+      margin: 0;
+      color: var(--text);
+      min-width: 40px;
+      text-align: right;
     }
 
     .bar{
@@ -343,8 +331,6 @@
       overflow:hidden;
     }
 
-    .card-wide{ grid-column: span 12; }
-
     .card-top{
       display:flex;
       justify-content:space-between;
@@ -360,24 +346,17 @@
       color: var(--muted);
     }
 
+    /* Single-number score in cards */
     .score-mini{
-      font-size: 12px;
-      font-weight: 800;
-      opacity:.95;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,.18);
+      font-size: 18px;
+      font-weight: 850;
+      opacity:.98;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: transparent;
       white-space:nowrap;
-    }
-    [data-theme="light"] .score-mini{ background: rgba(255,255,255,.6); }
-
-    .det-badge{
-      margin-top: 8px;
-      font-size: 11px;
-      color: var(--muted2);
-      letter-spacing:.10em;
-      text-transform: uppercase;
+      color: var(--text);
     }
 
     .card .bar{ margin-top: 10px; height: 8px; }
@@ -397,7 +376,6 @@
       border: 1px solid var(--border);
       margin-top: 12px;
     }
-
     .finding:first-child{ margin-top: 0; }
 
     .finding-head{
@@ -520,11 +498,12 @@
     @media (max-width: 980px){
       .topbar{ flex-direction: column; }
       .topbar-right{ flex-direction: column; align-items: stretch; }
-      .meta-grid{ grid-auto-flow: row; grid-auto-columns: auto; }
+      .meta-grid{ grid-template-columns: 1fr; }
       .action-row{ justify-content:flex-end; width:100%; }
       .card{ grid-column: span 12; }
       .kv{ grid-template-columns: 1fr; }
       .meta-value{ max-width: 100%; }
+      .score-number{ text-align:left; }
     }
   </style>
 </head>
@@ -532,14 +511,12 @@
 <body>
   <div class="wrap">
 
-    <!-- HEADER (LOCKED LAYOUT) -->
+    <!-- HEADER -->
     <header class="topbar">
       <div class="topbar-left">
         <div class="brand">
-
           <div>
             <div class="brand-name">iQWEB</div>
-
           </div>
         </div>
       </div>
@@ -588,14 +565,14 @@
         <div class="section-body">
           <div class="score-row">
             <div class="score-big" id="overallLabel">Overall Score</div>
-            <div class="pill" id="overallPill">—/100</div>
+            <div class="score-number" id="overallPill">—</div>
           </div>
           <div class="bar"><div id="overallBar"></div></div>
           <div class="small-note" id="overallNote"></div>
         </div>
       </section>
 
-      <!-- SIGNALS (LOCKED ORDER VIA JS FROM delivery_signals[]) -->
+      <!-- SIGNALS -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">Delivery Signals</h2>

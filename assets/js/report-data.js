@@ -1,10 +1,11 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.2 (LOCKED)
+// iQWEB Report UI — Contract v1.0.3 (LOCKED)
 // - Cards must never be missing
-// - Discussion-first: compact cards with 2-line deterministic summary
+// - Discussion-first: compact 6-card grid + 2-line deterministic summary
 // - Evidence is ALWAYS available (collapsed by default)
 // - Missing is never neutral: explicit penalties and reasons shown in Evidence
 // - Narrative is optional and must never block render
+// - UI enforces locked card order (even if backend changes order)
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -125,12 +126,13 @@
   }
 
   // -----------------------------
-  // Overall
+  // Overall (single number)
   // -----------------------------
   function renderOverall(scores) {
     const overall = asInt(scores.overall, 0);
-    const pill = $("overallPill");
-    if (pill) pill.textContent = `${overall}/100`;
+
+    const num = $("overallPill");
+    if (num) num.textContent = `${overall}`; // single number only
 
     const bar = $("overallBar");
     if (bar) bar.style.width = `${overall}%`;
@@ -138,14 +140,67 @@
     const note = $("overallNote");
     if (note) {
       note.textContent =
-        `Overall: ${verdict(overall)} (${overall}/100). Evidence and deductions are available inside each signal.`;
+        `Overall: ${verdict(overall)} (${overall}). Scores are backed by deterministic checks. Evidence is available per signal.`;
     }
   }
 
   // -----------------------------
+  // Locked UI order (rule)
+  // Performance → Mobile → SEO → Security → Structure → Accessibility
+  // Match by id OR label (case-insensitive).
+  // -----------------------------
+  const ORDER = [
+    { key: "performance", match: ["performance"] },
+    { key: "mobile", match: ["mobile", "mobile experience"] },
+    { key: "seo", match: ["seo", "seo foundations"] },
+    { key: "security", match: ["security", "security & trust", "trust"] },
+    { key: "structure", match: ["structure", "structure & semantics", "semantics"] },
+    { key: "accessibility", match: ["accessibility"] },
+  ];
+
+  function norm(s) {
+    return String(s || "").trim().toLowerCase();
+  }
+
+  function indexSignals(deliverySignals) {
+    const list = asArray(deliverySignals);
+    const byKey = new Map();
+
+    for (const sig of list) {
+      const id = norm(sig?.id);
+      const label = norm(sig?.label);
+
+      for (const spec of ORDER) {
+        if (spec.match.includes(id) || spec.match.includes(label)) {
+          if (!byKey.has(spec.key)) byKey.set(spec.key, sig);
+        }
+      }
+    }
+
+    return { list, byKey };
+  }
+
+  function orderedSignals(deliverySignals) {
+    const { list, byKey } = indexSignals(deliverySignals);
+
+    // If we can map all 6 by rule: return in that exact order.
+    const out = [];
+    for (const spec of ORDER) {
+      const s = byKey.get(spec.key);
+      if (s) out.push(s);
+    }
+
+    // Fill any missing with remaining signals (stable) to avoid gaps.
+    if (out.length < list.length) {
+      const used = new Set(out);
+      for (const s of list) if (!used.has(s)) out.push(s);
+    }
+
+    return out;
+  }
+
+  // -----------------------------
   // Deterministic 2-line summaries (no AI)
-  // - First line: what the score means in plain English
-  // - Second line: why (based on penalties / key issues / missing observability)
   // -----------------------------
   function summaryTwoLines(signal) {
     const label = String(signal?.label || signal?.id || "Signal");
@@ -158,17 +213,10 @@
     const issues = asArray(signal?.issues);
     const deds = asArray(signal?.deductions);
 
-    // Line 1: plain outcome
-    const line1 = `${label}: ${verdict(score)} (${score}/100).`;
+    const line1 = `${verdict(score)} (${score}).`;
 
-    // Line 2: reason priority
-    // 1) If penalties exist: call out penalties
-    // 2) Else if issues exist: call out that issues exist
-    // 3) Else: clean pass
     let line2 = "";
-
     if (penalty > 0) {
-      // Try to use the first deduction reason (most concrete)
       const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
       const reason = first ? first.reason.trim() : "Explicit deductions applied from observed checks.";
       line2 = `Deductions: -${penalty}. ${reason}`;
@@ -179,22 +227,38 @@
       line2 = "No penalties. Deterministic checks passed based on observed signals in this scan.";
     }
 
-    // Keep both lines short
-    return {
-      line1,
-      line2
-    };
+    // Keep tight
+    return { title: label, line1, line2 };
   }
 
   // -----------------------------
   // Evidence renderer (collapsed)
+  // IMPORTANT: don’t spam empty blocks — show a compact message.
   // -----------------------------
   function renderEvidenceBlock(signal) {
     const obs = asArray(signal?.observations);
     const deds = asArray(signal?.deductions);
     const issues = asArray(signal?.issues);
 
-    const obsRows = obs.length
+    const hasObs = obs.length > 0;
+    const hasDeds = deds.length > 0;
+    const hasIssues = issues.length > 0;
+
+    // If literally nothing, still show evidence container (rule),
+    // but keep it minimal and honest.
+    if (!hasObs && !hasDeds && !hasIssues) {
+      return `
+        <details>
+          <summary>Evidence (click to expand)</summary>
+          <div class="small-note" style="margin-top:10px;">
+            No evidence objects returned for this signal in the current scan payload.
+            If the score exists, the backend should return observations and/or deductions explaining it.
+          </div>
+        </details>
+      `;
+    }
+
+    const obsRows = hasObs
       ? obs.map(o => {
           const label = escapeHtml(o?.label ?? "Observation");
           const value = escapeHtml(String(o?.value ?? "null"));
@@ -204,9 +268,9 @@
             <span title="${src}" style="font-weight:750;">${value}</span>
           </div>`;
         }).join("")
-      : `<div class="small-note">No observations recorded.</div>`;
+      : `<div class="small-note">No observations returned for this signal.</div>`;
 
-    const dedRows = deds.length
+    const dedRows = hasDeds
       ? `<ul style="margin:8px 0 0 18px;padding:0;">
           ${deds.map(d => {
             const reason = escapeHtml(d?.reason ?? "Deduction");
@@ -218,9 +282,9 @@
             </li>`;
           }).join("")}
         </ul>`
-      : `<div class="small-note">No deductions applied.</div>`;
+      : `<div class="small-note">No explicit deductions returned for this signal.</div>`;
 
-    const issueBlocks = issues.length
+    const issueBlocks = hasIssues
       ? issues.map(i => {
           const title = escapeHtml(i?.title ?? "Issue");
           const sev = escapeHtml(i?.severity ?? "low");
@@ -241,9 +305,8 @@
             </div>
           `;
         }).join("")
-      : `<div class="small-note">No issues detected for this signal.</div>`;
+      : `<div class="small-note">No issues returned for this signal.</div>`;
 
-    // Collapsed by default (discussion-first)
     return `
       <details>
         <summary>Evidence (click to expand)</summary>
@@ -267,36 +330,36 @@
   }
 
   // -----------------------------
-  // Delivery Signals (compact cards)
-  // Locked order comes from backend delivery_signals[]
+  // Delivery Signals (6-card grid)
+  // IMPORTANT:
+  // - Use "card" (span 6) not "card-wide"
+  // - Score: single number only
   // -----------------------------
   function renderSignals(deliverySignals) {
     const grid = $("signalsGrid");
     if (!grid) return;
     grid.innerHTML = "";
 
-    const list = asArray(deliverySignals);
-    if (!list.length) {
+    const ordered = orderedSignals(deliverySignals);
+
+    if (!ordered.length) {
       grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
       return;
     }
 
-    for (const sig of list) {
-      const label = String(sig?.label ?? sig?.id ?? "Signal");
+    for (const sig of ordered) {
       const score = asInt(sig?.score, 0);
-
-      const { line1, line2 } = summaryTwoLines(sig);
+      const { title, line1, line2 } = summaryTwoLines(sig);
 
       const card = document.createElement("div");
-      card.className = "card card-wide";
+      card.className = "card"; // <-- 6-card grid
 
       card.innerHTML = `
         <div class="card-top">
           <div>
-            <h3>${escapeHtml(label)}</h3>
-            <div class="det-badge">Deterministic • Discussion-first • Evidence-backed</div>
+            <h3>${escapeHtml(title)}</h3>
           </div>
-          <div class="score-mini">${score}/100</div>
+          <div class="score-mini">${score}</div>
         </div>
 
         <div class="bar"><div style="width:${score}%;"></div></div>
@@ -471,6 +534,7 @@
         <div class="phase-why"><b>Why:</b> ${why}</div>
         <ul>${items}</ul>
       `;
+
       root.appendChild(el);
     }
   }
@@ -505,7 +569,7 @@
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-      renderSignals(data.delivery_signals);   // locked order from backend
+      renderSignals(data.delivery_signals);   // backend provides signals, UI enforces order
       renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
