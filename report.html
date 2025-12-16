@@ -263,29 +263,7 @@
       line-height: 1.45;
     }
 
-    /* Overall snapshot */
-    .score-row{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      margin-top: 10px;
-    }
-
-    .score-big{
-      font-size:16px;
-      font-weight:750;
-    }
-
-    .pill{
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--panel2);
-      font-size: 12px;
-      font-weight:750;
-    }
-
+    /* Bars */
     .bar{
       margin-top: 12px;
       height: 10px;
@@ -353,19 +331,13 @@
 
     /* Score shown ONCE, right-aligned */
     .score-right{
-      font-size: 13px;
+      font-size: 16px;
       font-weight: 800;
-      opacity:.95;
+      opacity: .95;
       white-space:nowrap;
       color: var(--text);
       padding-top: 1px;
     }
-    .score-right{
-  font-size: 16px;
-  font-weight: 800;
-  opacity: .95;
-}
-
 
     .card .bar{ margin-top: 10px; height: 8px; }
 
@@ -572,20 +544,24 @@
         <div class="section-head">
           <h2 class="section-title">Overall Snapshot</h2>
         </div>
-       <div class="section-body">
-<div class="card-top">
-  <h3 id="overallLabel">Overall Score</h3>
-  <div class="score-mini" id="overallPill"></div>
-</div>
 
-<div class="bar">
-  <div id="overallBar"></div>
-</div>
+        <!-- FIXED: Overall uses the same .card contract as the signal cards -->
+        <div class="section-body">
+          <div class="card" style="min-height:unset;">
 
-<div class="summary" id="overallNote" style="margin-top:10px;"></div>
+            <div class="card-top">
+              <h3 id="overallLabel">Overall Score</h3>
+              <div class="score-right" id="overallPill"></div>
+            </div>
 
-</div>
+            <div class="bar">
+              <div id="overallBar"></div>
+            </div>
 
+            <div class="summary" id="overallNote"></div>
+
+          </div>
+        </div>
       </section>
 
       <section class="section">
