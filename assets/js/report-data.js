@@ -5,8 +5,6 @@
 // - No evidence expanders inside cards
 // - Evidence rendered in dedicated "Signal Evidence" section below
 // - Narrative optional; never blocks render
-//
-// v5.2 fix: Narrative is written asynchronously → poll for it briefly after initial load.
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -109,8 +107,7 @@
   }
 
   async function fetchReportData(reportId) {
-    // cache-bust to avoid edge caching during rapid updates (narrative arriving after first fetch)
-    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}&_=${Date.now()}`;
+    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
     const res = await fetch(url, { method: "GET" });
     const text = await res.text().catch(() => "");
     let data = null;
@@ -125,6 +122,58 @@
       throw new Error(msg);
     }
     return data;
+  }
+
+  // -----------------------------
+  // Narrative generator call
+  // -----------------------------
+  async function requestNarrative(reportId) {
+    const res = await fetch("/.netlify/functions/generate-narrative", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: reportId }),
+    });
+
+    const text = await res.text().catch(() => "");
+    let data = null;
+    try { data = JSON.parse(text); } catch { /* ignore */ }
+
+    if (!res.ok) {
+      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    if (data && data.success === false) {
+      const msg = data?.detail || data?.error || "Unknown error";
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  function wireGenerateNarrative(reportId) {
+    const btn = $("btnGenerateNarrative");
+    const statusEl = $("narrativeStatus");
+    const textEl = $("narrativeText");
+    if (!btn || !statusEl || !textEl) return;
+
+    btn.addEventListener("click", async () => {
+      try {
+        btn.disabled = true;
+        statusEl.textContent = "Generating narrative…";
+        // call function (writes to scan_results.narrative)
+        await requestNarrative(reportId);
+
+        statusEl.textContent = "Saved. Refreshing report narrative…";
+        // re-fetch just to pull the saved narrative back
+        const fresh = await fetchReportData(reportId);
+        renderNarrative(fresh?.narrative);
+
+        statusEl.textContent = "";
+      } catch (err) {
+        statusEl.textContent = `Narrative failed: ${err?.message || String(err)}`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   // -----------------------------
@@ -373,76 +422,37 @@
   }
 
   // -----------------------------
-  // Narrative (optional) — v5.2 + polling support
+  // Narrative (optional)
+  // Supports BOTH:
+  // - legacy: { executive_lead: "..." }
+  // - v5.2:   { overall: { lines: [...] }, signals: {...} }
   // -----------------------------
-  function extractOverallNarrativeLines(narrative) {
+  function renderNarrative(narrative) {
     const n = safeObj(narrative);
 
-    // v5.2 canonical format
-    const overallLines = asArray(n?.overall?.lines).filter(l => typeof l === "string" && l.trim());
-    if (overallLines.length) return overallLines;
-
-    // backward compat
-    if (typeof n.executive_lead === "string" && n.executive_lead.trim()) {
-      return n.executive_lead.split("\n").map(s => s.trim()).filter(Boolean);
-    }
-
-    return [];
-  }
-
-  function renderNarrative(narrative, { pending = false } = {}) {
     const textEl = $("narrativeText");
     const statusEl = $("narrativeStatus");
     if (!textEl || !statusEl) return;
 
-    const lines = extractOverallNarrativeLines(narrative);
-
-    if (lines.length) {
-      textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+    // legacy
+    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
+    if (lead) {
+      textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
       statusEl.textContent = "";
-      return true;
+      return;
     }
 
-    // Not present yet
-    if (pending) {
-      textEl.textContent = "Building narrative…";
-      statusEl.textContent = "This can take a few seconds after the scan completes.";
-    } else {
-      textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
-      statusEl.textContent = "Signal Contract: narrative optional.";
-    }
-    return false;
-  }
-
-  async function pollNarrative(reportId, initialData) {
-    // If we already have it, do nothing.
-    if (renderNarrative(initialData?.narrative, { pending: false })) return;
-
-    // If scan didn’t request narrative, don’t poll.
-    // (We don’t have that flag in payload, so we just do a short poll window safely.)
-    renderNarrative(null, { pending: true });
-
-    const maxMs = 30000;      // 30s max wait
-    const intervalMs = 2500;  // poll every 2.5s
-    const start = Date.now();
-
-    while (Date.now() - start < maxMs) {
-      await new Promise(r => setTimeout(r, intervalMs));
-
-      let data;
-      try {
-        data = await fetchReportData(reportId);
-      } catch {
-        continue;
-      }
-
-      if (renderNarrative(data?.narrative, { pending: false })) {
-        return;
-      }
+    // v5.2
+    const overallLines = asArray(n?.overall?.lines).map(l => String(l || "").trim()).filter(Boolean);
+    if (overallLines.length) {
+      textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
+      statusEl.textContent = "";
+      return;
     }
 
-    // Timed out: keep page usable, just show the “not ready” state.
-    renderNarrative(null, { pending: false });
+    // fallback
+    textEl.textContent = "Narrative not generated yet.";
+    statusEl.textContent = "Click “Generate Narrative” to create the Λ i Q narrative for this report.";
   }
 
   // -----------------------------
@@ -614,13 +624,13 @@
       renderOverall(scores);
       renderSignals(data.delivery_signals);
       renderSignalEvidence(data.delivery_signals);
+      renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
       renderFixPlan(data.fix_plan);
 
-      // Narrative: render now + poll briefly if it’s not there yet
-      renderNarrative(data.narrative, { pending: false });
-      pollNarrative(reportId, data);
+      // ✅ wire button AFTER elements exist + we have reportId
+      wireGenerateNarrative(reportId);
 
       loaderSection.style.display = "none";
       reportRoot.style.display = "block";
