@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED — AUTH VERSION —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.3-FULLFIX-scan_results+latest_card");
+console.log("DASHBOARD JS v3.4-HARDLOCK-report_id-only");
 
 // ------- PLAN → STRIPE PRICE MAPPING (TESTS) -------
 const PLAN_PRICE_IDS = {
@@ -19,6 +19,24 @@ window.currentReport = null;
 window.lastScanResult = null;
 window.currentProfile = null;
 window.currentUserEmail = null;
+
+// -----------------------------
+// Helpers
+// -----------------------------
+function looksLikeReportId(v) {
+  return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(v.trim());
+}
+
+function goToReport(reportId) {
+  if (!looksLikeReportId(reportId)) {
+    console.warn("[NAV] blocked invalid report_id:", reportId);
+    alert("Report ID not ready yet. Please refresh in a moment.");
+    return;
+  }
+  const url = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+  console.log("[NAV] ->", url);
+  window.location.href = url;
+}
 
 // -----------------------------
 // BILLING HELPERS
@@ -52,7 +70,7 @@ async function startSubscriptionCheckout(planKey) {
       }),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.url) {
       console.error("Checkout error:", data);
       if (statusEl) statusEl.textContent = "Unable to start checkout. Please try again.";
@@ -87,7 +105,7 @@ async function startCreditCheckout(pack) {
       }),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.url) {
       console.error("Credit checkout error:", data);
       if (statusEl) statusEl.textContent = "Unable to start checkout. Please try again.";
@@ -217,7 +235,10 @@ function updateLatestScanCard(row) {
     if (elUrl) elUrl.textContent = "No scans yet.";
     if (elDate) elDate.textContent = "Run your first iQWEB scan to see it here.";
     if (elScore) elScore.style.display = "none";
-    if (elView) elView.href = "#";
+    if (elView) {
+      elView.href = "#";
+      elView.onclick = (e) => e.preventDefault();
+    }
     return;
   }
 
@@ -243,16 +264,22 @@ function updateLatestScanCard(row) {
   }
 
   window.currentReport = {
-    scan_id: row.id,
+    scan_id: row.id, // ok to store numeric internally
     report_url: row.report_url || null,
-    report_id: row.report_id || null,
+    report_id: row.report_id || null, // must be WEB-... for routing
   };
 
-  if (elView && row.report_id) {
-    elView.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
-  } else if (elView) {
+  if (elView) {
     elView.href = "#";
-    elView.title = "Report ID not available yet.";
+    elView.onclick = (e) => {
+      e.preventDefault();
+      goToReport(row.report_id);
+    };
+    if (!looksLikeReportId(row.report_id)) {
+      elView.title = "Report ID not available yet. Please refresh in a moment.";
+    } else {
+      elView.title = "";
+    }
   }
 }
 
@@ -340,13 +367,7 @@ async function loadScanHistory() {
       const viewBtn = document.createElement("button");
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
-      viewBtn.onclick = () => {
-        if (!row.report_id) {
-          alert("Report ID not available yet. Please refresh in a moment.");
-          return;
-        }
-        window.location.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
-      };
+      viewBtn.onclick = () => goToReport(row.report_id);
       tdActions.appendChild(viewBtn);
 
       tdActions.appendChild(document.createTextNode(" "));
@@ -433,11 +454,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     runBtn.disabled = true;
 
     try {
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token || null;
-
-      console.log("[RUN-SCAN] sessionErr:", sessionErr || null);
-      console.log("[RUN-SCAN] token present:", !!accessToken);
 
       if (!accessToken) {
         throw new Error("Session expired. Please refresh and log in again.");
@@ -465,12 +483,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(scanData?.error || scanData?.message || `Scan failed (${res.status})`);
       }
 
-      console.log("[RUN-SCAN] success scanData:", scanData);
-
       await loadScanHistory();
       await decrementScanBalance();
 
-      // ✅ prefer STRING report_id if present, else fallback numeric scan id
+      // Only accept real WEB-... report IDs for navigation & narrative
       const reportId =
         scanData.report_id ??
         scanData.reportId ??
@@ -478,18 +494,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         scanData.report?.report_id ??
         null;
 
-      const scanId = scanData.scan_id ?? scanData.id ?? scanData.scan?.id ?? null;
+      console.log("[RUN-SCAN] reportId:", reportId);
 
-      if (reportId) {
+      if (looksLikeReportId(reportId)) {
         try {
           await generateNarrative(reportId, accessToken);
         } catch (e) {
-          console.warn("[GENERATE-NARRATIVE] skipped/failed:", e?.message || e);
+          console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
         }
-      }
-
-      if (reportId) {
-        window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+        goToReport(reportId);
       } else {
         statusEl.textContent =
           "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
