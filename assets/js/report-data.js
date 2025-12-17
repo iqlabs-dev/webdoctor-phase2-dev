@@ -380,7 +380,7 @@
   }
 
   function renderNarrative(narrative) {
-    const n = parseJsonMaybe(narrative);
+    const n = narrative ? parseJsonMaybe(narrative) : {};
     const textEl = $("narrativeText");
     if (!textEl) return;
 
