@@ -1727,13 +1727,40 @@
           return;
         }
 
-        urlInput.value = "";
+         urlInput.value = "";
         await loadScanHistory(user.id);
 
-        const scanId = json.scan_id ?? json.id ?? null;
-        if (scanId) {
-          window.open(`/report.html?report_id=${encodeURIComponent(scanId)}`, "_blank");
+        // ✅ IMPORTANT:
+        // report.html expects a report_id (like "WEB-2025..."), not the numeric row id.
+        let openReportId = json.report_id || json.reportId || null;
+
+        // If the function only returned a numeric id, lookup the matching report_id from scan_results
+        if (!openReportId) {
+          const scanRowId = json.scan_id ?? json.id ?? null;
+
+          if (scanRowId != null) {
+            const { data: row, error: rowErr } = await supabase
+              .from("scan_results")
+              .select("report_id")
+              .eq("id", scanRowId)
+              .maybeSingle();
+
+            if (rowErr) {
+              console.warn("[RUN-SCAN] report_id lookup failed:", rowErr);
+            } else {
+              openReportId = row?.report_id || null;
+            }
+          }
         }
+
+        // Open the report if we have an ID
+        if (openReportId) {
+          window.open(`/report.html?report_id=${encodeURIComponent(openReportId)}`, "_blank");
+        } else {
+          // Fallback: don't silently fail
+          alert("Scan completed, but no report ID was returned yet. Check Scan History in a moment.");
+        }
+
       } catch (err) {
         console.error("[RUN-SCAN] error:", err);
         alert("Scan failed. Please try again.");
