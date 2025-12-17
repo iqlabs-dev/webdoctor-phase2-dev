@@ -12,7 +12,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 function json(statusCode, body) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      // Helpful for local/dev + avoids “mystery” CORS pain
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+    },
     body: JSON.stringify(body),
   };
 }
@@ -31,6 +37,9 @@ function asInt(v, fallback = 0) {
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
+function isNumericString(v) {
+  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
+}
 
 function prettifyKey(k) {
   return String(k || "")
@@ -41,10 +50,8 @@ function prettifyKey(k) {
 function evidenceToObservations(evidence) {
   const ev = safeObj(evidence);
   const entries = Object.entries(ev);
-
   if (!entries.length) return [];
 
-  // Stable order for common keys first (nice UX)
   const priority = [
     "title_present",
     "meta_description_present",
@@ -85,16 +92,13 @@ function evidenceToObservations(evidence) {
   }));
 }
 
-// Make a minimal “issues” block if none exists but deductions exist
 function deductionsToIssues(signal) {
   const sig = safeObj(signal);
   const deds = asArray(sig.deductions);
-
   if (!deds.length) return [];
 
-  // Single umbrella issue for “missing required inputs” style penalties
-  const missing = deds.find((d) =>
-    isNonEmptyString(d?.reason) && /missing|required|not found|not observed|not confirmed/i.test(d.reason)
+  const missing = deds.find(
+    (d) => isNonEmptyString(d?.reason) && /missing|required|not found|not observed|not confirmed/i.test(d.reason)
   );
 
   if (!missing) return [];
@@ -103,15 +107,13 @@ function deductionsToIssues(signal) {
     {
       title: `${sig.label || "Signal"}: required signal missing`,
       severity: "high",
-      impact: "This scan could not observe required inputs. Missing inputs are treated as a penalty to preserve completeness.",
-      evidence: {
-        missing_reason: missing.reason,
-      },
+      impact:
+        "This scan could not observe required inputs. Missing inputs are treated as a penalty to preserve completeness.",
+      evidence: { missing_reason: missing.reason },
     },
   ];
 }
 
-// Normalise a delivery signal into the UI/API contract
 function normaliseSignal(sig) {
   const s = safeObj(sig);
 
@@ -128,16 +130,11 @@ function normaliseSignal(sig) {
       reason: isNonEmptyString(d?.reason) ? String(d.reason).trim() : "Deduction applied.",
       code: isNonEmptyString(d?.code) ? String(d.code).trim() : "",
     })),
-    // Prefer explicit observations; else derive from evidence
-    observations: asArray(s.observations).length
-      ? asArray(s.observations)
-      : evidenceToObservations(s.evidence),
-    // Prefer explicit issues; else derive a minimal one if deductions indicate missing inputs
+    observations: asArray(s.observations).length ? asArray(s.observations) : evidenceToObservations(s.evidence),
     issues: asArray(s.issues).length ? asArray(s.issues) : deductionsToIssues(s),
     evidence: safeObj(s.evidence),
   };
 
-  // Fill penalty_points if absent
   if (!Number.isFinite(Number(out.penalty_points))) {
     const dedSum = out.deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
     out.penalty_points = Math.max(0, dedSum);
@@ -151,20 +148,32 @@ function normaliseSignal(sig) {
 // -----------------------------
 export async function handler(event) {
   try {
-    const report_id =
-      event.queryStringParameters?.report_id ||
-      event.queryStringParameters?.id ||
-      "";
+    // Preflight (safe)
+    if (event.httpMethod === "OPTIONS") {
+      return json(200, { ok: true });
+    }
 
-    if (!report_id) {
+    const reportParam = (event.queryStringParameters?.report_id ||
+      event.queryStringParameters?.id ||
+      "").trim();
+
+    if (!reportParam) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    const { data: scan, error: scanErr } = await supabase
+    // Support both:
+    // - Option A: report_id=WEB-....
+    // - Dev convenience: report_id=345 (numeric) treated as scan_results.id
+    const byNumericId = isNumericString(reportParam);
+
+    let q = supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall")
-      .eq("report_id", report_id)
-      .single();
+      // ✅ narrative is a TOP-LEVEL column, so we MUST select it here
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative");
+
+    q = byNumericId ? q.eq("id", Number(reportParam)) : q.eq("report_id", reportParam);
+
+    const { data: scan, error: scanErr } = await q.single();
 
     if (scanErr || !scan) {
       return json(404, { success: false, error: "Report not found" });
@@ -172,11 +181,10 @@ export async function handler(event) {
 
     const metrics = safeObj(scan.metrics);
 
-    // ✅ Prefer signals saved by run-scan
-    const rawSignals =
-      asArray(metrics.delivery_signals).length
-        ? metrics.delivery_signals
-        : asArray(metrics?.metrics?.delivery_signals);
+    // Prefer signals saved by run-scan
+    const rawSignals = asArray(metrics.delivery_signals).length
+      ? metrics.delivery_signals
+      : asArray(metrics?.metrics?.delivery_signals);
 
     const delivery_signals = asArray(rawSignals).map(normaliseSignal);
 
@@ -194,8 +202,8 @@ export async function handler(event) {
           accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
         };
 
-    // Keep your existing “key_metrics / findings / fix_plan / narrative” shape minimal & safe
     const bc = safeObj(metrics.basic_checks);
+    const sh = safeObj(metrics.security_headers);
 
     const key_metrics = {
       http: {
@@ -216,22 +224,21 @@ export async function handler(event) {
       },
       freshness: safeObj(bc.freshness_signals),
       security: {
-        https: safeObj(metrics.security_headers).https ?? null,
-        hsts_present: safeObj(metrics.security_headers).hsts ?? null,
-        csp_present: safeObj(metrics.security_headers).content_security_policy ?? null,
-        x_frame_options_present: safeObj(metrics.security_headers).x_frame_options ?? null,
-        x_content_type_options_present: safeObj(metrics.security_headers).x_content_type_options ?? null,
-        referrer_policy_present: safeObj(metrics.security_headers).referrer_policy ?? null,
+        https: sh.https ?? null,
+        hsts_present: sh.hsts ?? null,
+        csp_present: sh.content_security_policy ?? null,
+        x_frame_options_present: sh.x_frame_options ?? null,
+        x_content_type_options_present: sh.x_content_type_options ?? null,
+        referrer_policy_present: sh.referrer_policy ?? null,
+        permissions_policy_present: sh.permissions_policy ?? null,
       },
     };
 
-    // If you already generate findings/fix_plan elsewhere, keep those.
-    // Otherwise return empty arrays so the UI stays stable.
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // Narrative: pass through if present
-    const narrative = safeObj(metrics.narrative);
+    // ✅ Narrative comes from scan_results.narrative (NOT metrics.narrative)
+    const narrative = safeObj(scan.narrative);
 
     return json(200, {
       success: true,
