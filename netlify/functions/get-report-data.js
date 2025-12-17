@@ -145,6 +145,31 @@ function normaliseSignal(sig) {
 }
 
 // -----------------------------
+// Narrative normaliser (v5.2 -> UI-compatible)
+// - Your UI currently expects narrative.executive_lead (string)
+// - v5.2 generator produces narrative.overall.lines (array)
+// -----------------------------
+function normaliseNarrativeForUI(raw) {
+  // Preserve nulls (don’t convert to {})
+  if (!raw || typeof raw !== "object") return null;
+
+  // If already old-shape, keep as-is
+  if (isNonEmptyString(raw.executive_lead)) return raw;
+
+  // If v5.2 shape, map overall.lines -> executive_lead
+  const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
+  if (overallLines.length) {
+    return {
+      ...raw,
+      executive_lead: overallLines.slice(0, 5).join("\n"), // respects your max line constraints
+    };
+  }
+
+  // Otherwise return as-is (may still be useful for debugging)
+  return raw;
+}
+
+// -----------------------------
 // Handler
 // -----------------------------
 export async function handler(event) {
@@ -175,7 +200,6 @@ export async function handler(event) {
     const { data: rows, error: scanErr } = await q;
 
     if (scanErr) {
-      // Don’t mask real issues (wrong env vars, wrong project, missing columns, etc.)
       return json(500, {
         success: false,
         error: "Supabase query failed",
@@ -244,7 +268,8 @@ export async function handler(event) {
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    const narrative = safeObj(scan.narrative);
+    // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
+    const narrative = normaliseNarrativeForUI(scan.narrative);
 
     return json(200, {
       success: true,
