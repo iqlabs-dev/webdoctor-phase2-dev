@@ -642,3 +642,38 @@
 
   document.addEventListener("DOMContentLoaded", main);
 })();
+function wireGenerateNarrative(reportId) {
+  const btn = document.getElementById("btnGenerateNarrative");
+  const status = document.getElementById("narrativeStatus");
+
+  if (!btn) return;
+
+  btn.addEventListener("click", async () => {
+    try {
+      btn.disabled = true;
+      if (status) status.textContent = "Generating narrative…";
+
+      const res = await fetch("/.netlify/functions/generate-narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch {}
+
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.error || text || "Narrative generation failed");
+      }
+
+      if (status) status.textContent = "Narrative generated. Reloading…";
+      window.location.reload();
+    } catch (err) {
+      console.error(err);
+      if (status) status.textContent = err.message || "Narrative failed";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
