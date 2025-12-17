@@ -5,6 +5,8 @@
 // - No evidence expanders inside cards
 // - Evidence rendered in dedicated "Signal Evidence" section below
 // - Narrative optional; never blocks render
+//
+// v5.2 fix: Narrative is written asynchronously → poll for it briefly after initial load.
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -107,7 +109,8 @@
   }
 
   async function fetchReportData(reportId) {
-    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
+    // cache-bust to avoid edge caching during rapid updates (narrative arriving after first fetch)
+    const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}&_=${Date.now()}`;
     const res = await fetch(url, { method: "GET" });
     const text = await res.text().catch(() => "");
     let data = null;
@@ -370,35 +373,77 @@
   }
 
   // -----------------------------
-  // Narrative (optional) — UPDATED for v5.2 + legacy
+  // Narrative (optional) — v5.2 + polling support
   // -----------------------------
-function renderNarrative(narrative) {
-  const n = safeObj(narrative);
+  function extractOverallNarrativeLines(narrative) {
+    const n = safeObj(narrative);
 
-  const textEl = $("narrativeText");
-  const statusEl = $("narrativeStatus");
-  if (!textEl || !statusEl) return;
+    // v5.2 canonical format
+    const overallLines = asArray(n?.overall?.lines).filter(l => typeof l === "string" && l.trim());
+    if (overallLines.length) return overallLines;
 
-  // v5.2: overall.lines
-  const overallLines = asArray(n?.overall?.lines).filter(l => typeof l === "string" && l.trim());
+    // backward compat
+    if (typeof n.executive_lead === "string" && n.executive_lead.trim()) {
+      return n.executive_lead.split("\n").map(s => s.trim()).filter(Boolean);
+    }
 
-  if (overallLines.length) {
-    textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
-    statusEl.textContent = "";
-    return;
+    return [];
   }
 
-  // Backward compatibility
-  if (typeof n.executive_lead === "string" && n.executive_lead.trim()) {
-    textEl.innerHTML = escapeHtml(n.executive_lead).replaceAll("\n", "<br>");
-    statusEl.textContent = "";
-    return;
+  function renderNarrative(narrative, { pending = false } = {}) {
+    const textEl = $("narrativeText");
+    const statusEl = $("narrativeStatus");
+    if (!textEl || !statusEl) return;
+
+    const lines = extractOverallNarrativeLines(narrative);
+
+    if (lines.length) {
+      textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+      statusEl.textContent = "";
+      return true;
+    }
+
+    // Not present yet
+    if (pending) {
+      textEl.textContent = "Building narrative…";
+      statusEl.textContent = "This can take a few seconds after the scan completes.";
+    } else {
+      textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
+      statusEl.textContent = "Signal Contract: narrative optional.";
+    }
+    return false;
   }
 
-  textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
-  statusEl.textContent = "Signal Contract: narrative optional.";
-}
+  async function pollNarrative(reportId, initialData) {
+    // If we already have it, do nothing.
+    if (renderNarrative(initialData?.narrative, { pending: false })) return;
 
+    // If scan didn’t request narrative, don’t poll.
+    // (We don’t have that flag in payload, so we just do a short poll window safely.)
+    renderNarrative(null, { pending: true });
+
+    const maxMs = 30000;      // 30s max wait
+    const intervalMs = 2500;  // poll every 2.5s
+    const start = Date.now();
+
+    while (Date.now() - start < maxMs) {
+      await new Promise(r => setTimeout(r, intervalMs));
+
+      let data;
+      try {
+        data = await fetchReportData(reportId);
+      } catch {
+        continue;
+      }
+
+      if (renderNarrative(data?.narrative, { pending: false })) {
+        return;
+      }
+    }
+
+    // Timed out: keep page usable, just show the “not ready” state.
+    renderNarrative(null, { pending: false });
+  }
 
   // -----------------------------
   // Key Metrics (unchanged)
@@ -537,22 +582,6 @@ function renderNarrative(narrative) {
     }
   }
 
-  // ------------------------------
-  // Evidence display helpers (integrity-critical)
-  // ------------------------------
-  function isMissing(v) {
-    return v === null || v === undefined || (typeof v === "number" && !Number.isFinite(v));
-  }
-
-  function showValue(v) {
-    return isMissing(v) ? "—" : String(v);
-  }
-
-  function showPercent01(v) {
-    if (isMissing(v)) return "—";
-    return `${Math.round(Number(v) * 100)}%`;
-  }
-
   // -----------------------------
   // Main
   // -----------------------------
@@ -585,10 +614,13 @@ function renderNarrative(narrative) {
       renderOverall(scores);
       renderSignals(data.delivery_signals);
       renderSignalEvidence(data.delivery_signals);
-      renderNarrative(data.narrative);
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
       renderFixPlan(data.fix_plan);
+
+      // Narrative: render now + poll briefly if it’s not there yet
+      renderNarrative(data.narrative, { pending: false });
+      pollNarrative(reportId, data);
 
       loaderSection.style.display = "none";
       reportRoot.style.display = "block";
