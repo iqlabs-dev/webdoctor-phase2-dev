@@ -1,10 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.3 (LOCKED)
+// iQWEB Report UI — Contract v1.0.4
 // - Six-card grid (3×2 desktop; responsive fallback)
 // - Score shown ONCE (right side only)
 // - No evidence expanders inside cards
 // - Evidence rendered in dedicated "Signal Evidence" section below
-// - Narrative optional; never blocks render
+// - Narrative optional; auto-generates if missing; never blocks render
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -99,7 +99,7 @@
   }
 
   // -----------------------------
-  // Fetch
+  // Fetch helpers
   // -----------------------------
   function getReportIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -109,6 +109,28 @@
   async function fetchReportData(reportId) {
     const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
     const res = await fetch(url, { method: "GET" });
+    const text = await res.text().catch(() => "");
+    let data = null;
+    try { data = JSON.parse(text); } catch { /* ignore */ }
+
+    if (!res.ok) {
+      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    if (data && data.success === false) {
+      const msg = data?.detail || data?.error || "Unknown error";
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function generateNarrative(reportId) {
+    const res = await fetch("/.netlify/functions/generate-narrative", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: reportId }),
+    });
+
     const text = await res.text().catch(() => "");
     let data = null;
     try { data = JSON.parse(text); } catch { /* ignore */ }
@@ -365,10 +387,8 @@
   }
 
   // -----------------------------
-  // Narrative (display only)
+  // Narrative (display + auto-generate)
   // -----------------------------
-  // ✅ If Supabase returns jsonb correctly → object
-  // ✅ If Supabase returns narrative as a string → parse it here
   function parseJsonMaybe(v) {
     if (v && typeof v === "object") return v;
     if (typeof v === "string") {
@@ -380,7 +400,7 @@
   }
 
   function renderNarrative(narrative) {
-    const n = narrative ? parseJsonMaybe(narrative) : {};
+    const n = parseJsonMaybe(narrative);
     const textEl = $("narrativeText");
     if (!textEl) return;
 
@@ -388,7 +408,7 @@
     const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
     if (lead) {
       textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
-      return;
+      return true;
     }
 
     // v5.2
@@ -398,11 +418,28 @@
 
     if (overallLines.length) {
       textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
-      return;
+      return true;
     }
 
-    // fallback
     textEl.textContent = "Narrative not generated yet.";
+    return false;
+  }
+
+  async function ensureNarrative(reportId, currentNarrative) {
+    // if narrative already present, do nothing
+    if (renderNarrative(currentNarrative)) return;
+
+    const textEl = $("narrativeText");
+    if (textEl) textEl.textContent = "Generating narrative…";
+
+    try {
+      const out = await generateNarrative(reportId);
+      // out.narrative should be returned by your function
+      renderNarrative(out?.narrative);
+    } catch (e) {
+      console.error(e);
+      if (textEl) textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
+    }
   }
 
   // -----------------------------
@@ -556,12 +593,12 @@
 
     const reportId = getReportIdFromUrl();
     if (!reportId) {
-      statusEl.textContent = "Missing report_id in URL. Example: report.html?report_id=WEB-XXXX";
+      if (statusEl) statusEl.textContent = "Missing report_id in URL. Example: report.html?report_id=WEB-XXXX";
       return;
     }
 
     try {
-      statusEl.textContent = "Fetching report payload…";
+      if (statusEl) statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
 
       const header = safeObj(data.header);
@@ -574,16 +611,22 @@
       renderOverall(scores);
       renderSignals(data.delivery_signals);
       renderSignalEvidence(data.delivery_signals);
+
+      // Render narrative immediately if present; otherwise auto-generate (non-blocking)
       renderNarrative(data.narrative);
+
       renderMetrics(data.key_metrics);
       renderFindings(data.findings);
       renderFixPlan(data.fix_plan);
 
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
+
+      // Run AFTER the report is visible:
+      ensureNarrative(header.report_id || reportId, data.narrative);
     } catch (err) {
       console.error(err);
-      statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
+      if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
     }
   }
 
