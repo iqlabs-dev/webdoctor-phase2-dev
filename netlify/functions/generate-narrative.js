@@ -5,7 +5,6 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-// pick your model via env if you want; default is safe/cheap
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -39,9 +38,9 @@ function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-// v5.2 narrative constraints:
-// - Overall Narrative target 3 lines, max 5
-// - Delivery Signal narratives target 2 lines, max 3
+// v5.2 constraints:
+// - Overall narrative: target 3 lines, max 5
+// - Each signal: target 2 lines, max 3
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
   if (!s) return [];
@@ -52,20 +51,23 @@ function normalizeLines(text, maxLines) {
   return lines.slice(0, maxLines);
 }
 
-function linesToText(lines) {
-  return asArray(lines).join("\n").trim();
-}
-
-// Make a minimal, deterministic “facts pack” for the model
+// -----------------------------
+// Facts pack (deterministic only)
+// -----------------------------
 function buildFactsPack(scan) {
   const metrics = safeObj(scan.metrics);
   const scores = safeObj(metrics.scores);
   const basic = safeObj(metrics.basic_checks);
   const sec = safeObj(metrics.security_headers);
 
-  const delivery = asArray(metrics.delivery_signals);
+  // Support either metrics.delivery_signals OR metrics.metrics.delivery_signals
+  const delivery =
+    asArray(metrics.delivery_signals).length
+      ? asArray(metrics.delivery_signals)
+      : asArray(safeObj(metrics.metrics).delivery_signals);
 
-  const byId = (id) => delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
+  const byId = (id) =>
+    delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
 
   const seo = byId("seo");
   const security = byId("security");
@@ -73,6 +75,12 @@ function buildFactsPack(scan) {
   const mobile = byId("mobile");
   const structure = byId("structure");
   const accessibility = byId("accessibility");
+
+  const pickReasons = (sig) =>
+    asArray(sig?.deductions)
+      .map((d) => d?.reason)
+      .filter(Boolean)
+      .slice(0, 5);
 
   return {
     report_id: scan.report_id,
@@ -107,18 +115,18 @@ function buildFactsPack(scan) {
       permissions_policy: sec.permissions_policy ?? null,
     },
     signal_deductions: {
-      performance: asArray(performance?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
-      mobile: asArray(mobile?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
-      seo: asArray(seo?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
-      security: asArray(security?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
-      structure: asArray(structure?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
-      accessibility: asArray(accessibility?.deductions).map((d) => d?.reason).filter(Boolean).slice(0, 5),
+      performance: pickReasons(performance),
+      mobile: pickReasons(mobile),
+      seo: pickReasons(seo),
+      security: pickReasons(security),
+      structure: pickReasons(structure),
+      accessibility: pickReasons(accessibility),
     },
   };
 }
 
 // -----------------------------
-// OpenAI call (Responses API style via fetch)
+// OpenAI call (Responses API w/ JSON schema)
 // -----------------------------
 async function callOpenAI({ facts }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
@@ -127,33 +135,18 @@ async function callOpenAI({ facts }) {
 
   const system = [
     "You are Λ i Q™, a strict, evidence-based diagnostic narrator for iQWEB reports.",
-    "You MUST follow these rules:",
+    "Rules:",
     "1) Do not invent facts. Only use the provided facts JSON.",
     "2) No marketing fluff. Clear, diagnostic tone.",
-    "3) Output MUST be valid JSON ONLY (no markdown).",
-    "4) Enforce line limits:",
-    "- overall narrative: max 5 lines",
-    "- each signal narrative: max 3 lines",
+    "3) Output MUST match the provided JSON schema.",
+    "4) Line limits: overall max 5 lines; each signal max 3 lines.",
   ].join("\n");
 
   const user = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "Return JSON with this shape:",
-    "{",
-    '  "overall": { "lines": ["..."] },',
-    '  "signals": {',
-    '    "performance": { "lines": ["..."] },',
-    '    "mobile": { "lines": ["..."] },',
-    '    "seo": { "lines": ["..."] },',
-    '    "security": { "lines": ["..."] },',
-    '    "structure": { "lines": ["..."] },',
-    '    "accessibility": { "lines": ["..."] }',
-    "  }",
-    "}",
-    "",
     "Guidance:",
-    "- overall: 3 lines ideal, max 5. Summarise delivery, biggest risk, and next best action.",
+    "- overall: 3 lines ideal, max 5. Summarise delivery, biggest risk, next best action.",
     "- per signal: 2 lines ideal, max 3. 1) what the score implies, 2) what to fix (if anything).",
     "- If a signal is strong with no deductions, say so briefly.",
     "",
@@ -173,19 +166,94 @@ async function callOpenAI({ facts }) {
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      // keep it tight + consistent
       temperature: 0.2,
-      max_output_tokens: 600,
+      max_output_tokens: 700,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "iqweb_narrative_v52",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["overall", "signals"],
+            properties: {
+              overall: {
+                type: "object",
+                additionalProperties: false,
+                required: ["lines"],
+                properties: {
+                  lines: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+              },
+              signals: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "performance",
+                  "mobile",
+                  "seo",
+                  "security",
+                  "structure",
+                  "accessibility",
+                ],
+                properties: {
+                  performance: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  mobile: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  seo: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  security: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  structure: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  accessibility: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     }),
   });
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
-    throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 500)}`);
+    throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 700)}`);
   }
 
   const data = await resp.json();
-  // Responses API: easiest extraction
+
+  // With json_schema, the content is still delivered as text in output_text
   const text =
     data.output_text ||
     (Array.isArray(data.output)
@@ -196,18 +264,13 @@ async function callOpenAI({ facts }) {
           .join("\n")
       : "");
 
-  if (!isNonEmptyString(text)) {
-    throw new Error("OpenAI returned empty output_text.");
-  }
+  if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output_text.");
 
-  let parsed;
   try {
-    parsed = JSON.parse(text);
-  } catch (e) {
+    return JSON.parse(text);
+  } catch {
     throw new Error("OpenAI did not return valid JSON.");
   }
-
-  return parsed;
 }
 
 // -----------------------------
@@ -226,14 +289,11 @@ function enforceConstraints(n) {
     },
   };
 
-  const overallLines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
-  out.overall.lines = overallLines;
+  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
 
   const sig = safeObj(n?.signals);
-
   const setSig = (k) => {
-    const raw = asArray(sig?.[k]?.lines).join("\n");
-    out.signals[k].lines = normalizeLines(raw, 3);
+    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
   };
 
   setSig("performance");
@@ -251,12 +311,8 @@ function enforceConstraints(n) {
 // -----------------------------
 export async function handler(event) {
   try {
-    if (event.httpMethod === "OPTIONS") {
-      return json(200, { ok: true });
-    }
-    if (event.httpMethod !== "POST") {
-      return json(405, { success: false, error: "Method not allowed" });
-    }
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
+    if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -278,11 +334,10 @@ export async function handler(event) {
 
     const facts = buildFactsPack(scan);
 
-    // Generate narrative
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    // ✅ Write to scan_results.narrative (must exist as jsonb)
+    // Write to scan_results.narrative
     const { error: upErr } = await supabase
       .from("scan_results")
       .update({ narrative })
