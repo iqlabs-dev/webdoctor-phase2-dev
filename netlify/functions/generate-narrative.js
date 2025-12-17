@@ -154,6 +154,7 @@ async function callOpenAI({ facts }) {
     JSON.stringify(facts),
   ].join("\n");
 
+  // ✅ FIX: Responses API requires content parts, not plain strings
   const resp = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -163,8 +164,8 @@ async function callOpenAI({ facts }) {
     body: JSON.stringify({
       model: OPENAI_MODEL,
       input: [
-        { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "system", content: [{ type: "input_text", text: system }] },
+        { role: "user", content: [{ type: "input_text", text: user }] },
       ],
       temperature: 0.2,
       max_output_tokens: 700,
@@ -253,7 +254,7 @@ async function callOpenAI({ facts }) {
 
   const data = await resp.json();
 
-  // With json_schema, the content is still delivered as text in output_text
+  // With json_schema, content is typically surfaced via output_text
   const text =
     data.output_text ||
     (Array.isArray(data.output)
@@ -312,7 +313,8 @@ function enforceConstraints(n) {
 export async function handler(event) {
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
+    if (event.httpMethod !== "POST")
+      return json(405, { success: false, error: "Method not allowed" });
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -329,7 +331,11 @@ export async function handler(event) {
       .single();
 
     if (scanErr || !scan) {
-      return json(404, { success: false, error: "Report not found", detail: scanErr?.message || null });
+      return json(404, {
+        success: false,
+        error: "Report not found",
+        detail: scanErr?.message || null,
+      });
     }
 
     const facts = buildFactsPack(scan);
@@ -355,6 +361,10 @@ export async function handler(event) {
     return json(200, { success: true, report_id, narrative });
   } catch (err) {
     console.error("[generate-narrative]", err);
-    return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
+    return json(500, {
+      success: false,
+      error: "Server error",
+      detail: err?.message || String(err),
+    });
   }
 }

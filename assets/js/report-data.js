@@ -367,8 +367,20 @@
   // -----------------------------
   // Narrative (display only)
   // -----------------------------
+  // ✅ If Supabase returns jsonb correctly → object
+  // ✅ If Supabase returns narrative as a string → parse it here
+  function parseJsonMaybe(v) {
+    if (v && typeof v === "object") return v;
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (!s) return {};
+      try { return JSON.parse(s); } catch { return {}; }
+    }
+    return {};
+  }
+
   function renderNarrative(narrative) {
-    const n = safeObj(narrative);
+    const n = parseJsonMaybe(narrative);
     const textEl = $("narrativeText");
     if (!textEl) return;
 
