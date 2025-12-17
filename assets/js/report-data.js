@@ -153,17 +153,25 @@
     const btn = $("btnGenerateNarrative");
     const statusEl = $("narrativeStatus");
     const textEl = $("narrativeText");
+
+    // if section isn't present in HTML, don't explode
     if (!btn || !statusEl || !textEl) return;
+
+    // prevent double-wiring if main() ever re-runs
+    if (btn.dataset.wired === "1") return;
+    btn.dataset.wired = "1";
 
     btn.addEventListener("click", async () => {
       try {
         btn.disabled = true;
         statusEl.textContent = "Generating narrative…";
+
         // call function (writes to scan_results.narrative)
         await requestNarrative(reportId);
 
         statusEl.textContent = "Saved. Refreshing report narrative…";
-        // re-fetch just to pull the saved narrative back
+
+        // re-fetch to pull the saved narrative back
         const fresh = await fetchReportData(reportId);
         renderNarrative(fresh?.narrative);
 
@@ -340,9 +348,7 @@
       const score = asInt(sig?.score, 0);
 
       let obs = asArray(sig?.observations);
-      if (!obs.length) {
-        obs = evidenceToObs(sig?.evidence);
-      }
+      if (!obs.length) obs = evidenceToObs(sig?.evidence);
 
       const deds = asArray(sig?.deductions);
       const issues = asArray(sig?.issues);
@@ -629,11 +635,12 @@
       renderFindings(data.findings);
       renderFixPlan(data.fix_plan);
 
-      // ✅ wire button AFTER elements exist + we have reportId
-      wireGenerateNarrative(reportId);
+      // ✅ SHOW report first
+      if (loaderSection) loaderSection.style.display = "none";
+      if (reportRoot) reportRoot.style.display = "block";
 
-      loaderSection.style.display = "none";
-      reportRoot.style.display = "block";
+      // ✅ THEN wire the button (after report is visible/stable)
+      wireGenerateNarrative(reportId);
     } catch (err) {
       console.error(err);
       statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
@@ -642,38 +649,3 @@
 
   document.addEventListener("DOMContentLoaded", main);
 })();
-function wireGenerateNarrative(reportId) {
-  const btn = document.getElementById("btnGenerateNarrative");
-  const status = document.getElementById("narrativeStatus");
-
-  if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    try {
-      btn.disabled = true;
-      if (status) status.textContent = "Generating narrative…";
-
-      const res = await fetch("/.netlify/functions/generate-narrative", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report_id: reportId }),
-      });
-
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch {}
-
-      if (!res.ok || data?.success === false) {
-        throw new Error(data?.error || text || "Narrative generation failed");
-      }
-
-      if (status) status.textContent = "Narrative generated. Reloading…";
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-      if (status) status.textContent = err.message || "Narrative failed";
-    } finally {
-      btn.disabled = false;
-    }
-  });
-}
