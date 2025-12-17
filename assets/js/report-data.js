@@ -125,66 +125,6 @@
   }
 
   // -----------------------------
-  // Narrative generator call
-  // -----------------------------
-  async function requestNarrative(reportId) {
-    const res = await fetch("/.netlify/functions/generate-narrative", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: reportId }),
-    });
-
-    const text = await res.text().catch(() => "");
-    let data = null;
-    try { data = JSON.parse(text); } catch { /* ignore */ }
-
-    if (!res.ok) {
-      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    if (data && data.success === false) {
-      const msg = data?.detail || data?.error || "Unknown error";
-      throw new Error(msg);
-    }
-    return data;
-  }
-
-  function wireGenerateNarrative(reportId) {
-    const btn = $("btnGenerateNarrative");
-    const statusEl = $("narrativeStatus");
-    const textEl = $("narrativeText");
-
-    // if section isn't present in HTML, don't explode
-    if (!btn || !statusEl || !textEl) return;
-
-    // prevent double-wiring if main() ever re-runs
-    if (btn.dataset.wired === "1") return;
-    btn.dataset.wired = "1";
-
-    btn.addEventListener("click", async () => {
-      try {
-        btn.disabled = true;
-        statusEl.textContent = "Generating narrative…";
-
-        // call function (writes to scan_results.narrative)
-        await requestNarrative(reportId);
-
-        statusEl.textContent = "Saved. Refreshing report narrative…";
-
-        // re-fetch to pull the saved narrative back
-        const fresh = await fetchReportData(reportId);
-        renderNarrative(fresh?.narrative);
-
-        statusEl.textContent = "";
-      } catch (err) {
-        statusEl.textContent = `Narrative failed: ${err?.message || String(err)}`;
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-
-  // -----------------------------
   // Overall
   // -----------------------------
   function renderOverall(scores) {
@@ -217,21 +157,18 @@
     const issues = asArray(signal?.issues);
     const deds = asArray(signal?.deductions);
 
-    const line1 = `${verdict(score)} (${score}).`;
-
-    let line2 = "";
     if (penalty > 0) {
       const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
       const reason = first ? first.reason.trim() : "Explicit deductions applied from observed checks.";
-      line2 = `Deductions: -${penalty}. ${reason}`;
-    } else if (issues.length > 0) {
-      const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
-      line2 = first ? `Issue detected: ${first.title.trim()}` : "Issues detected in deterministic checks.";
-    } else {
-      line2 = "No penalties. Deterministic checks passed based on observed signals.";
+      return { line2: `Deductions: -${penalty}. ${reason}` };
     }
 
-    return { line1, line2 };
+    if (issues.length > 0) {
+      const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
+      return { line2: first ? `Issue detected: ${first.title.trim()}` : "Issues detected in deterministic checks." };
+    }
+
+    return { line2: "No penalties. Deterministic checks passed based on observed signals." };
   }
 
   // -----------------------------
@@ -355,14 +292,14 @@
 
       const obsRows = obs.length
         ? obs.map(o => {
-            const k = escapeHtml(o?.label ?? "Observation");
-            const v = escapeHtml(String(o?.value ?? "null"));
-            const src = escapeHtml(String(o?.source ?? ""));
-            return `<div style="display:flex;justify-content:space-between;gap:10px;">
+          const k = escapeHtml(o?.label ?? "Observation");
+          const v = escapeHtml(String(o?.value ?? "null"));
+          const src = escapeHtml(String(o?.source ?? ""));
+          return `<div style="display:flex;justify-content:space-between;gap:10px;">
               <span style="color:var(--muted);">${k}</span>
               <span title="${src}" style="font-weight:750;">${v}</span>
             </div>`;
-          }).join("")
+        }).join("")
         : `<div class="small-note">No observations recorded.</div>`;
 
       const dedRows = deds.length
@@ -381,11 +318,11 @@
 
       const issueBlocks = issues.length
         ? issues.map(i => {
-            const title = escapeHtml(i?.title ?? "Issue");
-            const sev = escapeHtml(i?.severity ?? "low");
-            const impact = escapeHtml(i?.impact ?? "—");
-            const ev = i?.evidence ?? {};
-            return `
+          const title = escapeHtml(i?.title ?? "Issue");
+          const sev = escapeHtml(i?.severity ?? "low");
+          const impact = escapeHtml(i?.impact ?? "—");
+          const ev = i?.evidence ?? {};
+          return `
               <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
                 <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
                   <div style="font-weight:760;">${title}</div>
@@ -399,7 +336,7 @@
                 <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
               </div>
             `;
-          }).join("")
+        }).join("")
         : `<div class="small-note">No issues detected for this signal.</div>`;
 
       return `
@@ -428,41 +365,36 @@
   }
 
   // -----------------------------
-  // Narrative (optional)
-  // Supports BOTH:
-  // - legacy: { executive_lead: "..." }
-  // - v5.2:   { overall: { lines: [...] }, signals: {...} }
+  // Narrative (display only)
   // -----------------------------
   function renderNarrative(narrative) {
     const n = safeObj(narrative);
-
     const textEl = $("narrativeText");
-    const statusEl = $("narrativeStatus");
-    if (!textEl || !statusEl) return;
+    if (!textEl) return;
 
     // legacy
     const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
     if (lead) {
       textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
-      statusEl.textContent = "";
       return;
     }
 
     // v5.2
-    const overallLines = asArray(n?.overall?.lines).map(l => String(l || "").trim()).filter(Boolean);
+    const overallLines = asArray(n?.overall?.lines)
+      .map(l => String(l || "").trim())
+      .filter(Boolean);
+
     if (overallLines.length) {
       textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
-      statusEl.textContent = "";
       return;
     }
 
     // fallback
     textEl.textContent = "Narrative not generated yet.";
-    statusEl.textContent = "Click “Generate Narrative” to create the Λ i Q narrative for this report.";
   }
 
   // -----------------------------
-  // Key Metrics (unchanged)
+  // Key Metrics
   // -----------------------------
   function renderMetrics(keyMetrics) {
     const root = $("metricsRoot");
@@ -581,10 +513,10 @@
 
       const items = actions.length
         ? actions.map(a => {
-            const actionText = escapeHtml(a?.action ?? "Action");
-            const fid = escapeHtml(a?.finding_id ?? "");
-            return `<li><strong style="color:var(--text);">${actionText}</strong>${fid ? ` <span style="color:var(--muted2);">(${fid})</span>` : ""}</li>`;
-          }).join("")
+          const actionText = escapeHtml(a?.action ?? "Action");
+          const fid = escapeHtml(a?.finding_id ?? "");
+          return `<li><strong style="color:var(--text);">${actionText}</strong>${fid ? ` <span style="color:var(--muted2);">(${fid})</span>` : ""}</li>`;
+        }).join("")
         : `<li><strong style="color:var(--text);">No actions listed for this phase yet.</strong></li>`;
 
       const el = document.createElement("div");
@@ -635,12 +567,8 @@
       renderFindings(data.findings);
       renderFixPlan(data.fix_plan);
 
-      // ✅ SHOW report first
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
-
-      // ✅ THEN wire the button (after report is visible/stable)
-      wireGenerateNarrative(reportId);
     } catch (err) {
       console.error(err);
       statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
