@@ -372,37 +372,33 @@
   // -----------------------------
   // Narrative (optional) — UPDATED for v5.2 + legacy
   // -----------------------------
-  function renderNarrative(narrative) {
-    const textEl = $("narrativeText");
-    const statusEl = $("narrativeStatus");
-    if (!textEl || !statusEl) return;
+function renderNarrative(narrative) {
+  const n = safeObj(narrative);
 
-    const n = safeObj(narrative);
+  const textEl = $("narrativeText");
+  const statusEl = $("narrativeStatus");
+  if (!textEl || !statusEl) return;
 
-    // v5.2: overall.lines (array of lines)
-    const overallLines = asArray(n?.overall?.lines).map(s => String(s || "").trim()).filter(Boolean);
+  // v5.2: overall.lines
+  const overallLines = asArray(n?.overall?.lines).filter(l => typeof l === "string" && l.trim());
 
-    if (overallLines.length) {
-      textEl.innerHTML = overallLines.map(l => escapeHtml(l)).join("<br>");
-      statusEl.textContent = "";
-      return;
-    }
-
-    // Legacy fallback (older reports)
-    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
-    if (lead) {
-      textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
-      statusEl.textContent = "";
-      return;
-    }
-
-    // Optional narrative: show a clean non-blocking message
-    const legacyReason = typeof n?.status?.reason === "string" ? n.status.reason : "";
-    textEl.textContent = "Narrative not generated for this scan.";
-    statusEl.textContent = legacyReason
-      ? `Signal Contract: narrative optional. (${legacyReason})`
-      : "Signal Contract: narrative optional.";
+  if (overallLines.length) {
+    textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
+    statusEl.textContent = "";
+    return;
   }
+
+  // Backward compatibility
+  if (typeof n.executive_lead === "string" && n.executive_lead.trim()) {
+    textEl.innerHTML = escapeHtml(n.executive_lead).replaceAll("\n", "<br>");
+    statusEl.textContent = "";
+    return;
+  }
+
+  textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
+  statusEl.textContent = "Signal Contract: narrative optional.";
+}
+
 
   // -----------------------------
   // Key Metrics (unchanged)
