@@ -6,7 +6,7 @@ import { supabase } from "./supabaseClient.js";
 
 console.log("DASHBOARD JS v3.3-FULLFIX-scan_results+latest_card");
 
-// ------- PLAN → STRIPE PRICE MAPPING (TEST) -------
+// ------- PLAN → STRIPE PRICE MAPPING (TESTS) -------
 const PLAN_PRICE_IDS = {
   insight: "price_1SY1olHrtPY0HwDpXIy1WPH7",
   intelligence: "price_1SY1pdHrtPY0HwDpJP5hYLF2",
@@ -248,9 +248,11 @@ function updateLatestScanCard(row) {
     report_id: row.report_id || null,
   };
 
-  if (elView && (row.report_id || row.id)) {
-    const rid = row.report_id || row.id;
-    elView.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
+  if (elView && row.report_id) {
+    elView.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
+  } else if (elView) {
+    elView.href = "#";
+    elView.title = "Report ID not available yet.";
   }
 }
 
@@ -339,8 +341,11 @@ async function loadScanHistory() {
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
       viewBtn.onclick = () => {
-        const rid = row.report_id || row.id;
-        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
+        if (!row.report_id) {
+          alert("Report ID not available yet. Please refresh in a moment.");
+          return;
+        }
+        window.location.href = `/report.html?report_id=${encodeURIComponent(row.report_id)}`;
       };
       tdActions.appendChild(viewBtn);
 
@@ -483,11 +488,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       }
 
-      const rid = reportId || scanId;
-      if (rid) {
-        window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
+      if (reportId) {
+        window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
       } else {
-        statusEl.textContent = "Scan completed, but no report id returned.";
+        statusEl.textContent =
+          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
       }
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
