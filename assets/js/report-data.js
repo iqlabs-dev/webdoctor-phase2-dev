@@ -370,27 +370,37 @@
   }
 
   // -----------------------------
-  // Narrative (optional)
+  // Narrative (optional) — UPDATED for v5.2 + legacy
   // -----------------------------
   function renderNarrative(narrative) {
-    const n = safeObj(narrative);
-    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
-    const status = safeObj(n.status);
-
     const textEl = $("narrativeText");
     const statusEl = $("narrativeStatus");
     if (!textEl || !statusEl) return;
 
+    const n = safeObj(narrative);
+
+    // v5.2: overall.lines (array of lines)
+    const overallLines = asArray(n?.overall?.lines).map(s => String(s || "").trim()).filter(Boolean);
+
+    if (overallLines.length) {
+      textEl.innerHTML = overallLines.map(l => escapeHtml(l)).join("<br>");
+      statusEl.textContent = "";
+      return;
+    }
+
+    // Legacy fallback (older reports)
+    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
     if (lead) {
       textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
       statusEl.textContent = "";
       return;
     }
 
-    textEl.textContent = "Narrative not generated — insufficient signal context at this stage.";
-    const reason = typeof status.reason === "string" ? status.reason : "";
-    statusEl.textContent = reason
-      ? `Signal Contract: narrative optional. (${reason})`
+    // Optional narrative: show a clean non-blocking message
+    const legacyReason = typeof n?.status?.reason === "string" ? n.status.reason : "";
+    textEl.textContent = "Narrative not generated for this scan.";
+    statusEl.textContent = legacyReason
+      ? `Signal Contract: narrative optional. (${legacyReason})`
       : "Signal Contract: narrative optional.";
   }
 
@@ -530,21 +540,22 @@
       root.appendChild(el);
     }
   }
-// ------------------------------
-// Evidence display helpers (integrity-critical)
-// ------------------------------
-function isMissing(v) {
-  return v === null || v === undefined || (typeof v === "number" && !Number.isFinite(v));
-}
 
-function showValue(v) {
-  return isMissing(v) ? "—" : String(v);
-}
+  // ------------------------------
+  // Evidence display helpers (integrity-critical)
+  // ------------------------------
+  function isMissing(v) {
+    return v === null || v === undefined || (typeof v === "number" && !Number.isFinite(v));
+  }
 
-function showPercent01(v) {
-  if (isMissing(v)) return "—";
-  return `${Math.round(Number(v) * 100)}%`;
-}
+  function showValue(v) {
+    return isMissing(v) ? "—" : String(v);
+  }
+
+  function showPercent01(v) {
+    if (isMissing(v)) return "—";
+    return `${Math.round(Number(v) * 100)}%`;
+  }
 
   // -----------------------------
   // Main
