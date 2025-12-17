@@ -1,5 +1,5 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.4
+// iQWEB Report UI — Contract v1.0.4 (Hardened)
 // - Six-card grid (3×2 desktop; responsive fallback)
 // - Score shown ONCE (right side only)
 // - No evidence expanders inside cards
@@ -402,16 +402,14 @@
   function renderNarrative(narrative) {
     const n = parseJsonMaybe(narrative);
     const textEl = $("narrativeText");
-    if (!textEl) return;
+    if (!textEl) return false;
 
-    // legacy
     const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
     if (lead) {
       textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
       return true;
     }
 
-    // v5.2
     const overallLines = asArray(n?.overall?.lines)
       .map(l => String(l || "").trim())
       .filter(Boolean);
@@ -425,20 +423,44 @@
     return false;
   }
 
+  let narrativeInFlight = false;
+
   async function ensureNarrative(reportId, currentNarrative) {
-    // if narrative already present, do nothing
+    const textEl = $("narrativeText");
+    if (!textEl) return;
+
+    // already present → done
     if (renderNarrative(currentNarrative)) return;
 
-    const textEl = $("narrativeText");
-    if (textEl) textEl.textContent = "Generating narrative…";
+    // prevent repeats this session (per report)
+    const key = `iqweb_narrative_requested_${reportId}`;
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+
+    if (narrativeInFlight) return;
+    narrativeInFlight = true;
+
+    textEl.textContent = "Generating narrative…";
 
     try {
       const out = await generateNarrative(reportId);
-      // out.narrative should be returned by your function
-      renderNarrative(out?.narrative);
+
+      // Prefer immediate return, but harden for edge-cases:
+      if (out?.narrative && renderNarrative(out.narrative)) {
+        narrativeInFlight = false;
+        return;
+      }
+
+      // If the function saved to DB but didn’t return narrative (or returned empty), re-fetch once
+      const refreshed = await fetchReportData(reportId);
+      if (!renderNarrative(refreshed?.narrative)) {
+        textEl.textContent = "Narrative generated but not available yet. Refresh in a moment.";
+      }
     } catch (e) {
       console.error(e);
-      if (textEl) textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
+      textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
+    } finally {
+      narrativeInFlight = false;
     }
   }
 
@@ -612,7 +634,7 @@
       renderSignals(data.delivery_signals);
       renderSignalEvidence(data.delivery_signals);
 
-      // Render narrative immediately if present; otherwise auto-generate (non-blocking)
+      // render narrative if present; otherwise placeholder
       renderNarrative(data.narrative);
 
       renderMetrics(data.key_metrics);
@@ -622,7 +644,7 @@
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
-      // Run AFTER the report is visible:
+      // non-blocking auto-generate AFTER report visible
       ensureNarrative(header.report_id || reportId, data.narrative);
     } catch (err) {
       console.error(err);
