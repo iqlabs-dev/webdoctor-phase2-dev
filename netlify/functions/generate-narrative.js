@@ -60,7 +60,6 @@ function buildFactsPack(scan) {
   const basic = safeObj(metrics.basic_checks);
   const sec = safeObj(metrics.security_headers);
 
-  // Support either metrics.delivery_signals OR metrics.metrics.delivery_signals
   const delivery =
     asArray(metrics.delivery_signals).length
       ? asArray(metrics.delivery_signals)
@@ -126,8 +125,41 @@ function buildFactsPack(scan) {
 }
 
 // -----------------------------
+// Extract text from Responses API result (robust)
+// -----------------------------
+function extractResponseText(data) {
+  // Sometimes present:
+  if (isNonEmptyString(data?.output_text)) return data.output_text;
+
+  // Otherwise pull from output[].content[].text
+  const output = asArray(data?.output);
+  const parts = [];
+
+  for (const o of output) {
+    const content = asArray(o?.content);
+    for (const c of content) {
+      // Common patterns:
+      if (isNonEmptyString(c?.text)) parts.push(c.text);
+
+      // Occasionally nested
+      if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
+
+      // If the API ever returns parsed json (rare), stringify it
+      if (c?.parsed && typeof c.parsed === "object") {
+        try { parts.push(JSON.stringify(c.parsed)); } catch {}
+      }
+
+      // Capture refusals for debugging (won't happen often)
+      if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
+    }
+  }
+
+  const joined = parts.join("\n").trim();
+  return joined;
+}
+
+// -----------------------------
 // OpenAI call (Responses API with JSON schema)
-// IMPORTANT: Responses API uses `text: { format: ... }` (not `response_format`)
 // -----------------------------
 async function callOpenAI({ facts }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
@@ -167,7 +199,6 @@ async function callOpenAI({ facts }) {
       input,
       temperature: 0.2,
       max_output_tokens: 700,
-      // Responses API structured output config:
       text: {
         format: {
           type: "json_schema",
@@ -250,9 +281,19 @@ async function callOpenAI({ facts }) {
 
   const data = await resp.json();
 
-  // Responses API: structured output still comes back in output_text.
-  const text = data.output_text || "";
-  if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output_text.");
+  const text = extractResponseText(data);
+  if (!isNonEmptyString(text)) {
+    // Give you something actionable in the Netlify logs
+    const dbg = {
+      keys: Object.keys(data || {}),
+      has_output_text: !!data?.output_text,
+      output_len: Array.isArray(data?.output) ? data.output.length : null,
+      first_output_keys: data?.output?.[0] ? Object.keys(data.output[0]) : null,
+      first_content: data?.output?.[0]?.content?.[0] || null,
+    };
+    console.error("[generate-narrative] Empty text; debug:", dbg);
+    throw new Error("OpenAI returned empty output_text.");
+  }
 
   try {
     return JSON.parse(text);
