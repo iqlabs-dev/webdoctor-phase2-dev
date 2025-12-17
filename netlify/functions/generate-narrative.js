@@ -6,7 +6,7 @@
 // - WRITE ONLY to scan_results.narrative
 // - NEVER fetch HTML
 // - NEVER recompute scores
-// - NEVER exceed narrative limits (validated in code)
+// - NEVER exceed narrative limits (enforced in code; auto-trim, never 500)
 // - Safe to re-run (idempotent)
 
 import { createClient } from "@supabase/supabase-js";
@@ -26,19 +26,47 @@ function safeObj(o) {
   return o && typeof o === "object" ? o : {};
 }
 
-function num(n) {
-  return typeof n === "number" && Number.isFinite(n) ? n : null;
+function safeStr(v) {
+  if (v === null || v === undefined) return "";
+  return typeof v === "string" ? v : String(v);
 }
 
-function lineCount(text) {
-  if (!text || typeof text !== "string") return 0;
-  return text.split(/\r?\n/).filter(Boolean).length;
+function splitLines(text) {
+  return safeStr(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
-function assertLines(text, max, label) {
-  if (lineCount(text) > max) {
-    throw new Error(`${label} exceeds max ${max} lines`);
-  }
+function joinLines(lines) {
+  return (Array.isArray(lines) ? lines : [])
+    .map((l) => safeStr(l).trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+// Hard enforcement: never exceed max lines
+function clampLines(text, maxLines) {
+  const lines = splitLines(text);
+  if (lines.length <= maxLines) return joinLines(lines);
+  return joinLines(lines.slice(0, maxLines));
+}
+
+// Ensure arrays are arrays of short strings (basic hygiene)
+function clampStringArray(arr, maxItems = 12) {
+  const a = Array.isArray(arr) ? arr : [];
+  return a
+    .map((x) => safeStr(x).trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+// Provide a safe fallback sentence if missing
+function fallbackIfEmpty(text, fallback) {
+  const t = safeStr(text).trim();
+  return t ? t : fallback;
 }
 
 // ----------------------------
@@ -50,12 +78,16 @@ function buildFacts(scan) {
   return {
     url: scan.url,
     report_id: scan.report_id,
+    created_at: scan.created_at ?? null,
 
     scores: safeObj(m.scores),
     basic_checks: safeObj(m.basic_checks),
     security_headers: safeObj(m.security_headers),
     human_signals: safeObj(m.human_signals),
     explanations: safeObj(m.explanations),
+
+    // If you store delivery_signals in metrics, include it (optional, future-proof)
+    delivery_signals: Array.isArray(m.delivery_signals) ? m.delivery_signals : [],
   };
 }
 
@@ -84,7 +116,7 @@ async function openaiJson({ system, user }) {
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
-    throw new Error(`OpenAI ${resp.status}: ${t.slice(0, 200)}`);
+    throw new Error(`OpenAI ${resp.status}: ${t.slice(0, 240)}`);
   }
 
   const data = await resp.json();
@@ -108,11 +140,11 @@ STRICT RULES:
 - Output VALID JSON only.
 
 NARRATIVE LIMITS (HARD):
-- overall_summary: max 5 lines
-- each delivery signal comment: max 3 lines
-- Prefer fewer lines when possible.
+- overall_summary: target 3 lines, max 5 lines
+- each delivery signal comment: target 2 lines, max 3 lines
+- No section may exceed its maximum under any condition.
 
-Required keys:
+Required keys (exact):
 overall_summary
 performance_comment
 mobile_comment
@@ -131,27 +163,77 @@ FACTS:
 ${JSON.stringify(facts, null, 2)}
 
 TASK:
-Write an executive narrative consistent with deterministic scores.
-- Overall summary: target 3 lines (max 5)
-- Signal comments: target 2 lines (max 3)
-- If a score or evidence is missing, say "Not available from this scan."
+Write an executive narrative consistent with deterministic scores and observed evidence.
+- Overall summary: target 3 lines (max 5).
+- Signal comments: target 2 lines (max 3).
+- If a score or evidence is missing, say: "Not available from this scan."
+- Do not repeat the same numbers in every line.
 `.trim();
 
-  const narrative = await openaiJson({ system, user });
+  const raw = await openaiJson({ system, user });
 
   // ----------------------------
   // Enforce hard limits (code)
+  // - NEVER throw due to length
+  // - Always store a valid narrative object
   // ----------------------------
-  assertLines(narrative.overall_summary, 5, "overall_summary");
+  const narrative = safeObj(raw);
 
-  assertLines(narrative.performance_comment, 3, "performance_comment");
-  assertLines(narrative.mobile_comment, 3, "mobile_comment");
-  assertLines(narrative.seo_comment, 3, "seo_comment");
-  assertLines(narrative.security_comment, 3, "security_comment");
-  assertLines(narrative.structure_comment, 3, "structure_comment");
-  assertLines(narrative.accessibility_comment, 3, "accessibility_comment");
+  // Required text fields with strict caps
+  const overall_summary = clampLines(
+    fallbackIfEmpty(narrative.overall_summary, "Not available from this scan."),
+    5
+  );
 
-  return narrative;
+  const performance_comment = clampLines(
+    fallbackIfEmpty(narrative.performance_comment, "Not available from this scan."),
+    3
+  );
+
+  const mobile_comment = clampLines(
+    fallbackIfEmpty(narrative.mobile_comment, "Not available from this scan."),
+    3
+  );
+
+  const seo_comment = clampLines(
+    fallbackIfEmpty(narrative.seo_comment, "Not available from this scan."),
+    3
+  );
+
+  const security_comment = clampLines(
+    fallbackIfEmpty(narrative.security_comment, "Not available from this scan."),
+    3
+  );
+
+  const structure_comment = clampLines(
+    fallbackIfEmpty(narrative.structure_comment, "Not available from this scan."),
+    3
+  );
+
+  const accessibility_comment = clampLines(
+    fallbackIfEmpty(narrative.accessibility_comment, "Not available from this scan."),
+    3
+  );
+
+  // Arrays (keep tidy; not part of your line-lock but helps consistency)
+  const key_insights = clampStringArray(narrative.key_insights, 10);
+  const top_issues = clampStringArray(narrative.top_issues, 10);
+  const fix_sequence = clampStringArray(narrative.fix_sequence, 10);
+  const final_notes = clampStringArray(narrative.final_notes, 10);
+
+  return {
+    overall_summary,
+    performance_comment,
+    mobile_comment,
+    seo_comment,
+    security_comment,
+    structure_comment,
+    accessibility_comment,
+    key_insights,
+    top_issues,
+    fix_sequence,
+    final_notes,
+  };
 }
 
 // ----------------------------
@@ -170,7 +252,7 @@ export async function handler(event) {
 
     const { data: scan, error } = await supabase
       .from("scan_results")
-      .select("id, url, report_id, metrics")
+      .select("id, url, report_id, created_at, metrics")
       .eq("report_id", report_id)
       .single();
 
@@ -179,7 +261,27 @@ export async function handler(event) {
     }
 
     const facts = buildFacts(scan);
-    const narrative = await generateNarrative(facts);
+
+    let narrative;
+    try {
+      narrative = await generateNarrative(facts);
+    } catch (aiErr) {
+      // Fail soft: NEVER block the report from being usable
+      narrative = {
+        overall_summary: "Not available from this scan.",
+        performance_comment: "Not available from this scan.",
+        mobile_comment: "Not available from this scan.",
+        seo_comment: "Not available from this scan.",
+        security_comment: "Not available from this scan.",
+        structure_comment: "Not available from this scan.",
+        accessibility_comment: "Not available from this scan.",
+        key_insights: [],
+        top_issues: [],
+        fix_sequence: [],
+        final_notes: ["Narrative generation failed for this scan."],
+      };
+      console.warn("[generate-narrative] AI error:", String(aiErr));
+    }
 
     const { error: updErr } = await supabase
       .from("scan_results")
@@ -192,7 +294,7 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ success: true, report_id }),
+      body: JSON.stringify({ success: true, report_id, narrative_generated: true }),
     };
   } catch (err) {
     return {
