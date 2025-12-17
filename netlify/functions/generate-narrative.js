@@ -126,14 +126,15 @@ function buildFactsPack(scan) {
 }
 
 // -----------------------------
-// OpenAI call (Responses API w/ JSON schema)
+// OpenAI call (Responses API with JSON schema)
+// IMPORTANT: Responses API uses `text: { format: ... }` (not `response_format`)
 // -----------------------------
 async function callOpenAI({ facts }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
   }
 
-  const system = [
+  const instructions = [
     "You are Λ i Q™, a strict, evidence-based diagnostic narrator for iQWEB reports.",
     "Rules:",
     "1) Do not invent facts. Only use the provided facts JSON.",
@@ -142,7 +143,7 @@ async function callOpenAI({ facts }) {
     "4) Line limits: overall max 5 lines; each signal max 3 lines.",
   ].join("\n");
 
-  const user = [
+  const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
     "Guidance:",
@@ -154,7 +155,6 @@ async function callOpenAI({ facts }) {
     JSON.stringify(facts),
   ].join("\n");
 
-  // ✅ FIX: Responses API requires content parts, not plain strings
   const resp = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -163,15 +163,14 @@ async function callOpenAI({ facts }) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      input: [
-        { role: "system", content: [{ type: "input_text", text: system }] },
-        { role: "user", content: [{ type: "input_text", text: user }] },
-      ],
+      instructions,
+      input,
       temperature: 0.2,
       max_output_tokens: 700,
-      response_format: {
-        type: "json_schema",
-        json_schema: {
+      // Responses API structured output config:
+      text: {
+        format: {
+          type: "json_schema",
           name: "iqweb_narrative_v52",
           strict: true,
           schema: {
@@ -184,10 +183,7 @@ async function callOpenAI({ facts }) {
                 additionalProperties: false,
                 required: ["lines"],
                 properties: {
-                  lines: {
-                    type: "array",
-                    items: { type: "string" },
-                  },
+                  lines: { type: "array", items: { type: "string" } },
                 },
               },
               signals: {
@@ -249,22 +245,13 @@ async function callOpenAI({ facts }) {
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
-    throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 700)}`);
+    throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 900)}`);
   }
 
   const data = await resp.json();
 
-  // With json_schema, content is typically surfaced via output_text
-  const text =
-    data.output_text ||
-    (Array.isArray(data.output)
-      ? data.output
-          .flatMap((o) => o.content || [])
-          .map((c) => c.text)
-          .filter(Boolean)
-          .join("\n")
-      : "");
-
+  // Responses API: structured output still comes back in output_text.
+  const text = data.output_text || "";
   if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output_text.");
 
   try {
@@ -313,8 +300,7 @@ function enforceConstraints(n) {
 export async function handler(event) {
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST")
-      return json(405, { success: false, error: "Method not allowed" });
+    if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -323,7 +309,6 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // Pull scan row
     const { data: scan, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall")
@@ -331,11 +316,7 @@ export async function handler(event) {
       .single();
 
     if (scanErr || !scan) {
-      return json(404, {
-        success: false,
-        error: "Report not found",
-        detail: scanErr?.message || null,
-      });
+      return json(404, { success: false, error: "Report not found", detail: scanErr?.message || null });
     }
 
     const facts = buildFactsPack(scan);
@@ -343,7 +324,6 @@ export async function handler(event) {
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    // Write to scan_results.narrative
     const { error: upErr } = await supabase
       .from("scan_results")
       .update({ narrative })
@@ -361,10 +341,6 @@ export async function handler(event) {
     return json(200, { success: true, report_id, narrative });
   } catch (err) {
     console.error("[generate-narrative]", err);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: err?.message || String(err),
-    });
+    return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
   }
 }
