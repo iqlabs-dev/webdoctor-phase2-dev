@@ -14,7 +14,6 @@ function json(statusCode, body) {
     statusCode,
     headers: {
       "Content-Type": "application/json",
-      // Helpful for local/dev + avoids “mystery” CORS pain
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -98,7 +97,9 @@ function deductionsToIssues(signal) {
   if (!deds.length) return [];
 
   const missing = deds.find(
-    (d) => isNonEmptyString(d?.reason) && /missing|required|not found|not observed|not confirmed/i.test(d.reason)
+    (d) =>
+      isNonEmptyString(d?.reason) &&
+      /missing|required|not found|not observed|not confirmed/i.test(d.reason)
   );
 
   if (!missing) return [];
@@ -148,47 +149,53 @@ function normaliseSignal(sig) {
 // -----------------------------
 export async function handler(event) {
   try {
-    // Preflight (safe)
-    if (event.httpMethod === "OPTIONS") {
-      return json(200, { ok: true });
-    }
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
-    const reportParam = (event.queryStringParameters?.report_id ||
-      event.queryStringParameters?.id ||
-      "").trim();
+    const reportParam = String(
+      event.queryStringParameters?.report_id ||
+        event.queryStringParameters?.id ||
+        ""
+    ).trim();
 
-    if (!reportParam) {
-      return json(400, { success: false, error: "Missing report_id" });
-    }
+    if (!reportParam) return json(400, { success: false, error: "Missing report_id" });
 
-    // Support both:
-    // - Option A: report_id=WEB-....
-    // - Dev convenience: report_id=345 (numeric) treated as scan_results.id
     const byNumericId = isNumericString(reportParam);
 
+    // IMPORTANT:
+    // - Do NOT use .single() here, because it errors on 0 rows AND on duplicate report_id rows.
+    // - Instead: fetch array, order desc, take first.
     let q = supabase
       .from("scan_results")
-      // ✅ narrative is a TOP-LEVEL column, so we MUST select it here
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative");
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
+      .order("created_at", { ascending: false })
+      .limit(1);
 
     q = byNumericId ? q.eq("id", Number(reportParam)) : q.eq("report_id", reportParam);
 
-    const { data: scan, error: scanErr } = await q.single();
+    const { data: rows, error: scanErr } = await q;
 
-    if (scanErr || !scan) {
-      return json(404, { success: false, error: "Report not found" });
+    if (scanErr) {
+      // Don’t mask real issues (wrong env vars, wrong project, missing columns, etc.)
+      return json(500, {
+        success: false,
+        error: "Supabase query failed",
+        detail: scanErr.message || String(scanErr),
+        hint:
+          "If this suddenly started after deploy, check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
+      });
     }
+
+    const scan = rows?.[0] || null;
+    if (!scan) return json(404, { success: false, error: "Report not found" });
 
     const metrics = safeObj(scan.metrics);
 
-    // Prefer signals saved by run-scan
     const rawSignals = asArray(metrics.delivery_signals).length
       ? metrics.delivery_signals
       : asArray(metrics?.metrics?.delivery_signals);
 
     const delivery_signals = asArray(rawSignals).map(normaliseSignal);
 
-    // Scores: prefer metrics.scores, else derive from delivery_signals
     const rawScores = safeObj(metrics.scores);
     const scores = Object.keys(rawScores).length
       ? rawScores
@@ -237,7 +244,6 @@ export async function handler(event) {
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // ✅ Narrative comes from scan_results.narrative (NOT metrics.narrative)
     const narrative = safeObj(scan.narrative);
 
     return json(200, {
