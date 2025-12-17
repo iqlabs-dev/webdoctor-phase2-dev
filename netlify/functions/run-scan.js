@@ -7,6 +7,22 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ---------------------------------------------
+// Response helpers (CORS-safe)
+// ---------------------------------------------
+function json(statusCode, body) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+    },
+    body: JSON.stringify(body),
+  };
+}
+
+// ---------------------------------------------
 // Helpers
 // ---------------------------------------------
 function normaliseUrl(raw) {
@@ -145,12 +161,11 @@ function basicHtmlSignals(html, pageUrl) {
   );
 
   const imgCount = (html.match(/<img\b/gi) || []).length;
-  // counts alt="" too (present-but-empty still counts as “has attribute”)
   const imgAltCount =
     (html.match(/<img\b[^>]*\balt\s*=\s*(["'][\s\S]*?["']|[^\s>]+)/gi) || []).length;
 
   const inlineScriptCount = (html.match(/<script\b(?![^>]*\bsrc=)[^>]*>/gi) || []).length;
-  const scriptHeadCount = (html.match(/<head[\s\S]*?<script[\s\S]*?<\/script>/i) || []).length;
+  const headScriptBlockPresent = /<head[\s\S]*?<script[\s\S]*?<\/script>/i.test(html);
 
   const htmlBytes = new TextEncoder().encode(html || "").length;
 
@@ -197,9 +212,7 @@ function basicHtmlSignals(html, pageUrl) {
 
   const imgAltRatio = imgCount > 0 ? imgAltCount / imgCount : null;
 
-  // -----------------------------
   // Accessibility foundations (deterministic)
-  // -----------------------------
   const htmlLangPresent = /<html[^>]+lang=["'][^"']+["']/i.test(html);
 
   const formControlsCount =
@@ -247,12 +260,12 @@ function basicHtmlSignals(html, pageUrl) {
 
     html_bytes: htmlBytes,
     inline_script_count: inlineScriptCount,
-    head_script_block_present: scriptHeadCount > 0,
+    head_script_block_present: headScriptBlockPresent,
 
     copyright_year_min: yearMin,
     copyright_year_max: yearMax,
 
-    // A11y expanded (new)
+    // A11y expanded
     html_lang_present: htmlLangPresent,
     form_controls_count: formControlsCount,
     labels_with_for_count: labelsWithForCount,
@@ -454,14 +467,11 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 }
 
 // ---------------------------------------------
-// Security scoring (HTTPS baseline + evidence-only hardening)
+// Security scoring
 // ---------------------------------------------
 function scoreSecurityFromHeaders(headers) {
   const base_score = 100;
 
-  // Evidence-based weighted scoring:
-  // - HTTPS is baseline (transport security), NOT “hardening”
-  // - Hardening comes from observable headers
   const weights = {
     https: 25,
     hsts: 15,
@@ -493,24 +503,12 @@ function scoreSecurityFromHeaders(headers) {
     });
   }
 
-  if (!headers.hsts) {
-    deductions.push({ points: weights.hsts, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" });
-  }
-  if (!headers.content_security_policy) {
-    deductions.push({ points: weights.csp, reason: "Missing: CSP Present", code: "sec_csp_not_observed" });
-  }
-  if (!headers.x_frame_options) {
-    deductions.push({ points: weights.x_frame_options, reason: "Missing: X-Frame-Options Present", code: "sec_xfo_not_observed" });
-  }
-  if (!headers.x_content_type_options) {
-    deductions.push({ points: weights.x_content_type_options, reason: "Missing: X-Content-Type-Options Present", code: "sec_xcto_not_observed" });
-  }
-  if (!headers.referrer_policy) {
-    deductions.push({ points: weights.referrer_policy, reason: "Missing: Referrer-Policy Present", code: "sec_referrer_policy_not_observed" });
-  }
-  if (!headers.permissions_policy) {
-    deductions.push({ points: weights.permissions_policy, reason: "Missing: Permissions-Policy Present", code: "sec_permissions_policy_not_observed" });
-  }
+  if (!headers.hsts) deductions.push({ points: weights.hsts, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" });
+  if (!headers.content_security_policy) deductions.push({ points: weights.csp, reason: "Missing: CSP Present", code: "sec_csp_not_observed" });
+  if (!headers.x_frame_options) deductions.push({ points: weights.x_frame_options, reason: "Missing: X-Frame-Options Present", code: "sec_xfo_not_observed" });
+  if (!headers.x_content_type_options) deductions.push({ points: weights.x_content_type_options, reason: "Missing: X-Content-Type-Options Present", code: "sec_xcto_not_observed" });
+  if (!headers.referrer_policy) deductions.push({ points: weights.referrer_policy, reason: "Missing: Referrer-Policy Present", code: "sec_referrer_policy_not_observed" });
+  if (!headers.permissions_policy) deductions.push({ points: weights.permissions_policy, reason: "Missing: Permissions-Policy Present", code: "sec_permissions_policy_not_observed" });
 
   let score = 0;
   if (httpsOk) score += weights.https;
@@ -522,14 +520,13 @@ function scoreSecurityFromHeaders(headers) {
   if (headers.permissions_policy) score += weights.permissions_policy;
 
   score = clamp(score, 0, 100);
-
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
 
   return { score, base_score, deductions, issues, penalty_points };
 }
 
 // ---------------------------------------------
-// Integrity-critical scoring for Mobile + Accessibility (EXPANDED)
+// Mobile + Accessibility scoring
 // ---------------------------------------------
 function scoreMobileFromBasic(basic, isHtml) {
   const base_score = 100;
@@ -548,7 +545,6 @@ function scoreMobileFromBasic(basic, isHtml) {
     });
   };
 
-  // Required inputs: must have HTML + viewport
   if (!isHtml || basic.viewport_present !== true) {
     add(
       75,
@@ -560,57 +556,35 @@ function scoreMobileFromBasic(basic, isHtml) {
     return { score: 25, base_score, deductions, issues };
   }
 
-  // Deterministic mobile checks
   if (!basic.device_width_present) {
-    add(
-      25,
-      "Viewport missing width=device-width.",
-      "mob_device_width_missing",
-      "high",
-      { viewport_content: basic.viewport_content ?? null }
-    );
+    add(25, "Viewport missing width=device-width.", "mob_device_width_missing", "high", {
+      viewport_content: basic.viewport_content ?? null,
+    });
   }
 
-  // Missing initial-scale is a common baseline miss
   if (basic.viewport_initial_scale === null || basic.viewport_initial_scale === undefined) {
-    add(
-      8,
-      "Viewport missing initial-scale.",
-      "mob_initial_scale_missing",
-      "low",
-      { viewport_content: basic.viewport_content ?? null }
-    );
+    add(8, "Viewport missing initial-scale.", "mob_initial_scale_missing", "low", {
+      viewport_content: basic.viewport_content ?? null,
+    });
   } else if (Number(basic.viewport_initial_scale) < 1) {
-    add(
-      6,
-      "Viewport initial-scale < 1.",
-      "mob_initial_scale_low",
-      "low",
-      { viewport_initial_scale: basic.viewport_initial_scale, viewport_content: basic.viewport_content ?? null }
-    );
+    add(6, "Viewport initial-scale < 1.", "mob_initial_scale_low", "low", {
+      viewport_initial_scale: basic.viewport_initial_scale,
+      viewport_content: basic.viewport_content ?? null,
+    });
   }
 
-  // Zoom disabled is both UX + accessibility impact, but keep it in Mobile as "foundations"
   if (basic.viewport_user_scalable_disabled) {
-    add(
-      10,
-      "User zoom is disabled (user-scalable=0/no).",
-      "mob_user_scalable_disabled",
-      "med",
-      { viewport_content: basic.viewport_content ?? null }
-    );
+    add(10, "User zoom is disabled (user-scalable=0/no).", "mob_user_scalable_disabled", "med", {
+      viewport_content: basic.viewport_content ?? null,
+    });
   }
 
-  // Restrictive maximum-scale can effectively block zoom too
   if (basic.viewport_maximum_scale !== null && basic.viewport_maximum_scale !== undefined) {
     if (Number(basic.viewport_maximum_scale) <= 1) {
-      add(
-        6,
-        "maximum-scale is restrictive (<= 1).",
-        "mob_maximum_scale_restrictive",
-        "low",
-        { viewport_maximum_scale: basic.viewport_maximum_scale, viewport_content: basic.viewport_content ?? null }
-      );
+      add(6, "maximum-scale is restrictive (<= 1).", "mob_maximum_scale_restrictive", "low", {
+        viewport_maximum_scale: basic.viewport_maximum_scale,
+        viewport_content: basic.viewport_content ?? null,
+      });
     }
   }
 
@@ -637,7 +611,6 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
     });
   };
 
-  // Required inputs: must have HTML + img counts observable
   const missingImgCounts =
     !isHtml ||
     basic.img_count === null ||
@@ -660,18 +633,10 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
     return { score: 25, base_score, deductions, issues };
   }
 
-  // A11y: html lang is a baseline requirement
   if (basic.html_lang_present === false) {
-    add(
-      12,
-      "Missing <html lang> attribute.",
-      "acc_lang_missing",
-      "med",
-      { html_lang_present: false }
-    );
+    add(12, "Missing <html lang> attribute.", "acc_lang_missing", "med", { html_lang_present: false });
   }
 
-  // A11y: form labels heuristic
   const formControls = Number(basic.form_controls_count || 0);
   const labelsFor = Number(basic.labels_with_for_count || 0);
 
@@ -693,59 +658,24 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
     );
   }
 
-  // A11y: empty interactive elements
   const emptyButtons = Number(basic.empty_buttons_detected || 0);
   const emptyLinks = Number(basic.empty_links_detected || 0);
 
-  if (emptyButtons > 0) {
-    add(
-      12,
-      "Empty <button> elements detected.",
-      "acc_empty_buttons",
-      "med",
-      { empty_buttons_detected: emptyButtons }
-    );
-  }
-  if (emptyLinks > 0) {
-    add(
-      12,
-      "Empty <a> link elements detected.",
-      "acc_empty_links",
-      "med",
-      { empty_links_detected: emptyLinks }
-    );
-  }
+  if (emptyButtons > 0) add(12, "Empty <button> elements detected.", "acc_empty_buttons", "med", { empty_buttons_detected: emptyButtons });
+  if (emptyLinks > 0) add(12, "Empty <a> link elements detected.", "acc_empty_links", "med", { empty_links_detected: emptyLinks });
 
-  // Alt coverage heuristic (deterministic)
   if (basic.img_count > 0) {
     const ratio = basic.img_alt_ratio ?? (basic.img_alt_count / basic.img_count);
 
-    // Use tiered penalties, but avoid double-counting too aggressively
-    if (ratio < 0.5) {
-      add(
-        25,
-        "Alt coverage below 50%.",
-        "acc_alt_below_50",
-        "high",
-        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
-      );
-    } else if (ratio < 0.7) {
-      add(
-        15,
-        "Alt coverage below 70%.",
-        "acc_alt_below_70",
-        "high",
-        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
-      );
-    } else if (ratio < 0.9) {
-      add(
-        10,
-        "Alt coverage below 90%.",
-        "acc_alt_below_90",
-        "med",
-        { img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)) }
-      );
-    }
+    if (ratio < 0.5) add(25, "Alt coverage below 50%.", "acc_alt_below_50", "high", {
+      img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)),
+    });
+    else if (ratio < 0.7) add(15, "Alt coverage below 70%.", "acc_alt_below_70", "high", {
+      img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)),
+    });
+    else if (ratio < 0.9) add(10, "Alt coverage below 90%.", "acc_alt_below_90", "med", {
+      img_count: basic.img_count, img_alt_count: basic.img_alt_count, alt_ratio: Number(ratio.toFixed(3)),
+    });
   }
 
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
@@ -758,7 +688,6 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
 function buildScores(url, html, res, isHtml) {
-  // If not HTML, produce a “null-evidence” basic pack so signals can enforce integrity caps
   const basic = isHtml
     ? basicHtmlSignals(html, url)
     : {
@@ -792,8 +721,6 @@ function buildScores(url, html, res, isHtml) {
         head_script_block_present: null,
         copyright_year_min: null,
         copyright_year_max: null,
-
-        // A11y expanded (null-safe)
         html_lang_present: null,
         form_controls_count: null,
         labels_with_for_count: null,
@@ -803,10 +730,9 @@ function buildScores(url, html, res, isHtml) {
 
   const headers = headerSignals(res, url);
 
-  // Performance (signals-based, simple) — if non-HTML, treat as 0 evidence but do not fake “good”
   let perf = 100;
   if (!isHtml) {
-    perf = 25; // integrity cap: cannot infer performance build signals without HTML
+    perf = 25;
   } else {
     if (basic.html_bytes > 250_000) perf -= 20;
     if (basic.html_bytes > 500_000) perf -= 20;
@@ -815,26 +741,21 @@ function buildScores(url, html, res, isHtml) {
     perf = clamp(perf, 0, 100);
   }
 
-  // Structure
   let structure = 25;
   if (isHtml) {
     const structureChecks = [basic.title_present, basic.h1_present, basic.viewport_present];
     structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
   }
 
-  // Mobile (integrity scoring) — expanded
   const mobilePack = scoreMobileFromBasic(basic, isHtml);
   const mobile = mobilePack.score;
 
-  // Security (HTTPS baseline + evidence-only header hardening)
   const secPack = scoreSecurityFromHeaders(headers);
   const security = secPack.score;
 
-  // Accessibility (integrity scoring) — expanded
   const accPack = scoreAccessibilityFromBasic(basic, isHtml);
   const accessibility = accPack.score;
 
-  // SEO (deterministic penalty-based) — only valid if HTML; otherwise cap
   let seoSignal = null;
   let seo = 25;
   if (isHtml) {
@@ -858,7 +779,6 @@ function buildScores(url, html, res, isHtml) {
   }
 
   const overall = Math.round((perf + seo + structure + mobile + security + accessibility) / 6);
-
   const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility };
 
   const human = {
@@ -906,7 +826,6 @@ function buildScores(url, html, res, isHtml) {
         : "Accessibility coverage is incomplete or indicates missing/low a11y foundations (see evidence).",
   };
 
-  // Delivery signals (UI-ready; includes observations)
   const delivery_signals = [
     buildSimpleSignal({
       id: "performance",
@@ -1002,8 +921,6 @@ function buildScores(url, html, res, isHtml) {
           basic.img_alt_ratio !== null && basic.img_alt_ratio !== undefined
             ? Number(basic.img_alt_ratio.toFixed(3))
             : null,
-
-        // Expanded evidence (new)
         html_lang_present: basic.html_lang_present,
         form_controls_count: basic.form_controls_count,
         labels_with_for_count: basic.labels_with_for_count,
@@ -1034,11 +951,13 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ report_id, user_id }),
     });
+
     if (!resp.ok) {
       const t = await resp.text().catch(() => "");
       console.warn("[run-scan] generate-narrative non-200:", resp.status, t.slice(0, 200));
       return { ok: false, status: resp.status };
     }
+
     return { ok: true, status: resp.status };
   } catch (e) {
     console.warn("[run-scan] generate-narrative failed:", e);
@@ -1051,12 +970,13 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
 // ---------------------------------------------
 export async function handler(event) {
   try {
+    // Preflight
+    if (event.httpMethod === "OPTIONS") {
+      return json(200, { ok: true });
+    }
+
     if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "Method not allowed" }),
-      };
+      return json(405, { success: false, error: "Method not allowed" });
     }
 
     const body = JSON.parse(event.body || "{}");
@@ -1068,11 +988,7 @@ export async function handler(event) {
     const generate_narrative = body.generate_narrative !== false;
 
     if (!url || !report_id) {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "Missing url or report_id" }),
-      };
+      return json(400, { success: false, error: "Missing url or report_id" });
     }
 
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
@@ -1086,7 +1002,7 @@ export async function handler(event) {
 
     const metrics = {
       scores,
-      delivery_signals, // ✅ UI should use this
+      delivery_signals, // ✅ UI uses this
       basic_checks: {
         ...basic,
         http_status: res.status,
@@ -1104,6 +1020,8 @@ export async function handler(event) {
       psi: { disabled: true },
     };
 
+    // ✅ IMPORTANT: we do NOT include narrative here.
+    // Narrative is written by generate-narrative to scan_results.narrative.
     const insertRow = {
       user_id,
       url,
@@ -1121,13 +1039,10 @@ export async function handler(event) {
 
     if (saveErr) {
       console.error("[run-scan] insert error:", saveErr);
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "Failed to save scan result" }),
-      };
+      return json(500, { success: false, error: "Failed to save scan result", detail: saveErr.message || saveErr });
     }
 
+    // Trigger narrative generation (non-blocking to report rendering)
     let narrative_ok = null;
     if (generate_narrative) {
       const origin = getSiteOrigin(event);
@@ -1135,26 +1050,22 @@ export async function handler(event) {
       narrative_ok = result.ok;
     }
 
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        success: true,
-        id: saved.id,
-        scan_id: saved.id,
-        report_id: saved.report_id || report_id,
-        url,
-        scores,
-        narrative_requested: !!generate_narrative,
-        narrative_ok,
-      }),
-    };
+    const origin = getSiteOrigin(event);
+    const finalReportId = saved.report_id || report_id;
+
+    return json(200, {
+      success: true,
+      id: saved.id,
+      scan_id: saved.id,
+      report_id: finalReportId,
+      url,
+      scores,
+      narrative_requested: !!generate_narrative,
+      narrative_ok,
+      report_url: `${origin}/report.html?report_id=${encodeURIComponent(finalReportId)}`,
+    });
   } catch (e) {
     console.error("[run-scan] fatal:", e);
-    return {
-      statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, error: "Server error" }),
-    };
+    return json(500, { success: false, error: "Server error", detail: e?.message || String(e) });
   }
 }
