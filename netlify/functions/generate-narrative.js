@@ -1,10 +1,4 @@
 // /.netlify/functions/generate-narrative.js
-// iQWEB v5.2 — Narrative generator (background job)
-// - Reads scan_results by report_id
-// - Generates OpenAI narrative (strict JSON schema)
-// - Saves to scan_results.narrative
-// - Mirrors to report_data.narrative via UPDATE-first (NO upsert / NO onConflict)
-
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -16,18 +10,19 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
-// CORS-safe JSON response helper
+// Response helpers (CORS-safe)
 // -----------------------------
-function json(status, body) {
-  return new Response(JSON.stringify(body), {
-    status,
+function json(statusCode, body) {
+  return {
+    statusCode,
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
-  });
+    body: JSON.stringify(body),
+  };
 }
 
 // -----------------------------
@@ -130,7 +125,7 @@ function buildFactsPack(scan) {
 }
 
 // -----------------------------
-// Extract text from OpenAI Responses API (robust)
+// Extract text from Responses API result (robust)
 // -----------------------------
 function extractResponseText(data) {
   if (isNonEmptyString(data?.output_text)) return data.output_text;
@@ -143,6 +138,7 @@ function extractResponseText(data) {
     for (const c of content) {
       if (isNonEmptyString(c?.text)) parts.push(c.text);
       if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
+
       if (c?.parsed && typeof c.parsed === "object") {
         try {
           parts.push(JSON.stringify(c.parsed));
@@ -210,9 +206,7 @@ async function callOpenAI({ facts }) {
                 type: "object",
                 additionalProperties: false,
                 required: ["lines"],
-                properties: {
-                  lines: { type: "array", items: { type: "string" } },
-                },
+                properties: { lines: { type: "array", items: { type: "string" } } },
               },
               signals: {
                 type: "object",
@@ -332,93 +326,48 @@ function enforceConstraints(n) {
 }
 
 // -----------------------------
-// Mirror into report_data safely (NO upsert / NO onConflict)
+// Handler
 // -----------------------------
-async function saveToReportData(report_id, narrative) {
-  // Try UPDATE first
-  const upd = await supabase
-    .from("report_data")
-    .update({ narrative })
-    .eq("report_id", report_id)
-    .select("report_id");
-
-  if (upd.error) {
-    // If table doesn't exist or column missing, surface clearly
-    throw new Error(`report_data update failed: ${upd.error.message}`);
-  }
-
-  if (Array.isArray(upd.data) && upd.data.length > 0) {
-    return { action: "updated" };
-  }
-
-  // No row existed — try INSERT
-  const ins = await supabase
-    .from("report_data")
-    .insert({ report_id, narrative })
-    .select("report_id");
-
-  if (!ins.error) return { action: "inserted" };
-
-  // If insert failed due to race/duplicate, fallback to UPDATE again
-  const msg = String(ins.error.message || "");
-  const looksLikeDuplicate =
-    msg.toLowerCase().includes("duplicate") ||
-    msg.toLowerCase().includes("unique") ||
-    msg.toLowerCase().includes("already exists");
-
-  if (looksLikeDuplicate) {
-    const upd2 = await supabase
-      .from("report_data")
-      .update({ narrative })
-      .eq("report_id", report_id)
-      .select("report_id");
-
-    if (upd2.error) throw new Error(`report_data update-after-dup failed: ${upd2.error.message}`);
-    return { action: "updated_after_duplicate" };
-  }
-
-  throw new Error(`report_data insert failed: ${ins.error.message}`);
-}
-
-export default async (request) => {
+export async function handler(event) {
   try {
-    if (request.method === "OPTIONS") return json(200, { ok: true });
-    if (request.method !== "POST") return json(405, { success: false, error: "Method not allowed" });
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
+    if (event.httpMethod !== "POST")
+      return json(405, { success: false, error: "Method not allowed" });
 
-    let body = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
-
+    const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
+
     if (!isNonEmptyString(report_id)) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // 1) Load scan_results (this MUST exist)
+    // IMPORTANT:
+    // This function ONLY writes narrative to scan_results.narrative.
+    // It does NOT upsert into reports/report_data (avoids unique/onConflict + url NOT NULL traps).
     const { data: scan, error: scanErr } = await supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall")
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
       .eq("report_id", report_id)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (scanErr || !scan) {
+    if (scanErr) {
+      return json(500, { success: false, error: "DB error", detail: scanErr.message });
+    }
+    if (!scan) {
       return json(404, {
         success: false,
         error: "Report not found",
-        detail: scanErr?.message || "No scan_results row exists for this report_id",
-        report_id,
+        detail: "No scan_results row exists for this report_id.",
       });
     }
 
-    // 2) Generate narrative
     const facts = buildFactsPack(scan);
+
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    // 3) Save to scan_results
     const { error: upErr } = await supabase
       .from("scan_results")
       .update({ narrative })
@@ -428,20 +377,9 @@ export default async (request) => {
       return json(500, {
         success: false,
         error: "Failed to save narrative to scan_results",
-        detail: upErr.message || String(upErr),
+        detail: upErr.message || upErr,
         hint: "Ensure scan_results.narrative exists as jsonb.",
       });
-    }
-
-    // 4) Mirror to report_data (optional but matches your read-only generate-report.js)
-    let reportDataResult = null;
-    try {
-      reportDataResult = await saveToReportData(report_id, narrative);
-    } catch (e) {
-      // Don’t fail the whole job if report_data is misconfigured;
-      // scan_results is the source of truth.
-      console.error("[generate-narrative] report_data mirror failed:", e);
-      reportDataResult = { action: "skipped", error: String(e?.message || e) };
     }
 
     return json(200, {
@@ -449,11 +387,14 @@ export default async (request) => {
       report_id,
       scan_id: scan.id,
       saved_to: "scan_results.narrative",
-      report_data: reportDataResult,
       narrative,
     });
   } catch (err) {
     console.error("[generate-narrative]", err);
-    return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
+    return json(500, {
+      success: false,
+      error: "Server error",
+      detail: err?.message || String(err),
+    });
   }
-};
+}
