@@ -138,9 +138,13 @@ function extractResponseText(data) {
     for (const c of content) {
       if (isNonEmptyString(c?.text)) parts.push(c.text);
       if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
+
       if (c?.parsed && typeof c.parsed === "object") {
-        try { parts.push(JSON.stringify(c.parsed)); } catch {}
+        try {
+          parts.push(JSON.stringify(c.parsed));
+        } catch {}
       }
+
       if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
     }
   }
@@ -208,14 +212,51 @@ async function callOpenAI({ facts }) {
               signals: {
                 type: "object",
                 additionalProperties: false,
-                required: ["performance", "mobile", "seo", "security", "structure", "accessibility"],
+                required: [
+                  "performance",
+                  "mobile",
+                  "seo",
+                  "security",
+                  "structure",
+                  "accessibility",
+                ],
                 properties: {
-                  performance: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
-                  mobile: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
-                  seo: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
-                  security: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
-                  structure: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
-                  accessibility: { type: "object", additionalProperties: false, required: ["lines"], properties: { lines: { type: "array", items: { type: "string" } } } },
+                  performance: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  mobile: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  seo: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  security: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  structure: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  accessibility: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
                 },
               },
             },
@@ -234,7 +275,14 @@ async function callOpenAI({ facts }) {
   const text = extractResponseText(data);
 
   if (!isNonEmptyString(text)) {
-    console.error("[generate-narrative] Empty output_text; keys:", Object.keys(data || {}));
+    const dbg = {
+      keys: Object.keys(data || {}),
+      has_output_text: !!data?.output_text,
+      output_len: Array.isArray(data?.output) ? data.output.length : null,
+      first_output_keys: data?.output?.[0] ? Object.keys(data.output[0]) : null,
+      first_content: data?.output?.[0]?.content?.[0] || null,
+    };
+    console.error("[generate-narrative] Empty text; debug:", dbg);
     throw new Error("OpenAI returned empty output_text.");
   }
 
@@ -280,63 +328,36 @@ function enforceConstraints(n) {
 
 // -----------------------------
 // Update reports safely (NO upsert / NO onConflict)
+// - We will attempt UPDATE only.
+// - If there's no reports row, we do NOT insert (avoids failing if reports has NOT NULL fields).
 // -----------------------------
-async function updateReportsSafe({ report_id, url, user_id, narrative }) {
-  // 1) Try UPDATE first
-  const upd = await supabase
-    .from("reports")
-    .update({
-      url: url ?? null,
-      user_id: user_id ?? null,
-      narrative_status: "complete",
-      narrative_version: "v5.2",
-      narrative,
-      narrative_updated_at: new Date().toISOString(),
-    })
-    .eq("report_id", report_id);
+async function tryUpdateReports({ report_id, narrative }) {
+  try {
+    const now = new Date().toISOString();
 
-  if (upd.error) return { ok: false, error: upd.error };
-
-  // If at least one row updated, we're done.
-  const updatedCount = Array.isArray(upd.data) ? upd.data.length : null;
-  // Supabase may return null data for UPDATE; so we also check "count" pattern not always enabled.
-  // We'll do a quick existence check if we can't tell.
-  if (updatedCount && updatedCount > 0) return { ok: true, did: "update" };
-
-  // 2) If UPDATE likely hit 0 rows, INSERT a row (no onConflict)
-  const ins = await supabase
-    .from("reports")
-    .insert({
-      report_id,
-      url: url ?? null,
-      user_id: user_id ?? null,
-      narrative_status: "complete",
-      narrative_version: "v5.2",
-      narrative,
-      narrative_updated_at: new Date().toISOString(),
-    });
-
-  if (!ins.error) return { ok: true, did: "insert" };
-
-  // 3) If insert failed because row already exists (race), try UPDATE again
-  // Postgres unique violation is 23505
-  const code = ins.error?.code || ins.error?.details || "";
-  if (String(code).includes("23505")) {
-    const upd2 = await supabase
+    const { data, error } = await supabase
       .from("reports")
       .update({
-        narrative_status: "complete",
-        narrative_version: "v5.2",
-        narrative,
-        narrative_updated_at: new Date().toISOString(),
+        narrative, // if you have this column
+        narrative_status: "complete", // if you have this column
+        narrative_updated_at: now, // if you have this column
       })
-      .eq("report_id", report_id);
+      .eq("report_id", report_id)
+      .select("id");
 
-    if (upd2.error) return { ok: false, error: upd2.error };
-    return { ok: true, did: "update_after_insert_conflict" };
+    if (error) {
+      return { attempted: true, updated: false, reason: "update_error", detail: error.message };
+    }
+
+    const updated = Array.isArray(data) && data.length > 0;
+    if (!updated) {
+      return { attempted: true, updated: false, reason: "no_reports_row" };
+    }
+
+    return { attempted: true, updated: true };
+  } catch (e) {
+    return { attempted: true, updated: false, reason: "exception", detail: e?.message || String(e) };
   }
-
-  return { ok: false, error: ins.error };
 }
 
 // -----------------------------
@@ -345,8 +366,9 @@ async function updateReportsSafe({ report_id, url, user_id, narrative }) {
 export async function handler(event) {
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST")
+    if (event.httpMethod !== "POST") {
       return json(405, { success: false, error: "Method not allowed" });
+    }
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -355,25 +377,26 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // IMPORTANT: do NOT use .single() (you have multiple rows / edge cases)
-    // Always take the latest scan for that report_id.
+    // IMPORTANT: do NOT use .single() because duplicates/legacy rows can break it.
+    // Always take the most recent scan row for this report_id.
     const { data: scans, error: scanErr } = await supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, user_id")
+      .select("id, report_id, url, created_at, metrics, score_overall")
       .eq("report_id", report_id)
       .order("created_at", { ascending: false })
       .limit(1);
 
     if (scanErr) {
-      return json(500, { success: false, error: "Scan lookup failed", detail: scanErr.message || scanErr });
+      return json(500, { success: false, error: "DB error reading scan_results", detail: scanErr.message });
     }
 
-    const scan = Array.isArray(scans) && scans.length ? scans[0] : null;
+    const scan = Array.isArray(scans) ? scans[0] : null;
     if (!scan) {
       return json(404, {
         success: false,
         error: "Report not found",
-        detail: "No scan_results row exists for this report_id.",
+        detail: "No scan_results row exists for this report_id",
+        report_id,
       });
     }
 
@@ -382,7 +405,7 @@ export async function handler(event) {
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    // Save narrative to scan_results (authoritative source)
+    // Save narrative to scan_results (source of truth)
     const { error: upErr } = await supabase
       .from("scan_results")
       .update({ narrative })
@@ -397,32 +420,18 @@ export async function handler(event) {
       });
     }
 
-    // Also update reports (nice-to-have tracking)
-    const rep = await updateReportsSafe({
-      report_id,
-      url: scan.url,
-      user_id: scan.user_id ?? body.user_id ?? null,
-      narrative,
-    });
-
-    if (!rep.ok) {
-      // Don't fail the whole request; narrative is already saved to scan_results.
-      console.warn("[generate-narrative] reports update warning:", rep.error);
-    }
+    // Optional: attempt to update reports (UPDATE ONLY — no upsert)
+    const reports = await tryUpdateReports({ report_id, narrative });
 
     return json(200, {
       success: true,
       report_id,
-      scan_id: scan.id,
+      saved_to: "scan_results.narrative",
       narrative,
-      reports_write: rep.ok ? rep.did : "warning",
+      reports,
     });
   } catch (err) {
     console.error("[generate-narrative]", err);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: err?.message || String(err),
-    });
+    return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
   }
 }
