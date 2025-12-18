@@ -1,10 +1,9 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.4 (Hardened)
-// - Six-card grid (3×2 desktop; responsive fallback)
-// - Score shown ONCE (right side only)
-// - No evidence expanders inside cards
-// - Evidence rendered in dedicated "Signal Evidence" section below
-// - Narrative optional; auto-generates if missing; never blocks render
+// iQWEB Report UI — Contract v1.0.5 (Locked wiring fix)
+// - Keeps scoring + cards exactly as-is
+// - Fixes ID mismatches with report.html
+// - Evidence accordions rendered using your CSS blocks
+// - Narrative supports text OR JSON and polls until available
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -51,49 +50,20 @@
   }
 
   // -----------------------------
-  // Theme
-  // -----------------------------
-  function getTheme() {
-    const saved = localStorage.getItem("iqweb_theme");
-    return saved === "light" ? "light" : "dark";
-  }
-  function applyTheme(theme) {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("iqweb_theme", theme);
-  }
-  function wireThemeToggle() {
-    const btn = $("btnToggleTheme");
-    if (!btn) return;
-    btn.addEventListener("click", () => applyTheme(getTheme() === "dark" ? "light" : "dark"));
-  }
-  function wireRefresh() {
-    const btn = $("btnRefresh");
-    if (!btn) return;
-    btn.addEventListener("click", () => window.location.reload());
-  }
-
-  // -----------------------------
-  // Header setters
+  // Header setters (MATCH report.html IDs)
   // -----------------------------
   function setHeaderWebsite(url) {
-    const a = $("hdrWebsite");
-    if (!a) return;
-    if (typeof url === "string" && url.trim()) {
-      const u = url.trim();
-      a.textContent = u;
-      a.href = u;
-    } else {
-      a.textContent = "—";
-      a.removeAttribute("href");
-    }
+    const el = $("siteUrl");
+    if (!el) return;
+    el.textContent = (typeof url === "string" && url.trim()) ? url.trim() : "—";
   }
   function setHeaderReportId(reportId) {
-    const el = $("hdrReportId");
+    const el = $("reportId");
     if (!el) return;
     el.textContent = reportId ? String(reportId) : "—";
   }
   function setHeaderReportDate(isoString) {
-    const el = $("hdrReportDate");
+    const el = $("reportDate");
     if (!el) return;
     el.textContent = formatDate(isoString);
   }
@@ -289,7 +259,7 @@
   }
 
   // -----------------------------
-  // Signal Evidence section (separate from cards)
+  // Signal Evidence section (dropdowns styled to match your CSS)
   // -----------------------------
   function renderSignalEvidence(deliverySignals) {
     const root = $("signalEvidenceRoot");
@@ -302,121 +272,163 @@
       return;
     }
 
-    const blocks = list.map(sig => {
+    for (let i = 0; i < list.length; i++) {
+      const sig = list[i];
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
 
       let obs = asArray(sig?.observations);
       if (!obs.length) obs = evidenceToObs(sig?.evidence);
 
-      const deds = asArray(sig?.deductions);
-      const issues = asArray(sig?.issues);
+      const block = document.createElement("details");
+      block.className = "evidence-block";
+      if (i === 0) block.open = true;
 
-      const obsRows = obs.length
-        ? obs.map(o => {
-          const k = escapeHtml(o?.label ?? "Observation");
-          const v = escapeHtml(String(o?.value ?? "null"));
-          const src = escapeHtml(String(o?.source ?? ""));
-          return `<div style="display:flex;justify-content:space-between;gap:10px;">
-              <span style="color:var(--muted);">${k}</span>
-              <span title="${src}" style="font-weight:750;">${v}</span>
-            </div>`;
-        }).join("")
-        : `<div class="small-note">No observations recorded.</div>`;
-
-      const dedRows = deds.length
-        ? `<ul style="margin:8px 0 0 18px;padding:0;">
-            ${deds.map(d => {
-              const reason = escapeHtml(d?.reason ?? "Deduction");
-              const pts = escapeHtml(String(d?.points ?? 0));
-              const code = escapeHtml(d?.code ?? "");
-              return `<li style="margin:6px 0;color:var(--muted);">
-                <strong style="color:var(--text);">-${pts}</strong> ${reason}
-                ${code ? `<span style="color:var(--muted2);">(${code})</span>` : ""}
-              </li>`;
-            }).join("")}
-          </ul>`
-        : `<div class="small-note">No deductions applied.</div>`;
-
-      const issueBlocks = issues.length
-        ? issues.map(i => {
-          const title = escapeHtml(i?.title ?? "Issue");
-          const sev = escapeHtml(i?.severity ?? "low");
-          const impact = escapeHtml(i?.impact ?? "—");
-          const ev = i?.evidence ?? {};
-          return `
-              <div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--panel);">
-                <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
-                  <div style="font-weight:760;">${title}</div>
-                  <div style="padding:6px 10px;border-radius:999px;border:1px solid var(--border);font-size:12px;font-weight:800;text-transform:uppercase;">
-                    ${sev}
-                  </div>
-                </div>
-                <div style="margin-top:8px;color:var(--muted);font-size:12.5px;line-height:1.5;">
-                  <b style="color:var(--text);">Impact:</b> ${impact}
-                </div>
-                <div class="mono" style="margin-top:8px;">${escapeHtml(prettyJSON(ev))}</div>
-              </div>
-            `;
-        }).join("")
-        : `<div class="small-note">No issues detected for this signal.</div>`;
-
-      return `
-        <details>
-          <summary>${escapeHtml(label)} — ${escapeHtml(String(score))}</summary>
-
-          <div style="margin-top:10px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-            Observations (inputs)
-          </div>
-          <div style="margin-top:8px;display:grid;gap:6px;">${obsRows}</div>
-
-          <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-            Explicit Deductions
-          </div>
-          ${dedRows}
-
-          <div style="margin-top:14px;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;">
-            Issues (if any)
-          </div>
-          ${issueBlocks}
-        </details>
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span class="acc-title">${escapeHtml(label)}</span>
+        <span class="acc-score">${escapeHtml(String(score))}</span>
       `;
-    }).join("");
 
-    root.innerHTML = blocks;
+      const body = document.createElement("div");
+      body.className = "acc-body";
+
+      const title = document.createElement("div");
+      title.className = "evidence-title";
+      title.textContent = "Observations";
+
+      const listEl = document.createElement("div");
+      listEl.className = "evidence-list";
+
+      if (obs.length) {
+        for (const o of obs.slice(0, 24)) {
+          const kv = document.createElement("div");
+          kv.className = "kv";
+          kv.innerHTML = `
+            <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
+            <div class="v">${escapeHtml(String(o?.value ?? "null"))}</div>
+          `;
+          listEl.appendChild(kv);
+        }
+      } else {
+        const none = document.createElement("div");
+        none.className = "summary";
+        none.textContent = "No observations recorded.";
+        body.appendChild(none);
+      }
+
+      // Issues (compact, but still visible)
+      const issues = asArray(sig?.issues);
+      const issuesTitle = document.createElement("div");
+      issuesTitle.className = "evidence-title";
+      issuesTitle.style.marginTop = "14px";
+      issuesTitle.textContent = "Issues";
+
+      const issuesBox = document.createElement("div");
+      if (!issues.length) {
+        issuesBox.className = "summary";
+        issuesBox.textContent = "No issues detected for this signal.";
+      } else {
+        issuesBox.innerHTML = issues.slice(0, 6).map(it => {
+          const t = escapeHtml(it?.title ?? "Issue");
+          const sev = escapeHtml(it?.severity ?? "low");
+          const impact = escapeHtml(it?.impact ?? "—");
+          return `
+            <div class="kv" style="flex-direction:column; align-items:flex-start;">
+              <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">
+                <div style="font-weight:800;color:var(--ink);">${t}</div>
+                <div style="font-weight:800;opacity:.85;">${sev}</div>
+              </div>
+              <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="v" style="font-weight:700;">${impact}</span></div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      body.appendChild(title);
+      body.appendChild(listEl);
+      body.appendChild(issuesTitle);
+      body.appendChild(issuesBox);
+
+      block.appendChild(summary);
+      block.appendChild(body);
+      root.appendChild(block);
+    }
   }
 
   // -----------------------------
-  // Narrative (display + auto-generate)
+  // Narrative (display + auto-generate + poll)
   // -----------------------------
-  function parseJsonMaybe(v) {
-    if (v && typeof v === "object") return v;
+  function parseNarrativeFlexible(v) {
+    // Accept:
+    // - plain string (most common)
+    // - { text: "..." }
+    // - JSON string
+    // - JSON object with executive_lead or overall.lines
+    if (v == null) return { kind: "empty", text: "" };
+
     if (typeof v === "string") {
       const s = v.trim();
-      if (!s) return {};
-      try { return JSON.parse(s); } catch { return {}; }
+      if (!s) return { kind: "empty", text: "" };
+
+      // try JSON string
+      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+        try {
+          const obj = JSON.parse(s);
+          return { kind: "obj", obj };
+        } catch {
+          // fall through to plain text
+        }
+      }
+      return { kind: "text", text: s };
     }
-    return {};
+
+    if (typeof v === "object") return { kind: "obj", obj: v };
+
+    return { kind: "text", text: String(v) };
   }
 
   function renderNarrative(narrative) {
-    const n = parseJsonMaybe(narrative);
     const textEl = $("narrativeText");
     if (!textEl) return false;
 
-    const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
-    if (lead) {
-      textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
-      return true;
+    const parsed = parseNarrativeFlexible(narrative);
+
+    // plain text path
+    if (parsed.kind === "text") {
+      const t = parsed.text.trim();
+      if (t) {
+        textEl.innerHTML = escapeHtml(t).replaceAll("\n", "<br>");
+        return true;
+      }
+      textEl.textContent = "Narrative not generated yet.";
+      return false;
     }
 
-    const overallLines = asArray(n?.overall?.lines)
-      .map(l => String(l || "").trim())
-      .filter(Boolean);
+    // object path
+    if (parsed.kind === "obj") {
+      const n = safeObj(parsed.obj);
 
-    if (overallLines.length) {
-      textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
-      return true;
+      // common field: { text: "..." }
+      if (typeof n.text === "string" && n.text.trim()) {
+        textEl.innerHTML = escapeHtml(n.text.trim()).replaceAll("\n", "<br>");
+        return true;
+      }
+
+      const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
+      if (lead) {
+        textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
+        return true;
+      }
+
+      const overallLines = asArray(n?.overall?.lines)
+        .map(l => String(l || "").trim())
+        .filter(Boolean);
+
+      if (overallLines.length) {
+        textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
+        return true;
+      }
     }
 
     textEl.textContent = "Narrative not generated yet.";
@@ -424,6 +436,16 @@
   }
 
   let narrativeInFlight = false;
+
+  async function pollForNarrative(reportId, maxMs = 60000, intervalMs = 2500) {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const refreshed = await fetchReportData(reportId).catch(() => null);
+      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
 
   async function ensureNarrative(reportId, currentNarrative) {
     const textEl = $("narrativeText");
@@ -443,18 +465,12 @@
     textEl.textContent = "Generating narrative…";
 
     try {
-      const out = await generateNarrative(reportId);
+      await generateNarrative(reportId);
 
-      // Prefer immediate return, but harden for edge-cases:
-      if (out?.narrative && renderNarrative(out.narrative)) {
-        narrativeInFlight = false;
-        return;
-      }
-
-      // If the function saved to DB but didn’t return narrative (or returned empty), re-fetch once
-      const refreshed = await fetchReportData(reportId);
-      if (!renderNarrative(refreshed?.narrative)) {
-        textEl.textContent = "Narrative generated but not available yet. Refresh in a moment.";
+      // Poll until narrative actually exists in get-report-data
+      const ok = await pollForNarrative(reportId);
+      if (!ok) {
+        textEl.textContent = "Narrative still generating. Refresh in a moment.";
       }
     } catch (e) {
       console.error(e);
@@ -465,10 +481,10 @@
   }
 
   // -----------------------------
-  // Key Metrics
+  // Key Metrics (FIX ID: keyMetricsRoot)
   // -----------------------------
   function renderMetrics(keyMetrics) {
-    const root = $("metricsRoot");
+    const root = $("keyMetricsRoot");
     if (!root) return;
     root.innerHTML = "";
 
@@ -480,135 +496,69 @@
     const sec = safeObj(km.security);
 
     root.innerHTML = `
-      <details open>
-        <summary>HTTP & Page Basics</summary>
-        <div class="kv">
-          <div><b>Status:</b> ${escapeHtml(http.status ?? "—")}</div>
-          <div><b>Content-Type:</b> ${escapeHtml(http.content_type ?? "—")}</div>
-          <div><b>Final URL:</b> ${escapeHtml(http.final_url ?? "—")}</div>
+      <details class="evidence-block" open>
+        <summary><span class="acc-title">HTTP & Page Basics</span><span class="acc-score">+</span></summary>
+        <div class="acc-body">
+          <div class="evidence-list">
+            <div class="kv"><div class="k">Status</div><div class="v">${escapeHtml(http.status ?? "—")}</div></div>
+            <div class="kv"><div class="k">Content-Type</div><div class="v">${escapeHtml(http.content_type ?? "—")}</div></div>
+            <div class="kv"><div class="k">Final URL</div><div class="v">${escapeHtml(http.final_url ?? "—")}</div></div>
 
-          <div><b>Title Present:</b> ${escapeHtml(page.title_present ?? "—")}</div>
-          <div><b>Canonical Present:</b> ${escapeHtml(page.canonical_present ?? "—")}</div>
-          <div><b>H1 Present:</b> ${escapeHtml(page.h1_present ?? "—")}</div>
-          <div><b>Viewport Present:</b> ${escapeHtml(page.viewport_present ?? "—")}</div>
+            <div class="kv"><div class="k">Title Present</div><div class="v">${escapeHtml(page.title_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">Canonical Present</div><div class="v">${escapeHtml(page.canonical_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">H1 Present</div><div class="v">${escapeHtml(page.h1_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">Viewport Present</div><div class="v">${escapeHtml(page.viewport_present ?? "—")}</div></div>
 
-          <div><b>HTML Bytes:</b> ${escapeHtml(content.html_bytes ?? "—")}</div>
-          <div><b>Images:</b> ${escapeHtml(content.img_count ?? "—")}</div>
-          <div><b>Images w/ ALT:</b> ${escapeHtml(content.img_alt_count ?? "—")}</div>
+            <div class="kv"><div class="k">HTML Bytes</div><div class="v">${escapeHtml(content.html_bytes ?? "—")}</div></div>
+            <div class="kv"><div class="k">Images</div><div class="v">${escapeHtml(content.img_count ?? "—")}</div></div>
+            <div class="kv"><div class="k">Images w/ ALT</div><div class="v">${escapeHtml(content.img_alt_count ?? "—")}</div></div>
+          </div>
+          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON({ http, page, content }))}</div>
         </div>
-        <div class="mono">${escapeHtml(prettyJSON({ http, page, content }))}</div>
       </details>
 
-      <details>
-        <summary>Freshness Signals</summary>
-        <div class="kv">
-          <div><b>Last-Modified Present:</b> ${escapeHtml(freshness.last_modified_header_present ?? "—")}</div>
-          <div><b>Last-Modified Value:</b> ${escapeHtml(freshness.last_modified_header_value ?? "—")}</div>
-          <div><b>Copyright:</b> ${escapeHtml((freshness.copyright_year_min ?? "—") + "–" + (freshness.copyright_year_max ?? "—"))}</div>
+      <details class="evidence-block">
+        <summary><span class="acc-title">Freshness Signals</span><span class="acc-score">+</span></summary>
+        <div class="acc-body">
+          <div class="evidence-list">
+            <div class="kv"><div class="k">Last-Modified Present</div><div class="v">${escapeHtml(freshness.last_modified_header_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">Last-Modified Value</div><div class="v">${escapeHtml(freshness.last_modified_header_value ?? "—")}</div></div>
+            <div class="kv"><div class="k">Copyright</div><div class="v">${escapeHtml((freshness.copyright_year_min ?? "—") + "–" + (freshness.copyright_year_max ?? "—"))}</div></div>
+          </div>
+          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON(freshness))}</div>
         </div>
-        <div class="mono">${escapeHtml(prettyJSON(freshness))}</div>
       </details>
 
-      <details>
-        <summary>Security Headers Snapshot</summary>
-        <div class="kv">
-          <div><b>HTTPS:</b> ${escapeHtml(sec.https ?? "—")}</div>
-          <div><b>HSTS:</b> ${escapeHtml(sec.hsts_present ?? "—")}</div>
-          <div><b>CSP:</b> ${escapeHtml(sec.csp_present ?? "—")}</div>
-          <div><b>X-Frame-Options:</b> ${escapeHtml(sec.x_frame_options_present ?? "—")}</div>
-          <div><b>X-Content-Type-Options:</b> ${escapeHtml(sec.x_content_type_options_present ?? "—")}</div>
-          <div><b>Referrer-Policy:</b> ${escapeHtml(sec.referrer_policy_present ?? "—")}</div>
+      <details class="evidence-block">
+        <summary><span class="acc-title">Security Headers Snapshot</span><span class="acc-score">+</span></summary>
+        <div class="acc-body">
+          <div class="evidence-list">
+            <div class="kv"><div class="k">HTTPS</div><div class="v">${escapeHtml(sec.https ?? "—")}</div></div>
+            <div class="kv"><div class="k">HSTS</div><div class="v">${escapeHtml(sec.hsts_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">CSP</div><div class="v">${escapeHtml(sec.csp_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">X-Frame-Options</div><div class="v">${escapeHtml(sec.x_frame_options_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">X-Content-Type-Options</div><div class="v">${escapeHtml(sec.x_content_type_options_present ?? "—")}</div></div>
+            <div class="kv"><div class="k">Referrer-Policy</div><div class="v">${escapeHtml(sec.referrer_policy_present ?? "—")}</div></div>
+          </div>
+          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON(sec))}</div>
         </div>
-        <div class="mono">${escapeHtml(prettyJSON(sec))}</div>
       </details>
     `;
-  }
 
-  // -----------------------------
-  // Findings
-  // -----------------------------
-  function renderFindings(findings) {
-    const root = $("findingsRoot");
-    if (!root) return;
-    root.innerHTML = "";
-
-    const list = asArray(findings);
-    if (!list.length) {
-      root.innerHTML = `<div class="summary">No issues returned from this scan.</div>`;
-      return;
-    }
-
-    for (const f of list) {
-      const id = escapeHtml(f?.id ?? "");
-      const title = escapeHtml(f?.title ?? "Finding");
-      const impact = escapeHtml(f?.impact ?? "—");
-      const severity = escapeHtml(f?.severity ?? "low");
-      const ev = safeObj(f?.evidence);
-
-      const el = document.createElement("div");
-      el.className = "finding";
-      el.innerHTML = `
-        <div class="finding-head">
-          <div>
-            <div class="finding-title">${title} ${id ? `<span style="color:var(--muted2);font-weight:650;">(${id})</span>` : ""}</div>
-            <div class="finding-block"><b>Impact:</b> ${impact}</div>
-          </div>
-          <div class="sev">${severity}</div>
-        </div>
-        <div class="finding-block"><b>Evidence:</b></div>
-        <div class="mono">${escapeHtml(prettyJSON(ev))}</div>
-      `;
-      root.appendChild(el);
-    }
-  }
-
-  // -----------------------------
-  // Fix plan
-  // -----------------------------
-  function renderFixPlan(plan) {
-    const root = $("fixPlanRoot");
-    if (!root) return;
-    root.innerHTML = "";
-
-    const phases = asArray(plan);
-    if (!phases.length) {
-      root.innerHTML = `<div class="summary">No fix plan returned from this scan.</div>`;
-      return;
-    }
-
-    for (const p of phases) {
-      const phaseNum = escapeHtml(p?.phase ?? "");
-      const title = escapeHtml(p?.title ?? `Phase ${phaseNum}`);
-      const why = escapeHtml(p?.why ?? "—");
-      const actions = asArray(p?.actions);
-
-      const items = actions.length
-        ? actions.map(a => {
-          const actionText = escapeHtml(a?.action ?? "Action");
-          const fid = escapeHtml(a?.finding_id ?? "");
-          return `<li><strong style="color:var(--text);">${actionText}</strong>${fid ? ` <span style="color:var(--muted2);">(${fid})</span>` : ""}</li>`;
-        }).join("")
-        : `<li><strong style="color:var(--text);">No actions listed for this phase yet.</strong></li>`;
-
-      const el = document.createElement("div");
-      el.className = "phase";
-      el.innerHTML = `
-        <div class="phase-title">${phaseNum ? `Phase ${phaseNum} — ` : ""}${title}</div>
-        <div class="phase-why"><b>Why:</b> ${why}</div>
-        <ul>${items}</ul>
-      `;
-      root.appendChild(el);
-    }
+    // Make the +/- indicator correct
+    root.querySelectorAll("details.evidence-block").forEach(d => {
+      const s = d.querySelector("summary .acc-score");
+      if (!s) return;
+      const set = () => { s.textContent = d.open ? "−" : "+"; };
+      set();
+      d.addEventListener("toggle", set);
+    });
   }
 
   // -----------------------------
   // Main
   // -----------------------------
   async function main() {
-    applyTheme(getTheme());
-    wireThemeToggle();
-    wireRefresh();
-
     const loaderSection = $("loaderSection");
     const reportRoot = $("reportRoot");
     const statusEl = $("loaderStatus");
@@ -638,8 +588,6 @@
       renderNarrative(data.narrative);
 
       renderMetrics(data.key_metrics);
-      renderFindings(data.findings);
-      renderFixPlan(data.fix_plan);
 
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";

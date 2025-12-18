@@ -260,6 +260,49 @@
     .kv .k { color: var(--muted); font-size: 12px; }
     .kv .v { color: var(--ink); font-weight: 600; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
 
+    /* ✅ Make details/summary behave like proper accordions */
+    details.evidence-block { padding: 0; }
+    details.evidence-block > summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      padding: 14px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(0,0,0,0.10);
+      border: 1px solid var(--border-subtle);
+    }
+    details.evidence-block > summary::-webkit-details-marker { display: none; }
+    details.evidence-block[open] > summary {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+      border-bottom: 0;
+    }
+    .acc-title {
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .acc-score {
+      font-weight: 800;
+      color: var(--ink);
+      font-size: 13px;
+      opacity: 0.95;
+    }
+    .acc-body {
+      padding: 14px;
+      border: 1px solid var(--border-subtle);
+      border-top: 0;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      background: rgba(0,0,0,0.14);
+    }
+
     /* Loader */
     .loader-wrap {
       width: 100%;
@@ -318,7 +361,7 @@
       box-shadow: 0 10px 30px rgba(15,23,42,0.10);
     }
     body.light .section-head { background: rgba(15,23,42,0.03); }
-    body.light .meta-line, body.light .card, body.light .evidence-block, body.light .kv {
+    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv {
       background: rgba(15,23,42,0.03);
       border-color: rgba(15,23,42,0.10);
     }
