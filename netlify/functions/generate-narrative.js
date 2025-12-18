@@ -1,4 +1,10 @@
 // /.netlify/functions/generate-narrative.js
+// iQWEB v5.2 — Narrative generator (background job)
+// - Reads scan_results by report_id
+// - Generates OpenAI narrative (strict JSON schema)
+// - Saves to scan_results.narrative
+// - Mirrors to report_data.narrative via UPDATE-first (NO upsert / NO onConflict)
+
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -10,19 +16,18 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
-// Response helpers (CORS-safe)
+// CORS-safe JSON response helper
 // -----------------------------
-function json(statusCode, body) {
-  return {
-    statusCode,
+function json(status, body) {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
     },
-    body: JSON.stringify(body),
-  };
+  });
 }
 
 // -----------------------------
@@ -125,7 +130,7 @@ function buildFactsPack(scan) {
 }
 
 // -----------------------------
-// Extract text from Responses API result (robust)
+// Extract text from OpenAI Responses API (robust)
 // -----------------------------
 function extractResponseText(data) {
   if (isNonEmptyString(data?.output_text)) return data.output_text;
@@ -138,13 +143,11 @@ function extractResponseText(data) {
     for (const c of content) {
       if (isNonEmptyString(c?.text)) parts.push(c.text);
       if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
-
       if (c?.parsed && typeof c.parsed === "object") {
         try {
           parts.push(JSON.stringify(c.parsed));
         } catch {}
       }
-
       if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
     }
   }
@@ -207,7 +210,9 @@ async function callOpenAI({ facts }) {
                 type: "object",
                 additionalProperties: false,
                 required: ["lines"],
-                properties: { lines: { type: "array", items: { type: "string" } } },
+                properties: {
+                  lines: { type: "array", items: { type: "string" } },
+                },
               },
               signals: {
                 type: "object",
@@ -327,85 +332,93 @@ function enforceConstraints(n) {
 }
 
 // -----------------------------
-// Update reports safely (NO upsert / NO onConflict)
-// - We will attempt UPDATE only.
-// - If there's no reports row, we do NOT insert (avoids failing if reports has NOT NULL fields).
+// Mirror into report_data safely (NO upsert / NO onConflict)
 // -----------------------------
-async function tryUpdateReports({ report_id, narrative }) {
-  try {
-    const now = new Date().toISOString();
+async function saveToReportData(report_id, narrative) {
+  // Try UPDATE first
+  const upd = await supabase
+    .from("report_data")
+    .update({ narrative })
+    .eq("report_id", report_id)
+    .select("report_id");
 
-    const { data, error } = await supabase
-      .from("reports")
-      .update({
-        narrative, // if you have this column
-        narrative_status: "complete", // if you have this column
-        narrative_updated_at: now, // if you have this column
-      })
-      .eq("report_id", report_id)
-      .select("id");
-
-    if (error) {
-      return { attempted: true, updated: false, reason: "update_error", detail: error.message };
-    }
-
-    const updated = Array.isArray(data) && data.length > 0;
-    if (!updated) {
-      return { attempted: true, updated: false, reason: "no_reports_row" };
-    }
-
-    return { attempted: true, updated: true };
-  } catch (e) {
-    return { attempted: true, updated: false, reason: "exception", detail: e?.message || String(e) };
+  if (upd.error) {
+    // If table doesn't exist or column missing, surface clearly
+    throw new Error(`report_data update failed: ${upd.error.message}`);
   }
+
+  if (Array.isArray(upd.data) && upd.data.length > 0) {
+    return { action: "updated" };
+  }
+
+  // No row existed — try INSERT
+  const ins = await supabase
+    .from("report_data")
+    .insert({ report_id, narrative })
+    .select("report_id");
+
+  if (!ins.error) return { action: "inserted" };
+
+  // If insert failed due to race/duplicate, fallback to UPDATE again
+  const msg = String(ins.error.message || "");
+  const looksLikeDuplicate =
+    msg.toLowerCase().includes("duplicate") ||
+    msg.toLowerCase().includes("unique") ||
+    msg.toLowerCase().includes("already exists");
+
+  if (looksLikeDuplicate) {
+    const upd2 = await supabase
+      .from("report_data")
+      .update({ narrative })
+      .eq("report_id", report_id)
+      .select("report_id");
+
+    if (upd2.error) throw new Error(`report_data update-after-dup failed: ${upd2.error.message}`);
+    return { action: "updated_after_duplicate" };
+  }
+
+  throw new Error(`report_data insert failed: ${ins.error.message}`);
 }
 
-// -----------------------------
-// Handler
-// -----------------------------
-export async function handler(event) {
+export default async (request) => {
   try {
-    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST") {
-      return json(405, { success: false, error: "Method not allowed" });
+    if (request.method === "OPTIONS") return json(200, { ok: true });
+    if (request.method !== "POST") return json(405, { success: false, error: "Method not allowed" });
+
+    let body = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
     }
 
-    const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
-
     if (!isNonEmptyString(report_id)) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // IMPORTANT: do NOT use .single() because duplicates/legacy rows can break it.
-    // Always take the most recent scan row for this report_id.
-    const { data: scans, error: scanErr } = await supabase
+    // 1) Load scan_results (this MUST exist)
+    const { data: scan, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall")
       .eq("report_id", report_id)
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .single();
 
-    if (scanErr) {
-      return json(500, { success: false, error: "DB error reading scan_results", detail: scanErr.message });
-    }
-
-    const scan = Array.isArray(scans) ? scans[0] : null;
-    if (!scan) {
+    if (scanErr || !scan) {
       return json(404, {
         success: false,
         error: "Report not found",
-        detail: "No scan_results row exists for this report_id",
+        detail: scanErr?.message || "No scan_results row exists for this report_id",
         report_id,
       });
     }
 
+    // 2) Generate narrative
     const facts = buildFactsPack(scan);
-
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    // Save narrative to scan_results (source of truth)
+    // 3) Save to scan_results
     const { error: upErr } = await supabase
       .from("scan_results")
       .update({ narrative })
@@ -415,23 +428,32 @@ export async function handler(event) {
       return json(500, {
         success: false,
         error: "Failed to save narrative to scan_results",
-        detail: upErr.message || upErr,
+        detail: upErr.message || String(upErr),
         hint: "Ensure scan_results.narrative exists as jsonb.",
       });
     }
 
-    // Optional: attempt to update reports (UPDATE ONLY — no upsert)
-    const reports = await tryUpdateReports({ report_id, narrative });
+    // 4) Mirror to report_data (optional but matches your read-only generate-report.js)
+    let reportDataResult = null;
+    try {
+      reportDataResult = await saveToReportData(report_id, narrative);
+    } catch (e) {
+      // Don’t fail the whole job if report_data is misconfigured;
+      // scan_results is the source of truth.
+      console.error("[generate-narrative] report_data mirror failed:", e);
+      reportDataResult = { action: "skipped", error: String(e?.message || e) };
+    }
 
     return json(200, {
       success: true,
       report_id,
+      scan_id: scan.id,
       saved_to: "scan_results.narrative",
+      report_data: reportDataResult,
       narrative,
-      reports,
     });
   } catch (err) {
     console.error("[generate-narrative]", err);
     return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
   }
-}
+};
