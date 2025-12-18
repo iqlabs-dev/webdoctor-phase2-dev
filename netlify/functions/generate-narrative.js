@@ -10,7 +10,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
-// Response helprs (CORS-safe)
+// Response helpers (CORS-safe)
 // -----------------------------
 function json(statusCode, body) {
   return {
@@ -144,6 +144,7 @@ function extractResponseText(data) {
           parts.push(JSON.stringify(c.parsed));
         } catch {}
       }
+
       if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
     }
   }
@@ -206,7 +207,9 @@ async function callOpenAI({ facts }) {
                 type: "object",
                 additionalProperties: false,
                 required: ["lines"],
-                properties: { lines: { type: "array", items: { type: "string" } } },
+                properties: {
+                  lines: { type: "array", items: { type: "string" } },
+                },
               },
               signals: {
                 type: "object",
@@ -274,14 +277,7 @@ async function callOpenAI({ facts }) {
   const text = extractResponseText(data);
 
   if (!isNonEmptyString(text)) {
-    const dbg = {
-      keys: Object.keys(data || {}),
-      has_output_text: !!data?.output_text,
-      output_len: Array.isArray(data?.output) ? data.output.length : null,
-      first_output_keys: data?.output?.[0] ? Object.keys(data.output[0]) : null,
-      first_content: data?.output?.[0]?.content?.[0] || null,
-    };
-    console.error("[generate-narrative] Empty text; debug:", dbg);
+    console.error("[generate-narrative] Empty text; debug keys:", Object.keys(data || {}));
     throw new Error("OpenAI returned empty output_text.");
   }
 
@@ -331,8 +327,9 @@ function enforceConstraints(n) {
 export async function handler(event) {
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST")
+    if (event.httpMethod !== "POST") {
       return json(405, { success: false, error: "Method not allowed" });
+    }
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -341,30 +338,38 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // IMPORTANT:
-    // This function ONLY writes narrative to scan_results.narrative.
-    // It does NOT upsert into reports/report_data (avoids unique/onConflict + url NOT NULL traps).
-    const { data: scan, error: scanErr } = await supabase
+    // Get the latest scan row for this report_id (avoids .single() errors)
+    const { data: scanRows, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall, narrative")
       .eq("report_id", report_id)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
 
-    if (scanErr) {
-      return json(500, { success: false, error: "DB error", detail: scanErr.message });
-    }
-    if (!scan) {
+    const scan = scanRows?.[0] || null;
+
+    if (scanErr || !scan) {
       return json(404, {
         success: false,
         error: "Report not found",
-        detail: "No scan_results row exists for this report_id.",
+        detail: scanErr?.message || "No scan_results row exists for this report_id.",
+      });
+    }
+
+    // If it already exists, you can choose to skip regeneration
+    // (comment out if you want "regenerate every time")
+    if (scan.narrative && typeof scan.narrative === "object") {
+      return json(200, {
+        success: true,
+        report_id,
+        scan_id: scan.id,
+        saved_to: "scan_results.narrative",
+        narrative: scan.narrative,
+        note: "Narrative already existed; returned without regenerating.",
       });
     }
 
     const facts = buildFactsPack(scan);
-
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
@@ -376,7 +381,7 @@ export async function handler(event) {
     if (upErr) {
       return json(500, {
         success: false,
-        error: "Failed to save narrative to scan_results",
+        error: "Failed to save narrative",
         detail: upErr.message || upErr,
         hint: "Ensure scan_results.narrative exists as jsonb.",
       });
