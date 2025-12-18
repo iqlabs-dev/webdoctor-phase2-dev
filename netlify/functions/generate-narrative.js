@@ -356,18 +356,22 @@ export async function handler(event) {
       });
     }
 
-    // If it already exists, you can choose to skip regeneration
-    // (comment out if you want "regenerate every time")
-    if (scan.narrative && typeof scan.narrative === "object") {
-      return json(200, {
-        success: true,
-        report_id,
-        scan_id: scan.id,
-        saved_to: "scan_results.narrative",
-        narrative: scan.narrative,
-        note: "Narrative already existed; returned without regenerating.",
-      });
-    }
+// A narrative is valid ONLY if it has real content
+const hasNarrative =
+  Array.isArray(scan.narrative?.overall?.lines) &&
+  scan.narrative.overall.lines.length > 0;
+
+if (hasNarrative) {
+  return json(200, {
+    success: true,
+    report_id,
+    scan_id: scan.id,
+    saved_to: "scan_results.narrative",
+    narrative: scan.narrative,
+    note: "Narrative already exists; returned without regenerating.",
+  });
+}
+
 
     const facts = buildFactsPack(scan);
     const rawNarrative = await callOpenAI({ facts });
