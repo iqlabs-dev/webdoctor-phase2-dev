@@ -103,7 +103,7 @@ function niceLabel(k) {
 function makeObservationsFromEvidence(evidence, source = "scan") {
   const e = evidence && typeof evidence === "object" ? evidence : {};
   return Object.keys(e).map((k) => {
-    let v = e[k];
+    const v = e[k];
     return { label: niceLabel(k), value: v ?? null, source };
   });
 }
@@ -1002,7 +1002,7 @@ export async function handler(event) {
 
     const metrics = {
       scores,
-      delivery_signals, // ✅ UI uses this
+      delivery_signals,
       basic_checks: {
         ...basic,
         http_status: res.status,
@@ -1020,8 +1020,7 @@ export async function handler(event) {
       psi: { disabled: true },
     };
 
-    // ✅ IMPORTANT: we do NOT include narrative here.
-    // Narrative is written by generate-narrative to scan_results.narrative.
+    // IMPORTANT: no narrative written here.
     const insertRow = {
       user_id,
       url,
@@ -1039,7 +1038,31 @@ export async function handler(event) {
 
     if (saveErr) {
       console.error("[run-scan] insert error:", saveErr);
-      return json(500, { success: false, error: "Failed to save scan result", detail: saveErr.message || saveErr });
+      return json(500, {
+        success: false,
+        error: "Failed to save scan result",
+        detail: saveErr.message || saveErr,
+      });
+    }
+
+    // ---------------------------------------------
+    // STEP 1: Ensure reports row exists + set narrative pending
+    // ---------------------------------------------
+    const reportsUpsert = await supabase
+      .from("reports")
+      .upsert(
+        {
+          report_id: saved.report_id || report_id,
+          user_id,
+          url,
+          narrative_status: "pending",
+          narrative_version: "v5.2",
+        },
+        { onConflict: "report_id" }
+      );
+
+    if (reportsUpsert.error) {
+      console.warn("[run-scan] reports upsert warning:", reportsUpsert.error);
     }
 
     // Trigger narrative generation (non-blocking to report rendering)

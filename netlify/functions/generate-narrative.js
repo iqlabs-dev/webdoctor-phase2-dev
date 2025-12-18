@@ -128,34 +128,26 @@ function buildFactsPack(scan) {
 // Extract text from Responses API result (robust)
 // -----------------------------
 function extractResponseText(data) {
-  // Sometimes present:
   if (isNonEmptyString(data?.output_text)) return data.output_text;
 
-  // Otherwise pull from output[].content[].text
   const output = asArray(data?.output);
   const parts = [];
 
   for (const o of output) {
     const content = asArray(o?.content);
     for (const c of content) {
-      // Common patterns:
       if (isNonEmptyString(c?.text)) parts.push(c.text);
-
-      // Occasionally nested
       if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
-
-      // If the API ever returns parsed json (rare), stringify it
       if (c?.parsed && typeof c.parsed === "object") {
-        try { parts.push(JSON.stringify(c.parsed)); } catch {}
+        try {
+          parts.push(JSON.stringify(c.parsed));
+        } catch {}
       }
-
-      // Capture refusals for debugging (won't happen often)
       if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
     }
   }
 
-  const joined = parts.join("\n").trim();
-  return joined;
+  return parts.join("\n").trim();
 }
 
 // -----------------------------
@@ -283,7 +275,6 @@ async function callOpenAI({ facts }) {
 
   const text = extractResponseText(data);
   if (!isNonEmptyString(text)) {
-    // Give you something actionable in the Netlify logs
     const dbg = {
       keys: Object.keys(data || {}),
       has_output_text: !!data?.output_text,
@@ -339,9 +330,12 @@ function enforceConstraints(n) {
 // Handler
 // -----------------------------
 export async function handler(event) {
+  const version = "v5.2";
+
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-    if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
+    if (event.httpMethod !== "POST")
+      return json(405, { success: false, error: "Method not allowed" });
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
@@ -350,6 +344,50 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
+    // 1) If reports already has narrative complete, return it (idempotent)
+    const { data: rep0, error: rep0Err } = await supabase
+      .from("reports")
+      .select(
+        "report_id, narrative_status, narrative_json, narrative_error, narrative_started_at, narrative_completed_at, narrative_version"
+      )
+      .eq("report_id", report_id)
+      .maybeSingle();
+
+    if (rep0Err) {
+      console.warn("[generate-narrative] reports precheck warning:", rep0Err);
+    }
+
+    if (rep0?.narrative_status === "complete" && rep0?.narrative_json) {
+      return json(200, {
+        success: true,
+        report_id,
+        narrative: rep0.narrative_json,
+        status: "complete",
+        cached: true,
+      });
+    }
+
+    // 2) Mark reports as running (best effort, do not fail the job if this fails)
+    const startedAt = new Date().toISOString();
+
+    const { error: repRunErr } = await supabase
+      .from("reports")
+      .upsert(
+        {
+          report_id,
+          narrative_status: "running",
+          narrative_started_at: startedAt,
+          narrative_error: null,
+          narrative_version: version,
+        },
+        { onConflict: "report_id" }
+      );
+
+    if (repRunErr) {
+      console.warn("[generate-narrative] reports running upsert warning:", repRunErr);
+    }
+
+    // 3) Load scan_results (facts source)
     const { data: scan, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall")
@@ -357,31 +395,125 @@ export async function handler(event) {
       .single();
 
     if (scanErr || !scan) {
-      return json(404, { success: false, error: "Report not found", detail: scanErr?.message || null });
+      // Mark failed in reports
+      await supabase
+        .from("reports")
+        .upsert(
+          {
+            report_id,
+            narrative_status: "failed",
+            narrative_error: scanErr?.message || "Report not found in scan_results",
+            narrative_completed_at: new Date().toISOString(),
+            narrative_version: version,
+          },
+          { onConflict: "report_id" }
+        )
+        .catch(() => {});
+      return json(404, {
+        success: false,
+        error: "Report not found",
+        detail: scanErr?.message || null,
+      });
     }
 
     const facts = buildFactsPack(scan);
 
+    // 4) Generate narrative
     const rawNarrative = await callOpenAI({ facts });
     const narrative = enforceConstraints(rawNarrative);
 
-    const { error: upErr } = await supabase
+    // 5) Save narrative into reports (source of truth for PDF + UI)
+    const completedAt = new Date().toISOString();
+
+    const { error: repSaveErr } = await supabase
+      .from("reports")
+      .upsert(
+        {
+          report_id,
+          user_id: body.user_id || null, // best effort; run-scan already wrote user_id
+          url: scan.url,
+          narrative_status: "complete",
+          narrative_json: narrative,
+          narrative_error: null,
+          narrative_completed_at: completedAt,
+          narrative_version: version,
+        },
+        { onConflict: "report_id" }
+      );
+
+    if (repSaveErr) {
+      // Mark failed if we cannot store the narrative
+      await supabase
+        .from("reports")
+        .upsert(
+          {
+            report_id,
+            narrative_status: "failed",
+            narrative_error: repSaveErr.message || String(repSaveErr),
+            narrative_completed_at: new Date().toISOString(),
+            narrative_version: version,
+          },
+          { onConflict: "report_id" }
+        )
+        .catch(() => {});
+
+      return json(500, {
+        success: false,
+        error: "Failed to save narrative to reports",
+        detail: repSaveErr.message || repSaveErr,
+        hint:
+          "Ensure reports has narrative_status, narrative_json (jsonb), narrative_error, narrative_started_at, narrative_completed_at, narrative_version.",
+      });
+    }
+
+    // 6) Back-compat: also write to scan_results.narrative (optional, but keeps old UI working)
+    // If scan_results does not have a narrative column, this will fail silently in logs.
+    const { error: scanUpErr } = await supabase
       .from("scan_results")
       .update({ narrative })
       .eq("id", scan.id);
 
-    if (upErr) {
-      return json(500, {
-        success: false,
-        error: "Failed to save narrative",
-        detail: upErr.message || upErr,
-        hint: "Ensure scan_results.narrative exists as jsonb.",
-      });
+    if (scanUpErr) {
+      console.warn(
+        "[generate-narrative] scan_results narrative back-compat update warning:",
+        scanUpErr
+      );
     }
 
-    return json(200, { success: true, report_id, narrative });
+    return json(200, {
+      success: true,
+      report_id,
+      status: "complete",
+      narrative,
+      cached: false,
+    });
   } catch (err) {
     console.error("[generate-narrative]", err);
-    return json(500, { success: false, error: "Server error", detail: err?.message || String(err) });
+
+    // Best effort: mark failed
+    try {
+      const body = JSON.parse(event.body || "{}");
+      const report_id = String(body.report_id || "").trim();
+      if (isNonEmptyString(report_id)) {
+        await supabase
+          .from("reports")
+          .upsert(
+            {
+              report_id,
+              narrative_status: "failed",
+              narrative_error: err?.message || String(err),
+              narrative_completed_at: new Date().toISOString(),
+              narrative_version: version,
+            },
+            { onConflict: "report_id" }
+          );
+      }
+    } catch {}
+
+    return json(500, {
+      success: false,
+      error: "Server error",
+      detail: err?.message || String(err),
+    });
   }
 }
