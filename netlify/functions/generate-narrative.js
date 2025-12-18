@@ -10,7 +10,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
-// Response helpers (CORS-safe)
+// Response helprs (CORS-safe)
 // -----------------------------
 function json(statusCode, body) {
   return {
