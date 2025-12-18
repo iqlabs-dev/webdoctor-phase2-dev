@@ -2,625 +2,459 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iQWEB Website Report — v5.2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
-    :root{
-      --bg: #070c12;
-      --panel: rgba(255,255,255,.04);
-      --panel2: rgba(255,255,255,.06);
-      --border: rgba(255,255,255,.08);
-      --text: rgba(255,255,255,.92);
-      --muted: rgba(255,255,255,.65);
-      --muted2: rgba(255,255,255,.48);
-      --shadow: 0 18px 60px rgba(0,0,0,.45);
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Montserrat", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, #050814 60%, #020304 100%);
+      color: #e5f0ff;
+      -webkit-font-smoothing: antialiased;
+      padding: 22px 12px 40px;
+    }
+
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #020304;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --card: rgba(255,255,255,0.06);
+      --card-2: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.10);
+      --border-subtle: rgba(255,255,255,0.08);
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
       --radius: 18px;
-      --radius2: 14px;
-      --maxw: 1080px;
-      --grad: linear-gradient(90deg, rgba(20,220,200,.95), rgba(38,140,255,.95));
-      --gradSoft: linear-gradient(90deg, rgba(20,220,200,.18), rgba(38,140,255,.18));
     }
 
-    [data-theme="light"]{
-      --bg: #e8eef5;
-      --panel: rgba(0,0,0,.04);
-      --panel2: rgba(0,0,0,.06);
-      --border: rgba(0,0,0,.08);
-      --text: rgba(10,20,35,.92);
-      --muted: rgba(10,20,35,.65);
-      --muted2: rgba(10,20,35,.5);
-      --shadow: 0 18px 60px rgba(0,0,0,.18);
-      --gradSoft: linear-gradient(90deg, rgba(20,220,200,.14), rgba(38,140,255,.14));
+    .page-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
     }
 
-    *{ box-sizing:border-box; }
-    html, body{ height:100%; }
-    body{
-      margin:0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      display:flex;
-      justify-content:center;
-      padding: 22px 12px 34px;
+    .shell-inner {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
 
-    .wrap{
-      width:100%;
-      max-width: var(--maxw);
-    }
-
-    /* Top header */
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      gap:16px;
-      align-items:stretch;
-      padding:18px;
+    /* Top header card */
+    .top-card {
+      width: 100%;
       border-radius: var(--radius);
-      background: var(--gradSoft);
-      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(34,211,238,0.12), rgba(255,255,255,0.03));
+      border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow);
+      padding: 16px 16px;
     }
 
-    .topbar-left{
-      flex: 0 0 auto;
-      display:flex;
-      align-items:center;
-      min-width: 110px;
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
     }
 
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      user-select:none;
-    }
-
-    .brand-name{
-      font-family: "Montserrat", Inter, system-ui, sans-serif;
-      font-size:18px;
-      font-weight:700;
-      letter-spacing:.2px;
-      line-height:1.1;
-    }
-
-    .topbar-right{
-      flex: 1 1 auto;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      justify-content:flex-end;
-      min-width: 0;
-    }
-
-    /* Make WEBSITE box wider */
-    .meta-grid{
-      display:grid;
-      grid-template-columns: 2.2fr 1fr 1fr;
-      gap:10px;
-      min-width: 0;
-      flex: 1 1 auto;
-      max-width: 780px;
-    }
-
-    .meta-card{
-      padding:10px 12px;
-      border-radius: 14px;
-      min-height:52px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      background: rgba(0,0,0,.22);
-      border: 1px solid var(--border);
-      min-width: 0;
-    }
-    [data-theme="light"] .meta-card{ background: rgba(255,255,255,.65); }
-
-    .meta-label{
-      font-size:11px;
-      opacity:.75;
-      letter-spacing:.12em;
-    }
-
-    .meta-value{
-      font-size:13px;
-      font-weight:650;
-      margin-top:4px;
-      text-decoration:none;
-      color: var(--text);
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-      max-width: 100%;
-      display:block;
-    }
-
-    .action-row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      white-space:nowrap;
-      flex: 0 0 auto;
-    }
-
-    .btn{
-      border: 1px solid var(--border);
-      background: rgba(0,0,0,.22);
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-weight:650;
-      cursor:pointer;
-      transition: transform .08s ease;
-    }
-    [data-theme="light"] .btn{ background: rgba(255,255,255,.65); }
-    .btn:active{ transform: scale(.98); }
-    .btn-primary{
-      background: rgba(0,0,0,.28);
-      border-color: rgba(20,220,200,.35);
-    }
-
-    /* Sections */
-    .section{
-      margin-top: 16px;
-      border-radius: var(--radius);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-
-    .section-head{
-      padding: 16px 16px 10px;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-    }
-    [data-theme="light"] .section-head{ border-bottom: 1px solid rgba(0,0,0,.06); }
-
-    .section-title{
-      margin:0;
-      font-size: 13px;
-      letter-spacing: .10em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .section-body{
-      padding: 14px 16px 16px;
-    }
-
-    /* Loader */
-    .loader-wrap{
-      margin-top: 16px;
-      border-radius: var(--radius);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      padding: 34px 18px;
-      display:flex;
-      justify-content:center;
-    }
-
-    .loader{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap: 10px;
-      text-align:center;
-      max-width: 520px;
-    }
-
-    .orb{
-      width: 74px;
-      height: 74px;
-      border-radius: 999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background: rgba(0,0,0,.25);
-      border: 1px solid var(--border);
-      position: relative;
-      overflow:hidden;
-    }
-
-    .orb::before{
-      content:"";
-      position:absolute;
-      inset:-20px;
-      background: var(--grad);
-      opacity:.25;
-      filter: blur(18px);
-      animation: pulse 1.6s ease-in-out infinite;
-    }
-
-    .orb span{
-      position:relative;
-      font-weight:800;
-      letter-spacing:.24em;
-      opacity:.9;
-    }
-
-    @keyframes pulse{
-      0%,100%{ transform: scale(.94); opacity:.20; }
-      50%{ transform: scale(1.06); opacity:.34; }
-    }
-
-    .loader h2{
-      margin: 0;
-      font-size: 18px;
-      letter-spacing:.2px;
-    }
-
-    .loader p{
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    /* Bars */
-    .bar{
-      margin-top: 12px;
-      height: 10px;
-      border-radius: 999px;
-      background: rgba(255,255,255,.08);
-      border: 1px solid rgba(255,255,255,.06);
-      overflow:hidden;
-    }
-    [data-theme="light"] .bar{ background: rgba(0,0,0,.08); border-color: rgba(0,0,0,.06); }
-
-    .bar > div{
-      height: 100%;
-      width: 0%;
-      background: var(--grad);
-      border-radius: 999px;
-      transition: width .35s ease;
-    }
-
-    .small-note{
-      margin-top:10px;
-      font-size:12px;
-      color: var(--muted);
-    }
-
-    /* SIGNAL GRID — 3×2 on desktop, 2×3 on medium, 1×6 on mobile */
-    .grid{
-      display:grid;
-      gap: 12px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    @media (max-width: 1020px){
-      .grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 680px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      padding: 14px 14px 14px;
-      border-radius: var(--radius2);
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      overflow:hidden;
-      min-height: 150px;
-      display:flex;
-      flex-direction:column;
-      justify-content:flex-start;
-    }
-
-    .card-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
+    .brand {
+      display: flex;
+      align-items: center;
       gap: 10px;
     }
-
-    .card h3{
-      margin: 0;
-      font-size: 13px;
-      letter-spacing:.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    /* Score shown ONCE, right-aligned */
-    .score-right{
-      font-size: 16px;
+    .brand .logo {
       font-weight: 800;
-      opacity: .95;
-      white-space:nowrap;
-      color: var(--text);
-      padding-top: 1px;
+      letter-spacing: 0.02em;
+      font-size: 18px;
     }
 
-    .card .bar{ margin-top: 10px; height: 8px; }
-
-    .summary{
-      margin-top: 10px;
-      font-size: 12.5px;
-      color: var(--muted);
-      line-height: 1.45;
-      min-height: 34px;
-    }
-
-    .summary-strong{
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    /* Evidence section blocks */
-    details{
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: var(--panel2);
-      padding: 10px 12px;
+    .top-meta {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
       margin-top: 10px;
     }
-    details:first-child{ margin-top:0; }
-    summary{
-      cursor:pointer;
-      list-style:none;
-      font-weight: 750;
-      color: var(--text);
-    }
-    summary::-webkit-details-marker{ display:none; }
 
-    .kv{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-    .kv div b{
-      color: var(--text);
-      font-weight: 750;
-    }
-
-    .mono{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      color: var(--text);
-      background: rgba(0,0,0,.18);
-      border: 1px solid var(--border);
+    .meta-line {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--border-subtle);
       border-radius: 12px;
       padding: 10px 12px;
-      overflow:auto;
-      margin-top: 8px;
-      white-space: pre;
-    }
-    [data-theme="light"] .mono{ background: rgba(255,255,255,.6); }
-
-    /* Findings */
-    .finding{
-      padding: 14px;
-      border-radius: var(--radius2);
-      background: var(--panel2);
-      border: 1px solid var(--border);
-      margin-top: 12px;
-    }
-    .finding:first-child{ margin-top: 0; }
-
-    .finding-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
     }
-    .finding-title{
-      margin:0;
-      font-size: 14px;
-      font-weight: 760;
-      letter-spacing:.2px;
-    }
-    .sev{
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 800;
+    .meta-line .k {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      opacity:.95;
-      white-space:nowrap;
     }
-    .finding-block{
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 12.5px;
-      line-height: 1.55;
+    .meta-line .v {
+      font-weight: 600;
+      color: var(--ink);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+      text-align: right;
     }
 
-    /* Fix plan */
-    .phase{
-      padding: 14px;
-      border-radius: var(--radius2);
-      background: var(--panel2);
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .btn {
       border: 1px solid var(--border);
-      margin-top: 12px;
+      background: rgba(0,0,0,0.22);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
     }
-    .phase:first-child{ margin-top:0; }
-    .phase-title{
-      margin:0;
-      font-size: 14px;
-      font-weight: 780;
-    }
-    .phase-why{
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 12.5px;
-      line-height: 1.55;
-    }
-    .phase ul{
-      margin: 10px 0 0 18px;
-      color: var(--text);
-      font-size: 12.5px;
-      line-height: 1.55;
-    }
-    .phase li{
-      margin: 6px 0;
-      color: var(--muted);
-    }
-    .phase li strong{ color: var(--text); }
+    .btn:hover { border-color: rgba(34,211,238,0.55); }
+    .btn:active { transform: translateY(1px); }
 
-    /* Footer */
-    .footer{
-      margin-top: 18px;
-      text-align:center;
-      color: var(--muted2);
+    /* Sections */
+    .section {
+      width: 100%;
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .section-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .section-body { padding: 16px; }
+
+    /* Cards */
+    .card {
+      background: rgba(0,0,0,0.18);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 14px 14px;
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .card h3 {
+      margin: 0;
       font-size: 12px;
-      padding: 12px 0 2px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .score-right {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      color: var(--ink);
     }
 
-    @media (max-width: 980px){
-      .topbar{ flex-direction: column; }
-      .topbar-right{ flex-direction: column; align-items: stretch; }
-      .meta-grid{ grid-template-columns: 1fr; max-width: none; }
-      .action-row{ justify-content:flex-end; width:100%; }
-      .kv{ grid-template-columns: 1fr; }
+    .bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .bar > div {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(34,211,238,0.9), rgba(34,197,94,0.9));
+      transition: width 600ms ease;
     }
 
-    /* Print/PDF: keep clean */
-    @media print{
-      body{ padding: 0; }
-      .topbar, .section{ box-shadow: none; }
+    .summary {
+      margin-top: 10px;
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-size: 13px;
+      white-space: pre-line;
     }
+    .muted { color: var(--muted); }
+
+    /* 3x2 grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    @media (min-width: 980px) {
+      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    /* Evidence */
+    .evidence-block {
+      background: rgba(0,0,0,0.16);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .evidence-title {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .evidence-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    @media (min-width: 800px) {
+      .evidence-list { grid-template-columns: 1fr 1fr; }
+    }
+    .kv {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .kv .k { color: var(--muted); font-size: 12px; }
+    .kv .v { color: var(--ink); font-weight: 600; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+
+    /* Loader */
+    .loader-wrap {
+      width: 100%;
+      max-width: 1120px;
+      border-radius: var(--radius);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow);
+      padding: 22px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse {
+      width: 64px;
+      height: 64px;
+      border-radius: 999px;
+      border: 2px solid rgba(34,211,238,0.35);
+      position: relative;
+    }
+    .pulse:before, .pulse:after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 2px solid rgba(34,211,238,0.35);
+      animation: pulse 1.4s ease-out infinite;
+    }
+    .pulse:after { animation-delay: 0.7s; opacity: 0.7; }
+    @keyframes pulse {
+      0% { transform: scale(0.75); opacity: 0.85; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+
+    .footer {
+      width: 100%;
+      max-width: 1120px;
+      color: rgba(229,240,255,0.60);
+      font-size: 11px;
+      text-align: center;
+      padding-top: 10px;
+    }
+
+    /* Theme support */
+    body.light {
+      background: #e5edf4;
+      color: #0f172a;
+    }
+    body.light .top-card,
+    body.light .section,
+    body.light .loader-wrap {
+      background: rgba(255,255,255,0.80);
+      border-color: rgba(15,23,42,0.12);
+      box-shadow: 0 10px 30px rgba(15,23,42,0.10);
+    }
+    body.light .section-head { background: rgba(15,23,42,0.03); }
+    body.light .meta-line, body.light .card, body.light .evidence-block, body.light .kv {
+      background: rgba(15,23,42,0.03);
+      border-color: rgba(15,23,42,0.10);
+    }
+    body.light .bar { background: rgba(15,23,42,0.10); }
+    body.light .summary { color: rgba(15,23,42,0.78); }
+    body.light .muted { color: rgba(15,23,42,0.55); }
   </style>
 </head>
 
 <body>
-  <div class="wrap">
+  <div class="page-shell">
+    <div class="shell-inner">
 
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="brand">
-          <div>
-            <div class="brand-name">iQWEB</div>
+      <div class="top-card">
+        <div class="top-row">
+          <div class="brand">
+            <div class="logo">iQWEB</div>
+          </div>
+
+          <div class="top-actions">
+            <button class="btn" id="themeToggle">Theme</button>
+            <button class="btn" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+
+        <div class="top-meta">
+          <div class="meta-line">
+            <div class="k">Website</div>
+            <div class="v" id="siteUrl">—</div>
+          </div>
+          <div class="meta-line">
+            <div class="k">Report ID</div>
+            <div class="v" id="reportId">—</div>
+          </div>
+          <div class="meta-line">
+            <div class="k">Report Date</div>
+            <div class="v" id="reportDate">—</div>
           </div>
         </div>
       </div>
 
-      <div class="topbar-right">
-        <div class="meta-grid">
-          <div class="meta-card">
-            <div class="meta-label">WEBSITE</div>
-            <a id="hdrWebsite" class="meta-value" href="#" target="_blank" rel="noopener noreferrer">—</a>
-          </div>
-          <div class="meta-card">
-            <div class="meta-label">REPORT ID</div>
-            <div id="hdrReportId" class="meta-value">—</div>
-          </div>
-          <div class="meta-card">
-            <div class="meta-label">REPORT DATE</div>
-            <div id="hdrReportDate" class="meta-value">—</div>
-          </div>
+      <!-- Loader -->
+      <section id="loaderSection" class="loader-wrap">
+        <div class="pulse" aria-hidden="true"></div>
+        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+        <div id="loaderStatus" class="muted" style="font-size:12px;">
+          Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
         </div>
+      </section>
 
-        <div class="action-row">
-          <button id="btnToggleTheme" class="btn">Theme</button>
-          <button id="btnRefresh" class="btn btn-primary">Refresh</button>
-        </div>
-      </div>
-    </header>
+      <!-- Main Report -->
+      <main id="reportRoot" style="display:none;">
 
-    <section id="loaderSection" class="loader-wrap">
-      <div class="loader">
-        <div class="orb"><span>Λ i Q</span></div>
-        <h2>Building Report</h2>
-        <p>Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.</p>
-        <p id="loaderStatus" style="margin-top:6px; color: var(--muted2); font-size:12px;"></p>
-      </div>
-    </section>
+        <section class="section">
+          <div class="section-head">
+            <h2 class="section-title">Website Report</h2>
+          </div>
 
-    <main id="reportRoot" style="display:none;">
+          <div class="section-body">
+            <!-- Overall score card -->
+            <div class="card" style="min-height:unset;">
+              <div class="card-top">
+                <h3 id="overallLabel">Overall Score</h3>
+                <div class="score-right" id="overallPill">—</div>
+              </div>
 
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Website Report</h2>
-        </div>
+              <div class="bar">
+                <div id="overallBar"></div>
+              </div>
 
-        <!-- FIXED: Overall uses the same .card contract as the signal cards -->
-        <div class="section-body">
-          <div class="card" style="min-height:unset;">
-
-            <div class="card-top">
-              <h3 id="overallLabel">Overall Score</h3>
-              <div class="score-right" id="overallPill"></div>
+              <div class="summary" id="overallNote"></div>
             </div>
-
-            <div class="bar">
-              <div id="overallBar"></div>
-            </div>
-
-            <div class="summary" id="overallNote"></div>
-
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Delivery Signals</h2>
-        </div>
-        <div class="section-body">
-          <div id="signalsGrid" class="grid"></div>
-        </div>
-      </section>
+        <!-- ✅ Executive Narrative (renders into #narrativeText) -->
+        <section class="section" id="executiveNarrativeSection">
+          <div class="section-head">
+            <h2 class="section-title">Λ i Q Executive Narrative</h2>
+          </div>
+          <div class="section-body">
+            <div id="narrativeText" class="summary">
+              <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
+            </div>
+          </div>
+        </section>
 
-      <!-- Evidence is NOT inside cards; it lives here -->
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Signal Evidence</h2>
-        </div>
-        <div class="section-body" id="signalEvidenceRoot"></div>
-      </section>
+        <section class="section">
+          <div class="section-head">
+            <h2 class="section-title">Delivery Signals</h2>
+          </div>
+          <div class="section-body">
+            <div id="signalsGrid" class="grid"></div>
+          </div>
+        </section>
 
-    <section class="section">
-  <div class="section-head">
-    <h2 class="section-title">Λ i Q Executive Narrative</h2>
+        <!-- Evidence is NOT inside cards; it lives here -->
+        <section class="section">
+          <div class="section-head">
+            <h2 class="section-title">Signal Evidence</h2>
+          </div>
+          <div class="section-body" id="signalEvidenceRoot"></div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2 class="section-title">Key Insight Metrics</h2>
+          </div>
+          <div class="section-body" id="keyMetricsRoot"></div>
+        </section>
+
+      </main>
+
+      <div class="footer">POWERED BY iQWEB</div>
+    </div>
   </div>
 
-  <div class="section-body">
-
-<div id="narrativeText" class="summary"></div>
-
-
-  </div>
-</section>
-
-
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Key Insight Metrics</h2>
-        </div>
-        <div class="section-body" id="metricsRoot"></div>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Top Issues Detected</h2>
-        </div>
-        <div class="section-body" id="findingsRoot"></div>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <h2 class="section-title">Recommended Fix Sequence</h2>
-        </div>
-        <div class="section-body" id="fixPlanRoot"></div>
-      </section>
-
-    </main>
-
-    <div class="footer">© 2025 iQLABS Ltd | All Rights Reserved | Made in New Zealand.</div>
-  </div>
-
+  <!-- Scripts (your existing wiring expects these paths) -->
   <script src="/assets/js/report-data.js"></script>
+
+  <script>
+    // Minimal theme toggle (safe)
+    (function(){
+      const btn = document.getElementById("themeToggle");
+      const refresh = document.getElementById("refreshBtn");
+      const key = "iqweb_theme_v1";
+      const saved = localStorage.getItem(key);
+      if (saved === "light") document.body.classList.add("light");
+
+      btn && btn.addEventListener("click", () => {
+        document.body.classList.toggle("light");
+        localStorage.setItem(key, document.body.classList.contains("light") ? "light" : "dark");
+      });
+
+      refresh && refresh.addEventListener("click", () => location.reload());
+    })();
+  </script>
 </body>
 </html>
