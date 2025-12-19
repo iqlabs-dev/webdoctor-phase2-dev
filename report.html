@@ -141,6 +141,53 @@
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
 
+    /* Meta strip for white-label ready header */
+.meta-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.meta-cell {
+  background: rgba(0,0,0,0.22);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.meta-cell .k {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.meta-cell .v {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Website hover affordance */
+.meta-cell .linkish {
+  cursor: pointer;
+}
+.meta-cell .linkish:hover {
+  text-decoration: underline;
+  color: var(--accent);
+}
+
+/* Mobile stacking */
+@media (max-width: 700px) {
+  .meta-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+
     /* Sections */
     .section {
       width: 100%;
@@ -498,34 +545,43 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-      <div class="top-card">
-        <div class="top-row">
-          <div class="brand">
-            <div class="logo">iQWEB</div>
-            <div class="tag">Powered by Λ i Q™</div>
-          </div>
+<div class="top-card">
 
-          <div class="top-actions">
-            <button class="btn" id="themeToggle">Theme</button>
-            <button class="btn" id="refreshBtn">Refresh</button>
-          </div>
-        </div>
-
-        <div class="top-meta">
-          <div class="meta-line">
-            <div class="k">Website</div>
-            <div class="v" id="siteUrl">—</div>
-          </div>
-          <div class="meta-line">
-            <div class="k">Report ID</div>
-            <div class="v" id="reportId">—</div>
-          </div>
-          <div class="meta-line">
-            <div class="k">Report Date</div>
-            <div class="v" id="reportDate">—</div>
-          </div>
-        </div>
+  <!-- Brand Bar -->
+  <div class="top-row">
+    <div class="brand">
+      <div class="logo">iQWEB</div>
+      <div style="font-size:11px; letter-spacing:0.12em; color:var(--ink-soft);">
+        Powered by Λ i Q™
       </div>
+    </div>
+
+    <div class="top-actions">
+      <button class="btn" id="themeToggle">Theme</button>
+      <button class="btn" id="refreshBtn">Refresh</button>
+    </div>
+  </div>
+
+  <!-- Meta Strip -->
+  <div class="meta-strip">
+    <div class="meta-cell">
+      <div class="k">Website</div>
+      <div class="v linkish" id="siteUrl">—</div>
+    </div>
+
+    <div class="meta-cell">
+      <div class="k">Report ID</div>
+      <div class="v" id="reportId">—</div>
+    </div>
+
+    <div class="meta-cell">
+      <div class="k">Report Date</div>
+      <div class="v" id="reportDate">—</div>
+    </div>
+  </div>
+
+</div>
+
 
       <!-- Loader -->
       <section id="loaderSection" class="loader-wrap">
