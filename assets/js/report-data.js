@@ -299,71 +299,77 @@
     }
   }
 
-  // -----------------------------
-  // Delivery Signals — six clean cards (Narrative first, Score second)
-  // -----------------------------
-  function renderSignals(deliverySignals, narrative) {
-    const grid = $("signalsGrid");
-    if (!grid) return;
-    grid.innerHTML = "";
+// -----------------------------
+// Delivery Signals — six clean cards (Title → Bar → Score-right → Narrative)
+// Card narrative is clamped to max 3 lines (v5.2)
+// -----------------------------
+function renderSignals(deliverySignals, narrative) {
+  const grid = $("signalsGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
 
-    const list = asArray(deliverySignals);
-    if (!list.length) {
-      grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
-      return;
-    }
-
-    const parsedNarr = parseNarrativeFlexible(narrative);
-    const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
-    const narrSignals = safeObj(narrObj?.signals);
-
-    // Map delivery signal ids → narrative keys
-    const keyFromSig = (sig) => {
-      const id = String(sig?.id || "").toLowerCase();
-      if (id.includes("perf")) return "performance";
-      if (id.includes("seo")) return "seo";
-      if (id.includes("struct")) return "structure";
-      if (id.includes("mob")) return "mobile";
-      if (id.includes("sec")) return "security";
-      if (id.includes("access")) return "accessibility";
-      return id || null;
-    };
-
-    for (const sig of list) {
-      const label = String(sig?.label ?? sig?.id ?? "Signal");
-      const score = asInt(sig?.score, 0);
-
-      const key = keyFromSig(sig);
-      const rawLines = asArray(narrSignals?.[key]?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
-
-      // Card line cap: max 3
-      const cardLines = normalizeLines(rawLines.join("\n"), 3);
-
-      // Fallback (if no narrative yet)
-      const fallback = summaryTwoLines(sig)?.line2 || "—";
-      const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
-
-      const card = document.createElement("div");
-      card.className = "card";
-
-      card.innerHTML = `
-        <div class="card-top">
-          <h3>${escapeHtml(label)}</h3>
-          <div class="score-right">${escapeHtml(String(score))}</div>
-        </div>
-
-        <div class="summary" style="min-height:unset;">
-          ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
-        </div>
-
-        <div class="bar"><div style="width:${score}%;"></div></div>
-      `;
-
-      grid.appendChild(card);
-    }
+  const list = asArray(deliverySignals);
+  if (!list.length) {
+    grid.innerHTML = `<div class="summary">Contract violation: delivery_signals missing.</div>`;
+    return;
   }
+
+  const parsedNarr = parseNarrativeFlexible(narrative);
+  const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
+  const narrSignals = safeObj(narrObj?.signals);
+
+  // Map delivery signal ids → narrative keys
+  const keyFromSig = (sig) => {
+    const id = String(sig?.id || "").toLowerCase();
+    if (id.includes("perf")) return "performance";
+    if (id.includes("seo")) return "seo";
+    if (id.includes("struct")) return "structure";
+    if (id.includes("mob")) return "mobile";
+    if (id.includes("sec")) return "security";
+    if (id.includes("access")) return "accessibility";
+    return id || null;
+  };
+
+  for (const sig of list) {
+    const label = String(sig?.label ?? sig?.id ?? "Signal");
+    const score = asInt(sig?.score, 0);
+
+    const key = keyFromSig(sig);
+
+    // Preferred: AI JSON lines, max 3
+    const rawLines = asArray(narrSignals?.[key]?.lines)
+      .map(l => String(l || "").trim())
+      .filter(Boolean);
+
+    const cardLines = normalizeLines(rawLines.join("\n"), 3);
+
+    // Fallback: deterministic one-liner if narrative not ready
+    const fallback = summaryTwoLines(sig)?.line2 || "—";
+    const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
+
+    const card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+      <div class="card-top">
+        <h3>${escapeHtml(label)}</h3>
+      </div>
+
+      <div class="bar"><div style="width:${score}%;"></div></div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+        <div class="score-right">${escapeHtml(String(score))}</div>
+      </div>
+
+      <div class="summary" style="min-height:unset; margin-top:10px;">
+        ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
+      </div>
+    `;
+
+    grid.appendChild(card);
+  }
+}
+
 
   // -----------------------------
   // Evidence fallback: if observations missing, derive from evidence object
