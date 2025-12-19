@@ -415,6 +415,18 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
+        <!-- ✅ Executive Narrative (renders into #narrativeText) -->
+        <section class="section" id="executiveNarrativeSection">
+          <div class="section-head">
+            <h2 class="section-title">Λ i Q Executive Narrative</h2>
+          </div>
+          <div class="section-body">
+            <div id="narrativeText" class="summary">
+              <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
+            </div>
+          </div>
+        </section>
+
         <section class="section">
           <div class="section-head">
             <h2 class="section-title">Website Report</h2>
@@ -433,18 +445,6 @@
               </div>
 
               <div class="summary" id="overallNote"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ✅ Executive Narrative (renders into #narrativeText) -->
-        <section class="section" id="executiveNarrativeSection">
-          <div class="section-head">
-            <h2 class="section-title">Λ i Q Executive Narrative</h2>
-          </div>
-          <div class="section-body">
-            <div id="narrativeText" class="summary">
-              <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
             </div>
           </div>
         </section>
@@ -472,6 +472,12 @@
           </div>
           <div class="section-body" id="keyMetricsRoot"></div>
         </section>
+
+        <!-- (Placeholders for later sections)
+        <section class="section">Top Issues Detected</section>
+        <section class="section">Recommended Fix Sequence</section>
+        <section class="section">Final Notes from Λ i Q</section>
+        -->
 
       </main>
 
