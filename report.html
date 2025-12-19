@@ -614,20 +614,19 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- 3. Λ i Q Executive Narrative (Lead) -->
+        <!-- 3. Executive Narrative (Lead) -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Λ i Q Executive Narrative</h2>
+            <h2 class="section-title">Executive Narrative</h2>
           </div>
           <div class="section-body">
-            <!-- IMPORTANT: keep #narrativeText ID for existing wiring -->
             <div id="narrativeText" class="summary">
               <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
             </div>
           </div>
         </section>
 
-        <!-- 4. Delivery Signals (Narrative First, Score Second) -->
+        <!-- 4. Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
@@ -647,11 +646,8 @@
               </div>
 
               <p class="overall-strip-note" id="overallNote"></p>
-
-
             </div>
 
-            <!-- IMPORTANT: keep #signalsGrid ID for existing wiring -->
             <div id="signalsGrid" class="grid"></div>
 
             <div class="summary muted" style="font-size:12px;">
@@ -661,7 +657,6 @@
           </div>
         </section>
 
-        <!-- Evidence is NOT inside cards; it lives here -->
         <section class="section" id="signalEvidenceSection">
           <div class="section-head">
             <h2 class="section-title">Signal Evidence</h2>
@@ -669,45 +664,28 @@
           <div class="section-body" id="signalEvidenceRoot"></div>
         </section>
 
-        <!-- 6. Key Insight Metrics (Narrative-driven) -->
         <section class="section" id="keyInsightsSection">
           <div class="section-head">
             <h2 class="section-title">Key Insight Metrics</h2>
           </div>
           <div class="section-body">
-            <!-- IMPORTANT: keep #keyMetricsRoot ID for existing wiring -->
             <div id="keyMetricsRoot">
-              <!-- Safe fallback content if JS doesn't populate -->
               <div class="insight-list">
-                <div class="insight">
-                  <div class="tag">Strength</div>
-                  <div class="text">Not available from this scan output yet.</div>
-                </div>
-                <div class="insight">
-                  <div class="tag">Risk</div>
-                  <div class="text">Not available from this scan output yet.</div>
-                </div>
-                <div class="insight">
-                  <div class="tag">Focus</div>
-                  <div class="text">Not available from this scan output yet.</div>
-                </div>
-                <div class="insight">
-                  <div class="tag">Next</div>
-                  <div class="text">Not available from this scan output yet.</div>
-                </div>
+                <div class="insight"><div class="tag">Strength</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Risk</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Focus</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Next</div><div class="text">Not available from this scan output yet.</div></div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 7. Top Issues Detected (Contextual, Not Alarmist) -->
         <section class="section" id="topIssuesSection">
           <div class="section-head">
             <h2 class="section-title">Top Issues Detected</h2>
           </div>
           <div class="section-body">
             <div id="topIssuesRoot" class="issue-list">
-              <!-- Safe placeholders (no JS dependency) -->
               <div class="issue">
                 <div class="issue-top">
                   <p class="issue-title">No issue list available yet</p>
@@ -726,7 +704,6 @@
           </div>
         </section>
 
-        <!-- 8. Recommended Fix Sequence (Phased) -->
         <section class="section" id="fixSequenceSection">
           <div class="section-head">
             <h2 class="section-title">Recommended Fix Sequence</h2>
@@ -780,10 +757,9 @@
           </div>
         </section>
 
-        <!-- 9. Final Notes from Λ i Q -->
         <section class="section" id="finalNotesSection">
           <div class="section-head">
-            <h2 class="section-title">Final Notes from Λ i Q</h2>
+            <h2 class="section-title">Final Notes</h2>
           </div>
           <div class="section-body" id="finalNotesRoot">
             <div class="summary">
@@ -802,11 +778,9 @@
     </div>
   </div>
 
-  <!-- Scripts (your existing wiring expects these paths) -->
   <script src="/assets/js/report-data.js"></script>
 
   <script>
-    // Minimal theme toggle (safe)
     (function(){
       const btn = document.getElementById("themeToggle");
       const refresh = document.getElementById("refreshBtn");
@@ -820,30 +794,6 @@
       });
 
       refresh && refresh.addEventListener("click", () => location.reload());
-    })();
-
-    // Ensure Website link is clickable even if report-data.js only sets textContent
-    (function(){
-      const a = document.getElementById("siteUrl");
-      if (!a) return;
-
-      const syncHref = () => {
-        const txt = (a.textContent || "").trim();
-        if (txt && txt !== "—" && txt !== "#") {
-          try {
-            const u = new URL(txt);
-            a.href = u.toString();
-          } catch {
-            // If it's missing protocol, try https://
-            if (!/^https?:\/\//i.test(txt)) a.href = "https://" + txt;
-          }
-        }
-      };
-
-      // Run once now, and again after the report wiring sets the text
-      syncHref();
-      setTimeout(syncHref, 250);
-      setTimeout(syncHref, 800);
     })();
   </script>
 </body>

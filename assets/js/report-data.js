@@ -336,8 +336,24 @@ return d.toLocaleString(undefined, {
 
       const cardLines = normalizeLines(rawLines.join("\n"), 3);
 
-      const fallback = summaryTwoLines(sig)?.line2 || "—";
-      const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
+const fallback = summaryTwoLines(sig)?.line2 || "—";
+
+// If narrative exists, use it (max 3 lines already clamped).
+// If it doesn't exist, show fallback as ONE line (no fake 2–3 line format).
+let bodyText = "—";
+
+if (cardLines.length) {
+  // Optional rule: if 3rd line is "No action required", hide it.
+  const cleaned = cardLines.filter((l, idx) => {
+    const s = String(l || "").trim().toLowerCase();
+    if (idx === 2 && (s === "no action required." || s === "no action required at this time." || s === "no action required")) return false;
+    return true;
+  });
+  bodyText = cleaned.join("\n");
+} else {
+  bodyText = String(fallback).trim();
+}
+
 
       const card = document.createElement("div");
       card.className = "card";
