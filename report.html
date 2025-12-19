@@ -55,7 +55,7 @@
       gap: 18px;
     }
 
-    /* Top headr card */
+    /* Top header card */
     .top-card {
       width: 100%;
       border-radius: var(--radius);
@@ -82,6 +82,13 @@
       font-weight: 800;
       letter-spacing: 0.02em;
       font-size: 18px;
+    }
+    .brand .tag {
+      color: rgba(229,240,255,0.70);
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 11px;
     }
 
     .top-meta {
@@ -260,7 +267,7 @@
     .kv .k { color: var(--muted); font-size: 12px; }
     .kv .v { color: var(--ink); font-weight: 600; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
 
-    /* ✅ Make details/summary behave like proper accordions */
+    /* ✅ Evidence accordions */
     details.evidence-block { padding: 0; }
     details.evidence-block > summary {
       list-style: none;
@@ -302,6 +309,120 @@
       border-bottom-right-radius: 16px;
       background: rgba(0,0,0,0.14);
     }
+
+    /* ✅ Key Insight Metrics must never behave like evidence accordions */
+    #keyMetricsRoot details,
+    #keyMetricsRoot summary {
+      all: unset;
+      display: block;
+    }
+    #keyMetricsRoot details { margin: 0; }
+    #keyMetricsRoot summary { cursor: default; }
+
+    /* Insight list UI (safe, no JS required) */
+    .insight-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 900px) {
+      .insight-list { grid-template-columns: 1fr 1fr; }
+    }
+    .insight {
+      border-radius: 14px;
+      padding: 12px 12px;
+      background: rgba(0,0,0,0.16);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .insight .tag {
+      flex: 0 0 auto;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: rgba(34,211,238,0.95);
+      padding-top: 2px;
+      min-width: 92px;
+    }
+    .insight .text {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    /* Issue list */
+    .issue-list { display: flex; flex-direction: column; gap: 10px; }
+    .issue {
+      border-radius: 14px;
+      padding: 12px 12px;
+      background: rgba(0,0,0,0.16);
+      border: 1px solid var(--border-subtle);
+    }
+    .issue-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .issue-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--ink);
+      font-weight: 800;
+    }
+    .issue-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(229,240,255,0.70);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      white-space: nowrap;
+    }
+    .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+
+    /* Fix sequence */
+    .phase {
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(0,0,0,0.16);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .phase-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.03);
+    }
+    .phase-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .phase-time {
+      font-size: 11px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: rgba(229,240,255,0.65);
+    }
+    .phase-body { padding: 12px 14px; }
+    .phase-body ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
+    .phase-body li { margin: 6px 0; line-height: 1.45; }
 
     /* Loader */
     .loader-wrap {
@@ -361,13 +482,15 @@
       box-shadow: 0 10px 30px rgba(15,23,42,0.10);
     }
     body.light .section-head { background: rgba(15,23,42,0.03); }
-    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv {
+    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv,
+    body.light .insight, body.light .issue, body.light .phase {
       background: rgba(15,23,42,0.03);
       border-color: rgba(15,23,42,0.10);
     }
     body.light .bar { background: rgba(15,23,42,0.10); }
-    body.light .summary { color: rgba(15,23,42,0.78); }
+    body.light .summary, body.light .issue-why, body.light .phase-body li, body.light .insight .text { color: rgba(15,23,42,0.78); }
     body.light .muted { color: rgba(15,23,42,0.55); }
+    body.light .brand .tag { color: rgba(15,23,42,0.55); }
   </style>
 </head>
 
@@ -379,6 +502,7 @@
         <div class="top-row">
           <div class="brand">
             <div class="logo">iQWEB</div>
+            <div class="tag">Powered by Λ i Q™</div>
           </div>
 
           <div class="top-actions">
@@ -415,25 +539,26 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- ✅ Executive Narrative (renders into #narrativeText) -->
+        <!-- 3. Λ i Q Executive Narrative (Lead) -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Λ i Q Executive Narrative</h2>
           </div>
           <div class="section-body">
+            <!-- IMPORTANT: keep #narrativeText ID for existing wiring -->
             <div id="narrativeText" class="summary">
               <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <!-- 5. Score Context (Demoted, Not Dominant) -->
+        <section class="section" id="scoreContextSection">
           <div class="section-head">
-            <h2 class="section-title">Website Report</h2>
+            <h2 class="section-title">Score Context</h2>
           </div>
-
           <div class="section-body">
-            <!-- Overall score card -->
+            <!-- Overall score card (kept intact for wiring) -->
             <div class="card" style="min-height:unset;">
               <div class="card-top">
                 <h3 id="overallLabel">Overall Score</h3>
@@ -445,39 +570,163 @@
               </div>
 
               <div class="summary" id="overallNote"></div>
+
+              <div class="summary muted" style="font-size:12px; margin-top:10px;">
+                Scores summarise measurable signals captured during this scan. Where a measurement is unavailable, iQWEB will say so rather than guess.
+              </div>
             </div>
           </div>
         </section>
 
-        <section class="section">
+        <!-- 4. Delivery Signals (Narrative First, Score Second) -->
+        <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
           </div>
           <div class="section-body">
+            <!-- IMPORTANT: keep #signalsGrid ID for existing wiring -->
             <div id="signalsGrid" class="grid"></div>
+
+            <div class="summary muted" style="font-size:12px;">
+              Each signal is presented as a short diagnostic narrative, backed by evidence below.
+            </div>
           </div>
         </section>
 
         <!-- Evidence is NOT inside cards; it lives here -->
-        <section class="section">
+        <section class="section" id="signalEvidenceSection">
           <div class="section-head">
             <h2 class="section-title">Signal Evidence</h2>
           </div>
           <div class="section-body" id="signalEvidenceRoot"></div>
         </section>
 
-        <section class="section">
+        <!-- 6. Key Insight Metrics (Narrative-driven) -->
+        <section class="section" id="keyInsightsSection">
           <div class="section-head">
             <h2 class="section-title">Key Insight Metrics</h2>
           </div>
-          <div class="section-body" id="keyMetricsRoot"></div>
+          <div class="section-body">
+            <!-- IMPORTANT: keep #keyMetricsRoot ID for existing wiring -->
+            <div id="keyMetricsRoot">
+              <!-- Safe fallback content if JS doesn't populate -->
+              <div class="insight-list">
+                <div class="insight">
+                  <div class="tag">Strength</div>
+                  <div class="text">Not available from this scan output yet.</div>
+                </div>
+                <div class="insight">
+                  <div class="tag">Risk</div>
+                  <div class="text">Not available from this scan output yet.</div>
+                </div>
+                <div class="insight">
+                  <div class="tag">Focus</div>
+                  <div class="text">Not available from this scan output yet.</div>
+                </div>
+                <div class="insight">
+                  <div class="tag">Next</div>
+                  <div class="text">Not available from this scan output yet.</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <!-- (Placeholders for later sections)
-        <section class="section">Top Issues Detected</section>
-        <section class="section">Recommended Fix Sequence</section>
-        <section class="section">Final Notes from Λ i Q</section>
-        -->
+        <!-- 7. Top Issues Detected (Contextual, Not Alarmist) -->
+        <section class="section" id="topIssuesSection">
+          <div class="section-head">
+            <h2 class="section-title">Top Issues Detected</h2>
+          </div>
+          <div class="section-body">
+            <div id="topIssuesRoot" class="issue-list">
+              <!-- Safe placeholders (no JS dependency) -->
+              <div class="issue">
+                <div class="issue-top">
+                  <p class="issue-title">No issue list available yet</p>
+                  <span class="issue-label">Monitor</span>
+                </div>
+                <div class="issue-why">This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>
+              </div>
+              <div class="issue">
+                <div class="issue-top">
+                  <p class="issue-title">Why this is calm, not alarmist</p>
+                  <span class="issue-label">Worth addressing</span>
+                </div>
+                <div class="issue-why">iQWEB avoids panic language. If a signal is missing or uncertain, it is shown as “not available” rather than guessed.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. Recommended Fix Sequence (Phased) -->
+        <section class="section" id="fixSequenceSection">
+          <div class="section-head">
+            <h2 class="section-title">Recommended Fix Sequence</h2>
+          </div>
+          <div class="section-body" id="fixSequenceRoot">
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 1 — Fast wins</p>
+                <div class="phase-time">Today / This week</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Address the clearest, highest-leverage issues surfaced in the evidence blocks.</li>
+                  <li>Fix metadata/semantics gaps that are straightforward and measurable.</li>
+                  <li>Re-run the scan to confirm the change is reflected in signals.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 2 — Structural improvements</p>
+                <div class="phase-time">1–3 weeks</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Stabilise performance bottlenecks that require engineering changes.</li>
+                  <li>Improve structure and semantics to support SEO and accessibility together.</li>
+                  <li>Reduce recurring sources of layout/CLS risk where applicable.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 3 — Hardening & trust</p>
+                <div class="phase-time">Ongoing</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Strengthen security posture using modern headers and best practices where appropriate.</li>
+                  <li>Implement monitoring and keep regression risk low over time.</li>
+                  <li>Schedule periodic accessibility checks as part of ongoing maintenance.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="summary muted" style="font-size:12px;">
+              This sequence is designed to be practical: measurable wins first, structural improvements second, long-term hardening last.
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. Final Notes from Λ i Q -->
+        <section class="section" id="finalNotesSection">
+          <div class="section-head">
+            <h2 class="section-title">Final Notes from Λ i Q</h2>
+          </div>
+          <div class="section-body" id="finalNotesRoot">
+            <div class="summary">
+              This report is a diagnostic snapshot based on measurable signals captured during this scan. It is designed to prioritise clarity — what matters most, why it matters, and what to fix first.
+              <br><br>
+              Where iQWEB cannot measure a signal reliably, it will show “Not available from this scan” rather than guess.
+              <br><br>
+              Trust matters: scan output is used to generate this report and is not sold. Payment details are handled by the payment provider and are not stored in iQWEB.
+            </div>
+          </div>
+        </section>
 
       </main>
 

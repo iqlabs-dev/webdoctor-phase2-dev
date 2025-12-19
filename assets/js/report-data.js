@@ -1,8 +1,8 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.5 (Locked wiring fix)
-// - Keeps scoring + cards exactly as-is
-// - Fixes ID mismatches with report.html
-// - Evidence accordions rendered using your CSS blocks
+// iQWEB Report UI — Contract v1.0.6 (Layout completion)
+// - Keeps scoring + cards + evidence wiring intact
+// - FIXES Key Insight Metrics: render as STATIC insights (no dropdowns)
+// - Adds safe renderers for Top Issues, Fix Sequence, Final Notes (optional IDs)
 // - Narrative supports text OR JSON and polls until available
 // - Enforces v5.2 line caps in UI:
 //   - Executive narrative max 5 lines
@@ -29,11 +29,6 @@
       .replaceAll("'", "&#039;");
   }
 
-  function prettyJSON(obj) {
-    try { return JSON.stringify(obj, null, 2); }
-    catch { return String(obj); }
-  }
-
   function formatDate(iso) {
     if (!iso) return "—";
     const d = new Date(iso);
@@ -52,7 +47,7 @@
     return "Needs attention";
   }
 
-  // v5.2 UI clamp helper (THIS WAS MISSING — causes the errors)
+  // v5.2 UI clamp helper
   function normalizeLines(text, maxLines) {
     const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
     if (!s) return [];
@@ -289,7 +284,7 @@
 
   // -----------------------------
   // Delivery Signals — six clean cards
-  // FIX: BAR ABOVE TEXT (score stays top-right)
+  // Bar above text (score stays top-right)
   // -----------------------------
   function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
@@ -334,7 +329,6 @@
       const card = document.createElement("div");
       card.className = "card";
 
-      // ✅ BAR MOVED ABOVE TEXT
       card.innerHTML = `
         <div class="card-top">
           <h3>${escapeHtml(label)}</h3>
@@ -504,77 +498,221 @@
   }
 
   // -----------------------------
-  // Key Metrics (FIX ID: keyMetricsRoot)
+  // Key Insight Metrics (Narrative-driven, STATIC)
+  // IMPORTANT: This replaces the old accordion "key metrics" renderer.
   // -----------------------------
-  function renderMetrics(keyMetrics) {
+  function keyFromLabelOrId(sig) {
+    const id = String(sig?.id || sig?.label || "").toLowerCase();
+    if (id.includes("perf")) return "performance";
+    if (id.includes("seo")) return "seo";
+    if (id.includes("struct")) return "structure";
+    if (id.includes("mob")) return "mobile";
+    if (id.includes("sec")) return "security";
+    if (id.includes("access")) return "accessibility";
+    return "";
+  }
+
+  function renderKeyInsights(scores, deliverySignals, narrative) {
     const root = $("keyMetricsRoot");
     if (!root) return;
+
+    const overall = asInt(scores?.overall, 0);
+    const list = asArray(deliverySignals);
+
+    // Narrative signal lines (if available)
+    const parsedNarr = parseNarrativeFlexible(narrative);
+    const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
+    const narrSignals = safeObj(narrObj?.signals);
+
+    // Score map by signal key
+    const scoreBy = {};
+    for (const sig of list) {
+      const k = keyFromLabelOrId(sig);
+      if (!k) continue;
+      scoreBy[k] = asInt(sig?.score, 0);
+    }
+
+    const signalScores = Object.entries(scoreBy);
+    signalScores.sort((a, b) => a[1] - b[1]); // lowest first
+    const weakest = signalScores[0]?.[0];
+    const strongest = signalScores[signalScores.length - 1]?.[0];
+
+    function narrativeOneLineForSignal(key) {
+      const rawLines = asArray(narrSignals?.[key]?.lines)
+        .map(l => String(l || "").trim())
+        .filter(Boolean);
+      const lines = normalizeLines(rawLines.join("\n"), 1);
+      return lines[0] || "";
+    }
+
+    // Safe, factual fallbacks if narrative not present
+    function fallbackLine(label, key) {
+      const s = Number.isFinite(scoreBy[key]) ? scoreBy[key] : null;
+      if (s === null) return `${label} insight not available from this scan output.`;
+      if (s >= 90) return `${label} is strong in this scan.`;
+      if (s >= 75) return `${label} is generally good, with room for improvement.`;
+      if (s >= 55) return `${label} shows gaps worth addressing.`;
+      return `${label} shows the largest improvement potential in this scan.`;
+    }
+
+    const strengthKey = strongest || "mobile";
+    const riskKey = weakest || "security";
+
+    const strengthText = narrativeOneLineForSignal(strengthKey) || fallbackLine("Strength", strengthKey);
+    const riskText = narrativeOneLineForSignal(riskKey) || fallbackLine("Risk", riskKey);
+
+    const focusText =
+      weakest
+        ? `Primary focus: ${prettifyKey(weakest)} shows the biggest improvement potential based on this scan’s scores.`
+        : `Primary focus: address the lowest scoring signal areas first for highest leverage.`;
+
+    const nextText =
+      overall >= 75
+        ? "Next: apply Phase 1 fixes and re-run the scan to confirm measurable improvement."
+        : "Next: start with Phase 1 fast wins to lift the most constrained signals, then re-run the scan.";
+
+    // Render as STATIC insights (no <details>)
+    root.innerHTML = `
+      <div class="insight-list">
+        <div class="insight">
+          <div class="tag">Strength</div>
+          <div class="text">${escapeHtml(strengthText)}</div>
+        </div>
+        <div class="insight">
+          <div class="tag">Risk</div>
+          <div class="text">${escapeHtml(riskText)}</div>
+        </div>
+        <div class="insight">
+          <div class="tag">Focus</div>
+          <div class="text">${escapeHtml(focusText)}</div>
+        </div>
+        <div class="insight">
+          <div class="tag">Next</div>
+          <div class="text">${escapeHtml(nextText)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // -----------------------------
+  // Top Issues Detected (Contextual, Not Alarmist) — optional section
+  // -----------------------------
+  function softImpactLabel(severity) {
+    const s = String(severity || "").toLowerCase();
+    if (s.includes("high") || s.includes("critical")) return "High leverage";
+    if (s.includes("med") || s.includes("warn")) return "Worth addressing";
+    return "Monitor";
+  }
+
+  function renderTopIssues(deliverySignals) {
+    const root = $("topIssuesRoot");
+    if (!root) return; // section optional
     root.innerHTML = "";
 
-    const km = safeObj(keyMetrics);
-    const http = safeObj(km.http);
-    const page = safeObj(km.page);
-    const content = safeObj(km.content);
-    const freshness = safeObj(km.freshness);
-    const sec = safeObj(km.security);
+    const list = asArray(deliverySignals);
+    const all = [];
+
+    for (const sig of list) {
+      const issues = asArray(sig?.issues);
+      for (const it of issues) {
+        all.push({
+          title: String(it?.title || "Issue").trim() || "Issue",
+          why: String(it?.impact || it?.description || "This can affect real user delivery and measurable performance.").trim(),
+          severity: it?.severity || "low",
+        });
+      }
+    }
+
+    // If no structured issues, show a calm placeholder
+    if (!all.length) {
+      root.innerHTML = `
+        <div class="issue">
+          <div class="issue-top">
+            <p class="issue-title">No issue list available from this scan output yet</p>
+            <span class="issue-label">Monitor</span>
+          </div>
+          <div class="issue-why">
+            This section summarises the highest-leverage issues detected from the evidence captured during this scan.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Deduplicate by title
+    const seen = new Set();
+    const unique = [];
+    for (const it of all) {
+      const key = it.title.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(it);
+      if (unique.length >= 10) break;
+    }
+
+    root.innerHTML = unique.map(it => {
+      const label = softImpactLabel(it.severity);
+      return `
+        <div class="issue">
+          <div class="issue-top">
+            <p class="issue-title">${escapeHtml(it.title)}</p>
+            <span class="issue-label">${escapeHtml(label)}</span>
+          </div>
+          <div class="issue-why">${escapeHtml(it.why)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // -----------------------------
+  // Recommended Fix Sequence (Phased) — optional section
+  // (keeps your HTML fallback if present; only enriches when possible)
+  // -----------------------------
+  function renderFixSequence(scores, deliverySignals) {
+    const root = $("fixSequenceRoot");
+    if (!root) return; // section optional
+
+    // If you already have static HTML phases, we don't overwrite them.
+    // We only add a small "suggestion" note if empty.
+    const hasPhases = root.querySelector?.(".phase");
+    if (hasPhases) return;
+
+    const list = asArray(deliverySignals);
+    const scorePairs = list
+      .map(s => ({
+        key: keyFromLabelOrId(s),
+        label: String(s?.label ?? s?.id ?? "Signal"),
+        score: asInt(s?.score, 0),
+      }))
+      .filter(x => x.key);
+
+    scorePairs.sort((a, b) => a.score - b.score);
+    const low = scorePairs.slice(0, 2).map(x => x.label);
 
     root.innerHTML = `
-      <details class="evidence-block" open>
-        <summary><span class="acc-title">HTTP & Page Basics</span><span class="acc-score">+</span></summary>
-        <div class="acc-body">
-          <div class="evidence-list">
-            <div class="kv"><div class="k">Status</div><div class="v">${escapeHtml(http.status ?? "—")}</div></div>
-            <div class="kv"><div class="k">Content-Type</div><div class="v">${escapeHtml(http.content_type ?? "—")}</div></div>
-            <div class="kv"><div class="k">Final URL</div><div class="v">${escapeHtml(http.final_url ?? "—")}</div></div>
-
-            <div class="kv"><div class="k">Title Present</div><div class="v">${escapeHtml(page.title_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">Canonical Present</div><div class="v">${escapeHtml(page.canonical_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">H1 Present</div><div class="v">${escapeHtml(page.h1_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">Viewport Present</div><div class="v">${escapeHtml(page.viewport_present ?? "—")}</div></div>
-
-            <div class="kv"><div class="k">HTML Bytes</div><div class="v">${escapeHtml(content.html_bytes ?? "—")}</div></div>
-            <div class="kv"><div class="k">Images</div><div class="v">${escapeHtml(content.img_count ?? "—")}</div></div>
-            <div class="kv"><div class="k">Images w/ ALT</div><div class="v">${escapeHtml(content.img_alt_count ?? "—")}</div></div>
-          </div>
-          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON({ http, page, content }))}</div>
-        </div>
-      </details>
-
-      <details class="evidence-block">
-        <summary><span class="acc-title">Freshness Signals</span><span class="acc-score">+</span></summary>
-        <div class="acc-body">
-          <div class="evidence-list">
-            <div class="kv"><div class="k">Last-Modified Present</div><div class="v">${escapeHtml(freshness.last_modified_header_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">Last-Modified Value</div><div class="v">${escapeHtml(freshness.last_modified_header_value ?? "—")}</div></div>
-            <div class="kv"><div class="k">Copyright</div><div class="v">${escapeHtml((freshness.copyright_year_min ?? "—") + "–" + (freshness.copyright_year_max ?? "—"))}</div></div>
-          </div>
-          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON(freshness))}</div>
-        </div>
-      </details>
-
-      <details class="evidence-block">
-        <summary><span class="acc-title">Security Headers Snapshot</span><span class="acc-score">+</span></summary>
-        <div class="acc-body">
-          <div class="evidence-list">
-            <div class="kv"><div class="k">HTTPS</div><div class="v">${escapeHtml(sec.https ?? "—")}</div></div>
-            <div class="kv"><div class="k">HSTS</div><div class="v">${escapeHtml(sec.hsts_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">CSP</div><div class="v">${escapeHtml(sec.csp_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">X-Frame-Options</div><div class="v">${escapeHtml(sec.x_frame_options_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">X-Content-Type-Options</div><div class="v">${escapeHtml(sec.x_content_type_options_present ?? "—")}</div></div>
-            <div class="kv"><div class="k">Referrer-Policy</div><div class="v">${escapeHtml(sec.referrer_policy_present ?? "—")}</div></div>
-          </div>
-          <div class="summary" style="margin-top:10px;">${escapeHtml(prettyJSON(sec))}</div>
-        </div>
-      </details>
+      <div class="summary">
+        Recommended order (from this scan): start with <b>${escapeHtml(low.join(" + ") || "highest-leverage fixes")}</b>, then re-run the scan to confirm measurable improvement.
+      </div>
     `;
+  }
 
-    root.querySelectorAll("details.evidence-block").forEach(d => {
-      const s = d.querySelector("summary .acc-score");
-      if (!s) return;
-      const set = () => { s.textContent = d.open ? "−" : "+"; };
-      set();
-      d.addEventListener("toggle", set);
-    });
+  // -----------------------------
+  // Final Notes — optional section
+  // -----------------------------
+  function renderFinalNotes() {
+    const root = $("finalNotesRoot");
+    if (!root) return; // section optional
+
+    // If HTML already contains final notes, do nothing.
+    if ((root.textContent || "").trim().length > 30) return;
+
+    root.innerHTML = `
+      <div class="summary">
+        This report is a diagnostic snapshot based on measurable signals captured during this scan. Where iQWEB cannot measure a signal reliably, it will show “Not available” rather than guess.
+        <br><br>
+        Trust matters: scan output is used to generate this report and is not sold. Payment details are handled by the payment provider and are not stored in iQWEB.
+      </div>
+    `;
   }
 
   // -----------------------------
@@ -605,11 +743,17 @@
       renderOverall(scores);
 
       renderNarrative(data.narrative);
-
       renderSignals(data.delivery_signals, data.narrative);
 
       renderSignalEvidence(data.delivery_signals);
-      renderMetrics(data.key_metrics);
+
+      // ✅ NEW: Key Insight Metrics (static, narrative-driven)
+      renderKeyInsights(scores, data.delivery_signals, data.narrative);
+
+      // ✅ NEW (optional IDs): Top Issues, Fix Sequence, Final Notes
+      renderTopIssues(data.delivery_signals);
+      renderFixSequence(scores, data.delivery_signals);
+      renderFinalNotes();
 
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
