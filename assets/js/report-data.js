@@ -4,6 +4,9 @@
 // - Fixes ID mismatches with report.html
 // - Evidence accordions rendered using your CSS blocks
 // - Narrative supports text OR JSON and polls until available
+// - Enforces v5.2 line caps in UI:
+//   - Executive narrative max 5 lines
+//   - Signal card narrative max 3 lines
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -47,6 +50,17 @@
     if (n >= 75) return "Good";
     if (n >= 55) return "Needs work";
     return "Needs attention";
+  }
+
+  // v5.2 UI clamp helper (THIS WAS MISSING — causes the errors)
+  function normalizeLines(text, maxLines) {
+    const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
+    if (!s) return [];
+    return s
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean)
+      .slice(0, maxLines);
   }
 
   // -----------------------------
@@ -164,9 +178,131 @@
   }
 
   // -----------------------------
-  // Delivery Signals — six clean cards (NO expanders)
+  // Narrative (display + auto-generate + poll)
   // -----------------------------
-  function renderSignals(deliverySignals) {
+  function parseNarrativeFlexible(v) {
+    // Accept:
+    // - plain string (most common)
+    // - { text: "..." }
+    // - JSON string
+    // - JSON object with overall.lines + signals.*
+    if (v == null) return { kind: "empty", text: "" };
+
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (!s) return { kind: "empty", text: "" };
+
+      // try JSON string
+      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+        try {
+          const obj = JSON.parse(s);
+          return { kind: "obj", obj };
+        } catch {
+          // fall through to plain text
+        }
+      }
+      return { kind: "text", text: s };
+    }
+
+    if (typeof v === "object") return { kind: "obj", obj: v };
+
+    return { kind: "text", text: String(v) };
+  }
+
+  function renderNarrative(narrative) {
+    const textEl = $("narrativeText");
+    if (!textEl) return false;
+
+    const parsed = parseNarrativeFlexible(narrative);
+
+    // Plain text path (clamp to 5 lines)
+    if (parsed.kind === "text") {
+      const lines = normalizeLines(parsed.text, 5);
+      if (lines.length) {
+        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+        return true;
+      }
+      textEl.textContent = "Narrative not generated yet.";
+      return false;
+    }
+
+    // Object path (prefer v5.2 overall.lines, clamp to 5)
+    if (parsed.kind === "obj") {
+      const n = safeObj(parsed.obj);
+
+      const overallLines = asArray(n?.overall?.lines)
+        .map(l => String(l || "").trim())
+        .filter(Boolean);
+
+      const lines = normalizeLines(overallLines.join("\n"), 5);
+      if (lines.length) {
+        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+        return true;
+      }
+
+      // fallback: { text: "..." } or legacy field
+      if (typeof n.text === "string" && n.text.trim()) {
+        const tLines = normalizeLines(n.text.trim(), 5);
+        if (tLines.length) {
+          textEl.innerHTML = escapeHtml(tLines.join("\n")).replaceAll("\n", "<br>");
+          return true;
+        }
+      }
+    }
+
+    textEl.textContent = "Narrative not generated yet.";
+    return false;
+  }
+
+  let narrativeInFlight = false;
+
+  async function pollForNarrative(reportId, maxMs = 60000, intervalMs = 2500) {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const refreshed = await fetchReportData(reportId).catch(() => null);
+      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
+
+  async function ensureNarrative(reportId, currentNarrative) {
+    const textEl = $("narrativeText");
+    if (!textEl) return;
+
+    // already present → done
+    if (renderNarrative(currentNarrative)) return;
+
+    // prevent repeats this session (per report)
+    const key = `iqweb_narrative_requested_${reportId}`;
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+
+    if (narrativeInFlight) return;
+    narrativeInFlight = true;
+
+    textEl.textContent = "Generating narrative…";
+
+    try {
+      await generateNarrative(reportId);
+
+      // Poll until narrative actually exists in get-report-data
+      const ok = await pollForNarrative(reportId);
+      if (!ok) {
+        textEl.textContent = "Narrative still generating. Refresh in a moment.";
+      }
+    } catch (e) {
+      console.error(e);
+      textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
+    } finally {
+      narrativeInFlight = false;
+    }
+  }
+
+  // -----------------------------
+  // Delivery Signals — six clean cards (Narrative first, Score second)
+  // -----------------------------
+  function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
     if (!grid) return;
     grid.innerHTML = "";
@@ -177,10 +313,37 @@
       return;
     }
 
+    const parsedNarr = parseNarrativeFlexible(narrative);
+    const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
+    const narrSignals = safeObj(narrObj?.signals);
+
+    // Map delivery signal ids → narrative keys
+    const keyFromSig = (sig) => {
+      const id = String(sig?.id || "").toLowerCase();
+      if (id.includes("perf")) return "performance";
+      if (id.includes("seo")) return "seo";
+      if (id.includes("struct")) return "structure";
+      if (id.includes("mob")) return "mobile";
+      if (id.includes("sec")) return "security";
+      if (id.includes("access")) return "accessibility";
+      return id || null;
+    };
+
     for (const sig of list) {
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
-      const { line2 } = summaryTwoLines(sig);
+
+      const key = keyFromSig(sig);
+      const rawLines = asArray(narrSignals?.[key]?.lines)
+        .map(l => String(l || "").trim())
+        .filter(Boolean);
+
+      // Card line cap: max 3
+      const cardLines = normalizeLines(rawLines.join("\n"), 3);
+
+      // Fallback (if no narrative yet)
+      const fallback = summaryTwoLines(sig)?.line2 || "—";
+      const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
 
       const card = document.createElement("div");
       card.className = "card";
@@ -191,13 +354,11 @@
           <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
 
-        <div class="bar"><div style="width:${score}%;"></div></div>
-
         <div class="summary" style="min-height:unset;">
-          <div style="margin-top:6px;">
-            ${escapeHtml(line2)}
-          </div>
+          ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
         </div>
+
+        <div class="bar"><div style="width:${score}%;"></div></div>
       `;
 
       grid.appendChild(card);
@@ -357,130 +518,6 @@
   }
 
   // -----------------------------
-  // Narrative (display + auto-generate + poll)
-  // -----------------------------
-  function parseNarrativeFlexible(v) {
-    // Accept:
-    // - plain string (most common)
-    // - { text: "..." }
-    // - JSON string
-    // - JSON object with executive_lead or overall.lines
-    if (v == null) return { kind: "empty", text: "" };
-
-    if (typeof v === "string") {
-      const s = v.trim();
-      if (!s) return { kind: "empty", text: "" };
-
-      // try JSON string
-      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-        try {
-          const obj = JSON.parse(s);
-          return { kind: "obj", obj };
-        } catch {
-          // fall through to plain text
-        }
-      }
-      return { kind: "text", text: s };
-    }
-
-    if (typeof v === "object") return { kind: "obj", obj: v };
-
-    return { kind: "text", text: String(v) };
-  }
-
-  function renderNarrative(narrative) {
-    const textEl = $("narrativeText");
-    if (!textEl) return false;
-
-    const parsed = parseNarrativeFlexible(narrative);
-
-    // plain text path
-    if (parsed.kind === "text") {
-      const t = parsed.text.trim();
-      if (t) {
-        textEl.innerHTML = escapeHtml(t).replaceAll("\n", "<br>");
-        return true;
-      }
-      textEl.textContent = "Narrative not generated yet.";
-      return false;
-    }
-
-    // object path
-    if (parsed.kind === "obj") {
-      const n = safeObj(parsed.obj);
-
-      // common field: { text: "..." }
-      if (typeof n.text === "string" && n.text.trim()) {
-        textEl.innerHTML = escapeHtml(n.text.trim()).replaceAll("\n", "<br>");
-        return true;
-      }
-
-      const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
-      if (lead) {
-        textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
-        return true;
-      }
-
-      const overallLines = asArray(n?.overall?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
-
-      if (overallLines.length) {
-        textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
-        return true;
-      }
-    }
-
-    textEl.textContent = "Narrative not generated yet.";
-    return false;
-  }
-
-  let narrativeInFlight = false;
-
-  async function pollForNarrative(reportId, maxMs = 60000, intervalMs = 2500) {
-    const start = Date.now();
-    while (Date.now() - start < maxMs) {
-      const refreshed = await fetchReportData(reportId).catch(() => null);
-      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
-      await new Promise(r => setTimeout(r, intervalMs));
-    }
-    return false;
-  }
-
-  async function ensureNarrative(reportId, currentNarrative) {
-    const textEl = $("narrativeText");
-    if (!textEl) return;
-
-    // already present → done
-    if (renderNarrative(currentNarrative)) return;
-
-    // prevent repeats this session (per report)
-    const key = `iqweb_narrative_requested_${reportId}`;
-    if (sessionStorage.getItem(key) === "1") return;
-    sessionStorage.setItem(key, "1");
-
-    if (narrativeInFlight) return;
-    narrativeInFlight = true;
-
-    textEl.textContent = "Generating narrative…";
-
-    try {
-      await generateNarrative(reportId);
-
-      // Poll until narrative actually exists in get-report-data
-      const ok = await pollForNarrative(reportId);
-      if (!ok) {
-        textEl.textContent = "Narrative still generating. Refresh in a moment.";
-      }
-    } catch (e) {
-      console.error(e);
-      textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
-    } finally {
-      narrativeInFlight = false;
-    }
-  }
-
-  // -----------------------------
   // Key Metrics (FIX ID: keyMetricsRoot)
   // -----------------------------
   function renderMetrics(keyMetrics) {
@@ -581,12 +618,15 @@
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-      renderSignals(data.delivery_signals);
-      renderSignalEvidence(data.delivery_signals);
 
-      // render narrative if present; otherwise placeholder
+      // Narrative first (exec lead)
       renderNarrative(data.narrative);
 
+      // Cards: narrative first, score second (clamped)
+      renderSignals(data.delivery_signals, data.narrative);
+
+      // Evidence + Metrics
+      renderSignalEvidence(data.delivery_signals);
       renderMetrics(data.key_metrics);
 
       if (loaderSection) loaderSection.style.display = "none";
