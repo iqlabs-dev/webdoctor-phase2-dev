@@ -4,9 +4,6 @@
 // - Fixes ID mismatches with report.html
 // - Evidence accordions rendered using your CSS blocks
 // - Narrative supports text OR JSON and polls until available
-// - Enforces v5.2 line caps in UI:
-//   - Executive narrative max 5 lines
-//   - Signal card narrative max 3 lines
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -50,17 +47,6 @@
     if (n >= 75) return "Good";
     if (n >= 55) return "Needs work";
     return "Needs attention";
-  }
-
-  // v5.2 UI clamp helper (THIS WAS MISSING — causes the errors)
-  function normalizeLines(text, maxLines) {
-    const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
-    if (!s) return [];
-    return s
-      .split("\n")
-      .map(l => l.trim())
-      .filter(Boolean)
-      .slice(0, maxLines);
   }
 
   // -----------------------------
@@ -151,7 +137,7 @@
   }
 
   // -----------------------------
-  // Two-line deterministic summary (compact)
+  // Deterministic summary fallback (compact)
   // -----------------------------
   function summaryTwoLines(signal) {
     const score = asInt(signal?.score, 0);
@@ -178,131 +164,10 @@
   }
 
   // -----------------------------
-  // Narrative (display + auto-generate + poll)
+  // Delivery Signals — six clean cards (title → bar(+score) → narrative)
+  // Narrative comes from AI JSON (preferred) and is clamped to ≤ 3 lines.
   // -----------------------------
-  function parseNarrativeFlexible(v) {
-    // Accept:
-    // - plain string (most common)
-    // - { text: "..." }
-    // - JSON string
-    // - JSON object with overall.lines + signals.*
-    if (v == null) return { kind: "empty", text: "" };
-
-    if (typeof v === "string") {
-      const s = v.trim();
-      if (!s) return { kind: "empty", text: "" };
-
-      // try JSON string
-      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-        try {
-          const obj = JSON.parse(s);
-          return { kind: "obj", obj };
-        } catch {
-          // fall through to plain text
-        }
-      }
-      return { kind: "text", text: s };
-    }
-
-    if (typeof v === "object") return { kind: "obj", obj: v };
-
-    return { kind: "text", text: String(v) };
-  }
-
-  function renderNarrative(narrative) {
-    const textEl = $("narrativeText");
-    if (!textEl) return false;
-
-    const parsed = parseNarrativeFlexible(narrative);
-
-    // Plain text path (clamp to 5 lines)
-    if (parsed.kind === "text") {
-      const lines = normalizeLines(parsed.text, 5);
-      if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
-        return true;
-      }
-      textEl.textContent = "Narrative not generated yet.";
-      return false;
-    }
-
-    // Object path (prefer v5.2 overall.lines, clamp to 5)
-    if (parsed.kind === "obj") {
-      const n = safeObj(parsed.obj);
-
-      const overallLines = asArray(n?.overall?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
-
-      const lines = normalizeLines(overallLines.join("\n"), 5);
-      if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
-        return true;
-      }
-
-      // fallback: { text: "..." } or legacy field
-      if (typeof n.text === "string" && n.text.trim()) {
-        const tLines = normalizeLines(n.text.trim(), 5);
-        if (tLines.length) {
-          textEl.innerHTML = escapeHtml(tLines.join("\n")).replaceAll("\n", "<br>");
-          return true;
-        }
-      }
-    }
-
-    textEl.textContent = "Narrative not generated yet.";
-    return false;
-  }
-
-  let narrativeInFlight = false;
-
-  async function pollForNarrative(reportId, maxMs = 60000, intervalMs = 2500) {
-    const start = Date.now();
-    while (Date.now() - start < maxMs) {
-      const refreshed = await fetchReportData(reportId).catch(() => null);
-      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
-      await new Promise(r => setTimeout(r, intervalMs));
-    }
-    return false;
-  }
-
-  async function ensureNarrative(reportId, currentNarrative) {
-    const textEl = $("narrativeText");
-    if (!textEl) return;
-
-    // already present → done
-    if (renderNarrative(currentNarrative)) return;
-
-    // prevent repeats this session (per report)
-    const key = `iqweb_narrative_requested_${reportId}`;
-    if (sessionStorage.getItem(key) === "1") return;
-    sessionStorage.setItem(key, "1");
-
-    if (narrativeInFlight) return;
-    narrativeInFlight = true;
-
-    textEl.textContent = "Generating narrative…";
-
-    try {
-      await generateNarrative(reportId);
-
-      // Poll until narrative actually exists in get-report-data
-      const ok = await pollForNarrative(reportId);
-      if (!ok) {
-        textEl.textContent = "Narrative still generating. Refresh in a moment.";
-      }
-    } catch (e) {
-      console.error(e);
-      textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
-    } finally {
-      narrativeInFlight = false;
-    }
-  }
-
-  // -----------------------------
-  // Delivery Signals — six clean cards (Narrative first, Score second)
-  // -----------------------------
-  function renderSignals(deliverySignals, narrative) {
+  function renderSignals(deliverySignals, narrativeObj) {
     const grid = $("signalsGrid");
     if (!grid) return;
     grid.innerHTML = "";
@@ -313,52 +178,77 @@
       return;
     }
 
-    const parsedNarr = parseNarrativeFlexible(narrative);
-    const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
-    const narrSignals = safeObj(narrObj?.signals);
+    // Map by id for stable ordering + lookup
+    const byId = new Map();
+    for (const s of list) {
+      const id = String(s?.id ?? "").toLowerCase().trim();
+      if (id) byId.set(id, s);
+    }
 
-    // Map delivery signal ids → narrative keys
-    const keyFromSig = (sig) => {
-      const id = String(sig?.id || "").toLowerCase();
-      if (id.includes("perf")) return "performance";
-      if (id.includes("seo")) return "seo";
-      if (id.includes("struct")) return "structure";
-      if (id.includes("mob")) return "mobile";
-      if (id.includes("sec")) return "security";
-      if (id.includes("access")) return "accessibility";
-      return id || null;
-    };
+    // Locked card order
+    const order = [
+      { id: "performance", labelFallback: "Performance" },
+      { id: "seo", labelFallback: "SEO Foundations" },
+      { id: "structure", labelFallback: "Structure & Semantics" },
+      { id: "mobile", labelFallback: "Mobile Experience" },
+      { id: "security", labelFallback: "Security & Trust" },
+      { id: "accessibility", labelFallback: "Accessibility" },
+    ];
 
-    for (const sig of list) {
-      const label = String(sig?.label ?? sig?.id ?? "Signal");
+    const n = safeObj(narrativeObj);
+    const nSignals = safeObj(n?.signals);
+
+    function getNarrativeLinesFor(id, sig) {
+      // Preferred: AI narrative JSON at narrative.signals[id].lines
+      const lines = asArray(nSignals?.[id]?.lines)
+        .map((l) => String(l || "").trim())
+        .filter(Boolean)
+        .slice(0, 3);
+
+      if (lines.length) return lines;
+
+      // Fallback: deterministic summary (single line)
+      const { line2 } = summaryTwoLines(sig);
+      return [line2].slice(0, 3);
+    }
+
+    for (const o of order) {
+      const sig = byId.get(o.id) || null;
+      if (!sig) continue;
+
+      const label = String(sig?.label ?? o.labelFallback ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
-
-      const key = keyFromSig(sig);
-      const rawLines = asArray(narrSignals?.[key]?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
-
-      // Card line cap: max 3
-      const cardLines = normalizeLines(rawLines.join("\n"), 3);
-
-      // Fallback (if no narrative yet)
-      const fallback = summaryTwoLines(sig)?.line2 || "—";
-      const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
+      const lines = getNarrativeLinesFor(o.id, sig);
 
       const card = document.createElement("div");
       card.className = "card";
 
+      // Title row
+      // Bar row includes score at right
+      // Narrative below (clamped)
       card.innerHTML = `
-        <div class="card-top">
+        <div class="card-top" style="margin-bottom:8px;">
           <h3>${escapeHtml(label)}</h3>
-          <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
 
-        <div class="summary" style="min-height:unset;">
-          ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
+        <div class="bar-row" style="display:flex;align-items:center;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div class="bar"><div style="width:${score}%;"></div></div>
+          </div>
+          <div class="score-right" style="min-width:34px;text-align:right;">${escapeHtml(String(score))}</div>
         </div>
 
-        <div class="bar"><div style="width:${score}%;"></div></div>
+        <div class="summary" style="min-height:unset;margin-top:10px;">
+          <div class="card-narrative" style="
+            display:-webkit-box;
+            -webkit-line-clamp:3;
+            -webkit-box-orient:vertical;
+            overflow:hidden;
+            line-height:1.25;
+          ">
+            ${escapeHtml(lines.join("\n")).replaceAll("\n", "<br>")}
+          </div>
+        </div>
       `;
 
       grid.appendChild(card);
@@ -518,6 +408,122 @@
   }
 
   // -----------------------------
+  // Narrative (display + auto-generate + poll)
+  // -----------------------------
+  function parseNarrativeFlexible(v) {
+    if (v == null) return { kind: "empty", text: "" };
+
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (!s) return { kind: "empty", text: "" };
+
+      // try JSON string
+      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
+        try {
+          const obj = JSON.parse(s);
+          return { kind: "obj", obj };
+        } catch { /* fall through */ }
+      }
+      return { kind: "text", text: s };
+    }
+
+    if (typeof v === "object") return { kind: "obj", obj: v };
+
+    return { kind: "text", text: String(v) };
+  }
+
+  function renderNarrative(narrative) {
+    const textEl = $("narrativeText");
+    if (!textEl) return false;
+
+    const parsed = parseNarrativeFlexible(narrative);
+
+    // plain text path
+    if (parsed.kind === "text") {
+      const t = parsed.text.trim();
+      if (t) {
+        textEl.innerHTML = escapeHtml(t).replaceAll("\n", "<br>");
+        return true;
+      }
+      textEl.textContent = "Narrative not generated yet.";
+      return false;
+    }
+
+    // object path (preferred)
+    if (parsed.kind === "obj") {
+      const n = safeObj(parsed.obj);
+
+      if (typeof n.text === "string" && n.text.trim()) {
+        textEl.innerHTML = escapeHtml(n.text.trim()).replaceAll("\n", "<br>");
+        return true;
+      }
+
+      const lead = typeof n.executive_lead === "string" ? n.executive_lead.trim() : "";
+      if (lead) {
+        textEl.innerHTML = escapeHtml(lead).replaceAll("\n", "<br>");
+        return true;
+      }
+
+      const overallLines = asArray(n?.overall?.lines)
+        .map(l => String(l || "").trim())
+        .filter(Boolean);
+
+      if (overallLines.length) {
+        textEl.innerHTML = escapeHtml(overallLines.join("\n")).replaceAll("\n", "<br>");
+        return true;
+      }
+    }
+
+    textEl.textContent = "Narrative not generated yet.";
+    return false;
+  }
+
+  let narrativeInFlight = false;
+
+  async function pollForNarrative(reportId, maxMs = 60000, intervalMs = 2500) {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const refreshed = await fetchReportData(reportId).catch(() => null);
+      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
+      await new Promise(r => setTimeout(r, intervalMs));
+    }
+    return false;
+  }
+
+  async function ensureNarrative(reportId, currentNarrative) {
+    const textEl = $("narrativeText");
+    if (!textEl) return;
+
+    // already present → done
+    if (renderNarrative(currentNarrative)) return;
+
+    // prevent repeats this session (per report)
+    const key = `iqweb_narrative_requested_${reportId}`;
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+
+    if (narrativeInFlight) return;
+    narrativeInFlight = true;
+
+    textEl.textContent = "Generating narrative…";
+
+    try {
+      await generateNarrative(reportId);
+
+      // Poll until narrative actually exists in get-report-data
+      const ok = await pollForNarrative(reportId);
+      if (!ok) {
+        textEl.textContent = "Narrative still generating. Refresh in a moment.";
+      }
+    } catch (e) {
+      console.error(e);
+      textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
+    } finally {
+      narrativeInFlight = false;
+    }
+  }
+
+  // -----------------------------
   // Key Metrics (FIX ID: keyMetricsRoot)
   // -----------------------------
   function renderMetrics(keyMetrics) {
@@ -619,14 +625,16 @@
 
       renderOverall(scores);
 
-      // Narrative first (exec lead)
-      renderNarrative(data.narrative);
-
-      // Cards: narrative first, score second (clamped)
+      // Cards use AI narrative JSON (preferred) with deterministic fallback
       renderSignals(data.delivery_signals, data.narrative);
 
-      // Evidence + Metrics
+      // Evidence blocks
       renderSignalEvidence(data.delivery_signals);
+
+      // Executive narrative
+      renderNarrative(data.narrative);
+
+      // Metrics
       renderMetrics(data.key_metrics);
 
       if (loaderSection) loaderSection.style.display = "none";
