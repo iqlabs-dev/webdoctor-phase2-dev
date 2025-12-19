@@ -181,18 +181,12 @@
   // Narrative (display + auto-generate + poll)
   // -----------------------------
   function parseNarrativeFlexible(v) {
-    // Accept:
-    // - plain string (most common)
-    // - { text: "..." }
-    // - JSON string
-    // - JSON object with overall.lines + signals.*
     if (v == null) return { kind: "empty", text: "" };
 
     if (typeof v === "string") {
       const s = v.trim();
       if (!s) return { kind: "empty", text: "" };
 
-      // try JSON string
       if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
         try {
           const obj = JSON.parse(s);
@@ -215,7 +209,6 @@
 
     const parsed = parseNarrativeFlexible(narrative);
 
-    // Plain text path (clamp to 5 lines)
     if (parsed.kind === "text") {
       const lines = normalizeLines(parsed.text, 5);
       if (lines.length) {
@@ -226,7 +219,6 @@
       return false;
     }
 
-    // Object path (prefer v5.2 overall.lines, clamp to 5)
     if (parsed.kind === "obj") {
       const n = safeObj(parsed.obj);
 
@@ -240,7 +232,6 @@
         return true;
       }
 
-      // fallback: { text: "..." } or legacy field
       if (typeof n.text === "string" && n.text.trim()) {
         const tLines = normalizeLines(n.text.trim(), 5);
         if (tLines.length) {
@@ -270,10 +261,8 @@
     const textEl = $("narrativeText");
     if (!textEl) return;
 
-    // already present → done
     if (renderNarrative(currentNarrative)) return;
 
-    // prevent repeats this session (per report)
     const key = `iqweb_narrative_requested_${reportId}`;
     if (sessionStorage.getItem(key) === "1") return;
     sessionStorage.setItem(key, "1");
@@ -286,7 +275,6 @@
     try {
       await generateNarrative(reportId);
 
-      // Poll until narrative actually exists in get-report-data
       const ok = await pollForNarrative(reportId);
       if (!ok) {
         textEl.textContent = "Narrative still generating. Refresh in a moment.";
@@ -300,7 +288,8 @@
   }
 
   // -----------------------------
-  // Delivery Signals — six clean cards (Narrative first, Score second)
+  // Delivery Signals — six clean cards
+  // FIX: BAR ABOVE TEXT (score stays top-right)
   // -----------------------------
   function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
@@ -317,7 +306,6 @@
     const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
     const narrSignals = safeObj(narrObj?.signals);
 
-    // Map delivery signal ids → narrative keys
     const keyFromSig = (sig) => {
       const id = String(sig?.id || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -338,27 +326,26 @@
         .map(l => String(l || "").trim())
         .filter(Boolean);
 
-      // Card line cap: max 3
       const cardLines = normalizeLines(rawLines.join("\n"), 3);
 
-      // Fallback (if no narrative yet)
       const fallback = summaryTwoLines(sig)?.line2 || "—";
       const bodyText = cardLines.length ? cardLines.join("\n") : fallback;
 
       const card = document.createElement("div");
       card.className = "card";
 
+      // ✅ BAR MOVED ABOVE TEXT
       card.innerHTML = `
         <div class="card-top">
           <h3>${escapeHtml(label)}</h3>
           <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
 
+        <div class="bar"><div style="width:${score}%;"></div></div>
+
         <div class="summary" style="min-height:unset;">
           ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
         </div>
-
-        <div class="bar"><div style="width:${score}%;"></div></div>
       `;
 
       grid.appendChild(card);
@@ -478,7 +465,6 @@
         body.appendChild(none);
       }
 
-      // Issues (compact, but still visible)
       const issues = asArray(sig?.issues);
       const issuesTitle = document.createElement("div");
       issuesTitle.className = "evidence-title";
@@ -582,7 +568,6 @@
       </details>
     `;
 
-    // Make the +/- indicator correct
     root.querySelectorAll("details.evidence-block").forEach(d => {
       const s = d.querySelector("summary .acc-score");
       if (!s) return;
@@ -619,20 +604,16 @@
 
       renderOverall(scores);
 
-      // Narrative first (exec lead)
       renderNarrative(data.narrative);
 
-      // Cards: narrative first, score second (clamped)
       renderSignals(data.delivery_signals, data.narrative);
 
-      // Evidence + Metrics
       renderSignalEvidence(data.delivery_signals);
       renderMetrics(data.key_metrics);
 
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
-      // non-blocking auto-generate AFTER report visible
       ensureNarrative(header.report_id || reportId, data.narrative);
     } catch (err) {
       console.error(err);
