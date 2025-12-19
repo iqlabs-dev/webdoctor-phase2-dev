@@ -91,37 +91,6 @@
       font-size: 11px;
     }
 
-    .top-meta {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .meta-line {
-      background: rgba(0,0,0,0.22);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 10px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .meta-line .k {
-      color: var(--muted);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .meta-line .v {
-      font-weight: 600;
-      color: var(--ink);
-      font-size: 13px;
-      overflow-wrap: anywhere;
-      text-align: right;
-    }
-
     .top-actions {
       display: flex;
       align-items: center;
@@ -142,51 +111,102 @@
     .btn:active { transform: translateY(1px); }
 
     /* Meta strip for white-label ready header */
-.meta-strip {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-}
+    .meta-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
 
-.meta-cell {
-  background: rgba(0,0,0,0.22);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
+    .meta-cell {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
 
-.meta-cell .k {
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
+    .meta-cell .k {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
 
-.meta-cell .v {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
+    .meta-cell .v {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+      text-decoration: none;
+    }
 
-/* Website hover affordance */
-.meta-cell .linkish {
-  cursor: pointer;
-}
-.meta-cell .linkish:hover {
-  text-decoration: underline;
-  color: var(--accent);
-}
+    /* Website hover affordance */
+    .meta-cell .linkish {
+      cursor: pointer;
+    }
+    .meta-cell .linkish:hover {
+      text-decoration: underline;
+      color: var(--accent);
+    }
 
-/* Mobile stacking */
-@media (max-width: 700px) {
-  .meta-strip {
-    grid-template-columns: 1fr;
-  }
-}
+    /* Mobile stacking */
+    @media (max-width: 700px) {
+      .meta-strip { grid-template-columns: 1fr; }
+    }
 
+    /* Slim Overall Summary Strip (inside Delivery Signals) */
+    .overall-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+
+      background: rgba(0,0,0,0.14);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+    }
+
+    .overall-strip-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .overall-strip-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .overall-strip-score {
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+    }
+
+    .overall-strip .bar { margin-top: 2px; }
+
+    .overall-strip-note {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    /* Light theme support */
+    body.light .overall-strip {
+      background: rgba(15,23,42,0.03);
+      border-color: rgba(15,23,42,0.10);
+    }
+    body.light .overall-strip-note {
+      color: rgba(15,23,42,0.78);
+    }
 
     /* Sections */
     .section {
@@ -366,7 +386,7 @@
     #keyMetricsRoot details { margin: 0; }
     #keyMetricsRoot summary { cursor: default; }
 
-    /* Insight list UI (safe, no JS required) */
+    /* Insight list UI */
     .insight-list {
       display: grid;
       grid-template-columns: 1fr;
@@ -545,43 +565,42 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-<div class="top-card">
+      <div class="top-card">
 
-  <!-- Brand Bar -->
-  <div class="top-row">
-    <div class="brand">
-      <div class="logo">iQWEB</div>
-      <div style="font-size:11px; letter-spacing:0.12em; color:var(--ink-soft);">
-        Powered by Λ i Q™
+        <!-- Brand Bar -->
+        <div class="top-row">
+          <div class="brand">
+            <div class="logo">iQWEB</div>
+            <div style="font-size:11px; letter-spacing:0.12em; color:var(--ink-soft);">
+              Powered by Λ i Q™
+            </div>
+          </div>
+
+          <div class="top-actions">
+            <button class="btn" id="themeToggle">Theme</button>
+            <button class="btn" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Meta Strip -->
+        <div class="meta-strip">
+          <div class="meta-cell">
+            <div class="k">Website</div>
+            <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report ID</div>
+            <div class="v" id="reportId">—</div>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report Date</div>
+            <div class="v" id="reportDate">—</div>
+          </div>
+        </div>
+
       </div>
-    </div>
-
-    <div class="top-actions">
-      <button class="btn" id="themeToggle">Theme</button>
-      <button class="btn" id="refreshBtn">Refresh</button>
-    </div>
-  </div>
-
-  <!-- Meta Strip -->
-  <div class="meta-strip">
-    <div class="meta-cell">
-      <div class="k">Website</div>
-      <div class="v linkish" id="siteUrl">—</div>
-    </div>
-
-    <div class="meta-cell">
-      <div class="k">Report ID</div>
-      <div class="v" id="reportId">—</div>
-    </div>
-
-    <div class="meta-cell">
-      <div class="k">Report Date</div>
-      <div class="v" id="reportDate">—</div>
-    </div>
-  </div>
-
-</div>
-
 
       <!-- Loader -->
       <section id="loaderSection" class="loader-wrap">
@@ -608,44 +627,39 @@
           </div>
         </section>
 
-        <!-- 5. Score Context (Demoted, Not Dominant) -->
-        <section class="section" id="scoreContextSection">
+        <!-- 4. Delivery Signals (Narrative First, Score Second) -->
+        <section class="section" id="deliverySignalsSection">
           <div class="section-head">
-            <h2 class="section-title">Score Context</h2>
+            <h2 class="section-title">Delivery Signals</h2>
           </div>
+
           <div class="section-body">
-            <!-- Overall score card (kept intact for wiring) -->
-            <div class="card" style="min-height:unset;">
-              <div class="card-top">
-                <h3 id="overallLabel">Overall Score</h3>
-                <div class="score-right" id="overallPill">—</div>
+
+            <!-- Slim Overall Summary Strip (moved from Score Context) -->
+            <div class="overall-strip">
+              <div class="overall-strip-top">
+                <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
+                <div class="overall-strip-score" id="overallPill">—</div>
               </div>
 
               <div class="bar">
                 <div id="overallBar"></div>
               </div>
 
-              <div class="summary" id="overallNote"></div>
+              <p class="overall-strip-note" id="overallNote"></p>
 
-              <div class="summary muted" style="font-size:12px; margin-top:10px;">
+              <div class="summary muted" style="font-size:12px; margin-top:8px;">
                 Scores summarise measurable signals captured during this scan. Where a measurement is unavailable, iQWEB will say so rather than guess.
               </div>
             </div>
-          </div>
-        </section>
 
-        <!-- 4. Delivery Signals (Narrative First, Score Second) -->
-        <section class="section" id="deliverySignalsSection">
-          <div class="section-head">
-            <h2 class="section-title">Delivery Signals</h2>
-          </div>
-          <div class="section-body">
             <!-- IMPORTANT: keep #signalsGrid ID for existing wiring -->
             <div id="signalsGrid" class="grid"></div>
 
             <div class="summary muted" style="font-size:12px;">
               Each signal is presented as a short diagnostic narrative, backed by evidence below.
             </div>
+
           </div>
         </section>
 
@@ -808,6 +822,30 @@
       });
 
       refresh && refresh.addEventListener("click", () => location.reload());
+    })();
+
+    // Ensure Website link is clickable even if report-data.js only sets textContent
+    (function(){
+      const a = document.getElementById("siteUrl");
+      if (!a) return;
+
+      const syncHref = () => {
+        const txt = (a.textContent || "").trim();
+        if (txt && txt !== "—" && txt !== "#") {
+          try {
+            const u = new URL(txt);
+            a.href = u.toString();
+          } catch {
+            // If it's missing protocol, try https://
+            if (!/^https?:\/\//i.test(txt)) a.href = "https://" + txt;
+          }
+        }
+      };
+
+      // Run once now, and again after the report wiring sets the text
+      syncHref();
+      setTimeout(syncHref, 250);
+      setTimeout(syncHref, 800);
     })();
   </script>
 </body>

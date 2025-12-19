@@ -33,10 +33,15 @@
     if (!iso) return "—";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-    return d.toLocaleString(undefined, {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit"
-    });
+return d.toLocaleString(undefined, {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false
+});
+
   }
 
   function verdict(score) {
@@ -64,7 +69,15 @@
   function setHeaderWebsite(url) {
     const el = $("siteUrl");
     if (!el) return;
-    el.textContent = (typeof url === "string" && url.trim()) ? url.trim() : "—";
+   if (typeof url === "string" && url.trim()) {
+  const u = url.trim();
+  el.textContent = u;
+  el.setAttribute("href", u.startsWith("http") ? u : `https://${u}`);
+} else {
+  el.textContent = "—";
+  el.removeAttribute("href");
+}
+
   }
   function setHeaderReportId(reportId) {
     const el = $("reportId");
