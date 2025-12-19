@@ -1,13 +1,41 @@
 // /.netlify/functions/generate-narrative.js
 import { createClient } from "@supabase/supabase-js";
 
+// -----------------------------
+// Environment
+// -----------------------------
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+// -----------------------------
+// Supabase client (define ONCE, before helpers)
+// -----------------------------
+const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
+);
+
+// -----------------------------
+// Single-flight DB lock
+// Ensures ONE OpenAI call per report_id
+// -----------------------------
+async function claimNarrative(report_id) {
+  const { data, error } = await supabase.rpc(
+    "claim_narrative_job",
+    { p_report_id: report_id }
+  );
+
+  if (error) {
+    throw new Error(`claim_narrative_job failed: ${error.message}`);
+  }
+
+  // data.length > 0 => lock acquired
+  // data.length === 0 => already claimed or narrative exists
+  return Array.isArray(data) && data.length > 0;
+}
 
 // -----------------------------
 // Response helpers (CORS-safe)
@@ -24,6 +52,7 @@ function json(statusCode, body) {
     body: JSON.stringify(body),
   };
 }
+
 
 // -----------------------------
 // Small utilities
@@ -371,6 +400,19 @@ if (hasNarrative) {
     note: "Narrative already exists; returned without regenerating.",
   });
 }
+
+// Try to claim the narrative job (prevents duplicate OpenAI calls)
+const claimed = await claimNarrative(report_id);
+
+if (!claimed) {
+  return json(200, {
+    success: true,
+    report_id,
+    scan_id: scan.id,
+    note: "Narrative generation already in progress.",
+  });
+}
+
 
 
     const facts = buildFactsPack(scan);
