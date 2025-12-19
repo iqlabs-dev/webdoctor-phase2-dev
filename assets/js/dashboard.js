@@ -38,6 +38,28 @@ function goToReport(reportId) {
   window.location.href = url;
 }
 
+function showViewReportCTA(reportId) {
+  const statusEl = document.getElementById("trial-info");
+  if (!statusEl) return;
+
+  if (!looksLikeReportId(reportId)) {
+    statusEl.textContent =
+      "Scan completed. Report ID not ready yet. Please refresh in a moment.";
+    return;
+  }
+
+  statusEl.innerHTML = `
+    ✅ Scan complete.
+    <button id="view-report-btn" style="margin-left:10px" class="btn-primary">
+      View report
+    </button>
+  `;
+
+  const btn = document.getElementById("view-report-btn");
+  if (btn) btn.onclick = () => goToReport(reportId);
+}
+
+
 // -----------------------------
 // BILLING HELPERS
 // -----------------------------
@@ -496,17 +518,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       console.log("[RUN-SCAN] reportId:", reportId);
 
-      if (looksLikeReportId(reportId)) {
-        try {
-          await generateNarrative(reportId, accessToken);
-        } catch (e) {
-          console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
-        }
-        goToReport(reportId);
-      } else {
-        statusEl.textContent =
-          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
-      }
+if (looksLikeReportId(reportId)) {
+  showViewReportCTA(reportId);
+  statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+  // fire narrative in background (non-blocking)
+  generateNarrative(reportId, accessToken).catch((e) => {
+    console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
+  });
+} else {
+  statusEl.textContent =
+    "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
+}
+
+
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
