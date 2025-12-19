@@ -356,15 +356,12 @@ export async function handler(event) {
       });
     }
 
-// A narrative is valid ONLY if it has real content (and not the generating sentinel)
-const isGeneratingSentinel = scan.narrative?._status === "generating";
-
-const hasFinalNarrative =
-  !isGeneratingSentinel &&
+// A narrative is valid ONLY if it has real content
+const hasNarrative =
   Array.isArray(scan.narrative?.overall?.lines) &&
   scan.narrative.overall.lines.length > 0;
 
-if (hasFinalNarrative) {
+if (hasNarrative) {
   return json(200, {
     success: true,
     report_id,
@@ -375,86 +372,38 @@ if (hasFinalNarrative) {
   });
 }
 
-// -----------------------------
-// SINGLE-FLIGHT LOCK (atomic claim in Postgres)
-// One report_id can only be generated once.
-// -----------------------------
-const { data: claimed, error: claimErr } = await supabase.rpc("claim_narrative_job", {
-  p_report_id: report_id,
-});
 
-if (claimErr) {
-  return json(500, {
-    success: false,
-    error: "Failed to claim narrative job",
-    detail: claimErr.message || claimErr,
-  });
-}
+    const facts = buildFactsPack(scan);
+    const rawNarrative = await callOpenAI({ facts });
+    const narrative = enforceConstraints(rawNarrative);
 
-// If we didn't claim it, someone else is generating OR narrative already exists.
-// Return current state so the UI can poll without triggering extra OpenAI calls.
-if (!claimed || claimed.length === 0) {
-  const { data: latestRows } = await supabase
-    .from("scan_results")
-    .select("id, narrative")
-    .eq("report_id", report_id)
-    .order("created_at", { ascending: false })
-    .limit(1);
+    const { error: upErr } = await supabase
+      .from("scan_results")
+      .update({ narrative })
+      .eq("id", scan.id);
 
-  const latest = latestRows?.[0] || scan;
+    if (upErr) {
+      return json(500, {
+        success: false,
+        error: "Failed to save narrative",
+        detail: upErr.message || upErr,
+        hint: "Ensure scan_results.narrative exists as jsonb.",
+      });
+    }
 
-  return json(200, {
-    success: true,
-    report_id,
-    scan_id: latest.id || scan.id,
-    saved_to: "scan_results.narrative",
-    narrative: latest.narrative || { _status: "generating" },
-    note: "Narrative already claimed or already exists; returning current state.",
-  });
-}
-
-// ✅ We are the winner — call OpenAI exactly once
-let narrative;
-try {
-  const facts = buildFactsPack(scan);
-  const rawNarrative = await callOpenAI({ facts });
-  narrative = enforceConstraints(rawNarrative);
-} catch (e) {
-  // IMPORTANT: clear the sentinel so the job can be retried later if OpenAI fails
-  try {
-    await supabase.from("scan_results").update({ narrative: null }).eq("id", scan.id);
-  } catch {}
-
-  throw e;
-}
-
-const { error: upErr } = await supabase
-  .from("scan_results")
-  .update({ narrative })
-  .eq("id", scan.id);
-
-if (upErr) {
-  return json(500, {
-    success: false,
-    error: "Failed to save narrative",
-    detail: upErr.message || upErr,
-    hint: "Ensure scan_results.narrative exists as jsonb.",
-  });
-}
-
-return json(200, {
-  success: true,
-  report_id,
-  scan_id: scan.id,
-  saved_to: "scan_results.narrative",
-  narrative,
-});
-} catch (err) {
-  console.error("[generate-narrative]", err);
-  return json(500, {
-    success: false,
-    error: "Server error",
-    detail: err?.message || String(err),
-  });
-}
+    return json(200, {
+      success: true,
+      report_id,
+      scan_id: scan.id,
+      saved_to: "scan_results.narrative",
+      narrative,
+    });
+  } catch (err) {
+    console.error("[generate-narrative]", err);
+    return json(500, {
+      success: false,
+      error: "Server error",
+      detail: err?.message || String(err),
+    });
+  }
 }

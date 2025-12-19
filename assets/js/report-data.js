@@ -300,11 +300,7 @@
   }
 
   // -----------------------------
-  // Delivery Signals — six clean cards
-  // Style fix:
-  // - Score sits TOP-RIGHT (not mid-card)
-  // - Narrative starts higher (less dead space)
-  // - Layout: Title + Score (top row) → Bar → Narrative
+  // Delivery Signals — six clean cards (Narrative first, Score second)
   // -----------------------------
   function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
@@ -352,31 +348,22 @@
       const card = document.createElement("div");
       card.className = "card";
 
-      // Score top-right + narrative starts higher
       card.innerHTML = `
-        <div class="card-top" style="align-items:flex-start;">
-          <div style="width:100%;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-              <h3 style="margin:0; padding:0;">${escapeHtml(label)}</h3>
-              <div class="score-right" style="margin-top:2px;">${escapeHtml(String(score))}</div>
-            </div>
-
-            <div class="bar" style="margin-top:10px;">
-              <div style="width:${score}%;"></div>
-            </div>
-          </div>
+        <div class="card-top">
+          <h3>${escapeHtml(label)}</h3>
+          <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
 
-        <div class="summary" style="min-height:unset; margin-top:10px;">
+        <div class="summary" style="min-height:unset;">
           ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
         </div>
+
+        <div class="bar"><div style="width:${score}%;"></div></div>
       `;
 
       grid.appendChild(card);
     }
   }
-
-
 
   // -----------------------------
   // Evidence fallback: if observations missing, derive from evidence object
