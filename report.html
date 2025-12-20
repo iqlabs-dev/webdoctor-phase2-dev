@@ -318,6 +318,33 @@
 #signalEvidenceRoot { align-items: start; }
 #signalEvidenceRoot > .evidence-block { align-self: start; }
 
+/* --- FIX: prevent issue text overflowing card --- */
+.issue { overflow: hidden; } /* hard safety net */
+
+.issue-top {
+  align-items: flex-start;      /* better for multi-line titles */
+}
+
+.issue-title {
+  flex: 1 1 auto;               /* allow it to shrink */
+  min-width: 0;                 /* CRITICAL for flex wrapping */
+  overflow-wrap: anywhere;      /* wrap long chunks safely */
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.issue-label {
+  flex: 0 0 auto;               /* keep the severity badge fixed */
+  margin-left: 10px;
+}
+
+.issue-why {
+  white-space: normal;          /* ensure wrapping is allowed */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
 
     .evidence-block {
       background: rgba(0,0,0,0.16);
