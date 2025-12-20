@@ -473,7 +473,7 @@
 
       const block = document.createElement("details");
       block.className = "evidence-block";
-      if (i === 0) block.open = true;
+    
 
       const summary = document.createElement("summary");
       summary.innerHTML = `
