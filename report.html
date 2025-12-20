@@ -588,39 +588,38 @@
       justify-content: center;
     }
 
-/* Loader: Λ i Q pulse (TEXT ONLY — no circle/ring) */
-.pulse{
-  width: 72px;
-  height: 72px;
-  margin: 0 auto 14px;
-  display: grid;
-  place-items: center;
-  position: relative;
+/* Loader container — neutral, no layout tricks */
+.pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Kill any ring that might still exist */
-.pulse::before{
-  content: none !important;
-}
-
-/* Λ i Q text (pulsing + glow, same colour vibe as circle) */
-.pulse::after{
+/* Λ i Q mark — platinum / ice white */
+.pulse::after {
   content: "Λ i Q";
   font-family: "Montserrat", system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: 0.18em;
-  color: rgba(93,216,255,0.95);
-  text-shadow: 0 0 18px rgba(93,216,255,0.35);
-  transform: translateX(1px);
-  animation: iqPulseText 1.15s ease-in-out infinite;
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+
+  /* Soft platinum / ice white */
+  color: rgba(235, 240, 245, 0.92);
+
+  /* Minimal premium glow (not neon) */
+  text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
+
+  /* Subtle opacity pulse only */
+  animation: iqPulse 1.8s ease-in-out infinite;
 }
 
-@keyframes iqPulseText{
-  0%   { transform: translateX(1px) scale(0.96); opacity: 0.55; }
-  50%  { transform: translateX(1px) scale(1.06); opacity: 1; }
-  100% { transform: translateX(1px) scale(0.96); opacity: 0.55; }
+/* No movement, no colour shift */
+@keyframes iqPulse {
+  0%   { opacity: 0.55; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.55; }
 }
+
 
 
 
