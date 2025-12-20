@@ -379,14 +379,17 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .kv .k { color: var(--muted); font-size: 12px; }
-.kv .v {
+.kv .v{
   color: var(--ink);
   font-weight: 600;
   font-size: 12px;
   text-align: right;
   white-space: nowrap;
-  overflow-wrap: normal;
+  overflow: visible;         /* important */
+  min-width: 44px;           /* enough for "false" */
+  flex: 0 0 auto;            /* don’t shrink */
 }
+
 
 /* ✅ Impact text inside Issues must wrap (it was wrongly inheriting .v pill rules) */
 .impact-text {

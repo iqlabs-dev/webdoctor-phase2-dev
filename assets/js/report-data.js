@@ -492,16 +492,23 @@
       listEl.className = "evidence-list";
 
       if (obs.length) {
-        for (const o of obs.slice(0, 24)) {
-          const kv = document.createElement("div");
-          kv.className = "kv";
-          kv.innerHTML = `
-            <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
-           <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="impact-text" style="font-weight:700;">${impact}</span></div>
+  for (const o of obs.slice(0, 24)) {
+  const kv = document.createElement("div");
+  kv.className = "kv";
 
-          `;
-          listEl.appendChild(kv);
-        }
+  const value =
+    o?.value === null ? "null" :
+    o?.value === undefined ? "—" :
+    String(o.value);
+
+  kv.innerHTML = `
+    <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
+    <div class="v">${escapeHtml(value)}</div>
+  `;
+
+  listEl.appendChild(kv);
+}
+
       } else {
         const none = document.createElement("div");
         none.className = "summary";
