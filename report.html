@@ -352,7 +352,15 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .kv .k { color: var(--muted); font-size: 12px; }
-    .kv .v { color: var(--ink); font-weight: 600; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.kv .v {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 
     /* ✅ Evidence accordions */
     details.evidence-block { padding: 0; }
@@ -455,25 +463,28 @@
       align-items: baseline;
       margin-bottom: 6px;
     }
-    .issue-title {
-      margin: 0;
-      font-size: 12px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--ink);
-      font-weight: 800;
-    }
-    .issue-label {
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(229,240,255,0.70);
-      border: 1px solid var(--border-subtle);
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: rgba(255,255,255,0.03);
-      white-space: nowrap;
-    }
+ .issue-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.issue-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;   /* ↓ from 0.08em */
+  text-transform: uppercase;
+  color: rgba(229,240,255,0.65);  /* ↓ slightly softer */
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
+  white-space: nowrap;
+}
+
     .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
 
     /* Fix sequence */
