@@ -727,6 +727,24 @@
   a, a:visited { color: #111827 !important; text-decoration: underline !important; }
 }
 
+/* Signal Evidence — subtle hover affordance */
+@media (hover: hover) and (pointer: fine) {
+  .evidence-block {
+    transition:
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out,
+      transform 140ms ease-out;
+  }
+
+  .evidence-block:hover {
+  border-color: rgba(64, 220, 180, 0.28);
+  box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
+  transform: none;
+}
+
+}
+
+
 @media print {
   #reportRoot {
     max-width: none !important;
