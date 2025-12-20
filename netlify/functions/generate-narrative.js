@@ -209,6 +209,9 @@ async function callOpenAI({ facts }) {
     "- Do NOT use headings like 'Line 1 —'. Just write the lines.",
     "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
     "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
+    "Style rule: Do not repeat sentence starters across signal narratives. Rotate neutral openers such as 'In practical terms', 'From a delivery perspective', 'At this level', or 'Within this scan'. Avoid 'This suggests' and 'This means'.",
+
+    
     "",
     "Facts JSON:",
     JSON.stringify(facts),
