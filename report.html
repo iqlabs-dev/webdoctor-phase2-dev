@@ -456,14 +456,17 @@
       background: rgba(0,0,0,0.16);
       border: 1px solid var(--border-subtle);
     }
-    .issue-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: baseline;
-      margin-bottom: 6px;
-    }
- .issue-title {
+.issue-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+
+  flex-wrap: wrap; /* ← critical */
+}
+
+.issue-title {
   margin: 0;
   font-size: 12.5px;
   font-weight: 600;
@@ -471,7 +474,15 @@
   text-transform: none;
   color: var(--ink-soft);
   line-height: 1.4;
+
+  /* overflow safety (NEW) */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
 }
+
 
 .issue-label {
   font-size: 11px;
