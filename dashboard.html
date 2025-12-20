@@ -1760,13 +1760,18 @@
           }
         }
 
-        // Open the report if we have an ID
-        if (openReportId) {
-          window.location.href = `/report.html?report_id=${encodeURIComponent(openReportId)}`;
-        } else {
-          // Fallback: don't silently fail
-          alert("Scan completed, but no report ID was returned yet. Check Scan History in a moment.");
-        }
+// ✅ Stay on dashboard (do NOT auto-open report)
+// Refresh history already happened above. Just update the Latest Scan card + show a toast.
+if (openReportId) {
+  // Try to pull the record from history and set as Latest Scan
+  const match = allRecords.find(r => (r.report_id || r.id) === openReportId);
+  if (match) updateLastScanCard(match);
+
+  showToast("Scan started. When it’s completed, click “View full report” in Latest Scan.");
+} else {
+  showToast("Scan started. It will appear in Scan History shortly.");
+}
+
 
       } catch (err) {
         console.error("[RUN-SCAN] error:", err);
