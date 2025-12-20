@@ -537,7 +537,8 @@
                 <div style="font-weight:800;color:var(--ink);">${t}</div>
                 <div style="font-weight:800;opacity:.85;">${sev}</div>
               </div>
-              <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="v" style="font-weight:700;">${impact}</span></div>
+              <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="impact-text" style="font-weight:700;">${impact}</span></div>
+
             </div>
           `;
         }).join("");
