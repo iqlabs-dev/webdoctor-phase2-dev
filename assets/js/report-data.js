@@ -782,10 +782,13 @@
   // -----------------------------
   // Main
   // -----------------------------
-  async function main() {
-    const loaderSection = $("loaderSection");
-    const reportRoot = $("reportRoot");
-    const statusEl = $("loaderStatus");
+async function main() {
+  wireBackToDashboard();   // ← ADD THIS LINE
+
+  const loaderSection = $("loaderSection");
+  const reportRoot = $("reportRoot");
+  const statusEl = $("loaderStatus");
+
 
     const reportId = getReportIdFromUrl();
     if (!reportId) {

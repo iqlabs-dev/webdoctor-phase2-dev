@@ -1431,9 +1431,10 @@
         viewBtn.className = "wd-pdf-btn";
         viewBtn.textContent = "View PDF";
         viewBtn.style.marginRight = "8px";
-        viewBtn.addEventListener("click", () => {
-          window.open(`/report.html?report_id=${encodeURIComponent(reportId)}`, "_blank");
-        });
+       viewBtn.addEventListener("click", () => {
+  window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+});
+
         tdActions.appendChild(viewBtn);
 
         const dlBtn = document.createElement("button");
@@ -1500,7 +1501,7 @@
     }
   }
 
-  function updateLastScanCard(record) {
+   function updateLastScanCard(record) {
     const card = document.getElementById("latest-scan-card");
     if (!card) return;
 
@@ -1521,6 +1522,7 @@
 
     const hostname = getHostname(record.url);
     if (urlEl) urlEl.textContent = hostname;
+
     if (dateEl) {
       dateEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
     }
@@ -1537,129 +1539,25 @@
     const reportId = record.report_id || record.id;
     card.dataset.reportId = reportId || "";
 
+    // Set link + prevent double-trigger (anchor click bubbling to card)
     if (viewEl) {
       viewEl.href = reportId ? `/report.html?report_id=${encodeURIComponent(reportId)}` : "#";
+      viewEl.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!reportId) return;
+        window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+      };
     }
 
+    // Card click = same tab navigation
     card.onclick = () => {
-      if (!card.dataset.reportId) return;
-      window.open(`/report.html?report_id=${encodeURIComponent(card.dataset.reportId)}`, "_blank");
+      const rid = card.dataset.reportId;
+      if (!rid) return;
+      window.location.href = `/report.html?report_id=${encodeURIComponent(rid)}`;
     };
   }
 
-  function applyFiltersAndRender() {
-    const table = document.querySelector(".scan-history-table");
-    const emptyNone = document.getElementById("historyEmptyNone");
-    const emptyFiltered = document.getElementById("historyEmptyFiltered");
-
-    if (!allRecords.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "block";
-      if (emptyFiltered) emptyFiltered.style.display = "none";
-      renderRows([]);
-      updateLastScanCard(null);
-      return;
-    }
-
-    let filtered = allRecords.slice();
-
-    if (activeStatus !== "all") {
-      filtered = filtered.filter((rec) => getStatusKey(rec.status) === activeStatus);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter((rec) => {
-        const haystack = [
-          formatDate(rec.created_at),
-          formatTime(rec.created_at),
-          getHostname(rec.url),
-          rec.url || "",
-          rec.report_id || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(searchQuery);
-      });
-    }
-
-    if (!filtered.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "none";
-      if (emptyFiltered) emptyFiltered.style.display = "block";
-      renderRows([]);
-      updateLastScanCard(null);
-      return;
-    }
-
-    if (table) table.style.display = "table";
-    if (emptyNone) emptyNone.style.display = "none";
-    if (emptyFiltered) emptyFiltered.style.display = "none";
-
-    renderRows(filtered);
-    updateLastScanCard(filtered[0] || null);
-  }
-
-  async function loadScanHistory(userId) {
-    let query = supabase
-      .from("scan_results")
-      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error loading scan history", error);
-      allRecords = [];
-    } else {
-      allRecords = data || [];
-    }
-
-    applyFiltersAndRender();
-  }
-
-  window.loadScanHistory = loadScanHistory;
-
-  function setupFilters() {
-    const filterPills = document.querySelectorAll(".filter-pill");
-    filterPills.forEach((pill) => {
-      pill.addEventListener("click", () => {
-        filterPills.forEach((p) => p.classList.remove("active"));
-        pill.classList.add("active");
-        activeStatus = pill.dataset.status || "all";
-        applyFiltersAndRender();
-      });
-    });
-  }
-
-  function setupSearch() {
-    const searchInput = document.getElementById("historySearch");
-    if (!searchInput) return;
-    searchInput.addEventListener("input", () => {
-      searchQuery = (searchInput.value || "").trim().toLowerCase();
-      applyFiltersAndRender();
-    });
-  }
-
-  async function setupSignOut() {
-    const signoutLink = document.querySelector(".signout");
-    if (!signoutLink) return;
-
-    signoutLink.addEventListener("click", async (e) => {
-      e.preventDefault();
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error("Error signing out", err);
-      } finally {
-        window.location.href = "/index.html";
-      }
-    });
-  }
 
   // ✅ NEW: normalise URL + AUTHENTICATED run-scan (fixes 401)
   function normaliseUrl(input) {
@@ -1754,12 +1652,12 @@
         }
 
         // Open the report if we have an ID
-        if (openReportId) {
-          window.open(`/report.html?report_id=${encodeURIComponent(openReportId)}`, "_blank");
-        } else {
-          // Fallback: don't silently fail
-          alert("Scan completed, but no report ID was returned yet. Check Scan History in a moment.");
-        }
+   if (openReportId) {
+  window.location.href = `/report.html?report_id=${encodeURIComponent(openReportId)}`;
+} else {
+  alert("Scan completed, but no report ID was returned yet. Check Scan History in a moment.");
+}
+
 
       } catch (err) {
         console.error("[RUN-SCAN] error:", err);
