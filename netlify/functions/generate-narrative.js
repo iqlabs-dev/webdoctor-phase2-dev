@@ -189,6 +189,8 @@ async function callOpenAI({ facts }) {
     "5) Use diagnostic language: 'indicates', 'suggests', 'points to', 'within this scan'.",
     "6) Output MUST match the provided JSON schema (strict).",
     "7) Line limits: overall max 5 lines; each signal max 3 lines.",
+    "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+
   ].join("\n");
 
   const input = [
