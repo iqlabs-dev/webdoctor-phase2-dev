@@ -53,15 +53,16 @@ return d.toLocaleString(undefined, {
   }
 
   // v5.2 UI clamp helper
-  function normalizeLines(text, maxLines) {
-    const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
-    if (!s) return [];
-    return s
-      .split("\n")
-      .map(l => l.trim())
-      .filter(Boolean)
-      .slice(0, maxLines);
-  }
+function normalizeLines(text, maxLines) {
+  const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
+  if (!s) return [];
+  return s
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean)
+    .slice(0, maxLines);
+}
+
 
   // -----------------------------
   // Header setters (MATCH report.html IDs)
@@ -161,29 +162,34 @@ return d.toLocaleString(undefined, {
   // -----------------------------
   // Two-line deterministic summary (compact)
   // -----------------------------
-  function summaryTwoLines(signal) {
-    const score = asInt(signal?.score, 0);
-    const base = asInt(signal?.base_score, score);
-    const penalty = Number.isFinite(Number(signal?.penalty_points))
-      ? Math.max(0, Math.round(Number(signal.penalty_points)))
-      : Math.max(0, base - score);
+function summaryTwoLines(signal) {
+  const score = asInt(signal?.score, 0);
+  const base = asInt(signal?.base_score, score);
+  const penalty = Number.isFinite(Number(signal?.penalty_points))
+    ? Math.max(0, Math.round(Number(signal.penalty_points)))
+    : Math.max(0, base - score);
 
-    const issues = asArray(signal?.issues);
-    const deds = asArray(signal?.deductions);
+  const issues = asArray(signal?.issues);
+  const deds = asArray(signal?.deductions);
 
-    if (penalty > 0) {
-      const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
-      const reason = first ? first.reason.trim() : "Explicit deductions applied from observed checks.";
-      return { line2: `Deductions: -${penalty}. ${reason}` };
-    }
-
-    if (issues.length > 0) {
-      const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
-      return { line2: first ? `Issue detected: ${first.title.trim()}` : "Issues detected in deterministic checks." };
-    }
-
-    return { line2: "No penalties. Deterministic checks passed based on observed signals." };
+  if (penalty > 0) {
+    const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
+    const reason = first ? first.reason.trim() : "Deductions were observed based on measured checks.";
+    return { line2: `Observed deductions: -${penalty}. ${reason}` };
   }
+
+  if (issues.length > 0) {
+    const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
+    return {
+      line2: first
+        ? `Observed issue: ${first.title.trim()}`
+        : "Observed issues were detected in deterministic checks."
+    };
+  }
+
+  return { line2: "No penalties were observed within the scope of this scan." };
+}
+
 
   // -----------------------------
   // Narrative (display + auto-generate + poll)
@@ -334,7 +340,8 @@ return d.toLocaleString(undefined, {
         .map(l => String(l || "").trim())
         .filter(Boolean);
 
-      const cardLines = normalizeLines(rawLines.join("\n"), 3);
+      const cardLines = normalizeLines(rawLines.join("\n"), 5);
+
 
 const fallback = summaryTwoLines(sig)?.line2 || "—";
 
