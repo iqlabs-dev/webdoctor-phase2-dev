@@ -388,6 +388,15 @@
   overflow-wrap: normal;
 }
 
+/* ✅ Impact text inside Issues must wrap (it was wrongly inheriting .v pill rules) */
+.impact-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
+
 
     /* ✅ Evidence accordions */
     details.evidence-block { padding: 0; }

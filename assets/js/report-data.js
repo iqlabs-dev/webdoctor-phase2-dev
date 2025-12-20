@@ -497,7 +497,8 @@
           kv.className = "kv";
           kv.innerHTML = `
             <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
-            <div class="v">${escapeHtml(String(o?.value ?? "null"))}</div>
+           <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="impact-text" style="font-weight:700;">${impact}</span></div>
+
           `;
           listEl.appendChild(kv);
         }
