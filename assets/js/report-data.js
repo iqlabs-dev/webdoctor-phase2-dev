@@ -1,12 +1,13 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.6 (Layout completion)
+// iQWEB Report UI — Contract v1.0.7 (Delivery Signals narrative wiring)
 // - Keeps scoring + cards + evidence wiring intact
+// - FIXES Delivery Signal cards: prefer TRUE narrative lines from data.narrative (not score-script)
 // - FIXES Key Insight Metrics: render as STATIC insights (no dropdowns)
 // - Adds safe renderers for Top Issues, Fix Sequence, Final Notes (optional IDs)
 // - Narrative supports text OR JSON and polls until available
 // - Enforces v5.2 line caps in UI:
 //   - Executive narrative max 5 lines
-//   - Signal card narrative max 3 lines
+//   - Signal card narrative max 3 lines (hard cap in UI)
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -33,15 +34,15 @@
     if (!iso) return "—";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-return d.toLocaleString(undefined, {
-  year: "numeric",
-  month: "short",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false
-});
 
+    return d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
   }
 
   function verdict(score) {
@@ -53,16 +54,38 @@ return d.toLocaleString(undefined, {
   }
 
   // v5.2 UI clamp helper
-function normalizeLines(text, maxLines) {
-  const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
-  if (!s) return [];
-  return s
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean)
-    .slice(0, maxLines);
-}
+  function normalizeLines(text, maxLines) {
+    const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
+    if (!s) return [];
+    return s
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean)
+      .slice(0, maxLines);
+  }
 
+  // Remove "authority" line if present as 3rd line in signal cards
+  function stripAuthorityLineIfPresent(lines) {
+    const cleaned = [];
+    for (let i = 0; i < lines.length; i++) {
+      const s = String(lines[i] || "").trim();
+      const low = s.toLowerCase();
+      // only strip if it's the classic "no action required" instruction line
+      if (
+        i === 2 &&
+        (low === "no action required." ||
+          low === "no action required at this time." ||
+          low === "no action required" ||
+          low === "no immediate fixes are required in this area." ||
+          low === "no issues to address in this area." ||
+          low === "no improvements needed in this area.")
+      ) {
+        continue;
+      }
+      cleaned.push(s);
+    }
+    return cleaned.filter(Boolean);
+  }
 
   // -----------------------------
   // Header setters (MATCH report.html IDs)
@@ -70,21 +93,23 @@ function normalizeLines(text, maxLines) {
   function setHeaderWebsite(url) {
     const el = $("siteUrl");
     if (!el) return;
-   if (typeof url === "string" && url.trim()) {
-  const u = url.trim();
-  el.textContent = u;
-  el.setAttribute("href", u.startsWith("http") ? u : `https://${u}`);
-} else {
-  el.textContent = "—";
-  el.removeAttribute("href");
-}
 
+    if (typeof url === "string" && url.trim()) {
+      const u = url.trim();
+      el.textContent = u;
+      el.setAttribute("href", u.startsWith("http") ? u : `https://${u}`);
+    } else {
+      el.textContent = "—";
+      el.removeAttribute("href");
+    }
   }
+
   function setHeaderReportId(reportId) {
     const el = $("reportId");
     if (!el) return;
     el.textContent = reportId ? String(reportId) : "—";
   }
+
   function setHeaderReportDate(isoString) {
     const el = $("reportDate");
     if (!el) return;
@@ -160,36 +185,23 @@ function normalizeLines(text, maxLines) {
   }
 
   // -----------------------------
-  // Two-line deterministic summary (compact)
+  // Deterministic fallback (neutral, explain-only)
   // -----------------------------
-function summaryTwoLines(signal) {
-  const score = asInt(signal?.score, 0);
-  const base = asInt(signal?.base_score, score);
-  const penalty = Number.isFinite(Number(signal?.penalty_points))
-    ? Math.max(0, Math.round(Number(signal.penalty_points)))
-    : Math.max(0, base - score);
+  function summaryFallback(sig) {
+    const score = asInt(sig?.score, 0);
+    const label = String(sig?.label ?? sig?.id ?? "This signal");
 
-  const issues = asArray(signal?.issues);
-  const deds = asArray(signal?.deductions);
+    // Keep it calm + non-authoritative (no "do X now", no "no action required")
+    const base = `${label} is measured at ${score}/100 from deterministic checks in this scan.`;
+    const issues = asArray(sig?.issues);
 
-  if (penalty > 0) {
-    const first = deds.find(d => typeof d?.reason === "string" && d.reason.trim());
-    const reason = first ? first.reason.trim() : "Deductions were observed based on measured checks.";
-    return { line2: `Observed deductions: -${penalty}. ${reason}` };
+    if (issues.length) {
+      const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
+      if (first) return `${base}\nObserved: ${first.title.trim()}`;
+      return `${base}\nObserved issues were detected in deterministic checks.`;
+    }
+    return `${base}\nUse the evidence below to decide what to prioritise.`;
   }
-
-  if (issues.length > 0) {
-    const first = issues.find(i => typeof i?.title === "string" && i.title.trim());
-    return {
-      line2: first
-        ? `Observed issue: ${first.title.trim()}`
-        : "Observed issues were detected in deterministic checks."
-    };
-  }
-
-  return { line2: "No penalties were observed within the scope of this scan." };
-}
-
 
   // -----------------------------
   // Narrative (display + auto-generate + poll)
@@ -302,8 +314,7 @@ function summaryTwoLines(signal) {
   }
 
   // -----------------------------
-  // Delivery Signals — six clean cards
-  // Bar above text (score stays top-right)
+  // Delivery Signals — TRUE narrative first (max 3 lines)
   // -----------------------------
   function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
@@ -318,17 +329,30 @@ function summaryTwoLines(signal) {
 
     const parsedNarr = parseNarrativeFlexible(narrative);
     const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
-    const narrSignals = safeObj(narrObj?.signals);
+
+    // Accept multiple possible shapes to avoid brittle wiring
+    const narrSignals =
+      safeObj(narrObj?.signals) ||
+      safeObj(narrObj?.delivery_signals) ||
+      safeObj(narrObj?.deliverySignals) ||
+      {};
 
     const keyFromSig = (sig) => {
-      const id = String(sig?.id || "").toLowerCase();
+      const id = String(sig?.id || sig?.label || "").toLowerCase();
+
+      // common variants
       if (id.includes("perf")) return "performance";
+      if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
-      if (id.includes("struct")) return "structure";
-      if (id.includes("mob")) return "mobile";
+      if (id.includes("seo foundations")) return "seo";
+      if (id.includes("structure")) return "structure";
+      if (id.includes("semantic")) return "structure";
       if (id.includes("sec")) return "security";
+      if (id.includes("trust")) return "security";
       if (id.includes("access")) return "accessibility";
-      return id || null;
+
+      // fallback to a cleaned key
+      return id.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || null;
     };
 
     for (const sig of list) {
@@ -336,31 +360,20 @@ function summaryTwoLines(signal) {
       const score = asInt(sig?.score, 0);
 
       const key = keyFromSig(sig);
-      const rawLines = asArray(narrSignals?.[key]?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
 
-      const cardLines = normalizeLines(rawLines.join("\n"), 5);
+      const rawLines = key
+        ? asArray(narrSignals?.[key]?.lines)
+            .map(l => String(l || "").trim())
+            .filter(Boolean)
+        : [];
 
+      // ✅ HARD cap for cards: max 3 lines (v5.2 locked)
+      const cardLines = normalizeLines(rawLines.join("\n"), 3);
+      const safeLines = stripAuthorityLineIfPresent(cardLines);
 
-const fallback = summaryTwoLines(sig)?.line2 || "—";
-
-// If narrative exists, use it (max 3 lines already clamped).
-// If it doesn't exist, show fallback as ONE line (no fake 2–3 line format).
-let bodyText = "—";
-
-if (cardLines.length) {
-  // Optional rule: if 3rd line is "No action required", hide it.
-  const cleaned = cardLines.filter((l, idx) => {
-    const s = String(l || "").trim().toLowerCase();
-    if (idx === 2 && (s === "no action required." || s === "no action required at this time." || s === "no action required")) return false;
-    return true;
-  });
-  bodyText = cleaned.join("\n");
-} else {
-  bodyText = String(fallback).trim();
-}
-
+      const bodyText = safeLines.length
+        ? safeLines.join("\n")
+        : summaryFallback(sig);
 
       const card = document.createElement("div");
       card.className = "card";
@@ -534,16 +547,17 @@ if (cardLines.length) {
   }
 
   // -----------------------------
-  // Key Insight Metrics (Narrative-driven, STATIC)
-  // IMPORTANT: This replaces the old accordion "key metrics" renderer.
+  // Key Insight Metrics (STATIC)
   // -----------------------------
   function keyFromLabelOrId(sig) {
     const id = String(sig?.id || sig?.label || "").toLowerCase();
     if (id.includes("perf")) return "performance";
     if (id.includes("seo")) return "seo";
     if (id.includes("struct")) return "structure";
+    if (id.includes("semantic")) return "structure";
     if (id.includes("mob")) return "mobile";
     if (id.includes("sec")) return "security";
+    if (id.includes("trust")) return "security";
     if (id.includes("access")) return "accessibility";
     return "";
   }
@@ -555,12 +569,14 @@ if (cardLines.length) {
     const overall = asInt(scores?.overall, 0);
     const list = asArray(deliverySignals);
 
-    // Narrative signal lines (if available)
     const parsedNarr = parseNarrativeFlexible(narrative);
     const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
-    const narrSignals = safeObj(narrObj?.signals);
+    const narrSignals =
+      safeObj(narrObj?.signals) ||
+      safeObj(narrObj?.delivery_signals) ||
+      safeObj(narrObj?.deliverySignals) ||
+      {};
 
-    // Score map by signal key
     const scoreBy = {};
     for (const sig of list) {
       const k = keyFromLabelOrId(sig);
@@ -581,13 +597,12 @@ if (cardLines.length) {
       return lines[0] || "";
     }
 
-    // Safe, factual fallbacks if narrative not present
     function fallbackLine(label, key) {
       const s = Number.isFinite(scoreBy[key]) ? scoreBy[key] : null;
       if (s === null) return `${label} insight not available from this scan output.`;
-      if (s >= 90) return `${label} is strong in this scan.`;
-      if (s >= 75) return `${label} is generally good, with room for improvement.`;
-      if (s >= 55) return `${label} shows gaps worth addressing.`;
+      if (s >= 90) return `${label} appears strong in this scan.`;
+      if (s >= 75) return `${label} appears generally good, with room for improvement.`;
+      if (s >= 55) return `${label} shows gaps worth reviewing.`;
       return `${label} shows the largest improvement potential in this scan.`;
     }
 
@@ -599,15 +614,14 @@ if (cardLines.length) {
 
     const focusText =
       weakest
-        ? `Primary focus: ${prettifyKey(weakest)} shows the biggest improvement potential based on this scan’s scores.`
-        : `Primary focus: address the lowest scoring signal areas first for highest leverage.`;
+        ? `Focus: ${prettifyKey(weakest)} is the lowest scoring area in this scan.`
+        : `Focus: address the lowest scoring signal areas first for highest leverage.`;
 
     const nextText =
       overall >= 75
-        ? "Next: apply Phase 1 fixes and re-run the scan to confirm measurable improvement."
-        : "Next: start with Phase 1 fast wins to lift the most constrained signals, then re-run the scan.";
+        ? "Next: apply the changes you choose, then re-run the scan to confirm measurable improvement."
+        : "Next: start with Phase 1 fast wins, then re-run the scan to confirm measurable improvement.";
 
-    // Render as STATIC insights (no <details>)
     root.innerHTML = `
       <div class="insight-list">
         <div class="insight">
@@ -659,7 +673,6 @@ if (cardLines.length) {
       }
     }
 
-    // If no structured issues, show a calm placeholder
     if (!all.length) {
       root.innerHTML = `
         <div class="issue">
@@ -675,7 +688,6 @@ if (cardLines.length) {
       return;
     }
 
-    // Deduplicate by title
     const seen = new Set();
     const unique = [];
     for (const it of all) {
@@ -702,14 +714,11 @@ if (cardLines.length) {
 
   // -----------------------------
   // Recommended Fix Sequence (Phased) — optional section
-  // (keeps your HTML fallback if present; only enriches when possible)
   // -----------------------------
   function renderFixSequence(scores, deliverySignals) {
     const root = $("fixSequenceRoot");
     if (!root) return; // section optional
 
-    // If you already have static HTML phases, we don't overwrite them.
-    // We only add a small "suggestion" note if empty.
     const hasPhases = root.querySelector?.(".phase");
     if (hasPhases) return;
 
@@ -727,7 +736,7 @@ if (cardLines.length) {
 
     root.innerHTML = `
       <div class="summary">
-        Recommended order (from this scan): start with <b>${escapeHtml(low.join(" + ") || "highest-leverage fixes")}</b>, then re-run the scan to confirm measurable improvement.
+        Suggested order (from this scan): start with <b>${escapeHtml(low.join(" + ") || "highest-leverage fixes")}</b>, then re-run the scan to confirm measurable improvement.
       </div>
     `;
   }
@@ -737,9 +746,8 @@ if (cardLines.length) {
   // -----------------------------
   function renderFinalNotes() {
     const root = $("finalNotesRoot");
-    if (!root) return; // section optional
+    if (!root) return;
 
-    // If HTML already contains final notes, do nothing.
     if ((root.textContent || "").trim().length > 30) return;
 
     root.innerHTML = `
@@ -769,6 +777,9 @@ if (cardLines.length) {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
 
+      // (Optional) quick debug handle
+      window.__iqweb_lastData = data;
+
       const header = safeObj(data.header);
       const scores = safeObj(data.scores);
 
@@ -778,15 +789,17 @@ if (cardLines.length) {
 
       renderOverall(scores);
 
+      // Executive narrative (separate; stays max 5 lines)
       renderNarrative(data.narrative);
+
+      // ✅ Delivery Signals — TRUE narrative first
       renderSignals(data.delivery_signals, data.narrative);
 
+      // Evidence + other sections
       renderSignalEvidence(data.delivery_signals);
 
-      // ✅ NEW: Key Insight Metrics (static, narrative-driven)
       renderKeyInsights(scores, data.delivery_signals, data.narrative);
 
-      // ✅ NEW (optional IDs): Top Issues, Fix Sequence, Final Notes
       renderTopIssues(data.delivery_signals);
       renderFixSequence(scores, data.delivery_signals);
       renderFinalNotes();
@@ -794,6 +807,7 @@ if (cardLines.length) {
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
+      // Ensure narrative exists (async)
       ensureNarrative(header.report_id || reportId, data.narrative);
     } catch (err) {
       console.error(err);
