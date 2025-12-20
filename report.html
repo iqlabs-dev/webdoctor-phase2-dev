@@ -587,54 +587,41 @@
       align-items: center;
       justify-content: center;
     }
-    
-/* Loader: Λ i Q pulse (keeps original .pulse element so JS does not break) */
-.pulse {
-  position: relative;
+
+/* Loader: Λ i Q pulse (TEXT ONLY — no circle/ring) */
+.pulse{
   width: 72px;
   height: 72px;
   margin: 0 auto 14px;
   display: grid;
   place-items: center;
+  position: relative;
 }
 
-/* Outer ring — same colour + behaviour as original circle */
-.pulse::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 3px solid rgba(93, 216, 255, 0.35);
-  box-shadow:
-    0 0 0 1px rgba(93, 216, 255, 0.12),
-    0 0 28px rgba(93, 216, 255, 0.22);
-  animation: iqPulseRing 1.15s ease-in-out infinite;
+/* Kill any ring that might still exist */
+.pulse::before{
+  content: none !important;
 }
 
-/* Λ i Q text */
-.pulse::after {
+/* Λ i Q text (pulsing + glow, same colour vibe as circle) */
+.pulse::after{
   content: "Λ i Q";
   font-family: "Montserrat", system-ui, sans-serif;
   font-weight: 800;
   font-size: 18px;
   letter-spacing: 0.18em;
-  color: rgba(93, 216, 255, 0.95);
-  text-shadow: 0 0 18px rgba(93, 216, 255, 0.35);
+  color: rgba(93,216,255,0.95);
+  text-shadow: 0 0 18px rgba(93,216,255,0.35);
   transform: translateX(1px);
   animation: iqPulseText 1.15s ease-in-out infinite;
 }
 
-@keyframes iqPulseRing {
-  0%   { transform: scale(0.92); opacity: 0.55; }
-  50%  { transform: scale(1.06); opacity: 1; }
-  100% { transform: scale(0.92); opacity: 0.55; }
+@keyframes iqPulseText{
+  0%   { transform: translateX(1px) scale(0.96); opacity: 0.55; }
+  50%  { transform: translateX(1px) scale(1.06); opacity: 1; }
+  100% { transform: translateX(1px) scale(0.96); opacity: 0.55; }
 }
 
-@keyframes iqPulseText {
-  0%   { transform: translateX(1px) scale(0.98); opacity: 0.72; }
-  50%  { transform: translateX(1px) scale(1.03); opacity: 1; }
-  100% { transform: translateX(1px) scale(0.98); opacity: 0.72; }
-}
 
 
     .final-notes p {
