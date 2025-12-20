@@ -646,6 +646,80 @@
     body.light .summary, body.light .issue-why, body.light .phase-body li, body.light .insight .text { color: rgba(15,23,42,0.78); }
     body.light .muted { color: rgba(15,23,42,0.55); }
     body.light .brand .tag { color: rgba(15,23,42,0.55); }
+
+    /* ===============================
+   PRINT / PDF MODE (auto-white)
+   Keeps UI dark on screen, but prints clean
+   =============================== */
+@media print {
+  /* force white page */
+  :root { color-scheme: light; }
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* remove fancy backgrounds/shadows that print badly */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* turn your “dark glass” panels into clean cards */
+  .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* make headings readable */
+  .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
+    color: #0f172a !important;
+  }
+
+  /* body copy */
+  .summary, .issue-why, .insight .text, .kv .k, .kv .v {
+    color: #111827 !important;
+  }
+
+  /* bars: keep visible but printer friendly */
+  .bar {
+    background: #e5e7eb !important;
+  }
+  .bar > div {
+    background: #111827 !important;
+  }
+
+  /* hide UI-only controls */
+  #backToDashboard,
+  .btn,
+  .toggle,
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+
+  /* avoid weird breaks inside accordions/cards */
+  details { page-break-inside: avoid; }
+  .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
+
+  /* expand all evidence accordions automatically */
+  details.evidence-block { display: block !important; }
+  details.evidence-block > summary { display: none !important; }
+  details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
+
+  /* ensure links print nicely */
+  a, a:visited { color: #111827 !important; text-decoration: underline !important; }
+}
+
+@media print {
+  #reportRoot {
+    max-width: none !important;
+    width: 100% !important;
+  }
+}
+
+
   </style>
 </head>
 
@@ -665,7 +739,10 @@
           </div>
 
           <div class="top-actions">
-            <button class="btn" id="themeToggle">Theme</button>
+            <button id="backToDashboard" class="btn">
+  ← Back to dashboard
+</button>
+
             <button class="btn" id="refreshBtn">Refresh</button>
           </div>
         </div>

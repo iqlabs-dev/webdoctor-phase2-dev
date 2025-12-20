@@ -164,6 +164,17 @@
     return data;
   }
 
+  function wireBackToDashboard() {
+  const btn = document.getElementById("backToDashboard");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    // adjust path if your dashboard lives elsewhere
+    window.location.href = "/dashboard.html";
+  });
+}
+
+
   // -----------------------------
   // Overall
   // -----------------------------
