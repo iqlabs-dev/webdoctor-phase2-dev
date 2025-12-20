@@ -11,29 +11,20 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 // -----------------------------
-// Supabase client (define ONCE, before helpers)
+// Supabase client (define ONCE)
 // -----------------------------
-const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
 // Single-flight DB lock
 // Ensures ONE OpenAI call per report_id
 // -----------------------------
 async function claimNarrative(report_id) {
-  const { data, error } = await supabase.rpc(
-    "claim_narrative_job",
-    { p_report_id: report_id }
-  );
+  const { data, error } = await supabase.rpc("claim_narrative_job", {
+    p_report_id: report_id,
+  });
 
-  if (error) {
-    throw new Error(`claim_narrative_job failed: ${error.message}`);
-  }
-
-  // data.length > 0 => lock acquired
-  // data.length === 0 => already claimed or narrative exists
+  if (error) throw new Error(`claim_narrative_job failed: ${error.message}`);
   return Array.isArray(data) && data.length > 0;
 }
 
@@ -52,7 +43,6 @@ function json(statusCode, body) {
     body: JSON.stringify(body),
   };
 }
-
 
 // -----------------------------
 // Small utilities
@@ -89,10 +79,9 @@ function buildFactsPack(scan) {
   const basic = safeObj(metrics.basic_checks);
   const sec = safeObj(metrics.security_headers);
 
-  const delivery =
-    asArray(metrics.delivery_signals).length
-      ? asArray(metrics.delivery_signals)
-      : asArray(safeObj(metrics.metrics).delivery_signals);
+  const delivery = asArray(metrics.delivery_signals).length
+    ? asArray(metrics.delivery_signals)
+    : asArray(safeObj(metrics.metrics).delivery_signals);
 
   const byId = (id) =>
     delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
@@ -190,21 +179,36 @@ async function callOpenAI({ facts }) {
   }
 
   const instructions = [
-    "You are Λ i Q™, a strict, evidence-based diagnostic narrator for iQWEB reports.",
-    "Rules:",
-    "1) Do not invent facts. Only use the provided facts JSON.",
-    "2) No marketing fluff. Clear, diagnostic tone.",
-    "3) Output MUST match the provided JSON schema.",
-    "4) Line limits: overall max 5 lines; each signal max 3 lines.",
+    "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
+    "",
+    "Non-negotiable rules:",
+    "1) Do not invent facts. Use only the provided facts JSON.",
+    "2) No sales language, no hype, no blame.",
+    "3) Do not speak in 'because score X'. The score is supporting evidence, not the reason.",
+    "4) Do not take decisions out of the agent's hands. Avoid: 'No action required', 'Immediate action is needed', 'Must', 'Urgent'.",
+    "5) Use diagnostic language: 'indicates', 'suggests', 'points to', 'within this scan'.",
+    "6) Output MUST match the provided JSON schema (strict).",
+    "7) Line limits: overall max 5 lines; each signal max 3 lines.",
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "Guidance:",
-    "- overall: 3 lines ideal, max 5. Summarise delivery, biggest risk, next best action.",
-    "- per signal: 2 lines ideal, max 3. 1) what the score implies, 2) what to fix (if anything).",
-    "- If a signal is strong with no deductions, say so briefly.",
+    "Required structure:",
+    "- overall.lines (3 lines ideal, max 5):",
+    "  * Line 1: One-sentence summary of delivery across signals (facts-only).",
+    "  * Line 2: Biggest measurable risk or constraint (facts-only).",
+    "  * Line 3: Next focus phrased as an option for the agent (e.g., 'A sensible next focus is…').",
+    "",
+    "- per signal lines (2 lines ideal, max 3):",
+    "  * Line 1: What the signal indicates (diagnostic).",
+    "  * Line 2: What that means in practice.",
+    "  * Optional Line 3: If improvement is desired, the first place to look (suggestive, not commanding).",
+    "",
+    "Style constraints:",
+    "- Do NOT use headings like 'Line 1 —'. Just write the lines.",
+    "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
+    "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
     "",
     "Facts JSON:",
     JSON.stringify(facts),
@@ -318,7 +322,38 @@ async function callOpenAI({ facts }) {
 }
 
 // -----------------------------
-// Enforce v5.2 line constraints
+// Sanitise authority language (defensive)
+// -----------------------------
+function softenLine(line) {
+  const s = String(line || "").trim();
+  if (!s) return s;
+
+  const low = s.toLowerCase();
+
+  // Remove hard authority phrasing without changing meaning
+  if (
+    low.includes("no actions needed") ||
+    low.includes("no action needed") ||
+    low.includes("no action required") ||
+    low.includes("no issues to address")
+  ) {
+    return "This area appears stable within the scope of this scan.";
+  }
+
+  if (low.includes("immediate action is needed") || low.includes("urgent")) {
+    return "This area is the most constrained in this scan and is worth reviewing first.";
+  }
+
+  // Avoid 'must'
+  if (/\bmust\b/i.test(s)) {
+    return s.replace(/\bmust\b/gi, "can");
+  }
+
+  return s;
+}
+
+// -----------------------------
+// Enforce v5.2 line constraints + soften phrasing
 // -----------------------------
 function enforceConstraints(n) {
   const out = {
@@ -333,11 +368,13 @@ function enforceConstraints(n) {
     },
   };
 
-  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
+  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
+  out.overall.lines = overallRaw.map(softenLine);
 
   const sig = safeObj(n?.signals);
   const setSig = (k) => {
-    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
+    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
+    out.signals[k].lines = raw.map(softenLine);
   };
 
   setSig("performance");
@@ -348,6 +385,22 @@ function enforceConstraints(n) {
   setSig("accessibility");
 
   return out;
+}
+
+// -----------------------------
+// Narrative validity check (STRICT)
+// Prevents legacy/partial objects from blocking regeneration
+// -----------------------------
+function isNarrativeComplete(n) {
+  const hasOverall =
+    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
+
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+  const hasSignals =
+    n?.signals &&
+    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
+
+  return hasOverall && hasSignals;
 }
 
 // -----------------------------
@@ -367,7 +420,7 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // Get the latest scan row for this report_id (avoids .single() errors)
+    // Get latest scan row for this report_id
     const { data: scanRows, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall, narrative")
@@ -385,35 +438,28 @@ export async function handler(event) {
       });
     }
 
-// A narrative is valid ONLY if it has real content
-const hasNarrative =
-  Array.isArray(scan.narrative?.overall?.lines) &&
-  scan.narrative.overall.lines.length > 0;
+    // If narrative already complete, return it
+    if (isNarrativeComplete(scan.narrative)) {
+      return json(200, {
+        success: true,
+        report_id,
+        scan_id: scan.id,
+        saved_to: "scan_results.narrative",
+        narrative: scan.narrative,
+        note: "Narrative already exists; returned without regenerating.",
+      });
+    }
 
-if (hasNarrative) {
-  return json(200, {
-    success: true,
-    report_id,
-    scan_id: scan.id,
-    saved_to: "scan_results.narrative",
-    narrative: scan.narrative,
-    note: "Narrative already exists; returned without regenerating.",
-  });
-}
-
-// Try to claim the narrative job (prevents duplicate OpenAI calls)
-const claimed = await claimNarrative(report_id);
-
-if (!claimed) {
-  return json(200, {
-    success: true,
-    report_id,
-    scan_id: scan.id,
-    note: "Narrative generation already in progress.",
-  });
-}
-
-
+    // Try to claim job (prevents duplicate OpenAI calls)
+    const claimed = await claimNarrative(report_id);
+    if (!claimed) {
+      return json(200, {
+        success: true,
+        report_id,
+        scan_id: scan.id,
+        note: "Narrative generation already in progress.",
+      });
+    }
 
     const facts = buildFactsPack(scan);
     const rawNarrative = await callOpenAI({ facts });
