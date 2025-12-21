@@ -982,7 +982,13 @@ export async function handler(event) {
     const body = JSON.parse(event.body || "{}");
 
     const url = normaliseUrl(body.url || "");
-    const user_id = body.user_id || null;
+    const auth = await requireUser(event);
+if (!auth.ok) {
+  return json(auth.status, { success: false, error: auth.error });
+}
+
+const user_id = auth.user.id;
+
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
     const generate_narrative = body.generate_narrative !== false;
