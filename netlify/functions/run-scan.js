@@ -964,6 +964,49 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
     return { ok: false, status: 0 };
   }
 }
+async function requireUser(event) {
+  try {
+  const headers = event.headers || {};
+const authHeader =
+  headers.authorization ||
+  headers.Authorization ||
+  "";
+
+
+    if (!authHeader.startsWith("Bearer ")) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Missing Authorization header",
+      };
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data?.user) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Invalid or expired token",
+      };
+    }
+
+    return {
+      ok: true,
+      user: data.user,
+    };
+  } catch (e) {
+    console.error("[requireUser] failed:", e);
+    return {
+      ok: false,
+      status: 500,
+      error: "Auth check failed",
+    };
+  }
+}
+
 
 // ---------------------------------------------
 // Handler
