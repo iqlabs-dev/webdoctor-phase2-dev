@@ -2,1930 +2,817 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB — Dashboard</title>
+  <title>iQWEB Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Font (keep consistent with your system; Montserrat is already used across your assets) -->
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    :root {
-      --bg-top: #050814;
-      --bg-mid: #07101f;
-      --bg-bot: #0b1729;
-      --ink: #e8eef2;
-      --ink-soft: #c7d9e7;
-      --muted: #9fb1bf;
-      --highlight: #5dd8ff;
+    :root{
+      --bg: #070A10;
+      --panel: #0A0F1A;
+      --panel-2: #0B1324;
+      --sidebar-top: #0B1730;
+      --sidebar-bottom: #050814;
+      --border: rgba(255,255,255,.08);
+      --text: rgba(255,255,255,.88);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.45);
+      --accent: #18D6C4;
       --danger: #ff6b6b;
-      --box: rgba(255,255,255,0.06);
-      --box2: rgba(255,255,255,0.12);
+      --warn: #ffc24b;
+      --ok: #52ffa8;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --radius2: 18px;
+      --fs: 14px;
     }
 
-    .subscription-banner {
-      margin-bottom: 20px;
-      padding: 14px 18px;
-      border-radius: 18px;
-      background: radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,0.96));
-      border: 1px solid rgba(148,163,184,0.55);
-      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+    *{ box-sizing:border-box; }
+    html, body { height:100%; }
+    body{
+      margin:0;
+      font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, #050814 55%, #05060a 100%);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    .subscription-banner__title {
-      font-size: 0.9rem;
+    /* App shell */
+    .app{
+      min-height:100vh;
+      display:flex;
+      flex-direction:row;
+    }
+
+    /* Sidebar */
+    .sidebar{
+      width: 265px;
+      flex: 0 0 265px;
+      background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
+      border-right: 1px solid var(--border);
+      padding: 18px 14px;
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 10px 10px 6px 10px;
+    }
+    .brand .name{
       font-weight: 700;
-      margin-bottom: 6px;
-    }
-
-    .subscription-banner__text {
-      font-size: 0.8rem;
-      color: #c0cfeb;
-      margin: 0 0 12px;
-    }
-
-    .subscription-banner__button {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      cursor: pointer;
-      background: linear-gradient(135deg, #22c55e, #14b8a6);
-      color: #020617;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Montserrat, sans-serif;
-      background: radial-gradient(circle at top left, #10172a 0, #050814 45%, #02040a 100%);
-      color: var(--ink);
-      overflow-x: hidden;
-    }
-
-    /* HEADER */
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      padding: 22px 40px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.1));
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-    }
-
-    .logo a {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--ink);
-      text-decoration: none;
-    }
-
-    .back-link {
+      letter-spacing: .02em;
       font-size: 16px;
-      color: var(--ink-soft);
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
+    }
+    .brand .tag{
+      font-size: 11px;
+      color: var(--muted2);
+      margin-top: 2px;
+      letter-spacing: .02em;
+    }
+
+    .nav{
+      display:flex;
+      flex-direction:column;
       gap: 6px;
-      opacity: 0.9;
-      transition: 0.2s;
+      padding: 6px 6px 0 6px;
     }
 
-    .back-link span.arrow {
-      font-size: 18px;
-      margin-top: -1px;
-    }
-
-    .back-link:hover {
-      color: var(--highlight);
-      opacity: 1;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-    }
-
-    .nav-link {
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--ink-soft);
-      text-decoration: none;
-      transition: 0.2s;
-    }
-
-    .nav-link.active {
-      color: var(--highlight);
-    }
-
-    .nav-link:hover {
-      color: var(--ink);
-    }
-
-    .user-menu {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .user-trigger {
-      display: inline-flex;
-      align-items: center;
+    .nav a,
+    .nav button{
+      all: unset;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
       gap: 10px;
-      padding: 8px 14px;
-      background: rgba(8,15,30,0.9);
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.12);
-      cursor: pointer;
-      font-size: 14px;
-      color: var(--ink-soft);
-      outline: none;
-    }
-
-    .user-initial {
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--highlight), #8be7ff);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-weight: 800;
-      font-size: 15px;
-    }
-
-    .user-email {
-      max-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .user-caret {
-      font-size: 11px;
-      opacity: 0.8;
-      margin-left: 4px;
-    }
-
-    .user-admin-badge {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.25);
-      padding: 2px 6px;
-      color: var(--highlight);
-    }
-
-    .user-dropdown {
-      position: absolute;
-      right: 0;
-      top: 110%;
-      background: #040712;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: 0 18px 40px rgba(0,0,0,0.7);
-      min-width: 230px;
-      padding: 8px;
-      opacity: 0;
-      transform: translateY(-4px);
-      pointer-events: none;
-      transition: 0.16s ease-out;
-    }
-
-    .user-menu:hover .user-dropdown {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-
-    .user-dropdown a,
-    .user-dropdown button {
-      display: block;
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-size: 14px;
-      text-decoration: none;
-      color: var(--ink-soft);
-      transition: 0.16s;
-      border: none;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .user-dropdown a:hover,
-    .user-dropdown button:hover {
-      background: rgba(255,255,255,0.05);
-      color: var(--ink);
-    }
-
-    .user-dropdown a.signout {
-      color: var(--danger);
-      font-weight: 600;
-    }
-
-    .user-dropdown-separator {
-      height: 1px;
-      margin: 6px 4px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 999px;
-    }
-
-    /* PAGE WRAP */
-
-    .wrap {
-      max-width: 1200px;
-      margin: 34px auto 60px;
-      padding: 0 20px 40px;
-    }
-
-    .section {
-      background: var(--box);
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.09);
-      box-shadow: 0 0 40px rgba(0,0,0,0.45);
-      padding: 32px 34px;
-      margin-bottom: 30px;
-    }
-
-    .section.small {
-      padding: 24px 26px;
-    }
-
-    h1 {
-      font-size: 36px;
-      margin: 0 0 6px;
-      font-weight: 800;
-      color: var(--highlight);
-    }
-
-    .subtext {
-      font-size: 18px;
-      color: var(--ink-soft);
-      margin-bottom: 24px;
-      line-height: 1.55;
-    }
-
-    .subtext strong {
-      color: var(--highlight);
-      font-weight: 600;
-    }
-
-    /* PLAN BANNER (Linear-style plan confirmation) */
-
-    .plan-banner {
-      background: rgba(34, 211, 238, 0.08);
-      border: 1px solid rgba(34,211,238,0.55);
-      border-radius: 14px;
-      padding: 12px 16px;
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 14px;
-      color: var(--ink-soft);
-    }
-
-    .plan-banner strong {
-      color: var(--ink);
-    }
-
-    .checkout-btn {
-      border-radius: 999px;
-      padding: 8px 18px;
-      border: 1px solid rgba(34,211,238,0.8);
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      color: var(--ink-soft);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 12px 28px rgba(15,23,42,0.85);
-      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    }
-
-    .checkout-btn:hover {
-      transform: translateY(-1px);
-      border-color: rgba(34,211,238,1);
-      color: var(--ink);
-    }
-
-    /* SUMMARY CARD */
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-      gap: 26px;
-      align-items: stretch;
-    }
-
-    .summary-block {
-      background: var(--box2);
-      border-radius: 16px;
-      padding: 22px 24px;
-      border: 1px solid rgba(255,255,255,0.09);
-    }
-
-    .summary-label {
-      font-size: 15px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-
-    .credits-value {
-      font-size: 34px;
-      font-weight: 800;
-      color: var(--highlight);
-      transition: color 0.15s;
-    }
-
-    .credits-value.low-credits {
-      color: #fb923c;
-    }
-
-    .plan-remaining-row {
-      margin-top: 6px;
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .plan-remaining-label {
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .plan-remaining-value {
-      font-weight: 700;
-      color: var(--ink-soft);
-    }
-
-    .credits-pack-row {
-      margin-top: 14px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .credits-pack-label {
-      width: 100%;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-    }
-
-    .credits-pack-btn {
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.65);
-      background: rgba(8,15,30,0.9);
-      padding: 6px 14px;
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ink-soft);
-      cursor: pointer;
-      transition: background 0.16s ease, border-color 0.16s ease, transform 0.1s ease;
-    }
-
-    .credits-pack-btn:hover {
-      background: rgba(34,211,238,0.14);
-      border-color: rgba(34,211,238,0.9);
-      transform: translateY(-1px);
-      color: var(--ink);
-    }
-
-    .hint-text {
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    /* INLINE RUN STRIP */
-
-    .run-strip {
-      margin-top: 18px;
-      display: flex;
-      gap: 12px;
-      align-items: stretch;
-    }
-
-    .run-strip-btn,
-    .run-strip-input {
-      flex: 1 1 0;
-      display: flex;
-    }
-
-    .run-strip-input input {
-      width: 100%;
+      padding: 10px 10px;
       border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(4,8,18,0.9);
-      color: var(--ink);
-      padding: 12px 14px;
-      font-size: 14px;
-      outline: none;
-    }
-
-    .run-strip-input input::placeholder {
       color: var(--muted);
+      border: 1px solid transparent;
+      user-select:none;
+      font-size: 13px;
     }
 
-    /* Run button */
+    .nav a:hover,
+    .nav button:hover{
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.84);
+      border-color: rgba(255,255,255,.06);
+    }
 
-    .btn-primary {
-      width: 100%;
-      justify-content: center;
-      padding: 14px 20px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #22c55e, #14b8a6);
-      color: #000;
-      font-weight: 800;
-      font-size: 16px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
+    .nav a.active,
+    .nav button.active{
+      background: rgba(24,214,196,.08);
+      border-color: rgba(24,214,196,.22);
+      color: rgba(255,255,255,.92);
+    }
+
+    .sidebar-foot{
+      margin-top:auto;
+      padding: 10px 10px 6px 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: var(--muted2);
+      font-size: 12px;
+      display:flex;
+      flex-direction:column;
       gap: 8px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.55);
-      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
     }
 
-    .btn-primary span.icon {
-      font-size: 18px;
-      margin-top: -1px;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 18px 38px rgba(0,0,0,0.7);
-      opacity: 0.92;
-    }
-
-    /* PREMIUM LATEST SCAN CARD */
-
-    .latest-scan-card {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 20px;
-      padding: 28px 26px;
-      text-align: center;
-      cursor: pointer;
-      transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
-    }
-
-    .latest-scan-card:hover {
-      background: rgba(255, 255, 255, 0.06);
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-    }
-
-    .ls-label {
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      color: #38bdf8;
-      margin-bottom: 18px;
-    }
-
-    .ls-url {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #e2e8f0;
-    }
-
-    .ls-date {
+    .contact-pop{
+      display:none;
       margin-top: 6px;
-      font-size: 0.92rem;
-      color: #cbd5e1;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(5,8,20,.78);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .contact-pop a{
+      display:block;
+      padding: 8px 8px;
+      border-radius: 10px;
+      text-decoration:none;
+      color: rgba(255,255,255,.86);
+      border: 1px solid transparent;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .contact-pop a span{
+      display:block;
+      color: var(--muted2);
+      font-size: 11px;
+      margin-top: 3px;
+    }
+    .contact-pop a:hover{
+      background: rgba(255,255,255,.03);
+      border-color: rgba(255,255,255,.06);
     }
 
-    .ls-score-box {
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    /* Main */
+    .main{
+      flex:1;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
     }
 
-    .ls-score-pill {
-      background: #0ea5e9;
-      padding: 6px 16px;
-      color: white;
+    .topbar{
+      height: 62px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7,10,16,.55);
+      backdrop-filter: blur(10px);
+    }
+
+    .topbar .left{
+      display:flex;
+      align-items:baseline;
+      gap: 10px;
+      min-width:0;
+    }
+    .topbar .title{
       font-weight: 700;
-      border-radius: 40px;
-      font-size: 1rem;
-      margin-bottom: 4px;
+      font-size: 15px;
+      white-space:nowrap;
+    }
+    .topbar .sub{
+      font-size: 12px;
+      color: var(--muted2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .ls-score-text {
-      font-size: 0.85rem;
-      color: #cbd5e1;
+    .topbar .right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
     }
 
-    .ls-footer {
-      margin-top: 22px;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #38bdf8;
-      align-items: center;
-      opacity: 0.85;
-      transition: opacity 0.2s;
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
     }
 
-    .latest-scan-card:hover .ls-footer {
-      opacity: 1;
+    .wrap{
+      padding: 18px 22px 12px 22px;
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+      min-height: calc(100vh - 62px);
     }
 
-    .ls-arrow {
-      opacity: 0.85;
+    .card{
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(10,15,26,.66);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      padding: 16px;
     }
 
-    .latest-scan-card:hover .ls-arrow {
-      opacity: 1;
+    .row{
+      display:flex;
+      gap: 14px;
+      align-items:stretch;
+      flex-wrap:wrap;
     }
 
-    /* LAYOUT GRID */
-
-    .layout-grid {
-      display: block;
+    .col{
+      flex:1;
+      min-width: 320px;
     }
 
-    h2 {
-      font-size: 24px;
-      margin: 0 0 10px;
-    }
-
-    /* HISTORY HEADER / SEARCH / FILTERS */
-
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 16px;
+    .h{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
       margin-bottom: 10px;
     }
-
-    .history-header-left {
-      flex: 1 1 auto;
-    }
-
-    .history-controls {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-      min-width: 260px;
-    }
-
-    .filter-pills {
-      display: inline-flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .filter-pill {
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(10,15,32,0.9);
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .filter-pill.active {
-      border-color: var(--highlight);
-      color: var(--ink);
-      background: rgba(12,26,56,0.95);
-    }
-
-    .search-group {
-      position: relative;
-      width: 100%;
-    }
-
-    .search-input {
-      width: 100%;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(4,8,18,0.9);
-      color: var(--ink);
-      padding: 7px 12px 7px 30px;
+    .h h2{
+      margin:0;
       font-size: 13px;
-      outline: none;
+      font-weight: 700;
+      letter-spacing: .01em;
     }
-
-    .search-input::placeholder {
-      color: var(--muted);
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 9px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 13px;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    /* TABLE */
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    th, td {
-      padding: 14px 10px;
-      font-size: 15px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    th {
-      text-align: left;
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    td {
-      color: var(--ink);
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      background: rgba(95,248,187,0.12);
-      color: #6cfac3;
-    }
-
-    .status-pill.pending {
-      background: rgba(255,204,102,0.15);
-      color: #ffd27a;
-      position: relative;
-      padding-left: 24px;
-    }
-
-    .status-pill.pending::before {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      border: 2px solid rgba(255,210,122,0.8);
-      border-top-color: transparent;
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: translateY(-50%) rotate(360deg);
-      }
-    }
-
-    .action-link {
-      color: var(--highlight);
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      margin-right: 10px;
-    }
-
-    .action-link:hover {
-      text-decoration: underline;
-    }
-
-    /* Report ID style + copy button */
-
-    .report-id-btn {
-      border: none;
-      background: transparent;
-      padding: 0;
-      cursor: pointer;
-    }
-
-    .report-id {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      color: var(--ink-soft);
-      transition: color 0.12s;
-    }
-
-    .report-id-btn:hover .report-id {
-      color: var(--highlight);
-    }
-
-    /* History footer / load more */
-
-    .history-footer {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(7,12,24,0.9);
-      color: var(--ink-soft);
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: 0.16s;
-      cursor: pointer;
-    }
-
-    .btn-secondary.small {
-      padding: 7px 14px;
+    .h .meta{
       font-size: 12px;
-      border-radius: 999px;
+      color: var(--muted2);
     }
 
-    .btn-secondary:hover {
-      background: rgba(15,25,42,0.98);
-      color: var(--ink);
+    /* Neutral, factual banner (JS toggles display) */
+    #subscription-banner{
+      display:none;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      padding: 12px 14px;
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
     }
+    #subscription-banner strong{ font-weight: 700; }
+    #subscription-banner .muted{ color: var(--muted2); }
 
-    /* Empty states */
-
-    .history-empty {
-      display: none;
-      margin-top: 12px;
-      padding: 18px 16px;
-      border-radius: 16px;
-      border: 1px dashed rgba(255,255,255,0.2);
-      background: rgba(4,8,20,0.85);
+    /* Latest scan */
+    .latest{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+    }
+    .latest-left{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+    }
+    .latest-url{
+      font-weight:700;
       font-size: 14px;
-      color: var(--ink-soft);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-
-    .history-empty strong {
-      color: var(--highlight);
+    .latest-date{
+      font-size: 12px;
+      color: var(--muted2);
     }
-
-    /* Copy toast */
-
-    #copyToast {
-      position: fixed;
-      left: 50%;
-      bottom: 26px;
-      transform: translateX(-50%) translateY(20px);
-      padding: 10px 18px;
+    .latest-right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+    .score{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width: 44px;
+      height: 30px;
+      padding: 0 10px;
       border-radius: 999px;
-      background: rgba(12,20,40,0.96);
-      border: 1px solid rgba(255,255,255,0.18);
-      color: var(--ink-soft);
+      border: 1px solid rgba(24,214,196,.25);
+      background: rgba(24,214,196,.08);
+      color: rgba(255,255,255,.92);
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* Buttons */
+    .btn{
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.88);
+      padding: 9px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing:.01em;
+    }
+    .btn:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+    }
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+    .btn-primary{
+      border-color: rgba(24,214,196,.25);
+      background: rgba(24,214,196,.10);
+    }
+    .btn-primary:hover{
+      background: rgba(24,214,196,.14);
+      border-color: rgba(24,214,196,.30);
+    }
+    .btn-link{
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      padding: 7px 10px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,.88);
+    }
+    .btn-link:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+    }
+
+    /* Run scan */
+    .scanbar{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .scanbar input{
+      flex: 1;
+      min-width: 260px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.92);
+      outline: none;
       font-size: 13px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
-      z-index: 60;
+    }
+    .scanbar input::placeholder{ color: rgba(255,255,255,.35); }
+    .scanhelp{
+      font-size: 12px;
+      color: var(--muted2);
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+    #trial-info{
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.86);
     }
 
-    #copyToast.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
+    /* Table */
+    .table-wrap{
+      overflow:auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.10);
     }
-
-    @media (max-width: 960px) {
-      header {
-        padding: 18px 18px;
-      }
-
-      .header-left {
-        gap: 16px;
-      }
-
-      .wrap {
-        margin-top: 24px;
-      }
-
-      .summary-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .history-header {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .history-controls {
-        align-items: stretch;
-        min-width: 0;
-      }
-
-      .filter-pills {
-        justify-content: flex-start;
-      }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width: 760px;
+      font-size: 13px;
     }
-
-    @media (max-width: 640px) {
-      h1 {
-        font-size: 30px;
-      }
-
-      .section {
-        padding: 24px 20px;
-      }
-
-      .section.small {
-        padding: 20px 18px;
-      }
-
-      .subtext {
-        font-size: 16px;
-      }
-
-      .user-trigger {
-        padding: 6px 10px;
-      }
-
-      .run-strip {
-        flex-direction: column;
-      }
-
-      .plan-banner {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+    thead th{
+      text-align:left;
+      padding: 12px 12px;
+      color: rgba(255,255,255,.70);
+      font-weight: 700;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+      white-space:nowrap;
     }
-
-    .wd-pdf-btn {
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.7);
-      background: rgba(15, 23, 42, 0.9);
-      color: #e0f2fe;
-      font-size: 0.78rem;
+    tbody td{
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      color: rgba(255,255,255,.88);
+      vertical-align:middle;
+      white-space:nowrap;
+    }
+    tbody tr:hover td{
+      background: rgba(255,255,255,.02);
+    }
+    .col-url{
+      max-width: 420px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .col-actions{
+      white-space:nowrap;
+    }
+    .wd-history-link{
+      color: rgba(255,255,255,.88);
+      text-decoration:none;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
     }
-
-    .wd-pdf-btn:hover {
-      background: rgba(56, 189, 248, 0.18);
-      border-color: rgba(56, 189, 248, 1);
-      transform: translateY(-1px);
+    .wd-history-link:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
     }
-
-    .scan-actions-pending {
-      font-size: 0.8rem;
-      color: #64748b;
-    }
-
-    /* WEBSITE column as blue, hyperlink-style text */
-    .history-site-link {
-      color: var(--highlight);
+    .wd-history-muted{
+      color: var(--muted2);
+      font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: inline-block;
-      max-width: 100%;
     }
 
-    .history-site-link:hover {
-      text-decoration: underline;
+    /* Views */
+    .view{ display:none; }
+    .view.active{ display:block; }
+
+    /* Billing/Account page blocks */
+    .kv{
+      display:grid;
+      grid-template-columns: 170px 1fr;
+      gap: 10px 14px;
+      margin-top: 6px;
+      font-size: 13px;
+    }
+    .kv .k{ color: var(--muted2); }
+    .kv .v{ color: rgba(255,255,255,.90); font-weight: 600; }
+    .subtle{
+      color: var(--muted2);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 10px;
+    }
+
+    /* Footer */
+    .footer{
+      margin-top:auto;
+      padding: 14px 6px 10px 6px;
+      color: rgba(255,255,255,.55);
+      font-size: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+
+    /* Responsive */
+    @media (max-width: 920px){
+      .sidebar{ width: 230px; flex-basis: 230px; }
+      .topbar{ padding: 12px 14px; }
+      .wrap{ padding: 14px; }
+    }
+    @media (max-width: 760px){
+      .app{ flex-direction:column; }
+      .sidebar{
+        width: 100%;
+        flex-basis:auto;
+        border-right:none;
+        border-bottom: 1px solid var(--border);
+      }
+      .nav{ flex-direction:row; flex-wrap:wrap; }
+      .nav a, .nav button{ flex: 1 1 auto; justify-content:center; }
+      table{ min-width: 720px; }
+      .footer{ flex-direction:column; align-items:flex-start; }
     }
   </style>
 </head>
 
 <body>
-
-<header>
-  <div class="header-left">
-    <div class="logo">
-      <a href="index.html">iQWEB</a>
-    </div>
-    <a class="back-link" href="index.html">
-      <span class="arrow">←</span>
-      <span>Back to main page</span>
-    </a>
-  </div>
-
-  <div class="header-right">
-    <a href="#" class="nav-link active">Dashboard</a>
-
-    <div class="user-menu">
-      <button class="user-trigger" type="button">
-        <span class="user-initial" id="wd-user-initial">U</span>
-        <span class="user-email" id="wd-user-email">you@example.com</span>
-        <span id="wd-admin-badge" class="user-admin-badge" style="display:none;">Admin</span>
-        <span class="user-caret">▾</span>
-      </button>
-      <div class="user-dropdown">
-        <a href="#">Profile</a>
-        <button type="button">Buy extra credits</button>
-        <button type="button">Manage subscription &amp; invoices</button>
-        <div class="user-dropdown-separator"></div>
-        <button type="button">Support</button>
-        <a href="https://trust.webdoctor.tech" target="_blank">Trust &amp; privacy</a>
-        <div class="user-dropdown-separator"></div>
-        <a href="#" class="signout">Sign out</a>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div>
+          <div class="name">iQWEB</div>
+          <div class="tag">Dashboard</div>
+        </div>
+        <!-- optional user initial (kept for future) -->
+        <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
       </div>
-    </div>
-  </div>
-</header>
 
-<div class="wrap">
+      <nav class="nav" aria-label="Primary">
+        <a href="#" class="active" data-view="view-dashboard">Dashboard</a>
+        <a href="#" data-view="view-billing">Billing</a>
+        <a href="#" data-view="view-account">Account</a>
 
-<!--
-SUMMARY / TOP STRIP (DISABLED)
-Purpose:
-- Temporary subscriber notices
-- Maintenance or system messages
-- One-off announcements
+        <button type="button" id="contact-toggle" aria-expanded="false">
+          Contact
+        </button>
+      </nav>
 
-<div class="section">
-  <h1>Welcome back, <span id="wd-user-name">there</span></h1>
-  <div class="subtext">
-    <strong>Scan</strong> — run instant website health checks.<br>
-    <strong>View</strong> — access your latest and past scans.<br>
-    <strong>Share</strong> — download reports anytime.<br>
-    All from one place.
-  </div>
-</div>
--->
-
-
-    <!-- SUBSCRIPTION REQUIRED BANNER -->
-    <div id="subscription-banner" class="subscription-banner" style="display:none;">
-      <div class="subscription-banner__title">
-        Choose your iQWEB plan to continue
+      <div id="contact-pop" class="contact-pop" role="menu" aria-label="Contact emails">
+        <a href="mailto:pricing@iqweb.ai" role="menuitem">
+          Pricing
+          <span>pricing@iqweb.ai</span>
+        </a>
+        <a href="mailto:support@iqweb.ai" role="menuitem">
+          Support
+          <span>support@iqweb.ai</span>
+        </a>
+        <a href="mailto:feedback@iqweb.ai" role="menuitem">
+          Feedback
+          <span>feedback@iqweb.ai</span>
+        </a>
       </div>
-      <p class="subscription-banner__text">
-        Your account is active, but you don’t have a subscription yet.
-        Purchase a plan to unlock scans and full dashboard features.
-      </p>
-      <button id="btn-go-to-pricing" class="subscription-banner__button">
-        View plans &amp; subscribe
-      </button>
-    </div>
 
-    <!-- Linear-style plan banner (only shows if ?plan= is present) -->
-    <div id="selected-plan-banner" class="plan-banner" style="display:none;">
-      <p id="selected-plan-text"></p>
-      <button id="selected-plan-cta" class="checkout-btn" type="button">
-        Continue to checkout
-      </button>
-    </div>
-
-    <!-- SUMMARY GRID: LEFT (scans) + RIGHT (latest scan) -->
-    <div class="summary-grid">
-
-      <!-- LEFT: TOTAL SCANS + RUN SCAN + TOP-UP -->
-      <div class="summary-block">
-        <div class="summary-label">Total scans available</div>
-        <div class="credits-value" id="wd-credits-count">--</div>
-
-        <div class="plan-remaining-row">
-          <span class="plan-remaining-label">Monthly subscription scans remaining</span>
-          <span class="plan-remaining-value" id="wd-plan-scans-remaining">--</span>
+      <div class="sidebar-foot">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span id="wd-user-email" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</span>
+          <!-- logout button required by dashboard.js -->
+          <button id="logout-btn" class="btn" type="button" style="padding:7px 10px;">Sign out</button>
         </div>
+        <!-- hidden legacy IDs retained (do not remove; safe for future scripts/CSS) -->
+        <div id="wd-user-name" style="display:none;"></div>
+        <div id="wd-admin-badge" style="display:none;"></div>
+        <div id="wd-credits-count" style="display:none;">0</div>
+        <div id="wd-plan-summary" style="display:none;"></div>
+      </div>
+    </aside>
 
-        <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
-          Loading your plan details…
+    <!-- MAIN -->
+    <section class="main">
+      <header class="topbar">
+        <div class="left">
+          <div class="title" id="page-title">Dashboard</div>
+          <div class="sub" id="page-subtitle">Scan history is the primary surface.</div>
         </div>
+        <div class="right">
+          <span class="chip">Scans remaining: <strong id="wd-plan-scans-remaining" style="margin-left:6px;">0</strong></span>
+        </div>
+      </header>
 
-        <div class="run-strip">
-          <div class="run-strip-btn">
-            <button id="wd-run-scan-btn" class="btn-primary" type="button">
-              <span class="icon">▶</span>
-              <span>Run Scan</span>
-            </button>
+      <div class="wrap">
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard" class="view active">
+          <!-- Neutral banner (JS toggles display) -->
+          <div id="subscription-banner">
+            <strong>Scanning disabled.</strong>
+            <span class="muted"> No scans remaining on this account.</span>
           </div>
-          <div class="run-strip-input">
-            <input
-              id="wd-scan-url-input"
-              type="text"
-              placeholder="Paste a URL to scan (e.g. https://example.com)">
-          </div>
-        </div>
 
-  <!--
-<div class="hint-text" style="margin-top:8px;">
-  Your subscription scans are used first. If you run out, extra credits are $1 per scan.
-</div>
--->
+          <div class="row">
+            <div class="col">
+              <div class="card">
+                <div class="h">
+                  <h2>Latest scan</h2>
+                  <span class="meta">Most recent result</span>
+                </div>
 
+                <div class="latest">
+                  <div class="latest-left">
+                    <div id="ls-url" class="latest-url">—</div>
+                    <div id="ls-date" class="latest-date">—</div>
+                  </div>
+                  <div class="latest-right">
+                    <div id="ls-score" class="score" style="display:none;">—</div>
+                    <button id="ls-view" class="btn-link" type="button">View report</button>
+                  </div>
+                </div>
 
-   <!--
-<div class="credits-pack-row">
-  <div class="credits-pack-label">Top up your credits</div>
-  <button id="btn-credits-10" class="credits-pack-btn" type="button">+10 scans</button>
-  <button id="btn-credits-25" class="credits-pack-btn" type="button">+25 scans</button>
-  <button id="btn-credits-50" class="credits-pack-btn" type="button">+50 scans</button>
-  <button id="btn-credits-100" class="credits-pack-btn" type="button">+100 scans</button>
-  <button id="btn-credits-500" class="credits-pack-btn" type="button">+500 scans</button>
-</div>
--->
+                <div class="subtle">
+                  Reports are generated per scan. If a report is still processing, refresh in a moment.
+                </div>
+              </div>
+            </div>
 
+            <div class="col">
+              <div class="card">
+                <div class="h">
+                  <h2>Run scan</h2>
+                  <span class="meta">Evidence-first diagnostic</span>
+                </div>
 
-      <!-- RIGHT: LATEST SCAN CARD -->
-      <div class="summary-block">
-        <div id="latest-scan-card" class="latest-scan-card">
-          <div class="ls-label">LATEST SCAN</div>
-          <div class="ls-body">
-            <div id="ls-url" class="ls-url">No scans yet</div>
-            <div id="ls-date" class="ls-date">Run your first iQWEB scan to see it here.</div>
-            <div class="ls-score-box">
-              <span id="ls-score" class="ls-score-pill" style="display:none;">—</span>
-              <span class="ls-score-text">Overall score</span>
+                <div class="scanbar">
+                  <input id="site-url" type="url" inputmode="url" placeholder="https://example.com" />
+                  <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
+                </div>
+
+                <div class="scanhelp">
+                  Enter a website URL and run a scan. If scanning is disabled, check Billing for your account state.
+                </div>
+
+                <!-- status element required by dashboard.js -->
+                <div id="trial-info"></div>
+              </div>
             </div>
           </div>
-          <a id="ls-view" class="ls-footer" href="#">
-            <span>View full report</span>
-            <svg class="ls-arrow" width="16" height="16" viewBox="0 0 24 24">
-              <path fill="currentColor" d="M9 18l6-6-6-6"/>
-            </svg>
-          </a>
-        </div>
-      </div>
 
-    </div><!-- /summary-grid -->
-  </div><!-- /section (summary) -->
+          <div class="card">
+            <div class="h">
+              <h2>Scan history</h2>
+              <span class="meta">Latest 20 scans</span>
+            </div>
 
-  <!-- MAIN GRID: HISTORY ONLY -->
-  <div class="layout-grid">
-    <div class="section">
-      <div class="history-header">
-        <div class="history-header-left">
-          <h2>Scan history</h2>
-          <div class="hint-text">
-            All the websites you’ve scanned with iQWEB. Open a report or download the PDF anytime.
+            <div id="history-empty" class="subtle" style="margin: 0 0 10px 0;">—</div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Website</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>Report ID</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div class="history-controls">
-          <div class="filter-pills">
-            <button class="filter-pill active" data-status="all">All</button>
-            <button class="filter-pill" data-status="completed">Completed</button>
-            <button class="filter-pill" data-status="in-progress">In progress</button>
-          </div>
-          <div class="search-group">
-            <span class="search-icon">🔍</span>
-            <input id="historySearch" class="search-input" type="search"
-                   placeholder="Search scans… (domain, date, ID)">
+
+        <!-- BILLING VIEW -->
+        <div id="view-billing" class="view">
+          <div class="card">
+            <div class="h">
+              <h2>Billing</h2>
+              <span class="meta">Account state</span>
+            </div>
+
+            <div class="kv">
+              <div class="k">Current plan</div>
+              <div class="v" id="bill-plan">—</div>
+
+              <div class="k">Scans remaining</div>
+              <div class="v" id="bill-scans">—</div>
+
+              <div class="k">Renewal date</div>
+              <div class="v" id="bill-renewal">—</div>
+            </div>
+
+            <div class="subtle">
+              Manage billing in the secure customer portal.
+            </div>
+
+            <div style="margin-top:14px;">
+              <!-- You can wire this later to your Paddle portal link. -->
+              <a id="manage-subscription" class="wd-history-link" href="#" onclick="event.preventDefault(); alert('Wire this to Paddle customer portal when ready.');">
+                Manage subscription
+              </a>
+            </div>
           </div>
         </div>
-      </div>
 
-      <table class="scan-history-table">
-        <thead>
-        <tr>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Website</th>
-          <th>Score</th>
-          <th>Status</th>
-          <th>Report ID</th>
-          <th style="text-align:right;">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <!-- rows injected dynamically -->
-        </tbody>
-      </table>
+        <!-- ACCOUNT VIEW -->
+        <div id="view-account" class="view">
+          <div class="card">
+            <div class="h">
+              <h2>Account</h2>
+              <span class="meta">Security</span>
+            </div>
 
-      <div id="historyEmptyNone" class="history-empty">
-        <strong>No scans yet.</strong> Run your first iQWEB scan and it will appear here.
-      </div>
+            <div class="kv">
+              <div class="k">Email</div>
+              <div class="v" id="acct-email">—</div>
+            </div>
 
-      <div id="historyEmptyFiltered" class="history-empty">
-        <strong>No scans match your search.</strong> Try clearing filters or changing your search terms.
-      </div>
+            <div class="subtle">
+              Password resets are handled via your login flow. Use “Reset password” on the login screen if needed.
+            </div>
 
-      <div class="history-footer">
-        <button id="loadMoreScans" type="button" class="btn-secondary small" style="display:none;">
-          Load more scans
-        </button>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="wd-history-link" href="/login.html">Reset password</a>
+              <button id="logout-btn-2" class="btn" type="button">Sign out</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- FOOTER (single line, left/right) -->
+        <footer class="footer">
+          <div>© 2025 iQWEB – All rights reserved.</div>
+          <div>Powered by Λ i Q™</div>
+        </footer>
       </div>
-    </div>
+    </section>
   </div>
 
-</div>
+  <!-- Your existing wiring (unchanged) -->
+  <script type="module" src="/assets/js/dashboard.js"></script>
 
-<div id="copyToast">Report ID copied to clipboard</div>
+  <!-- UI-only navigation + contact dropdown + lightweight bindings -->
+  <script type="module">
+    const $ = (sel) => document.querySelector(sel);
 
-<footer style="
-  position: fixed;
-  right: 24px;
-  bottom: 18px;
-  color: rgba(231,239,245,0.45);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  pointer-events: none;
-">
-  Powered by <span style="color:#5dd8ff;">iQWEB</span>
-</footer>
+    const navItems = Array.from(document.querySelectorAll('.nav a[data-view]'));
+    const views = Array.from(document.querySelectorAll('.view'));
+    const pageTitle = $('#page-title');
+    const pageSubtitle = $('#page-subtitle');
 
-<!-- Supabase auth + profile + scan history + inline scan wiring -->
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    function setActiveView(viewId){
+      views.forEach(v => v.classList.toggle('active', v.id === viewId));
+      navItems.forEach(a => a.classList.toggle('active', a.dataset.view === viewId));
 
-  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU"; // keep your real key here
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  async function requireSession() {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error("Error getting session", error);
-      window.location.href = "/login.html";
-      return null;
-    }
-    if (!data.session) {
-      window.location.href = "/login.html";
-      return null;
-    }
-    return data.session.user;
-  }
-
-  // -----------------------
-  // PROFILE / PLAN SUMMARY
-  // -----------------------
-  async function loadProfile(user) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, email, credits, plan, plan_status, plan_scans_remaining, is_admin")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error loading profile", error);
-    }
-
-    const profile = data || {};
-    const displayEmail = profile.email || user.email || "";
-    const displayName = profile.full_name || displayEmail || "iQWEB user";
-
-    const nameEl = document.getElementById("wd-user-name");
-    const emailEl = document.getElementById("wd-user-email");
-    const initialEl = document.getElementById("wd-user-initial");
-    const creditsEl = document.getElementById("wd-credits-count");
-    const planSummaryEl = document.getElementById("wd-plan-summary");
-    const adminBadgeEl = document.getElementById("wd-admin-badge");
-    const planRemainingEl = document.getElementById("wd-plan-scans-remaining");
-    const subscriptionBanner = document.getElementById("subscription-banner");
-
-    if (nameEl) nameEl.textContent = displayName;
-    if (emailEl) emailEl.textContent = displayEmail || "Signed in";
-    if (initialEl) {
-      initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
-    }
-
-    const credits = Number.isFinite(profile.credits) ? profile.credits : 0;
-    const plan = (profile.plan || "").toLowerCase();              // insight / intelligence / impact
-    const planStatus = (profile.plan_status || "").toLowerCase(); // active / cancelled / ""
-    const planScansRemaining = Number.isFinite(profile.plan_scans_remaining)
-      ? profile.plan_scans_remaining
-      : 0;
-
-    // Big number: total scans available (plan + credits)
-    const totalAvailable =
-      (planStatus === "active" ? planScansRemaining : 0) + credits;
-
-    if (creditsEl) {
-      creditsEl.textContent = totalAvailable;
-      creditsEl.classList.toggle("low-credits", totalAvailable <= 2);
-    }
-
-    // Show / hide the "Choose your plan" banner
-    if (subscriptionBanner) {
-      if (totalAvailable === 0) {
-        subscriptionBanner.style.display = "block";
-      } else {
-        subscriptionBanner.style.display = "none";
+      if (pageTitle) {
+        pageTitle.textContent =
+          viewId === 'view-billing' ? 'Billing' :
+          viewId === 'view-account' ? 'Account' : 'Dashboard';
+      }
+      if (pageSubtitle) {
+        pageSubtitle.textContent =
+          viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
+          viewId === 'view-account' ? 'Identity and security.' :
+          'Scan history is the primary surface.';
       }
     }
 
-    // Small label row for "Plan scans remaining"
-    if (planRemainingEl) {
-      if (planStatus === "active") {
-        planRemainingEl.textContent = planScansRemaining;
-      } else {
-        planRemainingEl.textContent = "—";
-      }
-    }
-
-    // Human summary line under the number
-    let summary;
-    if (planStatus === "active" && plan) {
-      const friendlyNameMap = {
-        insight: "Insight",
-        intelligence: "Intelligence",
-        impact: "Impact",
-      };
-      const planName =
-        friendlyNameMap[plan] ||
-        plan.charAt(0).toUpperCase() + plan.slice(1);
-
-      summary = `${planName} plan — ${planScansRemaining} plan scans left this month`;
-      if (credits > 0) {
-        summary += ` · ${credits} extra credits (never expire).`;
-      } else {
-        summary += `.`;
-      }
-    } else if (credits > 0) {
-      summary = `Free plan · ${credits} credits available (never expire).`;
-    } else {
-      summary = `No active plan yet. Choose a plan or buy credits to start scanning.`;
-    }
-
-    if (planSummaryEl) {
-      planSummaryEl.textContent = summary;
-    }
-
-    if (adminBadgeEl) {
-      adminBadgeEl.style.display = profile.is_admin ? "inline-flex" : "none";
-    }
-  }
-
-  // ---- Scan history + filters/search ----
-
-  let allRecords = [];
-  let activeStatus = "all";
-  let searchQuery = "";
-
-  function formatDate(dateString) {
-    if (!dateString) return "—";
-    const d = new Date(dateString);
-    if (Number.isNaN(d.getTime())) return "—";
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
-  }
-
-  function formatTime(dateString) {
-    if (!dateString) return "—";
-    const d = new Date(dateString);
-    if (Number.isNaN(d.getTime())) return "—";
-    const hours = String(d.getHours()).padStart(2, "0");
-    const mins = String(d.getMinutes()).padStart(2, "0");
-    return `${hours}:${mins}`;
-  }
-
-  function getHostname(url) {
-    if (!url) return "—";
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return url;
-    }
-  }
-
-  function getStatusKey(status) {
-    const s = (status || "").toLowerCase();
-    if (s === "in_progress" || s === "pending") return "in-progress";
-    if (s === "failed" || s === "error") return "failed";
-    return "completed";
-  }
-
-  function getStatusLabel(status) {
-    const key = getStatusKey(status);
-    if (key === "in-progress") return "In progress";
-    if (key === "failed") return "Failed";
-    return "Completed";
-  }
-
-  function getStatusClass(status) {
-    const key = getStatusKey(status);
-    if (key === "in-progress") return "status-pill pending";
-    if (key === "failed") return "status-pill";
-    return "status-pill";
-  }
-
-  function showToast(msg) {
-    const toast = document.getElementById("copyToast");
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.classList.add("visible");
-    setTimeout(() => toast.classList.remove("visible"), 1500);
-  }
-
-  function renderRows(records) {
-    const table = document.querySelector(".scan-history-table");
-    const tbody = table?.querySelector("tbody");
-    if (!tbody || !table) return;
-
-    tbody.innerHTML = "";
-
-    for (const rec of records) {
-      const tr = document.createElement("tr");
-      tr.className = "scan-row";
-
-      const created = rec.created_at ? new Date(rec.created_at) : null;
-
-      const dateStr = created
-        ? created
-            .toLocaleDateString("en-NZ", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
-            .toUpperCase()
-        : "-";
-
-      const timeStr = created
-        ? created.toLocaleTimeString("en-NZ", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          })
-        : "-";
-
-      const website = rec.url || rec.website || "-";
-      const score = rec.score_overall ?? rec.score ?? "—";
-      const statusRaw = (rec.status || "Pending").toString();
-      const statusKey = getStatusKey(statusRaw);
-      const reportId = rec.report_id || rec.id || "-";
-
-      // DATE
-      const tdDate = document.createElement("td");
-      tdDate.textContent = dateStr;
-      tr.appendChild(tdDate);
-
-      // TIME
-      const tdTime = document.createElement("td");
-      tdTime.textContent = timeStr;
-      tr.appendChild(tdTime);
-
-      // WEBSITE
-      const tdSite = document.createElement("td");
-      tdSite.className = "history-site-link";
-      tdSite.textContent = website;
-      tdSite.title = website;
-      tdSite.addEventListener("click", () => {
-        updateLastScanCard(rec);
-      });
-      tr.appendChild(tdSite);
-
-      // SCORE
-      const tdScore = document.createElement("td");
-      tdScore.textContent = score;
-      tr.appendChild(tdScore);
-
-      // STATUS
-      const tdStatus = document.createElement("td");
-      tdStatus.textContent = getStatusLabel(statusRaw);
-      tdStatus.className = getStatusClass(statusRaw);
-      tr.appendChild(tdStatus);
-
-      // REPORT ID
-      const tdId = document.createElement("td");
-      tdId.textContent = reportId;
-      tr.appendChild(tdId);
-
-      // ACTIONS
-      const tdActions = document.createElement("td");
-      tdActions.style.textAlign = "right";
-
-      if (statusKey === "completed" && reportId && reportId !== "-") {
-        const viewBtn = document.createElement("button");
-        viewBtn.type = "button";
-        viewBtn.className = "wd-pdf-btn";
-        viewBtn.textContent = "View PDF";
-        viewBtn.style.marginRight = "8px";
-        viewBtn.addEventListener("click", () => {
-          window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-        });
-        tdActions.appendChild(viewBtn);
-
-        const dlBtn = document.createElement("button");
-        dlBtn.type = "button";
-        dlBtn.className = "wd-pdf-btn";
-        dlBtn.textContent = "Download PDF";
-        dlBtn.addEventListener("click", () => downloadPdf(reportId));
-        tdActions.appendChild(dlBtn);
-      } else {
-        tdActions.textContent = "Generating…";
-        tdActions.className = "scan-actions-pending";
-      }
-
-      tr.appendChild(tdActions);
-      tbody.appendChild(tr);
-    }
-  }
-
-  async function downloadPdf(reportId) {
-    try {
-      const resp = await fetch("/.netlify/functions/docraptor-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId: reportId,
-          html: `
-            <!doctype html>
-            <html>
-              <head>
-                <meta charset="utf-8" />
-                <title>iQWEB Report ${reportId}</title>
-              </head>
-              <body>
-                <h1>iQWEB test PDF</h1>
-                <p>This proves DocRaptor wiring works.</p>
-                <p>Report ID: ${reportId}</p>
-              </body>
-            </html>
-          `,
-        }),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        console.error("PDF download failed", resp.status, text);
-        alert("Sorry — there was a problem generating the PDF.");
-        return;
-      }
-
-      const blob = await resp.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${reportId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PDF download error", err);
-      alert("Sorry — there was a problem generating the PDF.");
-    }
-  }
-
-  function updateLastScanCard(record) {
-    const card = document.getElementById("latest-scan-card");
-    if (!card) return;
-
-    const urlEl = document.getElementById("ls-url");
-    const dateEl = document.getElementById("ls-date");
-    const scoreEl = document.getElementById("ls-score");
-    const viewEl = document.getElementById("ls-view");
-
-    if (!record) {
-      if (urlEl) urlEl.textContent = "No scans yet";
-      if (dateEl) dateEl.textContent = "Run your first iQWEB scan to see it here.";
-      if (scoreEl) scoreEl.style.display = "none";
-      if (viewEl) viewEl.href = "#";
-      card.dataset.reportId = "";
-      card.onclick = null;
-      return;
-    }
-
-    const hostname = getHostname(record.url);
-    if (urlEl) urlEl.textContent = hostname;
-    if (dateEl) {
-      dateEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
-    }
-
-    if (scoreEl) {
-      if (record.score_overall != null) {
-        scoreEl.textContent = record.score_overall;
-        scoreEl.style.display = "inline-block";
-      } else {
-        scoreEl.style.display = "none";
-      }
-    }
-
-    const reportId = record.report_id || record.id;
-    card.dataset.reportId = reportId || "";
-
-    if (viewEl) {
-      viewEl.href = reportId ? `/report.html?report_id=${encodeURIComponent(reportId)}` : "#";
-      // prevent double-trigger: clicking the link should NOT also fire the card click
-      viewEl.onclick = (e) => {
+    navItems.forEach(a => {
+      a.addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        if (!reportId) return;
-        window.location.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-      };
-    }
-
-    card.onclick = () => {
-      if (!card.dataset.reportId) return;
-      window.location.href = `/report.html?report_id=${encodeURIComponent(card.dataset.reportId)}`;
-    };
-  }
-
-  function applyFiltersAndRender() {
-    const table = document.querySelector(".scan-history-table");
-    const emptyNone = document.getElementById("historyEmptyNone");
-    const emptyFiltered = document.getElementById("historyEmptyFiltered");
-
-    if (!allRecords.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "block";
-      if (emptyFiltered) emptyFiltered.style.display = "none";
-      renderRows([]);
-      updateLastScanCard(null);
-      return;
-    }
-
-    let filtered = allRecords.slice();
-
-    if (activeStatus !== "all") {
-      filtered = filtered.filter((rec) => getStatusKey(rec.status) === activeStatus);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter((rec) => {
-        const haystack = [
-          formatDate(rec.created_at),
-          formatTime(rec.created_at),
-          getHostname(rec.url),
-          rec.url || "",
-          rec.report_id || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(searchQuery);
-      });
-    }
-
-    if (!filtered.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "none";
-      if (emptyFiltered) emptyFiltered.style.display = "block";
-      renderRows([]);
-      updateLastScanCard(null);
-      return;
-    }
-
-    if (table) table.style.display = "table";
-    if (emptyNone) emptyNone.style.display = "none";
-    if (emptyFiltered) emptyFiltered.style.display = "none";
-
-    renderRows(filtered);
-    updateLastScanCard(filtered[0] || null);
-  }
-
-  async function loadScanHistory(userId) {
-    let query = supabase
-      .from("scan_results")
-      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error loading scan history", error);
-      allRecords = [];
-    } else {
-      allRecords = data || [];
-    }
-
-    applyFiltersAndRender();
-  }
-
-  window.loadScanHistory = loadScanHistory;
-
-  function setupFilters() {
-    const filterPills = document.querySelectorAll(".filter-pill");
-    filterPills.forEach((pill) => {
-      pill.addEventListener("click", () => {
-        filterPills.forEach((p) => p.classList.remove("active"));
-        pill.classList.add("active");
-        activeStatus = pill.dataset.status || "all";
-        applyFiltersAndRender();
+        setActiveView(a.dataset.view);
       });
     });
-  }
 
-  function setupSearch() {
-    const searchInput = document.getElementById("historySearch");
-    if (!searchInput) return;
-    searchInput.addEventListener("input", () => {
-      searchQuery = (searchInput.value || "").trim().toLowerCase();
-      applyFiltersAndRender();
+    // Contact dropdown (sidebar)
+    const contactToggle = $('#contact-toggle');
+    const contactPop = $('#contact-pop');
+    function closeContact(){
+      if (!contactPop || !contactToggle) return;
+      contactPop.style.display = 'none';
+      contactToggle.setAttribute('aria-expanded', 'false');
+    }
+    function toggleContact(){
+      if (!contactPop || !contactToggle) return;
+      const open = contactPop.style.display === 'block';
+      contactPop.style.display = open ? 'none' : 'block';
+      contactToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    }
+    if (contactToggle) contactToggle.addEventListener('click', toggleContact);
+    document.addEventListener('click', (e) => {
+      if (!contactPop || !contactToggle) return;
+      if (contactPop.contains(e.target) || contactToggle.contains(e.target)) return;
+      closeContact();
     });
-  }
 
-  async function setupSignOut() {
-    const signoutLink = document.querySelector(".signout");
-    if (!signoutLink) return;
+    // Secondary sign-out button (Account page) forwards to the real one
+    const logout2 = $('#logout-btn-2');
+    const logout1 = document.getElementById('logout-btn');
+    if (logout2 && logout1) logout2.addEventListener('click', () => logout1.click());
 
-    signoutLink.addEventListener("click", async (e) => {
-      e.preventDefault();
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error("Error signing out", err);
-      } finally {
-        window.location.href = "/index.html";
-      }
-    });
-  }
+    // Lightweight bindings (read-only UI fill)
+    // dashboard.js sets window.currentUserEmail + window.currentProfile after load.
+    function syncAccountUI(){
+      const email = window.currentUserEmail || '—';
+      const profile = window.currentProfile || {};
+      const plan = profile.plan || '—';
+      const scans = (profile.plan_scans_remaining ?? '—');
 
-  // ✅ NEW: normalise URL + AUTHENTICATED run-scan (fixes 401)
-  function normaliseUrl(input) {
-    const raw = (input || "").trim();
-    if (!raw) return null;
+      const elSidebarEmail = document.getElementById('wd-user-email');
+      const elAcctEmail = document.getElementById('acct-email');
+      const elBillPlan = document.getElementById('bill-plan');
+      const elBillScans = document.getElementById('bill-scans');
+      const elBillRenewal = document.getElementById('bill-renewal');
 
-    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    try {
-      const u = new URL(withScheme);
-      if (!u.hostname) return null;
-      return u.toString();
-    } catch {
-      return null;
-    }
-  }
+      if (elSidebarEmail) elSidebarEmail.textContent = email;
+      if (elAcctEmail) elAcctEmail.textContent = email;
+      if (elBillPlan) elBillPlan.textContent = plan;
+      if (elBillScans) elBillScans.textContent = String(scans);
 
-  function setupInlineRun(user) {
-    const runBtn = document.getElementById("wd-run-scan-btn");
-    const urlInput = document.getElementById("wd-scan-url-input");
-    if (!runBtn || !urlInput) return;
-
-    runBtn.addEventListener("click", async () => {
-      const cleaned = normaliseUrl(urlInput.value);
-      if (!cleaned) {
-        alert("Please enter a valid URL to scan.");
-        urlInput.focus();
-        return;
-      }
-
-      runBtn.disabled = true;
-      runBtn.innerHTML = `<span class="icon">⏳</span><span>Scanning…</span>`;
-
-      try {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        const accessToken = sessionData?.session?.access_token || null;
-
-        console.log("[RUN-SCAN] sessionErr:", sessionErr || null);
-        console.log("[RUN-SCAN] token present:", !!accessToken);
-
-        if (!accessToken) {
-          alert("Session expired. Please log in again.");
-          window.location.href = "/login.html";
-          return;
-        }
-
-        const res = await fetch("/.netlify/functions/run-scan", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            url: cleaned,
-            user_id: user?.id || null,
-            userId: user?.id || null,     // keep both keys to match whatever the function expects
-            email: user?.email || null,
-          }),
-        });
-
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok || !json?.success) {
-          console.error("[RUN-SCAN] failed:", res.status, json);
-          alert("Scan failed: " + (json?.error || json?.message || `HTTP ${res.status}`));
-          return;
-        }
-
-         urlInput.value = "";
-        await loadScanHistory(user.id);
-
-        // ✅ IMPORTANT:
-        // report.html expects a report_id (like "WEB-2025..."), not the numeric row id.
-        let openReportId = json.report_id || json.reportId || null;
-
-        // If the function only returned a numeric id, lookup the matching report_id from scan_results
-        if (!openReportId) {
-          const scanRowId = json.scan_id ?? json.id ?? null;
-
-          if (scanRowId != null) {
-            const { data: row, error: rowErr } = await supabase
-              .from("scan_results")
-              .select("report_id")
-              .eq("id", scanRowId)
-              .maybeSingle();
-
-            if (rowErr) {
-              console.warn("[RUN-SCAN] report_id lookup failed:", rowErr);
-            } else {
-              openReportId = row?.report_id || null;
-            }
-          }
-        }
-
-// ✅ Stay on dashboard (do NOT auto-open report)
-// Refresh history already happened above. Just update the Latest Scan card + show a toast.
-if (openReportId) {
-  // Try to pull the record from history and set as Latest Scan
-  const match = allRecords.find(r => (r.report_id || r.id) === openReportId);
-  if (match) updateLastScanCard(match);
-
-  showToast("Scan started. When it’s completed, click “View full report” in Latest Scan.");
-} else {
-  showToast("Scan started. It will appear in Scan History shortly.");
-}
-
-
-      } catch (err) {
-        console.error("[RUN-SCAN] error:", err);
-        alert("Scan failed. Please try again.");
-      } finally {
-        runBtn.disabled = false;
-        runBtn.innerHTML = `<span class="icon">▶</span><span>Run Scan</span>`;
-      }
-    });
-  }
-
-  async function startPlanCheckout(planKey) {
-    const priceIds = {
-      insight: "price_1SQ4knHrtPY0HwDpFHfxNdoZ",
-      intelligence: "price_1SQ4oZHrtPY0HwDpjLOnlC5k",
-      impact: "price_1SQ4qUHrtPY0HwDpSDWJDBpb",
-    };
-
-    const priceId = priceIds[planKey];
-    if (!priceId) {
-      alert("Invalid plan selected.");
-      return;
+      // Renewal date not currently fetched by dashboard.js (profiles select excludes it).
+      // We show a calm placeholder until you add it server-side.
+      if (elBillRenewal) elBillRenewal.textContent = '—';
     }
 
-    const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-    const user = sessionData?.session?.user || null;
-
-    if (sessionErr || !user) {
-      console.error("startPlanCheckout: no active session", sessionErr);
-      alert("Please log in again to continue.");
-      window.location.href = "/login.html";
-      return;
-    }
-
-    const email = user.email;
-    const userId = user.id;
-
-    try {
-      const res = await fetch("/.netlify/functions/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId,
-          email,
-          userId,
-          type: "subscription",
-          plan: planKey,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || !json?.url) {
-        console.error("Checkout session error:", json);
-        alert("Unable to start checkout. Please try again.");
-        return;
-      }
-
-      window.location.href = json.url;
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Checkout failed. Please try again.");
-    }
-  }
-
-  function handleSelectedPlan() {
-    const params = new URLSearchParams(window.location.search);
-    const plan = params.get("plan");
-    if (!plan) return;
-
-    const banner = document.getElementById("selected-plan-banner");
-    const textEl = document.getElementById("selected-plan-text");
-    const cta = document.getElementById("selected-plan-cta");
-    if (!banner || !textEl || !cta) return;
-
-    const map = {
-      insight: "Insight — $29/mo · 100 scans",
-      intelligence: "Intelligence — $75/mo · 250 scans",
-      impact: "Impact — $149/mo · 500 scans",
-    };
-
-    textEl.textContent = `You selected: ${map[plan] || plan}`;
-    banner.style.display = "flex";
-
-    cta.onclick = () => startPlanCheckout(plan);
-  }
-
-  function setupCreditPackButtons(user) {
-    const packs = ["10", "25", "50", "100", "500"];
-    packs.forEach((pack) => {
-      const btn = document.getElementById(`btn-credits-${pack}`);
-      if (!btn) return;
-      btn.addEventListener("click", () => {
-        alert("Top-ups are coming soon. For now, please choose a monthly plan.");
-      });
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", async () => {
-    const user = await requireSession();
-    if (!user) return;
-
-    await loadProfile(user);
-    setupFilters();
-    setupSearch();
-    await loadScanHistory(user.id);
-    await setupSignOut();
-    setupInlineRun(user);
-    setupCreditPackButtons(user);
-    handleSelectedPlan();
-
-    const goToPricingBtn = document.getElementById("btn-go-to-pricing");
-    if (goToPricingBtn) {
-      goToPricingBtn.addEventListener("click", () => {
-        window.location.href = "/index.html#pricing";
-      });
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("session_id");
-    const billingStatus = params.get("billing");
-
-    if (sessionId || billingStatus === "success") {
-      const planSummaryEl = document.getElementById("wd-plan-summary");
-      if (planSummaryEl) {
-        planSummaryEl.textContent = "Your subscription is now active. Enjoy your scans.";
-      }
-
-      setTimeout(() => {
-        loadProfile(user);
-      }, 1500);
-
-      if (window.history.replaceState) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("session_id");
-        url.searchParams.delete("billing");
-        window.history.replaceState({}, "", url.pathname + url.search);
-      }
-    }
-  });
-</script>
-
+    // Poll a few times right after load to pick up profile/email set by dashboard.js
+    let tries = 0;
+    const t = setInterval(() => {
+      syncAccountUI();
+      tries += 1;
+      if (tries > 20) clearInterval(t);
+    }, 250);
+  </script>
 </body>
 </html>
