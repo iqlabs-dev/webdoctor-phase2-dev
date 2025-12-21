@@ -4,9 +4,11 @@ console.log("🔥 DASHBOARD JS LOADED — AUTH VERSION —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.4-HARDLOCK-report_id-only");
+console.log("DASHBOARD JS v3.5-LAUNCH — jwt-run-scan + no-credits");
 
-// ------- PLAN → STRIPE PRICE MAPPING (TESTS) -------
+// ------- PLAN → PRICE MAPPING (LEGACY LABEL ONLY) -------
+// Keep mapping only if your UI still uses plan keys.
+// (Checkout is handled via your Netlify function.)
 const PLAN_PRICE_IDS = {
   insight: "price_1SY1olHrtPY0HwDpXIy1WPH7",
   intelligence: "price_1SY1pdHrtPY0HwDpJP5hYLF2",
@@ -59,7 +61,6 @@ function showViewReportCTA(reportId) {
   if (btn) btn.onclick = () => goToReport(reportId);
 }
 
-
 // -----------------------------
 // BILLING HELPERS
 // -----------------------------
@@ -105,55 +106,22 @@ async function startSubscriptionCheckout(planKey) {
   }
 }
 
-async function startCreditCheckout(pack) {
-  const statusEl = document.getElementById("trial-info");
-
-  if (!currentUserId || !window.currentUserEmail) {
-    if (statusEl) statusEl.textContent = "No user detected. Please log in again.";
-    return;
-  }
-
-  try {
-    if (statusEl) statusEl.textContent = `Opening secure checkout for +${pack} scans…`;
-
-    const res = await fetch("/.netlify/functions/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: currentUserId,
-        email: window.currentUserEmail,
-        type: "credits",
-        pack: String(pack),
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.url) {
-      console.error("Credit checkout error:", data);
-      if (statusEl) statusEl.textContent = "Unable to start checkout. Please try again.";
-      return;
-    }
-    window.location.href = data.url;
-  } catch (err) {
-    console.error("Credit checkout failed:", err);
-    if (statusEl) statusEl.textContent = "Checkout failed. Please try again.";
-  }
-}
-
 // -----------------------------
 // USAGE UI (profile)
 // -----------------------------
+// NOTE: Credits/topups are deprecated for launch.
+// We only gate scanning based on plan_status/plan_scans_remaining (or whatever your profile uses).
 function updateUsageUI(profile) {
   const banner = document.getElementById("subscription-banner");
   const runScanBtn = document.getElementById("run-scan");
-  const creditsEl = document.getElementById("wd-credits-count");
   const scansRemainingEl = document.getElementById("wd-plan-scans-remaining");
 
   const planStatus = profile?.plan_status || null;
-  const planScansRemaining = profile?.plan_scans_remaining ?? 0;
-  const credits = profile?.credits ?? 0;
+  const planScansRemaining = Number(profile?.plan_scans_remaining ?? 0);
 
-  if (planStatus === "active") {
+  const canScan = planStatus === "active" && planScansRemaining > 0;
+
+  if (canScan) {
     if (banner) banner.style.display = "none";
     if (runScanBtn) {
       runScanBtn.disabled = false;
@@ -163,12 +131,11 @@ function updateUsageUI(profile) {
     if (banner) banner.style.display = "block";
     if (runScanBtn) {
       runScanBtn.disabled = true;
-      runScanBtn.title = "Purchase a subscription or credits to run scans";
+      runScanBtn.title = "Choose a plan or contact us for custom scanning.";
     }
   }
 
-  if (creditsEl) creditsEl.textContent = credits;
-  if (scansRemainingEl) scansRemainingEl.textContent = planScansRemaining;
+  if (scansRemainingEl) scansRemainingEl.textContent = String(planScansRemaining);
 }
 
 async function refreshProfile() {
@@ -177,7 +144,7 @@ async function refreshProfile() {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("plan, plan_status, plan_scans_remaining, credits")
+      .select("plan, plan_status, plan_scans_remaining")
       .eq("user_id", currentUserId)
       .single();
 
@@ -197,32 +164,10 @@ async function refreshProfile() {
   }
 }
 
-async function decrementScanBalance() {
-  if (!currentUserId) return;
-
-  const profile = window.currentProfile || (await refreshProfile());
-  if (!profile) return;
-
-  let planScansRemaining = profile.plan_scans_remaining ?? 0;
-  let credits = profile.credits ?? 0;
-
-  if (planScansRemaining > 0) planScansRemaining -= 1;
-  else if (credits > 0) credits -= 1;
-  else return;
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ plan_scans_remaining: planScansRemaining, credits })
-    .eq("user_id", currentUserId);
-
-  if (error) {
-    console.error("decrementScanBalance update error:", error);
-    return;
-  }
-
-  window.currentProfile = { ...(window.currentProfile || {}), plan_scans_remaining: planScansRemaining, credits };
-  updateUsageUI(window.currentProfile);
-}
+// NOTE: For launch, do NOT decrement balances client-side.
+// That must happen server-side so it cannot be gamed and cannot desync.
+// Leaving this here commented prevents accidental usage.
+// async function decrementScanBalance() {}
 
 async function generateNarrative(reportId, accessToken) {
   const headers = { "Content-Type": "application/json" };
@@ -286,9 +231,9 @@ function updateLatestScanCard(row) {
   }
 
   window.currentReport = {
-    scan_id: row.id, // ok to store numeric internally
+    scan_id: row.id,
     report_url: row.report_url || null,
-    report_id: row.report_id || null, // must be WEB-... for routing
+    report_id: row.report_id || null,
   };
 
   if (elView) {
@@ -440,17 +385,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
   if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
 
-  const btnCredits10 = document.getElementById("btn-credits-10");
-  const btnCredits25 = document.getElementById("btn-credits-25");
-  const btnCredits50 = document.getElementById("btn-credits-50");
-  const btnCredits100 = document.getElementById("btn-credits-100");
-  const btnCredits500 = document.getElementById("btn-credits-500");
-
-  if (btnCredits10) btnCredits10.addEventListener("click", () => startCreditCheckout(10));
-  if (btnCredits25) btnCredits25.addEventListener("click", () => startCreditCheckout(25));
-  if (btnCredits50) btnCredits50.addEventListener("click", () => startCreditCheckout(50));
-  if (btnCredits100) btnCredits100.addEventListener("click", () => startCreditCheckout(100));
-  if (btnCredits500) btnCredits500.addEventListener("click", () => startCreditCheckout(500));
+  // Credits/topups removed for launch: no wiring here.
 
   const { data } = await supabase.auth.getUser();
   if (!data?.user) {
@@ -483,9 +418,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
+      // IMPORTANT: do not send user_id from client anymore.
+      // Server must derive it from the JWT.
       const payload = {
         url: cleaned,
-        user_id: currentUserId,
         email: window.currentUserEmail || null,
       };
 
@@ -506,9 +442,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       await loadScanHistory();
-      await decrementScanBalance();
+      await refreshProfile(); // reflect any server-side entitlement changes later
 
-      // Only accept real WEB-... report IDs for navigation & narrative
       const reportId =
         scanData.report_id ??
         scanData.reportId ??
@@ -518,20 +453,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       console.log("[RUN-SCAN] reportId:", reportId);
 
-if (looksLikeReportId(reportId)) {
-  showViewReportCTA(reportId);
-  statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (looksLikeReportId(reportId)) {
+        showViewReportCTA(reportId);
+        statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
-  // fire narrative in background (non-blocking)
-  generateNarrative(reportId, accessToken).catch((e) => {
-    console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
-  });
-} else {
-  statusEl.textContent =
-    "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
-}
-
-
+        // fire narrative in background (non-blocking)
+        generateNarrative(reportId, accessToken).catch((e) => {
+          console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
+        });
+      } else {
+        statusEl.textContent =
+          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
+      }
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
