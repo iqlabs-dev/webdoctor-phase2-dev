@@ -217,17 +217,18 @@
       padding: 16px;
     }
 
-    /* Remove the “inner top border” look (table container) */
+/* Remove the “inner top border” look (table container) */
 .table-wrap{
-  overflow:auto;
+  overflow: auto;
   border-radius: 14px;
-
-  /* remove the inner “top border” look */
   border: none;
-
-  /* keep the subtle separation without a hard line */
   background: rgba(0,0,0,.10);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* Remove the header’s top border line */
+.table-wrap thead th{
+  border-top: none;
 }
 
 
