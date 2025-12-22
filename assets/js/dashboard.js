@@ -159,7 +159,7 @@ async function refreshProfile() {
       .from("profiles")
       .select("plan, plan_status, plan_scans_remaining")
       .eq("user_id", currentUserId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.warn("refreshProfile error (non-fatal):", error);
