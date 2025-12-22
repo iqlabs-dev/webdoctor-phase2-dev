@@ -1,105 +1,51 @@
-// netlify/functions/download-pdf.js
-// iQWEB — Download cached PDF if available; otherwise generate it the same way as generate-report-pdf.
+// netlify/functions/download-pdf.j
+// iQWEB PDF Download Orchestrator — v2 (binary-safe)
+// - Accepts { reportId } or { report_id }
+// - Calls generate-report-pdf to build the PDF (DocRaptor)
+// - Returns the PDF as binary (base64 encoded) to the browser
+// - Does NOT read/write any scan_results.pdf_base64 column
 
-const { createClient } = require("@supabase/supabase-js");
-
-function getFetch() {
-  if (typeof fetch === "function") return fetch;
-  // eslint-disable-next-line global-require
-  return require("node-fetch");
-}
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { Buffer } = require("buffer");
 
 exports.handler = async (event) => {
-  const fetchFn = getFetch();
-
   try {
+    // Only allow POST
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
+      return {
+        statusCode: 405,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ success: false, error: "Method not allowed" }),
+      };
     }
 
-    let body = {};
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
-    }
+    const body = safeJson(event.body);
+    const reportId = (body.reportId || body.report_id || "").trim();
 
-    const reportId = body.reportId || body.report_id || null;
     if (!reportId) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing reportId" }) };
+      return json(400, { success: false, error: "Missing reportId" });
     }
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Missing Supabase server config",
-          missing: {
-            SUPABASE_URL: !SUPABASE_URL,
-            SUPABASE_SERVICE_ROLE_KEY: !SUPABASE_SERVICE_ROLE_KEY,
-          },
-        }),
-      };
-    }
+    // IMPORTANT:
+    // Call your internal PDF generator function endpoint.
+    // Use the internal Netlify path (works in production and locally on Netlify)
+    const baseUrl = getBaseUrl(event);
+    const genUrl = `${baseUrl}/.netlify/functions/generate-report-pdf`;
 
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // 1) If cached PDF exists, return it
-    const { data, error } = await supabaseAdmin
-      .from("scan_results")
-      .select("pdf_base64")
-      .eq("report_id", reportId)
-      .maybeSingle();
-
-    if (error) {
-      console.log("[PDF] scan_results read error (non-fatal):", error.message || error);
-    }
-
-    if (data?.pdf_base64) {
-      return {
-        statusCode: 200,
-        isBase64Encoded: true,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
-          "Cache-Control": "no-store",
-        },
-        body: data.pdf_base64,
-      };
-    }
-
-    // 2) Otherwise call generate-report-pdf (same origin)
-    const host = event.headers.host;
-    const proto =
-      event.headers["x-forwarded-proto"] ||
-      event.headers["X-Forwarded-Proto"] ||
-      "https";
-    const url = `${proto}://${host}/.netlify/functions/generate-report-pdf`;
-
-    const genResp = await fetchFn(url, {
+    const genRes = await fetch(genUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // forward auth if present (your generate function might not need it, but harmless)
-        ...(event.headers.authorization ? { Authorization: event.headers.authorization } : {}),
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reportId }),
     });
 
-    if (!genResp.ok) {
-      const txt = await genResp.text().catch(() => "");
-      console.error("[PDF] generate-report-pdf failed", genResp.status, txt.slice(0, 500));
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "PDF generation failed", status: genResp.status }),
-      };
+    if (!genRes.ok) {
+      const txt = await genRes.text().catch(() => "");
+      console.error("[download-pdf] generate-report-pdf failed:", genRes.status, txt);
+      return json(502, { success: false, error: "PDF generation failed" });
     }
 
-    // genResp will be base64 PDF body (Netlify function response)
-    const pdfBase64 = await genResp.text();
+    // generate-report-pdf should return a PDF binary body.
+    // Read it as ArrayBuffer and return it as base64-encoded binary.
+    const buf = Buffer.from(await genRes.arrayBuffer());
 
     return {
       statusCode: 200,
@@ -109,10 +55,33 @@ exports.handler = async (event) => {
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
         "Cache-Control": "no-store",
       },
-      body: pdfBase64,
+      body: buf.toString("base64"),
     };
   } catch (err) {
-    console.error("[PDF] download-pdf crash:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || "Unknown error" }) };
+    console.error("[download-pdf] fatal:", err);
+    return json(500, { success: false, error: "Server error" });
   }
 };
+
+function safeJson(s) {
+  try {
+    return s ? JSON.parse(s) : {};
+  } catch {
+    return {};
+  }
+}
+
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    body: JSON.stringify(obj),
+  };
+}
+
+// Works for prod + deploy previews + local netlify dev
+function getBaseUrl(event) {
+  const proto = event.headers["x-forwarded-proto"] || "https";
+  const host = event.headers.host;
+  return `${proto}://${host}`;
+}
