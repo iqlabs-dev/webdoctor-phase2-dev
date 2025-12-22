@@ -61,6 +61,16 @@ function showViewReportCTA(reportId) {
   if (btn) btn.onclick = () => goToReport(reportId);
 }
 
+function setEmailUI(email) {
+  try {
+    const elSidebarEmail = document.getElementById("wd-user-email");
+    if (elSidebarEmail) elSidebarEmail.textContent = email || "—";
+
+    const elAcctEmail = document.getElementById("acct-email");
+    if (elAcctEmail) elAcctEmail.textContent = email || "—";
+  } catch (_) {}
+}
+
 // -----------------------------
 // BILLING HELPERS
 // -----------------------------
@@ -109,8 +119,6 @@ async function startSubscriptionCheckout(planKey) {
 // -----------------------------
 // USAGE UI (profile)
 // -----------------------------
-// NOTE: Credits/topups are deprecated for launch.
-// We only gate scanning based on plan_status/plan_scans_remaining (or whatever your profile uses).
 function updateUsageUI(profile) {
   const banner = document.getElementById("subscription-banner");
   const runScanBtn = document.getElementById("run-scan");
@@ -163,11 +171,6 @@ async function refreshProfile() {
     return null;
   }
 }
-
-// NOTE: For launch, do NOT decrement balances client-side.
-// That must happen server-side so it cannot be gamed and cannot desync.
-// Leaving this here commented prevents accidental usage.
-// async function decrementScanBalance() {}
 
 async function generateNarrative(reportId, accessToken) {
   const headers = { "Content-Type": "application/json" };
@@ -306,9 +309,25 @@ async function loadScanHistory() {
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
+      // ✅ Change #5: Website becomes clickable and updates Latest Scan
       const tdUrl = document.createElement("td");
       tdUrl.className = "col-url";
-      tdUrl.textContent = row.url || "—";
+
+      const a = document.createElement("a");
+      a.className = "history-url";
+      a.href = "#";
+      a.textContent = row.url || "—";
+
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        updateLatestScanCard(row);
+
+        // also populate the scan input (nice UX)
+        const urlInput = document.getElementById("site-url");
+        if (urlInput && row.url) urlInput.value = row.url;
+      });
+
+      tdUrl.appendChild(a);
       tr.appendChild(tdUrl);
 
       const tdScore = document.createElement("td");
@@ -385,8 +404,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
   if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
 
-  // Credits/topups removed for launch: no wiring here.
-
   const { data } = await supabase.auth.getUser();
   if (!data?.user) {
     window.location.href = "/login.html";
@@ -396,6 +413,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   currentUserId = data.user.id;
   window.currentUserId = currentUserId;
   window.currentUserEmail = data.user.email || null;
+
+  // ✅ ensure email shows under iQWEB in the new sidebar layout
+  setEmailUI(window.currentUserEmail);
 
   await refreshProfile();
   await loadScanHistory();
@@ -418,8 +438,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
-      // IMPORTANT: do not send user_id from client anymore.
-      // Server must derive it from the JWT.
       const payload = {
         url: cleaned,
         email: window.currentUserEmail || null,
@@ -442,7 +460,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       await loadScanHistory();
-      await refreshProfile(); // reflect any server-side entitlement changes later
+      await refreshProfile();
 
       const reportId =
         scanData.report_id ??
@@ -457,7 +475,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         showViewReportCTA(reportId);
         statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
-        // fire narrative in background (non-blocking)
         generateNarrative(reportId, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
         });
