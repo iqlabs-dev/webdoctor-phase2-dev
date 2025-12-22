@@ -218,13 +218,18 @@
     }
 
     /* Remove the “inner top border” look (table container) */
-    .table-wrap{
-      overflow:auto;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.06);
-      border-top: none; /* <-- this is what you were aiming for */
-      background: rgba(0,0,0,.10);
-    }
+.table-wrap{
+  overflow:auto;
+  border-radius: 14px;
+
+  /* remove the inner “top border” look */
+  border: none;
+
+  /* keep the subtle separation without a hard line */
+  background: rgba(0,0,0,.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
 
     .row{ display:flex; gap: 14px; align-items:stretch; flex-wrap:wrap; }
     .col{ flex:1; min-width: 320px; }
@@ -550,7 +555,6 @@
                     font-size: 12px;"
                 />
                 <button id="history-clear" class="btn" type="button">Clear</button>
-                <span class="meta">Latest 20 scans</span>
               </div>
             </div>
 
