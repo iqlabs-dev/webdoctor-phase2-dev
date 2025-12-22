@@ -5,7 +5,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({ error: "Method not allowed" })
+        body: JSON.stringify({ error: "Method not allowed" }),
       };
     }
 
@@ -16,7 +16,7 @@ exports.handler = async (event) => {
       console.error("Bad JSON body:", event.body);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Invalid JSON body" })
+        body: JSON.stringify({ error: "Invalid JSON body" }),
       };
     }
 
@@ -27,16 +27,22 @@ exports.handler = async (event) => {
       console.error("Missing html or reportId:", body);
       return {
         statusCode: 400,
-        body: JSON.stringify({ error: "Missing html or reportId" })
+        body: JSON.stringify({ error: "Missing html or reportId" }),
       };
     }
 
-    const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
+    // ✅ Support BOTH env var names to prevent Netlify mismatch 500s
+    const DOC_RAPTOR_API_KEY =
+      process.env.DOC_RAPTOR_API_KEY || process.env.DOCRAPTOR_API_KEY;
+
     if (!DOC_RAPTOR_API_KEY) {
-      console.error("DOC_RAPTOR_API_KEY is not set");
+      console.error("DocRaptor API key missing. Checked env:", {
+        DOC_RAPTOR_API_KEY: !!process.env.DOC_RAPTOR_API_KEY,
+        DOCRAPTOR_API_KEY: !!process.env.DOCRAPTOR_API_KEY,
+      });
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" })
+        body: JSON.stringify({ error: "DocRaptor API key is not set" }),
       };
     }
 
@@ -44,7 +50,7 @@ exports.handler = async (event) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/pdf"
+        Accept: "application/pdf",
       },
       body: JSON.stringify({
         user_credentials: DOC_RAPTOR_API_KEY,
@@ -53,11 +59,9 @@ exports.handler = async (event) => {
           document_type: "pdf",
           document_content: html,
           javascript: true,
-          prince_options: {
-            media: "print"
-          }
-        }
-      })
+          prince_options: { media: "print" },
+        },
+      }),
     });
 
     if (!resp.ok) {
@@ -67,8 +71,8 @@ exports.handler = async (event) => {
         statusCode: 500,
         body: JSON.stringify({
           error: "DocRaptor error",
-          details: errorText
-        })
+          details: errorText,
+        }),
       };
     }
 
@@ -80,15 +84,15 @@ exports.handler = async (event) => {
       isBase64Encoded: true,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${reportId}.pdf"`
+        "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
       },
-      body: buffer.toString("base64")
+      body: buffer.toString("base64"),
     };
   } catch (err) {
     console.error("docraptor-pdf error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unknown error" })
+      body: JSON.stringify({ error: err.message || "Unknown error" }),
     };
   }
 };
