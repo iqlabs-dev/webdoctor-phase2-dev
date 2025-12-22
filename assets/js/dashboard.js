@@ -55,10 +55,10 @@ function goToReportNewTab(reportId) {
     return;
   }
 
-  const url = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-  console.log("[NAV] new-tab ->", url);
+  const url = `/report.html?report_id=${encodeURIComponent(reportId)}&from=history`;
   window.open(url, "_blank", "noopener");
 }
+
 
 function setUserUI(email) {
   const emailEl = $("wd-user-email");
