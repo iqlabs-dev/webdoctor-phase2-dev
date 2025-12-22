@@ -625,10 +625,30 @@
           </div>
 
           <div class="card">
-            <div class="h">
-              <h2>Scan history</h2>
-              <span class="meta">Latest 20 scans</span>
-            </div>
+<div class="h">
+  <h2>Scan history</h2>
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <input
+      id="history-search"
+      type="text"
+      placeholder="Search: domain, report ID, score (90, >=80), status…"
+      style="
+        width: 360px;
+        max-width: 46vw;
+        padding: 9px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.10);
+        background: rgba(0,0,0,.18);
+        color: rgba(255,255,255,.92);
+        outline: none;
+        font-size: 12px;"
+    />
+    <button id="history-clear" class="btn" type="button">Clear</button>
+    <span class="meta">Latest 20 scans</span>
+  </div>
+</div>
+
 
             <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
 

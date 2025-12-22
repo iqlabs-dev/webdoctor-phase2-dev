@@ -420,6 +420,79 @@ document.addEventListener("DOMContentLoaded", async () => {
   await refreshProfile();
   await loadScanHistory();
 
+    // ---- Scan History Search (UI-only filter) ----
+  const searchInput = document.getElementById("history-search");
+  const clearBtn = document.getElementById("history-clear");
+
+  function parseQuery(q) {
+    const s = (q || "").trim().toLowerCase();
+    if (!s) return { type: "text", value: "" };
+
+    // score operators: >=80, <=70, >90, <60, =85, 85
+    const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
+    if (m) {
+      const op = m[1] || "=";
+      const n = Math.max(0, Math.min(100, Number(m[2])));
+      return { type: "score", op, n };
+    }
+
+    return { type: "text", value: s };
+  }
+
+  function matchScore(op, n, score) {
+    if (typeof score !== "number") return false;
+    if (op === ">") return score > n;
+    if (op === "<") return score < n;
+    if (op === ">=") return score >= n;
+    if (op === "<=") return score <= n;
+    // "=" default
+    return score === n;
+  }
+
+  function filterHistoryRows() {
+    const tbody = document.getElementById("history-body");
+    if (!tbody) return;
+
+    const q = parseQuery(searchInput ? searchInput.value : "");
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    let visible = 0;
+
+    for (const tr of rows) {
+      // We set these in loadScanHistory (see patch below)
+      const url = (tr.dataset.url || "").toLowerCase();
+      const reportId = (tr.dataset.reportId || "").toLowerCase();
+      const status = (tr.dataset.status || "").toLowerCase();
+      const date = (tr.dataset.date || "").toLowerCase();
+      const time = (tr.dataset.time || "").toLowerCase();
+      const score = tr.dataset.score ? Number(tr.dataset.score) : null;
+
+      let ok = true;
+
+      if (q.type === "score") {
+        ok = matchScore(q.op, q.n, typeof score === "number" ? score : NaN);
+      } else {
+        const blob = `${url} ${reportId} ${status} ${date} ${time}`;
+        ok = blob.includes(q.value);
+      }
+
+      tr.style.display = ok ? "" : "none";
+      if (ok) visible++;
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", filterHistoryRows);
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      filterHistoryRows();
+      searchInput?.focus?.();
+    });
+  }
+
+
   runBtn.addEventListener("click", async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
