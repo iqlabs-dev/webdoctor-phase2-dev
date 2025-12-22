@@ -508,9 +508,6 @@
                   </div>
                 </div>
 
-                <div class="scanhelp">
-                  Click a website in scan history to load it above, or enter a new URL to run a scan.
-                </div>
               </div>
             </div>
 
@@ -638,12 +635,12 @@
           viewId === 'view-billing' ? 'Billing' :
           viewId === 'view-account' ? 'Account' : 'Dashboard';
       }
-      if (pageSubtitle) {
-        pageSubtitle.textContent =
-          viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
-          viewId === 'view-account' ? 'Identity and security.' :
-          'Scan history is the primary surface.';
-      }
+if (pageSubtitle) {
+  pageSubtitle.textContent =
+    viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
+    viewId === 'view-account' ? 'Identity and security.' :
+    '';
+}
     }
 
     navItems.forEach(a => a.addEventListener('click', (e) => {
