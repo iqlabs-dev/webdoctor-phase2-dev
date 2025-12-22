@@ -22,7 +22,7 @@
       --radius: 14px;
       --radius2: 18px;
 
-      /* ✅ 1) Sidebar width: “just wider than Dashboard” (calm + stable) */
+      /* Sidebar width: slightly wider than “Dashboard” */
       --sidebar-w: 212px;
     }
 
@@ -76,10 +76,10 @@
       line-height: 1.1;
     }
 
-    /* ✅ 3) Remove “Dashboard” under iQWEB */
+    /* Remove “Dashboard” under iQWEB */
     .brand .tag{ display:none; }
 
-    /* ✅ 4) Email moved under iQWEB */
+    /* Email under iQWEB */
     .brand-email{
       font-size: 12px;
       color: var(--muted2);
@@ -182,7 +182,11 @@
       align-items:center;
       justify-content:space-between;
       padding: 14px 22px;
-      border-bottom: 1px solid var(--border);
+
+      /* ✅ FIX: remove “double band” seam */
+      border-bottom: none;
+      box-shadow: 0 1px 0 rgba(255,255,255,.05);
+
       background: rgba(7,10,16,.55);
       backdrop-filter: blur(10px);
     }
@@ -441,7 +445,6 @@
       text-overflow:ellipsis;
     }
 
-    /* ✅ 5) Make history URLs look like links but keep calm SaaS style */
     .history-url{
       color: rgba(255,255,255,.88);
       text-decoration: none;
@@ -504,10 +507,6 @@
       table{ min-width: 720px; }
       .footer{ flex-direction:column; align-items:flex-start; }
     }
-    .card {
-  border-top: none;
-}
-
   </style>
 </head>
 
@@ -520,10 +519,9 @@
           <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
         </div>
 
-        <!-- ✅ 4) Email under iQWEB -->
         <div id="wd-user-email" class="brand-email">—</div>
 
-        <!-- keep these hidden legacy IDs (safe for your JS / future scripts) -->
+        <!-- hidden legacy IDs (safe for JS / future scripts) -->
         <div id="wd-user-name" style="display:none;"></div>
         <div id="wd-admin-badge" style="display:none;"></div>
         <div id="wd-credits-count" style="display:none;">0</div>
@@ -534,7 +532,6 @@
         <a href="#" class="active" data-view="view-dashboard">Dashboard</a>
         <a href="#" data-view="view-billing">Billing</a>
         <a href="#" data-view="view-account">Account</a>
-
         <button type="button" id="contact-toggle" aria-expanded="false">Contact</button>
       </nav>
 
@@ -553,7 +550,7 @@
         </a>
       </div>
 
-      <!-- ✅ 2) Sign out moved under Contact (same style as nav) -->
+      <!-- Sign out under Contact -->
       <nav class="nav" aria-label="Secondary">
         <a href="#" id="logout-link">Sign out</a>
       </nav>
@@ -629,30 +626,29 @@
           </div>
 
           <div class="card">
-<div class="h">
-  <h2>Scan history</h2>
+            <div class="h">
+              <h2>Scan history</h2>
 
-  <div style="display:flex; align-items:center; gap:10px;">
-    <input
-      id="history-search"
-      type="text"
-      placeholder="Search: domain, report ID, score (90, >=80), status…"
-      style="
-        width: 360px;
-        max-width: 46vw;
-        padding: 9px 12px;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,.10);
-        background: rgba(0,0,0,.18);
-        color: rgba(255,255,255,.92);
-        outline: none;
-        font-size: 12px;"
-    />
-    <button id="history-clear" class="btn" type="button">Clear</button>
-    <span class="meta">Latest 20 scans</span>
-  </div>
-</div>
-
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input
+                  id="history-search"
+                  type="text"
+                  placeholder="Search: domain, report ID, score (90, >=80), status…"
+                  style="
+                    width: 360px;
+                    max-width: 46vw;
+                    padding: 9px 12px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(255,255,255,.10);
+                    background: rgba(0,0,0,.18);
+                    color: rgba(255,255,255,.92);
+                    outline: none;
+                    font-size: 12px;"
+                />
+                <button id="history-clear" class="btn" type="button">Clear</button>
+                <span class="meta">Latest 20 scans</span>
+              </div>
+            </div>
 
             <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
 
@@ -775,7 +771,7 @@
       closeContact();
     });
 
-    // ✅ Sign out in nav forwards to real logout button (dashboard.js still owns auth)
+    // Sign out in nav forwards to real logout button (dashboard.js still owns auth)
     const logoutLink = document.getElementById('logout-link');
     const realLogoutBtn = document.getElementById('logout-btn');
     if (logoutLink && realLogoutBtn) {
