@@ -1,14 +1,12 @@
 // /assets/js/dashboard.js
-console.log("🔥 DASHBOARD JS LOADED — AUTH VERSION —", location.pathname);
+console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.5-LAUNCH — jwt-run-scan + no-credits");
+console.log("DASHBOARD JS v3.6 — sidebar email + history click + search");
 
-// ------- PLAN → PRICE MAPPING (LEGACY LABEL ONLY) -------
-// Keep mapping only if your UI still uses plan keys.
-// (Checkout is handled via your Netlify function.)
+// ------- PLAN → PRICE MAPPING (legacy; safe to keep) -------
 const PLAN_PRICE_IDS = {
   insight: "price_1SY1olHrtPY0HwDpXIy1WPH7",
   intelligence: "price_1SY1pdHrtPY0HwDpJP5hYLF2",
@@ -25,6 +23,8 @@ window.currentUserEmail = null;
 // -----------------------------
 // Helpers
 // -----------------------------
+const $ = (id) => document.getElementById(id);
+
 function looksLikeReportId(v) {
   return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(v.trim());
 }
@@ -40,8 +40,23 @@ function goToReport(reportId) {
   window.location.href = url;
 }
 
+function setUserUI(email) {
+  const emailEl = $("wd-user-email");
+  const acctEl = $("acct-email");
+  const initialEl = $("wd-user-initial");
+
+  if (emailEl) emailEl.textContent = email || "—";
+  if (acctEl) acctEl.textContent = email ? `Signed in as ${email}` : "—";
+
+  if (initialEl && email) {
+    const ch = (email.trim()[0] || "U").toUpperCase();
+    initialEl.textContent = ch;
+    initialEl.style.display = "inline-flex";
+  }
+}
+
 function showViewReportCTA(reportId) {
-  const statusEl = document.getElementById("trial-info");
+  const statusEl = $("trial-info");
   if (!statusEl) return;
 
   if (!looksLikeReportId(reportId)) {
@@ -57,83 +72,15 @@ function showViewReportCTA(reportId) {
     </button>
   `;
 
-  const btn = document.getElementById("view-report-btn");
+  const btn = $("view-report-btn");
   if (btn) btn.onclick = () => goToReport(reportId);
 }
 
 // -----------------------------
-// HISTORY SEARCH HELPERS
-// -----------------------------
-function parseHistoryQuery(raw) {
-  const s = (raw || "").trim().toLowerCase();
-  if (!s) return { type: "text", value: "" };
-
-  // score operators: >=80, <=70, >90, <60, =85, 85
-  const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
-  if (m) {
-    const op = m[1] || "=";
-    const n = Math.max(0, Math.min(100, Number(m[2])));
-    return { type: "score", op, n };
-  }
-
-  return { type: "text", value: s };
-}
-
-function matchScore(op, n, score) {
-  if (typeof score !== "number" || !Number.isFinite(score)) return false;
-  if (op === ">") return score > n;
-  if (op === "<") return score < n;
-  if (op === ">=") return score >= n;
-  if (op === "<=") return score <= n;
-  return score === n; // "=" default
-}
-
-function applyHistoryFilter() {
-  const input = document.getElementById("history-search");
-  const tbody = document.getElementById("history-body");
-  const empty = document.getElementById("history-empty");
-
-  if (!tbody) return;
-
-  const q = parseHistoryQuery(input ? input.value : "");
-  const trs = Array.from(tbody.querySelectorAll("tr"));
-  if (!trs.length) return;
-
-  let visible = 0;
-
-  for (const tr of trs) {
-    const url = (tr.dataset.url || "").toLowerCase();
-    const reportId = (tr.dataset.reportId || "").toLowerCase();
-    const status = (tr.dataset.status || "").toLowerCase();
-    const date = (tr.dataset.date || "").toLowerCase();
-    const time = (tr.dataset.time || "").toLowerCase();
-    const score = tr.dataset.score ? Number(tr.dataset.score) : NaN;
-
-    let ok = true;
-
-    if (q.type === "score") {
-      ok = matchScore(q.op, q.n, score);
-    } else if (q.value) {
-      const blob = `${url} ${reportId} ${status} ${date} ${time}`;
-      ok = blob.includes(q.value);
-    }
-
-    tr.style.display = ok ? "" : "none";
-    if (ok) visible++;
-  }
-
-  if (empty && q.value && visible === 0) {
-    empty.textContent = "No matching scans.";
-  } else if (empty && empty.textContent === "No matching scans.") {
-    empty.textContent = "";
-  }
-}
-
-// -----------------------------
-// BILLING HELPERS
+// BILLING HELPERS (legacy; safe)
 // -----------------------------
 async function startSubscriptionCheckout(planKey) {
-  const statusEl = document.getElementById("trial-info");
+  const statusEl = $("trial-info");
 
   if (!currentUserId || !window.currentUserEmail) {
     if (statusEl) statusEl.textContent = "No user detected. Please log in again.";
@@ -178,9 +125,9 @@ async function startSubscriptionCheckout(planKey) {
 // USAGE UI (profile)
 // -----------------------------
 function updateUsageUI(profile) {
-  const banner = document.getElementById("subscription-banner");
-  const runScanBtn = document.getElementById("run-scan");
-  const scansRemainingEl = document.getElementById("wd-plan-scans-remaining");
+  const banner = $("subscription-banner");
+  const runScanBtn = $("run-scan");
+  const scansRemainingEl = $("wd-plan-scans-remaining");
 
   const planStatus = profile?.plan_status || null;
   const planScansRemaining = Number(profile?.plan_scans_remaining ?? 0);
@@ -215,7 +162,7 @@ async function refreshProfile() {
       .single();
 
     if (error) {
-      console.error("refreshProfile error:", error);
+      console.warn("refreshProfile error (non-fatal):", error);
       updateUsageUI(null);
       return null;
     }
@@ -224,7 +171,7 @@ async function refreshProfile() {
     updateUsageUI(window.currentProfile);
     return window.currentProfile;
   } catch (err) {
-    console.error("refreshProfile unexpected:", err);
+    console.warn("refreshProfile unexpected (non-fatal):", err);
     updateUsageUI(null);
     return null;
   }
@@ -253,20 +200,18 @@ async function generateNarrative(reportId, accessToken) {
 // -----------------------------
 // LATEST SCAN CARD
 // -----------------------------
-function updateLatestScanCard(row) {
-  const elUrl = document.getElementById("ls-url");
-  const elDate = document.getElementById("ls-date");
-  const elScore = document.getElementById("ls-score");
-  const elView = document.getElementById("ls-view");
+function updateLatestScanCard(row, opts = {}) {
+  const elUrl = $("ls-url");
+  const elDate = $("ls-date");
+  const elScore = $("ls-score");
+  const elView = $("ls-view");
+  const urlInput = $("site-url");
 
   if (!row) {
     if (elUrl) elUrl.textContent = "No scans yet.";
     if (elDate) elDate.textContent = "Run your first iQWEB scan to see it here.";
     if (elScore) elScore.style.display = "none";
-    if (elView) {
-      elView.href = "#";
-      elView.onclick = (e) => e.preventDefault();
-    }
+    if (elView) elView.onclick = null;
     return;
   }
 
@@ -291,6 +236,11 @@ function updateLatestScanCard(row) {
     }
   }
 
+  // Optional: clicking history row also sets input box (nice UX)
+  if (urlInput && row.url && opts.setInput === true) {
+    urlInput.value = row.url;
+  }
+
   window.currentReport = {
     scan_id: row.id,
     report_url: row.report_url || null,
@@ -298,9 +248,8 @@ function updateLatestScanCard(row) {
   };
 
   if (elView) {
-    elView.href = "#";
     elView.onclick = (e) => {
-      e.preventDefault();
+      if (e?.preventDefault) e.preventDefault();
       goToReport(row.report_id);
     };
     if (!looksLikeReportId(row.report_id)) {
@@ -312,11 +261,92 @@ function updateLatestScanCard(row) {
 }
 
 // -----------------------------
+// SEARCH FILTER (history)
+// -----------------------------
+function parseScoreQuery(q) {
+  // supports: "90" ">=80" "<=70" ">75" "<60"
+  const s = String(q || "").trim();
+  const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
+  if (!m) return null;
+  const op = m[1] || "=";
+  const n = Number(m[2]);
+  if (!Number.isFinite(n)) return null;
+  return { op, n };
+}
+
+function matchScore(op, a, b) {
+  if (typeof a !== "number") return false;
+  if (op === ">=") return a >= b;
+  if (op === "<=") return a <= b;
+  if (op === ">") return a > b;
+  if (op === "<") return a < b;
+  return a === b;
+}
+
+function applyHistoryFilter() {
+  const input = $("history-search");
+  const tbody = $("history-body");
+  if (!input || !tbody) return;
+
+  const q = input.value.trim().toLowerCase();
+  const rows = Array.from(tbody.querySelectorAll("tr"));
+
+  if (!q) {
+    rows.forEach((tr) => (tr.style.display = ""));
+    return;
+  }
+
+  const scoreQuery = parseScoreQuery(q);
+
+  rows.forEach((tr) => {
+    const url = (tr.dataset.url || "").toLowerCase();
+    const reportId = (tr.dataset.reportid || "").toLowerCase();
+    const status = (tr.dataset.status || "").toLowerCase();
+    const score = Number(tr.dataset.score || NaN);
+
+    let hit = false;
+
+    if (scoreQuery) {
+      hit = matchScore(scoreQuery.op, score, scoreQuery.n);
+    } else {
+      hit =
+        url.includes(q) ||
+        reportId.includes(q) ||
+        status.includes(q) ||
+        String(score).includes(q);
+    }
+
+    tr.style.display = hit ? "" : "none";
+  });
+}
+
+function wireHistorySearch() {
+  const input = $("history-search");
+  const clearBtn = $("history-clear");
+  if (input) {
+    input.addEventListener("input", applyHistoryFilter);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        input.value = "";
+        applyHistoryFilter();
+      }
+    });
+  }
+  if (clearBtn && input) {
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      applyHistoryFilter();
+      input.focus();
+    });
+  }
+}
+
+// -----------------------------
 // HISTORY LOAD
 // -----------------------------
 async function loadScanHistory() {
-  const tbody = document.getElementById("history-body");
-  const empty = document.getElementById("history-empty");
+  const tbody = $("history-body");
+  const empty = $("history-empty");
 
   if (!tbody || !empty) return;
 
@@ -359,20 +389,16 @@ async function loadScanHistory() {
       const dateStr = d ? d.toLocaleDateString() : "—";
       const timeStr = d ? d.toLocaleTimeString() : "—";
 
+      // search metadata
+      tr.dataset.url = row.url || "";
+      tr.dataset.reportid = row.report_id || "";
+      tr.dataset.status = row.status || "";
       const overallScore =
         row.metrics?.scores?.overall ??
         row.metrics?.scores?.overall_score ??
         row.score_overall ??
         null;
-
-      // --- Search metadata (for filtering) ---
-      tr.dataset.url = row.url || "";
-      tr.dataset.reportId = row.report_id || "";
-      tr.dataset.status = row.status || "";
-      tr.dataset.date = dateStr;
-      tr.dataset.time = timeStr;
-      tr.dataset.score =
-        typeof overallScore === "number" ? String(Math.round(overallScore)) : "";
+      tr.dataset.score = typeof overallScore === "number" ? String(Math.round(overallScore)) : "";
 
       const tdDate = document.createElement("td");
       tdDate.textContent = dateStr;
@@ -382,9 +408,19 @@ async function loadScanHistory() {
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
+      // Website (clickable -> loads latest scan + fills input)
       const tdUrl = document.createElement("td");
       tdUrl.className = "col-url";
-      tdUrl.textContent = row.url || "—";
+
+      const a = document.createElement("a");
+      a.className = "history-url";
+      a.href = "#";
+      a.textContent = row.url || "—";
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        updateLatestScanCard(row, { setInput: true });
+      });
+      tdUrl.appendChild(a);
       tr.appendChild(tdUrl);
 
       const tdScore = document.createElement("td");
@@ -430,7 +466,7 @@ async function loadScanHistory() {
       tbody.appendChild(tr);
     }
 
-    // Apply any active search filter (if search box exists)
+    // Apply any active filter after reload
     applyHistoryFilter();
   } catch (err) {
     console.error("History load unexpected:", err);
@@ -442,24 +478,28 @@ async function loadScanHistory() {
 // MAIN
 // -----------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  const statusEl = document.getElementById("trial-info");
-  const urlInput = document.getElementById("site-url");
-  const runBtn = document.getElementById("run-scan");
-  const logoutBtn = document.getElementById("logout-btn");
+  const statusEl = $("trial-info");
+  const urlInput = $("site-url");
+  const runBtn = $("run-scan");
+  const logoutBtn = $("logout-btn");
 
   if (!statusEl || !urlInput || !runBtn || !logoutBtn) {
     console.error("Dashboard elements missing from DOM.");
     return;
   }
 
-  const btnInsight = document.getElementById("btn-plan-insight");
-  const btnIntelligence = document.getElementById("btn-plan-intelligence");
-  const btnImpact = document.getElementById("btn-plan-impact");
+  // wire search UI (doesn't depend on auth)
+  wireHistorySearch();
 
+  // legacy plan buttons if they exist (safe)
+  const btnInsight = $("btn-plan-insight");
+  const btnIntelligence = $("btn-plan-intelligence");
+  const btnImpact = $("btn-plan-impact");
   if (btnInsight) btnInsight.addEventListener("click", () => startSubscriptionCheckout("insight"));
   if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
   if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
 
+  // AUTH
   const { data } = await supabase.auth.getUser();
   if (!data?.user) {
     window.location.href = "/login.html";
@@ -470,21 +510,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.currentUserId = currentUserId;
   window.currentUserEmail = data.user.email || null;
 
-  await refreshProfile();
+  setUserUI(window.currentUserEmail);
+
+  await refreshProfile();     // non-fatal if 406 etc.
   await loadScanHistory();
-
-  // History search wiring (UI-only; filters loaded rows)
-  const historySearch = document.getElementById("history-search");
-  const historyClear = document.getElementById("history-clear");
-
-  if (historySearch) historySearch.addEventListener("input", applyHistoryFilter);
-  if (historyClear) {
-    historyClear.addEventListener("click", () => {
-      if (historySearch) historySearch.value = "";
-      applyHistoryFilter();
-      historySearch?.focus?.();
-    });
-  }
 
   runBtn.addEventListener("click", async () => {
     const cleaned = normaliseUrl(urlInput.value);
@@ -504,8 +533,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
-      // IMPORTANT: do not send user_id from client anymore.
-      // Server must derive it from the JWT.
+      // Server derives user_id from JWT
       const payload = {
         url: cleaned,
         email: window.currentUserEmail || null,

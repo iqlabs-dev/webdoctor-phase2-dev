@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>iQWEB Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -22,8 +21,8 @@
       --radius: 14px;
       --radius2: 18px;
 
-      /* Sidebar width: slightly wider than “Dashboard” */
-      --sidebar-w: 212px;
+      /* Sidebar width: just wider than “Dashboard” */
+      --sidebar-w: 210px;
     }
 
     *{ box-sizing:border-box; }
@@ -37,11 +36,7 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
-    .app{
-      min-height:100vh;
-      display:flex;
-      flex-direction:row;
-    }
+    .app{ min-height:100vh; display:flex; }
 
     /* Sidebar */
     .sidebar{
@@ -76,7 +71,7 @@
       line-height: 1.1;
     }
 
-    /* Remove “Dashboard” under iQWEB */
+    /* remove “Dashboard” under iQWEB */
     .brand .tag{ display:none; }
 
     /* Email under iQWEB */
@@ -157,24 +152,8 @@
       border-color: rgba(255,255,255,.06);
     }
 
-    .sidebar-foot{
-      margin-top:auto;
-      padding: 10px 10px 6px 10px;
-      border-top: 1px solid rgba(255,255,255,.06);
-      color: var(--muted2);
-      font-size: 12px;
-      display:flex;
-      flex-direction:column;
-      gap: 8px;
-    }
-
     /* Main */
-    .main{
-      flex:1;
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-    }
+    .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
 
     .topbar{
       height: 62px;
@@ -182,11 +161,7 @@
       align-items:center;
       justify-content:space-between;
       padding: 14px 22px;
-
-      /* ✅ FIX: remove “double band” seam */
-      border-bottom: none;
-      box-shadow: 0 1px 0 rgba(255,255,255,.05);
-
+      border-bottom: 1px solid var(--border);
       background: rgba(7,10,16,.55);
       backdrop-filter: blur(10px);
     }
@@ -197,11 +172,7 @@
       gap: 10px;
       min-width:0;
     }
-    .topbar .title{
-      font-weight: 700;
-      font-size: 15px;
-      white-space:nowrap;
-    }
+    .topbar .title{ font-weight: 700; font-size: 15px; white-space:nowrap; }
     .topbar .sub{
       font-size: 12px;
       color: var(--muted2);
@@ -246,17 +217,17 @@
       padding: 16px;
     }
 
-    .row{
-      display:flex;
-      gap: 14px;
-      align-items:stretch;
-      flex-wrap:wrap;
+    /* Remove the “inner top border” look (table container) */
+    .table-wrap{
+      overflow:auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      border-top: none; /* <-- this is what you were aiming for */
+      background: rgba(0,0,0,.10);
     }
 
-    .col{
-      flex:1;
-      min-width: 320px;
-    }
+    .row{ display:flex; gap: 14px; align-items:stretch; flex-wrap:wrap; }
+    .col{ flex:1; min-width: 320px; }
 
     .h{
       display:flex;
@@ -271,10 +242,7 @@
       font-weight: 700;
       letter-spacing: .01em;
     }
-    .h .meta{
-      font-size: 12px;
-      color: var(--muted2);
-    }
+    .h .meta{ font-size: 12px; color: var(--muted2); }
 
     #subscription-banner{
       display:none;
@@ -295,12 +263,7 @@
       justify-content:space-between;
       gap: 12px;
     }
-    .latest-left{
-      min-width:0;
-      display:flex;
-      flex-direction:column;
-      gap: 4px;
-    }
+    .latest-left{ min-width:0; display:flex; flex-direction:column; gap: 4px; }
     .latest-url{
       font-weight:700;
       font-size: 14px;
@@ -308,15 +271,8 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .latest-date{
-      font-size: 12px;
-      color: var(--muted2);
-    }
-    .latest-right{
-      display:flex;
-      align-items:center;
-      gap: 10px;
-    }
+    .latest-date{ font-size: 12px; color: var(--muted2); }
+    .latest-right{ display:flex; align-items:center; gap: 10px; }
     .score{
       display:inline-flex;
       align-items:center;
@@ -344,14 +300,9 @@
       font-weight: 600;
       letter-spacing:.01em;
     }
-    .btn:hover{
-      background: rgba(255,255,255,.05);
-      border-color: rgba(255,255,255,.14);
-    }
-    .btn:disabled{
-      opacity:.55;
-      cursor:not-allowed;
-    }
+    .btn:hover{ background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.14); }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
     .btn-primary{
       border-color: rgba(24,214,196,.25);
       background: rgba(24,214,196,.10);
@@ -360,6 +311,7 @@
       background: rgba(24,214,196,.14);
       border-color: rgba(24,214,196,.30);
     }
+
     .btn-link{
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.02);
@@ -370,18 +322,10 @@
       font-weight: 600;
       color: rgba(255,255,255,.88);
     }
-    .btn-link:hover{
-      background: rgba(255,255,255,.05);
-      border-color: rgba(255,255,255,.14);
-    }
+    .btn-link:hover{ background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.14); }
 
     /* Run scan */
-    .scanbar{
-      display:flex;
-      gap: 10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
+    .scanbar{ display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
     .scanbar input{
       flex: 1;
       min-width: 260px;
@@ -394,31 +338,11 @@
       font-size: 13px;
     }
     .scanbar input::placeholder{ color: rgba(255,255,255,.35); }
-    .scanhelp{
-      font-size: 12px;
-      color: var(--muted2);
-      margin-top: 8px;
-      line-height: 1.35;
-    }
-    #trial-info{
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(255,255,255,.86);
-    }
+    .scanhelp{ font-size: 12px; color: var(--muted2); margin-top: 8px; line-height: 1.35; }
+    #trial-info{ margin-top: 10px; font-size: 12px; color: rgba(255,255,255,.86); }
 
     /* Table */
-    .table-wrap{
-      overflow:auto;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,.06);
-      background: rgba(0,0,0,.10);
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width: 760px;
-      font-size: 13px;
-    }
+    table{ width:100%; border-collapse:collapse; min-width: 760px; font-size: 13px; }
     thead th{
       text-align:left;
       padding: 12px 12px;
@@ -436,23 +360,15 @@
       vertical-align:middle;
       white-space:nowrap;
     }
-    tbody tr:hover td{
-      background: rgba(255,255,255,.02);
-    }
-    .col-url{
-      max-width: 420px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+    tbody tr:hover td{ background: rgba(255,255,255,.02); }
+    .col-url{ max-width: 420px; overflow:hidden; text-overflow:ellipsis; }
 
     .history-url{
       color: rgba(255,255,255,.88);
       text-decoration: none;
       border-bottom: 1px solid rgba(24,214,196,.18);
     }
-    .history-url:hover{
-      border-bottom-color: rgba(24,214,196,.40);
-    }
+    .history-url:hover{ border-bottom-color: rgba(24,214,196,.40); }
 
     .wd-history-link{
       color: rgba(255,255,255,.88);
@@ -467,10 +383,9 @@
       align-items:center;
       gap: 8px;
     }
-    .wd-history-link:hover{
-      background: rgba(255,255,255,.05);
-      border-color: rgba(255,255,255,.14);
-    }
+    .wd-history-link:hover{ background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.14); }
+
+    .wd-history-muted{ color: rgba(255,255,255,.55); font-size: 12px; }
 
     /* Views */
     .view{ display:none; }
@@ -490,7 +405,7 @@
     }
 
     @media (max-width: 920px){
-      :root{ --sidebar-w: 210px; }
+      :root{ --sidebar-w: 208px; }
       .topbar{ padding: 12px 14px; }
       .wrap{ padding: 14px; }
     }
@@ -506,6 +421,7 @@
       .nav a, .nav button{ flex: 1 1 auto; justify-content:center; }
       table{ min-width: 720px; }
       .footer{ flex-direction:column; align-items:flex-start; }
+      .table-wrap{ border-top: 1px solid rgba(255,255,255,.06); } /* mobile keeps it clean */
     }
   </style>
 </head>
@@ -521,7 +437,7 @@
 
         <div id="wd-user-email" class="brand-email">—</div>
 
-        <!-- hidden legacy IDs (safe for JS / future scripts) -->
+        <!-- legacy IDs kept safe -->
         <div id="wd-user-name" style="display:none;"></div>
         <div id="wd-admin-badge" style="display:none;"></div>
         <div id="wd-credits-count" style="display:none;">0</div>
@@ -536,29 +452,17 @@
       </nav>
 
       <div id="contact-pop" class="contact-pop" role="menu" aria-label="Contact emails">
-        <a href="mailto:pricing@iqweb.ai" role="menuitem">
-          Pricing
-          <span>pricing@iqweb.ai</span>
-        </a>
-        <a href="mailto:support@iqweb.ai" role="menuitem">
-          Support
-          <span>support@iqweb.ai</span>
-        </a>
-        <a href="mailto:feedback@iqweb.ai" role="menuitem">
-          Feedback
-          <span>feedback@iqweb.ai</span>
-        </a>
+        <a href="mailto:pricing@iqweb.ai" role="menuitem">Pricing <span>pricing@iqweb.ai</span></a>
+        <a href="mailto:support@iqweb.ai" role="menuitem">Support <span>support@iqweb.ai</span></a>
+        <a href="mailto:feedback@iqweb.ai" role="menuitem">Feedback <span>feedback@iqweb.ai</span></a>
       </div>
 
-      <!-- Sign out under Contact -->
       <nav class="nav" aria-label="Secondary">
         <a href="#" id="logout-link">Sign out</a>
       </nav>
 
-      <div class="sidebar-foot" style="display:none;">
-        <!-- keep the real logout button for dashboard.js wiring -->
-        <button id="logout-btn" class="btn" type="button">Sign out</button>
-      </div>
+      <!-- keep the real logout button for dashboard.js wiring -->
+      <button id="logout-btn" class="btn" type="button" style="display:none;">Sign out</button>
     </aside>
 
     <section class="main">
@@ -677,7 +581,6 @@
               <h2>Billing</h2>
               <span class="meta">Account state</span>
             </div>
-
             <div class="scanhelp">
               Current plan, scans remaining, renewal date. (Wiring can stay minimal for now.)
             </div>
@@ -713,10 +616,10 @@
     </section>
   </div>
 
-  <!-- Existing wiring -->
+  <!-- Core wiring -->
   <script type="module" src="/assets/js/dashboard.js"></script>
 
-  <!-- UI-only nav + contact + signout forwarding (safe) -->
+  <!-- UI nav + contact + signout forwarding (safe) -->
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
 
@@ -771,7 +674,7 @@
       closeContact();
     });
 
-    // Sign out in nav forwards to real logout button (dashboard.js still owns auth)
+    // Sign out in nav forwards to real logout button (dashboard.js owns auth)
     const logoutLink = document.getElementById('logout-link');
     const realLogoutBtn = document.getElementById('logout-btn');
     if (logoutLink && realLogoutBtn) {
