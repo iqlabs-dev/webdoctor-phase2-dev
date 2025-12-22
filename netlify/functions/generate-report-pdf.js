@@ -1,72 +1,81 @@
 // /netlify/functions/generate-report-pdf.js
 
+// ✅ FIX: support the Netlify env var name you actually use: DOC_RAPTOR_API_KEY
+// (and keep backward compatibility with DOCRAPTOR_API_KEY)
 const DOC_API_KEY = process.env.DOC_RAPTOR_API_KEY || process.env.DOCRAPTOR_API_KEY;
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 // Support both env var names – your Netlify uses SUPABASE_SERVICE_ROLE_KEY
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
-const { createClient } = require("@supabase/supabase-js");
-
-exports.handler = async (event) => {
+export async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method not allowed" };
+      return {
+        statusCode: 405,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Method Not Allowed" }),
+      };
     }
 
-    // Parse body
-    let body = {};
+    // Debug env status (shows in Netlify logs)
+    console.log("ENV CHECK:", {
+      haveDoc: !!DOC_API_KEY,
+      haveUrl: !!SUPABASE_URL,
+      haveService: !!SUPABASE_SERVICE_KEY,
+    });
+
+    if (!DOC_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Server config error (env vars)" }),
+      };
+    }
+
+    let body;
     try {
       body = JSON.parse(event.body || "{}");
     } catch (e) {
-      return { statusCode: 400, body: "Invalid JSON body" };
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Invalid JSON body" }),
+      };
     }
 
     const reportId = body.reportId || body.report_id;
-
     if (!reportId) {
-      return { statusCode: 400, body: "Missing reportId" };
-    }
-
-    // Sanity check env
-    if (!DOC_API_KEY) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing DOC_RAPTOR_API_KEY" }),
-      };
-    }
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing SUPABASE config" }),
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Missing reportId" }),
       };
     }
 
-    // Supabase admin
+    // Pull report HTML from Supabase
+    const { createClient } = await import("@supabase/supabase-js");
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Fetch report HTML and metadata
-    const { data: row, error: rowErr } = await supabaseAdmin
+    const { data: reportRow, error: reportErr } = await supabaseAdmin
       .from("scan_results")
-      .select("report_html, url, created_at")
+      .select("report_id, report_html")
       .eq("report_id", reportId)
-      .maybeSingle();
+      .single();
 
-    if (rowErr) {
-      console.error("Supabase read error:", rowErr);
-      return { statusCode: 500, body: "Supabase read error" };
-    }
-
-    if (!row || !row.report_html) {
+    if (reportErr || !reportRow?.report_html) {
+      console.error("Missing report_html", reportErr);
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: "Report HTML not found for reportId" }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "Report HTML not found for this reportId" }),
       };
     }
 
-    const html = row.report_html;
+    const html = reportRow.report_html;
 
-    // Call DocRaptor
+    // Send to DocRaptor
     const resp = await fetch("https://docraptor.com/docs", {
       method: "POST",
       headers: {
@@ -86,14 +95,15 @@ exports.handler = async (event) => {
     });
 
     if (!resp.ok) {
-      const errorText = await resp.text();
-      console.error("DocRaptor error", resp.status, errorText);
+      const errText = await resp.text();
+      console.error("DocRaptor error:", resp.status, errText);
       return {
         statusCode: 500,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           error: "DocRaptor error",
           status: resp.status,
-          details: errorText,
+          details: errText,
         }),
       };
     }
@@ -115,7 +125,8 @@ exports.handler = async (event) => {
     console.error("generate-report-pdf error:", err);
     return {
       statusCode: 500,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: err.message || "Unknown error" }),
     };
   }
-};
+}
