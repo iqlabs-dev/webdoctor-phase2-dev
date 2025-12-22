@@ -61,14 +61,72 @@ function showViewReportCTA(reportId) {
   if (btn) btn.onclick = () => goToReport(reportId);
 }
 
-function setEmailUI(email) {
-  try {
-    const elSidebarEmail = document.getElementById("wd-user-email");
-    if (elSidebarEmail) elSidebarEmail.textContent = email || "—";
+// -----------------------------
+// HISTORY SEARCH HELPERS
+// -----------------------------
+function parseHistoryQuery(raw) {
+  const s = (raw || "").trim().toLowerCase();
+  if (!s) return { type: "text", value: "" };
 
-    const elAcctEmail = document.getElementById("acct-email");
-    if (elAcctEmail) elAcctEmail.textContent = email || "—";
-  } catch (_) {}
+  // score operators: >=80, <=70, >90, <60, =85, 85
+  const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
+  if (m) {
+    const op = m[1] || "=";
+    const n = Math.max(0, Math.min(100, Number(m[2])));
+    return { type: "score", op, n };
+  }
+
+  return { type: "text", value: s };
+}
+
+function matchScore(op, n, score) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return false;
+  if (op === ">") return score > n;
+  if (op === "<") return score < n;
+  if (op === ">=") return score >= n;
+  if (op === "<=") return score <= n;
+  return score === n; // "=" default
+}
+
+function applyHistoryFilter() {
+  const input = document.getElementById("history-search");
+  const tbody = document.getElementById("history-body");
+  const empty = document.getElementById("history-empty");
+
+  if (!tbody) return;
+
+  const q = parseHistoryQuery(input ? input.value : "");
+  const trs = Array.from(tbody.querySelectorAll("tr"));
+  if (!trs.length) return;
+
+  let visible = 0;
+
+  for (const tr of trs) {
+    const url = (tr.dataset.url || "").toLowerCase();
+    const reportId = (tr.dataset.reportId || "").toLowerCase();
+    const status = (tr.dataset.status || "").toLowerCase();
+    const date = (tr.dataset.date || "").toLowerCase();
+    const time = (tr.dataset.time || "").toLowerCase();
+    const score = tr.dataset.score ? Number(tr.dataset.score) : NaN;
+
+    let ok = true;
+
+    if (q.type === "score") {
+      ok = matchScore(q.op, q.n, score);
+    } else if (q.value) {
+      const blob = `${url} ${reportId} ${status} ${date} ${time}`;
+      ok = blob.includes(q.value);
+    }
+
+    tr.style.display = ok ? "" : "none";
+    if (ok) visible++;
+  }
+
+  if (empty && q.value && visible === 0) {
+    empty.textContent = "No matching scans.";
+  } else if (empty && empty.textContent === "No matching scans.") {
+    empty.textContent = "";
+  }
 }
 
 // -----------------------------
@@ -301,6 +359,21 @@ async function loadScanHistory() {
       const dateStr = d ? d.toLocaleDateString() : "—";
       const timeStr = d ? d.toLocaleTimeString() : "—";
 
+      const overallScore =
+        row.metrics?.scores?.overall ??
+        row.metrics?.scores?.overall_score ??
+        row.score_overall ??
+        null;
+
+      // --- Search metadata (for filtering) ---
+      tr.dataset.url = row.url || "";
+      tr.dataset.reportId = row.report_id || "";
+      tr.dataset.status = row.status || "";
+      tr.dataset.date = dateStr;
+      tr.dataset.time = timeStr;
+      tr.dataset.score =
+        typeof overallScore === "number" ? String(Math.round(overallScore)) : "";
+
       const tdDate = document.createElement("td");
       tdDate.textContent = dateStr;
       tr.appendChild(tdDate);
@@ -309,34 +382,14 @@ async function loadScanHistory() {
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
-      // ✅ Change #5: Website becomes clickable and updates Latest Scan
       const tdUrl = document.createElement("td");
       tdUrl.className = "col-url";
-
-      const a = document.createElement("a");
-      a.className = "history-url";
-      a.href = "#";
-      a.textContent = row.url || "—";
-
-      a.addEventListener("click", (e) => {
-        e.preventDefault();
-        updateLatestScanCard(row);
-
-        // also populate the scan input (nice UX)
-        const urlInput = document.getElementById("site-url");
-        if (urlInput && row.url) urlInput.value = row.url;
-      });
-
-      tdUrl.appendChild(a);
+      tdUrl.textContent = row.url || "—";
       tr.appendChild(tdUrl);
 
       const tdScore = document.createElement("td");
-      const overall =
-        row.metrics?.scores?.overall ??
-        row.metrics?.scores?.overall_score ??
-        row.score_overall ??
-        null;
-      tdScore.textContent = typeof overall === "number" ? String(Math.round(overall)) : "—";
+      tdScore.textContent =
+        typeof overallScore === "number" ? String(Math.round(overallScore)) : "—";
       tr.appendChild(tdScore);
 
       const tdStatus = document.createElement("td");
@@ -376,6 +429,9 @@ async function loadScanHistory() {
       tr.appendChild(tdActions);
       tbody.appendChild(tr);
     }
+
+    // Apply any active search filter (if search box exists)
+    applyHistoryFilter();
   } catch (err) {
     console.error("History load unexpected:", err);
     empty.textContent = "Unable to load scan history.";
@@ -414,84 +470,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   window.currentUserId = currentUserId;
   window.currentUserEmail = data.user.email || null;
 
-  // ✅ ensure email shows under iQWEB in the new sidebar layout
-  setEmailUI(window.currentUserEmail);
-
   await refreshProfile();
   await loadScanHistory();
 
-    // ---- Scan History Search (UI-only filter) ----
-  const searchInput = document.getElementById("history-search");
-  const clearBtn = document.getElementById("history-clear");
+  // History search wiring (UI-only; filters loaded rows)
+  const historySearch = document.getElementById("history-search");
+  const historyClear = document.getElementById("history-clear");
 
-  function parseQuery(q) {
-    const s = (q || "").trim().toLowerCase();
-    if (!s) return { type: "text", value: "" };
-
-    // score operators: >=80, <=70, >90, <60, =85, 85
-    const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
-    if (m) {
-      const op = m[1] || "=";
-      const n = Math.max(0, Math.min(100, Number(m[2])));
-      return { type: "score", op, n };
-    }
-
-    return { type: "text", value: s };
-  }
-
-  function matchScore(op, n, score) {
-    if (typeof score !== "number") return false;
-    if (op === ">") return score > n;
-    if (op === "<") return score < n;
-    if (op === ">=") return score >= n;
-    if (op === "<=") return score <= n;
-    // "=" default
-    return score === n;
-  }
-
-  function filterHistoryRows() {
-    const tbody = document.getElementById("history-body");
-    if (!tbody) return;
-
-    const q = parseQuery(searchInput ? searchInput.value : "");
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-
-    let visible = 0;
-
-    for (const tr of rows) {
-      // We set these in loadScanHistory (see patch below)
-      const url = (tr.dataset.url || "").toLowerCase();
-      const reportId = (tr.dataset.reportId || "").toLowerCase();
-      const status = (tr.dataset.status || "").toLowerCase();
-      const date = (tr.dataset.date || "").toLowerCase();
-      const time = (tr.dataset.time || "").toLowerCase();
-      const score = tr.dataset.score ? Number(tr.dataset.score) : null;
-
-      let ok = true;
-
-      if (q.type === "score") {
-        ok = matchScore(q.op, q.n, typeof score === "number" ? score : NaN);
-      } else {
-        const blob = `${url} ${reportId} ${status} ${date} ${time}`;
-        ok = blob.includes(q.value);
-      }
-
-      tr.style.display = ok ? "" : "none";
-      if (ok) visible++;
-    }
-  }
-
-  if (searchInput) {
-    searchInput.addEventListener("input", filterHistoryRows);
-  }
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      if (searchInput) searchInput.value = "";
-      filterHistoryRows();
-      searchInput?.focus?.();
+  if (historySearch) historySearch.addEventListener("input", applyHistoryFilter);
+  if (historyClear) {
+    historyClear.addEventListener("click", () => {
+      if (historySearch) historySearch.value = "";
+      applyHistoryFilter();
+      historySearch?.focus?.();
     });
   }
-
 
   runBtn.addEventListener("click", async () => {
     const cleaned = normaliseUrl(urlInput.value);
@@ -511,6 +504,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
+      // IMPORTANT: do not send user_id from client anymore.
+      // Server must derive it from the JWT.
       const payload = {
         url: cleaned,
         email: window.currentUserEmail || null,
@@ -548,6 +543,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         showViewReportCTA(reportId);
         statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
+        // fire narrative in background (non-blocking)
         generateNarrative(reportId, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
         });
