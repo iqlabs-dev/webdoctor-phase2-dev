@@ -1,140 +1,118 @@
 // netlify/functions/download-pdf.js
+// iQWEB — Download cached PDF if available; otherwise generate it the same way as generate-report-pdf.
 
 const { createClient } = require("@supabase/supabase-js");
 
-// ✅ FIX: use the correct env var name, with fallback for older configs
-const DOC_RAPTOR_API_KEY =
-  process.env.DOC_RAPTOR_API_KEY ||
-  process.env.DOCRAPTOR_API_KEY || // fallback (legacy typo)
-  "";
-
-const DOC_RAPTOR_BASE_URL = "https://docraptor.com/docs";
+function getFetch() {
+  if (typeof fetch === "function") return fetch;
+  // eslint-disable-next-line global-require
+  return require("node-fetch");
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
 exports.handler = async (event) => {
+  const fetchFn = getFetch();
+
   try {
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method not allowed" };
+      return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
     }
 
-    const body = JSON.parse(event.body || "{}");
-    const reportId = body.reportId;
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
+    }
 
+    const reportId = body.reportId || body.report_id || null;
     if (!reportId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Missing reportId" }),
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: "Missing reportId" }) };
     }
 
-    const { data, error } = await supabase
-      .from("scan_results")
-      .select("pdf_base64,report_id")
-      .eq("report_id", reportId)
-      .single();
-
-    if (error) {
-      console.error("Supabase error:", error);
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ error: "Supabase fetch failed" }),
-      };
-    }
-
-    // If PDF already exists, return it
-    if (data?.pdf_base64) {
-      const pdfBuffer = Buffer.from(data.pdf_base64, "base64");
-
-      return {
-        statusCode: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
-        },
-        body: pdfBuffer.toString("base64"),
-        isBase64Encoded: true,
-      };
-    }
-
-    // Otherwise, generate it now
-    if (!DOC_RAPTOR_API_KEY) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Missing DOC_RAPTOR_API_KEY" }),
-      };
-    }
-
-    const html = body.html;
-    if (!html) {
-      return {
-        statusCode: 400,
         body: JSON.stringify({
-          error: "PDF not available yet and no html provided to generate it.",
+          error: "Missing Supabase server config",
+          missing: {
+            SUPABASE_URL: !SUPABASE_URL,
+            SUPABASE_SERVICE_ROLE_KEY: !SUPABASE_SERVICE_ROLE_KEY,
+          },
         }),
       };
     }
 
-    const docraptorResponse = await fetch(DOC_RAPTOR_BASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/pdf",
-      },
-      body: JSON.stringify({
-        user_credentials: DOC_RAPTOR_API_KEY,
-        doc: {
-          name: `${reportId}.pdf`,
-          document_type: "pdf",
-          document_content: html,
-          javascript: true,
-          prince_options: { media: "print" },
-        },
-      }),
-    });
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    if (!docraptorResponse.ok) {
-      const errText = await docraptorResponse.text();
-      console.error("DocRaptor error:", errText);
+    // 1) If cached PDF exists, return it
+    const { data, error } = await supabaseAdmin
+      .from("scan_results")
+      .select("pdf_base64")
+      .eq("report_id", reportId)
+      .maybeSingle();
+
+    if (error) {
+      console.log("[PDF] scan_results read error (non-fatal):", error.message || error);
+    }
+
+    if (data?.pdf_base64) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "DocRaptor error", details: errText }),
+        statusCode: 200,
+        isBase64Encoded: true,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+        body: data.pdf_base64,
       };
     }
 
-    const pdfArrayBuffer = await docraptorResponse.arrayBuffer();
-    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    // 2) Otherwise call generate-report-pdf (same origin)
+    const host = event.headers.host;
+    const proto =
+      event.headers["x-forwarded-proto"] ||
+      event.headers["X-Forwarded-Proto"] ||
+      "https";
+    const url = `${proto}://${host}/.netlify/functions/generate-report-pdf`;
 
-    // Save pdf to Supabase for next time
-    const pdf_base64 = pdfBuffer.toString("base64");
+    const genResp = await fetchFn(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // forward auth if present (your generate function might not need it, but harmless)
+        ...(event.headers.authorization ? { Authorization: event.headers.authorization } : {}),
+      },
+      body: JSON.stringify({ reportId }),
+    });
 
-    const { error: updateError } = await supabase
-      .from("scan_results")
-      .update({ pdf_base64 })
-      .eq("report_id", reportId);
-
-    if (updateError) {
-      console.error("Supabase update error:", updateError);
-      // still return the pdf even if save fails
+    if (!genResp.ok) {
+      const txt = await genResp.text().catch(() => "");
+      console.error("[PDF] generate-report-pdf failed", genResp.status, txt.slice(0, 500));
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "PDF generation failed", status: genResp.status }),
+      };
     }
+
+    // genResp will be base64 PDF body (Netlify function response)
+    const pdfBase64 = await genResp.text();
 
     return {
       statusCode: 200,
+      isBase64Encoded: true,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
+        "Cache-Control": "no-store",
       },
-      body: pdf_base64,
-      isBase64Encoded: true,
+      body: pdfBase64,
     };
   } catch (err) {
-    console.error("download-pdf error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message || "Unknown error" }),
-    };
+    console.error("[PDF] download-pdf crash:", err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message || "Unknown error" }) };
   }
 };
