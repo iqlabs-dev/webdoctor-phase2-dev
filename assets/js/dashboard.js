@@ -29,15 +29,35 @@ function looksLikeReportId(v) {
   return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(v.trim());
 }
 
+/**
+ * Latest Scan → View report
+ * Same tab (focused workflow)
+ */
 function goToReport(reportId) {
   if (!looksLikeReportId(reportId)) {
     console.warn("[NAV] blocked invalid report_id:", reportId);
     alert("Report ID not ready yet. Please refresh in a moment.");
     return;
   }
+
   const url = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-  console.log("[NAV] ->", url);
+  console.log("[NAV] same-tab ->", url);
   window.location.href = url;
+}
+
+/**
+ * Scan History → View
+ * New tab (keeps dashboard context)
+ */
+function goToReportNewTab(reportId) {
+  if (!looksLikeReportId(reportId)) {
+    console.warn("[NAV] blocked invalid report_id:", reportId);
+    return;
+  }
+
+  const url = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+  console.log("[NAV] new-tab ->", url);
+  window.open(url, "_blank", "noopener");
 }
 
 function setUserUI(email) {
@@ -75,6 +95,7 @@ function showViewReportCTA(reportId) {
   const btn = $("view-report-btn");
   if (btn) btn.onclick = () => goToReport(reportId);
 }
+
 
 // -----------------------------
 // BILLING HELPERS (legacy; safe)
