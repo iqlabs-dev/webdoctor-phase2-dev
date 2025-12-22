@@ -1,5 +1,6 @@
 // netlify/functions/generate-report-pdf.js
-// iQWEB — Generate PDF via DocRaptor using document_url (NO DB columns required)
+// iQWEB — Generate PDF via DocRaptor using document_url
+// FIX: waits for docraptorJavaScriptFinished() so you don't capture the loader screen.
 
 exports.handler = async (event) => {
   try {
@@ -24,8 +25,9 @@ exports.handler = async (event) => {
       return { statusCode: 500, body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }) };
     }
 
-    // Use your production origin. (If you want, you can make this smarter later.)
-    const reportUrl = `https://iqweb.ai/report.html?report_id=${encodeURIComponent(reportId)}`;
+    // Use your production origin.
+    // IMPORTANT: add pdf=1 so report.html can switch into “PDF mode” if needed.
+    const reportUrl = `https://iqweb.ai/report.html?report_id=${encodeURIComponent(reportId)}&pdf=1`;
 
     console.log("[PDF] generate-report-pdf", {
       reportId,
@@ -33,6 +35,7 @@ exports.handler = async (event) => {
       reportUrl,
     });
 
+    // DocRaptor API (PDF)
     const resp = await fetch("https://docraptor.com/docs", {
       method: "POST",
       headers: {
@@ -45,14 +48,20 @@ exports.handler = async (event) => {
           name: `${reportId}.pdf`,
           document_type: "pdf",
 
-          // IMPORTANT: use URL render (no HTML stored in DB needed)
+          // Render from URL (no HTML stored in DB)
           document_url: reportUrl,
 
-          // Allow your report JS to run before render
+          // Run your report JS first
           javascript: true,
 
-          // Make it use your @media print CSS
-          prince_options: { media: "print" },
+          // IMPORTANT: ignore console.log so it won't fail generation
+          // (you currently have many console logs across the app)
+          ignore_console_messages: true,
+
+          // Use @media print
+          prince_options: {
+            media: "print",
+          },
         },
       }),
     });

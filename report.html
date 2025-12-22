@@ -300,51 +300,49 @@
 
     /* Evidence */
     /* ===============================
-   Signal Evidence layout
-   =============================== */
+       Signal Evidence layout
+       =============================== */
 
-#signalEvidenceRoot {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
+    #signalEvidenceRoot {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
 
-/* Desktop: 2 columns (3 rows for 6 signals) */
-@media (min-width: 900px) {
-  #signalEvidenceRoot {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-#signalEvidenceRoot { align-items: start; }
-#signalEvidenceRoot > .evidence-block { align-self: start; }
+    /* Desktop: 2 columns (3 rows for 6 signals) */
+    @media (min-width: 900px) {
+      #signalEvidenceRoot {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    #signalEvidenceRoot { align-items: start; }
+    #signalEvidenceRoot > .evidence-block { align-self: start; }
 
-/* --- FIX: prevent issue text overflowing card --- */
-.issue { overflow: hidden; } /* hard safety net */
+    /* --- FIX: prevent issue text overflowing card --- */
+    .issue { overflow: hidden; } /* hard safety net */
 
-.issue-top {
-  align-items: flex-start;      /* better for multi-line titles */
-}
+    .issue-top {
+      align-items: flex-start;      /* better for multi-line titles */
+    }
 
-.issue-title {
-  flex: 1 1 auto;               /* allow it to shrink */
-  min-width: 0;                 /* CRITICAL for flex wrapping */
-  overflow-wrap: anywhere;      /* wrap long chunks safely */
-  word-break: break-word;
-  line-height: 1.35;
-}
+    .issue-title {
+      flex: 1 1 auto;               /* allow it to shrink */
+      min-width: 0;                 /* CRITICAL for flex wrapping */
+      overflow-wrap: anywhere;      /* wrap long chunks safely */
+      word-break: break-word;
+      line-height: 1.35;
+    }
 
-.issue-label {
-  flex: 0 0 auto;               /* keep the severity badge fixed */
-  margin-left: 10px;
-}
+    .issue-label {
+      flex: 0 0 auto;               /* keep the severity badge fixed */
+      margin-left: 10px;
+    }
 
-.issue-why {
-  white-space: normal;          /* ensure wrapping is allowed */
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-
+    .issue-why {
+      white-space: normal;          /* ensure wrapping is allowed */
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     .evidence-block {
       background: rgba(0,0,0,0.16);
@@ -379,27 +377,23 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .kv .k { color: var(--muted); font-size: 12px; }
-.kv .v{
-  color: var(--ink);
-  font-weight: 600;
-  font-size: 12px;
-  text-align: right;
-  white-space: nowrap;
-  overflow: visible;         /* important */
-  min-width: 44px;           /* enough for "false" */
-  flex: 0 0 auto;            /* don’t shrink */
-}
+    .kv .v{
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 12px;
+      text-align: right;
+      white-space: nowrap;
+      overflow: visible;
+      min-width: 44px;
+      flex: 0 0 auto;
+    }
 
-
-/* ✅ Impact text inside Issues must wrap (it was wrongly inheriting .v pill rules) */
-.impact-text {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-
-
+    /* ✅ Impact text inside Issues must wrap */
+    .impact-text {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     /* ✅ Evidence accordions */
     details.evidence-block { padding: 0; }
@@ -495,45 +489,41 @@
       background: rgba(0,0,0,0.16);
       border: 1px solid var(--border-subtle);
     }
-.issue-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-  margin-bottom: 6px;
+    .issue-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
 
-  flex-wrap: wrap; /* ← critical */
-}
+    .issue-title {
+      margin: 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--ink-soft);
+      line-height: 1.4;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
 
-.issue-title {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  color: var(--ink-soft);
-  line-height: 1.4;
-
-  /* overflow safety (NEW) */
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-
-.issue-label {
-  font-size: 11px;
-  letter-spacing: 0.06em;   /* ↓ from 0.08em */
-  text-transform: uppercase;
-  color: rgba(229,240,255,0.65);  /* ↓ slightly softer */
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: rgba(255,255,255,0.03);
-  white-space: nowrap;
-}
+    .issue-label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(229,240,255,0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      white-space: nowrap;
+    }
 
     .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
 
@@ -588,47 +578,37 @@
       justify-content: center;
     }
 
-/* Loader container — neutral, no layout tricks */
-.pulse {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+    /* Loader container — neutral, no layout tricks */
+    .pulse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-/* Λ i Q mark — platinum / ice white */
-.pulse::after {
-  content: "Λ i Q";
-  font-family: "Montserrat", system-ui, sans-serif;
-  font-weight: 500;
-  font-size: 20px;
-  letter-spacing: 0.22em;
+    /* Λ i Q mark — platinum / ice white */
+    .pulse::after {
+      content: "Λ i Q";
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-weight: 500;
+      font-size: 20px;
+      letter-spacing: 0.22em;
+      color: rgba(235, 240, 245, 0.92);
+      text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
+      animation: iqPulse 1.8s ease-in-out infinite;
+    }
 
-  /* Soft platinum / ice white */
-  color: rgba(235, 240, 245, 0.92);
-
-  /* Minimal premium glow (not neon) */
-  text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
-
-  /* Subtle opacity pulse only */
-  animation: iqPulse 1.8s ease-in-out infinite;
-}
-
-/* No movement, no colour shift */
-@keyframes iqPulse {
-  0%   { opacity: 0.55; }
-  50%  { opacity: 1; }
-  100% { opacity: 0.55; }
-}
-
-
-
+    @keyframes iqPulse {
+      0%   { opacity: 0.55; }
+      50%  { opacity: 1; }
+      100% { opacity: 0.55; }
+    }
 
     .final-notes p {
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0 0 10px 0;
-}
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0 0 10px 0;
+    }
 
     .footer {
       width: 100%;
@@ -663,96 +643,124 @@
     body.light .brand .tag { color: rgba(15,23,42,0.55); }
 
     /* ===============================
-   PRINT / PDF MODE (auto-white)
-   Keeps UI dark on screen, but prints clean
-   =============================== */
-@media print {
-  /* force white page */
-  :root { color-scheme: light; }
-  html, body {
-    background: #ffffff !important;
-    color: #0f172a !important;
-  }
+       PRINT / PDF MODE (auto-white)
+       =============================== */
+    @media print {
+      :root { color-scheme: light; }
+      html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
 
-  /* remove fancy backgrounds/shadows that print badly */
-  * {
-    box-shadow: none !important;
-    text-shadow: none !important;
-    filter: none !important;
-  }
+      * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        filter: none !important;
+      }
 
-  /* turn your “dark glass” panels into clean cards */
-  .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
-    background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-  }
+      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+      }
 
-  /* make headings readable */
-  .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
-    color: #0f172a !important;
-  }
+      .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
+        color: #0f172a !important;
+      }
 
-  /* body copy */
-  .summary, .issue-why, .insight .text, .kv .k, .kv .v {
-    color: #111827 !important;
-  }
+      .summary, .issue-why, .insight .text, .kv .k, .kv .v {
+        color: #111827 !important;
+      }
 
-  /* bars: keep visible but printer friendly */
-  .bar {
-    background: #e5e7eb !important;
-  }
-  .bar > div {
-    background: #111827 !important;
-  }
+      .bar { background: #e5e7eb !important; }
+      .bar > div { background: #111827 !important; }
 
-  /* hide UI-only controls */
-  #backToDashboard,
-  .btn,
-  .toggle,
-  .nav,
-  .no-print {
-    display: none !important;
-  }
+      #backToDashboard,
+      .btn,
+      .toggle,
+      .nav,
+      .no-print {
+        display: none !important;
+      }
 
-  /* avoid weird breaks inside accordions/cards */
-  details { page-break-inside: avoid; }
-  .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
+      details { page-break-inside: avoid; }
+      .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
 
-  /* expand all evidence accordions automatically */
-  details.evidence-block { display: block !important; }
-  details.evidence-block > summary { display: none !important; }
-  details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
+      details.evidence-block { display: block !important; }
+      details.evidence-block > summary { display: none !important; }
+      details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
 
-  /* ensure links print nicely */
-  a, a:visited { color: #111827 !important; text-decoration: underline !important; }
-}
+      a, a:visited { color: #111827 !important; text-decoration: underline !important; }
+    }
 
-/* Signal Evidence — subtle hover affordance */
-@media (hover: hover) and (pointer: fine) {
-  .evidence-block {
-    transition:
-      border-color 140ms ease-out,
-      box-shadow 140ms ease-out,
-      transform 140ms ease-out;
-  }
+    /* Signal Evidence — subtle hover affordance */
+    @media (hover: hover) and (pointer: fine) {
+      .evidence-block {
+        transition:
+          border-color 140ms ease-out,
+          box-shadow 140ms ease-out,
+          transform 140ms ease-out;
+      }
 
-  .evidence-block:hover {
-  border-color: rgba(64, 220, 180, 0.28);
-  box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
-  transform: none;
-}
+      .evidence-block:hover {
+        border-color: rgba(64, 220, 180, 0.28);
+        box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
+        transform: none;
+      }
+    }
 
-}
+    @media print {
+      #reportRoot {
+        max-width: none !important;
+        width: 100% !important;
+      }
+    }
 
+    /* ============================================================
+       ✅ ADDED: “PDF RENDER MODE” (triggered by ?pdf=1)
+       - Forces clean white output WITHOUT relying on print media
+       - Hides loader/buttons
+       - Opens accordions
+       ============================================================ */
+    body.pdf {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      padding: 0 !important;
+    }
+    body.pdf .top-card,
+    body.pdf .section,
+    body.pdf .loader-wrap {
+      background: #ffffff !important;
+      border-color: #e5e7eb !important;
+      box-shadow: none !important;
+    }
+    body.pdf .section-head { background: #ffffff !important; }
 
-@media print {
-  #reportRoot {
-    max-width: none !important;
-    width: 100% !important;
-  }
-}
+    body.pdf .summary,
+    body.pdf .issue-why,
+    body.pdf .insight .text,
+    body.pdf .kv .k,
+    body.pdf .kv .v {
+      color: #111827 !important;
+    }
+    body.pdf .section-title,
+    body.pdf .evidence-title,
+    body.pdf .acc-title,
+    body.pdf .issue-title {
+      color: #0f172a !important;
+    }
 
+    body.pdf .bar { background: #e5e7eb !important; border-color: #e5e7eb !important; }
+    body.pdf .bar > div { background: #111827 !important; }
 
+    body.pdf #loaderSection { display: none !important; }
+    body.pdf #backToDashboard,
+    body.pdf #refreshBtn,
+    body.pdf .btn { display: none !important; }
+
+    /* In PDF mode, show all evidence content */
+    body.pdf details.evidence-block { display: block !important; border: 1px solid #e5e7eb !important; background: #ffffff !important; }
+    body.pdf details.evidence-block > summary { display: none !important; }
+    body.pdf details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; background: #ffffff !important; }
   </style>
 </head>
 
@@ -771,11 +779,10 @@
             </div>
           </div>
 
- <div class="top-actions">
-  <button id="backToDashboard" class="btn">Back to dashboard</button>
-  <button class="btn" id="refreshBtn">Refresh</button>
-</div>
-
+          <div class="top-actions">
+            <button id="backToDashboard" class="btn">Back to dashboard</button>
+            <button class="btn" id="refreshBtn">Refresh</button>
+          </div>
         </div>
 
         <!-- Meta Strip -->
@@ -799,13 +806,13 @@
       </div>
 
       <!-- Loader -->
-  <section id="loaderSection" class="loader-wrap">
-  <div class="pulse" aria-hidden="true"></div>
-  <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
-  <div id="loaderStatus" class="muted" style="font-size:12px;">
-    Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
-  </div>
-</section>
+      <section id="loaderSection" class="loader-wrap">
+        <div class="pulse" aria-hidden="true"></div>
+        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+        <div id="loaderStatus" class="muted" style="font-size:12px;">
+          Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
+        </div>
+      </section>
 
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
@@ -953,67 +960,120 @@
           </div>
         </section>
 
-<section class="section" id="finalNotesSection">
-  <div class="section-head">
-    <h2 class="section-title">Final Notes</h2>
-  </div>
+        <section class="section" id="finalNotesSection">
+          <div class="section-head">
+            <h2 class="section-title">Final Notes</h2>
+          </div>
 
-  <div class="section-body" id="finalNotesRoot">
-    <div class="final-notes">
-      <p>
-        iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
-      </p>
+          <div class="section-body" id="finalNotesRoot">
+            <div class="final-notes">
+              <p>
+                iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
+              </p>
 
-      <p>
-        This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
-      </p>
+              <p>
+                This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
+              </p>
 
-      <p>
-        Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
-      </p>
-    </div>
-  </div>
-</section>
-
+              <p>
+                Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
+              </p>
+            </div>
+          </div>
+        </section>
 
       </main>
 
-<div class="footer">
-  © 2025 iQWEB – All rights reserved.
-</div>
+      <div class="footer">
+        © 2025 iQWEB – All rights reserved.
+      </div>
+
+    </div>
+
+    <script src="/assets/js/report-data.js"></script>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const from = (params.get("from") || "").toLowerCase();
+        const isPDF = params.get("pdf") === "1";
+
+        const refresh = document.getElementById("refreshBtn");
+        const backBtn = document.getElementById("backToDashboard");
+
+        // Hide back button ONLY when opened from scan history
+        if (from === "history" && backBtn) backBtn.style.display = "none";
+
+        // Back button behavior
+        if (backBtn) backBtn.addEventListener("click", () => {
+          window.location.href = "/dashboard.html";
+        });
+
+        // Refresh behavior
+        if (refresh) refresh.addEventListener("click", () => location.reload());
+
+        // ✅ PDF mode: force clean render
+        if (isPDF) {
+          document.body.classList.add("pdf");
+        }
+
+        // ✅ DocRaptor readiness:
+        // We mark ready only once the page has actually rendered the main report content.
+        // Conditions:
+        // - reportRoot visible
+        // - meta fields filled (siteUrl/reportId not "—")
+        // - signalsGrid has cards OR evidence has blocks (deterministic render happened)
+        function isReady() {
+          const reportRoot = document.getElementById("reportRoot");
+          const loader = document.getElementById("loaderSection");
+          const siteUrl = document.getElementById("siteUrl");
+          const reportId = document.getElementById("reportId");
+          const signalsGrid = document.getElementById("signalsGrid");
+          const evidenceRoot = document.getElementById("signalEvidenceRoot");
+
+          const reportVisible = reportRoot && reportRoot.style.display !== "none";
+          const loaderHidden = loader && loader.style.display === "none";
+
+          const siteOk = siteUrl && siteUrl.textContent && siteUrl.textContent.trim() !== "—";
+          const idOk = reportId && reportId.textContent && reportId.textContent.trim() !== "—";
+
+          const signalsOk = signalsGrid && signalsGrid.children && signalsGrid.children.length > 0;
+          const evidenceOk = evidenceRoot && evidenceRoot.children && evidenceRoot.children.length > 0;
+
+          // We accept either signals or evidence as proof of render
+          return (reportVisible || loaderHidden) && siteOk && idOk && (signalsOk || evidenceOk);
+        }
+
+        function forceEvidenceOpenForPDF() {
+          // Open all evidence accordions so PDF contains the bodies
+          document.querySelectorAll("details.evidence-block").forEach((d) => {
+            try { d.open = true; } catch(_) {}
+          });
+        }
+
+        // In PDF mode, keep checking until render is complete, then mark ready
+        if (isPDF) {
+          const start = Date.now();
+          const maxMs = 20000; // 20s hard limit
+
+          const t = setInterval(() => {
+            if (isReady()) {
+              forceEvidenceOpenForPDF();
+              window.__IQWEB_PDF_READY__ = true; // ✅ your function can wait for this
+              clearInterval(t);
+              return;
+            }
+            if (Date.now() - start > maxMs) {
+              // still mark ready so it doesn't hang forever
+              forceEvidenceOpenForPDF();
+              window.__IQWEB_PDF_READY__ = true;
+              clearInterval(t);
+            }
+          }, 150);
+        }
+      })();
+    </script>
 
   </div>
-
-  <script src="/assets/js/report-data.js"></script>
-
-<script>
-  (function(){
-    const refresh = document.getElementById("refreshBtn");
-    const backBtn = document.getElementById("backToDashboard");
-
-    // Read URL params
-    const params = new URLSearchParams(window.location.search);
-    const from = (params.get("from") || "").toLowerCase();
-
-    // Hide "Back to dashboard" ONLY when opened from Scan History
-    // (history opens in a new tab: we do NOT want duplicate dashboards)
-    if (from === "history" && backBtn) {
-      backBtn.style.display = "none";
-    }
-
-    // Back button behavior (only if visible)
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        window.location.href = "/dashboard.html";
-      });
-    }
-
-    // Refresh behavior
-    if (refresh) {
-      refresh.addEventListener("click", () => location.reload());
-    }
-  })();
-</script>
-
 </body>
 </html>
