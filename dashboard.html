@@ -217,20 +217,20 @@
       padding: 16px;
     }
 
-/* Remove the “inner top border” look (table container) */
+/* Table container — no inner top hairline */
 .table-wrap{
   overflow: auto;
   border-radius: 14px;
   border: none;
   background: rgba(0,0,0,.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  box-shadow: none; /* removes the stubborn line */
 }
 
-/* Remove the header’s top border line */
+/* Header clean (no top edge) */
 .table-wrap thead th{
   border-top: none;
+  background: rgba(255,255,255,.015);
 }
-
 
     .row{ display:flex; gap: 14px; align-items:stretch; flex-wrap:wrap; }
     .col{ flex:1; min-width: 320px; }
@@ -509,7 +509,7 @@
                 </div>
 
                 <div class="scanhelp">
-                  Click a website in scan history to load it into Latest scan.
+                  Click a website in scan history to load it above, or enter a new URL to run a scan.
                 </div>
               </div>
             </div>
@@ -525,10 +525,7 @@
                   <input id="site-url" type="url" inputmode="url" placeholder="https://example.com" />
                   <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
                 </div>
-
-                <div class="scanhelp">
-                  Enter a website URL and run a scan. If scanning is disabled, check Billing for your account state.
-                </div>
+          
 
                 <div id="trial-info"></div>
               </div>
