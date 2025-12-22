@@ -463,7 +463,8 @@ async function loadScanHistory() {
       const viewBtn = document.createElement("button");
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
-      viewBtn.onclick = () => goToReport(row.report_id);
+      viewBtn.onclick = () => goToReportNewTab(row.report_id);
+
       tdActions.appendChild(viewBtn);
 
       tdActions.appendChild(document.createTextNode(" "));
