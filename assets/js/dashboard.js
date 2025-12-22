@@ -55,7 +55,7 @@ function goToReportNewTab(reportId) {
     return;
   }
 
-  const url = `/report.html?report_id=${encodeURIComponent(reportId)}&from=history`;
+  const url = `/report_template.html?report_id=${encodeURIComponent(reportId)}`;
   window.open(url, "_blank", "noopener");
 }
 
@@ -464,6 +464,7 @@ async function loadScanHistory() {
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
       viewBtn.onclick = () => goToReportNewTab(row.report_id);
+
 
       tdActions.appendChild(viewBtn);
 
