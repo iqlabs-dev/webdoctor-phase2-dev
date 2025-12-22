@@ -91,7 +91,7 @@
       background: rgba(255,255,255,.02);
     }
 
-    /* ✅ POLISH #1: Remove the "D" chip permanently (even if JS tries to show it) */
+    /* ✅ POLISH: Remove the "D" chip permanently (even if JS tries to show it) */
     #wd-user-initial{ display:none !important; }
 
     .nav{
@@ -176,11 +176,10 @@
       min-width:0;
       display:flex;
       flex-direction:column;
-      /* ✅ POLISH #3: keep it blending (no solid panel background) */
       background: transparent;
     }
 
-    /* ✅ POLISH #2/#3: Topbar blends into background (no "black slab") */
+    /* ✅ Topbar blends (no slab) */
     .topbar{
       height: 62px;
       display:flex;
@@ -210,7 +209,6 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    /* ✅ If subtitle is blank, hide it completely */
     #page-subtitle:empty{ display:none; }
 
     .topbar .right{
@@ -249,11 +247,23 @@
       padding: 16px;
     }
 
+    /* ✅ S-tier hierarchy: primary vs secondary */
+    .card.primary{
+      background: linear-gradient(180deg, rgba(16,24,44,.78), rgba(10,15,26,.65));
+      border-color: rgba(255,255,255,.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .card.secondary{
+      background: rgba(10,15,26,.52);
+      border-color: rgba(255,255,255,.06);
+    }
+
     .row{
       display:flex;
       gap: 14px;
       align-items:stretch;
       flex-wrap:wrap;
+      margin-bottom: 6px; /* micro-separation */
     }
 
     .col{
@@ -262,14 +272,14 @@
       display:flex;
     }
 
-    /* ✅ POLISH #4: equal-height cards for Latest + Run Scan */
+    /* Equal-height cards for Latest + Run Scan */
     .card.equal{
       width:100%;
       display:flex;
       flex-direction:column;
     }
     .card.equal .scanhelp{
-      margin-top:auto; /* pins help text to the bottom so both cards align */
+      margin-top:auto;
     }
 
     .h{
@@ -408,6 +418,7 @@
       font-size: 13px;
     }
     .scanbar input::placeholder{ color: rgba(255,255,255,.35); }
+
     .scanhelp{
       font-size: 12px;
       color: var(--muted2);
@@ -594,7 +605,7 @@
 
           <div class="row">
             <div class="col">
-              <div class="card equal">
+              <div class="card primary equal">
                 <div class="h">
                   <h2>Latest scan</h2>
                   <span class="meta">Most recent result</span>
@@ -611,14 +622,13 @@
                   </div>
                 </div>
 
-                <div class="scanhelp">
-                  Click a website in scan history to load it into Latest scan.
-                </div>
+                <!-- ✅ Removed instruction line -->
+                <div class="scanhelp"></div>
               </div>
             </div>
 
             <div class="col">
-              <div class="card equal">
+              <div class="card primary equal">
                 <div class="h">
                   <h2>Run scan</h2>
                   <span class="meta">Evidence-first diagnostic</span>
@@ -629,16 +639,15 @@
                   <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
                 </div>
 
-                <div class="scanhelp">
-                  Enter a website URL and run a scan. If scanning is disabled, check Billing for your account state.
-                </div>
+                <!-- ✅ Removed instruction line -->
+                <div class="scanhelp"></div>
 
                 <div id="trial-info"></div>
               </div>
             </div>
           </div>
 
-          <div class="card">
+          <div class="card secondary">
             <div class="h">
               <h2>Scan history</h2>
 
@@ -659,7 +668,7 @@
                     font-size: 12px;"
                 />
                 <button id="history-clear" class="btn" type="button">Clear</button>
-                <span class="meta">Latest 20 scans</span>
+                <!-- ✅ Removed “Latest 20 scans” -->
               </div>
             </div>
 
@@ -685,7 +694,7 @@
         </div>
 
         <div id="view-billing" class="view">
-          <div class="card">
+          <div class="card secondary">
             <div class="h">
               <h2>Billing</h2>
               <span class="meta">Account state</span>
@@ -704,7 +713,7 @@
         </div>
 
         <div id="view-account" class="view">
-          <div class="card">
+          <div class="card secondary">
             <div class="h">
               <h2>Account</h2>
               <span class="meta">Security</span>
@@ -748,7 +757,7 @@
           viewId === 'view-account' ? 'Account' : 'Dashboard';
       }
 
-      /* ✅ POLISH #2: no dashboard subtitle */
+      // No subtitle on dashboard
       if (pageSubtitle) {
         pageSubtitle.textContent =
           viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
