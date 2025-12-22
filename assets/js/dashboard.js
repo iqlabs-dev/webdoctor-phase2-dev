@@ -479,47 +479,53 @@ pdfBtn.className = "btn-link wd-history-pdf";
 pdfBtn.textContent = "PDF";
 
 pdfBtn.onclick = async () => {
+  const originalText = pdfBtn.textContent;
+
   try {
-    // If PDF already exists, open it
-    if (row.report_url) {
-      window.open(row.report_url, "_blank", "noopener");
+    if (!looksLikeReportId(row.report_id)) {
+      alert("Report ID not ready yet. Please refresh in a moment.");
       return;
     }
-
-    // Otherwise, generate it on-demand
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token || null;
-    if (!accessToken) throw new Error("Session expired. Please log in again.");
 
     pdfBtn.disabled = true;
     pdfBtn.textContent = "Generating…";
 
-    const res = await fetch("/.netlify/functions/generate-report-pdf", {
+    // IMPORTANT:
+    // Call the download orchestrator and treat response as a binary PDF
+    const res = await fetch("/.netlify/functions/download-pdf", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ report_id: row.report_id }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportId: row.report_id }),
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.pdf_url) throw new Error(data?.error || "PDF failed");
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error("PDF download failed:", res.status, txt);
+      throw new Error("PDF generation failed");
+    }
 
-    window.open(data.pdf_url, "_blank", "noopener");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
 
-    // reload history so report_url shows next time
-    await loadScanHistory();
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${row.report_id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
   } catch (e) {
-    console.error("PDF generate error:", e);
+    console.error("PDF error:", e);
     alert("PDF generation failed. Check Netlify function logs.");
   } finally {
     pdfBtn.disabled = false;
-    pdfBtn.textContent = "PDF";
+    pdfBtn.textContent = originalText;
   }
 };
 
 tdActions.appendChild(pdfBtn);
+
 
 
       tr.appendChild(tdActions);
