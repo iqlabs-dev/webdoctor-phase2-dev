@@ -986,21 +986,34 @@
 
   <script src="/assets/js/report-data.js"></script>
 
-  <script>
-    (function(){
-      const btn = document.getElementById("themeToggle");
-      const refresh = document.getElementById("refreshBtn");
-      const key = "iqweb_theme_v1";
-      const saved = localStorage.getItem(key);
-      if (saved === "light") document.body.classList.add("light");
+<script>
+  (function(){
+    const refresh = document.getElementById("refreshBtn");
+    const backBtn = document.getElementById("backToDashboard");
 
-      btn && btn.addEventListener("click", () => {
-        document.body.classList.toggle("light");
-        localStorage.setItem(key, document.body.classList.contains("light") ? "light" : "dark");
+    // Read URL params
+    const params = new URLSearchParams(window.location.search);
+    const from = (params.get("from") || "").toLowerCase();
+
+    // Hide "Back to dashboard" ONLY when opened from Scan History
+    // (history opens in a new tab: we do NOT want duplicate dashboards)
+    if (from === "history" && backBtn) {
+      backBtn.style.display = "none";
+    }
+
+    // Back button behavior (only if visible)
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        window.location.href = "/dashboard.html";
       });
+    }
 
-      refresh && refresh.addEventListener("click", () => location.reload());
-    })();
-  </script>
+    // Refresh behavior
+    if (refresh) {
+      refresh.addEventListener("click", () => location.reload());
+    }
+  })();
+</script>
+
 </body>
 </html>

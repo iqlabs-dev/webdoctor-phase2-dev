@@ -55,9 +55,12 @@ function goToReportNewTab(reportId) {
     return;
   }
 
-  const url = `/report_template.html?report_id=${encodeURIComponent(reportId)}`;
+  // IMPORTANT: use report.html (exists) + from=history flag
+  const url = `/report.html?report_id=${encodeURIComponent(reportId)}&from=history`;
+  console.log("[NAV] history new-tab ->", url);
   window.open(url, "_blank", "noopener");
 }
+
 
 
 function setUserUI(email) {
