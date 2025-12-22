@@ -5,7 +5,7 @@
   <title>iQWEB Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Fonts -->
+  <!-- Font -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -55,7 +55,7 @@
       gap: 18px;
     }
 
-    /* Top headr card */
+    /* Top header card */
     .top-card {
       width: 100%;
       border-radius: var(--radius);
@@ -83,36 +83,12 @@
       letter-spacing: 0.02em;
       font-size: 18px;
     }
-
-    .top-meta {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .meta-line {
-      background: rgba(0,0,0,0.22);
-      border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 10px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .meta-line .k {
-      color: var(--muted);
-      font-size: 11px;
-      letter-spacing: 0.08em;
+    .brand .tag {
+      color: rgba(229,240,255,0.70);
+      font-weight: 700;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-    }
-    .meta-line .v {
-      font-weight: 600;
-      color: var(--ink);
-      font-size: 13px;
-      overflow-wrap: anywhere;
-      text-align: right;
+      font-size: 11px;
     }
 
     .top-actions {
@@ -133,6 +109,104 @@
     }
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
+
+    /* Meta strip for white-label ready header */
+    .meta-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .meta-cell {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .meta-cell .k {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .meta-cell .v {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+      text-decoration: none;
+    }
+
+    /* Website hover affordance */
+    .meta-cell .linkish {
+      cursor: pointer;
+    }
+    .meta-cell .linkish:hover {
+      text-decoration: underline;
+      color: var(--accent);
+    }
+
+    /* Mobile stacking */
+    @media (max-width: 700px) {
+      .meta-strip { grid-template-columns: 1fr; }
+    }
+
+    /* Slim Overall Summary Strip (inside Delivery Signals) */
+    .overall-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+
+      background: rgba(0,0,0,0.14);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+    }
+
+    .overall-strip-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .overall-strip-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .overall-strip-score {
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+    }
+
+    .overall-strip .bar { margin-top: 2px; }
+
+    .overall-strip-note {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    /* Light theme support */
+    body.light .overall-strip {
+      background: rgba(15,23,42,0.03);
+      border-color: rgba(15,23,42,0.10);
+    }
+    body.light .overall-strip-note {
+      color: rgba(15,23,42,0.78);
+    }
 
     /* Sections */
     .section {
@@ -225,6 +299,53 @@
     }
 
     /* Evidence */
+    /* ===============================
+   Signal Evidence layout
+   =============================== */
+
+#signalEvidenceRoot {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+/* Desktop: 2 columns (3 rows for 6 signals) */
+@media (min-width: 900px) {
+  #signalEvidenceRoot {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+#signalEvidenceRoot { align-items: start; }
+#signalEvidenceRoot > .evidence-block { align-self: start; }
+
+/* --- FIX: prevent issue text overflowing card --- */
+.issue { overflow: hidden; } /* hard safety net */
+
+.issue-top {
+  align-items: flex-start;      /* better for multi-line titles */
+}
+
+.issue-title {
+  flex: 1 1 auto;               /* allow it to shrink */
+  min-width: 0;                 /* CRITICAL for flex wrapping */
+  overflow-wrap: anywhere;      /* wrap long chunks safely */
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.issue-label {
+  flex: 0 0 auto;               /* keep the severity badge fixed */
+  margin-left: 10px;
+}
+
+.issue-why {
+  white-space: normal;          /* ensure wrapping is allowed */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
+
     .evidence-block {
       background: rgba(0,0,0,0.16);
       border: 1px solid var(--border-subtle);
@@ -258,9 +379,29 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .kv .k { color: var(--muted); font-size: 12px; }
-    .kv .v { color: var(--ink); font-weight: 600; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.kv .v{
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: visible;         /* important */
+  min-width: 44px;           /* enough for "false" */
+  flex: 0 0 auto;            /* don’t shrink */
+}
 
-    /* ✅ Make details/summary behave like proper accordions */
+
+/* ✅ Impact text inside Issues must wrap (it was wrongly inheriting .v pill rules) */
+.impact-text {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+
+
+
+    /* ✅ Evidence accordions */
     details.evidence-block { padding: 0; }
     details.evidence-block > summary {
       list-style: none;
@@ -303,6 +444,134 @@
       background: rgba(0,0,0,0.14);
     }
 
+    /* ✅ Key Insight Metrics must never behave like evidence accordions */
+    #keyMetricsRoot details,
+    #keyMetricsRoot summary {
+      all: unset;
+      display: block;
+    }
+    #keyMetricsRoot details { margin: 0; }
+    #keyMetricsRoot summary { cursor: default; }
+
+    /* Insight list UI */
+    .insight-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 900px) {
+      .insight-list { grid-template-columns: 1fr 1fr; }
+    }
+    .insight {
+      border-radius: 14px;
+      padding: 12px 12px;
+      background: rgba(0,0,0,0.16);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .insight .tag {
+      flex: 0 0 auto;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: rgba(34,211,238,0.95);
+      padding-top: 2px;
+      min-width: 92px;
+    }
+    .insight .text {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    /* Issue list */
+    .issue-list { display: flex; flex-direction: column; gap: 10px; }
+    .issue {
+      border-radius: 14px;
+      padding: 12px 12px;
+      background: rgba(0,0,0,0.16);
+      border: 1px solid var(--border-subtle);
+    }
+.issue-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+
+  flex-wrap: wrap; /* ← critical */
+}
+
+.issue-title {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--ink-soft);
+  line-height: 1.4;
+
+  /* overflow safety (NEW) */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+
+.issue-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;   /* ↓ from 0.08em */
+  text-transform: uppercase;
+  color: rgba(229,240,255,0.65);  /* ↓ slightly softer */
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.03);
+  white-space: nowrap;
+}
+
+    .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+
+    /* Fix sequence */
+    .phase {
+      border-radius: 16px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(0,0,0,0.16);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .phase-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.03);
+    }
+    .phase-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .phase-time {
+      font-size: 11px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: rgba(229,240,255,0.65);
+    }
+    .phase-body { padding: 12px 14px; }
+    .phase-body ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
+    .phase-body li { margin: 6px 0; line-height: 1.45; }
+
     /* Loader */
     .loader-wrap {
       width: 100%;
@@ -318,26 +587,48 @@
       align-items: center;
       justify-content: center;
     }
-    .pulse {
-      width: 64px;
-      height: 64px;
-      border-radius: 999px;
-      border: 2px solid rgba(34,211,238,0.35);
-      position: relative;
-    }
-    .pulse:before, .pulse:after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 999px;
-      border: 2px solid rgba(34,211,238,0.35);
-      animation: pulse 1.4s ease-out infinite;
-    }
-    .pulse:after { animation-delay: 0.7s; opacity: 0.7; }
-    @keyframes pulse {
-      0% { transform: scale(0.75); opacity: 0.85; }
-      100% { transform: scale(1.45); opacity: 0; }
-    }
+
+/* Loader container — neutral, no layout tricks */
+.pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Λ i Q mark — platinum / ice white */
+.pulse::after {
+  content: "Λ i Q";
+  font-family: "Montserrat", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+
+  /* Soft platinum / ice white */
+  color: rgba(235, 240, 245, 0.92);
+
+  /* Minimal premium glow (not neon) */
+  text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
+
+  /* Subtle opacity pulse only */
+  animation: iqPulse 1.8s ease-in-out infinite;
+}
+
+/* No movement, no colour shift */
+@keyframes iqPulse {
+  0%   { opacity: 0.55; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+
+
+
+    .final-notes p {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+}
 
     .footer {
       width: 100%;
@@ -361,13 +652,107 @@
       box-shadow: 0 10px 30px rgba(15,23,42,0.10);
     }
     body.light .section-head { background: rgba(15,23,42,0.03); }
-    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv {
+    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv,
+    body.light .insight, body.light .issue, body.light .phase {
       background: rgba(15,23,42,0.03);
       border-color: rgba(15,23,42,0.10);
     }
     body.light .bar { background: rgba(15,23,42,0.10); }
-    body.light .summary { color: rgba(15,23,42,0.78); }
+    body.light .summary, body.light .issue-why, body.light .phase-body li, body.light .insight .text { color: rgba(15,23,42,0.78); }
     body.light .muted { color: rgba(15,23,42,0.55); }
+    body.light .brand .tag { color: rgba(15,23,42,0.55); }
+
+    /* ===============================
+   PRINT / PDF MODE (auto-white)
+   Keeps UI dark on screen, but prints clean
+   =============================== */
+@media print {
+  /* force white page */
+  :root { color-scheme: light; }
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* remove fancy backgrounds/shadows that print badly */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* turn your “dark glass” panels into clean cards */
+  .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* make headings readable */
+  .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
+    color: #0f172a !important;
+  }
+
+  /* body copy */
+  .summary, .issue-why, .insight .text, .kv .k, .kv .v {
+    color: #111827 !important;
+  }
+
+  /* bars: keep visible but printer friendly */
+  .bar {
+    background: #e5e7eb !important;
+  }
+  .bar > div {
+    background: #111827 !important;
+  }
+
+  /* hide UI-only controls */
+  #backToDashboard,
+  .btn,
+  .toggle,
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+
+  /* avoid weird breaks inside accordions/cards */
+  details { page-break-inside: avoid; }
+  .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
+
+  /* expand all evidence accordions automatically */
+  details.evidence-block { display: block !important; }
+  details.evidence-block > summary { display: none !important; }
+  details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
+
+  /* ensure links print nicely */
+  a, a:visited { color: #111827 !important; text-decoration: underline !important; }
+}
+
+/* Signal Evidence — subtle hover affordance */
+@media (hover: hover) and (pointer: fine) {
+  .evidence-block {
+    transition:
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out,
+      transform 140ms ease-out;
+  }
+
+  .evidence-block:hover {
+  border-color: rgba(64, 220, 180, 0.28);
+  box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
+  transform: none;
+}
+
+}
+
+
+@media print {
+  #reportRoot {
+    max-width: none !important;
+    width: 100% !important;
+  }
+}
+
+
   </style>
 </head>
 
@@ -376,71 +761,59 @@
     <div class="shell-inner">
 
       <div class="top-card">
+
+        <!-- Brand Bar -->
         <div class="top-row">
           <div class="brand">
             <div class="logo">iQWEB</div>
+            <div style="font-size:11px; letter-spacing:0.12em; color:var(--ink-soft);">
+              Powered by Λ i Q™
+            </div>
           </div>
 
-          <div class="top-actions">
-            <button class="btn" id="themeToggle">Theme</button>
-            <button class="btn" id="refreshBtn">Refresh</button>
-          </div>
+ <div class="top-actions">
+  <button id="backToDashboard" class="btn">Back to dashboard</button>
+  <button class="btn" id="refreshBtn">Refresh</button>
+</div>
+
         </div>
 
-        <div class="top-meta">
-          <div class="meta-line">
+        <!-- Meta Strip -->
+        <div class="meta-strip">
+          <div class="meta-cell">
             <div class="k">Website</div>
-            <div class="v" id="siteUrl">—</div>
+            <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
           </div>
-          <div class="meta-line">
+
+          <div class="meta-cell">
             <div class="k">Report ID</div>
             <div class="v" id="reportId">—</div>
           </div>
-          <div class="meta-line">
+
+          <div class="meta-cell">
             <div class="k">Report Date</div>
             <div class="v" id="reportDate">—</div>
           </div>
         </div>
+
       </div>
 
       <!-- Loader -->
-      <section id="loaderSection" class="loader-wrap">
-        <div class="pulse" aria-hidden="true"></div>
-        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
-        <div id="loaderStatus" class="muted" style="font-size:12px;">
-          Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
-        </div>
-      </section>
+  <section id="loaderSection" class="loader-wrap">
+  <div class="pulse" aria-hidden="true"></div>
+  <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+  <div id="loaderStatus" class="muted" style="font-size:12px;">
+    Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
+  </div>
+</section>
 
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <section class="section">
-          <div class="section-head">
-            <h2 class="section-title">Website Report</h2>
-          </div>
-
-          <div class="section-body">
-            <!-- Overall score card -->
-            <div class="card" style="min-height:unset;">
-              <div class="card-top">
-                <h3 id="overallLabel">Overall Score</h3>
-                <div class="score-right" id="overallPill">—</div>
-              </div>
-
-              <div class="bar">
-                <div id="overallBar"></div>
-              </div>
-
-              <div class="summary" id="overallNote"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ✅ Executive Narrative (renders into #narrativeText) -->
+        <!-- 3. Executive Narrative (Lead) -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Λ i Q Executive Narrative</h2>
+            <h2 class="section-title">Executive Narrative</h2>
           </div>
           <div class="section-body">
             <div id="narrativeText" class="summary">
@@ -449,41 +822,171 @@
           </div>
         </section>
 
-        <section class="section">
+        <!-- 4. Delivery Signals -->
+        <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
           </div>
+
           <div class="section-body">
+
+            <!-- Slim Overall Summary Strip (moved from Score Context) -->
+            <div class="overall-strip">
+              <div class="overall-strip-top">
+                <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
+                <div class="overall-strip-score" id="overallPill">—</div>
+              </div>
+
+              <div class="bar">
+                <div id="overallBar"></div>
+              </div>
+
+              <p class="overall-strip-note" id="overallNote"></p>
+            </div>
+
             <div id="signalsGrid" class="grid"></div>
+
+            <div class="summary muted" style="font-size:12px;">
+              Each signal is presented as a short diagnostic narrative, backed by evidence below.
+            </div>
+
           </div>
         </section>
 
-        <!-- Evidence is NOT inside cards; it lives here -->
-        <section class="section">
+        <section class="section" id="signalEvidenceSection">
           <div class="section-head">
             <h2 class="section-title">Signal Evidence</h2>
           </div>
           <div class="section-body" id="signalEvidenceRoot"></div>
         </section>
 
-        <section class="section">
+        <section class="section" id="keyInsightsSection">
           <div class="section-head">
             <h2 class="section-title">Key Insight Metrics</h2>
           </div>
-          <div class="section-body" id="keyMetricsRoot"></div>
+          <div class="section-body">
+            <div id="keyMetricsRoot">
+              <div class="insight-list">
+                <div class="insight"><div class="tag">Strength</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Risk</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Focus</div><div class="text">Not available from this scan output yet.</div></div>
+                <div class="insight"><div class="tag">Next</div><div class="text">Not available from this scan output yet.</div></div>
+              </div>
+            </div>
+          </div>
         </section>
+
+        <section class="section" id="topIssuesSection">
+          <div class="section-head">
+            <h2 class="section-title">Top Issues Detected</h2>
+          </div>
+          <div class="section-body">
+            <div id="topIssuesRoot" class="issue-list">
+              <div class="issue">
+                <div class="issue-top">
+                  <p class="issue-title">No issue list available yet</p>
+                  <span class="issue-label">Monitor</span>
+                </div>
+                <div class="issue-why">This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>
+              </div>
+              <div class="issue">
+                <div class="issue-top">
+                  <p class="issue-title">Why this is calm, not alarmist</p>
+                  <span class="issue-label">Worth addressing</span>
+                </div>
+                <div class="issue-why">iQWEB avoids panic language. If a signal is missing or uncertain, it is shown as “not available” rather than guessed.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="fixSequenceSection">
+          <div class="section-head">
+            <h2 class="section-title">Recommended Fix Sequence</h2>
+          </div>
+          <div class="section-body" id="fixSequenceRoot">
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 1 — Fast wins</p>
+                <div class="phase-time">Today / This week</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Address the clearest, highest-leverage issues surfaced in the evidence blocks.</li>
+                  <li>Fix metadata/semantics gaps that are straightforward and measurable.</li>
+                  <li>Re-run the scan to confirm the change is reflected in signals.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 2 — Structural improvements</p>
+                <div class="phase-time">1–3 weeks</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Stabilise performance bottlenecks that require engineering changes.</li>
+                  <li>Improve structure and semantics to support SEO and accessibility together.</li>
+                  <li>Reduce recurring sources of layout/CLS risk where applicable.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="phase">
+              <div class="phase-head">
+                <p class="phase-title">Phase 3 — Hardening & trust</p>
+                <div class="phase-time">Ongoing</div>
+              </div>
+              <div class="phase-body">
+                <ul>
+                  <li>Strengthen security posture using modern headers and best practices where appropriate.</li>
+                  <li>Implement monitoring and keep regression risk low over time.</li>
+                  <li>Schedule periodic accessibility checks as part of ongoing maintenance.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="summary muted" style="font-size:12px;">
+              This sequence is designed to be practical: measurable wins first, structural improvements second, long-term hardening last.
+            </div>
+          </div>
+        </section>
+
+<section class="section" id="finalNotesSection">
+  <div class="section-head">
+    <h2 class="section-title">Final Notes</h2>
+  </div>
+
+  <div class="section-body" id="finalNotesRoot">
+    <div class="final-notes">
+      <p>
+        iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
+      </p>
+
+      <p>
+        This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
+      </p>
+
+      <p>
+        Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
+      </p>
+    </div>
+  </div>
+</section>
+
 
       </main>
 
-      <div class="footer">POWERED BY iQWEB</div>
-    </div>
+<div class="footer">
+  © 2025 iQWEB – All rights reserved.
+</div>
+
   </div>
 
-  <!-- Scripts (your existing wiring expects these paths) -->
   <script src="/assets/js/report-data.js"></script>
 
   <script>
-    // Minimal theme toggle (safe)
     (function(){
       const btn = document.getElementById("themeToggle");
       const refresh = document.getElementById("refreshBtn");
