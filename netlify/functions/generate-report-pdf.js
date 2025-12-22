@@ -2,25 +2,10 @@
 
 const DOC_API_KEY = process.env.DOCRAPTOR_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
-
-// Your Netlify env uses SUPABASE_SERVICE_ROLE_KEY
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
 export async function handler(event) {
-  // Basic CORS (safe if you ever call from same origin; harmless otherwise)
-  if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-      body: "",
-    };
-  }
-
   try {
     if (event.httpMethod !== "POST") {
       return {
@@ -30,13 +15,12 @@ export async function handler(event) {
       };
     }
 
-    console.log("ENV CHECK:", {
-      haveDoc: !!DOC_API_KEY,
-      haveUrl: !!SUPABASE_URL,
-      haveService: !!SUPABASE_SERVICE_KEY,
-    });
-
     if (!DOC_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+      console.log("ENV CHECK:", {
+        haveDoc: !!DOC_API_KEY,
+        haveUrl: !!SUPABASE_URL,
+        haveService: !!SUPABASE_SERVICE_KEY,
+      });
       return {
         statusCode: 500,
         headers: { "Content-Type": "application/json" },
@@ -44,18 +28,7 @@ export async function handler(event) {
       };
     }
 
-    let payload = {};
-    try {
-      payload = JSON.parse(event.body || "{}");
-    } catch {
-      return {
-        statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Invalid JSON body" }),
-      };
-    }
-
-    const { html, report_id } = payload;
+    const { html, report_id } = JSON.parse(event.body || "{}");
 
     if (!html || !report_id) {
       return {
@@ -65,21 +38,19 @@ export async function handler(event) {
       };
     }
 
-    console.log("PDF generation requested:", { report_id, html_len: String(html).length });
+    console.log("PDF generation requested:", { report_id });
 
-    // 1) DOC RAPTOR
+    // 1) Generate PDF (DocRaptor)
     const drRes = await fetch("https://docraptor.com/docs", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/pdf" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         user_credentials: DOC_API_KEY,
         doc: {
-          test: false, // live mode
+          test: false, // LIVE MODE (no watermark)
           name: `${report_id}.pdf`,
           document_type: "pdf",
           document_content: html,
-          javascript: true,
-          prince_options: { media: "print" },
         },
       }),
     });
@@ -98,25 +69,24 @@ export async function handler(event) {
       };
     }
 
-    const pdfBuffer = Buffer.from(await drRes.arrayBuffer());
+    const arrayBuffer = await drRes.arrayBuffer();
+    const pdfBuffer = Buffer.from(arrayBuffer);
 
-    // 2) UPLOAD TO SUPABASE STORAGE
-    // Bucket: reports
-    // Path: <report_id>.pdf
-    const putUrl = `${SUPABASE_URL}/storage/v1/object/reports/${encodeURIComponent(
-      report_id
-    )}.pdf`;
+    // 2) Upload to Supabase Storage (bucket: reports)
+    const storagePath = `${report_id}.pdf`;
 
-    const uploadRes = await fetch(putUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/pdf",
-        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-        apikey: SUPABASE_SERVICE_KEY, // important for some projects/tools
-        "x-upsert": "true",
-      },
-      body: pdfBuffer,
-    });
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/reports/${encodeURIComponent(storagePath)}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/pdf",
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+          "x-upsert": "true",
+        },
+        body: pdfBuffer,
+      }
+    );
 
     if (!uploadRes.ok) {
       const text = await uploadRes.text();
@@ -132,26 +102,24 @@ export async function handler(event) {
       };
     }
 
-    // If your bucket is PUBLIC:
     const pdf_url = `${SUPABASE_URL}/storage/v1/object/public/reports/${encodeURIComponent(
-      report_id
-    )}.pdf`;
-
-    // 3) UPDATE REPORT ROW (set pdf_url)
-    const patchUrl = `${SUPABASE_URL}/rest/v1/reports?report_id=eq.${encodeURIComponent(
-      report_id
+      storagePath
     )}`;
 
-    const patchRes = await fetch(patchUrl, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-        apikey: SUPABASE_SERVICE_KEY,
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({ pdf_url }),
-    });
+    // 3) Update scan_results.report_url (THIS is what dashboard uses)
+    const patchRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/scan_results?report_id=eq.${encodeURIComponent(report_id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
+          apikey: SUPABASE_SERVICE_KEY,
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ report_url: pdf_url }),
+      }
+    );
 
     if (!patchRes.ok) {
       const text = await patchRes.text();
@@ -171,10 +139,7 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pdf_url }),
     };
   } catch (err) {

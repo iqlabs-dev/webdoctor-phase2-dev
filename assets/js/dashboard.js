@@ -473,20 +473,54 @@ async function loadScanHistory() {
 
       tdActions.appendChild(document.createTextNode(" "));
 
-      if (row.report_url) {
-        const dl = document.createElement("a");
-        dl.href = row.report_url;
-        dl.target = "_blank";
-        dl.rel = "noopener noreferrer";
-        dl.className = "wd-history-link";
-        dl.textContent = "Download";
-        tdActions.appendChild(dl);
-      } else {
-        const span = document.createElement("span");
-        span.className = "wd-history-muted";
-        span.textContent = "Pending…";
-        tdActions.appendChild(span);
-      }
+// PDF button (always shown)
+const pdfBtn = document.createElement("button");
+pdfBtn.className = "btn-link wd-history-pdf";
+pdfBtn.textContent = "PDF";
+
+pdfBtn.onclick = async () => {
+  try {
+    // If PDF already exists, open it
+    if (row.report_url) {
+      window.open(row.report_url, "_blank", "noopener");
+      return;
+    }
+
+    // Otherwise, generate it on-demand
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token || null;
+    if (!accessToken) throw new Error("Session expired. Please log in again.");
+
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = "Generating…";
+
+    const res = await fetch("/.netlify/functions/generate-report-pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ report_id: row.report_id }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.pdf_url) throw new Error(data?.error || "PDF failed");
+
+    window.open(data.pdf_url, "_blank", "noopener");
+
+    // reload history so report_url shows next time
+    await loadScanHistory();
+  } catch (e) {
+    console.error("PDF generate error:", e);
+    alert("PDF generation failed. Check Netlify function logs.");
+  } finally {
+    pdfBtn.disabled = false;
+    pdfBtn.textContent = "PDF";
+  }
+};
+
+tdActions.appendChild(pdfBtn);
+
 
       tr.appendChild(tdActions);
       tbody.appendChild(tr);

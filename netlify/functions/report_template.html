@@ -771,9 +771,10 @@
             </div>
           </div>
 
- <div class="top-actions"></div>
+<div class="top-actions">
+  <button id="downloadPdfBtn" class="btn">Download PDF</button>
+</div>
 
-        </div>
 
         <!-- Meta Strip -->
         <div class="meta-strip">
@@ -983,21 +984,59 @@
 
   <script src="/assets/js/report-data.js"></script>
 
-  <script>
-    (function(){
-      const btn = document.getElementById("themeToggle");
-      const refresh = document.getElementById("refreshBtn");
-      const key = "iqweb_theme_v1";
-      const saved = localStorage.getItem(key);
-      if (saved === "light") document.body.classList.add("light");
+<script>
+  (function () {
+    const dlBtn = document.getElementById("downloadPdfBtn");
+    const qs = new URLSearchParams(location.search);
+    const reportId = qs.get("report_id");
 
-      btn && btn.addEventListener("click", () => {
-        document.body.classList.toggle("light");
-        localStorage.setItem(key, document.body.classList.contains("light") ? "light" : "dark");
-      });
+    async function downloadPdf() {
+      if (!reportId) {
+        alert("Missing report_id in URL.");
+        return;
+      }
 
-      refresh && refresh.addEventListener("click", () => location.reload());
-    })();
-  </script>
+      // Expand accordions so evidence is included in the PDF
+      document.querySelectorAll("details").forEach((d) => (d.open = true));
+
+      // Snapshot the fully-rendered HTML
+      const html = "<!doctype html>\n" + document.documentElement.outerHTML;
+
+      if (dlBtn) {
+        dlBtn.disabled = true;
+        dlBtn.textContent = "Generating…";
+      }
+
+      try {
+        const res = await fetch("/.netlify/functions/generate-report-pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report_id: reportId, html }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.pdf_url) {
+          console.error("PDF failed:", res.status, data);
+          alert("PDF generation failed. Check Netlify function logs.");
+          return;
+        }
+
+        // Open PDF in a new tab
+        window.open(data.pdf_url, "_blank", "noopener");
+      } catch (e) {
+        console.error("PDF error:", e);
+        alert("PDF generation failed. Check console + Netlify logs.");
+      } finally {
+        if (dlBtn) {
+          dlBtn.disabled = false;
+          dlBtn.textContent = "Download PDF";
+        }
+      }
+    }
+
+    dlBtn && dlBtn.addEventListener("click", downloadPdf);
+  })();
+</script>
+
 </body>
 </html>
