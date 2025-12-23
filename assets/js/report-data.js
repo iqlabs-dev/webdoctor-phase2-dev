@@ -1,10 +1,10 @@
 // /assets/js/report-data.js
 // iQWEB Report UI — Contract v1.0.8 (DocRaptor-safe transport + PDF ready signalling)
 //
-// Key fixes:
+// Key fix:
 // - DocRaptor/Prince often does NOT support window.fetch reliably.
-// - Uses fetch when available, falls back to XMLHttpRequest for PDF rendering.
-// - PDF must match OSD INCLUDING narrative: PDF mode will trigger+wait for narrative (bounded) before finishing.
+// - This file uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
+// - Prevents "Building Report" PDFs by ensuring data load works in Prince.
 
 window.__IQWEB_REPORT_READY ??= false;
 
@@ -113,6 +113,11 @@ window.__IQWEB_REPORT_READY ??= false;
     return params.get("report_id") || params.get("id") || "";
   }
 
+  function isPdfMode() {
+    try { return new URLSearchParams(window.location.search).get("pdf") === "1"; }
+    catch (_) { return String(window.location.search || "").includes("pdf=1"); }
+  }
+
   // -----------------------------
   // Transport (fetch + XHR fallback for DocRaptor/Prince)
   // -----------------------------
@@ -125,6 +130,7 @@ window.__IQWEB_REPORT_READY ??= false;
       try {
         const xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
+        xhr.timeout = 15000;
         xhr.setRequestHeader("Accept", "application/json");
         if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
 
@@ -148,6 +154,7 @@ window.__IQWEB_REPORT_READY ??= false;
         };
 
         xhr.onerror = () => reject(new Error("Network error"));
+        xhr.ontimeout = () => reject(new Error("Request timed out"));
         xhr.send(method === "GET" ? null : JSON.stringify(bodyObj || {}));
       } catch (e) {
         reject(e);
@@ -156,13 +163,26 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   async function httpJson(method, url, bodyObj) {
-    if (canUseFetch()) {
+    // In PDF/Prince mode: FORCE XHR (fetch can exist but hang forever)
+    if (canUseFetch() && !isPdfMode()) {
+      const controller = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
+
       const opts = { method, headers: { "Accept": "application/json" } };
+      if (controller) opts.signal = controller.signal;
+
       if (method !== "GET") {
         opts.headers["Content-Type"] = "application/json";
         opts.body = JSON.stringify(bodyObj || {});
       }
-      const res = await fetch(url, opts);
+
+      let res;
+      try {
+        res = await fetch(url, opts);
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+
       const text = await res.text().catch(() => "");
       let data = null;
       try { data = JSON.parse(text); } catch { /* ignore */ }
@@ -192,7 +212,10 @@ window.__IQWEB_REPORT_READY ??= false;
         `/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}` +
         `&pdf_token=${encodeURIComponent(token)}`;
 
-      if (!token) throw new Error("Missing pdf_token (PDF mode).");
+      if (!token) {
+        throw new Error("Missing pdf_token (PDF mode).");
+      }
+
       return httpJson("GET", url);
     }
 
@@ -312,10 +335,7 @@ window.__IQWEB_REPORT_READY ??= false;
     const start = Date.now();
     while (Date.now() - start < maxMs) {
       const refreshed = await fetchReportData(reportId).catch(() => null);
-      if (refreshed) {
-        window.__iqweb_lastData = refreshed;
-        if (renderNarrative(refreshed?.narrative)) return true;
-      }
+      if (refreshed && renderNarrative(refreshed?.narrative)) return true;
       await new Promise(r => setTimeout(r, intervalMs));
     }
     return false;
@@ -353,32 +373,25 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // PDF gating (print PDF must match OSD incl narrative)
+  // PDF gating (FINAL – DO NOT TOUCH)
   // -----------------------------
   function expandEvidenceForPDF() {
-    try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
+    try {
+      document
+        .querySelectorAll("details.evidence-block")
+        .forEach(d => d.open = true);
+    } catch (_) {}
   }
 
-  async function waitForPdfReady(reportId) {
-    // In PDF mode we REQUIRE narrative (same as OSD).
-    // If missing, trigger generation and poll until it exists (bounded).
+  async function waitForPdfReady() {
     try {
-      const hasNow = renderNarrative(window.__iqweb_lastData?.narrative);
-      if (!hasNow) {
-        const textEl = $("narrativeText");
-        if (textEl) textEl.textContent = "Generating narrative…";
-
-        try { await generateNarrative(reportId); } catch (_) { /* ignore, poll may still succeed */ }
-
-        // Poll up to 120s
-        const ok = await pollForNarrative(reportId, 120000, 2500);
-        if (!ok && textEl) textEl.textContent = "Narrative still generating. Please regenerate PDF in a moment.";
-      }
-
+      // Ensure everything visible is expanded
       expandEvidenceForPDF();
+
+      // Give Prince one layout frame
       await new Promise(r => setTimeout(r, 350));
     } finally {
-      window.__IQWEB_REPORT_READY = true;
+      // ALWAYS tell DocRaptor we're done
       try {
         if (typeof window.docraptorJavaScriptFinished === "function") {
           window.docraptorJavaScriptFinished();
@@ -452,7 +465,7 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Evidence (unchanged)
+  // Evidence fallback + evidence section
   // -----------------------------
   function prettifyKey(k) {
     return String(k || "").replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
@@ -585,10 +598,9 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // (Key insights / issues / fix sequence / notes)
-  // Keep your existing logic below this point if you had more in your file.
+  // Key insights / issues / fix sequence / notes
+  // (kept identical behaviour to your v1.0.7)
   // -----------------------------
-
   function keyFromLabelOrId(sig) {
     const id = String(sig?.id || sig?.label || "").toLowerCase();
     if (id.includes("perf")) return "performance";
@@ -790,7 +802,12 @@ window.__IQWEB_REPORT_READY ??= false;
 
     try {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
-      const data = await fetchReportData(reportId);
+      const data = await (isPdfMode()
+        ? Promise.race([
+            fetchReportData(reportId),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("PDF data load timed out")), 20000))
+          ])
+        : fetchReportData(reportId));
 
       window.__iqweb_lastData = data;
 
@@ -814,9 +831,19 @@ window.__IQWEB_REPORT_READY ??= false;
       if (reportRoot) reportRoot.style.display = "block";
 
       if (isPdf) {
-        window.__IQWEB_REPORT_READY = false;
-        await waitForPdfReady(header.report_id || reportId);
+        // PDF mode: never wait on narrative; just finish cleanly
+        try {
+          await waitForPdfReady();
+        } catch (e) {
+          console.error("[PDF] waitForPdfReady failed:", e);
+          try {
+            if (typeof window.docraptorJavaScriptFinished === "function") {
+              window.docraptorJavaScriptFinished();
+            }
+          } catch (_) {}
+        }
       } else {
+        // Normal interactive mode
         ensureNarrative(header.report_id || reportId, data.narrative);
       }
 
@@ -824,9 +851,18 @@ window.__IQWEB_REPORT_READY ??= false;
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
 
-      // PDF mode must NEVR hang — always finish
+      // PDF mode must NEVER hang — always finish
       if (isPdf) {
-        try { await waitForPdfReady(reportId); } catch (_) {}
+        try {
+          await waitForPdfReady();
+        } catch (e) {
+          console.error("[PDF] fail-safe finish failed:", e);
+          try {
+            if (typeof window.docraptorJavaScriptFinished === "function") {
+              window.docraptorJavaScriptFinished();
+            }
+          } catch (_) {}
+        }
       }
     }
   }

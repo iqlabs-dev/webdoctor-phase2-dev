@@ -1,156 +1,138 @@
-// /.netlify/functions/get-report-data-pdf.js
-import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+// netlify/functions/get-report-data-pdf.js
+// iQWEB — PDF-safe report payload (same shape as get-report-data.js)
+// - Validates pdf_token (HMAC) so DocRaptor can fetch without user auth
+// - Returns the SAME JSON contract as get-report-data.js so report-data.js can render identically
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET;
+const crypto = require("crypto");
+const { createClient } = require("@supabase/supabase-js");
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-// -----------------------------
-// Helpers
-// -----------------------------
 function json(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
     },
     body: JSON.stringify(body),
   };
 }
 
-function safeObj(v) {
-  return v && typeof v === "object" ? v : {};
+// ---- token helpers (base64url)
+function b64urlDecode(str) {
+  const s = String(str || "").replace(/-/g, "+").replace(/_/g, "/");
+  const pad = s.length % 4 ? "=".repeat(4 - (s.length % 4)) : "";
+  return Buffer.from(s + pad, "base64").toString("utf8");
 }
 
-function asArray(v) {
-  return Array.isArray(v) ? v : [];
+function timingSafeEqual(a, b) {
+  const ab = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
 }
 
-function asInt(v, fallback = 0) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
+// pdf_token format: <header_b64url>.<payload_b64url>.<sig_b64url>
+// payload JSON: { rid: "WEB-...", exp: 1234567890 }
+function verifyPdfToken(token, secret, reportId) {
+  if (!secret) {
+    // Fail closed (don’t leak report data)
+    return { ok: false, reason: "Server misconfigured: PDF_TOKEN_SECRET missing." };
+  }
 
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
+  const parts = String(token || "").split(".");
+  if (parts.length !== 3) return { ok: false, reason: "Invalid token format." };
 
-function base64urlToBuffer(b64url) {
-  const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((b64url.length + 3) % 4);
-  return Buffer.from(b64, "base64");
-}
+  const [headerB64, payloadB64, sigB64] = parts;
 
-function verifyPdfToken(token) {
-  if (!isNonEmptyString(PDF_TOKEN_SECRET)) throw new Error("Server misconfigured: PDF_TOKEN_SECRET missing.");
-  if (!isNonEmptyString(token)) throw new Error("Missing pdf_token.");
+  let payload;
+  try {
+    payload = JSON.parse(b64urlDecode(payloadB64));
+  } catch {
+    return { ok: false, reason: "Invalid token payload." };
+  }
 
-  const parts = token.split(".");
-  if (parts.length !== 3) throw new Error("Invalid pdf_token format.");
+  if (!payload || typeof payload !== "object") return { ok: false, reason: "Invalid token payload." };
+  if (!payload.rid || String(payload.rid) !== String(reportId)) return { ok: false, reason: "Token report_id mismatch." };
 
-  const [h, p, sig] = parts;
-  const data = `${h}.${p}`;
+  const now = Math.floor(Date.now() / 1000);
+  const exp = Number(payload.exp || 0);
+  if (!Number.isFinite(exp) || exp <= now) return { ok: false, reason: "Token expired." };
 
   const expected = crypto
-    .createHmac("sha256", PDF_TOKEN_SECRET)
-    .update(data)
+    .createHmac("sha256", secret)
+    .update(`${headerB64}.${payloadB64}`)
     .digest("base64")
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
 
-  const a = Buffer.from(expected);
-  const b = Buffer.from(sig);
+  if (!timingSafeEqual(expected, sigB64)) return { ok: false, reason: "Token signature invalid." };
 
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    throw new Error("Invalid pdf_token signature.");
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(base64urlToBuffer(p).toString("utf8"));
-  } catch {
-    throw new Error("Invalid pdf_token payload.");
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (!payload || typeof payload !== "object") throw new Error("Invalid pdf_token payload.");
-  if (typeof payload.exp !== "number" || payload.exp <= now) throw new Error("pdf_token expired.");
-
-  return payload;
+  return { ok: true, payload };
 }
 
-// -----------------------------
-// Payload shaper (MATCH get-report-data.js shape)
-// -----------------------------
-function shapeResponseFromRow(row) {
-  const r = safeObj(row);
-
-  const header = {
-    website: r.url ?? null,
-    report_id: r.report_id ?? null,
-    created_at: r.created_at ?? null,
-  };
-
-  const scoresRaw = safeObj(r.scores);
-  const scores = {
-    overall: asInt(scoresRaw.overall, 0),
-    performance: asInt(scoresRaw.performance, 0),
-    mobile: asInt(scoresRaw.mobile, 0),
-    seo: asInt(scoresRaw.seo, 0),
-    security: asInt(scoresRaw.security, 0),
-    structure: asInt(scoresRaw.structure, 0),
-    accessibility: asInt(scoresRaw.accessibility, 0),
-  };
-
-  const deliverySignals = asArray(r.delivery_signals);
-
+function normalizeReportRow(row) {
+  // MUST match get-report-data.js contract
+  const header = row?.header || {};
+  const scores = row?.scores || {};
   return {
     success: true,
-    header,
-    scores,
-    delivery_signals: deliverySignals,
-    narrative: r.narrative ?? null,
+    header: {
+      website: header.website || row?.url || null,
+      report_id: header.report_id || row?.report_id || null,
+      created_at: header.created_at || row?.created_at || null,
+    },
+    scores: {
+      seo: scores.seo ?? null,
+      mobile: scores.mobile ?? null,
+      overall: scores.overall ?? null,
+      security: scores.security ?? null,
+      structure: scores.structure ?? null,
+      performance: scores.performance ?? null,
+      accessibility: scores.accessibility ?? null,
+    },
+    delivery_signals: Array.isArray(row?.delivery_signals) ? row.delivery_signals : [],
+    narrative: row?.narrative ?? null,
   };
 }
 
-// -----------------------------
-// Handler
-// -----------------------------
-export async function handler(event) {
+exports.handler = async (event) => {
   try {
-    const qs = event.queryStringParameters || {};
-    const reportId = qs.report_id || qs.reportId || qs.id;
+    const params = event.queryStringParameters || {};
+    const report_id = params.report_id || params.id;
 
-    if (!isNonEmptyString(reportId)) {
-      return json(400, { success: false, error: "Missing report_id." });
+    if (!report_id) {
+      return json(400, { success: false, error: "Missing report_id" });
     }
 
-    const token = qs.pdf_token || qs.token;
-    const payload = verifyPdfToken(token);
-
-    // Must match report id
-    if (payload.rid !== reportId) {
-      return json(403, { success: false, error: "pdf_token does not match report_id." });
+    const token = params.pdf_token || "";
+    const secret = process.env.PDF_TOKEN_SECRET || "";
+    const verdict = verifyPdfToken(token, secret, report_id);
+    if (!verdict.ok) {
+      return json(401, { success: false, error: verdict.reason || "Unauthorized" });
     }
 
-    // Fetch the SAME columns your UI needs
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return json(500, { success: false, error: "Server misconfigured (Supabase keys missing)" });
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const { data, error } = await supabase
       .from("scan_results")
-      .select("report_id,url,created_at,status,narrative,scores,delivery_signals")
-      .eq("report_id", reportId)
+      .select("report_id,url,created_at,header,scores,delivery_signals,narrative")
+      .eq("report_id", report_id)
       .single();
 
-    if (error) {
-      return json(404, { success: false, error: error.message || "Report not found." });
+    if (error || !data) {
+      return json(404, { success: false, error: "Report not found" });
     }
 
-    return json(200, shapeResponseFromRow(data));
+    return json(200, normalizeReportRow(data));
   } catch (err) {
-    return json(400, { success: false, error: err?.message || String(err) });
+    console.error(err);
+    return json(500, { success: false, error: err?.message || "Server error" });
   }
-}
+};
