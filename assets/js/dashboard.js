@@ -492,7 +492,7 @@ pdfBtn.onclick = async () => {
 
     // IMPORTANT:
     // Call the download orchestrator and treat response as a binary PDF
-    const res = await fetch("/.netlify/functions/download-pdf", {
+    const res = await fetch("/.netlify/functions/generate-report-pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reportId: row.report_id }),
