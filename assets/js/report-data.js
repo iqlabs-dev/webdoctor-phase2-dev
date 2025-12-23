@@ -833,10 +833,17 @@ async function main() {
 if (loaderSection) loaderSection.style.display = "none";
 if (reportRoot) reportRoot.style.display = "block";
 
+ 
 // Expand evidence for PDF / print (so it prints in full)
-try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
+try {
+  document.querySelectorAll("details.evidence-block")
+    .forEach(d => d.open = true);
+} catch (_) {}
 
-window.__IQWEB_REPORT_READY = true;
+// Signal readiness ONLY for DocRaptor / PDF
+if (window.location.search.includes("pdf=1")) {
+  window.__IQWEB_REPORT_READY = true;
+}
 
 
 
