@@ -916,15 +916,48 @@
     })();
   </script>
 
-  <!-- ✅ DocRaptor "wait until fully rendered" hook -->
 <script>
-  // DocRaptor "wait until fully rendered" hook
-  // IMPORTANT: don't reset the flag after report-data.js has potentially set it true
-  window.__IQWEB_REPORT_READY ??= false;
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
 
-  function docraptorJavaScriptFinished() {
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
     return window.__IQWEB_REPORT_READY === true;
-  }
+  };
+
+  (function waitForReportReady() {
+    const reportRoot = document.getElementById("reportRoot");
+    const loader = document.getElementById("loaderSection");
+    const signals = document.getElementById("signalsGrid");
+
+    const loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    const reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    const hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // Expand evidence for PDF
+      try {
+        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = true));
+      } catch (_) {}
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
+    }
+
+    setTimeout(waitForReportReady, 150);
+  })();
+
+  // Hard safety (prevents infinite hang)
+  setTimeout(() => {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
 </script>
 
 
