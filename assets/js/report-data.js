@@ -1,5 +1,10 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.7 (Delivery Signals narrative wiring)
+// iQWEB Report UI — Contract v1.0.8 (DocRaptor-safe transport + PDF ready signalling)
+//
+// Key fix:
+// - DocRaptor/Prince often does NOT support window.fetch reliably.
+// - This file uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
+// - Prevents "Building Report" PDFs by ensuring data load works in Prince.
 
 window.__IQWEB_REPORT_READY ??= false;
 
@@ -28,7 +33,6 @@ window.__IQWEB_REPORT_READY ??= false;
     if (!iso) return "—";
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return String(iso);
-
     return d.toLocaleString(undefined, {
       year: "numeric",
       month: "short",
@@ -50,11 +54,7 @@ window.__IQWEB_REPORT_READY ??= false;
   function normalizeLines(text, maxLines) {
     const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
     if (!s) return [];
-    return s
-      .split("\n")
-      .map(l => l.trim())
-      .filter(Boolean)
-      .slice(0, maxLines);
+    return s.split("\n").map(l => l.trim()).filter(Boolean).slice(0, maxLines);
   }
 
   function stripAuthorityLineIfPresent(lines) {
@@ -70,9 +70,7 @@ window.__IQWEB_REPORT_READY ??= false;
           low === "no immediate fixes are required in this area." ||
           low === "no issues to address in this area." ||
           low === "no improvements needed in this area.")
-      ) {
-        continue;
-      }
+      ) continue;
       cleaned.push(s);
     }
     return cleaned.filter(Boolean);
@@ -108,59 +106,95 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Fetch helpers
+  // URL helpers
   // -----------------------------
   function getReportIdFromUrl() {
     const params = new URLSearchParams(window.location.search);
     return params.get("report_id") || params.get("id") || "";
   }
 
+  // -----------------------------
+  // Transport (fetch + XHR fallback for DocRaptor/Prince)
+  // -----------------------------
+  function canUseFetch() {
+    try { return typeof fetch === "function"; } catch { return false; }
+  }
+
+  function xhrRequest(method, url, bodyObj) {
+    return new Promise((resolve, reject) => {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.setRequestHeader("Accept", "application/json");
+        if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
+
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState !== 4) return;
+          const text = xhr.responseText || "";
+          let data = null;
+          try { data = JSON.parse(text); } catch { /* ignore */ }
+
+          if (xhr.status < 200 || xhr.status >= 300) {
+            const msg = (data && (data.detail || data.error)) || text || `HTTP ${xhr.status}`;
+            reject(new Error(msg));
+            return;
+          }
+          if (data && data.success === false) {
+            const msg = data.detail || data.error || "Unknown error";
+            reject(new Error(msg));
+            return;
+          }
+          resolve(data);
+        };
+
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.send(method === "GET" ? null : JSON.stringify(bodyObj || {}));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  async function httpJson(method, url, bodyObj) {
+    if (canUseFetch()) {
+      const opts = { method, headers: { "Accept": "application/json" } };
+      if (method !== "GET") {
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(bodyObj || {});
+      }
+      const res = await fetch(url, opts);
+      const text = await res.text().catch(() => "");
+      let data = null;
+      try { data = JSON.parse(text); } catch { /* ignore */ }
+
+      if (!res.ok) {
+        const msg = (data && (data.detail || data.error)) || text || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      if (data && data.success === false) {
+        const msg = data.detail || data.error || "Unknown error";
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    // DocRaptor/Prince fallback
+    return xhrRequest(method, url, bodyObj);
+  }
+
   async function fetchReportData(reportId) {
     const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
-    const res = await fetch(url, { method: "GET" });
-    const text = await res.text().catch(() => "");
-    let data = null;
-    try { data = JSON.parse(text); } catch { /* ignore */ }
-
-    if (!res.ok) {
-      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    if (data && data.success === false) {
-      const msg = data?.detail || data?.error || "Unknown error";
-      throw new Error(msg);
-    }
-    return data;
+    return httpJson("GET", url, null);
   }
 
   async function generateNarrative(reportId) {
-    const res = await fetch("/.netlify/functions/generate-narrative", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: reportId }),
-    });
-
-    const text = await res.text().catch(() => "");
-    let data = null;
-    try { data = JSON.parse(text); } catch { /* ignore */ }
-
-    if (!res.ok) {
-      const msg = data?.detail || data?.error || text || `HTTP ${res.status}`;
-      throw new Error(msg);
-    }
-    if (data && data.success === false) {
-      const msg = data?.detail || data?.error || "Unknown error";
-      throw new Error(msg);
-    }
-    return data;
+    return httpJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId });
   }
 
   function wireBackToDashboard() {
     const btn = document.getElementById("backToDashboard");
     if (!btn) return;
-    btn.addEventListener("click", () => {
-      window.location.href = "/dashboard.html";
-    });
+    btn.addEventListener("click", () => { window.location.href = "/dashboard.html"; });
   }
 
   // -----------------------------
@@ -184,12 +218,11 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Deterministic fallback (neutral, explain-only)
+  // Deterministic fallback
   // -----------------------------
   function summaryFallback(sig) {
     const score = asInt(sig?.score, 0);
     const label = String(sig?.label ?? sig?.id ?? "This signal");
-
     const base = `${label} is measured at ${score}/100 from deterministic checks in this scan.`;
     const issues = asArray(sig?.issues);
 
@@ -202,7 +235,7 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Narrative (display + auto-generate + poll)
+  // Narrative
   // -----------------------------
   function parseNarrativeFlexible(v) {
     if (v == null) return { kind: "empty", text: "" };
@@ -212,12 +245,7 @@ window.__IQWEB_REPORT_READY ??= false;
       if (!s) return { kind: "empty", text: "" };
 
       if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-        try {
-          const obj = JSON.parse(s);
-          return { kind: "obj", obj };
-        } catch {
-          // fall through
-        }
+        try { return { kind: "obj", obj: JSON.parse(s) }; } catch { /* ignore */ }
       }
       return { kind: "text", text: s };
     }
@@ -245,10 +273,7 @@ window.__IQWEB_REPORT_READY ??= false;
     if (parsed.kind === "obj") {
       const n = safeObj(parsed.obj);
 
-      const overallLines = asArray(n?.overall?.lines)
-        .map(l => String(l || "").trim())
-        .filter(Boolean);
-
+      const overallLines = asArray(n?.overall?.lines).map(l => String(l || "").trim()).filter(Boolean);
       const lines = normalizeLines(overallLines.join("\n"), 5);
       if (lines.length) {
         textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
@@ -280,7 +305,6 @@ window.__IQWEB_REPORT_READY ??= false;
     return false;
   }
 
-  // ✅ FIXED: sessionStorage guard for DocRaptor/headless
   async function ensureNarrative(reportId, currentNarrative) {
     const textEl = $("narrativeText");
     if (!textEl) return;
@@ -293,9 +317,7 @@ window.__IQWEB_REPORT_READY ??= false;
         if (sessionStorage.getItem(key) === "1") return;
         sessionStorage.setItem(key, "1");
       }
-    } catch (_) {
-      // ignore storage failures
-    }
+    } catch (_) {}
 
     if (narrativeInFlight) return;
     narrativeInFlight = true;
@@ -304,7 +326,6 @@ window.__IQWEB_REPORT_READY ??= false;
 
     try {
       await generateNarrative(reportId);
-
       const ok = await pollForNarrative(reportId);
       if (!ok) textEl.textContent = "Narrative still generating. Refresh in a moment.";
     } catch (e) {
@@ -316,16 +337,14 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // PDF gating helpers
+  // PDF gating
   // -----------------------------
   function expandEvidenceForPDF() {
-    try {
-      document.querySelectorAll("details.evidence-block").forEach(d => d.open = true);
-    } catch (_) {}
+    try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
   }
 
   async function waitForPdfReady(reportId, narrative) {
-    // Start generation if missing (non-blocking)
+    // Start generation if missing
     ensureNarrative(reportId, narrative);
 
     // Wait for narrative to exist
@@ -333,16 +352,12 @@ window.__IQWEB_REPORT_READY ??= false;
       await pollForNarrative(reportId);
     }
 
-    // Expand evidence AFTER narrative
     expandEvidenceForPDF();
-
-    // Let layout settle
     await new Promise(r => setTimeout(r, 400));
 
-    // Signal ready flags
     window.__IQWEB_REPORT_READY = true;
 
-    // If your report.html uses DocRaptor's callback, support it too
+    // Support DocRaptor JS finished callback if present
     try {
       if (typeof window.docraptorJavaScriptFinished === "function") {
         window.docraptorJavaScriptFinished();
@@ -351,7 +366,7 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Delivery Signals — TRUE narrative first (max 3 lines)
+  // Delivery Signals
   // -----------------------------
   function renderSignals(deliverySignals, narrative) {
     const grid = $("signalsGrid");
@@ -378,10 +393,8 @@ window.__IQWEB_REPORT_READY ??= false;
       if (id.includes("perf")) return "performance";
       if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
-      if (id.includes("structure")) return "structure";
-      if (id.includes("semantic")) return "structure";
-      if (id.includes("sec")) return "security";
-      if (id.includes("trust")) return "security";
+      if (id.includes("structure") || id.includes("semantic")) return "structure";
+      if (id.includes("sec") || id.includes("trust")) return "security";
       if (id.includes("access")) return "accessibility";
       return id.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || null;
     };
@@ -391,7 +404,6 @@ window.__IQWEB_REPORT_READY ??= false;
       const score = asInt(sig?.score, 0);
 
       const key = keyFromSig(sig);
-
       const rawLines = key
         ? asArray(narrSignals?.[key]?.lines).map(l => String(l || "").trim()).filter(Boolean)
         : [];
@@ -418,12 +430,10 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Evidence fallback: if observations missing, derive from evidence object
+  // Evidence fallback + evidence section
   // -----------------------------
   function prettifyKey(k) {
-    return String(k || "")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (m) => m.toUpperCase());
+    return String(k || "").replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
   }
 
   function evidenceToObs(evidence) {
@@ -432,27 +442,11 @@ window.__IQWEB_REPORT_READY ??= false;
     if (!entries.length) return [];
 
     const priority = [
-      "title_present",
-      "meta_description_present",
-      "canonical_present",
-      "canonical_matches_url",
-      "h1_present",
-      "h1_count",
-      "viewport_present",
-      "device_width_present",
-      "https",
-      "hsts",
-      "content_security_policy",
-      "x_frame_options",
-      "x_content_type_options",
-      "referrer_policy",
-      "permissions_policy",
-      "img_count",
-      "img_alt_count",
-      "alt_ratio",
-      "html_bytes",
-      "inline_script_count",
-      "head_script_block_present",
+      "title_present","meta_description_present","canonical_present","canonical_matches_url",
+      "h1_present","h1_count","viewport_present","device_width_present",
+      "https","hsts","content_security_policy","x_frame_options","x_content_type_options",
+      "referrer_policy","permissions_policy",
+      "img_count","img_alt_count","alt_ratio","html_bytes","inline_script_count","head_script_block_present",
     ];
 
     const ranked = entries.sort((a, b) => {
@@ -471,9 +465,6 @@ window.__IQWEB_REPORT_READY ??= false;
     }));
   }
 
-  // -----------------------------
-  // Signal Evidence section
-  // -----------------------------
   function renderSignalEvidence(deliverySignals) {
     const root = $("signalEvidenceRoot");
     if (!root) return;
@@ -485,8 +476,7 @@ window.__IQWEB_REPORT_READY ??= false;
       return;
     }
 
-    for (let i = 0; i < list.length; i++) {
-      const sig = list[i];
+    for (const sig of list) {
       const label = String(sig?.label ?? sig?.id ?? "Signal");
       const score = asInt(sig?.score, 0);
 
@@ -516,7 +506,6 @@ window.__IQWEB_REPORT_READY ??= false;
         for (const o of obs.slice(0, 24)) {
           const kv = document.createElement("div");
           kv.className = "kv";
-
           const value =
             o?.value === null ? "null" :
             o?.value === undefined ? "—" :
@@ -574,17 +563,16 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Key Insight Metrics (STATIC)
+  // Key insights / issues / fix sequence / notes
+  // (kept identical behaviour to your v1.0.7)
   // -----------------------------
   function keyFromLabelOrId(sig) {
     const id = String(sig?.id || sig?.label || "").toLowerCase();
     if (id.includes("perf")) return "performance";
     if (id.includes("seo")) return "seo";
-    if (id.includes("struct")) return "structure";
-    if (id.includes("semantic")) return "structure";
+    if (id.includes("struct") || id.includes("semantic")) return "structure";
     if (id.includes("mob")) return "mobile";
-    if (id.includes("sec")) return "security";
-    if (id.includes("trust")) return "security";
+    if (id.includes("sec") || id.includes("trust")) return "security";
     if (id.includes("access")) return "accessibility";
     return "";
   }
@@ -639,9 +627,8 @@ window.__IQWEB_REPORT_READY ??= false;
     const riskText = narrativeOneLineForSignal(riskKey) || fallbackLine("Risk", riskKey);
 
     const focusText =
-      weakest
-        ? `Focus: ${prettifyKey(weakest)} is the lowest scoring area in this scan.`
-        : `Focus: address the lowest scoring signal areas first for highest leverage.`;
+      weakest ? `Focus: ${prettifyKey(weakest)} is the lowest scoring area in this scan.`
+             : `Focus: address the lowest scoring signal areas first for highest leverage.`;
 
     const nextText =
       overall >= 75
@@ -658,9 +645,6 @@ window.__IQWEB_REPORT_READY ??= false;
     `;
   }
 
-  // -----------------------------
-  // Top Issues / Fix Sequence / Final Notes
-  // -----------------------------
   function softImpactLabel(severity) {
     const s = String(severity || "").toLowerCase();
     if (s.includes("high") || s.includes("critical")) return "High leverage";
@@ -752,7 +736,6 @@ window.__IQWEB_REPORT_READY ??= false;
   function renderFinalNotes() {
     const root = $("finalNotesRoot");
     if (!root) return;
-
     if ((root.textContent || "").trim().length > 30) return;
 
     root.innerHTML = `
@@ -805,7 +788,6 @@ window.__IQWEB_REPORT_READY ??= false;
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
-      // ✅ SINGLE, CORRECT END BLOCK
       if (window.location.search.includes("pdf=1")) {
         window.__IQWEB_REPORT_READY = false;
         await waitForPdfReady(header.report_id || reportId, data.narrative);
@@ -816,6 +798,14 @@ window.__IQWEB_REPORT_READY ??= false;
     } catch (err) {
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
+
+      // If we're generating a PDF and fail, don't hang forever — finish so you at least get an error PDF.
+      if (window.location.search.includes("pdf=1")) {
+        window.__IQWEB_REPORT_READY = true;
+        try {
+          if (typeof window.docraptorJavaScriptFinished === "function") window.docraptorJavaScriptFinished();
+        } catch (_) {}
+      }
     }
   }
 
