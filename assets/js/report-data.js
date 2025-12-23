@@ -1,16 +1,7 @@
 // /assets/js/report-data.js
 // iQWEB Report UI — Contract v1.0.7 (Delivery Signals narrative wiring)
-// - Keeps scoring + cards + evidence wiring intact
-// - FIXES Delivery Signal cards: prefer TRUE narrative lines from data.narrative (not score-script)
-// - FIXES Key Insight Metrics: render as STATIC insights (no dropdowns)
-// - Adds safe renderers for Top Issues, Fix Sequence, Final Notes (optional IDs)
-// - Narrative supports text OR JSON and polls until available
-// - Enforces v5.2 line caps in UI:
-//   - Executive narrative max 5 lines
-//   - Signal card narrative max 3 lines (hard cap in UI)
 
 window.__IQWEB_REPORT_READY ??= false;
-
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -56,7 +47,6 @@ window.__IQWEB_REPORT_READY ??= false;
     return "Needs attention";
   }
 
-  // v5.2 UI clamp helper
   function normalizeLines(text, maxLines) {
     const s = String(text ?? "").replace(/\r\n/g, "\n").trim();
     if (!s) return [];
@@ -67,13 +57,11 @@ window.__IQWEB_REPORT_READY ??= false;
       .slice(0, maxLines);
   }
 
-  // Remove "authority" line if present as 3rd line in signal cards
   function stripAuthorityLineIfPresent(lines) {
     const cleaned = [];
     for (let i = 0; i < lines.length; i++) {
       const s = String(lines[i] || "").trim();
       const low = s.toLowerCase();
-      // only strip if it's the classic "no action required" instruction line
       if (
         i === 2 &&
         (low === "no action required." ||
@@ -168,15 +156,12 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   function wireBackToDashboard() {
-  const btn = document.getElementById("backToDashboard");
-  if (!btn) return;
-
-  btn.addEventListener("click", () => {
-    // adjust path if your dashboard lives elsewhere
-    window.location.href = "/dashboard.html";
-  });
-}
-
+    const btn = document.getElementById("backToDashboard");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      window.location.href = "/dashboard.html";
+    });
+  }
 
   // -----------------------------
   // Overall
@@ -205,7 +190,6 @@ window.__IQWEB_REPORT_READY ??= false;
     const score = asInt(sig?.score, 0);
     const label = String(sig?.label ?? sig?.id ?? "This signal");
 
-    // Keep it calm + non-authoritative (no "do X now", no "no action required")
     const base = `${label} is measured at ${score}/100 from deterministic checks in this scan.`;
     const issues = asArray(sig?.issues);
 
@@ -232,14 +216,13 @@ window.__IQWEB_REPORT_READY ??= false;
           const obj = JSON.parse(s);
           return { kind: "obj", obj };
         } catch {
-          // fall through to plain text
+          // fall through
         }
       }
       return { kind: "text", text: s };
     }
 
     if (typeof v === "object") return { kind: "obj", obj: v };
-
     return { kind: "text", text: String(v) };
   }
 
@@ -297,6 +280,7 @@ window.__IQWEB_REPORT_READY ??= false;
     return false;
   }
 
+  // ✅ FIXED: sessionStorage guard for DocRaptor/headless
   async function ensureNarrative(reportId, currentNarrative) {
     const textEl = $("narrativeText");
     if (!textEl) return;
@@ -304,8 +288,14 @@ window.__IQWEB_REPORT_READY ??= false;
     if (renderNarrative(currentNarrative)) return;
 
     const key = `iqweb_narrative_requested_${reportId}`;
-    if (sessionStorage.getItem(key) === "1") return;
-    sessionStorage.setItem(key, "1");
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(key) === "1") return;
+        sessionStorage.setItem(key, "1");
+      }
+    } catch (_) {
+      // ignore storage failures
+    }
 
     if (narrativeInFlight) return;
     narrativeInFlight = true;
@@ -316,15 +306,48 @@ window.__IQWEB_REPORT_READY ??= false;
       await generateNarrative(reportId);
 
       const ok = await pollForNarrative(reportId);
-      if (!ok) {
-        textEl.textContent = "Narrative still generating. Refresh in a moment.";
-      }
+      if (!ok) textEl.textContent = "Narrative still generating. Refresh in a moment.";
     } catch (e) {
       console.error(e);
       textEl.textContent = `Narrative generation failed: ${e?.message || String(e)}`;
     } finally {
       narrativeInFlight = false;
     }
+  }
+
+  // -----------------------------
+  // PDF gating helpers
+  // -----------------------------
+  function expandEvidenceForPDF() {
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => d.open = true);
+    } catch (_) {}
+  }
+
+  async function waitForPdfReady(reportId, narrative) {
+    // Start generation if missing (non-blocking)
+    ensureNarrative(reportId, narrative);
+
+    // Wait for narrative to exist
+    if (!renderNarrative(narrative)) {
+      await pollForNarrative(reportId);
+    }
+
+    // Expand evidence AFTER narrative
+    expandEvidenceForPDF();
+
+    // Let layout settle
+    await new Promise(r => setTimeout(r, 400));
+
+    // Signal ready flags
+    window.__IQWEB_REPORT_READY = true;
+
+    // If your report.html uses DocRaptor's callback, support it too
+    try {
+      if (typeof window.docraptorJavaScriptFinished === "function") {
+        window.docraptorJavaScriptFinished();
+      }
+    } catch (_) {}
   }
 
   // -----------------------------
@@ -344,7 +367,6 @@ window.__IQWEB_REPORT_READY ??= false;
     const parsedNarr = parseNarrativeFlexible(narrative);
     const narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
 
-    // Accept multiple possible shapes to avoid brittle wiring
     const narrSignals =
       safeObj(narrObj?.signals) ||
       safeObj(narrObj?.delivery_signals) ||
@@ -353,19 +375,14 @@ window.__IQWEB_REPORT_READY ??= false;
 
     const keyFromSig = (sig) => {
       const id = String(sig?.id || sig?.label || "").toLowerCase();
-
-      // common variants
       if (id.includes("perf")) return "performance";
       if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
-      if (id.includes("seo foundations")) return "seo";
       if (id.includes("structure")) return "structure";
       if (id.includes("semantic")) return "structure";
       if (id.includes("sec")) return "security";
       if (id.includes("trust")) return "security";
       if (id.includes("access")) return "accessibility";
-
-      // fallback to a cleaned key
       return id.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || null;
     };
 
@@ -376,35 +393,26 @@ window.__IQWEB_REPORT_READY ??= false;
       const key = keyFromSig(sig);
 
       const rawLines = key
-        ? asArray(narrSignals?.[key]?.lines)
-            .map(l => String(l || "").trim())
-            .filter(Boolean)
+        ? asArray(narrSignals?.[key]?.lines).map(l => String(l || "").trim()).filter(Boolean)
         : [];
 
-      // ✅ HARD cap for cards: max 3 lines (v5.2 locked)
       const cardLines = normalizeLines(rawLines.join("\n"), 3);
       const safeLines = stripAuthorityLineIfPresent(cardLines);
 
-      const bodyText = safeLines.length
-        ? safeLines.join("\n")
-        : summaryFallback(sig);
+      const bodyText = safeLines.length ? safeLines.join("\n") : summaryFallback(sig);
 
       const card = document.createElement("div");
       card.className = "card";
-
       card.innerHTML = `
         <div class="card-top">
           <h3>${escapeHtml(label)}</h3>
           <div class="score-right">${escapeHtml(String(score))}</div>
         </div>
-
         <div class="bar"><div style="width:${score}%;"></div></div>
-
         <div class="summary" style="min-height:unset;">
           ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
         </div>
       `;
-
       grid.appendChild(card);
     }
   }
@@ -464,7 +472,7 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // Signal Evidence section (dropdowns styled to match your CSS)
+  // Signal Evidence section
   // -----------------------------
   function renderSignalEvidence(deliverySignals) {
     const root = $("signalEvidenceRoot");
@@ -487,7 +495,6 @@ window.__IQWEB_REPORT_READY ??= false;
 
       const block = document.createElement("details");
       block.className = "evidence-block";
-    
 
       const summary = document.createElement("summary");
       summary.innerHTML = `
@@ -506,23 +513,21 @@ window.__IQWEB_REPORT_READY ??= false;
       listEl.className = "evidence-list";
 
       if (obs.length) {
-  for (const o of obs.slice(0, 24)) {
-  const kv = document.createElement("div");
-  kv.className = "kv";
+        for (const o of obs.slice(0, 24)) {
+          const kv = document.createElement("div");
+          kv.className = "kv";
 
-  const value =
-    o?.value === null ? "null" :
-    o?.value === undefined ? "—" :
-    String(o.value);
+          const value =
+            o?.value === null ? "null" :
+            o?.value === undefined ? "—" :
+            String(o.value);
 
-  kv.innerHTML = `
-    <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
-    <div class="v">${escapeHtml(value)}</div>
-  `;
-
-  listEl.appendChild(kv);
-}
-
+          kv.innerHTML = `
+            <div class="k">${escapeHtml(o?.label ?? "Observation")}</div>
+            <div class="v">${escapeHtml(value)}</div>
+          `;
+          listEl.appendChild(kv);
+        }
       } else {
         const none = document.createElement("div");
         none.className = "summary";
@@ -552,7 +557,6 @@ window.__IQWEB_REPORT_READY ??= false;
                 <div style="font-weight:800;opacity:.85;">${sev}</div>
               </div>
               <div class="k" style="text-transform:none; letter-spacing:0;">Impact: <span class="impact-text" style="font-weight:700;">${impact}</span></div>
-
             </div>
           `;
         }).join("");
@@ -607,8 +611,7 @@ window.__IQWEB_REPORT_READY ??= false;
       scoreBy[k] = asInt(sig?.score, 0);
     }
 
-    const signalScores = Object.entries(scoreBy);
-    signalScores.sort((a, b) => a[1] - b[1]); // lowest first
+    const signalScores = Object.entries(scoreBy).sort((a, b) => a[1] - b[1]);
     const weakest = signalScores[0]?.[0];
     const strongest = signalScores[signalScores.length - 1]?.[0];
 
@@ -647,28 +650,16 @@ window.__IQWEB_REPORT_READY ??= false;
 
     root.innerHTML = `
       <div class="insight-list">
-        <div class="insight">
-          <div class="tag">Strength</div>
-          <div class="text">${escapeHtml(strengthText)}</div>
-        </div>
-        <div class="insight">
-          <div class="tag">Risk</div>
-          <div class="text">${escapeHtml(riskText)}</div>
-        </div>
-        <div class="insight">
-          <div class="tag">Focus</div>
-          <div class="text">${escapeHtml(focusText)}</div>
-        </div>
-        <div class="insight">
-          <div class="tag">Next</div>
-          <div class="text">${escapeHtml(nextText)}</div>
-        </div>
+        <div class="insight"><div class="tag">Strength</div><div class="text">${escapeHtml(strengthText)}</div></div>
+        <div class="insight"><div class="tag">Risk</div><div class="text">${escapeHtml(riskText)}</div></div>
+        <div class="insight"><div class="tag">Focus</div><div class="text">${escapeHtml(focusText)}</div></div>
+        <div class="insight"><div class="tag">Next</div><div class="text">${escapeHtml(nextText)}</div></div>
       </div>
     `;
   }
 
   // -----------------------------
-  // Top Issues Detected (Contextual, Not Alarmist) — optional section
+  // Top Issues / Fix Sequence / Final Notes
   // -----------------------------
   function softImpactLabel(severity) {
     const s = String(severity || "").toLowerCase();
@@ -679,7 +670,7 @@ window.__IQWEB_REPORT_READY ??= false;
 
   function renderTopIssues(deliverySignals) {
     const root = $("topIssuesRoot");
-    if (!root) return; // section optional
+    if (!root) return;
     root.innerHTML = "";
 
     const list = asArray(deliverySignals);
@@ -735,15 +726,9 @@ window.__IQWEB_REPORT_READY ??= false;
     }).join("");
   }
 
-  // -----------------------------
-  // Recommended Fix Sequence (Phased) — optional section
-  // -----------------------------
   function renderFixSequence(scores, deliverySignals) {
     const root = $("fixSequenceRoot");
-    if (!root) return; // section optional
-
-    const hasPhases = root.querySelector?.(".phase");
-    if (hasPhases) return;
+    if (!root) return;
 
     const list = asArray(deliverySignals);
     const scorePairs = list
@@ -764,9 +749,6 @@ window.__IQWEB_REPORT_READY ??= false;
     `;
   }
 
-  // -----------------------------
-  // Final Notes — optional section
-  // -----------------------------
   function renderFinalNotes() {
     const root = $("finalNotesRoot");
     if (!root) return;
@@ -785,13 +767,12 @@ window.__IQWEB_REPORT_READY ??= false;
   // -----------------------------
   // Main
   // -----------------------------
-async function main() {
-  wireBackToDashboard();   // ← ADD THIS LINE
+  async function main() {
+    wireBackToDashboard();
 
-  const loaderSection = $("loaderSection");
-  const reportRoot = $("reportRoot");
-  const statusEl = $("loaderStatus");
-
+    const loaderSection = $("loaderSection");
+    const reportRoot = $("reportRoot");
+    const statusEl = $("loaderStatus");
 
     const reportId = getReportIdFromUrl();
     if (!reportId) {
@@ -803,7 +784,6 @@ async function main() {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
 
-      // (Optional) quick debug handle
       window.__iqweb_lastData = data;
 
       const header = safeObj(data.header);
@@ -814,41 +794,25 @@ async function main() {
       setHeaderReportDate(header.created_at);
 
       renderOverall(scores);
-
-      // Executive narrative (separate; stays max 5 lines)
       renderNarrative(data.narrative);
-
-      // ✅ Delivery Signals — TRUE narrative first
       renderSignals(data.delivery_signals, data.narrative);
-
-      // Evidence + other sections
       renderSignalEvidence(data.delivery_signals);
-
       renderKeyInsights(scores, data.delivery_signals, data.narrative);
-
       renderTopIssues(data.delivery_signals);
       renderFixSequence(scores, data.delivery_signals);
       renderFinalNotes();
 
-if (loaderSection) loaderSection.style.display = "none";
-if (reportRoot) reportRoot.style.display = "block";
+      if (loaderSection) loaderSection.style.display = "none";
+      if (reportRoot) reportRoot.style.display = "block";
 
- 
-// Expand evidence for PDF / print (so it prints in full)
-try {
-  document.querySelectorAll("details.evidence-block")
-    .forEach(d => d.open = true);
-} catch (_) {}
+      // ✅ SINGLE, CORRECT END BLOCK
+      if (window.location.search.includes("pdf=1")) {
+        window.__IQWEB_REPORT_READY = false;
+        await waitForPdfReady(header.report_id || reportId, data.narrative);
+      } else {
+        ensureNarrative(header.report_id || reportId, data.narrative);
+      }
 
-// Signal readiness ONLY for DocRaptor / PDF
-if (window.location.search.includes("pdf=1")) {
-  window.__IQWEB_REPORT_READY = true;
-}
-
-
-
-      // Ensure narrative exists (async)
-      ensureNarrative(header.report_id || reportId, data.narrative);
     } catch (err) {
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;

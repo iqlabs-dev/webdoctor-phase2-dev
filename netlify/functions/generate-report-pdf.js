@@ -91,8 +91,12 @@ exports.handler = async (event) => {
           document_type: "pdf",
           document_url: reportUrl,
 
-          // allow JS + wait for docraptorJavaScriptFinished()
+          // ✅ REQUIRED: allow JS + WAIT until the page signals readiness
           javascript: true,
+          wait_for_javascript: true,
+          javascript_wait_function: "window.__IQWEB_REPORT_READY === true",
+          javascript_delay: 500,
+
           prince_options: {
             media: "print",
             javascript: true,
