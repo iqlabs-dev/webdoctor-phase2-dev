@@ -78,7 +78,7 @@ exports.handler = async (event) => {
     }
 
     const secret = process.env.PDF_TOKEN_SECRET || "";
-    // If a secret is set, we require a valid token.
+    // If a secret is set, we require a vald token.
     if (secret) {
       const decoded = verifyToken(token, secret);
       if (!decoded) {

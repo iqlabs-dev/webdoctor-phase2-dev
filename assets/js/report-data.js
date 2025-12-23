@@ -824,7 +824,7 @@ window.__IQWEB_REPORT_READY ??= false;
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
 
-      // PDF mode must NEVER hang — always finish
+      // PDF mode must NEVR hang — always finish
       if (isPdf) {
         try { await waitForPdfReady(reportId); } catch (_) {}
       }
