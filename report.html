@@ -686,10 +686,12 @@
             </div>
           </div>
 
-          <div class="top-actions">
-            <button id="backToDashboard" class="btn">Back to dashboard</button>
-            <button class="btn" id="refreshBtn">Refresh</button>
-          </div>
+<div class="top-actions">
+  <button id="backToDashboard" class="btn">Back to dashboard</button>
+  <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+  <button id="refreshBtn" class="btn">Refresh</button>
+</div>
+
         </div>
 
         <!-- Meta Strip -->
@@ -902,18 +904,58 @@
 
   <!-- UI buttons (Back/Refresh) -->
   <script>
-    (function(){
-      const refresh = document.getElementById("refreshBtn");
-      const backBtn = document.getElementById("backToDashboard");
+(function () {
+  const refreshBtn = document.getElementById("refreshBtn");
+  const backBtn = document.getElementById("backToDashboard");
+  const pdfBtn = document.getElementById("downloadPdfBtn");
 
-      const params = new URLSearchParams(window.location.search);
-      const from = (params.get("from") || "").toLowerCase();
+  const params = new URLSearchParams(window.location.search);
+  const from = (params.get("from") || "").toLowerCase();
+  const reportId = params.get("report_id");
 
-      if (from === "history" && backBtn) backBtn.style.display = "none";
+  if (from === "history") {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
+    if (pdfBtn) {
+      pdfBtn.style.display = "inline-block";
+      pdfBtn.onclick = async () => {
+        pdfBtn.disabled = true;
+        pdfBtn.textContent = "Generating PDF…";
 
-      if (backBtn) backBtn.addEventListener("click", () => { window.location.href = "/dashboard.html"; });
-      if (refresh) refresh.addEventListener("click", () => location.reload());
-    })();
+        try {
+          const res = await fetch("/.netlify/functions/generate-report-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reportId })
+          });
+
+          if (!res.ok) throw new Error("PDF generation failed");
+
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${reportId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          alert("Unable to generate PDF. Please try again.");
+        } finally {
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = "Download PDF";
+        }
+      };
+    }
+  } else {
+    if (pdfBtn) pdfBtn.style.display = "none";
+    if (refreshBtn) refreshBtn.onclick = () => location.reload();
+    if (backBtn) backBtn.onclick = () => (window.location.href = "/dashboard.html");
+  }
+})();
+
   </script>
 
 <script>
@@ -960,7 +1002,7 @@
   }, 30000);
 </script>
 
-<script src="/assets/js/report-history-pdf.js"></script>
+
 
 
 
