@@ -94,8 +94,7 @@ exports.handler = async (event) => {
           // ✅ REQUIRED: allow JS + WAIT until the page signals readiness
           javascript: true,
           wait_for_javascript: true,
-          javascript_wait_function: "window.__IQWEB_REPORT_READY === true",
-          javascript_delay: 500,
+
 
           prince_options: {
             media: "print",
