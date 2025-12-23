@@ -1,11 +1,16 @@
 // netlify/functions/generate-report-pdf.js
-// iQWEB — Generate PDF via DocRaptor using document_url + signed pdf_token
-// This avoids needing a logged-in browser session in DocRaptor.
+// iQWEB — Generate PDF via DocRaptor using document_url
+// Uses DOC_RAPTOR_API_KEY + optional PDF_TOKEN_SECRET for signed access
+// If PDF_TOKEN_SECRET is NOT set, it will still generate a PDF (no token) so downloads never break.
 
 const crypto = require("crypto");
 
 function base64url(input) {
-  return Buffer.from(input).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
 }
 
 function signToken(payload, secret) {
@@ -13,8 +18,13 @@ function signToken(payload, secret) {
   const h = base64url(JSON.stringify(header));
   const p = base64url(JSON.stringify(payload));
   const data = `${h}.${p}`;
-  const sig = crypto.createHmac("sha256", secret).update(data).digest("base64")
-    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const sig = crypto
+    .createHmac("sha256", secret)
+    .update(data)
+    .digest("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
   return `${data}.${sig}`;
 }
 
@@ -31,33 +41,42 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
     }
 
-    const reportId = body.reportId || body.report_id || null;
+    const reportId = (body.reportId || body.report_id || "").trim();
     if (!reportId) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing reportId" }) };
     }
 
     const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
-    const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET; // <-- ADD THIS ENV VAR IN NETLIFY
+    const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET; // optional
+
     if (!DOC_RAPTOR_API_KEY) {
       return { statusCode: 500, body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }) };
     }
-    if (!PDF_TOKEN_SECRET) {
-      return { statusCode: 500, body: JSON.stringify({ error: "PDF_TOKEN_SECRET is not set" }) };
+
+    // Base report URL (pdf=1 tells report-data.js to use the pdf endpoint)
+    let reportUrl =
+      `https://iqweb.ai/report.html?report_id=${encodeURIComponent(reportId)}` +
+      `&pdf=1`;
+
+    // If you have a token secret, sign a short-lived token and include it.
+    // If not, DO NOT fail — generate PDF anyway (prevents broken downloads).
+    if (PDF_TOKEN_SECRET && String(PDF_TOKEN_SECRET).trim()) {
+      const now = Math.floor(Date.now() / 1000);
+      const token = signToken(
+        { rid: reportId, iat: now, exp: now + 300, scope: "pdf" },
+        PDF_TOKEN_SECRET
+      );
+      reportUrl += `&pdf_token=${encodeURIComponent(token)}`;
+    } else {
+      console.warn("[PDF] PDF_TOKEN_SECRET not set — generating PDF without signed token");
     }
 
-    // short-lived token (5 minutes)
-    const now = Math.floor(Date.now() / 1000);
-    const token = signToken(
-      { rid: reportId, iat: now, exp: now + 300, scope: "pdf" },
-      PDF_TOKEN_SECRET
-    );
-
-    // IMPORTANT: pdf=1 tells report-data.js to use the pdf data endpoint
-    const reportUrl =
-      `https://iqweb.ai/report.html?report_id=${encodeURIComponent(reportId)}` +
-      `&pdf=1&pdf_token=${encodeURIComponent(token)}`;
-
-    console.log("[PDF] generate-report-pdf", { reportId, reportUrl, haveDocKey: true });
+    console.log("[PDF] generate-report-pdf", {
+      reportId,
+      reportUrl,
+      haveDocKey: true,
+      haveTokenSecret: !!(PDF_TOKEN_SECRET && String(PDF_TOKEN_SECRET).trim()),
+    });
 
     const resp = await fetch("https://docraptor.com/docs", {
       method: "POST",
@@ -72,7 +91,7 @@ exports.handler = async (event) => {
           document_type: "pdf",
           document_url: reportUrl,
 
-          // allow JS + wait for docraptorJavaScriptFinish()
+          // allow JS + wait for docraptorJavaScriptFinished()
           javascript: true,
           prince_options: {
             media: "print",
@@ -83,7 +102,7 @@ exports.handler = async (event) => {
     });
 
     if (!resp.ok) {
-      const errorText = await resp.text();
+      const errorText = await resp.text().catch(() => "");
       console.error("[PDF] DocRaptor error", resp.status, errorText);
       return {
         statusCode: 500,

@@ -9,7 +9,8 @@
 //   - Executive narrative max 5 lines
 //   - Signal card narrative max 3 lines (hard cap in UI)
 
-window.__IQWEB_REPORT_READY = false;
+window.__IQWEB_REPORT_READY ??= false;
+
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -829,10 +830,14 @@ async function main() {
       renderFixSequence(scores, data.delivery_signals);
       renderFinalNotes();
 
-      if (loaderSection) loaderSection.style.display = "none";
-      if (reportRoot) reportRoot.style.display = "block";
+if (loaderSection) loaderSection.style.display = "none";
+if (reportRoot) reportRoot.style.display = "block";
 
-      window.__IQWEB_REPORT_READY = true;
+// Expand evidence for PDF / print (so it prints in full)
+try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
+
+window.__IQWEB_REPORT_READY = true;
+
 
 
       // Ensure narrative exists (async)

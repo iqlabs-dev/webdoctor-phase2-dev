@@ -917,46 +917,18 @@
   </script>
 
   <!-- ✅ DocRaptor "wait until fully rendered" hook -->
-  <script>
-    // DocRaptor will poll docraptorJavaScriptFinished(). It MUST return true only when ready.
-    window.__IQWEB_REPORT_READY = false;
+<script>
+  // DocRaptor "wait until fully rendered" hook
+  // IMPORTANT: don't reset the flag after report-data.js has potentially set it true
+  window.__IQWEB_REPORT_READY ??= false;
 
-    function docraptorJavaScriptFinished() {
-      return !!window.__IQWEB_REPORT_READY;
-    }
+  function docraptorJavaScriptFinished() {
+    return window.__IQWEB_REPORT_READY === true;
+  }
+</script>
 
-    (function waitForReportReady(){
-      const loader = document.getElementById("loaderSection");
-      const root   = document.getElementById("reportRoot");
-      const grid   = document.getElementById("signalsGrid");
 
-      const loaderHidden =
-        loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
 
-      const rootVisible =
-        root && (root.style.display !== "none" && getComputedStyle(root).display !== "none");
-
-      const hasSignals = grid && grid.children && grid.children.length > 0;
-
-      if (loaderHidden && rootVisible && hasSignals) {
-        // Expand evidence for PDF (so it prints in full)
-        try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
-
-        window.__IQWEB_REPORT_READY = true;
-        return;
-      }
-
-      setTimeout(waitForReportReady, 150);
-    })();
-
-    // Safety timeout: never hang forever
-    setTimeout(() => {
-      if (!window.__IQWEB_REPORT_READY) {
-        console.warn("[PDF] Force-ready timeout hit (30s)");
-        window.__IQWEB_REPORT_READY = true;
-      }
-    }, 30000);
-  </script>
 
 </body>
 </html>
