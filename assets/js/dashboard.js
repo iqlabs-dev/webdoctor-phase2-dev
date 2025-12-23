@@ -32,6 +32,7 @@ function looksLikeReportId(v) {
 /**
  * Latest Scan → View report
  * Same tab (focused workflow)
+ * ✅ NO CHANGE (OSD stays clean)
  */
 function goToReport(reportId) {
   if (!looksLikeReportId(reportId)) {
@@ -46,16 +47,16 @@ function goToReport(reportId) {
 }
 
 /**
- * Scan History → View
+ * Scan History → View+PDF
  * New tab (keeps dashboard context)
+ * Opens report with from=history so report page can swap Refresh→Download PDF
  */
-function goToReportNewTab(reportId) {
+function goToReportFromHistory(reportId) {
   if (!looksLikeReportId(reportId)) {
     console.warn("[NAV] blocked invalid report_id:", reportId);
     return;
   }
 
-  // IMPORTANT: use report.html (exists) + from=history flag
   const url = `/report.html?report_id=${encodeURIComponent(reportId)}&from=history`;
   console.log("[NAV] history new-tab ->", url);
   window.open(url, "_blank", "noopener");
@@ -219,7 +220,7 @@ async function generateNarrative(reportId, accessToken) {
 }
 
 // -----------------------------
-// LATEST SCAN CARD
+// LATEST SCAN CARD (NO PDF HERE)
 // -----------------------------
 function updateLatestScanCard(row, opts = {}) {
   const elUrl = $("ls-url");
@@ -257,7 +258,6 @@ function updateLatestScanCard(row, opts = {}) {
     }
   }
 
-  // Optional: clicking history row also sets input box (nice UX)
   if (urlInput && row.url && opts.setInput === true) {
     urlInput.value = row.url;
   }
@@ -268,7 +268,6 @@ function updateLatestScanCard(row, opts = {}) {
     report_id: row.report_id || null,
   };
 
-  // Latest Scan stays VIEW ONLY (no PDF here)
   if (elView) {
     elView.onclick = (e) => {
       if (e?.preventDefault) e.preventDefault();
@@ -286,7 +285,6 @@ function updateLatestScanCard(row, opts = {}) {
 // SEARCH FILTER (history)
 // -----------------------------
 function parseScoreQuery(q) {
-  // supports: "90" ">=80" "<=70" ">75" "<60"
   const s = String(q || "").trim();
   const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
   if (!m) return null;
@@ -364,7 +362,7 @@ function wireHistorySearch() {
 }
 
 // -----------------------------
-// HISTORY LOAD
+// HISTORY LOAD (single Actions button)
 // -----------------------------
 async function loadScanHistory() {
   const tbody = $("history-body");
@@ -411,7 +409,6 @@ async function loadScanHistory() {
       const dateStr = d ? d.toLocaleDateString() : "—";
       const timeStr = d ? d.toLocaleTimeString() : "—";
 
-      // search metadata
       tr.dataset.url = row.url || "";
       tr.dataset.reportid = row.report_id || "";
       tr.dataset.status = row.status || "";
@@ -430,7 +427,6 @@ async function loadScanHistory() {
       tdTime.textContent = timeStr;
       tr.appendChild(tdTime);
 
-      // Website (clickable -> loads latest scan + fills input)
       const tdUrl = document.createElement("td");
       tdUrl.className = "col-url";
 
@@ -461,72 +457,17 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
-      // View button (history)
-      const viewBtn = document.createElement("button");
-      viewBtn.className = "btn-link btn-view";
-      viewBtn.textContent = "View";
-      viewBtn.onclick = () => goToReportNewTab(row.report_id);
-      tdActions.appendChild(viewBtn);
+      const actionBtn = document.createElement("button");
+      actionBtn.className = "btn-link btn-view";
+      actionBtn.textContent = "View + Download PDF";
+      actionBtn.onclick = () => goToReportFromHistory(row.report_id);
 
-      tdActions.appendChild(document.createTextNode(" "));
-
-      // Download PDF button (history only)
-      const pdfBtn = document.createElement("button");
-      pdfBtn.className = "btn-link wd-history-pdf";
-      pdfBtn.textContent = "Download PDF";
-
-      pdfBtn.onclick = async () => {
-        const originalText = pdfBtn.textContent;
-
-        try {
-          if (!looksLikeReportId(row.report_id)) {
-            alert("Report ID not ready yet. Please refresh in a moment.");
-            return;
-          }
-
-          pdfBtn.disabled = true;
-          pdfBtn.textContent = "Preparing…";
-
-          // IMPORTANT: call the orchestrator (binary-safe)
-          const res = await fetch("/.netlify/functions/download-pdf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reportId: row.report_id }),
-          });
-
-          if (!res.ok) {
-            const txt = await res.text().catch(() => "");
-            console.error("PDF download failed:", res.status, txt);
-            throw new Error("PDF download failed");
-          }
-
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${row.report_id}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        } catch (e) {
-          console.error("PDF error:", e);
-          alert("PDF download failed. Check Netlify function logs.");
-        } finally {
-          pdfBtn.disabled = false;
-          pdfBtn.textContent = originalText;
-        }
-      };
-
-      tdActions.appendChild(pdfBtn);
-
+      tdActions.appendChild(actionBtn);
       tr.appendChild(tdActions);
+
       tbody.appendChild(tr);
     }
 
-    // Apply any active filter after reload
     applyHistoryFilter();
   } catch (err) {
     console.error("History load unexpected:", err);
@@ -548,10 +489,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // wire search UI (doesn't depend on auth)
   wireHistorySearch();
 
-  // legacy plan buttons if they exist (safe)
   const btnInsight = $("btn-plan-insight");
   const btnIntelligence = $("btn-plan-intelligence");
   const btnImpact = $("btn-plan-impact");
@@ -559,7 +498,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
   if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
 
-  // AUTH
   const { data } = await supabase.auth.getUser();
   if (!data?.user) {
     window.location.href = "/login.html";
@@ -572,7 +510,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   setUserUI(window.currentUserEmail);
 
-  await refreshProfile();     // non-fatal if 406 etc.
+  await refreshProfile();
   await loadScanHistory();
 
   runBtn.addEventListener("click", async () => {
@@ -593,7 +531,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
-      // Server derives user_id from JWT
       const payload = {
         url: cleaned,
         email: window.currentUserEmail || null,
@@ -631,7 +568,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         showViewReportCTA(reportId);
         statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
-        // fire narrative in background (non-blocking)
         generateNarrative(reportId, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
         });
