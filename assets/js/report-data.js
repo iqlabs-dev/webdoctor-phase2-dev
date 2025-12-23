@@ -3,10 +3,10 @@
 //
 // Key fix:
 // - DocRaptor/Prince often does NOT support window.fetch reliably.
-// - Uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
+// - This file uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
 // - Prevents "Building Report" PDFs by ensuring data load works in Prince.
 
-window.__IQWEB_REPORT_READY ??= false;
+if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_READY = false;
 
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -21,12 +21,12 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   function escapeHtml(str) {
-    return String(str ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+    return String((str === null || str === undefined) ? "" : str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function formatDate(iso) {
@@ -192,7 +192,10 @@ window.__IQWEB_REPORT_READY ??= false;
         `/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}` +
         `&pdf_token=${encodeURIComponent(token)}`;
 
-      if (!token) throw new Error("Missing pdf_token (PDF mode).");
+      if (!token) {
+        throw new Error("Missing pdf_token (PDF mode).");
+      }
+
       return httpJson("GET", url);
     }
 
@@ -276,7 +279,7 @@ window.__IQWEB_REPORT_READY ??= false;
     if (parsed.kind === "text") {
       const lines = normalizeLines(parsed.text, 5);
       if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+        textEl.innerHTML = escapeHtml(lines.join("\n")).split("\n").join("<br>");
         return true;
       }
       textEl.textContent = "Narrative not generated yet.";
@@ -289,14 +292,14 @@ window.__IQWEB_REPORT_READY ??= false;
       const overallLines = asArray(n?.overall?.lines).map(l => String(l || "").trim()).filter(Boolean);
       const lines = normalizeLines(overallLines.join("\n"), 5);
       if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
+        textEl.innerHTML = escapeHtml(lines.join("\n")).split("\n").join("<br>");
         return true;
       }
 
       if (typeof n.text === "string" && n.text.trim()) {
         const tLines = normalizeLines(n.text.trim(), 5);
         if (tLines.length) {
-          textEl.innerHTML = escapeHtml(tLines.join("\n")).replaceAll("\n", "<br>");
+          textEl.innerHTML = escapeHtml(tLines.join("\n")).split("\n").join("<br>");
           return true;
         }
       }
@@ -353,21 +356,21 @@ window.__IQWEB_REPORT_READY ??= false;
   // PDF gating (FINAL – DO NOT TOUCH)
   // -----------------------------
   function expandEvidenceForPDF() {
-    try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
+    try {
+      document
+        .querySelectorAll("details.evidence-block")
+        .forEach(d => d.open = true);
+    } catch (_) {}
   }
 
   async function waitForPdfReady() {
     try {
-      // Expand all accordions so Prince prints them
       expandEvidenceForPDF();
-
-      // Give Prince/DocRaptor a moment to lay out
       await new Promise(r => setTimeout(r, 350));
-
-      window.__IQWEB_REPORT_READY = true;
     } finally {
-      // ALWAYS signal finished so DocRaptor never hangs
+      // ALWAYS tell DocRaptor we're done
       try {
+        window.__IQWEB_REPORT_READY = true;
         if (typeof window.docraptorJavaScriptFinished === "function") {
           window.docraptorJavaScriptFinished();
         }
@@ -432,7 +435,7 @@ window.__IQWEB_REPORT_READY ??= false;
         </div>
         <div class="bar"><div style="width:${score}%;"></div></div>
         <div class="summary" style="min-height:unset;">
-          ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
+          ${escapeHtml(bodyText).split("\n").join("<br>")}
         </div>
       `;
       grid.appendChild(card);
@@ -772,7 +775,8 @@ window.__IQWEB_REPORT_READY ??= false;
       return;
     }
 
-    const isPdf = new URLSearchParams(window.location.search).get("pdf") === "1";
+    const qs = new URLSearchParams(window.location.search);
+    const isPdf = qs.get("pdf") === "1";
 
     try {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
@@ -800,7 +804,8 @@ window.__IQWEB_REPORT_READY ??= false;
       if (reportRoot) reportRoot.style.display = "block";
 
       if (isPdf) {
-        // PDF mode: DO NOT wait for narrative. Finish cleanly.
+        // PDF mode: do NOT wait on narrative generation. Render what exists and finish.
+        window.__IQWEB_REPORT_READY = false;
         await waitForPdfReady();
       } else {
         // Normal interactive mode
@@ -811,10 +816,16 @@ window.__IQWEB_REPORT_READY ??= false;
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
 
-      // If PDF mode fails, NEVER hang — still signal finished
-      if (isPdf) {
-        try { await waitForPdfReady(); } catch (_) {}
-      }
+      // PDF mode must NEVER hang — always finish (even if it’s an error PDF)
+      try {
+        const qs2 = new URLSearchParams(window.location.search);
+        if (qs2.get("pdf") === "1") {
+          window.__IQWEB_REPORT_READY = true;
+          if (typeof window.docraptorJavaScriptFinished === "function") {
+            window.docraptorJavaScriptFinished();
+          }
+        }
+      } catch (_) {}
     }
   }
 

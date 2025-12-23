@@ -1,86 +1,91 @@
-// netlify/functions/get-report-data-pdf.js
-// Returns scan_results row for a report_id when a valid signed pdf_token is provided.
+// /.netlify/functions/get-report-data-pdf.js
+import { createClient } from "@supabase/supabase-js";
 
-const crypto = require("crypto");
+const json = (statusCode, body) => ({
+  statusCode,
+  headers: {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+  },
+  body: JSON.stringify(body),
+});
 
-function b64urlToBuf(s) {
-  s = s.replace(/-/g, "+").replace(/_/g, "/");
-  while (s.length % 4) s += "=";
-  return Buffer.from(s, "base64");
-}
+export const handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return json(204, {});
+  if (event.httpMethod !== "GET") return json(405, { success: false, error: "Method not allowed" });
 
-function verifyJWT(token, secret) {
-  const parts = String(token || "").split(".");
-  if (parts.length !== 3) return null;
+  const report_id = String(event.queryStringParameters?.report_id || "").trim();
+  const pdf_token = String(event.queryStringParameters?.pdf_token || "").trim();
 
-  const [h, p, sig] = parts;
-  const data = `${h}.${p}`;
-  const expected = crypto.createHmac("sha256", secret).update(data).digest("base64")
-    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  if (!report_id) return json(400, { success: false, error: "Missing report_id" });
+  if (!pdf_token) return json(400, { success: false, error: "Missing pdf_token" });
 
-  if (expected !== sig) return null;
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const payload = JSON.parse(b64urlToBuf(p).toString("utf8"));
-  const now = Math.floor(Date.now() / 1000);
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return json(500, { success: false, error: "Missing Supabase env vars" });
+  }
 
-  if (payload.exp && now > payload.exp) return null;
-  if (payload.scope !== "pdf") return null;
+  const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false },
+  });
 
-  return payload;
-}
-
-exports.handler = async (event) => {
   try {
-    const reportId = event.queryStringParameters?.report_id || null;
-    const token = event.queryStringParameters?.pdf_token || null;
+    // Pull the scan row (same as get-report-data.js, but also include pdf_token)
+    const scanRes = await supabase
+      .from("scan_results")
+      .select("id, report_id, url, created_at, status, metrics, score_overall, narrative, pdf_token")
+      .eq("report_id", report_id)
+      .limit(1);
 
-    const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET;
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const scan = scanRes.data?.[0];
+    if (!scan) return json(404, { success: false, error: "Report not found" });
 
-    if (!reportId) return { statusCode: 400, body: JSON.stringify({ error: "Missing report_id" }) };
-    if (!token) return { statusCode: 401, body: JSON.stringify({ error: "Missing pdf_token" }) };
-    if (!PDF_TOKEN_SECRET) return { statusCode: 500, body: JSON.stringify({ error: "PDF_TOKEN_SECRET not set" }) };
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Supabase env vars not set" }) };
+    // Token gate for PDF access
+    if (!scan.pdf_token || scan.pdf_token !== pdf_token) {
+      return json(401, { success: false, error: "Invalid pdf_token" });
     }
 
-    const payload = verifyJWT(token, PDF_TOKEN_SECRET);
-    if (!payload || payload.rid !== reportId) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Invalid token" }) };
-    }
+    // ---- The rest matches get-report-data.js output contract ----
+    const metrics = scan.metrics || {};
+    const scores = metrics?.scores || {};
 
-    // Fetch directly from Supabase REST with service role (bypasses RLS safely on server)
-    const url =
-      `${SUPABASE_URL}/rest/v1/scan_results` +
-      `?select=id,report_id,url,created_at,status,score_overall,metrics,narrative` +
-      `&report_id=eq.${encodeURIComponent(reportId)}` +
-      `&limit=1`;
+    // Prefer stored score_overall if present, else fall back to metrics scores overall
+    const overall = Number.isFinite(Number(scan.score_overall))
+      ? Number(scan.score_overall)
+      : Number.isFinite(Number(scores.overall))
+        ? Number(scores.overall)
+        : 0;
 
-    const resp = await fetch(url, {
-      headers: {
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    const payload = {
+      success: true,
+      header: {
+        website: scan.url,
+        report_id: scan.report_id,
+        created_at: scan.created_at,
       },
-    });
-
-    if (!resp.ok) {
-      const t = await resp.text();
-      console.error("[PDF] get-report-data-pdf supabase error", resp.status, t);
-      return { statusCode: 500, body: JSON.stringify({ error: "Supabase read failed" }) };
-    }
-
-    const rows = await resp.json().catch(() => []);
-    const row = rows && rows[0] ? rows[0] : null;
-    if (!row) return { statusCode: 404, body: JSON.stringify({ error: "Report not found" }) };
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-      body: JSON.stringify({ success: true, row }),
+      scores: {
+        overall,
+        seo: Number.isFinite(Number(scores.seo)) ? Number(scores.seo) : 0,
+        mobile: Number.isFinite(Number(scores.mobile)) ? Number(scores.mobile) : 0,
+        performance: Number.isFinite(Number(scores.performance)) ? Number(scores.performance) : 0,
+        structure: Number.isFinite(Number(scores.structure)) ? Number(scores.structure) : 0,
+        security: Number.isFinite(Number(scores.security)) ? Number(scores.security) : 0,
+        accessibility: Number.isFinite(Number(scores.accessibility)) ? Number(scores.accessibility) : 0,
+      },
+      metrics,
+      narrative: scan.narrative || null,
+      // delivery_signals in your system is derived from metrics; keep identical to get-report-data.js shape
+      delivery_signals: metrics?.delivery_signals || metrics?.signals || metrics?.deliverySignals || [],
     };
-  } catch (e) {
-    console.error("[PDF] get-report-data-pdf crash", e);
-    return { statusCode: 500, body: JSON.stringify({ error: e.message || "Unknown error" }) };
+
+    return json(200, payload);
+  } catch (err) {
+    console.error("[get-report-data-pdf] error:", err);
+    return json(500, { success: false, error: err?.message || String(err) });
   }
 };
