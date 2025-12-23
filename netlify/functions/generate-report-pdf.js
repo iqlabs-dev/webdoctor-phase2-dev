@@ -1,11 +1,12 @@
-// netlify/functions/generate-report-pdf.js
-// iQWEB — Generate PDF via DocRaptor using document_url
-// Uses DOC_RAPTOR_API_KEY + optional PDF_TOKEN_SECRET for signed access
-// If PDF_TOKEN_SECRET is NOT set, it will still generate a PDF (no token) so downloads never break.
+// /.netlify/functions/generate-report-pdf.js
+import "dotenv/config";
+import crypto from "crypto";
 
-const crypto = require("crypto");
+const DOCRAPTOR_API_KEY = process.env.DOCRAPTOR_API_KEY;
+const DOCRAPTOR_TEST = process.env.DOCRAPTOR_TEST === "true";
+const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET;
 
-function base64url(input) {
+function b64url(input) {
   return Buffer.from(input)
     .toString("base64")
     .replace(/=/g, "")
@@ -13,121 +14,120 @@ function base64url(input) {
     .replace(/\//g, "_");
 }
 
-function signToken(payload, secret) {
+function signPdfToken(payloadObj) {
   const header = { alg: "HS256", typ: "JWT" };
-  const h = base64url(JSON.stringify(header));
-  const p = base64url(JSON.stringify(payload));
-  const data = `${h}.${p}`;
-  const sig = crypto
-    .createHmac("sha256", secret)
-    .update(data)
-    .digest("base64")
+  const headerB64 = b64url(JSON.stringify(header));
+  const payloadB64 = b64url(JSON.stringify(payloadObj));
+  const data = `${headerB64}.${payloadB64}`;
+  const sig = crypto.createHmac("sha256", PDF_TOKEN_SECRET).update(data).digest("base64")
     .replace(/=/g, "")
     .replace(/\+/g, "-")
     .replace(/\//g, "_");
   return `${data}.${sig}`;
 }
 
-exports.handler = async (event) => {
+export async function handler(event) {
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
-    }
-
-    let body = {};
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
-    }
-
-    const reportId = (body.reportId || body.report_id || "").trim();
+    const body = JSON.parse(event.body || "{}");
+    const reportId = String(body.report_id || "").trim();
     if (!reportId) {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing reportId" }) };
     }
 
-    const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
-    const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET; // optional
+    // Ensure narrative exists BEFORE generating the PDF (PDF must match OSD).
+    // PDF mode never triggers narrative client-side.
+    const base =
+      (process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.DEPLOY_URL || "").replace(/\/$/, "");
+    const siteBase = base || ""; // may be empty in local dev
 
-    if (!DOC_RAPTOR_API_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }) };
+    async function hasNarrativeNow() {
+      try {
+        const u = `${siteBase}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
+        const r = await fetch(u, { headers: { "Accept": "application/json" } });
+        if (!r.ok) return false;
+        const j = await r.json();
+        const n = j?.narrative;
+        const lines = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
+        return lines.length > 0;
+      } catch {
+        return false;
+      }
     }
 
-    // Base report URL (pdf=1 tells report-data.js to use the pdf endpoint)
-    let reportUrl =
-      `https://iqweb.ai/report.html?report_id=${encodeURIComponent(reportId)}` +
-      `&pdf=1`;
-
-    // If you have a token secret, sign a short-lived token and include it.
-    // If not, DO NOT fail — generate PDF anyway (prevents broken downloads).
-    if (PDF_TOKEN_SECRET && String(PDF_TOKEN_SECRET).trim()) {
-      const now = Math.floor(Date.now() / 1000);
-      const token = signToken(
-        { rid: reportId, iat: now, exp: now + 300, scope: "pdf" },
-        PDF_TOKEN_SECRET
-      );
-      reportUrl += `&pdf_token=${encodeURIComponent(token)}`;
-    } else {
-      console.warn("[PDF] PDF_TOKEN_SECRET not set — generating PDF without signed token");
+    async function triggerNarrative() {
+      const u = `${siteBase}/.netlify/functions/generate-narrative`;
+      const r = await fetch(u, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        throw new Error(t || `generate-narrative failed (${r.status})`);
+      }
+      return true;
     }
 
-    console.log("[PDF] generate-report-pdf", {
-      reportId,
-      reportUrl,
-      haveDocKey: true,
-      haveTokenSecret: !!(PDF_TOKEN_SECRET && String(PDF_TOKEN_SECRET).trim()),
-    });
+    // If narrative missing, start it and poll briefly
+    if (!(await hasNarrativeNow())) {
+      await triggerNarrative();
+      const start = Date.now();
+      while (Date.now() - start < 90000) {
+        if (await hasNarrativeNow()) break;
+        await new Promise(r => setTimeout(r, 2500));
+      }
+    }
 
-    const resp = await fetch("https://docraptor.com/docs", {
+    const exp = Math.floor(Date.now() / 1000) + (10 * 60); // 10 min
+    const pdfToken = signPdfToken({ rid: reportId, exp });
+
+    const documentUrl =
+      `${siteBase}/report.html?report_id=${encodeURIComponent(reportId)}` +
+      `&pdf=1&pdf_token=${encodeURIComponent(pdfToken)}`;
+
+    const payload = {
+      doc: {
+        test: DOCRAPTOR_TEST,
+        document_url: documentUrl,
+        name: `${reportId}.pdf`,
+        document_type: "pdf",
+        javascript: true,
+        // IMPORTANT: wait for docraptorJavaScriptFinished() which report-data.js calls in PDF mode
+        javascript_wait_function: "docraptorJavaScriptFinished",
+        prince_options: {
+          baseurl: siteBase,
+        },
+      },
+    };
+
+    const res = await fetch("https://api.docraptor.com/docs", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/pdf",
+        "Authorization": "Basic " + Buffer.from(DOCRAPTOR_API_KEY + ":").toString("base64"),
       },
-      body: JSON.stringify({
-        user_credentials: DOC_RAPTOR_API_KEY,
-        doc: {
-          name: `${reportId}.pdf`,
-          document_type: "pdf",
-          document_url: reportUrl,
-
-          // ✅ REQUIRED: allow JS + WAIT until the page signals readiness
-          javascript: true,
-          wait_for_javascript: true,
-
-
-          prince_options: {
-            media: "print",
-            javascript: true,
-          },
-        },
-      }),
+      body: JSON.stringify(payload.doc),
     });
 
-    if (!resp.ok) {
-      const errorText = await resp.text().catch(() => "");
-      console.error("[PDF] DocRaptor error", resp.status, errorText);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "DocRaptor error", status: resp.status, details: errorText }),
-      };
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return { statusCode: 500, body: JSON.stringify({ error: t || `DocRaptor error ${res.status}` }) };
     }
 
-    const arrayBuffer = await resp.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const pdfBuffer = Buffer.from(await res.arrayBuffer());
 
     return {
       statusCode: 200,
-      isBase64Encoded: true,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
         "Cache-Control": "no-store",
       },
-      body: buffer.toString("base64"),
+      body: pdfBuffer.toString("base64"),
+      isBase64Encoded: true,
     };
-  } catch (err) {
-    console.error("[PDF] generate-report-pdf crash:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || "Unknown error" }) };
+
+  } catch (e) {
+    return { statusCode: 500, body: JSON.stringify({ error: e?.message || String(e) }) };
   }
-};
+}

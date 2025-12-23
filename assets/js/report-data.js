@@ -1,15 +1,20 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.8 (DocRaptor-safe transport + PDF ready signalling)
+// iQWEB Report UI — Contract v1.0.9
+// DocRaptor/Prince-safe data transport + PDF-ready signalling
 //
-// Key fix:
-// - DocRaptor/Prince often does NOT support window.fetch reliably.
-// - This file uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
-// - Prevents "Building Report" PDFs by ensuring data load works in Prince.
+// Goals:
+// 1) Browser mode: fetch report JSON, render immediately, then (optionally) trigger narrative generation once.
+// 2) PDF mode (pdf=1): DO NOT trigger narrative. Just render whatever exists (narrative must already be saved),
+//    expand evidence, then call docraptorJavaScriptFinished() so DocRaptor doesn't hang.
+// 3) Prince often advertises `fetch` but doesn't actually support it reliably. In PDF mode we FORCE XHR.
 
-if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_READY = false;
+window.__IQWEB_REPORT_READY ??= false;
 
 (function () {
   const $ = (id) => document.getElementById(id);
+
+  const QS = new URLSearchParams(window.location.search);
+  const IS_PDF = QS.get("pdf") === "1";
 
   function safeObj(v) { return v && typeof v === "object" ? v : {}; }
   function asArray(v) { return Array.isArray(v) ? v : []; }
@@ -21,12 +26,12 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
   }
 
   function escapeHtml(str) {
-    return String((str === null || str === undefined) ? "" : str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
+    return String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
 
   function formatDate(iso) {
@@ -109,17 +114,12 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
   // URL helpers
   // -----------------------------
   function getReportIdFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("report_id") || params.get("id") || "";
+    return QS.get("report_id") || QS.get("id") || "";
   }
 
   // -----------------------------
-  // Transport (fetch + XHR fallback for DocRaptor/Prince)
+  // Transport (FORCE XHR in PDF mode)
   // -----------------------------
-  function canUseFetch() {
-    try { return typeof fetch === "function"; } catch { return false; }
-  }
-
   function xhrRequest(method, url, bodyObj) {
     return new Promise((resolve, reject) => {
       try {
@@ -156,7 +156,11 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
   }
 
   async function httpJson(method, url, bodyObj) {
-    if (canUseFetch()) {
+    // PDF mode: ALWAYS use XHR (Prince "fetch" is unreliable)
+    if (IS_PDF) return xhrRequest(method, url, bodyObj);
+
+    // Browser mode: prefer fetch
+    if (typeof fetch === "function") {
       const opts = { method, headers: { "Accept": "application/json" } };
       if (method !== "GET") {
         opts.headers["Content-Type"] = "application/json";
@@ -178,23 +182,18 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
       return data;
     }
 
-    // DocRaptor/Prince fallback
+    // Fallback
     return xhrRequest(method, url, bodyObj);
   }
 
   async function fetchReportData(reportId) {
-    const qs = new URLSearchParams(window.location.search);
-    const isPdf = qs.get("pdf") === "1";
+    if (IS_PDF) {
+      const token = QS.get("pdf_token") || "";
+      if (!token) throw new Error("Missing pdf_token (PDF mode).");
 
-    if (isPdf) {
-      const token = qs.get("pdf_token") || "";
       const url =
         `/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}` +
         `&pdf_token=${encodeURIComponent(token)}`;
-
-      if (!token) {
-        throw new Error("Missing pdf_token (PDF mode).");
-      }
 
       return httpJson("GET", url);
     }
@@ -279,7 +278,7 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
     if (parsed.kind === "text") {
       const lines = normalizeLines(parsed.text, 5);
       if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).split("\n").join("<br>");
+        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
         return true;
       }
       textEl.textContent = "Narrative not generated yet.";
@@ -292,14 +291,14 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
       const overallLines = asArray(n?.overall?.lines).map(l => String(l || "").trim()).filter(Boolean);
       const lines = normalizeLines(overallLines.join("\n"), 5);
       if (lines.length) {
-        textEl.innerHTML = escapeHtml(lines.join("\n")).split("\n").join("<br>");
+        textEl.innerHTML = escapeHtml(lines.join("\n")).replaceAll("\n", "<br>");
         return true;
       }
 
       if (typeof n.text === "string" && n.text.trim()) {
         const tLines = normalizeLines(n.text.trim(), 5);
         if (tLines.length) {
-          textEl.innerHTML = escapeHtml(tLines.join("\n")).split("\n").join("<br>");
+          textEl.innerHTML = escapeHtml(tLines.join("\n")).replaceAll("\n", "<br>");
           return true;
         }
       }
@@ -353,24 +352,20 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
   }
 
   // -----------------------------
-  // PDF gating (FINAL – DO NOT TOUCH)
+  // PDF gating (FINAL)
   // -----------------------------
   function expandEvidenceForPDF() {
-    try {
-      document
-        .querySelectorAll("details.evidence-block")
-        .forEach(d => d.open = true);
-    } catch (_) {}
+    try { document.querySelectorAll("details.evidence-block").forEach(d => d.open = true); } catch (_) {}
   }
 
   async function waitForPdfReady() {
     try {
       expandEvidenceForPDF();
+      // Let Prince settle layout
       await new Promise(r => setTimeout(r, 350));
     } finally {
-      // ALWAYS tell DocRaptor we're done
+      window.__IQWEB_REPORT_READY = true;
       try {
-        window.__IQWEB_REPORT_READY = true;
         if (typeof window.docraptorJavaScriptFinished === "function") {
           window.docraptorJavaScriptFinished();
         }
@@ -435,7 +430,7 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
         </div>
         <div class="bar"><div style="width:${score}%;"></div></div>
         <div class="summary" style="min-height:unset;">
-          ${escapeHtml(bodyText).split("\n").join("<br>")}
+          ${escapeHtml(bodyText).replaceAll("\n", "<br>")}
         </div>
       `;
       grid.appendChild(card);
@@ -775,9 +770,6 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
       return;
     }
 
-    const qs = new URLSearchParams(window.location.search);
-    const isPdf = qs.get("pdf") === "1";
-
     try {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
@@ -803,12 +795,9 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
-      if (isPdf) {
-        // PDF mode: do NOT wait on narrative generation. Render what exists and finish.
-        window.__IQWEB_REPORT_READY = false;
+      if (IS_PDF) {
         await waitForPdfReady();
       } else {
-        // Normal interactive mode
         ensureNarrative(header.report_id || reportId, data.narrative);
       }
 
@@ -816,16 +805,13 @@ if (typeof window.__IQWEB_REPORT_READY === "undefined") window.__IQWEB_REPORT_RE
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
 
-      // PDF mode must NEVER hang — always finish (even if it’s an error PDF)
-      try {
-        const qs2 = new URLSearchParams(window.location.search);
-        if (qs2.get("pdf") === "1") {
+      // PDF must never hang — always finish so you get an error PDF
+      if (IS_PDF) {
+        try {
           window.__IQWEB_REPORT_READY = true;
-          if (typeof window.docraptorJavaScriptFinished === "function") {
-            window.docraptorJavaScriptFinished();
-          }
-        }
-      } catch (_) {}
+          if (typeof window.docraptorJavaScriptFinished === "function") window.docraptorJavaScriptFinished();
+        } catch (_) {}
+      }
     }
   }
 
