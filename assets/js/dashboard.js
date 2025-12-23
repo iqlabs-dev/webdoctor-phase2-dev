@@ -61,8 +61,6 @@ function goToReportNewTab(reportId) {
   window.open(url, "_blank", "noopener");
 }
 
-
-
 function setUserUI(email) {
   const emailEl = $("wd-user-email");
   const acctEl = $("acct-email");
@@ -98,7 +96,6 @@ function showViewReportCTA(reportId) {
   const btn = $("view-report-btn");
   if (btn) btn.onclick = () => goToReport(reportId);
 }
-
 
 // -----------------------------
 // BILLING HELPERS (legacy; safe)
@@ -271,6 +268,7 @@ function updateLatestScanCard(row, opts = {}) {
     report_id: row.report_id || null,
   };
 
+  // Latest Scan stays VIEW ONLY (no PDF here)
   if (elView) {
     elView.onclick = (e) => {
       if (e?.preventDefault) e.preventDefault();
@@ -463,70 +461,66 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
+      // View button (history)
       const viewBtn = document.createElement("button");
       viewBtn.className = "btn-link btn-view";
       viewBtn.textContent = "View";
       viewBtn.onclick = () => goToReportNewTab(row.report_id);
-
-
       tdActions.appendChild(viewBtn);
 
       tdActions.appendChild(document.createTextNode(" "));
 
-// PDF button (always shown)
-const pdfBtn = document.createElement("button");
-pdfBtn.className = "btn-link wd-history-pdf";
-pdfBtn.textContent = "PDF";
+      // Download PDF button (history only)
+      const pdfBtn = document.createElement("button");
+      pdfBtn.className = "btn-link wd-history-pdf";
+      pdfBtn.textContent = "Download PDF";
 
-pdfBtn.onclick = async () => {
-  const originalText = pdfBtn.textContent;
+      pdfBtn.onclick = async () => {
+        const originalText = pdfBtn.textContent;
 
-  try {
-    if (!looksLikeReportId(row.report_id)) {
-      alert("Report ID not ready yet. Please refresh in a moment.");
-      return;
-    }
+        try {
+          if (!looksLikeReportId(row.report_id)) {
+            alert("Report ID not ready yet. Please refresh in a moment.");
+            return;
+          }
 
-    pdfBtn.disabled = true;
-    pdfBtn.textContent = "Generating…";
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = "Preparing…";
 
-    // IMPORTANT:
-    // Call the download orchestrator and treat response as a binary PDF
-    const res = await fetch("/.netlify/functions/generate-report-pdf", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reportId: row.report_id }),
-    });
+          // IMPORTANT: call the orchestrator (binary-safe)
+          const res = await fetch("/.netlify/functions/download-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reportId: row.report_id }),
+          });
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      console.error("PDF download failed:", res.status, txt);
-      throw new Error("PDF generation failed");
-    }
+          if (!res.ok) {
+            const txt = await res.text().catch(() => "");
+            console.error("PDF download failed:", res.status, txt);
+            throw new Error("PDF download failed");
+          }
 
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${row.report_id}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${row.report_id}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
 
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    console.error("PDF error:", e);
-    alert("PDF generation failed. Check Netlify function logs.");
-  } finally {
-    pdfBtn.disabled = false;
-    pdfBtn.textContent = originalText;
-  }
-};
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (e) {
+          console.error("PDF error:", e);
+          alert("PDF download failed. Check Netlify function logs.");
+        } finally {
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = originalText;
+        }
+      };
 
-tdActions.appendChild(pdfBtn);
-
-
+      tdActions.appendChild(pdfBtn);
 
       tr.appendChild(tdActions);
       tbody.appendChild(tr);
