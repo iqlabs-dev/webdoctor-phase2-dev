@@ -9,6 +9,8 @@
 //   - Executive narrative max 5 lines
 //   - Signal card narrative max 3 lines (hard cap in UI)
 
+window.__IQWEB_REPORT_READY = false;
+
 (function () {
   const $ = (id) => document.getElementById(id);
 
@@ -829,6 +831,9 @@ async function main() {
 
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
+
+      window.__IQWEB_REPORT_READY = true;
+
 
       // Ensure narrative exists (async)
       ensureNarrative(header.report_id || reportId, data.narrative);
