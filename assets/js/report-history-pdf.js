@@ -1,20 +1,16 @@
 // /assets/js/report-history-pdf.js
-// iQWEB Report — History-only PDF button wiring (v1.0)
-// - Runs ONLY when report opened from Scan History (?from=history)
-// - Replaces Refresh button with Download PDF
-// - Calls /.netlify/functions/generate-report-pdf directly (binary PDF)
+// Runs ONLY when report opened from Scan History (?from=history)
+// Replaces the Refresh button with Download PDF (calls /.netlify/functions/download-pdf)
 
 (function () {
-  function qs(sel) { return document.querySelector(sel); }
-
   function getParam(name) {
-    try { return new URLSearchParams(window.location.search).get(name) || ""; }
-    catch { return ""; }
+    const p = new URLSearchParams(window.location.search);
+    return p.get(name);
   }
 
   function getReportId() {
     const p = new URLSearchParams(window.location.search);
-    return (p.get("report_id") || p.get("id") || "").trim();
+    return p.get("report_id") || p.get("id") || "";
   }
 
   function looksLikeReportId(v) {
@@ -22,21 +18,19 @@
   }
 
   async function downloadPdf(reportId, btn) {
-    if (!looksLikeReportId(reportId)) {
-      alert("Report ID not ready yet.");
-      return;
-    }
-
-    const original = btn ? (btn.textContent || "Download PDF") : "Download PDF";
-
+    const original = btn ? btn.textContent : "Download PDF";
     try {
+      if (!looksLikeReportId(reportId)) {
+        alert("Report ID not ready yet.");
+        return;
+      }
+
       if (btn) {
         btn.disabled = true;
         btn.textContent = "Preparing…";
       }
 
-      // Call the PDF generator directly (avoid download-pdf orchestrator)
-      const res = await fetch("/.netlify/functions/generate-report-pdf", {
+      const res = await fetch("/.netlify/functions/download-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reportId }),
@@ -44,8 +38,8 @@
 
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
-        console.error("[PDF] generate-report-pdf failed:", res.status, txt);
-        throw new Error("PDF generation failed");
+        console.error("[PDF] download failed:", res.status, txt);
+        throw new Error("PDF download failed");
       }
 
       const blob = await res.blob();
@@ -60,7 +54,7 @@
 
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (e) {
-      console.error("[PDF] error:", e);
+      console.error(e);
       alert("PDF download failed. Check Netlify function logs.");
     } finally {
       if (btn) {
@@ -70,40 +64,39 @@
     }
   }
 
-  // ✅ ONLY run for history view
-  const from = getParam("from");
-  if (from !== "history") return;
+  function findRefreshButton() {
+    // Try common IDs first (fast + reliable)
+    const byId =
+      document.getElementById("refreshBtn") ||
+      document.getElementById("refreshReport") ||
+      document.getElementById("btn-refresh") ||
+      document.getElementById("refresh");
 
-  const reportId = getReportId();
+    if (byId) return byId;
 
-  // Try to find an existing Download PDF button first (your screenshot shows one top-right)
-  // Common IDs/classes (handles older/newer layouts)
-  const existingPdfBtn =
-    qs("#download-pdf-btn") ||
-    qs("[data-iqweb-download-pdf]") ||
-    qs(".btn-download-pdf");
-
-  if (existingPdfBtn) {
-    existingPdfBtn.textContent = "Download PDF";
-    existingPdfBtn.onclick = (e) => {
-      if (e?.preventDefault) e.preventDefault();
-      downloadPdf(reportId, existingPdfBtn);
-    };
-    return;
+    // Fallback: find a button with text "Refresh"
+    const buttons = Array.from(document.querySelectorAll("button, a"));
+    return buttons.find((el) => (el.textContent || "").trim().toLowerCase() === "refresh") || null;
   }
 
-  // Otherwise replace Refresh button with Download PDF
-  const refreshBtn =
-    qs("#refresh-btn") ||
-    qs("#refreshReportBtn") ||
-    qs("[data-iqweb-refresh]") ||
-    qs(".btn-refresh");
+  function replaceWithDownloadPdf() {
+    const from = (getParam("from") || "").toLowerCase();
+    if (from !== "history") return; // ✅ NO CHANGE to normal OSD report view
 
-  if (refreshBtn) {
-    refreshBtn.textContent = "Download PDF";
-    refreshBtn.onclick = (e) => {
-      if (e?.preventDefault) e.preventDefault();
-      downloadPdf(reportId, refreshBtn);
+    const reportId = getReportId();
+    const btn = findRefreshButton();
+    if (!btn) {
+      console.warn("[history-pdf] Could not find Refresh button to replace.");
+      return;
+    }
+
+    // Replace label + click handler
+    btn.textContent = "Download PDF";
+    btn.onclick = (e) => {
+      e.preventDefault?.();
+      downloadPdf(reportId, btn);
     };
   }
+
+  document.addEventListener("DOMContentLoaded", replaceWithDownloadPdf);
 })();
