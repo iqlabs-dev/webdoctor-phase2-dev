@@ -31,7 +31,7 @@ export const handler = async (event) => {
 
     const baseUrl = getBaseUrl(event);
 
-    // Call the PDF generator function
+    // Call the PDF generator functin
     const res = await fetch(`${baseUrl}/.netlify/functions/generate-report-pdf`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

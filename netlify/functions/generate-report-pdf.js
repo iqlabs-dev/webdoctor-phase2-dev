@@ -69,7 +69,7 @@ export const handler = async (event) => {
       document_type: "pdf",
       test: isTest,
 
-      // IMPORTANT: we want the report page JS to run (it fetches Supabase data + renders the UI).
+      // IMPORTANT: we want the report pge JS to run (it fetches Supabase data + renders the UI).
       // DocRaptor supports JavaScript execution via this flag.
       // If your account/pipeline disables JS, you'll need to enable it in DocRaptor.
       javascript: true,
