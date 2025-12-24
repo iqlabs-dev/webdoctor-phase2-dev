@@ -1,54 +1,105 @@
-import fs from "fs";
-import path from "path";
-import DocRaptor from "docraptor";
-
+// netlify/functions/generate-report-pdf.js
 export async function handler(event) {
   try {
-    const { report_id } = JSON.parse(event.body || "{}");
-    if (!report_id) {
-      return { statusCode: 400, body: "Missing report_id" };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    // 1. Fetch report data (Supabase or DB)
-    const report = await fetchReportFromDB(report_id); // your existing logic
+    const body = JSON.parse(event.body || "{}");
 
-    // 2. Load PDF template
-    const templatePath = path.join(process.cwd(), "report-pdf.html");
-    let html = fs.readFileSync(templatePath, "utf8");
+    // Accept ANY of these keys so your UI won't 400 again:
+    const report_id =
+      body.report_id || body.reportId || body.reportID || body.reportid;
 
-    // 3. Inject values (simple string replace)
-    html = html
-      .replace("{{website}}", report.website)
-      .replace("{{report_id}}", report.report_id)
-      .replace("{{created_at}}", report.created_at)
-      .replace("{{overall}}", report.scores.overall)
-      .replace("{{performance}}", report.scores.performance)
-      .replace("{{seo}}", report.scores.seo)
-      .replace("{{security}}", report.scores.security)
-      .replace("{{executive_narrative}}", report.narrative || "—");
+    if (!report_id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing report_id" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
 
-    // 4. Send HTML string to DocRaptor
-    const docraptor = new DocRaptor.ApiClient();
-    docraptor.username = process.env.DOCRAPTOR_API_KEY;
+    const apiKey = process.env.DOCRAPTOR_API_KEY;
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "Missing DOCRAPTOR_API_KEY env var" }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
 
-    const pdf = await new DocRaptor.DocApi().createDoc({
-      test: false,
-      document_type: "pdf",
-      document_content: html
+    // Use your production site URL (Netlify provides this in prod)
+    const siteUrl =
+      process.env.URL || "https://iqweb.ai"; // fallback just in case
+
+    // This endpoint must return PRINT-SAFE HTML (NO JS required)
+    const documentUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
+      report_id
+    )}`;
+
+    const resp = await fetch("https://docraptor.com/docs", {
+      method: "POST",
+      headers: {
+        Authorization:
+          "Basic " + Buffer.from(`${apiKey}:`).toString("base64"),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        test: false, // set true if you want DocRaptor "test" mode
+        document_type: "pdf",
+        name: `iQWEB-${report_id}.pdf`,
+
+        // IMPORTANT: print a URL, not your JS-heavy UI
+        document_url: documentUrl,
+
+        // CRITICAL: prevents the "Promise/window not defined" class of failures
+        javascript: false,
+        wait_for_javascript: false,
+
+        // Optional but usually helps:
+        prince_options: {
+          // avoid weird page cuts
+          media: "print",
+        },
+      }),
     });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("DocRaptor error:", resp.status, text);
+      return {
+        statusCode: 502,
+        body: JSON.stringify({
+          error: "DocRaptor failed",
+          status: resp.status,
+          details: text.slice(0, 2000),
+          documentUrl,
+        }),
+        headers: { "Content-Type": "application/json" },
+      };
+    }
+
+    const arrayBuffer = await resp.arrayBuffer();
+    const pdfBase64 = Buffer.from(arrayBuffer).toString("base64");
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="iQWEB-${report_id}.pdf"`
+        "Content-Disposition": `attachment; filename="iQWEB-${report_id}.pdf"`,
       },
-      body: pdf,
-      isBase64Encoded: true
+      body: pdfBase64,
+      isBase64Encoded: true,
     };
-
   } catch (err) {
     console.error("PDF generation failed:", err);
-    return { statusCode: 500, body: "PDF generation failed" };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: "PDF generation failed",
+        message: String(err?.message || err),
+      }),
+      headers: { "Content-Type": "application/json" },
+    };
   }
 }
