@@ -1,117 +1,101 @@
 // netlify/functions/generate-report-pdf.js
-// iQWEB — Generate a print-friendly PDF via DocRaptor using the SAME on-screen report (OSD).
-//
-// Key rules:
-// 1) DocRaptor renders /report.html in PDF mode (?pdf=1) with a short-lived pdf_token.
-// 2) report-data.js in pdf mode uses get-report-data-pdf.js (no user auth) and gets the SAME payload shape.
-// 3) No iframe. DocRaptor fetches the actual report URL directly.
-// 4) report-data.js signals completion via window.__IQWEB_REPORT_READY + docraptorJavaScriptFinished().
+// Generates a DocRaptor PDF from the SAME report.html UI (print-friendly via CSS).
+// Returns application/pdf (base64) so browsers can open/download it.
 
-const crypto = require("crypto");
+import crypto from "crypto";
 
-function json(statusCode, body) {
+function b64urlEncode(buf) {
+  return Buffer.from(buf)
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+function signJwtHS256(payload, secret) {
+  const header = { alg: "HS256", typ: "JWT" };
+  const h = b64urlEncode(JSON.stringify(header));
+  const p = b64urlEncode(JSON.stringify(payload));
+  const data = `${h}.${p}`;
+  const sig = b64urlEncode(crypto.createHmac("sha256", secret).update(data).digest());
+  return `${data}.${sig}`;
+}
+
+function pdfResponse(statusCode, bodyBuf, filename) {
   return {
     statusCode,
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
-    body: JSON.stringify(body),
+    isBase64Encoded: true,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${filename}"`,
+      "Cache-Control": "no-store",
+    },
+    body: bodyBuf.toString("base64"),
   };
 }
 
-function b64url(input) {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
+    body: JSON.stringify(obj),
+  };
 }
 
-function signPdfToken(reportId, secret, ttlSeconds = 600) {
-  if (!secret) throw new Error("PDF_TOKEN_SECRET missing");
-
-  const header = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
-  const payload = b64url(JSON.stringify({ rid: reportId, exp }));
-
-  const sig = crypto
-    .createHmac("sha256", secret)
-    .update(`${header}.${payload}`)
-    .digest("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-
-  return `${header}.${payload}.${sig}`;
-}
-
-async function docraptorCreatePdf({ apiKey, documentUrl, name }) {
-  const res = await fetch("https://api.docraptor.com/docs", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Basic " + Buffer.from(apiKey + ":").toString("base64"),
-    },
-    body: JSON.stringify({
-      doc: {
-        test: false,
-        name,
-        document_type: "pdf",
-        document_url: documentUrl,
-
-        // Prince / JS options
-        javascript: true,
-        javascript_delay: 350,
-        javascript_timeout: 30000,
-        javascript_wait: true, // waits for docraptorJavaScriptFinished()
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`DocRaptor error (${res.status}): ${t.slice(0, 600)}`);
-  }
-
-  return Buffer.from(await res.arrayBuffer());
-}
-
-exports.handler = async (event) => {
+export async function handler(event) {
   try {
-    const body = event.body ? JSON.parse(event.body) : {};
-    const reportId = body.report_id || body.reportId;
-
+    const reportId = String(
+      (event.queryStringParameters?.report_id || event.queryStringParameters?.id || "").trim()
+    );
     if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    const DR_KEY = process.env.DOC_RAPTOR_API_KEY;
-    const SITE_ORIGIN = process.env.SITE_ORIGIN || "https://iqweb.ai";
-    const PDF_TOKEN_SECRET = process.env.PDF_TOKEN_SECRET;
+    const apiKey = process.env.DOCRAPTOR_API_KEY;
+    const tokenSecret = process.env.PDF_TOKEN_SECRET;
+    if (!apiKey) return json(500, { success: false, error: "Missing DOCRAPTOR_API_KEY" });
+    if (!tokenSecret) return json(500, { success: false, error: "Missing PDF_TOKEN_SECRET" });
 
-    if (!DR_KEY) return json(500, { success: false, error: "DOC_RAPTOR_API_KEY missing" });
-    if (!PDF_TOKEN_SECRET) return json(500, { success: false, error: "PDF_TOKEN_SECRET missing" });
+    const exp = Math.floor(Date.now() / 1000) + 10 * 60;
+    const pdfToken = signJwtHS256({ report_id: reportId, exp }, tokenSecret);
 
-    const pdfToken = signPdfToken(reportId, PDF_TOKEN_SECRET, 10 * 60);
+    const baseUrl =
+      process.env.SITE_URL ||
+      (event.headers?.["x-forwarded-proto"] && event.headers?.host
+        ? `${event.headers["x-forwarded-proto"]}://${event.headers.host}`
+        : "https://iqweb.ai");
 
-    const reportUrl =
-      `${SITE_ORIGIN}/report.html?report_id=${encodeURIComponent(reportId)}` +
+    const documentUrl =
+      `${baseUrl}/report.html?report_id=${encodeURIComponent(reportId)}` +
       `&pdf=1&pdf_token=${encodeURIComponent(pdfToken)}`;
 
-    const pdf = await docraptorCreatePdf({
-      apiKey: DR_KEY,
-      documentUrl: reportUrl,
-      name: `${reportId}.pdf`,
+    const payload = {
+      doc: {
+        test: false,
+        document_url: documentUrl,
+        name: `${reportId}.pdf`,
+        document_type: "pdf",
+        javascript: true,
+        prince_options: { media: "print" },
+      },
+    };
+
+    const res = await fetch("https://docraptor.com/api/documents", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Basic " + Buffer.from(`${apiKey}:`).toString("base64"),
+      },
+      body: JSON.stringify(payload),
     });
 
-    return {
-      statusCode: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
-        "Cache-Control": "no-store",
-      },
-      body: pdf.toString("base64"),
-      isBase64Encoded: true,
-    };
-  } catch (err) {
-    console.error(err);
-    return json(500, { success: false, error: err?.message || "Server error" });
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      return json(res.status, { success: false, error: `DocRaptor error: ${t || res.statusText}` });
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    return pdfResponse(200, buf, `${reportId}.pdf`);
+  } catch (e) {
+    console.error(e);
+    return json(500, { success: false, error: e?.message || String(e) });
   }
-};
+}

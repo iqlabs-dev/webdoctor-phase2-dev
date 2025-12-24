@@ -1,138 +1,161 @@
 // netlify/functions/get-report-data-pdf.js
-// iQWEB — PDF-safe report payload (same shape as get-report-data.js)
-// - Validates pdf_token (HMAC) so DocRaptor can fetch without user auth
-// - Returns the SAME JSON contract as get-report-data.js so report-data.js can render identically
+// Public (token-gated) report payload for DocRaptor PDF rendering.
+// MUST match the shape returned by get-report-data.js for the report UI.
 
-const crypto = require("crypto");
-const { createClient } = require("@supabase/supabase-js");
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
-function json(statusCode, body) {
+function json(statusCode, obj) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Cache-Control": "no-store",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(obj),
   };
 }
 
-// ---- token helpers (base64url)
-function b64urlDecode(str) {
-  const s = String(str || "").replace(/-/g, "+").replace(/_/g, "/");
-  const pad = s.length % 4 ? "=".repeat(4 - (s.length % 4)) : "";
-  return Buffer.from(s + pad, "base64").toString("utf8");
+// ---- JWT (HS256) minimal verify ----
+function b64urlDecode(s) {
+  s = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
+  const pad = s.length % 4;
+  if (pad) s += "=".repeat(4 - pad);
+  return Buffer.from(s, "base64").toString("utf8");
 }
 
-function timingSafeEqual(a, b) {
-  const ab = Buffer.from(String(a));
-  const bb = Buffer.from(String(b));
-  if (ab.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ab, bb);
-}
-
-// pdf_token format: <header_b64url>.<payload_b64url>.<sig_b64url>
-// payload JSON: { rid: "WEB-...", exp: 1234567890 }
-function verifyPdfToken(token, secret, reportId) {
-  if (!secret) {
-    // Fail closed (don’t leak report data)
-    return { ok: false, reason: "Server misconfigured: PDF_TOKEN_SECRET missing." };
-  }
-
+function verifyJwtHS256(token, secret) {
   const parts = String(token || "").split(".");
-  if (parts.length !== 3) return { ok: false, reason: "Invalid token format." };
-
-  const [headerB64, payloadB64, sigB64] = parts;
-
-  let payload;
-  try {
-    payload = JSON.parse(b64urlDecode(payloadB64));
-  } catch {
-    return { ok: false, reason: "Invalid token payload." };
-  }
-
-  if (!payload || typeof payload !== "object") return { ok: false, reason: "Invalid token payload." };
-  if (!payload.rid || String(payload.rid) !== String(reportId)) return { ok: false, reason: "Token report_id mismatch." };
-
-  const now = Math.floor(Date.now() / 1000);
-  const exp = Number(payload.exp || 0);
-  if (!Number.isFinite(exp) || exp <= now) return { ok: false, reason: "Token expired." };
-
+  if (parts.length !== 3) return null;
+  const [h, p, sig] = parts;
+  const data = `${h}.${p}`;
   const expected = crypto
     .createHmac("sha256", secret)
-    .update(`${headerB64}.${payloadB64}`)
+    .update(data)
     .digest("base64")
+    .replace(/=/g, "")
     .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+    .replace(/\//g, "_");
 
-  if (!timingSafeEqual(expected, sigB64)) return { ok: false, reason: "Token signature invalid." };
+  // constant-time compare
+  const a = Buffer.from(expected);
+  const b = Buffer.from(sig);
+  if (a.length !== b.length) return null;
+  if (!crypto.timingSafeEqual(a, b)) return null;
 
-  return { ok: true, payload };
+  let payload = null;
+  try { payload = JSON.parse(b64urlDecode(p)); } catch { return null; }
+  if (!payload || typeof payload !== "object") return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && now > payload.exp) return null;
+  return payload;
 }
 
-function normalizeReportRow(row) {
-  // MUST match get-report-data.js contract
-  const header = row?.header || {};
-  const scores = row?.scores || {};
+function asInt(v, fallback = 0) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function safeObj(v) { return v && typeof v === "object" ? v : {}; }
+function asArray(v) { return Array.isArray(v) ? v : []; }
+
+function computeScoresFromSignals(deliverySignals) {
+  const byId = {};
+  for (const s of asArray(deliverySignals)) {
+    const id = String(s?.id || "").toLowerCase();
+    if (!id) continue;
+    byId[id] = asInt(s?.score, 0);
+  }
   return {
-    success: true,
-    header: {
-      website: header.website || row?.url || null,
-      report_id: header.report_id || row?.report_id || null,
-      created_at: header.created_at || row?.created_at || null,
-    },
-    scores: {
-      seo: scores.seo ?? null,
-      mobile: scores.mobile ?? null,
-      overall: scores.overall ?? null,
-      security: scores.security ?? null,
-      structure: scores.structure ?? null,
-      performance: scores.performance ?? null,
-      accessibility: scores.accessibility ?? null,
-    },
-    delivery_signals: Array.isArray(row?.delivery_signals) ? row.delivery_signals : [],
-    narrative: row?.narrative ?? null,
+    overall: asInt(byId.overall ?? 0, 0),
+    performance: asInt(byId.performance ?? 0, 0),
+    mobile: asInt(byId.mobile ?? 0, 0),
+    seo: asInt(byId.seo ?? 0, 0),
+    security: asInt(byId.security ?? 0, 0),
+    structure: asInt(byId.structure ?? 0, 0),
+    accessibility: asInt(byId.accessibility ?? 0, 0),
   };
 }
 
-exports.handler = async (event) => {
+export async function handler(event) {
   try {
-    const params = event.queryStringParameters || {};
-    const report_id = params.report_id || params.id;
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
-    if (!report_id) {
-      return json(400, { success: false, error: "Missing report_id" });
+    const reportId = String(
+      event.queryStringParameters?.report_id ||
+      event.queryStringParameters?.id ||
+      ""
+    ).trim();
+
+    const pdfToken = String(event.queryStringParameters?.pdf_token || "").trim();
+
+    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
+    if (!pdfToken) return json(401, { success: false, error: "Missing pdf_token" });
+
+    const secret = process.env.PDF_TOKEN_SECRET;
+    if (!secret) return json(500, { success: false, error: "Server missing PDF_TOKEN_SECRET" });
+
+    const payload = verifyJwtHS256(pdfToken, secret);
+    if (!payload) return json(401, { success: false, error: "Invalid or expired pdf_token" });
+
+    if (payload.report_id && String(payload.report_id) !== reportId) {
+      return json(401, { success: false, error: "pdf_token not valid for this report_id" });
     }
 
-    const token = params.pdf_token || "";
-    const secret = process.env.PDF_TOKEN_SECRET || "";
-    const verdict = verifyPdfToken(token, secret, report_id);
-    if (!verdict.ok) {
-      return json(401, { success: false, error: verdict.reason || "Unauthorized" });
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      return json(500, { success: false, error: "Server missing Supabase env (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)" });
     }
 
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return json(500, { success: false, error: "Server misconfigured (Supabase keys missing)" });
-    }
+    const supabase = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    const { data, error } = await supabase
+    const { data: row, error } = await supabase
       .from("scan_results")
-      .select("report_id,url,created_at,header,scores,delivery_signals,narrative")
-      .eq("report_id", report_id)
-      .single();
+      .select("*")
+      .eq("report_id", reportId)
+      .maybeSingle();
 
-    if (error || !data) {
-      return json(404, { success: false, error: "Report not found" });
-    }
+    if (error) return json(500, { success: false, error: error.message });
+    if (!row) return json(404, { success: false, error: "Report not found" });
 
-    return json(200, normalizeReportRow(data));
-  } catch (err) {
-    console.error(err);
-    return json(500, { success: false, error: err?.message || "Server error" });
+    const header = {
+      website: row.url || row.website || row.site_url || null,
+      report_id: row.report_id,
+      created_at: row.created_at,
+    };
+
+    const delivery_signals = asArray(row.delivery_signals || row.signals || row.deliverySignals);
+
+    const scores = safeObj(row.scores);
+    const computed = computeScoresFromSignals(delivery_signals);
+    const outScores = {
+      overall: asInt(scores.overall ?? row.score_overall ?? computed.overall, 0),
+      performance: asInt(scores.performance ?? row.score_performance ?? computed.performance, 0),
+      mobile: asInt(scores.mobile ?? row.score_mobile ?? computed.mobile, 0),
+      seo: asInt(scores.seo ?? row.score_seo ?? computed.seo, 0),
+      security: asInt(scores.security ?? row.score_security ?? computed.security, 0),
+      structure: asInt(scores.structure ?? row.score_structure ?? computed.structure, 0),
+      accessibility: asInt(scores.accessibility ?? row.score_accessibility ?? computed.accessibility, 0),
+    };
+
+    const narrative = row.narrative ?? row.ai_narrative ?? row.narrative_text ?? null;
+
+    return json(200, {
+      success: true,
+      header,
+      scores: outScores,
+      delivery_signals,
+      narrative,
+      metrics: row.metrics ?? null,
+    });
+  } catch (e) {
+    console.error(e);
+    return json(500, { success: false, error: e?.message || String(e) });
   }
-};
+}

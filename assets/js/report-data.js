@@ -1,10 +1,14 @@
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0.8 (DocRaptor-safe transport + PDF ready signalling)
+// iQWEB Report UI — Contract v1.0.9 (DocRaptor-safe transport + PDF ready signalling)
 //
-// Key fix:
-// - DocRaptor/Prince often does NOT support window.fetch reliably.
-// - This file uses fetch when available, but falls back to XMLHttpRequest for PDF rendering.
-// - Prevents "Building Report" PDFs by ensuring data load works in Prince.
+// Goals:
+// - Render the SAME content for on-screen and PDF (including narrative).
+// - PDF mode MUST never hang: always calls docraptorJavaScriptFinished().
+// - DocRaptor/Prince may not support fetch reliably: fallback to XHR.
+//
+// URL modes:
+// - Normal (interactive): report.html?report_id=WEB-XXXX
+// - PDF render (DocRaptor): report.html?report_id=WEB-XXXX&pdf=1&pdf_token=JWT
 
 window.__IQWEB_REPORT_READY ??= false;
 
@@ -113,6 +117,10 @@ window.__IQWEB_REPORT_READY ??= false;
     return params.get("report_id") || params.get("id") || "";
   }
 
+  function isPdfMode() {
+    return new URLSearchParams(window.location.search).get("pdf") === "1";
+  }
+
   // -----------------------------
   // Transport (fetch + XHR fallback for DocRaptor/Prince)
   // -----------------------------
@@ -132,7 +140,7 @@ window.__IQWEB_REPORT_READY ??= false;
           if (xhr.readyState !== 4) return;
           const text = xhr.responseText || "";
           let data = null;
-          try { data = JSON.parse(text); } catch { /* ignore */ }
+          try { data = JSON.parse(text); } catch (_) {}
 
           if (xhr.status < 200 || xhr.status >= 300) {
             const msg = (data && (data.detail || data.error)) || text || `HTTP ${xhr.status}`;
@@ -165,7 +173,7 @@ window.__IQWEB_REPORT_READY ??= false;
       const res = await fetch(url, opts);
       const text = await res.text().catch(() => "");
       let data = null;
-      try { data = JSON.parse(text); } catch { /* ignore */ }
+      try { data = JSON.parse(text); } catch (_) {}
 
       if (!res.ok) {
         const msg = (data && (data.detail || data.error)) || text || `HTTP ${res.status}`;
@@ -192,10 +200,7 @@ window.__IQWEB_REPORT_READY ??= false;
         `/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}` +
         `&pdf_token=${encodeURIComponent(token)}`;
 
-      if (!token) {
-        throw new Error("Missing pdf_token (PDF mode).");
-      }
-
+      if (!token) throw new Error("Missing pdf_token (PDF mode).");
       return httpJson("GET", url);
     }
 
@@ -261,7 +266,7 @@ window.__IQWEB_REPORT_READY ??= false;
       if (!s) return { kind: "empty", text: "" };
 
       if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-        try { return { kind: "obj", obj: JSON.parse(s) }; } catch { /* ignore */ }
+        try { return { kind: "obj", obj: JSON.parse(s) }; } catch (_) {}
       }
       return { kind: "text", text: s };
     }
@@ -326,6 +331,7 @@ window.__IQWEB_REPORT_READY ??= false;
     if (!textEl) return;
 
     if (renderNarrative(currentNarrative)) return;
+    if (isPdfMode()) return;
 
     const key = `iqweb_narrative_requested_${reportId}`;
     try {
@@ -353,29 +359,21 @@ window.__IQWEB_REPORT_READY ??= false;
   }
 
   // -----------------------------
-  // PDF gating (FINAL – DO NOT TOUCH)
+  // PDF gating (FINAL)
   // -----------------------------
   function expandEvidenceForPDF() {
     try {
-      document
-        .querySelectorAll("details.evidence-block")
-        .forEach(d => d.open = true);
+      document.querySelectorAll("details.evidence-block").forEach(d => { d.open = true; });
     } catch (_) {}
   }
 
   async function waitForPdfReady() {
     try {
-      // Ensure everything visible is expanded
       expandEvidenceForPDF();
-
-      // Give Prince one layout frame
-      await new Promise(r => setTimeout(r, 350));
+      await new Promise(r => setTimeout(r, 650));
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     } finally {
-      // IMPORTANT:
-      // - Set the wait flag for DocRaptor "javascript_wait_function"
-      // - ALSO call docraptorJavaScriptFinished (safe no-op if not defined)
       window.__IQWEB_REPORT_READY = true;
-
       try {
         if (typeof window.docraptorJavaScriptFinished === "function") {
           window.docraptorJavaScriptFinished();
@@ -578,12 +576,12 @@ window.__IQWEB_REPORT_READY ??= false;
       block.appendChild(summary);
       block.appendChild(body);
       root.appendChild(block);
+      root.appendChild(document.createElement("div")).className = "evidence-divider";
     }
   }
 
   // -----------------------------
   // Key insights / issues / fix sequence / notes
-  // (kept identical behaviour to your v1.0.7)
   // -----------------------------
   function keyFromLabelOrId(sig) {
     const id = String(sig?.id || sig?.label || "").toLowerCase();
@@ -782,6 +780,8 @@ window.__IQWEB_REPORT_READY ??= false;
       return;
     }
 
+    const pdf = isPdfMode();
+
     try {
       if (statusEl) statusEl.textContent = "Fetching report payload…";
       const data = await fetchReportData(reportId);
@@ -807,40 +807,17 @@ window.__IQWEB_REPORT_READY ??= false;
       if (loaderSection) loaderSection.style.display = "none";
       if (reportRoot) reportRoot.style.display = "block";
 
-      // PDF vs normal mode handling
-      if (window.location.search.includes("pdf=1")) {
-        // PDF mode: finish cleanly for DocRaptor (do NOT hang)
-        try {
-          await waitForPdfReady();
-        } catch (_) {
-          // even if something explodes, do not hang DocRaptor
-          window.__IQWEB_REPORT_READY = true;
-          try {
-            if (typeof window.docraptorJavaScriptFinished === "function") {
-              window.docraptorJavaScriptFinished();
-            }
-          } catch (_) {}
-        }
+      if (pdf) {
+        await waitForPdfReady();
       } else {
-        // Normal interactive mode
         ensureNarrative(header.report_id || reportId, data.narrative);
       }
-
     } catch (err) {
       console.error(err);
       if (statusEl) statusEl.textContent = `Failed to load report data: ${err?.message || String(err)}`;
 
-      // If we're generating a PDF and fail, don't hang forever — finish so you at least get an error PDF.
-      if (window.location.search.includes("pdf=1")) {
-        try {
-          await waitForPdfReady();
-        } catch (_) {
-          // last-ditch: do not hang DocRaptor
-          window.__IQWEB_REPORT_READY = true;
-          try {
-            if (typeof window.docraptorJavaScriptFinished === "function") window.docraptorJavaScriptFinished();
-          } catch (_) {}
-        }
+      if (pdf) {
+        await waitForPdfReady();
       }
     }
   }
