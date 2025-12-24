@@ -926,7 +926,8 @@
           const res = await fetch("/.netlify/functions/generate-report-pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reportId })
+            body: JSON.stringify({ report_id: reportId })
+
           });
 
           if (!res.ok) throw new Error("PDF generation failed");

@@ -1,86 +1,213 @@
-// netlify/functions/generate-report-pdf.js
-// Generates PDF via DocRaptor by printing a server-rendered HTML page (NO JS).
+// netlify/functions/get-report-data-pdf.js
+// Purpose:
+// - Return report data as JSON for PDF generation (server-side).
+// - Avoid schema assumptions by PROXYING your already-working endpoint: get-report-data.
+// - Supports GET (browser/DocRaptor-safe) and POST (internal-safe).
 //
-// Required env:
-// - DOC_RAPTOR_API_KEY
+// Requires:
+// - process.env.URL (Netlify provides) OR falls back to https://iqweb.ai
+//
+// Output shape (stable):
+// {
+//   success: true,
+//   header: { website, report_id, created_at },
+//   scores: { overall, performance, mobile, seo, security, structure, accessibility },
+//   narrative: { overall: { lines: [] } },
+//   raw: <original response>   // kept for debugging (can remove later)
+// }
 
 exports.handler = async (event) => {
-  try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
-    }
-
-    let body = {};
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
-    }
-
-    const reportId = (body.reportId || body.report_id || "").trim();
-    if (!reportId) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing reportId" }) };
-    }
-
-    const DOC_RAPTOR_API_KEY = process.env.DOC_RAPTOR_API_KEY;
-    if (!DOC_RAPTOR_API_KEY) {
-      return { statusCode: 500, body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }) };
-    }
-
-    const siteUrl = process.env.URL || "https://iqweb.ai";
-
-    // ✅ This endpoint returns COMPLETE HTML (already rendered), so DocRaptor does NOT need JS
-    const pdfHtmlUrl =
-      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(reportId)}`;
-
-    const resp = await fetch("https://docraptor.com/docs", {
-      method: "POST",
+  // CORS / preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
       headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/pdf",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept",
+        "Cache-Control": "no-store",
       },
-      body: JSON.stringify({
-        user_credentials: DOC_RAPTOR_API_KEY,
-        doc: {
-          name: `${reportId}.pdf`,
-          document_type: "pdf",
-          document_url: pdfHtmlUrl,
+      body: "",
+    };
+  }
 
-          // ✅ CRITICAL: do NOT run your app JS in Prince
-          javascript: false,
-          wait_for_javascript: false,
-
-          prince_options: {
-            media: "print",
-          },
-        },
-      }),
-    });
-
-    if (!resp.ok) {
-      const errorText = await resp.text().catch(() => "");
-      console.error("[PDF] DocRaptor error", resp.status, errorText);
+  try {
+    // Allow GET or POST
+    if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "DocRaptor error", status: resp.status, details: errorText }),
+        statusCode: 405,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          Allow: "GET, POST, OPTIONS",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Method not allowed" }),
       };
     }
 
-    const arrayBuffer = await resp.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Extract report_id from either query (GET) or body (POST)
+    let reportId = "";
+
+    if (event.httpMethod === "GET") {
+      reportId =
+        (event.queryStringParameters?.report_id ||
+          event.queryStringParameters?.reportId ||
+          "").trim();
+    } else {
+      let body = {};
+      try {
+        body = JSON.parse(event.body || "{}");
+      } catch {
+        return {
+          statusCode: 400,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*",
+          },
+          body: JSON.stringify({ error: "Invalid JSON body" }),
+        };
+      }
+      reportId = (body.report_id || body.reportId || "").trim();
+    }
+
+    if (!reportId) {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Missing report_id" }),
+      };
+    }
+
+    // Proxy to your existing function that already works for the report UI
+    const siteUrl = process.env.URL || "https://iqweb.ai";
+    const srcUrl = `${siteUrl}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(
+      reportId
+    )}`;
+
+    const resp = await fetch(srcUrl, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+
+    const text = await resp.text().catch(() => "");
+
+    if (!resp.ok) {
+      // Return upstream error clearly (so you can see real cause in Netlify logs)
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "Upstream get-report-data failed",
+          status: resp.status,
+          details: text,
+        }),
+      };
+    }
+
+    let raw = {};
+    try {
+      raw = JSON.parse(text || "{}");
+    } catch {
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "Upstream returned non-JSON",
+          details: text.slice(0, 500),
+        }),
+      };
+    }
+
+    // Normalize fields (defensive)
+    const header = raw?.header || raw?.report || {};
+    const scores =
+      raw?.scores || raw?.metrics?.scores || raw?.report?.scores || {};
+
+    // Narrative lines: support multiple shapes
+    const n =
+      raw?.narrative?.overall?.lines ||
+      raw?.narrative?.overall ||
+      raw?.report?.narrative?.overall?.lines ||
+      raw?.report?.narrative?.overall ||
+      [];
+
+    const lineify = (v) => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.filter(Boolean).map(String);
+      if (typeof v === "string")
+        return v
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      // some shapes might be { lines: [...] }
+      if (v && typeof v === "object" && Array.isArray(v.lines))
+        return v.lines.filter(Boolean).map(String);
+      return [];
+    };
+
+    const safeInt = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const out = {
+      success: true,
+      header: {
+        website: header.website || header.url || raw?.url || "",
+        report_id: header.report_id || header.id || reportId,
+        created_at: header.created_at || raw?.created_at || "",
+      },
+      scores: {
+        overall: safeInt(scores.overall),
+        performance: safeInt(scores.performance),
+        mobile: safeInt(scores.mobile),
+        seo: safeInt(scores.seo),
+        security: safeInt(scores.security),
+        structure: safeInt(scores.structure),
+        accessibility: safeInt(scores.accessibility),
+      },
+      narrative: {
+        overall: {
+          lines: lineify(n),
+        },
+      },
+      // keep the original response for debugging (remove later if you want)
+      raw,
+    };
 
     return {
       statusCode: 200,
-      isBase64Encoded: true,
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
+        "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: buffer.toString("base64"),
+      body: JSON.stringify(out),
     };
   } catch (err) {
-    console.error("[PDF] generate-report-pdf crash:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message || "Unknown error" }) };
+    console.error("[get-report-data-pdf] crash:", err);
+    return {
+      statusCode: 500,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: err?.message || "Unknown error" }),
+    };
   }
 };
