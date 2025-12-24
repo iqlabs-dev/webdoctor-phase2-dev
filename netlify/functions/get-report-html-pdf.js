@@ -2,11 +2,40 @@
 // Returns a fully rendered HTML document for PDF printing (NO JS required).
 // DocRaptor will print this directly.
 //
-// Requires:
-// - URL (Netlify provides) OR hardcode https://iqweb.ai
-// - Your existing get-report-data-pdf function to return JSON
+// This endpoint MUST support GET because:
+// - Browsers hit it via GET
+// - DocRaptor fetches URLs via GET
+//
+// It calls your JSON endpoint get-report-data-pdf to obtain data.
 
 exports.handler = async (event) => {
+  // --- CORS / preflight safety (harmless even if not needed) ---
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept",
+        "Cache-Control": "no-store",
+      },
+      body: "",
+    };
+  }
+
+  // --- Enforce GET (this removes the “mystery 405” loop) ---
+  if (event.httpMethod !== "GET") {
+    return {
+      statusCode: 405,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Allow": "GET, OPTIONS",
+      },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
+
   try {
     const reportId =
       (event.queryStringParameters?.report_id ||
@@ -28,6 +57,7 @@ exports.handler = async (event) => {
     )}`;
 
     const resp = await fetch(dataUrl, {
+      method: "GET",
       headers: { Accept: "application/json" },
     });
 
@@ -58,7 +88,11 @@ exports.handler = async (event) => {
     const lineify = (v) => {
       if (!v) return [];
       if (Array.isArray(v)) return v.filter(Boolean).map(String);
-      if (typeof v === "string") return v.split("\n").map((s) => s.trim()).filter(Boolean);
+      if (typeof v === "string")
+        return v
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
       return [];
     };
 
@@ -177,14 +211,16 @@ exports.handler = async (event) => {
       headers: {
         "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
       },
       body: html,
     };
   } catch (err) {
+    console.error("[get-report-html-pdf] error:", err);
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ error: err.message || "Unknown error" }),
+      body: JSON.stringify({ error: err?.message || "Unknown error" }),
     };
   }
 };
