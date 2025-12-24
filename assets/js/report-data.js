@@ -945,7 +945,7 @@
         statusEl.textContent = "Failed to load report data: " + (err && err.message ? err.message : String(err));
       }
 
-      // PDF mode MUST NEVER hang
+      // PDF mod MUST NEVER hang
       if (pdf) {
         return waitForPdfReady();
       }
