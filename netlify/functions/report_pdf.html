@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>iQWEB Website Report (PDF)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    /* ------------------------------
+       iQWEB PDF — Print-first base
+       ------------------------------ */
+
+    :root {
+      --ink: #0b1220;
+      --muted: #4b5563;
+      --rule: #e5e7eb;
+      --panel: #f8fafc;
+      --accent: #0ea5a5; /* teal-ish, safe for print */
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      font-size: 11pt;
+      line-height: 1.45;
+    }
+
+    /* Page */
+    .page {
+      padding: 22mm 18mm 18mm 18mm;
+    }
+
+    /* Headings */
+    h1 {
+      font-size: 20pt;
+      margin: 0 0 6pt 0;
+      letter-spacing: 0.2px;
+    }
+    h2 {
+      font-size: 14pt;
+      margin: 18pt 0 8pt 0;
+      padding-top: 10pt;
+      border-top: 1px solid var(--rule);
+    }
+    h3 {
+      font-size: 12pt;
+      margin: 14pt 0 6pt 0;
+    }
+    p { margin: 0 0 8pt 0; color: var(--ink); }
+    .muted { color: var(--muted); }
+    .small { font-size: 10pt; color: var(--muted); }
+
+    /* Header meta */
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8pt;
+      margin-bottom: 12pt;
+    }
+    .brandline {
+      display: flex;
+      gap: 10pt;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+    .brand {
+      font-weight: 700;
+      font-size: 12pt;
+      letter-spacing: 0.2px;
+    }
+    .powered {
+      font-size: 10pt;
+      color: var(--muted);
+    }
+
+    .meta {
+      border: 1px solid var(--rule);
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10pt;
+    }
+    .meta-item label {
+      display: block;
+      font-size: 9pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 2pt;
+    }
+    .meta-item .value {
+      font-weight: 600;
+      font-size: 10.5pt;
+      word-break: break-word;
+    }
+
+    /* Simple score row */
+    .score-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10pt;
+      margin: 6pt 0 8pt 0;
+    }
+    .score {
+      font-weight: 800;
+      font-size: 12pt;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .score .outof { font-weight: 600; color: var(--muted); font-size: 10pt; }
+
+    /* Blocks */
+    .block {
+      border: 1px solid var(--rule);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10pt 12pt;
+      margin: 8pt 0;
+    }
+    .block.panel {
+      background: var(--panel);
+    }
+
+    /* Delivery signals list */
+    .signals {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10pt;
+    }
+    .signal {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+    }
+    .signal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10pt;
+      margin-bottom: 6pt;
+    }
+    .signal-name {
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+      font-size: 10.5pt;
+    }
+    .signal-score {
+      font-weight: 900;
+      font-size: 11.5pt;
+      white-space: nowrap;
+    }
+    .signal-narrative {
+      margin: 0;
+      color: var(--ink);
+    }
+
+    /* Evidence tables */
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10pt;
+    }
+    .evidence-signal {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+      page-break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6pt;
+      font-size: 10pt;
+    }
+    th, td {
+      border-bottom: 1px solid var(--rule);
+      padding: 6pt 6pt;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      font-size: 9pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+    td.key { width: 55%; color: var(--ink); }
+    td.val { width: 45%; color: var(--ink); word-break: break-word; }
+
+    /* Lists */
+    ul { margin: 6pt 0 0 18pt; padding: 0; }
+    li { margin: 4pt 0; }
+
+    /* 2-column mini metrics */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10pt;
+    }
+    .metric {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+      background: var(--panel);
+      page-break-inside: avoid;
+    }
+    .metric label {
+      display: block;
+      font-size: 9pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 4pt;
+      font-weight: 700;
+    }
+    .metric p { margin: 0; }
+
+    /* Issue blocks */
+    .issue-list .issue {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+      margin: 8pt 0;
+      page-break-inside: avoid;
+    }
+    .issue-title {
+      font-weight: 800;
+      margin: 0 0 4pt 0;
+    }
+    .badge {
+      display: inline-block;
+      border: 1px solid var(--rule);
+      padding: 2pt 8pt;
+      border-radius: 999px;
+      font-size: 9pt;
+      color: var(--muted);
+      margin-left: 8pt;
+      vertical-align: middle;
+    }
+
+    /* Fix sequence */
+    .fix-seq {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 10pt 12pt;
+      background: #fff;
+      page-break-inside: avoid;
+    }
+    ol { margin: 6pt 0 0 18pt; }
+
+    /* Footer */
+    .footer {
+      margin-top: 18pt;
+      padding-top: 10pt;
+      border-top: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+      gap: 12pt;
+      font-size: 9pt;
+      color: var(--muted);
+    }
+
+    /* Print controls */
+    @media print {
+      .page { padding: 18mm 14mm 14mm 14mm; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- =========================
+         REPORT HEADER (same order)
+         ========================= -->
+    <div class="topbar">
+      <div class="brandline">
+        <div>
+          <div class="brand">iQWEB</div>
+          <div class="powered">Powered by Λ i Q™</div>
+        </div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <label>Website</label>
+            <div class="value">{{website_url}}</div>
+          </div>
+          <div class="meta-item">
+            <label>Report ID</label>
+            <div class="value">{{report_id}}</div>
+          </div>
+          <div class="meta-item">
+            <label>Report Date</label>
+            <div class="value">{{report_date}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================
+         EXECUTIVE NARRATIVE
+         ========================= -->
+    <h2>Executive Narrative</h2>
+    <div class="block panel">
+      {{executive_narrative}}
+      <!-- Expect plain text or <p>...</p> injected by server -->
+    </div>
+
+    <!-- =========================
+         DELIVERY SIGNALS (score + narrative)
+         ========================= -->
+    <h2>Delivery Signals</h2>
+
+    <div class="block">
+      <div class="score-row">
+        <div><strong>Overall Delivery Score</strong></div>
+        <div class="score">{{overall_score}} <span class="outof">/ 100</span></div>
+      </div>
+      <p class="small">{{overall_delivery_note}}</p>
+    </div>
+
+    <div class="signals">
+      {{delivery_signals}}
+      <!-- Server should render 6 signal blocks in the same order as OSD.
+           Each block should look like:
+
+           <div class="signal">
+             <div class="signal-head">
+               <div class="signal-name">Performance</div>
+               <div class="signal-score">90</div>
+             </div>
+             <p class="signal-narrative">Line 1...</p>
+             <p class="signal-narrative">Line 2...</p>
+           </div>
+      -->
+    </div>
+
+    <p class="small muted" style="margin-top: 8pt;">
+      Each signal is presented as a short diagnostic narrative, backed by evidence below.
+    </p>
+
+    <!-- =========================
+         SIGNAL EVIDENCE (observations + issues)
+         ========================= -->
+    <h2>Signal Evidence</h2>
+
+    <div class="evidence-grid">
+      {{signal_evidence}}
+      <!-- Server should render 6 evidence blocks in the same order as OSD.
+           Each block should look like:
+
+           <div class="evidence-signal">
+             <div class="signal-head">
+               <div class="signal-name">Performance</div>
+               <div class="signal-score">90</div>
+             </div>
+
+             <h3>Observations</h3>
+             <table>
+               <thead><tr><th>Observation</th><th>Value</th></tr></thead>
+               <tbody>
+                 <tr><td class="key">Html Bytes</td><td class="val">31620</td></tr>
+                 ...
+               </tbody>
+             </table>
+
+             <h3>Issues</h3>
+             <ul>
+               <li>No issues detected for this signal.</li>
+               <!-- OR -->
+               <li><strong>SEO Foundations: Canonical missing</strong> — Impact: ...</li>
+             </ul>
+           </div>
+      -->
+    </div>
+
+    <!-- =========================
+         KEY INSIGHT METRICS
+         ========================= -->
+    <h2>Key Insight Metrics</h2>
+    <div class="metric-grid">
+      <div class="metric">
+        <label>Strength</label>
+        <p>{{insight_strength}}</p>
+      </div>
+      <div class="metric">
+        <label>Risk</label>
+        <p>{{insight_risk}}</p>
+      </div>
+      <div class="metric">
+        <label>Focus</label>
+        <p>{{insight_focus}}</p>
+      </div>
+      <div class="metric">
+        <label>Next</label>
+        <p>{{insight_next}}</p>
+      </div>
+    </div>
+
+    <!-- =========================
+         TOP ISSUES DETECTED
+         ========================= -->
+    <h2>Top Issues Detected</h2>
+    <div class="issue-list">
+      {{top_issues}}
+      <!-- Server should render issue blocks, e.g.:
+
+        <div class="issue">
+          <p class="issue-title">
+            SEO Foundations: Canonical missing
+            <span class="badge">Worth addressing</span>
+          </p>
+          <p class="muted">Without a canonical, duplicate URL variants can dilute SEO signals.</p>
+        </div>
+
+      -->
+    </div>
+
+    <!-- =========================
+         RECOMMENDED FIX SEQUENCE
+         ========================= -->
+    <h2>Recommended Fix Sequence</h2>
+    <div class="fix-seq">
+      <p class="muted">{{fix_sequence_summary}}</p>
+      {{fix_sequence_list}}
+      <!-- Server should render an <ol>...</ol> OR simple paragraphs. -->
+    </div>
+
+    <!-- =========================
+         FINAL NOTES
+         ========================= -->
+    <h2>Final Notes</h2>
+    <div class="block panel">
+      {{final_notes}}
+      <!-- Server inserts the same Final Notes text as OSD (just plain text / <p>). -->
+    </div>
+
+    <div class="footer">
+      <div>© 2025 iQWEB — All rights reserved.</div>
+      <div class="muted">Generated from measurable scan signals. No site data is stored or reused.</div>
+    </div>
+
+  </div>
+</body>
+</html>
