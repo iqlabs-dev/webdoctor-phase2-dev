@@ -1,11 +1,15 @@
 // netlify/functions/get-report-html-pdf.js
-// Minimal, stable: loads report_pdf.html from SAME folder as this function.
-// No endpoint changes. No loop changes.
-
-const fs = require("fs");
-const path = require("path");
+// Returns a fully rendered HTML document for PDF printing (NO JS required).
+// DocRaptor will print this directly.
+//
+// This endpoint MUST support GET because:
+// - Browsers hit it via GET
+// - DocRaptor fetches URLs via GET
+//
+// It calls your JSON endpoint get-report-data-pdf to obtain data.
 
 exports.handler = async (event) => {
+  // --- CORS / preflight safety (harmless even if not needed) ---
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -19,24 +23,24 @@ exports.handler = async (event) => {
     };
   }
 
+  // --- Enforce GET (this removes the “mystery 405” loop) ---
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
-        Allow: "GET, OPTIONS",
+        "Allow": "GET, OPTIONS",
       },
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
   try {
-    const reportId = String(
-      (event.queryStringParameters &&
-        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
-        ""
-    ).trim();
+    const reportId =
+      (event.queryStringParameters?.report_id ||
+        event.queryStringParameters?.reportId ||
+        "").trim();
 
     if (!reportId) {
       return {
@@ -46,347 +50,161 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---- Fetch JSON (server-side) ----
+    // Call your existing JSON endpoint (server-side)
     const siteUrl = process.env.URL || "https://iqweb.ai";
-    const dataUrl =
-      siteUrl +
-      "/.netlify/functions/get-report-data-pdf?report_id=" +
-      encodeURIComponent(reportId);
+    const dataUrl = `${siteUrl}/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(
+      reportId
+    )}`;
 
-    const resp = await fetch(dataUrl, { method: "GET", headers: { Accept: "application/json" } });
-    const rawText = await resp.text().catch(() => "");
+    const resp = await fetch(dataUrl, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
 
     if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: "Failed to fetch report data (" + resp.status + "): " + rawText,
+        body: `Failed to fetch report data (${resp.status}): ${t}`,
       };
     }
 
-    let json;
-    try {
-      json = JSON.parse(rawText || "{}");
-    } catch (e) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: "Report data endpoint returned non-JSON: " + rawText.slice(0, 600),
-      };
-    }
+    const json = await resp.json();
 
-    const header = json && json.header ? json.header : {};
-    const scores = json && json.scores ? json.scores : {};
-    const deliverySignals = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
-    const narrativeObj = json && json.narrative ? json.narrative : null;
+    // Defensive reads (shape may vary depending on your endpoint)
+    const header = json?.header || {};
+    const scores = json?.scores || json?.metrics?.scores || {};
+    const narrative =
+      json?.narrative?.overall?.lines ||
+      json?.narrative?.overall ||
+      json?.report?.narrative?.overall?.lines ||
+      [];
 
-    // ---- Helpers ----
-    function esc(s) {
-      return String(s == null ? "" : s)
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
-    }
+    const website = header.website || json?.report?.url || "";
+    const createdAt = header.created_at || json?.report?.created_at || "";
+    const rid = header.report_id || json?.report?.report_id || reportId;
 
-    function asInt(v, fallback) {
-      if (typeof fallback === "undefined") fallback = "—";
-      const n = Number(v);
-      if (!Number.isFinite(n)) return fallback;
-      return String(Math.round(n));
-    }
-
-    function lineify(v) {
+    const lineify = (v) => {
       if (!v) return [];
       if (Array.isArray(v)) return v.filter(Boolean).map(String);
-      if (typeof v === "string") {
+      if (typeof v === "string")
         return v
           .split("\n")
-          .map((x) => String(x || "").trim())
+          .map((s) => s.trim())
           .filter(Boolean);
-      }
-      if (typeof v === "object" && Array.isArray(v.lines)) return v.lines.filter(Boolean).map(String);
       return [];
+    };
+
+    const narrativeLines = lineify(narrative);
+
+    const s = (k, fallback = "") => {
+      const v = scores?.[k];
+      if (v === 0) return "0";
+      return v ? String(v) : fallback;
+    };
+
+    const esc = (str) =>
+      String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>iQWEB Website Report — ${esc(rid)}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+    .topbar { display:flex; justify-content:space-between; align-items:flex-end; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+    .brand { font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+    .meta { font-size: 11px; text-align:right; line-height: 1.4; }
+    .label { font-weight:700; }
+    .section { margin: 14px 0; }
+    .h { font-size: 13px; font-weight: 800; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .6px; }
+    .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .card { border:1px solid #111; border-radius: 8px; padding: 10px; }
+    .card .t { font-size: 12px; font-weight: 800; margin-bottom: 6px; text-transform: uppercase; }
+    .score { font-size: 22px; font-weight: 800; }
+    .muted { font-size: 10px; color:#444; margin-top: 6px; line-height: 1.35; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { font-size: 11px; margin: 4px 0; }
+    .footer { border-top: 1px solid #111; margin-top: 16px; padding-top: 10px; font-size: 10px; color:#333; display:flex; justify-content:space-between; }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div>
+      <div class="brand">iQWEB</div>
+      <div style="font-size:11px;margin-top:2px;">Powered by Λ i Q™</div>
+    </div>
+    <div class="meta">
+      <div><span class="label">Website:</span> ${esc(website)}</div>
+      <div><span class="label">Report ID:</span> ${esc(rid)}</div>
+      <div><span class="label">Report Date:</span> ${esc(createdAt)}</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="h">Executive Narrative</div>
+    ${
+      narrativeLines.length
+        ? `<ul>${narrativeLines.map((ln) => `<li>${esc(ln)}</li>`).join("")}</ul>`
+        : `<div style="font-size:11px;color:#444;">Narrative not available for this report.</div>`
     }
+  </div>
 
-    function prettifyKey(k) {
-      k = String(k || "").split("_").join(" ");
-      return k.replace(/\b\w/g, function (m) { return m.toUpperCase(); });
-    }
+  <div class="section">
+    <div class="h">Delivery Signals</div>
+    <div class="grid">
+      <div class="card">
+        <div class="t">Overall</div>
+        <div class="score">${esc(s("overall", "—"))}</div>
+        <div class="muted">Overall delivery score (deterministic checks).</div>
+      </div>
+      <div class="card">
+        <div class="t">Performance</div>
+        <div class="score">${esc(s("performance", "—"))}</div>
+        <div class="muted">Speed and performance indicators.</div>
+      </div>
+      <div class="card">
+        <div class="t">Mobile Experience</div>
+        <div class="score">${esc(s("mobile", "—"))}</div>
+        <div class="muted">Mobile readiness and UX signals.</div>
+      </div>
+      <div class="card">
+        <div class="t">SEO Foundations</div>
+        <div class="score">${esc(s("seo", "—"))}</div>
+        <div class="muted">Basic SEO structure and metadata.</div>
+      </div>
+      <div class="card">
+        <div class="t">Security & Trust</div>
+        <div class="score">${esc(s("security", "—"))}</div>
+        <div class="muted">HTTPS and security header presence.</div>
+      </div>
+      <div class="card">
+        <div class="t">Accessibility</div>
+        <div class="score">${esc(s("accessibility", "—"))}</div>
+        <div class="muted">Accessibility checks and warnings.</div>
+      </div>
+    </div>
+  </div>
 
-    function evidenceToObs(evidence) {
-      const ev = (evidence && typeof evidence === "object") ? evidence : {};
-      const entries = [];
-      for (const key in ev) {
-        if (Object.prototype.hasOwnProperty.call(ev, key)) {
-          entries.push([key, ev[key]]);
-        }
-      }
-      entries.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-      return entries.map(([k, v]) => ({ label: prettifyKey(k), value: v }));
-    }
+  <div class="footer">
+    <div>© 2025 iQWEB — All rights reserved.</div>
+    <div>${esc(rid)}</div>
+  </div>
 
-    function safeSignalKey(sig) {
-      const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.indexOf("perf") !== -1) return "performance";
-      if (id.indexOf("mobile") !== -1) return "mobile";
-      if (id.indexOf("seo") !== -1) return "seo";
-      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-      if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1) return "structure";
-      if (id.indexOf("access") !== -1) return "accessibility";
-      return null;
-    }
-
-    // ---- Build Executive Narrative ----
-    const execLines =
-      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ? narrativeObj.overall.lines : null;
-
-    const executiveNarrative = (() => {
-      const lines = lineify(execLines);
-      if (!lines.length) return '<p class="muted">Narrative not available for this report.</p>';
-      return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
-    })();
-
-    // ---- Delivery Signals (score + per-signal narrative) ----
-    const deliverySignalsHtml = (() => {
-      const narrSignals =
-        (narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object")
-          ? narrativeObj.signals
-          : {};
-
-      if (!deliverySignals.length) {
-        return '<div class="signal"><p class="muted">No delivery signals in this scan output.</p></div>';
-      }
-
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
-
-        const key = safeSignalKey(sig);
-        const lines = key && narrSignals && narrSignals[key] ? lineify(narrSignals[key].lines) : [];
-        const narr =
-          lines.length
-            ? lines.slice(0, 3).map((ln) => '<p class="signal-narrative">' + esc(ln) + "</p>").join("")
-            : '<p class="signal-narrative muted">No signal narrative available for this report.</p>';
-
-        return (
-          '<div class="signal">' +
-            '<div class="signal-head">' +
-              '<div class="signal-name">' + esc(name) + "</div>" +
-              '<div class="signal-score">' + esc(score) + "</div>" +
-            "</div>" +
-            narr +
-          "</div>"
-        );
-      }).join("");
-    })();
-
-    // ---- Signal Evidence (observations + issues) ----
-    const signalEvidenceHtml = (() => {
-      if (!deliverySignals.length) return '<div class="evidence-signal"><p class="muted">No evidence available.</p></div>';
-
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
-
-        const obs = Array.isArray(sig.observations) && sig.observations.length
-          ? sig.observations.map((o) => ({ label: o.label || "Observation", value: o.value }))
-          : evidenceToObs(sig.evidence);
-
-        const obsRows = obs.slice(0, 24).map((o) => {
-          const v = (o.value === null) ? "null" : (typeof o.value === "undefined") ? "—" : String(o.value);
-          return "<tr><td class=\"key\">" + esc(o.label) + "</td><td class=\"val\">" + esc(v) + "</td></tr>";
-        }).join("");
-
-        const issues = Array.isArray(sig.issues) ? sig.issues : [];
-        const issuesList = issues.length
-          ? "<ul>" + issues.slice(0, 6).map((it) => {
-              const t = it && it.title ? String(it.title) : "Issue";
-              const impact = it && (it.impact || it.description) ? String(it.impact || it.description) : "—";
-              return "<li><strong>" + esc(t) + "</strong> — Impact: " + esc(impact) + "</li>";
-            }).join("") + "</ul>"
-          : "<ul><li>No issues detected for this signal.</li></ul>";
-
-        return (
-          '<div class="evidence-signal">' +
-            '<div class="signal-head">' +
-              '<div class="signal-name">' + esc(name) + "</div>" +
-              '<div class="signal-score">' + esc(score) + "</div>" +
-            "</div>" +
-            "<h3>Observations</h3>" +
-            "<table><thead><tr><th>Observation</th><th>Value</th></tr></thead>" +
-            "<tbody>" + (obsRows || "<tr><td class=\"key\">—</td><td class=\"val\">—</td></tr>") + "</tbody></table>" +
-            "<h3>Issues</h3>" +
-            issuesList +
-          "</div>"
-        );
-      }).join("");
-    })();
-
-    // ---- Key Insight Metrics ----
-    const insight = (() => {
-      const scored = deliverySignals
-        .map((s) => ({ label: String(s.label || s.id || "Signal"), score: Number(s.score) }))
-        .filter((x) => Number.isFinite(x.score))
-        .sort((a, b) => a.score - b.score);
-
-      const weakest = scored.length ? scored[0] : null;
-      const strongest = scored.length ? scored[scored.length - 1] : null;
-
-      const strength = strongest
-        ? (strongest.label + " is the strongest measured area in this scan.")
-        : "Strength insight not available from this scan output.";
-
-      const risk = weakest
-        ? (weakest.label + " is the most constrained measured area in this scan.")
-        : "Risk insight not available from this scan output.";
-
-      const focus = weakest
-        ? ("Focus: start with " + weakest.label + " first for highest leverage.")
-        : "Focus: address the lowest scoring signal areas first for highest leverage.";
-
-      const next = "Next: apply the changes you choose, then re-run the scan to confirm measurable improvement.";
-
-      return { strength, risk, focus, next };
-    })();
-
-    // ---- Top Issues Detected ----
-    const topIssuesHtml = (() => {
-      const all = [];
-      deliverySignals.forEach((sig) => {
-        const issues = Array.isArray(sig.issues) ? sig.issues : [];
-        issues.forEach((it) => {
-          all.push({
-            title: String((it && it.title) || "Issue"),
-            why: String((it && (it.impact || it.description)) || "This can affect measurable delivery."),
-            severity: String((it && it.severity) || "low"),
-          });
-        });
-      });
-
-      if (!all.length) {
-        return (
-          '<div class="issue">' +
-            '<p class="issue-title">No issue list available from this scan output yet</p>' +
-            '<p class="muted">This section summarises the highest-leverage issues detected from this scan.</p>' +
-          "</div>"
-        );
-      }
-
-      const seen = {};
-      const uniq = [];
-      for (let i = 0; i < all.length; i++) {
-        const key = all[i].title.toLowerCase();
-        if (seen[key]) continue;
-        seen[key] = true;
-        uniq.push(all[i]);
-        if (uniq.length >= 10) break;
-      }
-
-      function badgeLabel(sev) {
-        const s = String(sev || "").toLowerCase();
-        if (s.indexOf("high") !== -1 || s.indexOf("critical") !== -1) return "High leverage";
-        if (s.indexOf("med") !== -1 || s.indexOf("warn") !== -1) return "Worth addressing";
-        return "Monitor";
-      }
-
-      return uniq.map((x) => {
-        return (
-          '<div class="issue">' +
-            '<p class="issue-title">' +
-              esc(x.title) +
-              '<span class="badge">' + esc(badgeLabel(x.severity)) + "</span>" +
-            "</p>" +
-            '<p class="muted">' + esc(x.why) + "</p>" +
-          "</div>"
-        );
-      }).join("");
-    })();
-
-    // ---- Fix Sequence ----
-    const fixSequenceSummary = (() => {
-      const scored = deliverySignals
-        .map((s) => ({ label: String(s.label || s.id || "Signal"), score: Number(s.score) }))
-        .filter((x) => Number.isFinite(x.score))
-        .sort((a, b) => a.score - b.score);
-
-      const a = scored[0] ? scored[0].label : null;
-      const b = scored[1] ? scored[1].label : null;
-
-      if (a && b) return "Suggested order (from this scan): start with " + a + " + " + b + ", then re-run the scan.";
-      if (a) return "Suggested order (from this scan): start with " + a + ", then re-run the scan.";
-      return "Suggested order: start with the lowest scoring areas first, then re-run the scan.";
-    })();
-
-    const fixSequenceList = (() => {
-      const scored = deliverySignals
-        .map((s) => ({ label: String(s.label || s.id || "Signal"), score: Number(s.score) }))
-        .filter((x) => Number.isFinite(x.score))
-        .sort((a, b) => a.score - b.score);
-
-      if (!scored.length) return "";
-      return "<ol>" + scored.slice(0, 6).map((x) => "<li>" + esc(x.label) + "</li>").join("") + "</ol>";
-    })();
-
-    const finalNotes = (() => {
-      return (
-        "<p>This report is a diagnostic snapshot based on measurable signals captured during this scan. Where iQWEB cannot measure a signal reliably, it will show “Not available” rather than guess.</p>" +
-        "<p>Trust matters: scan output is used to generate this report and is not sold. Payment details are handled by the payment provider and are not stored in iQWEB.</p>"
-      );
-    })();
-
-    // ---- Load template file (ONLY one path; stable) ----
-    // Put report_pdf.html here: netlify/functions/report_pdf.html
-    const templatePath = path.join(__dirname, "report_pdf.html");
-
-    let tpl = "";
-    try {
-      tpl = fs.readFileSync(templatePath, "utf8");
-    } catch (e) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body:
-          "Missing PDF template file. Expected:\n" +
-          templatePath +
-          "\n\nPlace report_pdf.html in: netlify/functions/report_pdf.html",
-      };
-    }
-
-    function replaceAll(str, token, value) {
-      return String(str).split(token).join(value);
-    }
-
-    const outHtml = (() => {
-      let h = tpl;
-
-      h = replaceAll(h, "{{website_url}}", esc(header.website || ""));
-      h = replaceAll(h, "{{report_id}}", esc(header.report_id || reportId));
-      h = replaceAll(h, "{{report_date}}", esc(header.created_at || ""));
-
-      h = replaceAll(h, "{{executive_narrative}}", executiveNarrative);
-
-      h = replaceAll(h, "{{overall_score}}", esc(asInt(scores.overall, "—")));
-      h = replaceAll(h, "{{overall_delivery_note}}", esc("Overall delivery score (deterministic checks)."));
-
-      h = replaceAll(h, "{{delivery_signals}}", deliverySignalsHtml);
-      h = replaceAll(h, "{{signal_evidence}}", signalEvidenceHtml);
-
-      h = replaceAll(h, "{{insight_strength}}", esc(insight.strength));
-      h = replaceAll(h, "{{insight_risk}}", esc(insight.risk));
-      h = replaceAll(h, "{{insight_focus}}", esc(insight.focus));
-      h = replaceAll(h, "{{insight_next}}", esc(insight.next));
-
-      h = replaceAll(h, "{{top_issues}}", topIssuesHtml);
-
-      h = replaceAll(h, "{{fix_sequence_summary}}", esc(fixSequenceSummary));
-      h = replaceAll(h, "{{fix_sequence_list}}", fixSequenceList);
-
-      h = replaceAll(h, "{{final_notes}}", finalNotes);
-
-      return h;
-    })();
+</body>
+</html>`;
 
     return {
       statusCode: 200,
@@ -395,14 +213,14 @@ exports.handler = async (event) => {
         "Cache-Control": "no-store",
         "Access-Control-Allow-Origin": "*",
       },
-      body: outHtml,
+      body: html,
     };
   } catch (err) {
     console.error("[get-report-html-pdf] error:", err);
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ error: err && err.message ? err.message : "Unknown error" }),
+      body: JSON.stringify({ error: err?.message || "Unknown error" }),
     };
   }
 };
