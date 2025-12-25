@@ -2,7 +2,10 @@
 // Returns a fully rendered HTML document for PDF printing (NO JS required).
 // DocRaptor prints this HTML directly.
 //
-// Template file:
+// Template file (preferred):
+// - netlify/functions/report_pdf.html
+//
+// Fallback template file:
 // - netlify/functions/templates/report_pdf.html
 //
 // Data source:
@@ -40,7 +43,9 @@ exports.handler = async (event) => {
 
   try {
     const reportId = String(
-      (event.queryStringParameters && (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) || ""
+      (event.queryStringParameters &&
+        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
+        ""
     ).trim();
 
     if (!reportId) {
@@ -58,7 +63,10 @@ exports.handler = async (event) => {
       "/.netlify/functions/get-report-data-pdf?report_id=" +
       encodeURIComponent(reportId);
 
-    const resp = await fetch(dataUrl, { method: "GET", headers: { Accept: "application/json" } });
+    const resp = await fetch(dataUrl, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
     const rawText = await resp.text().catch(() => "");
 
     if (!resp.ok) {
@@ -82,17 +90,24 @@ exports.handler = async (event) => {
 
     const header = json && json.header ? json.header : {};
     const scores = json && json.scores ? json.scores : {};
-    const deliverySignals = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
+    const deliverySignals = Array.isArray(json.delivery_signals)
+      ? json.delivery_signals
+      : [];
     const narrativeObj = json && json.narrative ? json.narrative : null;
 
     // ---- Helpers ----
     function esc(s) {
       return String(s == null ? "" : s)
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
+        .split("&")
+        .join("&amp;")
+        .split("<")
+        .join("&lt;")
+        .split(">")
+        .join("&gt;")
+        .split('"')
+        .join("&quot;")
+        .split("'")
+        .join("&#039;");
     }
 
     function asInt(v, fallback) {
@@ -111,17 +126,20 @@ exports.handler = async (event) => {
           .map((x) => String(x || "").trim())
           .filter(Boolean);
       }
-      if (typeof v === "object" && Array.isArray(v.lines)) return v.lines.filter(Boolean).map(String);
+      if (typeof v === "object" && Array.isArray(v.lines))
+        return v.lines.filter(Boolean).map(String);
       return [];
     }
 
     function prettifyKey(k) {
       k = String(k || "").split("_").join(" ");
-      return k.replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+      return k.replace(/\b\w/g, function (m) {
+        return m.toUpperCase();
+      });
     }
 
     function evidenceToObs(evidence) {
-      const ev = (evidence && typeof evidence === "object") ? evidence : {};
+      const ev = evidence && typeof evidence === "object" ? evidence : {};
       const entries = [];
       for (const key in ev) {
         if (Object.prototype.hasOwnProperty.call(ev, key)) {
@@ -137,26 +155,31 @@ exports.handler = async (event) => {
       if (id.indexOf("perf") !== -1) return "performance";
       if (id.indexOf("mobile") !== -1) return "mobile";
       if (id.indexOf("seo") !== -1) return "seo";
-      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-      if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1)
+        return "security";
+      if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1)
+        return "structure";
       if (id.indexOf("access") !== -1) return "accessibility";
       return null;
     }
 
     // ---- Build Executive Narrative ----
     const execLines =
-      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ? narrativeObj.overall.lines : null;
+      narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
+        ? narrativeObj.overall.lines
+        : null;
 
     const executiveNarrative = (() => {
       const lines = lineify(execLines);
-      if (!lines.length) return '<p class="muted">Narrative not available for this report.</p>';
+      if (!lines.length)
+        return '<p class="muted">Narrative not available for this report.</p>';
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
     // ---- Delivery Signals (score + per-signal narrative) ----
     const deliverySignalsHtml = (() => {
       const narrSignals =
-        (narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object")
+        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
           ? narrativeObj.signals
           : {};
 
@@ -164,98 +187,135 @@ exports.handler = async (event) => {
         return '<div class="signal"><p class="muted">No delivery signals in this scan output.</p></div>';
       }
 
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
+      return deliverySignals
+        .map((sig) => {
+          const name = String(sig.label || sig.id || "Signal");
+          const score = asInt(sig.score, "—");
 
-        const key = safeSignalKey(sig);
-        const lines = key && narrSignals && narrSignals[key] ? lineify(narrSignals[key].lines) : [];
-        const narr =
-          lines.length
-            ? lines.slice(0, 3).map((ln) => '<p class="signal-narrative">' + esc(ln) + "</p>").join("")
+          const key = safeSignalKey(sig);
+          const lines =
+            key && narrSignals && narrSignals[key]
+              ? lineify(narrSignals[key].lines)
+              : [];
+          const narr = lines.length
+            ? lines
+                .slice(0, 3)
+                .map((ln) => '<p class="signal-narrative">' + esc(ln) + "</p>")
+                .join("")
             : '<p class="signal-narrative muted">No signal narrative available for this report.</p>';
 
-        return (
-          '<div class="signal">' +
-            '<div class="signal-head">' +
-              '<div class="signal-name">' + esc(name) + "</div>" +
-              '<div class="signal-score">' + esc(score) + "</div>" +
-            "</div>" +
-            narr +
-          "</div>"
-        );
-      }).join("");
+          return (
+            '<div class="signal">' +
+              '<div class="signal-head">' +
+                '<div class="signal-name">' + esc(name) + "</div>" +
+                '<div class="signal-score">' + esc(score) + "</div>" +
+              "</div>" +
+              narr +
+            "</div>"
+          );
+        })
+        .join("");
     })();
 
     // ---- Signal Evidence (observations + issues) ----
     const signalEvidenceHtml = (() => {
-      if (!deliverySignals.length) return '<div class="evidence-signal"><p class="muted">No evidence available.</p></div>';
+      if (!deliverySignals.length)
+        return '<div class="evidence-signal"><p class="muted">No evidence available.</p></div>';
 
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
+      return deliverySignals
+        .map((sig) => {
+          const name = String(sig.label || sig.id || "Signal");
+          const score = asInt(sig.score, "—");
 
-        const obs = Array.isArray(sig.observations) && sig.observations.length
-          ? sig.observations.map((o) => ({ label: o.label || "Observation", value: o.value }))
-          : evidenceToObs(sig.evidence);
+          const obs =
+            Array.isArray(sig.observations) && sig.observations.length
+              ? sig.observations.map((o) => ({
+                  label: o.label || "Observation",
+                  value: o.value,
+                }))
+              : evidenceToObs(sig.evidence);
 
-        const obsRows = obs.slice(0, 24).map((o) => {
-          const v = (o.value === null) ? "null" : (typeof o.value === "undefined") ? "—" : String(o.value);
-          return "<tr><td class=\"key\">" + esc(o.label) + "</td><td class=\"val\">" + esc(v) + "</td></tr>";
-        }).join("");
+          const obsRows = obs
+            .slice(0, 24)
+            .map((o) => {
+              const v =
+                o.value === null
+                  ? "null"
+                  : typeof o.value === "undefined"
+                  ? "—"
+                  : String(o.value);
+              return (
+                '<tr><td class="key">' +
+                esc(o.label) +
+                '</td><td class="val">' +
+                esc(v) +
+                "</td></tr>"
+              );
+            })
+            .join("");
 
-        const issues = Array.isArray(sig.issues) ? sig.issues : [];
-        const issuesList = issues.length
-          ? "<ul>" + issues.slice(0, 6).map((it) => {
-              const t = it && it.title ? String(it.title) : "Issue";
-              const impact = it && (it.impact || it.description) ? String(it.impact || it.description) : "—";
-              return "<li><strong>" + esc(t) + "</strong> — Impact: " + esc(impact) + "</li>";
-            }).join("") + "</ul>"
-          : "<ul><li>No issues detected for this signal.</li></ul>";
+          const issues = Array.isArray(sig.issues) ? sig.issues : [];
+          const issuesList = issues.length
+            ? "<ul>" +
+              issues
+                .slice(0, 6)
+                .map((it) => {
+                  const t = it && it.title ? String(it.title) : "Issue";
+                  const impact =
+                    it && (it.impact || it.description)
+                      ? String(it.impact || it.description)
+                      : "—";
+                  return "<li><strong>" + esc(t) + "</strong> — Impact: " + esc(impact) + "</li>";
+                })
+                .join("") +
+              "</ul>"
+            : "<ul><li>No issues detected for this signal.</li></ul>";
 
-        return (
-          '<div class="evidence-signal">' +
-            '<div class="signal-head">' +
-              '<div class="signal-name">' + esc(name) + "</div>" +
-              '<div class="signal-score">' + esc(score) + "</div>" +
-            "</div>" +
+          return (
+            '<div class="evidence-signal">' +
+              '<div class="signal-head">' +
+                '<div class="signal-name">' + esc(name) + "</div>" +
+                '<div class="signal-score">' + esc(score) + "</div>" +
+              "</div>" +
 
-            "<h3>Observations</h3>" +
-            "<table><thead><tr><th>Observation</th><th>Value</th></tr></thead>" +
-            "<tbody>" + (obsRows || "<tr><td class=\"key\">—</td><td class=\"val\">—</td></tr>") + "</tbody></table>" +
+              "<h3>Observations</h3>" +
+              "<table><thead><tr><th>Observation</th><th>Value</th></tr></thead>" +
+              "<tbody>" +
+              (obsRows || '<tr><td class="key">—</td><td class="val">—</td></tr>') +
+              "</tbody></table>" +
 
-            "<h3>Issues</h3>" +
-            issuesList +
-          "</div>"
-        );
-      }).join("");
+              "<h3>Issues</h3>" +
+              issuesList +
+            "</div>"
+          );
+        })
+        .join("");
     })();
 
     // ---- Key Insight Metrics (simple, derived) ----
     const insight = (() => {
-      // Determine weakest/strongest signal by score
       const scored = deliverySignals
         .map((s) => ({ label: String(s.label || s.id || "Signal"), score: Number(s.score) }))
-        .filter((x) => Number.isFinite(x.score));
-
-      scored.sort((a, b) => a.score - b.score);
+        .filter((x) => Number.isFinite(x.score))
+        .sort((a, b) => a.score - b.score);
 
       const weakest = scored.length ? scored[0] : null;
       const strongest = scored.length ? scored[scored.length - 1] : null;
 
       const strength = strongest
-        ? (strongest.label + " is the strongest measured area in this scan.")
+        ? strongest.label + " is the strongest measured area in this scan."
         : "Strength insight not available from this scan output.";
 
       const risk = weakest
-        ? (weakest.label + " is the most constrained measured area in this scan.")
+        ? weakest.label + " is the most constrained measured area in this scan."
         : "Risk insight not available from this scan output.";
 
       const focus = weakest
-        ? ("Focus: start with " + weakest.label + " first for highest leverage.")
+        ? "Focus: start with " + weakest.label + " first for highest leverage."
         : "Focus: address the lowest scoring signal areas first for highest leverage.";
 
-      const next = "Next: apply the changes you choose, then re-run the scan to confirm measurable improvement.";
+      const next =
+        "Next: apply the changes you choose, then re-run the scan to confirm measurable improvement.";
 
       return { strength, risk, focus, next };
     })();
@@ -283,7 +343,6 @@ exports.handler = async (event) => {
         );
       }
 
-      // de-dupe by title
       const seen = {};
       const uniq = [];
       for (let i = 0; i < all.length; i++) {
@@ -301,17 +360,19 @@ exports.handler = async (event) => {
         return "Monitor";
       }
 
-      return uniq.map((x) => {
-        return (
-          '<div class="issue">' +
-            '<p class="issue-title">' +
-              esc(x.title) +
-              '<span class="badge">' + esc(badgeLabel(x.severity)) + "</span>" +
-            "</p>" +
-            '<p class="muted">' + esc(x.why) + "</p>" +
-          "</div>"
-        );
-      }).join("");
+      return uniq
+        .map((x) => {
+          return (
+            '<div class="issue">' +
+              '<p class="issue-title">' +
+                esc(x.title) +
+                '<span class="badge">' + esc(badgeLabel(x.severity)) + "</span>" +
+              "</p>" +
+              '<p class="muted">' + esc(x.why) + "</p>" +
+            "</div>"
+          );
+        })
+        .join("");
     })();
 
     // ---- Fix Sequence ----
@@ -336,11 +397,10 @@ exports.handler = async (event) => {
         .sort((a, b) => a.score - b.score);
 
       if (!scored.length) return "";
-
       return "<ol>" + scored.slice(0, 6).map((x) => "<li>" + esc(x.label) + "</li>").join("") + "</ol>";
     })();
 
-    // ---- Final Notes (match OSD intent, print-safe) ----
+    // ---- Final Notes (print-safe) ----
     const finalNotes = (() => {
       return (
         "<p>This report is a diagnostic snapshot based on measurable signals captured during this scan. Where iQWEB cannot measure a signal reliably, it will show “Not available” rather than guess.</p>" +
@@ -348,19 +408,36 @@ exports.handler = async (event) => {
       );
     })();
 
-    // ---- Load template file ----
-    const templatePath = path.join(__dirname, "templates", "report_pdf.html");
+    // ---- Load template file (SAFE + FLEXIBLE PATHS) ----
+    // Prefer: same folder as function (netlify/functions/report_pdf.html)
+    // Fallback: templates folder (netlify/functions/templates/report_pdf.html)
+    const tried = [];
+    const candidatePaths = [
+      path.join(__dirname, "report_pdf.html"),
+      path.join(__dirname, "templates", "report_pdf.html"),
+    ];
+
     let tpl = "";
-    try {
-      tpl = fs.readFileSync(templatePath, "utf8");
-    } catch (e) {
+    let templatePathUsed = "";
+    for (const p of candidatePaths) {
+      tried.push(p);
+      try {
+        if (fs.existsSync(p)) {
+          tpl = fs.readFileSync(p, "utf8");
+          templatePathUsed = p;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (!tpl) {
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain; charset=utf-8" },
         body:
-          "Missing PDF template file. Expected: " +
-          templatePath +
-          "\n\nMove report_pdf.html to: netlify/functions/templates/report_pdf.html",
+          "Missing PDF template file. Tried:\n- " +
+          tried.join("\n- ") +
+          "\n\nPlace report_pdf.html in either:\n- netlify/functions/report_pdf.html\n- netlify/functions/templates/report_pdf.html",
       };
     }
 
@@ -372,6 +449,9 @@ exports.handler = async (event) => {
     const outHtml = (() => {
       let h = tpl;
 
+      // (Optional) uncomment for debugging to confirm template in PDF:
+      // h = h.replace("</body>", `<div style="font-size:10px;color:#999">TEMPLATE_USED: ${esc(templatePathUsed)}</div></body>`);
+
       h = replaceAll(h, "{{website_url}}", esc(header.website || ""));
       h = replaceAll(h, "{{report_id}}", esc(header.report_id || reportId));
       h = replaceAll(h, "{{report_date}}", esc(header.created_at || ""));
@@ -379,11 +459,7 @@ exports.handler = async (event) => {
       h = replaceAll(h, "{{executive_narrative}}", executiveNarrative);
 
       h = replaceAll(h, "{{overall_score}}", esc(asInt(scores.overall, "—")));
-      h = replaceAll(
-        h,
-        "{{overall_delivery_note}}",
-        esc("Overall delivery score (deterministic checks).")
-      );
+      h = replaceAll(h, "{{overall_delivery_note}}", esc("Overall delivery score (deterministic checks)."));
 
       h = replaceAll(h, "{{delivery_signals}}", deliverySignalsHtml);
       h = replaceAll(h, "{{signal_evidence}}", signalEvidenceHtml);
@@ -417,7 +493,9 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ error: err && err.message ? err.message : "Unknown error" }),
+      body: JSON.stringify({
+        error: err && err.message ? err.message : "Unknown error",
+      }),
     };
   }
 };
