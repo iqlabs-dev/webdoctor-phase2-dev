@@ -78,36 +78,13 @@ exports.handler = async (event) => {
     }
 
     // ---- Helpers ----
-
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-
-      // Matches your OSD style: "21 Dec 2025, 08:27"
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "UTC",
-      });
-    }
-
     function esc(s) {
       return String(s == null ? "" : s)
-        .split("&")
-        .join("&amp;")
-        .split("<")
-        .join("&lt;")
-        .split(">")
-        .join("&gt;")
-        .split('"')
-        .join("&quot;")
-        .split("'")
-        .join("&#039;");
+        .split("&").join("&amp;")
+        .split("<").join("&lt;")
+        .split(">").join("&gt;")
+        .split('"').join("&quot;")
+        .split("'").join("&#039;");
     }
 
     function asInt(v, fallback = "—") {
@@ -129,9 +106,20 @@ exports.handler = async (event) => {
       return [];
     }
 
-    function prettifyKey(k) {
-      k = String(k || "").split("_").join(" ");
-      return k.replace(/\b\w/g, (m) => m.toUpperCase());
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      // Match your OSD style: "21 Dec 2025, 08:27"
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+      });
     }
 
     function isEmptyValue(v) {
@@ -157,14 +145,16 @@ exports.handler = async (event) => {
       }
     }
 
+    function prettifyKey(k) {
+      k = String(k || "").split("_").join(" ");
+      return k.replace(/\b\w/g, (m) => m.toUpperCase());
+    }
+
     // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
     function buildEvidenceRows(sig) {
       if (Array.isArray(sig?.observations) && sig.observations.length) {
         const rows = sig.observations
-          .map((o) => ({
-            k: String(o?.label || "").trim(),
-            v: formatValue(o?.value),
-          }))
+          .map((o) => ({ k: String(o?.label || "").trim(), v: formatValue(o?.value) }))
           .filter((r) => r.k && !isEmptyValue(r.v));
         return rows;
       }
@@ -174,10 +164,7 @@ exports.handler = async (event) => {
         const keys = Object.keys(ev);
         keys.sort((a, b) => String(a).localeCompare(String(b)));
         const rows = keys
-          .map((k) => ({
-            k: prettifyKey(k),
-            v: formatValue(ev[k]),
-          }))
+          .map((k) => ({ k: prettifyKey(k), v: formatValue(ev[k]) }))
           .filter((r) => r.k && !isEmptyValue(r.v));
         return rows;
       }
@@ -185,10 +172,9 @@ exports.handler = async (event) => {
       return [];
     }
 
-    // Map signal -> stable key
+    // Map signal -> canonical key
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.includes("overall")) return "overall";
       if (id.includes("perf")) return "performance";
       if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
@@ -199,8 +185,7 @@ exports.handler = async (event) => {
     }
 
     // Force stable signal order in PDF
-    const SIGNAL_ORDER = ["overall", "performance", "mobile", "seo", "security", "structure", "accessibility"];
-
+    const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
       arr.sort((a, b) => {
@@ -214,133 +199,94 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // Robust narrative getter (supports multiple payload shapes)
-    function getNarrativeLines(narrativeObj, key) {
-      if (!narrativeObj || !key) return [];
-
-      // 1) narrative.signals[key].lines
-      const a = narrativeObj?.signals?.[key]?.lines;
-      if (a) return lineify(a);
-
-      // 2) narrative[key].lines  (YOUR CURRENT SHAPE)
-      const b = narrativeObj?.[key]?.lines;
-      if (b) return lineify(b);
-
-      // 3) narrative.findings[key].lines (fallback shape)
-      const c = narrativeObj?.findings?.[key]?.lines;
-      if (c) return lineify(c);
-
-      // 4) narrative.findings[key] as string/array
-      const d = narrativeObj?.findings?.[key];
-      if (d) return lineify(d);
-
-      return [];
-    }
-
+    // ---- Data extraction ----
     const header = json && json.header ? json.header : {};
     const scores = json && json.scores ? json.scores : {};
+
     const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
+
+    // Narrative can appear in different shapes depending on the pipeline.
     const narrativeObj = json && json.narrative ? json.narrative : null;
 
-    // ---- Executive Narrative ----
-    // Support: narrative.overall.lines OR narrative.executive_text string
-    const execLines =
-      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
-      (narrativeObj && narrativeObj.executive_text) ||
-      null;
+    const narrativeRoot =
+      narrativeObj && typeof narrativeObj === "object"
+        ? (narrativeObj.findings && typeof narrativeObj.findings === "object" ? narrativeObj.findings : narrativeObj)
+        : null;
 
+    const narrativeSignals =
+      narrativeRoot && narrativeRoot.signals && typeof narrativeRoot.signals === "object"
+        ? narrativeRoot.signals
+        : {};
+
+    function getOverallLines() {
+      // overall narrative lines could be at findings.overall.lines or overall.lines
+      const a = narrativeRoot && narrativeRoot.overall ? narrativeRoot.overall : null;
+      const lines = a && a.lines ? a.lines : null;
+      return lineify(lines);
+    }
+
+    function getSignalLines(key) {
+      if (!key) return [];
+      const node = narrativeSignals && narrativeSignals[key] ? narrativeSignals[key] : null;
+      const lines = node && node.lines ? node.lines : null;
+      return lineify(lines);
+    }
+
+    // ---- Executive Narrative (only if exists, no fallback) ----
     const executiveNarrativeHtml = (() => {
-      const lines = lineify(execLines);
+      const lines = getOverallLines();
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (doctor-style, no fluff) ----
+    // ---- Delivery Signals (scores always, narrative only if exists) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      const blocks = [];
+      const overallScore = asInt(scores.overall ?? json.overall, "—");
 
-      // Overall score block first (always show if present)
-      const overallScore =
-        (typeof scores.overall !== "undefined" && scores.overall !== null) ? asInt(scores.overall, "—") : null;
-
-      if (overallScore !== null) {
-        blocks.push(`
-          <div class="sig">
-            <div class="sig-head">
-              <div class="sig-name">Overall Delivery Score</div>
-              <div class="sig-score">${esc(overallScore)}</div>
-            </div>
-            <p class="muted" style="margin:6px 0 0;">Overall delivery score reflects deterministic checks only.</p>
+      const overallBlock = `
+        <div class="sig overall">
+          <div class="sig-head">
+            <div class="sig-name">Overall Delivery Score</div>
+            <div class="sig-score">${esc(overallScore)}</div>
           </div>
-        `);
-      }
-
-      // Then each signal: render ONLY if narrative exists (your rule)
-      deliverySignals.forEach((sig) => {
-        const key = safeSignalKey(sig);
-        if (!key || key === "overall") return;
-
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "");
-
-        const lines = getNarrativeLines(narrativeObj, key);
-
-        // Your rule: if no narrative -> render nothing
-        if (!lines.length) return;
-
-        const narr = lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("");
-
-        blocks.push(`
-          <div class="sig">
-            <div class="sig-head">
-              <div class="sig-name">${esc(name)}</div>
-              <div class="sig-score">${esc(score)}</div>
-            </div>
-            ${narr}
+          <div class="muted" style="margin-top:6px;font-size:10px;">
+            Overall delivery score reflects deterministic checks only.
           </div>
-        `);
-      });
-
-      return blocks.join("");
-    })();
-
-    // ---- Signal Evidence (doctor-style tables) ----
-    const signalEvidenceHtml = (() => {
-      if (!deliverySignals.length) return "";
+        </div>
+      `;
 
       const blocks = deliverySignals
-        .filter((sig) => safeSignalKey(sig) !== "overall")
         .map((sig) => {
-          const name = String(sig.label || sig.id || "Signal").trim();
-          const rows = buildEvidenceRows(sig);
+          const name = String(sig.label || sig.id || "Signal");
+          const score = asInt(sig.score, "—");
+          const key = safeSignalKey(sig);
 
-          if (!rows.length) return "";
-
-          const trs = rows
-            .slice(0, 40)
-            .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
-            .join("");
+          const lines = getSignalLines(key);
+          const narr = lines.length
+            ? lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("")
+            : ""; // no fallback text
 
           return `
-            <div class="ev-block">
-              <h3 class="ev-title">Signal Evidence — ${esc(name)}</h3>
-              <table class="tbl">
-                <thead>
-                  <tr><th>Metric</th><th>Value</th></tr>
-                </thead>
-                <tbody>${trs}</tbody>
-              </table>
+            <div class="sig">
+              <div class="sig-head">
+                <div class="sig-name">${esc(name)}</div>
+                <div class="sig-score">${esc(score)}</div>
+              </div>
+              ${narr}
             </div>
           `;
         })
-        .filter(Boolean);
+        .join("");
 
-      if (!blocks.length) return "";
-      return blocks.join("");
+      return overallBlock + blocks;
     })();
+
+    // ---- Signal Evidence (KEEP LAST, but we will add it later — leaving logic here unused for now) ----
+    // For now: DO NOT render evidence unless explicitly enabled in a later step.
+    const signalEvidenceHtml = ""; // we will build this in the next step, after Delivery Signals is stable
 
     // ---- Print CSS (simple + clinical) ----
     const css = `
@@ -348,30 +294,20 @@ exports.handler = async (event) => {
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
       h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-      h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
 
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
-      .leftmeta { font-size: 10px; margin-top: 2px; }
       .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
       .sig { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
+      .sig.overall { border-color: #d9d9d9; }
       .sig-head { display: flex; justify-content: space-between; align-items: baseline; }
       .sig-name { font-weight: 700; font-size: 11px; }
       .sig-score { font-weight: 700; font-size: 13px; }
       .sig-narr { margin: 6px 0 0; }
-
-      .ev-block { margin: 14px 0; page-break-inside: avoid; }
-      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
-
-      .tbl { width: 100%; border-collapse: collapse; }
-      .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
-      .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-      .tbl .m { width: 55%; }
-      .tbl .val { width: 45%; word-break: break-word; }
 
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
@@ -389,8 +325,6 @@ exports.handler = async (event) => {
       ? `<h2>Signal Evidence</h2>${signalEvidenceHtml}`
       : "";
 
-    const reportDateNice = formatDateTime(header.created_at);
-
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -404,11 +338,11 @@ exports.handler = async (event) => {
     <div>
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
-      ${header.website ? `<div class="leftmeta"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
+      ${header.website ? `<div style="font-size:10px;margin-top:6px;"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      ${reportDateNice ? `<div><strong>Report Date:</strong> ${esc(reportDateNice)}</div>` : ""}
+      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at))}</div>
     </div>
   </div>
 
