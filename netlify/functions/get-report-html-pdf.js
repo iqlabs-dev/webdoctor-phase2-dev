@@ -1,12 +1,5 @@
 // netlify/functions/get-report-html-pdf.js
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
-//
-// IMPORTANT:
-// - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
-// - This file only renders the existing JSON into print-friendly HTML.
-//
-// Data source:
-// - /.netlify/functions/get-report-data-pdf?report_id=...
 
 exports.handler = async (event) => {
   // Preflight
@@ -79,7 +72,15 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---------------- Helpers ----------------
+    // ✅ Normalize: some builds return the real payload inside `raw`
+    const data = (() => {
+      const hasTopSignals = Array.isArray(json?.delivery_signals) && json.delivery_signals.length;
+      const hasRawSignals = Array.isArray(json?.raw?.delivery_signals) && json.raw.delivery_signals.length;
+      if (!hasTopSignals && hasRawSignals) return json.raw;
+      return json;
+    })();
+
+    // ---- Helpers ----
     function formatDateTime(iso) {
       if (!iso) return "";
       const d = new Date(iso);
@@ -132,81 +133,20 @@ exports.handler = async (event) => {
         .join("")}</div>`;
     }
 
-    function prettifyKey(k) {
-      k = String(k || "").split("_").join(" ");
-      return k.replace(/\b\w/g, (m) => m.toUpperCase());
-    }
-
-    function isEmptyValue(v) {
-      if (v === null || typeof v === "undefined") return true;
-      if (typeof v === "string" && v.trim() === "") return true;
-      if (typeof v === "object") {
-        if (Array.isArray(v) && v.length === 0) return true;
-        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
-      }
-      return false;
-    }
-
-    function formatValue(v) {
-      if (v === null) return "";
-      if (typeof v === "undefined") return "";
-      if (typeof v === "number") return String(v);
-      if (typeof v === "boolean") return v ? "true" : "false";
-      if (typeof v === "string") return v.trim();
-      try {
-        return JSON.stringify(v);
-      } catch {
-        return String(v);
-      }
-    }
-
-    function yesNo(v) {
-      if (v === true) return "Yes";
-      if (v === false) return "No";
-      return "—";
-    }
-
-    // Prefer sig.observations (label/value). Otherwise use sig.evidence object.
-    function buildEvidenceRows(sig) {
-      if (Array.isArray(sig?.observations) && sig.observations.length) {
-        const rows = sig.observations
-          .map((o) => ({
-            k: String(o?.label || "").trim(),
-            v: formatValue(o?.value),
-          }))
-          .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
-      }
-
-      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
-      if (ev && !Array.isArray(ev)) {
-        const keys = Object.keys(ev);
-        keys.sort((a, b) => String(a).localeCompare(String(b)));
-        const rows = keys
-          .map((k) => ({
-            k: prettifyKey(k),
-            v: formatValue(ev[k]),
-          }))
-          .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
-      }
-
-      return [];
-    }
-
-    // Map signal -> key (matches findings keys)
+    // Map signal -> key
     function safeSignalKey(sig) {
-      const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.includes("perf")) return "performance";
-      if (id.includes("mobile")) return "mobile";
-      if (id.includes("seo")) return "seo";
-      if (id.includes("sec") || id.includes("trust")) return "security";
-      if (id.includes("struct") || id.includes("semantic")) return "structure";
-      if (id.includes("access")) return "accessibility";
+      const id = String(sig?.id || "").toLowerCase();
+      const label = String(sig?.label || "").toLowerCase();
+
+      if (id === "performance" || label.includes("performance")) return "performance";
+      if (id === "mobile" || label.includes("mobile")) return "mobile";
+      if (id === "seo" || label.includes("seo")) return "seo";
+      if (id === "security" || label.includes("security") || label.includes("trust")) return "security";
+      if (id === "structure" || label.includes("structure") || label.includes("semantics")) return "structure";
+      if (id === "accessibility" || label.includes("accessibility")) return "accessibility";
       return null;
     }
 
-    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -221,21 +161,43 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---------------- Extract payload ----------------
-    const header = json && json.header ? json.header : {};
-    const scores = json && json.scores ? json.scores : {};
-    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
-    const deliverySignals = sortSignals(deliverySignalsRaw);
+    // ---- Data ----
+    const header = data?.header || {};
+    const scores = data?.scores || {};
+    const deliverySignals = sortSignals(Array.isArray(data?.delivery_signals) ? data.delivery_signals : []);
 
-    // Narrative source for parity:
-    // Prefer findings.*.lines (OSD parity), fallback to narrative.overall (legacy)
-    const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
-    const narrativeObj = json && json.narrative ? json.narrative : null; // fallback only
+    const findings = data?.findings && typeof data.findings === "object" ? data.findings : {};
+    const narrativeObj = data?.narrative && typeof data.narrative === "object" ? data.narrative : {};
 
-    // ---- Executive Narrative (prefer findings.executive.lines) ----
+    // Fallback store: narrative.signals (if present)
+    const narrSignals =
+      narrativeObj?.signals && typeof narrativeObj.signals === "object" ? narrativeObj.signals : {};
+
+    // ✅ Robust getter for signal narrative
+    function getSignalLines(key) {
+      if (!key) return [];
+
+      // 1) findings[key].lines
+      const f = findings && findings[key];
+      if (f && typeof f === "object" && Array.isArray(f.lines)) return f.lines;
+
+      // 2) findings[key] is a string
+      if (typeof f === "string") return lineify(f);
+
+      // 3) findings[key].text (some shapes)
+      if (f && typeof f === "object" && typeof f.text === "string") return lineify(f.text);
+
+      // 4) fallback narrative.signals[key].lines
+      const n = narrSignals && narrSignals[key];
+      if (n && typeof n === "object" && Array.isArray(n.lines)) return n.lines;
+
+      return [];
+    }
+
+    // ---- Executive Narrative ----
     const execLines =
-      (findings && findings.executive && findings.executive.lines) ||
-      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+      (findings?.executive?.lines) ||
+      (narrativeObj?.overall?.lines) ||
       null;
 
     const executiveNarrativeHtml = (() => {
@@ -244,15 +206,14 @@ exports.handler = async (event) => {
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (overall + 6 signals, each with narrative) ----
+    // ---- Delivery Signals ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const overallScore = asInt(scores.overall, "—");
-
       const overallLines =
-        (findings && findings.overall && findings.overall.lines) ||
-        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+        (findings?.overall?.lines) ||
+        (narrativeObj?.overall?.lines) ||
         null;
 
       const cards = [];
@@ -271,9 +232,7 @@ exports.handler = async (event) => {
         const name = String(sig.label || sig.id || "Signal");
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-
-        const lines =
-          (key && findings && findings[key] && findings[key].lines) ? findings[key].lines : null;
+        const lines = getSignalLines(key);
 
         cards.push(`
           <div class="card">
@@ -289,87 +248,17 @@ exports.handler = async (event) => {
       return cards.join("");
     })();
 
-    // ---- Key Insight Metrics (NEW) ----
-    const keyInsightMetricsHtml = (() => {
-      const km = json && json.key_metrics ? json.key_metrics : {};
-      if (!km || typeof km !== "object") return "";
-
-      // We only show rows that exist (no filler, no fake values)
-      const rows = [
-        ["Overall Delivery Score", asInt(scores.overall)],
-        ["Performance Score", asInt(scores.performance, "—")],
-        ["Mobile Experience Score", asInt(scores.mobile, "—")],
-        ["SEO Foundations Score", asInt(scores.seo, "—")],
-        ["Security & Trust Score", asInt(scores.security, "—")],
-        ["Structure & Semantics Score", asInt(scores.structure, "—")],
-        ["Accessibility Score", asInt(scores.accessibility, "—")],
-
-        ["HTML Page Size (bytes)", km.html_bytes],
-        ["Script Count", km.script_count],
-        ["Images Count", km.img_count],
-        ["Viewport Configured", yesNo(km.viewport_present)],
-        ["HTTPS Enabled", yesNo(km.https)],
-        ["Content Security Policy Present", yesNo(km.csp_present)],
-      ].filter((r) => r[1] !== null && typeof r[1] !== "undefined" && String(r[1]).trim() !== "" && String(r[1]) !== "—");
-
-      if (!rows.length) return "";
-
-      return `
-        <h2>Key Insight Metrics</h2>
-        <table class="tbl">
-          <thead>
-            <tr><th>Metric</th><th>Value</th></tr>
-          </thead>
-          <tbody>
-            ${rows.map((r) => `<tr><td class="m">${esc(r[0])}</td><td class="val">${esc(r[1])}</td></tr>`).join("")}
-          </tbody>
-        </table>
-      `;
-    })();
-
-    // ---- Signal Evidence (last block) ----
-    const signalEvidenceHtml = (() => {
-      if (!deliverySignals.length) return "";
-
-      const blocks = deliverySignals
-        .map((sig) => {
-          const name = String(sig.label || sig.id || "Signal").trim();
-          const rows = buildEvidenceRows(sig);
-          if (!rows.length) return "";
-
-          const trs = rows
-            .slice(0, 30)
-            .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
-            .join("");
-
-          return `
-            <div class="ev-block">
-              <h3 class="ev-title">Signal Evidence — ${esc(name)}</h3>
-              <table class="tbl">
-                <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-                <tbody>${trs}</tbody>
-              </table>
-            </div>
-          `;
-        })
-        .filter(Boolean);
-
-      if (!blocks.length) return "";
-      return blocks.join("");
-    })();
-
-    // ---- Print CSS (simple + clinical) ----
+    // ---- CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
       h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-      h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
-      .meta { font-size: 10px; text-align: right; white-space: nowrap; }
+      .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
       .cards { margin-top: 8px; }
@@ -381,31 +270,15 @@ exports.handler = async (event) => {
       .sig-lines { margin-top: 6px; }
       .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
 
-      .ev-block { margin: 14px 0; page-break-inside: avoid; }
-      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
-
-      .tbl { width: 100%; border-collapse: collapse; }
-      .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
-      .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-      .tbl .m { width: 55%; }
-      .tbl .val { width: 45%; word-break: break-word; }
-
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections (order locked) ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
 
     const deliverySection = deliverySignalsHtml
       ? `<h2>Delivery Signals</h2><div class="cards">${deliverySignalsHtml}</div>`
-      : "";
-
-    const metricsSection = keyInsightMetricsHtml || "";
-
-    const evidenceSection = signalEvidenceHtml
-      ? `<h2>Signal Evidence</h2>${signalEvidenceHtml}`
       : "";
 
     const html = `<!doctype html>
@@ -421,9 +294,7 @@ exports.handler = async (event) => {
     <div>
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
-      <div class="muted" style="font-size:10px; margin-top:4px;">
-        <strong>Website:</strong> ${esc(header.website || "")}
-      </div>
+      <div class="muted" style="font-size:10px; margin-top:4px;"><strong>Website:</strong> ${esc(header.website || "")}</div>
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
@@ -435,8 +306,6 @@ exports.handler = async (event) => {
 
   ${executiveSection}
   ${deliverySection}
-  ${metricsSection}
-  ${evidenceSection}
 
   <div class="footer">
     <div>© 2025 iQWEB — All rights reserved.</div>
