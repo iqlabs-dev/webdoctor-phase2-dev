@@ -122,6 +122,12 @@ exports.handler = async (event) => {
       return [];
     }
 
+    function renderLines(lines, max = 3) {
+      const arr = lineify(lines).slice(0, max);
+      if (!arr.length) return "";
+      return `<div class="sig-lines">${arr.map((ln) => `<div class="sig-line">${esc(ln)}</div>`).join("")}</div>`;
+    }
+
     function prettifyKey(k) {
       k = String(k || "").split("_").join(" ");
       return k.replace(/\b\w/g, (m) => m.toUpperCase());
@@ -178,7 +184,7 @@ exports.handler = async (event) => {
       return [];
     }
 
-    // Map signal -> narrative key (matches your narrative signal set)
+    // Map signal -> key
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -209,13 +215,16 @@ exports.handler = async (event) => {
     const scores = json && json.scores ? json.scores : {};
     const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
-    const narrativeObj = json && json.narrative ? json.narrative : null;
 
-    // ---- Executive Narrative ----
+    // IMPORTANT: Narrative for PDF/OSD parity comes from `findings` (not `narrative.signals`)
+    const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
+    const narrativeObj = json && json.narrative ? json.narrative : null; // legacy fallback
+
+    // ---- Executive Narrative (prefer findings.executive.lines) ----
     const execLines =
-      narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
-        ? narrativeObj.overall.lines
-        : null;
+      (findings && findings.executive && findings.executive.lines) ||
+      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+      null;
 
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
@@ -223,93 +232,49 @@ exports.handler = async (event) => {
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals: scores + (optional) narrative lines ----
+    // ---- Delivery Signals: scores + narrative (from findings.<key>.lines) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      const narrSignals =
-        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
-          ? narrativeObj.signals
-          : {};
-
       const overallScore = asInt(scores.overall, "—");
 
-      const renderOne = (sig, idx) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
-
-        const key = safeSignalKey(sig);
-        const pack = key && narrSignals && narrSignals[key] ? narrSignals[key] : null;
-        const lines = lineify(pack && pack.lines ? pack.lines : null);
-
-        const narr =
-          lines.length
-            ? `<div class="sig-lines">${lines.slice(0, 3).map((ln) => `<div class="sig-line">${esc(ln)}</div>`).join("")}</div>`
-            : "";
-
-        return `
-          <div class="card">
-            <div class="card-row">
-              <div class="card-title">${esc(name)}</div>
-              <div class="card-score">${esc(score)}</div>
-            </div>
-            ${narr}
-          </div>
-        `;
-      };
+      const overallLines =
+        (findings && findings.overall && findings.overall.lines) ||
+        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+        null;
 
       const cards = [];
 
-      // Overall delivery score first
+      // Overall delivery score first (+ narrative)
       cards.push(`
         <div class="card">
           <div class="card-row">
             <div class="card-title">Overall Delivery Score</div>
             <div class="card-score">${esc(overallScore)}</div>
           </div>
-          <div class="card-sub muted">Overall delivery score reflects deterministic checks only.</div>
+          ${renderLines(overallLines, 3)}
         </div>
       `);
 
-      // Then each signal
-      deliverySignals.forEach((sig, i) => cards.push(renderOne(sig, i)));
+      // Then each signal (+ narrative)
+      deliverySignals.forEach((sig) => {
+        const name = String(sig.label || sig.id || "Signal");
+        const score = asInt(sig.score, "—");
+        const key = safeSignalKey(sig);
+        const lines = key && findings && findings[key] ? findings[key].lines : null;
+
+        cards.push(`
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">${esc(name)}</div>
+              <div class="card-score">${esc(score)}</div>
+            </div>
+            ${renderLines(lines, 3)}
+          </div>
+        `);
+      });
 
       return cards.join("");
-    })();
-
-    // ---- Debug box (FOR NOW) ----
-    const debugBoxHtml = (() => {
-      const narrSignals =
-        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
-          ? narrativeObj.signals
-          : null;
-
-      const narrKeys = narrSignals ? Object.keys(narrSignals) : [];
-      narrKeys.sort();
-
-      const rows = deliverySignals.map((sig) => {
-        const label = String(sig.label || sig.id || "");
-        const key = safeSignalKey(sig);
-        const pack = key && narrSignals && narrSignals[key] ? narrSignals[key] : null;
-        const lines = lineify(pack && pack.lines ? pack.lines : null);
-        return `<tr>
-          <td>${esc(label)}</td>
-          <td>${esc(String(key || "NULL"))}</td>
-          <td>${esc(String(lines.length))}</td>
-          <td>${esc(lines.slice(0, 1).join(" ").slice(0, 80))}</td>
-        </tr>`;
-      }).join("");
-
-      return `
-        <div class="debug">
-          <div class="debug-title">DEBUG (temporary)</div>
-          <div class="debug-sub">narrative.signals keys: ${esc(narrKeys.join(", ")) || "(none)"}</div>
-          <table class="debug-tbl">
-            <thead><tr><th>Signal</th><th>Mapped Key</th><th>Lines</th><th>First line</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-      `;
     })();
 
     // ---- Signal Evidence (last block) ----
@@ -365,15 +330,9 @@ exports.handler = async (event) => {
       .card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
       .card-title { font-weight: 700; font-size: 11px; }
       .card-score { font-weight: 700; font-size: 13px; }
-      .card-sub { font-size: 10px; margin-top: 4px; }
+
       .sig-lines { margin-top: 6px; }
       .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
-
-      .debug { border: 2px dashed #999; padding: 10px; margin: 12px 0; }
-      .debug-title { font-weight: 700; font-size: 11px; margin-bottom: 6px; }
-      .debug-sub { font-size: 10px; color: #333; margin-bottom: 8px; }
-      .debug-tbl { width: 100%; border-collapse: collapse; }
-      .debug-tbl th, .debug-tbl td { font-size: 9px; border-bottom: 1px solid #ddd; padding: 5px 6px; text-align: left; vertical-align: top; }
 
       .ev-block { margin: 14px 0; page-break-inside: avoid; }
       .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
@@ -394,8 +353,7 @@ exports.handler = async (event) => {
 
     const deliverySection = deliverySignalsHtml
       ? `<h2>Delivery Signals</h2>
-         <div class="cards">${deliverySignalsHtml}</div>
-         ${debugBoxHtml}`
+         <div class="cards">${deliverySignalsHtml}</div>`
       : "";
 
     const evidenceSection = signalEvidenceHtml
