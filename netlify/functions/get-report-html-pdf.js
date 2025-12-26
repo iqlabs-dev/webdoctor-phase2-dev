@@ -365,11 +365,12 @@ exports.handler = async (event) => {
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
     </div>
-    <div class="meta">
-      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at))}</div>
-      <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
-    </div>
+ <div class="meta">
+  <div><strong>Website:</strong> ${esc(header.website || "")}</div>
+  <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
+  <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at))}</div>
+</div>
+
   </div>
 
   <div class="hr"></div>
