@@ -77,9 +77,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ✅ NORMALISE ROOT:
-    // get-report-data-pdf often returns { success, narrative, raw: { header, scores, delivery_signals, ... } }
-    // We always render from the "real" report payload.
+    // ✅ NORMALISE ROOT FOR DETERMINISTIC DATA
     const root = (json && json.raw && typeof json.raw === "object") ? json.raw : json;
 
     // ---- Helpers ----
@@ -138,7 +136,7 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Force stable signal order
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -153,51 +151,71 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data extraction (from root) ----
+    // ---- Data extraction ----
     const header = root && root.header ? root.header : {};
     const scores = root && root.scores ? root.scores : {};
 
     const deliverySignalsRaw = Array.isArray(root.delivery_signals) ? root.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Narrative may exist at json.narrative OR json.findings OR root.findings, depending on pipeline.
-    // We prioritise json.narrative if present, otherwise fall back to findings.
+    // Narrative can be outside raw (VERY IMPORTANT)
     const narrativeObj =
       (json && json.narrative && typeof json.narrative === "object") ? json.narrative :
       (root && root.narrative && typeof root.narrative === "object") ? root.narrative :
       null;
 
     const findingsObj =
-      (root && root.findings && typeof root.findings === "object") ? root.findings :
       (json && json.findings && typeof json.findings === "object") ? json.findings :
+      (root && root.findings && typeof root.findings === "object") ? root.findings :
       null;
 
-    // Executive narrative lines: prefer narrative.overall.lines, else findings.executive.lines
+    // Executive narrative
     const executiveNarrativeHtml = (() => {
       const lines =
-        narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
+        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines)
           ? lineify(narrativeObj.overall.lines)
-          : (findingsObj && findingsObj.executive && findingsObj.executive.lines
-              ? lineify(findingsObj.executive.lines)
-              : []);
+          : (findingsObj && findingsObj.executive && findingsObj.executive.lines)
+            ? lineify(findingsObj.executive.lines)
+            : [];
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // Delivery signal narrative: prefer findings.signals[key].lines OR narrative.signals[key].lines
+    // ✅ Robust signal narrative resolver (handles multiple JSON shapes)
     function getSignalNarrLines(key) {
       if (!key) return [];
-      if (findingsObj && findingsObj.signals && findingsObj.signals[key] && findingsObj.signals[key].lines) {
-        return lineify(findingsObj.signals[key].lines);
-      }
-      if (narrativeObj && narrativeObj.signals && narrativeObj.signals[key] && narrativeObj.signals[key].lines) {
-        return lineify(narrativeObj.signals[key].lines);
+
+      // common alternates (if ever used)
+      const altKeys = key === "security" ? ["security_trust", "trust"] : [];
+
+      const tryKeys = [key, ...altKeys];
+
+      for (const k of tryKeys) {
+        // findings.signals[k].lines
+        if (findingsObj && findingsObj.signals && findingsObj.signals[k] && findingsObj.signals[k].lines) {
+          const out = lineify(findingsObj.signals[k].lines);
+          if (out.length) return out;
+        }
+        // findings[k].lines
+        if (findingsObj && findingsObj[k] && findingsObj[k].lines) {
+          const out = lineify(findingsObj[k].lines);
+          if (out.length) return out;
+        }
+        // narrative.signals[k].lines
+        if (narrativeObj && narrativeObj.signals && narrativeObj.signals[k] && narrativeObj.signals[k].lines) {
+          const out = lineify(narrativeObj.signals[k].lines);
+          if (out.length) return out;
+        }
+        // narrative[k].lines
+        if (narrativeObj && narrativeObj[k] && narrativeObj[k].lines) {
+          const out = lineify(narrativeObj[k].lines);
+          if (out.length) return out;
+        }
       }
       return [];
     }
 
     const deliverySignalsHtml = (() => {
-      // If no signals, don't render the section (prevents blank headings)
       if (!deliverySignals.length) return "";
 
       const overallScore = asInt(scores.overall ?? root.overall, "—");
@@ -240,7 +258,7 @@ exports.handler = async (event) => {
       return overallBlock + blocks;
     })();
 
-    // Evidence is last block — we will add it later (next step) once signals are stable
+    // Evidence will be added LAST in the next step (as requested)
     const signalEvidenceHtml = "";
 
     // ---- Print CSS ----
