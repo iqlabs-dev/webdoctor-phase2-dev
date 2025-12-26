@@ -2,7 +2,7 @@
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
 // IMPORTANT:
 // - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
-// - This file only *renders* JSON into print-friendly HTML.
+// - This file only *renders* the existing JSON into print-friendly HTML.
 // Data source:
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
@@ -77,12 +77,14 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---------------- Helpers ----------------
+    // ---- Helpers ----
 
     function formatDateTime(iso) {
       if (!iso) return "";
       const d = new Date(iso);
       if (isNaN(d.getTime())) return "";
+
+      // Matches your OSD style: "21 Dec 2025, 08:27"
       return d.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -96,11 +98,16 @@ exports.handler = async (event) => {
 
     function esc(s) {
       return String(s == null ? "" : s)
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
+        .split("&")
+        .join("&amp;")
+        .split("<")
+        .join("&lt;")
+        .split(">")
+        .join("&gt;")
+        .split('"')
+        .join("&quot;")
+        .split("'")
+        .join("&#039;");
     }
 
     function asInt(v, fallback = "—") {
@@ -150,46 +157,50 @@ exports.handler = async (event) => {
       }
     }
 
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
     function buildEvidenceRows(sig) {
-      // observations: [{label, value}]
       if (Array.isArray(sig?.observations) && sig.observations.length) {
-        return sig.observations
+        const rows = sig.observations
           .map((o) => ({
             k: String(o?.label || "").trim(),
             v: formatValue(o?.value),
           }))
           .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
       }
 
-      // evidence: { key: value }
       const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
       if (ev && !Array.isArray(ev)) {
         const keys = Object.keys(ev);
         keys.sort((a, b) => String(a).localeCompare(String(b)));
-        return keys
+        const rows = keys
           .map((k) => ({
             k: prettifyKey(k),
             v: formatValue(ev[k]),
           }))
           .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
       }
 
       return [];
     }
 
+    // Map signal -> stable key
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.includes("overall")) return "overall";
       if (id.includes("perf")) return "performance";
       if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
       if (id.includes("sec") || id.includes("trust")) return "security";
       if (id.includes("struct") || id.includes("semantic")) return "structure";
       if (id.includes("access")) return "accessibility";
-      if (id.includes("overall")) return "overall";
       return null;
     }
 
+    // Force stable signal order in PDF
     const SIGNAL_ORDER = ["overall", "performance", "mobile", "seo", "security", "structure", "accessibility"];
+
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
       arr.sort((a, b) => {
@@ -203,86 +214,105 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---------------- Payload Normalisation ----------------
-    // Some runs return everything at top-level, other runs wrap it inside `raw`.
-    const payload = json && json.raw && typeof json.raw === "object" ? json.raw : json;
+    // Robust narrative getter (supports multiple payload shapes)
+    function getNarrativeLines(narrativeObj, key) {
+      if (!narrativeObj || !key) return [];
 
-    const header = (payload && payload.header) || (json && json.header) || {};
-    const deliverySignalsRaw =
-      (payload && Array.isArray(payload.delivery_signals) ? payload.delivery_signals : null) ||
-      (json && Array.isArray(json.delivery_signals) ? json.delivery_signals : []) ||
-      [];
+      // 1) narrative.signals[key].lines
+      const a = narrativeObj?.signals?.[key]?.lines;
+      if (a) return lineify(a);
+
+      // 2) narrative[key].lines  (YOUR CURRENT SHAPE)
+      const b = narrativeObj?.[key]?.lines;
+      if (b) return lineify(b);
+
+      // 3) narrative.findings[key].lines (fallback shape)
+      const c = narrativeObj?.findings?.[key]?.lines;
+      if (c) return lineify(c);
+
+      // 4) narrative.findings[key] as string/array
+      const d = narrativeObj?.findings?.[key];
+      if (d) return lineify(d);
+
+      return [];
+    }
+
+    const header = json && json.header ? json.header : {};
+    const scores = json && json.scores ? json.scores : {};
+    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
+    const narrativeObj = json && json.narrative ? json.narrative : null;
 
-    // Narrative can exist as `findings` or `narrative` depending on the proxy/version.
-    const findings =
-      (json && json.findings && typeof json.findings === "object" ? json.findings : null) ||
-      (payload && payload.findings && typeof payload.findings === "object" ? payload.findings : null) ||
-      (json && json.narrative && typeof json.narrative === "object" ? json.narrative : null) ||
-      (payload && payload.narrative && typeof payload.narrative === "object" ? payload.narrative : null) ||
-      {};
+    // ---- Executive Narrative ----
+    // Support: narrative.overall.lines OR narrative.executive_text string
+    const execLines =
+      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+      (narrativeObj && narrativeObj.executive_text) ||
+      null;
 
-    // ---- Executive Narrative (render only if exists) ----
     const executiveNarrativeHtml = (() => {
-      const overall = findings.overall || findings.executive || findings.summary || null;
-      const lines = lineify(overall && overall.lines ? overall.lines : overall);
+      const lines = lineify(execLines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (render only those with narrative) ----
+    // ---- Delivery Signals (doctor-style, no fluff) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      return deliverySignals
-        .map((sig) => {
-          const name = String(sig.label || sig.id || "Signal");
-          const score = asInt(sig.score, "");
+      const blocks = [];
 
-          const key = safeSignalKey(sig);
-          if (!key) return "";
+      // Overall score block first (always show if present)
+      const overallScore =
+        (typeof scores.overall !== "undefined" && scores.overall !== null) ? asInt(scores.overall, "—") : null;
 
-          // Support both shapes:
-          // findings.signals[key].lines (older)
-          // findings[key].lines (current)
-          const fromSignalsObj =
-            findings.signals && typeof findings.signals === "object" ? findings.signals[key] : null;
-          const direct = findings[key];
-
-          const lines = lineify(
-            (fromSignalsObj && fromSignalsObj.lines) ||
-              (direct && direct.lines) ||
-              fromSignalsObj ||
-              direct
-          );
-
-          // no narrative = render nothing for that signal
-          if (!lines.length) return "";
-
-          const narr = lines
-            .slice(0, 3)
-            .map((ln) => `<p class="sig-narr">${esc(ln)}</p>`)
-            .join("");
-
-          return `
-            <div class="sig">
-              <div class="sig-head">
-                <div class="sig-name">${esc(name)}</div>
-                <div class="sig-score">${esc(score)}</div>
-              </div>
-              ${narr}
+      if (overallScore !== null) {
+        blocks.push(`
+          <div class="sig">
+            <div class="sig-head">
+              <div class="sig-name">Overall Delivery Score</div>
+              <div class="sig-score">${esc(overallScore)}</div>
             </div>
-          `;
-        })
-        .filter(Boolean)
-        .join("");
+            <p class="muted" style="margin:6px 0 0;">Overall delivery score reflects deterministic checks only.</p>
+          </div>
+        `);
+      }
+
+      // Then each signal: render ONLY if narrative exists (your rule)
+      deliverySignals.forEach((sig) => {
+        const key = safeSignalKey(sig);
+        if (!key || key === "overall") return;
+
+        const name = String(sig.label || sig.id || "Signal");
+        const score = asInt(sig.score, "");
+
+        const lines = getNarrativeLines(narrativeObj, key);
+
+        // Your rule: if no narrative -> render nothing
+        if (!lines.length) return;
+
+        const narr = lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("");
+
+        blocks.push(`
+          <div class="sig">
+            <div class="sig-head">
+              <div class="sig-name">${esc(name)}</div>
+              <div class="sig-score">${esc(score)}</div>
+            </div>
+            ${narr}
+          </div>
+        `);
+      });
+
+      return blocks.join("");
     })();
 
-    // ---- Signal Evidence ----
+    // ---- Signal Evidence (doctor-style tables) ----
     const signalEvidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const blocks = deliverySignals
+        .filter((sig) => safeSignalKey(sig) !== "overall")
         .map((sig) => {
           const name = String(sig.label || sig.id || "Signal").trim();
           const rows = buildEvidenceRows(sig);
@@ -290,7 +320,7 @@ exports.handler = async (event) => {
           if (!rows.length) return "";
 
           const trs = rows
-            .slice(0, 50)
+            .slice(0, 40)
             .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
             .join("");
 
@@ -312,7 +342,7 @@ exports.handler = async (event) => {
       return blocks.join("");
     })();
 
-    // ---- Print CSS ----
+    // ---- Print CSS (simple + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
@@ -321,8 +351,10 @@ exports.handler = async (event) => {
       h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
+
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
+      .leftmeta { font-size: 10px; margin-top: 2px; }
       .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
@@ -344,20 +376,20 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections (only if content exists) ----
+    // ---- Sections: only output a section if it has content ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
 
     const deliverySection = deliverySignalsHtml
-      ? `<h2>Delivery Signals</h2>
-         <p class="muted">Each signal is presented as a short diagnostic narrative, backed by evidence below.</p>
-         ${deliverySignalsHtml}`
+      ? `<h2>Delivery Signals</h2>${deliverySignalsHtml}`
       : "";
 
     const evidenceSection = signalEvidenceHtml
       ? `<h2>Signal Evidence</h2>${signalEvidenceHtml}`
       : "";
+
+    const reportDateNice = formatDateTime(header.created_at);
 
     const html = `<!doctype html>
 <html lang="en">
@@ -372,11 +404,11 @@ exports.handler = async (event) => {
     <div>
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
-      ${header.website ? `<div class="muted" style="font-size:10px;"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
+      ${header.website ? `<div class="leftmeta"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at))}</div>
+      ${reportDateNice ? `<div><strong>Report Date:</strong> ${esc(reportDateNice)}</div>` : ""}
     </div>
   </div>
 
