@@ -1,20 +1,8 @@
 // netlify/functions/get-report-data-pdf.js
 // Purpose:
 // - Return report data as JSON for PDF generation (server-side).
-// - Avoid schema assumptions by PROXYING your already-working endpoint: get-report-data.
-// - Supports GET (browser/DocRaptor-safe) and POST (internal-safe).
-//
-// Requires:
-// - process.env.URL (Netlify provides) OR falls back to https://iqweb.ai
-//
-// Output shape (stable):
-// {
-//   success: true,
-//   header: { website, report_id, created_at },
-//   scores: { overall, performance, mobile, seo, security, structure, accessibility },
-//   narrative: { overall: { lines: [] } },
-//   raw: <original response>   // kept for debugging (can remove later)
-// }
+// - Proxy the already-working get-report-data endpoint.
+// - Preserve delivery signals + narrative + scores in a stable shape.
 
 exports.handler = async (event) => {
   // CORS / preflight
@@ -32,7 +20,6 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Allow GET or POST
     if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
       return {
         statusCode: 405,
@@ -46,7 +33,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Extract report_id from either query (GET) or body (POST)
+    // Extract report_id
     let reportId = "";
 
     if (event.httpMethod === "GET") {
@@ -84,7 +71,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Proxy to your existing function that already works for the report UI
+    // Proxy upstream
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const srcUrl = `${siteUrl}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(
       reportId
@@ -98,7 +85,6 @@ exports.handler = async (event) => {
     const text = await resp.text().catch(() => "");
 
     if (!resp.ok) {
-      // Return upstream error clearly (so you can see real cause in Netlify logs)
       return {
         statusCode: 500,
         headers: {
@@ -132,18 +118,13 @@ exports.handler = async (event) => {
       };
     }
 
-    // Normalize fields (defensive)
-    const header = raw?.header || raw?.report || {};
-    const scores =
-      raw?.scores || raw?.metrics?.scores || raw?.report?.scores || {};
-
-    // Narrative lines: support multiple shapes
-    const n =
-      raw?.narrative?.overall?.lines ||
-      raw?.narrative?.overall ||
-      raw?.report?.narrative?.overall?.lines ||
-      raw?.report?.narrative?.overall ||
-      [];
+    // -------------------------
+    // Normalisation helpers
+    // -------------------------
+    const safeInt = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
 
     const lineify = (v) => {
       if (!v) return [];
@@ -153,17 +134,56 @@ exports.handler = async (event) => {
           .split("\n")
           .map((s) => s.trim())
           .filter(Boolean);
-      // some shapes might be { lines: [...] }
-      if (v && typeof v === "object" && Array.isArray(v.lines))
+      if (typeof v === "object" && Array.isArray(v.lines))
         return v.lines.filter(Boolean).map(String);
       return [];
     };
 
-    const safeInt = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
+    // -------------------------
+    // Header
+    // -------------------------
+    const header = raw?.header || raw?.report || {};
 
+    // -------------------------
+    // Scores
+    // -------------------------
+    const scores =
+      raw?.scores || raw?.metrics?.scores || raw?.report?.scores || {};
+
+    // -------------------------
+    // Narrative (EXEC)
+    // -------------------------
+    const n =
+      raw?.narrative?.overall?.lines ||
+      raw?.narrative?.overall ||
+      raw?.report?.narrative?.overall?.lines ||
+      raw?.report?.narrative?.overall ||
+      [];
+
+    // -------------------------
+    // Delivery Signals (CRITICAL FIX)
+    // -------------------------
+    const deliverySignals =
+      raw?.delivery_signals ||
+      raw?.signals ||
+      raw?.report?.delivery_signals ||
+      [];
+
+    const normalisedSignals = Array.isArray(deliverySignals)
+      ? deliverySignals.map((s) => ({
+          key: s.key || s.id || "",
+          label: s.label || s.name || "",
+          score: safeInt(s.score),
+          narrative: lineify(
+            s.narrative || s.summary || s.explanation || []
+          ),
+          evidence: s.evidence || s.details || [],
+        }))
+      : [];
+
+    // -------------------------
+    // Final output
+    // -------------------------
     const out = {
       success: true,
       header: {
@@ -185,8 +205,8 @@ exports.handler = async (event) => {
           lines: lineify(n),
         },
       },
-      // keep the original response for debugging (remove later if you want)
-      raw,
+      delivery_signals: normalisedSignals,
+      raw, // keep for debugging
     };
 
     return {
