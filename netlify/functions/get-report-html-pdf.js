@@ -78,15 +78,6 @@ exports.handler = async (event) => {
     }
 
     // ---- Helpers ----
-    function esc(s) {
-      return String(s == null ? "" : s)
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
-    }
-
     function formatDateTime(iso) {
       if (!iso) return "";
       const d = new Date(iso);
@@ -101,6 +92,15 @@ exports.handler = async (event) => {
         timeZone: "UTC",
         timeZoneName: "short",
       });
+    }
+
+    function esc(s) {
+      return String(s == null ? "" : s)
+        .split("&").join("&amp;")
+        .split("<").join("&lt;")
+        .split(">").join("&gt;")
+        .split('"').join("&quot;")
+        .split("'").join("&#039;");
     }
 
     function asInt(v, fallback = "—") {
@@ -122,18 +122,23 @@ exports.handler = async (event) => {
       return [];
     }
 
-    function renderBullets(lines, max = 6) {
-      const arr = lineify(lines).slice(0, max);
-      if (!arr.length) return "";
-      return "<ul>" + arr.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
-    }
-
     function renderLines(lines, max = 3) {
       const arr = lineify(lines).slice(0, max);
       if (!arr.length) return "";
       return `<div class="sig-lines">${arr
         .map((ln) => `<div class="sig-line">${esc(ln)}</div>`)
         .join("")}</div>`;
+    }
+
+    function titleCase(s) {
+      const t = String(s || "").trim();
+      if (!t) return "";
+      return t
+        .toLowerCase()
+        .split(/[\s_]+/)
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
     }
 
     function prettifyKey(k) {
@@ -164,29 +169,35 @@ exports.handler = async (event) => {
       }
     }
 
-    // Prefer sig.observations (label/value). Otherwise use sig.evidence object.
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
     function buildEvidenceRows(sig) {
       if (Array.isArray(sig?.observations) && sig.observations.length) {
-        return sig.observations
+        const rows = sig.observations
           .map((o) => ({
             k: String(o?.label || "").trim(),
             v: formatValue(o?.value),
           }))
           .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
       }
 
       const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
       if (ev && !Array.isArray(ev)) {
-        const keys = Object.keys(ev).sort((a, b) => String(a).localeCompare(String(b)));
-        return keys
-          .map((k) => ({ k: prettifyKey(k), v: formatValue(ev[k]) }))
+        const keys = Object.keys(ev);
+        keys.sort((a, b) => String(a).localeCompare(String(b)));
+        const rows = keys
+          .map((k) => ({
+            k: prettifyKey(k),
+            v: formatValue(ev[k]),
+          }))
           .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
       }
 
       return [];
     }
 
-    // Map signal -> key used by findings
+    // Map signal -> key (matches findings keys)
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -198,8 +209,8 @@ exports.handler = async (event) => {
       return null;
     }
 
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
       arr.sort((a, b) => {
@@ -213,92 +224,138 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data ----
-    const header = (json && json.header) || {};
-    const scores = (json && json.scores) || {};
+    function buildTopIssues(deliverySignals, limit = 8) {
+      const out = [];
+      const seen = new Set();
+
+      const prettySignalName = (sig) => String(sig?.label || sig?.id || "Signal").trim() || "Signal";
+
+      for (const sig of (Array.isArray(deliverySignals) ? deliverySignals : [])) {
+        const sigName = prettySignalName(sig);
+        const deds = Array.isArray(sig?.deductions) ? sig.deductions : [];
+
+        for (const d of deds) {
+          if (out.length >= limit) break;
+
+          const reason = String(d?.reason || "").trim();
+          const code = String(d?.code || "").trim();
+
+          const msg = reason || (code ? titleCase(code) : "");
+          if (!msg) continue;
+
+          const item = `${sigName}: ${msg}`;
+          if (seen.has(item)) continue;
+          seen.add(item);
+
+          out.push(item);
+        }
+
+        if (out.length >= limit) break;
+      }
+
+      return out;
+    }
+
+    // Deterministic recommended fix order (security -> seo -> accessibility -> performance -> structure -> mobile)
+    const FIX_ORDER = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
+    function fixLabel(key) {
+      switch (key) {
+        case "security":
+          return "Security headers + policy baselines (CSP, X-Frame-Options, Permissions-Policy).";
+        case "seo":
+          return "SEO foundations (H1 presence, robots meta, canonical consistency).";
+        case "accessibility":
+          return "Accessibility quick wins (empty links/buttons, labels, focus targets).";
+        case "performance":
+          return "Performance stability (reduce payload bloat; tame inline script count).";
+        case "structure":
+          return "Structure + semantics (document structure and markup clarity).";
+        case "mobile":
+          return "Mobile experience validation (already strong — maintain, re-test after changes).";
+        default:
+          return "";
+      }
+    }
+
+    // ---- Data extraction ----
+    const header = json && json.header ? json.header : {};
+    const scores = json && json.scores ? json.scores : {};
     const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Prefer findings.* for narrative parity with OSD; fallback to narrative.*
+    // Preferred narrative source
     const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
-    const narrativeObj = json && json.narrative && typeof json.narrative === "object" ? json.narrative : {};
+    const narrativeObj = json && json.narrative ? json.narrative : null; // legacy fallback
 
-    // ---- Executive Narrative ----
+    // ---- Executive Narrative (prefer findings.executive.lines) ----
     const execLines =
       (findings && findings.executive && findings.executive.lines) ||
       (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
       null;
 
-    const executiveHtml = execLines ? renderBullets(execLines, 6) : "";
-
-    // ---- Key Insight Metrics ----
-    function labelForKey(k) {
-      switch (k) {
-        case "performance":
-          return "Performance Score";
-        case "mobile":
-          return "Mobile Experience Score";
-        case "seo":
-          return "SEO Foundations Score";
-        case "security":
-          return "Security & Trust Score";
-        case "structure":
-          return "Structure & Semantics Score";
-        case "accessibility":
-          return "Accessibility Score";
-        default:
-          return prettifyKey(k);
-      }
-    }
-
-    const keyInsightRows = (() => {
-      const rows = [];
-      // Overall first
-      rows.push({ m: "Overall Delivery Score", v: asInt(scores.overall, "—") });
-
-      // Then each signal (stable order)
-      const byKey = {};
-      deliverySignals.forEach((s) => {
-        const k = safeSignalKey(s);
-        if (k) byKey[k] = s;
-      });
-
-      SIGNAL_ORDER.forEach((k) => {
-        const sig = byKey[k];
-        if (!sig) return;
-        rows.push({ m: labelForKey(k), v: asInt(sig.score, "—") });
-      });
-
-      return rows;
+    const executiveNarrativeHtml = (() => {
+      const lines = lineify(execLines);
+      if (!lines.length) return "";
+      return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    const keyInsightsHtml = (() => {
-      if (!keyInsightRows.length) return "";
-      const trs = keyInsightRows
-        .map((r) => `<tr><td>${esc(r.m)}</td><td class="num">${esc(r.v)}</td></tr>`)
+    // ---- Key Insight Metrics (table) ----
+    const keyMetricsHtml = (() => {
+      const rows = [];
+
+      // Overall
+      rows.push({ k: "Overall Delivery Score", v: asInt(scores.overall, "—") });
+
+      // Each signal
+      for (const sig of deliverySignals) {
+        const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
+        const v = asInt(sig.score, "—");
+        rows.push({ k: `${name} Score`, v });
+      }
+
+      const trs = rows
+        .map(
+          (r) =>
+            `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`
+        )
         .join("");
+
       return `
-        <table class="tbl compact">
-          <thead><tr><th>Metric</th><th class="num">Value</th></tr></thead>
+        <table class="tbl">
+          <thead><tr><th>Metric</th><th class="right">Value</th></tr></thead>
           <tbody>${trs}</tbody>
         </table>
       `;
     })();
 
-    // ---- Delivery Signals block (with narrative per signal) ----
+    // ---- Top Issues Detected ----
+    const topIssuesHtml = (() => {
+      const issues = buildTopIssues(deliverySignals, 8);
+      if (!issues.length) {
+        return `<p class="muted">No structured issues detected in this scan output.</p>`;
+      }
+      return `<ul class="issues">` + issues.map((t) => `<li>${esc(t)}</li>`).join("") + `</ul>`;
+    })();
+
+    // ---- Recommended Fix Sequence ----
+    const fixSeqHtml = (() => {
+      const items = FIX_ORDER.map((k) => fixLabel(k)).filter(Boolean);
+      return `<ol class="fix">` + items.map((t) => `<li>${esc(t)}</li>`).join("") + `</ol>`;
+    })();
+
+    // ---- Delivery Signals (cards: score + narrative from findings.<key>.lines) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const overallScore = asInt(scores.overall, "—");
       const overallLines =
         (findings && findings.overall && findings.overall.lines) ||
-        (findings && findings.executive && findings.executive.lines) ||
         (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
         null;
 
       const cards = [];
 
-      // Overall card (with narrative)
+      // Overall first
       cards.push(`
         <div class="card">
           <div class="card-row">
@@ -309,20 +366,13 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      // Per signal cards
-      deliverySignals.forEach((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
+      // Signals
+      for (const sig of deliverySignals) {
+        const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-
         const lines =
           (key && findings && findings[key] && findings[key].lines) ||
-          // legacy fallback (some old payloads may use narrative.signals.<key>.lines)
-          (key &&
-            narrativeObj &&
-            narrativeObj.signals &&
-            narrativeObj.signals[key] &&
-            narrativeObj.signals[key].lines) ||
           null;
 
         cards.push(`
@@ -334,70 +384,23 @@ exports.handler = async (event) => {
             ${renderLines(lines, 3)}
           </div>
         `);
-      });
+      }
 
-      return `<div class="cards">${cards.join("")}</div>`;
+      return cards.join("");
     })();
 
-    // ---- Top Issues Detected (derive from deductions across signals) ----
-    const topIssuesHtml = (() => {
-      const items = [];
-
-      deliverySignals.forEach((sig) => {
-        const sigName = String(sig.label || sig.id || "Signal");
-        const deds = Array.isArray(sig.deductions) ? sig.deductions : [];
-        deds.forEach((d) => {
-          const pts = Number(d?.points);
-          const points = Number.isFinite(pts) ? pts : 0;
-          const reason = String(d?.reason || d?.code || "").trim();
-          if (!reason) return;
-          items.push({
-            points,
-            txt: `${sigName}: ${reason}${points ? ` (${points} pts)` : ""}`,
-          });
-        });
-      });
-
-      items.sort((a, b) => (b.points || 0) - (a.points || 0) || a.txt.localeCompare(b.txt));
-
-      const top = items.slice(0, 10);
-      if (!top.length) return `<p class="muted">No structured issues detected in this scan output.</p>`;
-
-      return `<ul>${top.map((x) => `<li>${esc(x.txt)}</li>`).join("")}</ul>`;
-    })();
-
-    // ---- Recommended Fix Sequence ----
-    const fixSeqHtml = (() => {
-      const lines =
-        (findings && findings.fix_sequence && findings.fix_sequence.lines) ||
-        (findings && findings.fixSequence && findings.fixSequence.lines) ||
-        null;
-
-      const defaultSeq = [
-        "Security headers + policy baselines (CSP, X-Frame-Options, Permissions-Policy).",
-        "SEO foundations (H1 presence, robots meta, canonical consistency).",
-        "Accessibility quick wins (empty links/buttons, labels, focus targets).",
-        "Performance stability (reduce payload bloat; tame inline script count).",
-        "Structure + semantics (document structure and markup clarity).",
-        "Mobile experience validation (already strong — maintain, re-test after changes).",
-      ];
-
-      const seq = lineify(lines);
-      const use = seq.length ? seq.slice(0, 8) : defaultSeq;
-      return `<ol>${use.map((ln) => `<li>${esc(ln)}</li>`).join("")}</ol>`;
-    })();
-
-    // ---- Evidence ----
+    // ---- Evidence (tables per signal) ----
     const evidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const blocks = deliverySignals
         .map((sig) => {
-          const name = String(sig.label || sig.id || "Signal").trim();
-          const rows = buildEvidenceRows(sig).slice(0, 12); // keep compact
+          const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
+          const rows = buildEvidenceRows(sig);
           if (!rows.length) return "";
 
           const trs = rows
+            .slice(0, 40)
             .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
             .join("");
 
@@ -413,110 +416,81 @@ exports.handler = async (event) => {
         })
         .filter(Boolean);
 
-      if (!blocks.length) return `<p class="muted">No evidence rows available in this scan output.</p>`;
+      if (!blocks.length) return `<p class="muted">No evidence rows were provided in this scan output.</p>`;
       return blocks.join("");
     })();
 
     // ---- Final Notes ----
-    const finalNotesHtml = (() => {
-      const lines =
-        (findings && findings.final_notes && findings.final_notes.lines) ||
-        (findings && findings.finalNotes && findings.finalNotes.lines) ||
-        null;
+    const finalNotesHtml = `
+      <ul class="notes">
+        <li>This PDF reflects deterministic checks and extracted scan evidence only.</li>
+        <li>Narrative lines are generated summaries tied to measured signals; treat them as diagnostic guidance, not absolute truth.</li>
+        <li>Re-run the scan after changes to confirm improvements and catch regressions.</li>
+      </ul>
+    `;
 
-      const fallback = [
-        "This PDF reflects deterministic checks and extracted scan evidence only.",
-        "Narrative lines are generated summaries tied to measured signals; treat them as diagnostic guidance, not absolute truth.",
-        "Re-run the scan after changes to confirm improvements and catch regressions.",
-      ];
-
-      const use = lineify(lines);
-      const out = use.length ? use.slice(0, 6) : fallback;
-      return renderBullets(out, 6);
-    })();
-
-    // ---- Print CSS ----
+    // ---- Print CSS (simple + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
-      html, body { padding: 0; margin: 0; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
 
-      h2 {
-        font-size: 12.5px;
-        margin: 14px 0 8px;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 6px;
-      }
-      h3 { font-size: 11.5px; margin: 12px 0 8px; }
+      h1 { font-size: 18px; margin: 0 0 10px; }
+      h2 { font-size: 13px; margin: 16px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+      h3 { font-size: 12px; margin: 14px 0 8px; }
 
-      p, li { font-size: 10.5px; line-height: 1.35; }
-      ul, ol { margin: 8px 0 0 18px; }
-
+      p, li, td, th { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
 
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 14px;
-      }
+      .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
-      .meta { font-size: 10px; text-align: right; white-space: nowrap; }
-      .hr { border-top: 1px solid #ddd; margin: 10px 0 10px; }
+      .meta { font-size: 10px; text-align: right; }
+      .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
       .cards { margin-top: 6px; }
-      .card {
-        border: 1px solid #e5e5e5;
-        border-radius: 8px;
-        padding: 10px;
-        margin: 10px 0;
-        page-break-inside: avoid;
-      }
-      .card-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 10px;
-      }
+      .card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
+      .card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
       .card-title { font-weight: 700; font-size: 11px; }
       .card-score { font-weight: 700; font-size: 13px; }
-
       .sig-lines { margin-top: 6px; }
       .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
 
       .tbl { width: 100%; border-collapse: collapse; }
       .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
       .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-      .tbl .m { width: 65%; }
-      .tbl .val { width: 35%; word-break: break-word; }
-      .tbl .num { text-align: right; width: 20%; }
-      .tbl.compact th, .tbl.compact td { padding: 6px 8px; }
+      .tbl .m { width: 70%; }
+      .tbl .val { width: 30%; word-break: break-word; }
+      .right { text-align: right; }
 
-      .ev-block { margin: 12px 0; page-break-inside: avoid; }
-      .ev-title { margin: 0 0 8px; font-size: 11.5px; font-weight: 700; }
+      .issues { margin: 6px 0 0 18px; padding: 0; }
+      .issues li { margin: 4px 0; }
 
-      .footer {
-        margin-top: 14px;
-        font-size: 9px;
-        color: #666;
-        display: flex;
-        justify-content: space-between;
-        border-top: 1px solid #eee;
-        padding-top: 8px;
-      }
+      .fix { margin: 6px 0 0 18px; }
+      .fix li { margin: 4px 0; }
+
+      .ev-block { margin: 14px 0; page-break-inside: avoid; }
+      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
+
+      .notes { margin: 6px 0 0 18px; }
+      .notes li { margin: 4px 0; }
+
+      .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections ----
-    const executiveSection = executiveHtml ? `<h2>Executive Narrative</h2>${executiveHtml}` : "";
+    // ---- Sections (always in requested order) ----
+    const executiveSection = executiveNarrativeHtml
+      ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
+      : `<h2>Executive Narrative</h2><p class="muted">No executive narrative was available for this report.</p>`;
 
-    const keyInsightsSection = keyInsightsHtml ? `<h2>Key Insight Metrics</h2>${keyInsightsHtml}` : "";
+    const keyMetricsSection = `<h2>Key Insight Metrics</h2>${keyMetricsHtml}`;
 
-    const deliverySection = deliverySignalsHtml ? `<h2>Delivery Signals</h2>${deliverySignalsHtml}` : "";
-
-    const issuesSection = `<h2>Top Issues Detected</h2>${topIssuesHtml}`;
+    const topIssuesSection = `<h2>Top Issues Detected</h2>${topIssuesHtml}`;
 
     const fixSeqSection = `<h2>Recommended Fix Sequence</h2>${fixSeqHtml}`;
+
+    const deliverySection = deliverySignalsHtml
+      ? `<h2>Delivery Signals</h2><div class="cards">${deliverySignalsHtml}</div>`
+      : `<h2>Delivery Signals</h2><p class="muted">No delivery signals were available for this report.</p>`;
 
     const evidenceSection = `<h2>Evidence</h2>${evidenceHtml}`;
 
@@ -535,9 +509,7 @@ exports.handler = async (event) => {
     <div>
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
-      <div class="muted" style="font-size:10px; margin-top:4px;"><strong>Website:</strong> ${esc(
-        header.website || ""
-      )}</div>
+      <div class="muted" style="font-size:10px; margin-top:4px;"><strong>Website:</strong> ${esc(header.website || "")}</div>
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
@@ -548,10 +520,10 @@ exports.handler = async (event) => {
   <div class="hr"></div>
 
   ${executiveSection}
-  ${keyInsightsSection}
-  ${deliverySection}
-  ${issuesSection}
+  ${keyMetricsSection}
+  ${topIssuesSection}
   ${fixSeqSection}
+  ${deliverySection}
   ${evidenceSection}
   ${finalNotesSection}
 
