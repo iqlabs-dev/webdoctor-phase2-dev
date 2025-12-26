@@ -1,10 +1,5 @@
 // netlify/functions/get-report-html-pdf.js
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
-// IMPORTANT:
-// - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
-// - This file only *renders* the existing JSON into print-friendly HTML.
-// Data source:
-// - /.netlify/functions/get-report-data-pdf?report_id=...
 
 exports.handler = async (event) => {
   // Preflight
@@ -81,7 +76,6 @@ exports.handler = async (event) => {
     const data = (() => {
       const hasTopSignals = Array.isArray(json?.delivery_signals) && json.delivery_signals.length;
       const hasRawSignals = Array.isArray(json?.raw?.delivery_signals) && json.raw.delivery_signals.length;
-      // Prefer top-level if present; otherwise fall back to raw.
       if (!hasTopSignals && hasRawSignals) return json.raw;
       return json;
     })();
@@ -139,7 +133,7 @@ exports.handler = async (event) => {
         .join("")}</div>`;
     }
 
-    // ✅ FINAL mapping: signal -> findings key (robust for id + label)
+    // Map signal -> key
     function safeSignalKey(sig) {
       const id = String(sig?.id || "").toLowerCase();
       const label = String(sig?.label || "").toLowerCase();
@@ -147,14 +141,12 @@ exports.handler = async (event) => {
       if (id === "performance" || label.includes("performance")) return "performance";
       if (id === "mobile" || label.includes("mobile")) return "mobile";
       if (id === "seo" || label.includes("seo")) return "seo";
-      if (id === "security" || label.includes("security")) return "security";
+      if (id === "security" || label.includes("security") || label.includes("trust")) return "security";
       if (id === "structure" || label.includes("structure") || label.includes("semantics")) return "structure";
       if (id === "accessibility" || label.includes("accessibility")) return "accessibility";
-      if (label.includes("trust")) return "security";
       return null;
     }
 
-    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -169,13 +161,38 @@ exports.handler = async (event) => {
       return arr;
     }
 
+    // ---- Data ----
     const header = data?.header || {};
     const scores = data?.scores || {};
     const deliverySignals = sortSignals(Array.isArray(data?.delivery_signals) ? data.delivery_signals : []);
 
-    // Narrative parity comes from `findings`
     const findings = data?.findings && typeof data.findings === "object" ? data.findings : {};
-    const narrativeObj = data?.narrative || null; // legacy fallback only
+    const narrativeObj = data?.narrative && typeof data.narrative === "object" ? data.narrative : {};
+
+    // Fallback store: narrative.signals (if present)
+    const narrSignals =
+      narrativeObj?.signals && typeof narrativeObj.signals === "object" ? narrativeObj.signals : {};
+
+    // ✅ Robust getter for signal narrative
+    function getSignalLines(key) {
+      if (!key) return [];
+
+      // 1) findings[key].lines
+      const f = findings && findings[key];
+      if (f && typeof f === "object" && Array.isArray(f.lines)) return f.lines;
+
+      // 2) findings[key] is a string
+      if (typeof f === "string") return lineify(f);
+
+      // 3) findings[key].text (some shapes)
+      if (f && typeof f === "object" && typeof f.text === "string") return lineify(f.text);
+
+      // 4) fallback narrative.signals[key].lines
+      const n = narrSignals && narrSignals[key];
+      if (n && typeof n === "object" && Array.isArray(n.lines)) return n.lines;
+
+      return [];
+    }
 
     // ---- Executive Narrative ----
     const execLines =
@@ -189,7 +206,7 @@ exports.handler = async (event) => {
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals: scores + narrative ----
+    // ---- Delivery Signals ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
@@ -201,7 +218,6 @@ exports.handler = async (event) => {
 
       const cards = [];
 
-      // Overall delivery score first (+ narrative)
       cards.push(`
         <div class="card">
           <div class="card-row">
@@ -212,12 +228,11 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      // Then each signal (+ narrative)
       deliverySignals.forEach((sig) => {
         const name = String(sig.label || sig.id || "Signal");
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-        const lines = key && findings && findings[key] ? findings[key].lines : null;
+        const lines = getSignalLines(key);
 
         cards.push(`
           <div class="card">
@@ -233,7 +248,7 @@ exports.handler = async (event) => {
       return cards.join("");
     })();
 
-    // ---- Print CSS ----
+    // ---- CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
