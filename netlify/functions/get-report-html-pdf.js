@@ -78,6 +78,22 @@ exports.handler = async (event) => {
     }
 
     // ---- Helpers ----
+
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+      });
+    }
+
     function esc(s) {
       return String(s == null ? "" : s)
         .split("&").join("&amp;")
@@ -104,20 +120,6 @@ exports.handler = async (event) => {
       }
       if (typeof v === "object" && Array.isArray(v.lines)) return v.lines.filter(Boolean).map(String);
       return [];
-    }
-
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
     }
 
     function prettifyKey(k) {
@@ -148,6 +150,7 @@ exports.handler = async (event) => {
       }
     }
 
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
     function buildEvidenceRows(sig) {
       if (Array.isArray(sig?.observations) && sig.observations.length) {
         const rows = sig.observations
@@ -164,7 +167,10 @@ exports.handler = async (event) => {
         const keys = Object.keys(ev);
         keys.sort((a, b) => String(a).localeCompare(String(b)));
         const rows = keys
-          .map((k) => ({ k: prettifyKey(k), v: formatValue(ev[k]) }))
+          .map((k) => ({
+            k: prettifyKey(k),
+            v: formatValue(ev[k]),
+          }))
           .filter((r) => r.k && !isEmptyValue(r.v));
         return rows;
       }
@@ -172,24 +178,9 @@ exports.handler = async (event) => {
       return [];
     }
 
-    // ---- Robust signal discovery ----
-    function pickSignals(j) {
-      const candidates = [
-        j?.delivery_signals,
-        j?.deliverySignals,
-        j?.signals,
-        j?.delivery?.signals,
-        j?.delivery?.delivery_signals,
-      ];
-      for (const c of candidates) {
-        if (Array.isArray(c) && c.length) return c;
-      }
-      return [];
-    }
-
-    // Map signal -> canonical key
+    // Map signal -> findings key
     function safeSignalKey(sig) {
-      const id = String((sig && (sig.id || sig.key || sig.label || sig.name)) || "").toLowerCase();
+      const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
       if (id.includes("mobile")) return "mobile";
       if (id.includes("seo")) return "seo";
@@ -199,89 +190,7 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Find the best matching narrative key inside an object by substring
-    function findKeyByHint(obj, hints) {
-      if (!obj || typeof obj !== "object") return null;
-      const keys = Object.keys(obj);
-      const lower = keys.map((k) => [k, String(k).toLowerCase()]);
-      for (const h of hints) {
-        const hh = String(h).toLowerCase();
-        const hit = lower.find(([, lk]) => lk === hh);
-        if (hit) return hit[0];
-      }
-      for (const h of hints) {
-        const hh = String(h).toLowerCase();
-        const hit = lower.find(([, lk]) => lk.includes(hh));
-        if (hit) return hit[0];
-      }
-      return null;
-    }
-
-    function getNarrativeBundle(narrativeObj) {
-      // common buckets we might store signal narratives under
-      return {
-        signals: narrativeObj?.signals,
-        delivery_signals: narrativeObj?.delivery_signals,
-        deliverySignals: narrativeObj?.deliverySignals,
-        cards: narrativeObj?.cards,
-      };
-    }
-
-    // Pull signal narrative from signal object OR any narrative bundle bucket.
-    // If none exists -> [] (render nothing).
-    function getSignalNarrativeLines(sig, narrativeObj) {
-      // 1) Signal object may already carry the narrative (OSD-style)
-      const direct =
-        sig?.narrative?.lines ||
-        sig?.narrative ||
-        sig?.summary?.lines ||
-        sig?.summary ||
-        sig?.text?.lines ||
-        sig?.text ||
-        sig?.description?.lines ||
-        sig?.description ||
-        sig?.notes?.lines ||
-        sig?.notes ||
-        sig?.message?.lines ||
-        sig?.message;
-
-      const directLines = lineify(direct);
-      if (directLines.length) return directLines;
-
-      // 2) Otherwise hunt in narrative bundles
-      const key = safeSignalKey(sig);
-      if (!key) return [];
-
-      const bundles = getNarrativeBundle(narrativeObj);
-
-      const hintMap = {
-        performance: ["performance", "perf"],
-        mobile: ["mobile", "mobile_experience", "mobileexperience"],
-        seo: ["seo", "seo_foundations", "seofoundations"],
-        security: ["security", "security_trust", "security&trust", "trust"],
-        structure: ["structure", "structure_semantics", "structure&semantics", "semantics"],
-        accessibility: ["accessibility", "a11y", "access"],
-      };
-
-      const hints = hintMap[key] || [key];
-
-      // check each bucket (signals/delivery_signals/cards) for a matching key
-      for (const bucketName of Object.keys(bundles)) {
-        const bucket = bundles[bucketName];
-        if (!bucket || typeof bucket !== "object") continue;
-
-        const matchKey = findKeyByHint(bucket, hints);
-        if (!matchKey) continue;
-
-        const candidate = bucket[matchKey];
-        const lines = lineify(candidate?.lines || candidate);
-        if (lines.length) return lines;
-      }
-
-      return [];
-    }
-
-    // Force stable signal order (doctor-report consistency)
+    // Force stable signal order in PDF
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -291,37 +200,39 @@ exports.handler = async (event) => {
         const ia = ka ? SIGNAL_ORDER.indexOf(ka) : 999;
         const ib = kb ? SIGNAL_ORDER.indexOf(kb) : 999;
         if (ia !== ib) return ia - ib;
-        return String(a?.label || a?.name || a?.id || "").localeCompare(String(b?.label || b?.name || b?.id || ""));
+        return String(a?.label || a?.id || "").localeCompare(String(b?.label || b?.id || ""));
       });
       return arr;
     }
 
-    // ---- Data ----
-    const header = json?.header || {};
-    const narrativeObj = json?.narrative || null;
-
-    const deliverySignalsRaw = pickSignals(json);
+    const header = json && json.header ? json.header : {};
+    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
+    // ✅ IMPORTANT: narrative lives in json.findings (not json.narrative)
+    const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
+
     // ---- Executive Narrative ----
-    const execLines = narrativeObj?.overall?.lines || null;
     const executiveNarrativeHtml = (() => {
-      const lines = lineify(execLines);
+      const lines = lineify(findings?.overall?.lines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (render ONLY signals that have narrative) ----
+    // ---- Delivery Signals (narrative per signal; ONLY if exists) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      const blocks = deliverySignals
+      return deliverySignals
         .map((sig) => {
-          const name = String(sig?.label || sig?.name || sig?.id || "Signal");
-          const score = asInt(sig?.score, "");
+          const name = String(sig.label || sig.id || "Signal");
+          const score = asInt(sig.score, "");
 
-          const lines = getSignalNarrativeLines(sig, narrativeObj);
-          if (!lines.length) return ""; // your rule: narrative or nothing
+          const key = safeSignalKey(sig);
+          const lines = key ? lineify(findings?.[key]?.lines) : [];
+
+          // If a signal has no narrative, render nothing for that signal
+          if (!lines.length) return "";
 
           const narr = lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("");
 
@@ -335,24 +246,23 @@ exports.handler = async (event) => {
             </div>
           `;
         })
-        .filter(Boolean);
-
-      if (!blocks.length) return "";
-      return blocks.join("");
+        .filter(Boolean)
+        .join("");
     })();
 
-    // ---- Signal Evidence ----
+    // ---- Signal Evidence (doctor-style tables) ----
     const signalEvidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const blocks = deliverySignals
         .map((sig) => {
-          const name = String(sig?.label || sig?.name || sig?.id || "Signal").trim();
+          const name = String(sig.label || sig.id || "Signal").trim();
           const rows = buildEvidenceRows(sig);
-          if (!rows.length) return ""; // no fallback
+
+          if (!rows.length) return "";
 
           const trs = rows
-            .slice(0, 30)
+            .slice(0, 50)
             .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
             .join("");
 
@@ -383,11 +293,9 @@ exports.handler = async (event) => {
       h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
-
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
-      .meta { font-size: 10px; text-align: right; line-height: 1.3; }
-      .brand-block { font-size: 10px; line-height: 1.3; }
+      .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
       .sig { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
@@ -408,20 +316,20 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections: only output a section if it has cntent ----
+    // ---- Sections: only output a section if it has content ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
 
     const deliverySection = deliverySignalsHtml
-      ? `<h2>Delivery Signals</h2>${deliverySignalsHtml}`
+      ? `<h2>Delivery Signals</h2>
+         <p class="muted">Each signal is presented as a short diagnostic narrative, backed by evidence below.</p>
+         ${deliverySignalsHtml}`
       : "";
 
     const evidenceSection = signalEvidenceHtml
       ? `<h2>Signal Evidence</h2>${signalEvidenceHtml}`
       : "";
-
-    const website = header.website || header.url || header.site || "";
 
     const html = `<!doctype html>
 <html lang="en">
@@ -433,10 +341,10 @@ exports.handler = async (event) => {
 </head>
 <body>
   <div class="topbar">
-    <div class="brand-block">
+    <div>
       <div class="brand">iQWEB</div>
-      <div class="muted">Powered by Λ i Q™</div>
-      ${website ? `<div><strong>Website:</strong> ${esc(website)}</div>` : ""}
+      <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
+      ${header.website ? `<div class="muted" style="font-size:10px;"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
