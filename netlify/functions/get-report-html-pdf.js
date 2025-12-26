@@ -77,6 +77,11 @@ exports.handler = async (event) => {
       };
     }
 
+    // ✅ NORMALISE ROOT:
+    // get-report-data-pdf often returns { success, narrative, raw: { header, scores, delivery_signals, ... } }
+    // We always render from the "real" report payload.
+    const root = (json && json.raw && typeof json.raw === "object") ? json.raw : json;
+
     // ---- Helpers ----
     function esc(s) {
       return String(s == null ? "" : s)
@@ -110,7 +115,6 @@ exports.handler = async (event) => {
       if (!iso) return "";
       const d = new Date(iso);
       if (isNaN(d.getTime())) return "";
-      // Match your OSD style: "21 Dec 2025, 08:27"
       return d.toLocaleString("en-GB", {
         day: "2-digit",
         month: "short",
@@ -120,56 +124,6 @@ exports.handler = async (event) => {
         hour12: false,
         timeZone: "UTC",
       });
-    }
-
-    function isEmptyValue(v) {
-      if (v === null || typeof v === "undefined") return true;
-      if (typeof v === "string" && v.trim() === "") return true;
-      if (typeof v === "object") {
-        if (Array.isArray(v) && v.length === 0) return true;
-        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
-      }
-      return false;
-    }
-
-    function formatValue(v) {
-      if (v === null) return "";
-      if (typeof v === "undefined") return "";
-      if (typeof v === "number") return String(v);
-      if (typeof v === "boolean") return v ? "true" : "false";
-      if (typeof v === "string") return v.trim();
-      try {
-        return JSON.stringify(v);
-      } catch {
-        return String(v);
-      }
-    }
-
-    function prettifyKey(k) {
-      k = String(k || "").split("_").join(" ");
-      return k.replace(/\b\w/g, (m) => m.toUpperCase());
-    }
-
-    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
-    function buildEvidenceRows(sig) {
-      if (Array.isArray(sig?.observations) && sig.observations.length) {
-        const rows = sig.observations
-          .map((o) => ({ k: String(o?.label || "").trim(), v: formatValue(o?.value) }))
-          .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
-      }
-
-      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
-      if (ev && !Array.isArray(ev)) {
-        const keys = Object.keys(ev);
-        keys.sort((a, b) => String(a).localeCompare(String(b)));
-        const rows = keys
-          .map((k) => ({ k: prettifyKey(k), v: formatValue(ev[k]) }))
-          .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
-      }
-
-      return [];
     }
 
     // Map signal -> canonical key
@@ -184,7 +138,7 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Force stable signal order in PDF
+    // Force stable signal order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -199,52 +153,54 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data extraction ----
-    const header = json && json.header ? json.header : {};
-    const scores = json && json.scores ? json.scores : {};
+    // ---- Data extraction (from root) ----
+    const header = root && root.header ? root.header : {};
+    const scores = root && root.scores ? root.scores : {};
 
-    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
+    const deliverySignalsRaw = Array.isArray(root.delivery_signals) ? root.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Narrative can appear in different shapes depending on the pipeline.
-    const narrativeObj = json && json.narrative ? json.narrative : null;
+    // Narrative may exist at json.narrative OR json.findings OR root.findings, depending on pipeline.
+    // We prioritise json.narrative if present, otherwise fall back to findings.
+    const narrativeObj =
+      (json && json.narrative && typeof json.narrative === "object") ? json.narrative :
+      (root && root.narrative && typeof root.narrative === "object") ? root.narrative :
+      null;
 
-    const narrativeRoot =
-      narrativeObj && typeof narrativeObj === "object"
-        ? (narrativeObj.findings && typeof narrativeObj.findings === "object" ? narrativeObj.findings : narrativeObj)
-        : null;
+    const findingsObj =
+      (root && root.findings && typeof root.findings === "object") ? root.findings :
+      (json && json.findings && typeof json.findings === "object") ? json.findings :
+      null;
 
-    const narrativeSignals =
-      narrativeRoot && narrativeRoot.signals && typeof narrativeRoot.signals === "object"
-        ? narrativeRoot.signals
-        : {};
-
-    function getOverallLines() {
-      // overall narrative lines could be at findings.overall.lines or overall.lines
-      const a = narrativeRoot && narrativeRoot.overall ? narrativeRoot.overall : null;
-      const lines = a && a.lines ? a.lines : null;
-      return lineify(lines);
-    }
-
-    function getSignalLines(key) {
-      if (!key) return [];
-      const node = narrativeSignals && narrativeSignals[key] ? narrativeSignals[key] : null;
-      const lines = node && node.lines ? node.lines : null;
-      return lineify(lines);
-    }
-
-    // ---- Executive Narrative (only if exists, no fallback) ----
+    // Executive narrative lines: prefer narrative.overall.lines, else findings.executive.lines
     const executiveNarrativeHtml = (() => {
-      const lines = getOverallLines();
+      const lines =
+        narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
+          ? lineify(narrativeObj.overall.lines)
+          : (findingsObj && findingsObj.executive && findingsObj.executive.lines
+              ? lineify(findingsObj.executive.lines)
+              : []);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (scores always, narrative only if exists) ----
+    // Delivery signal narrative: prefer findings.signals[key].lines OR narrative.signals[key].lines
+    function getSignalNarrLines(key) {
+      if (!key) return [];
+      if (findingsObj && findingsObj.signals && findingsObj.signals[key] && findingsObj.signals[key].lines) {
+        return lineify(findingsObj.signals[key].lines);
+      }
+      if (narrativeObj && narrativeObj.signals && narrativeObj.signals[key] && narrativeObj.signals[key].lines) {
+        return lineify(narrativeObj.signals[key].lines);
+      }
+      return [];
+    }
+
     const deliverySignalsHtml = (() => {
+      // If no signals, don't render the section (prevents blank headings)
       if (!deliverySignals.length) return "";
 
-      const overallScore = asInt(scores.overall ?? json.overall, "—");
+      const overallScore = asInt(scores.overall ?? root.overall, "—");
 
       const overallBlock = `
         <div class="sig overall">
@@ -264,10 +220,10 @@ exports.handler = async (event) => {
           const score = asInt(sig.score, "—");
           const key = safeSignalKey(sig);
 
-          const lines = getSignalLines(key);
+          const lines = getSignalNarrLines(key);
           const narr = lines.length
             ? lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("")
-            : ""; // no fallback text
+            : "";
 
           return `
             <div class="sig">
@@ -284,11 +240,10 @@ exports.handler = async (event) => {
       return overallBlock + blocks;
     })();
 
-    // ---- Signal Evidence (KEEP LAST, but we will add it later — leaving logic here unused for now) ----
-    // For now: DO NOT render evidence unless explicitly enabled in a later step.
-    const signalEvidenceHtml = ""; // we will build this in the next step, after Delivery Signals is stable
+    // Evidence is last block — we will add it later (next step) once signals are stable
+    const signalEvidenceHtml = "";
 
-    // ---- Print CSS (simple + clinical) ----
+    // ---- Print CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
@@ -312,7 +267,7 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections: only output a section if it has content ----
+    // ---- Sections ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
