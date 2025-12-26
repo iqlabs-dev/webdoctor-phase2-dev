@@ -72,20 +72,18 @@ exports.handler = async (event) => {
       };
     }
 
-    const safeObj = (v) => (v && typeof v === "object" ? v : {});
-    const header = safeObj(json.header);
-    const scores = safeObj(json.scores);
-    const findings = safeObj(json.findings);
+    // ✅ IMPORTANT: your payload often nests the real report data under `raw`
+    const base = json && typeof json === "object" && json.raw && typeof json.raw === "object" ? json.raw : json;
 
-    // delivery_signals can be array or nested
-    const deliverySignalsRaw =
-      Array.isArray(json.delivery_signals)
-        ? json.delivery_signals
-        : Array.isArray(json.delivery_signals?.signals)
-          ? json.delivery_signals.signals
-          : Array.isArray(json.delivery_signals?.items)
-            ? json.delivery_signals.items
-            : [];
+    const safeObj = (v) => (v && typeof v === "object" ? v : {});
+    const header = safeObj(base.header);
+    const scores = safeObj(base.scores);
+
+    // Narrative parity: prefer `json.findings` (your OSD uses this)
+    const findings = safeObj(json.findings && typeof json.findings === "object" ? json.findings : base.findings);
+
+    // delivery_signals live under base.delivery_signals (because base=json.raw)
+    const deliverySignalsRaw = Array.isArray(base.delivery_signals) ? base.delivery_signals : [];
 
     function esc(s) {
       return String(s == null ? "" : s)
@@ -139,7 +137,6 @@ exports.handler = async (event) => {
       });
     }
 
-    // Map signal -> findings key
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -151,7 +148,6 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -168,7 +164,7 @@ exports.handler = async (event) => {
 
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Executive Narrative
+    // ---- Executive Narrative ----
     const execLines = findings?.executive?.lines || null;
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
@@ -176,13 +172,12 @@ exports.handler = async (event) => {
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // Delivery cards (Overall + 6 signals)
+    // ---- Delivery Signals (overall + 6 signals) ----
     const deliverySignalsHtml = (() => {
       const cards = [];
 
-      // Overall card
       const overallScore = asInt(scores.overall, "—");
-      const overallLines = findings?.overall?.lines || null;
+      const overallLines = findings?.overall?.lines || findings?.executive?.lines || null;
 
       cards.push(`
         <div class="card">
@@ -194,7 +189,6 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      // Each signal card
       deliverySignals.forEach((sig) => {
         const name = String(sig?.label || sig?.id || "Signal");
         const score = asInt(sig?.score, "—");
