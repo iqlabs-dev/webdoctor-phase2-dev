@@ -2,7 +2,7 @@
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
 // IMPORTANT:
 // - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
-// - This file only *renders* the existing JSON into print-friendly HTML.
+// - This file only *renders* JSON into print-friendly HTML.
 // Data source:
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
@@ -77,7 +77,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---- Helpers ----
+    // ---------------- Helpers ----------------
 
     function formatDateTime(iso) {
       if (!iso) return "";
@@ -150,35 +150,33 @@ exports.handler = async (event) => {
       }
     }
 
-    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
     function buildEvidenceRows(sig) {
+      // observations: [{label, value}]
       if (Array.isArray(sig?.observations) && sig.observations.length) {
-        const rows = sig.observations
+        return sig.observations
           .map((o) => ({
             k: String(o?.label || "").trim(),
             v: formatValue(o?.value),
           }))
           .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
       }
 
+      // evidence: { key: value }
       const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
       if (ev && !Array.isArray(ev)) {
         const keys = Object.keys(ev);
         keys.sort((a, b) => String(a).localeCompare(String(b)));
-        const rows = keys
+        return keys
           .map((k) => ({
             k: prettifyKey(k),
             v: formatValue(ev[k]),
           }))
           .filter((r) => r.k && !isEmptyValue(r.v));
-        return rows;
       }
 
       return [];
     }
 
-    // Map signal -> findings key
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -187,11 +185,11 @@ exports.handler = async (event) => {
       if (id.includes("sec") || id.includes("trust")) return "security";
       if (id.includes("struct") || id.includes("semantic")) return "structure";
       if (id.includes("access")) return "accessibility";
+      if (id.includes("overall")) return "overall";
       return null;
     }
 
-    // Force stable signal order in PDF
-    const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    const SIGNAL_ORDER = ["overall", "performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
       arr.sort((a, b) => {
@@ -205,21 +203,34 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    const header = json && json.header ? json.header : {};
-    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
+    // ---------------- Payload Normalisation ----------------
+    // Some runs return everything at top-level, other runs wrap it inside `raw`.
+    const payload = json && json.raw && typeof json.raw === "object" ? json.raw : json;
+
+    const header = (payload && payload.header) || (json && json.header) || {};
+    const deliverySignalsRaw =
+      (payload && Array.isArray(payload.delivery_signals) ? payload.delivery_signals : null) ||
+      (json && Array.isArray(json.delivery_signals) ? json.delivery_signals : []) ||
+      [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // ✅ IMPORTANT: narrative lives in json.findings (not json.narrative)
-    const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
+    // Narrative can exist as `findings` or `narrative` depending on the proxy/version.
+    const findings =
+      (json && json.findings && typeof json.findings === "object" ? json.findings : null) ||
+      (payload && payload.findings && typeof payload.findings === "object" ? payload.findings : null) ||
+      (json && json.narrative && typeof json.narrative === "object" ? json.narrative : null) ||
+      (payload && payload.narrative && typeof payload.narrative === "object" ? payload.narrative : null) ||
+      {};
 
-    // ---- Executive Narrative ----
+    // ---- Executive Narrative (render only if exists) ----
     const executiveNarrativeHtml = (() => {
-      const lines = lineify(findings?.overall?.lines);
+      const overall = findings.overall || findings.executive || findings.summary || null;
+      const lines = lineify(overall && overall.lines ? overall.lines : overall);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (narrative per signal; ONLY if exists) ----
+    // ---- Delivery Signals (render only those with narrative) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
@@ -229,12 +240,29 @@ exports.handler = async (event) => {
           const score = asInt(sig.score, "");
 
           const key = safeSignalKey(sig);
-          const lines = key ? lineify(findings?.[key]?.lines) : [];
+          if (!key) return "";
 
-          // If a signal has no narrative, render nothing for that signal
+          // Support both shapes:
+          // findings.signals[key].lines (older)
+          // findings[key].lines (current)
+          const fromSignalsObj =
+            findings.signals && typeof findings.signals === "object" ? findings.signals[key] : null;
+          const direct = findings[key];
+
+          const lines = lineify(
+            (fromSignalsObj && fromSignalsObj.lines) ||
+              (direct && direct.lines) ||
+              fromSignalsObj ||
+              direct
+          );
+
+          // no narrative = render nothing for that signal
           if (!lines.length) return "";
 
-          const narr = lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("");
+          const narr = lines
+            .slice(0, 3)
+            .map((ln) => `<p class="sig-narr">${esc(ln)}</p>`)
+            .join("");
 
           return `
             <div class="sig">
@@ -250,7 +278,7 @@ exports.handler = async (event) => {
         .join("");
     })();
 
-    // ---- Signal Evidence (doctor-style tables) ----
+    // ---- Signal Evidence ----
     const signalEvidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
@@ -284,7 +312,7 @@ exports.handler = async (event) => {
       return blocks.join("");
     })();
 
-    // ---- Print CSS (simple + clinical) ----
+    // ---- Print CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
@@ -316,7 +344,7 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections: only output a section if it has content ----
+    // ---- Sections (only if content exists) ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
