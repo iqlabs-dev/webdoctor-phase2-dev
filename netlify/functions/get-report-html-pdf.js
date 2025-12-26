@@ -78,6 +78,24 @@ exports.handler = async (event) => {
     }
 
     // ---- Helpers ----
+
+    function formatDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "UTC",
+    timeZoneName: "short"
+  });
+}
+
     function esc(s) {
       return String(s == null ? "" : s)
         .split("&").join("&amp;")
@@ -348,7 +366,7 @@ exports.handler = async (event) => {
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
     </div>
     <div class="meta">
-      <div><strong>Website:</strong> ${esc(header.website || "")}</div>
+      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at))}</div>
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
       <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
     </div>
