@@ -4,7 +4,6 @@
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
 exports.handler = async (event) => {
-  // Preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -45,7 +44,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---- Fetch JSON (server-side) ----
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const dataUrl =
       siteUrl +
@@ -74,25 +72,20 @@ exports.handler = async (event) => {
       };
     }
 
-    // ---- Helpers ----
     const safeObj = (v) => (v && typeof v === "object" ? v : {});
-    const asArray = (v) => (Array.isArray(v) ? v : []);
+    const header = safeObj(json.header);
+    const scores = safeObj(json.scores);
+    const findings = safeObj(json.findings);
 
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "UTC",
-        timeZoneName: "short",
-      });
-    }
+    // delivery_signals can be array or nested
+    const deliverySignalsRaw =
+      Array.isArray(json.delivery_signals)
+        ? json.delivery_signals
+        : Array.isArray(json.delivery_signals?.signals)
+          ? json.delivery_signals.signals
+          : Array.isArray(json.delivery_signals?.items)
+            ? json.delivery_signals.items
+            : [];
 
     function esc(s) {
       return String(s == null ? "" : s)
@@ -125,7 +118,25 @@ exports.handler = async (event) => {
     function renderLines(lines, max = 3) {
       const arr = lineify(lines).slice(0, max);
       if (!arr.length) return "";
-      return `<div class="sig-lines">${arr.map((ln) => `<div class="sig-line">${esc(ln)}</div>`).join("")}</div>`;
+      return `<div class="sig-lines">${arr
+        .map((ln) => `<div class="sig-line">${esc(ln)}</div>`)
+        .join("")}</div>`;
+    }
+
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+        timeZoneName: "short",
+      });
     }
 
     // Map signal -> findings key
@@ -140,7 +151,7 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Stable order (matches OSD)
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -155,59 +166,24 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data ----
-    const header = safeObj(json.header);
-    const scores = safeObj(json.scores);
-
-    // delivery_signals can sometimes be:
-    // - array
-    // - object with .signals
-    // - object with .items
-    const deliverySignalsRaw =
-      Array.isArray(json.delivery_signals)
-        ? json.delivery_signals
-        : Array.isArray(json.delivery_signals?.signals)
-          ? json.delivery_signals.signals
-          : Array.isArray(json.delivery_signals?.items)
-            ? json.delivery_signals.items
-            : [];
-
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Preferred narrative source for parity with OSD:
-    const findings = safeObj(json.findings);
-
-    // Legacy fallback (won't hurt if present)
-    const narrativeLegacy = safeObj(json.narrative);
-
-    // ---- Executive Narrative (prefer findings.executive.lines) ----
-    const execLines =
-      findings?.executive?.lines ||
-      findings?.overall?.lines || // sometimes overall is the executive
-      narrativeLegacy?.overall?.lines ||
-      null;
-
+    // Executive Narrative
+    const execLines = findings?.executive?.lines || null;
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (scores + narrative) ----
+    // Delivery cards (Overall + 6 signals)
     const deliverySignalsHtml = (() => {
-      // Always render if we have at least one signal OR an overall score
-      const haveOverall = typeof scores.overall !== "undefined";
-      if (!deliverySignals.length && !haveOverall) return "";
-
-      const overallScore = asInt(scores.overall, "—");
-      const overallLines =
-        findings?.overall?.lines ||
-        narrativeLegacy?.overall?.lines ||
-        null;
-
       const cards = [];
 
-      // Overall delivery score first
+      // Overall card
+      const overallScore = asInt(scores.overall, "—");
+      const overallLines = findings?.overall?.lines || null;
+
       cards.push(`
         <div class="card">
           <div class="card-row">
@@ -218,17 +194,12 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      // Then each signal (with narrative from findings.<key>.lines)
+      // Each signal card
       deliverySignals.forEach((sig) => {
         const name = String(sig?.label || sig?.id || "Signal");
         const score = asInt(sig?.score, "—");
         const key = safeSignalKey(sig);
-
-        const lines =
-          (key && findings && findings[key] && findings[key].lines) ||
-          // fallback to legacy
-          (key && narrativeLegacy?.signals && narrativeLegacy.signals[key]?.lines) ||
-          null;
+        const lines = key ? findings?.[key]?.lines : null;
 
         cards.push(`
           <div class="card">
@@ -244,7 +215,6 @@ exports.handler = async (event) => {
       return cards.join("");
     })();
 
-    // ---- Print CSS (clean + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
@@ -270,7 +240,6 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections: only show if content exists ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
