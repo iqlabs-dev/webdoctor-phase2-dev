@@ -1,5 +1,5 @@
 // netlify/functions/get-report-html-pdf.js
-// PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
+// PDF HTML renderer (NO JS). DocRaptr prints this HTML directly.
 // IMPORTANT:
 // - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
 // - This file only *renders* the existing JSON into print-friendly HTML.
