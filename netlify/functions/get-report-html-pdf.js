@@ -107,23 +107,67 @@ exports.handler = async (event) => {
     }
 
     function prettifyKey(k) {
+      // "ttfb_ms" -> "Ttfb Ms" (simple + predictable)
+      // If you want fancier later, do it later.
       k = String(k || "").split("_").join(" ");
       return k.replace(/\b\w/g, (m) => m.toUpperCase());
     }
 
-    function evidenceToObs(evidence) {
-      const ev = evidence && typeof evidence === "object" ? evidence : {};
-      const entries = [];
-      for (const key in ev) {
-        if (Object.prototype.hasOwnProperty.call(ev, key)) {
-          entries.push([key, ev[key]]);
-        }
+    function isEmptyValue(v) {
+      if (v === null || typeof v === "undefined") return true;
+      if (typeof v === "string" && v.trim() === "") return true;
+      if (typeof v === "object") {
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
       }
-      entries.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-      return entries.map(([k, v]) => ({ label: prettifyKey(k), value: v }));
+      return false;
     }
 
-    // Map signal -> narrative key (matches generate-narrative.js)
+    function formatValue(v) {
+      if (v === null) return "";
+      if (typeof v === "undefined") return "";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "true" : "false";
+      if (typeof v === "string") return v.trim();
+      // last resort for objects
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    }
+
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
+    function buildEvidenceRows(sig) {
+      // observations: [{label, value}]
+      if (Array.isArray(sig?.observations) && sig.observations.length) {
+        const rows = sig.observations
+          .map((o) => ({
+            k: String(o?.label || "").trim(),
+            v: formatValue(o?.value),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      // evidence: { key: value, ... }
+      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
+      if (ev && !Array.isArray(ev)) {
+        const keys = Object.keys(ev);
+        keys.sort((a, b) => String(a).localeCompare(String(b)));
+        const rows = keys
+          .map((k) => ({
+            k: prettifyKey(k),
+            v: formatValue(ev[k]),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      return [];
+    }
+
+    // Map signal -> narrative key (matches your narrative signal set)
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -135,138 +179,120 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // ---- Pull everything from RAW (because get-report-data-pdf is a proxy) ----
-    const RAW = (json && json.raw) ? json.raw : {};
+    // Force stable signal order in PDF (doctor-report consistency)
+    const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    function sortSignals(list) {
+      const arr = Array.isArray(list) ? list.slice() : [];
+      arr.sort((a, b) => {
+        const ka = safeSignalKey(a);
+        const kb = safeSignalKey(b);
+        const ia = ka ? SIGNAL_ORDER.indexOf(ka) : 999;
+        const ib = kb ? SIGNAL_ORDER.indexOf(kb) : 999;
+        if (ia !== ib) return ia - ib;
+        return String(a?.label || a?.id || "").localeCompare(String(b?.label || b?.id || ""));
+      });
+      return arr;
+    }
 
-    const header =
-      (json && json.header) ||
-      RAW.header ||
-      RAW.report?.header ||
-      RAW.report ||
-      {};
+    const header = json && json.header ? json.header : {};
+    const scores = json && json.scores ? json.scores : {};
+    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
+    const deliverySignals = sortSignals(deliverySignalsRaw);
+    const narrativeObj = json && json.narrative ? json.narrative : null;
 
-    const scores =
-      (json && json.scores) ||
-      RAW.scores ||
-      RAW.report?.scores ||
-      RAW.metrics?.scores ||
-      {};
+    // ---- Executive Narrative ----
+    const execLines =
+      narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
+        ? narrativeObj.overall.lines
+        : null;
 
-    const deliverySignals =
-      Array.isArray(json.delivery_signals) ? json.delivery_signals :
-      Array.isArray(RAW.delivery_signals) ? RAW.delivery_signals :
-      Array.isArray(RAW.report?.delivery_signals) ? RAW.report.delivery_signals :
-      [];
-
-    const narrativeObj =
-      (RAW && RAW.narrative) ? RAW.narrative :
-      (RAW && RAW.report && RAW.report.narrative) ? RAW.report.narrative :
-      (json && json.narrative) ? json.narrative :
-      null;
-
-    // ---- Executive Narrative (NO fallback text) ----
+    // If there is no executive narrative, we render nothing (no fallback text)
     const executiveNarrativeHtml = (() => {
-      const lines = lineify(narrativeObj?.overall?.lines || narrativeObj?.overall);
+      const lines = lineify(execLines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (render 6 blocks; narrative only if present; NO fallback text) ----
+    // ---- Delivery Signals (narrative per signal, show only if narrative exists) ----
     const deliverySignalsHtml = (() => {
       const narrSignals =
-        (narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object")
+        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
           ? narrativeObj.signals
           : {};
 
+      // If no signals, render nothing (no fallback)
       if (!deliverySignals.length) return "";
 
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
+      return deliverySignals
+        .map((sig) => {
+          const name = String(sig.label || sig.id || "Signal");
+          const score = asInt(sig.score, "");
 
-        const key = safeSignalKey(sig);
-        const lines = key && narrSignals && narrSignals[key] ? lineify(narrSignals[key].lines) : [];
-        const narr = lines.length
-          ? lines.slice(0, 3).map((ln) => '<p class="sig-narr">' + esc(ln) + "</p>").join("")
-          : "";
+          const key = safeSignalKey(sig);
+          const lines = key && narrSignals && narrSignals[key] ? lineify(narrSignals[key].lines) : [];
 
-        return `
-          <div class="sig">
-            <div class="sig-head">
-              <div class="sig-name">${esc(name)}</div>
-              <div class="sig-score">${esc(score)}</div>
+          // If a signal has no narrative, render nothing for that signal (per your rule)
+          if (!lines.length) return "";
+
+          const narr = lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("");
+
+          return `
+            <div class="sig">
+              <div class="sig-head">
+                <div class="sig-name">${esc(name)}</div>
+                <div class="sig-score">${esc(score)}</div>
+              </div>
+              ${narr}
             </div>
-            ${narr}
-          </div>
-        `;
-      }).join("");
+          `;
+        })
+        .filter(Boolean)
+        .join("");
     })();
 
-    // ---- Signal Evidence (observations + issues) ----
-    // NOTE: You can expand this later. For now we keep it simple + stable.
+    // ---- Signal Evidence (doctor-style tables) ----
     const signalEvidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      return deliverySignals.map((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
-        const score = asInt(sig.score, "—");
+      const blocks = deliverySignals
+        .map((sig) => {
+          const name = String(sig.label || sig.id || "Signal").trim();
+          const rows = buildEvidenceRows(sig);
 
-        const obs = Array.isArray(sig.observations) && sig.observations.length
-          ? sig.observations.map((o) => ({ label: o.label || "Observation", value: o.value }))
-          : evidenceToObs(sig.evidence);
+          // If no evidence rows, do not render this signal section (no fallback)
+          if (!rows.length) return "";
 
-        const obsRows = obs.slice(0, 24).map((o) => {
-          const v = (o.value === null) ? "null" : (typeof o.value === "undefined") ? "—" : String(o.value);
-          return `<tr><td class="k">${esc(o.label)}</td><td class="v">${esc(v)}</td></tr>`;
-        }).join("");
+          const trs = rows
+            .slice(0, 30) // keep it sane; still detailed enough
+            .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
+            .join("");
 
-        const issues = Array.isArray(sig.issues) ? sig.issues : [];
-        const issuesHtml = issues.length
-          ? "<ul class=\"issues\">" +
-              issues.slice(0, 8).map((it) => {
-                const t = it && it.title ? String(it.title) : "Issue";
-                const impact = it && (it.impact || it.description) ? String(it.impact || it.description) : "";
-                return `<li><strong>${esc(t)}</strong>${impact ? " — " + esc(impact) : ""}</li>`;
-              }).join("") +
-            "</ul>"
-          : "";
-
-        // No fallback blocks; render sections only if content exists
-        const obsSection = obsRows
-          ? `
-            <h3>Observations</h3>
-            <table class="tbl">
-              <thead><tr><th>Observation</th><th>Value</th></tr></thead>
-              <tbody>${obsRows}</tbody>
-            </table>
-          `
-          : "";
-
-        const issuesSection = issuesHtml ? `<h3>Issues</h3>${issuesHtml}` : "";
-
-        if (!obsSection && !issuesSection) return "";
-
-        return `
-          <div class="ev-sig">
-            <div class="sig-head">
-              <div class="sig-name">${esc(name)}</div>
-              <div class="sig-score">${esc(score)}</div>
+          return `
+            <div class="ev-block">
+              <h3 class="ev-title">Signal Evidence — ${esc(name)}</h3>
+              <table class="tbl">
+                <thead>
+                  <tr><th>Metric</th><th>Value</th></tr>
+                </thead>
+                <tbody>${trs}</tbody>
+              </table>
             </div>
-            ${obsSection}
-            ${issuesSection}
-          </div>
-        `;
-      }).join("");
+          `;
+        })
+        .filter(Boolean);
+
+      if (!blocks.length) return "";
+      return blocks.join("");
     })();
 
-    // ---- Clean print CSS ----
+    // ---- Print CSS (simple + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-      h1 { font-size: 20px; margin: 0 0 10px; }
-      h2 { font-size: 14px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-      h3 { font-size: 12px; margin: 14px 0 6px; }
+      h1 { font-size: 18px; margin: 0 0 10px; }
+      h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+      h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -274,21 +300,38 @@ exports.handler = async (event) => {
       .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
-      .sig, .ev-sig { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
+      .sig { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
       .sig-head { display: flex; justify-content: space-between; align-items: baseline; }
       .sig-name { font-weight: 700; font-size: 11px; }
-      .sig-score { font-weight: 700; font-size: 14px; }
+      .sig-score { font-weight: 700; font-size: 13px; }
       .sig-narr { margin: 6px 0 0; }
 
-      .tbl { width: 100%; border-collapse: collapse; margin-top: 6px; }
-      .tbl th { text-align: left; font-size: 10px; padding: 6px; border-bottom: 1px solid #ddd; }
-      .tbl td { font-size: 10px; padding: 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-      .tbl .k { width: 55%; }
-      .tbl .v { width: 45%; word-break: break-word; }
+      .ev-block { margin: 14px 0; page-break-inside: avoid; }
+      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
 
-      .issues { margin: 6px 0 0 18px; padding: 0; }
+      .tbl { width: 100%; border-collapse: collapse; }
+      .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
+      .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+      .tbl .m { width: 55%; }
+      .tbl .val { width: 45%; word-break: break-word; }
+
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
+
+    // ---- Sections: only output a section if it has content ----
+    const executiveSection = executiveNarrativeHtml
+      ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
+      : "";
+
+    const deliverySection = deliverySignalsHtml
+      ? `<h2>Delivery Signals</h2>
+         <p class="muted">Overall delivery score reflects deterministic checks only.</p>
+         ${deliverySignalsHtml}`
+      : "";
+
+    const evidenceSection = signalEvidenceHtml
+      ? `<h2>Signal Evidence</h2>${signalEvidenceHtml}`
+      : "";
 
     const html = `<!doctype html>
 <html lang="en">
@@ -305,27 +348,17 @@ exports.handler = async (event) => {
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
     </div>
     <div class="meta">
-      <div><strong>Website:</strong> ${esc(header.website || header.url || "")}</div>
-      <div><strong>Report ID:</strong> ${esc(header.report_id || header.id || reportId)}</div>
+      <div><strong>Website:</strong> ${esc(header.website || "")}</div>
+      <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
       <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
     </div>
   </div>
 
   <div class="hr"></div>
 
-  ${executiveNarrativeHtml ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}` : ""}
-
-  ${deliverySignalsHtml ? `
-    <h2>Delivery Signals</h2>
-    <p class="muted">Overall delivery score reflects deterministic checks only.</p>
-    ${deliverySignalsHtml}
-  ` : ""}
-
-  ${signalEvidenceHtml ? `
-    <h2>Signal Evidence</h2>
-    <p class="muted">Evidence below shows measurable observations captured during this scan.</p>
-    ${signalEvidenceHtml}
-  ` : ""}
+  ${executiveSection}
+  ${deliverySection}
+  ${evidenceSection}
 
   <div class="footer">
     <div>© 2025 iQWEB — All rights reserved.</div>
