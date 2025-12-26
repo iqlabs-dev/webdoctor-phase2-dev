@@ -193,7 +193,11 @@ exports.handler = async (event) => {
         const name = String(sig?.label || sig?.id || "Signal");
         const score = asInt(sig?.score, "—");
         const key = safeSignalKey(sig);
-        const lines = key ? findings?.[key]?.lines : null;
+        const lines =
+  key && findings && findings[key]
+    ? (findings[key].lines || findings[key].Lines || null)
+    : null;
+
 
         cards.push(`
           <div class="card">
