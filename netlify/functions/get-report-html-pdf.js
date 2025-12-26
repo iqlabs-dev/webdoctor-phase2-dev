@@ -77,7 +77,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // ✅ NORMALISE ROOT FOR DETERMINISTIC DATA
+    // Deterministic data often lives in json.raw (but findings/narrative can be outside it)
     const root = (json && json.raw && typeof json.raw === "object") ? json.raw : json;
 
     // ---- Helpers ----
@@ -124,7 +124,7 @@ exports.handler = async (event) => {
       });
     }
 
-    // Map signal -> canonical key
+    // Map signal -> canonical key used by findings/narrative
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -136,7 +136,6 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -158,63 +157,73 @@ exports.handler = async (event) => {
     const deliverySignalsRaw = Array.isArray(root.delivery_signals) ? root.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // Narrative can be outside raw (VERY IMPORTANT)
-    const narrativeObj =
-      (json && json.narrative && typeof json.narrative === "object") ? json.narrative :
-      (root && root.narrative && typeof root.narrative === "object") ? root.narrative :
-      null;
-
+    // IMPORTANT: narratives live here in your screenshot
     const findingsObj =
       (json && json.findings && typeof json.findings === "object") ? json.findings :
       (root && root.findings && typeof root.findings === "object") ? root.findings :
       null;
 
-    // Executive narrative
+    const narrativeObj =
+      (json && json.narrative && typeof json.narrative === "object") ? json.narrative :
+      (root && root.narrative && typeof root.narrative === "object") ? root.narrative :
+      null;
+
+    // ---- Executive Narrative ----
     const executiveNarrativeHtml = (() => {
       const lines =
-        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines)
-          ? lineify(narrativeObj.overall.lines)
-          : (findingsObj && findingsObj.executive && findingsObj.executive.lines)
-            ? lineify(findingsObj.executive.lines)
+        (findingsObj && findingsObj.executive && findingsObj.executive.lines)
+          ? lineify(findingsObj.executive.lines)
+          : (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines)
+            ? lineify(narrativeObj.overall.lines)
             : [];
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ✅ Robust signal narrative resolver (handles multiple JSON shapes)
-    function getSignalNarrLines(key) {
-      if (!key) return [];
+    // ---- Signal Narrative resolver (robust) ----
+    function getSignalNarrLinesForCandidates(candidates) {
+      const tryKeys = (Array.isArray(candidates) ? candidates : [])
+        .filter(Boolean)
+        .map((k) => String(k).toLowerCase());
 
-      // common alternates (if ever used)
-      const altKeys = key === "security" ? ["security_trust", "trust"] : [];
-
-      const tryKeys = [key, ...altKeys];
-
+      // add a couple aliases that sometimes appear
+      const expanded = [];
       for (const k of tryKeys) {
-        // findings.signals[k].lines
-        if (findingsObj && findingsObj.signals && findingsObj.signals[k] && findingsObj.signals[k].lines) {
+        expanded.push(k);
+        if (k === "security") expanded.push("security_trust", "trust");
+        if (k === "mobile") expanded.push("mobile_experience");
+        if (k === "structure") expanded.push("structure_semantics");
+        if (k === "seo") expanded.push("seo_foundations");
+      }
+
+      // Try findings FIRST (this is where yours live)
+      for (const k of expanded) {
+        if (findingsObj?.signals?.[k]?.lines) {
           const out = lineify(findingsObj.signals[k].lines);
           if (out.length) return out;
         }
-        // findings[k].lines
-        if (findingsObj && findingsObj[k] && findingsObj[k].lines) {
+        if (findingsObj?.[k]?.lines) {
           const out = lineify(findingsObj[k].lines);
           if (out.length) return out;
         }
-        // narrative.signals[k].lines
-        if (narrativeObj && narrativeObj.signals && narrativeObj.signals[k] && narrativeObj.signals[k].lines) {
+      }
+
+      // Try narrative as a fallback
+      for (const k of expanded) {
+        if (narrativeObj?.signals?.[k]?.lines) {
           const out = lineify(narrativeObj.signals[k].lines);
           if (out.length) return out;
         }
-        // narrative[k].lines
-        if (narrativeObj && narrativeObj[k] && narrativeObj[k].lines) {
+        if (narrativeObj?.[k]?.lines) {
           const out = lineify(narrativeObj[k].lines);
           if (out.length) return out;
         }
       }
+
       return [];
     }
 
+    // ---- Delivery Signals (scores + narrative) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
@@ -236,9 +245,11 @@ exports.handler = async (event) => {
         .map((sig) => {
           const name = String(sig.label || sig.id || "Signal");
           const score = asInt(sig.score, "—");
-          const key = safeSignalKey(sig);
 
-          const lines = getSignalNarrLines(key);
+          const canonical = safeSignalKey(sig);
+          const idKey = sig && sig.id ? String(sig.id).toLowerCase() : null;
+
+          const lines = getSignalNarrLinesForCandidates([canonical, idKey]);
           const narr = lines.length
             ? lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("")
             : "";
@@ -258,10 +269,10 @@ exports.handler = async (event) => {
       return overallBlock + blocks;
     })();
 
-    // Evidence will be added LAST in the next step (as requested)
+    // Evidence will be added LAST in the next step (as you requested)
     const signalEvidenceHtml = "";
 
-    // ---- Print CSS ----
+    // ---- CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
