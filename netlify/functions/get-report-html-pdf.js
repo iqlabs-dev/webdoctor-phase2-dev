@@ -1,9 +1,13 @@
 // netlify/functions/get-report-html-pdf.js
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
+// IMPORTANT:
+// - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
+// - This file only *renders* the existing JSON into print-friendly HTML.
 // Data source:
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
 exports.handler = async (event) => {
+  // Preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -44,6 +48,7 @@ exports.handler = async (event) => {
       };
     }
 
+    // ---- Fetch JSON (server-side) ----
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const dataUrl =
       siteUrl +
@@ -72,26 +77,35 @@ exports.handler = async (event) => {
       };
     }
 
-    // ✅ IMPORTANT: your payload often nests the real report data under `raw`
-    const base = json && typeof json === "object" && json.raw && typeof json.raw === "object" ? json.raw : json;
-
-    const safeObj = (v) => (v && typeof v === "object" ? v : {});
-    const header = safeObj(base.header);
-    const scores = safeObj(base.scores);
-
-    // Narrative parity: prefer `json.findings` (your OSD uses this)
-    const findings = safeObj(json.findings && typeof json.findings === "object" ? json.findings : base.findings);
-
-    // delivery_signals live under base.delivery_signals (because base=json.raw)
-    const deliverySignalsRaw = Array.isArray(base.delivery_signals) ? base.delivery_signals : [];
+    // ---- Helpers ----
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+        timeZoneName: "short",
+      });
+    }
 
     function esc(s) {
       return String(s == null ? "" : s)
-        .split("&").join("&amp;")
-        .split("<").join("&lt;")
-        .split(">").join("&gt;")
-        .split('"').join("&quot;")
-        .split("'").join("&#039;");
+        .split("&")
+        .join("&amp;")
+        .split("<")
+        .join("&lt;")
+        .split(">")
+        .join("&gt;")
+        .split('"')
+        .join("&quot;")
+        .split("'")
+        .join("&#039;");
     }
 
     function asInt(v, fallback = "—") {
@@ -121,33 +135,82 @@ exports.handler = async (event) => {
         .join("")}</div>`;
     }
 
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "UTC",
-        timeZoneName: "short",
-      });
+    function prettifyKey(k) {
+      k = String(k || "").split("_").join(" ");
+      return k.replace(/\b\w/g, (m) => m.toUpperCase());
     }
 
+    function isEmptyValue(v) {
+      if (v === null || typeof v === "undefined") return true;
+      if (typeof v === "string" && v.trim() === "") return true;
+      if (typeof v === "object") {
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
+      }
+      return false;
+    }
+
+    function formatValue(v) {
+      if (v === null) return "";
+      if (typeof v === "undefined") return "";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "true" : "false";
+      if (typeof v === "string") return v.trim();
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    }
+
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
+    function buildEvidenceRows(sig) {
+      if (Array.isArray(sig?.observations) && sig.observations.length) {
+        const rows = sig.observations
+          .map((o) => ({
+            k: String(o?.label || "").trim(),
+            v: formatValue(o?.value),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
+      if (ev && !Array.isArray(ev)) {
+        const keys = Object.keys(ev);
+        keys.sort((a, b) => String(a).localeCompare(String(b)));
+        const rows = keys
+          .map((k) => ({
+            k: prettifyKey(k),
+            v: formatValue(ev[k]),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      return [];
+    }
+
+    // ✅ FINAL mapping: signal -> findings key (robust for both id + label)
     function safeSignalKey(sig) {
-      const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.includes("perf")) return "performance";
-      if (id.includes("mobile")) return "mobile";
-      if (id.includes("seo")) return "seo";
-      if (id.includes("sec") || id.includes("trust")) return "security";
-      if (id.includes("struct") || id.includes("semantic")) return "structure";
-      if (id.includes("access")) return "accessibility";
+      const id = String(sig?.id || "").toLowerCase();
+      const label = String(sig?.label || "").toLowerCase();
+
+      if (id === "performance" || label.includes("performance")) return "performance";
+      if (id === "mobile" || label.includes("mobile")) return "mobile";
+      if (id === "seo" || label.includes("seo")) return "seo";
+      if (id === "security" || label.includes("security")) return "security";
+      if (id === "structure" || label.includes("structure")) return "structure";
+      if (id === "accessibility" || label.includes("accessibility")) return "accessibility";
+
+      // legacy wording fallback (just in case)
+      if (label.includes("trust")) return "security";
+      if (label.includes("semantics")) return "structure";
+
       return null;
     }
 
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -162,23 +225,41 @@ exports.handler = async (event) => {
       return arr;
     }
 
+    const header = json && json.header ? json.header : {};
+    const scores = json && json.scores ? json.scores : {};
+    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // ---- Executive Narrative ----
-    const execLines = findings?.executive?.lines || null;
+    // Narrative parity comes from `findings`
+    const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
+    const narrativeObj = json && json.narrative ? json.narrative : null; // legacy fallback only
+
+    // ---- Executive Narrative (prefer findings.executive.lines) ----
+    const execLines =
+      (findings && findings.executive && findings.executive.lines) ||
+      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+      null;
+
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals (overall + 6 signals) ----
+    // ---- Delivery Signals: scores + narrative (from findings.<key>.lines) ----
     const deliverySignalsHtml = (() => {
-      const cards = [];
+      if (!deliverySignals.length) return "";
 
       const overallScore = asInt(scores.overall, "—");
-      const overallLines = findings?.overall?.lines || findings?.executive?.lines || null;
 
+      const overallLines =
+        (findings && findings.overall && findings.overall.lines) ||
+        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+        null;
+
+      const cards = [];
+
+      // Overall delivery score first (+ narrative)
       cards.push(`
         <div class="card">
           <div class="card-row">
@@ -189,15 +270,12 @@ exports.handler = async (event) => {
         </div>
       `);
 
+      // Then each signal (+ narrative)
       deliverySignals.forEach((sig) => {
-        const name = String(sig?.label || sig?.id || "Signal");
-        const score = asInt(sig?.score, "—");
+        const name = String(sig.label || sig.id || "Signal");
+        const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-        const lines =
-  key && findings && findings[key]
-    ? (findings[key].lines || findings[key].Lines || null)
-    : null;
-
+        const lines = key && findings && findings[key] ? findings[key].lines : null;
 
         cards.push(`
           <div class="card">
@@ -213,13 +291,13 @@ exports.handler = async (event) => {
       return cards.join("");
     })();
 
+    // ---- Print CSS (simple + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
       h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-      li { font-size: 10.5px; line-height: 1.35; margin: 4px 0; }
+      p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
@@ -238,6 +316,7 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
+    // ---- Sections ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
