@@ -1,8 +1,8 @@
 // netlify/functions/get-report-html-pdf.js
-// PDF HTML renderer (NO JS). DocRaptr prints this HTML directly.
+// PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
 // IMPORTANT:
 // - DO NOT change get-report-data-pdf.js (keep it a pure proxy)
-// - This file only *renders* the existing JSON into print-friendly HTML.
+// - This file only renders the existing JSON into print-friendly HTML.
 // Data source:
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
@@ -125,7 +125,9 @@ exports.handler = async (event) => {
     function renderLines(lines, max = 3) {
       const arr = lineify(lines).slice(0, max);
       if (!arr.length) return "";
-      return `<div class="sig-lines">${arr.map((ln) => `<div class="sig-line">${esc(ln)}</div>`).join("")}</div>`;
+      return `<div class="sig-lines">${arr
+        .map((ln) => `<div class="sig-line">${esc(ln)}</div>`)
+        .join("")}</div>`;
     }
 
     function prettifyKey(k) {
@@ -184,7 +186,7 @@ exports.handler = async (event) => {
       return [];
     }
 
-    // Map signal -> key
+    // Map signal -> key used in findings
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -216,14 +218,14 @@ exports.handler = async (event) => {
     const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // IMPORTANT: Narrative for PDF/OSD parity comes from `findings` (not `narrative.signals`)
+    // ✅ Parity: narrative comes from findings.<key>.lines (your JSON proves this)
     const findings = json && json.findings && typeof json.findings === "object" ? json.findings : {};
-    const narrativeObj = json && json.narrative ? json.narrative : null; // legacy fallback
+    const legacyNarrative = json && json.narrative ? json.narrative : null; // fallback only
 
-    // ---- Executive Narrative (prefer findings.executive.lines) ----
+    // ---- Executive Narrative ----
     const execLines =
       (findings && findings.executive && findings.executive.lines) ||
-      (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+      (legacyNarrative && legacyNarrative.overall && legacyNarrative.overall.lines) ||
       null;
 
     const executiveNarrativeHtml = (() => {
@@ -232,36 +234,40 @@ exports.handler = async (event) => {
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Delivery Signals: scores + narrative (from findings.<key>.lines) ----
+    // ---- Delivery Signals (scores + narrative) ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
       const overallScore = asInt(scores.overall, "—");
-
       const overallLines =
         (findings && findings.overall && findings.overall.lines) ||
-        (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines) ||
+        (legacyNarrative && legacyNarrative.overall && legacyNarrative.overall.lines) ||
         null;
 
       const cards = [];
 
-      // Overall delivery score first (+ narrative)
+      // Overall Delivery first
       cards.push(`
         <div class="card">
           <div class="card-row">
             <div class="card-title">Overall Delivery Score</div>
             <div class="card-score">${esc(overallScore)}</div>
           </div>
+          <div class="card-sub muted">Overall delivery score reflects deterministic checks only.</div>
           ${renderLines(overallLines, 3)}
         </div>
       `);
 
-      // Then each signal (+ narrative)
+      // Each signal
       deliverySignals.forEach((sig) => {
         const name = String(sig.label || sig.id || "Signal");
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-        const lines = key && findings && findings[key] ? findings[key].lines : null;
+
+        // ✅ pull narrative from findings.<key>.lines
+        const lines =
+          (key && findings && findings[key] && findings[key].lines) ||
+          null;
 
         cards.push(`
           <div class="card">
@@ -277,7 +283,7 @@ exports.handler = async (event) => {
       return cards.join("");
     })();
 
-    // ---- Signal Evidence (last block) ----
+    // ---- Signal Evidence (last section) ----
     const signalEvidenceHtml = (() => {
       if (!deliverySignals.length) return "";
 
@@ -310,12 +316,11 @@ exports.handler = async (event) => {
       return blocks.join("");
     })();
 
-    // ---- Print CSS (simple + clinical) ----
+    // ---- Print CSS ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-      h1 { font-size: 18px; margin: 0 0 10px; }
       h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
       h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
@@ -330,6 +335,7 @@ exports.handler = async (event) => {
       .card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
       .card-title { font-weight: 700; font-size: 11px; }
       .card-score { font-weight: 700; font-size: 13px; }
+      .card-sub { font-size: 10px; margin-top: 4px; }
 
       .sig-lines { margin-top: 6px; }
       .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
@@ -346,14 +352,13 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections: output only if it has content ----
+    // ---- Sections ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
 
     const deliverySection = deliverySignalsHtml
-      ? `<h2>Delivery Signals</h2>
-         <div class="cards">${deliverySignalsHtml}</div>`
+      ? `<h2>Delivery Signals</h2><div class="cards">${deliverySignalsHtml}</div>`
       : "";
 
     const evidenceSection = signalEvidenceHtml
