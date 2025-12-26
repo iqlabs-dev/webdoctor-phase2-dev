@@ -107,18 +107,19 @@ exports.handler = async (event) => {
     }
 
     // Map signal -> canonical key used by narrative.signals
-    function safeSignalKey(sig) {
+function safeSignalKey(sig) {
   const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
 
-  if (id.includes("performance")) return "performance";
-  if (id.includes("mobile")) return "mobile";
-  if (id.includes("seo")) return "seo";
-  if (id.includes("security") || id.includes("trust")) return "security";
-  if (id.includes("structure") || id.includes("semantic")) return "structure";
-  if (id.includes("access")) return "accessibility";
+  if (id.includes("performance")) return "performance_metrics";
+  if (id.includes("mobile")) return "mobile_experience";
+  if (id.includes("seo")) return "seo_foundations";
+  if (id.includes("security") || id.includes("trust")) return "security_and_trust";
+  if (id.includes("structure") || id.includes("semantic")) return "structure_semantics";
+  if (id.includes("access")) return "accessibility_checks";
 
   return null;
 }
+
 
 
     const header = (json && json.header) ? json.header : {};
