@@ -77,10 +77,23 @@ exports.handler = async (event) => {
       };
     }
 
-    // Deterministic data often lives in json.raw (but findings/narrative can be outside it)
-    const root = (json && json.raw && typeof json.raw === "object") ? json.raw : json;
-
     // ---- Helpers ----
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+        timeZoneName: "short",
+      });
+    }
+
     function esc(s) {
       return String(s == null ? "" : s)
         .split("&").join("&amp;")
@@ -109,22 +122,63 @@ exports.handler = async (event) => {
       return [];
     }
 
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "UTC",
-      });
+    function prettifyKey(k) {
+      k = String(k || "").split("_").join(" ");
+      return k.replace(/\b\w/g, (m) => m.toUpperCase());
     }
 
-    // Map signal -> canonical key used by findings/narrative
+    function isEmptyValue(v) {
+      if (v === null || typeof v === "undefined") return true;
+      if (typeof v === "string" && v.trim() === "") return true;
+      if (typeof v === "object") {
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
+      }
+      return false;
+    }
+
+    function formatValue(v) {
+      if (v === null) return "";
+      if (typeof v === "undefined") return "";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "true" : "false";
+      if (typeof v === "string") return v.trim();
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    }
+
+    // Prefer sig.observations (already label/value). Otherwise use sig.evidence object.
+    function buildEvidenceRows(sig) {
+      if (Array.isArray(sig?.observations) && sig.observations.length) {
+        const rows = sig.observations
+          .map((o) => ({
+            k: String(o?.label || "").trim(),
+            v: formatValue(o?.value),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
+      if (ev && !Array.isArray(ev)) {
+        const keys = Object.keys(ev);
+        keys.sort((a, b) => String(a).localeCompare(String(b)));
+        const rows = keys
+          .map((k) => ({
+            k: prettifyKey(k),
+            v: formatValue(ev[k]),
+          }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+        return rows;
+      }
+
+      return [];
+    }
+
+    // Map signal -> narrative key (matches your narrative signal set)
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -136,6 +190,7 @@ exports.handler = async (event) => {
       return null;
     }
 
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -150,159 +205,197 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data extraction ----
-    const header = root && root.header ? root.header : {};
-    const scores = root && root.scores ? root.scores : {};
-
-    const deliverySignalsRaw = Array.isArray(root.delivery_signals) ? root.delivery_signals : [];
+    const header = json && json.header ? json.header : {};
+    const scores = json && json.scores ? json.scores : {};
+    const deliverySignalsRaw = Array.isArray(json.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
-
-    // IMPORTANT: narratives live here in your screenshot
-    const findingsObj =
-      (json && json.findings && typeof json.findings === "object") ? json.findings :
-      (root && root.findings && typeof root.findings === "object") ? root.findings :
-      null;
-
-    const narrativeObj =
-      (json && json.narrative && typeof json.narrative === "object") ? json.narrative :
-      (root && root.narrative && typeof root.narrative === "object") ? root.narrative :
-      null;
+    const narrativeObj = json && json.narrative ? json.narrative : null;
 
     // ---- Executive Narrative ----
+    const execLines =
+      narrativeObj && narrativeObj.overall && narrativeObj.overall.lines
+        ? narrativeObj.overall.lines
+        : null;
+
     const executiveNarrativeHtml = (() => {
-      const lines =
-        (findingsObj && findingsObj.executive && findingsObj.executive.lines)
-          ? lineify(findingsObj.executive.lines)
-          : (narrativeObj && narrativeObj.overall && narrativeObj.overall.lines)
-            ? lineify(narrativeObj.overall.lines)
-            : [];
+      const lines = lineify(execLines);
       if (!lines.length) return "";
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
     })();
 
-    // ---- Signal Narrative resolver (robust) ----
-    function getSignalNarrLinesForCandidates(candidates) {
-      const tryKeys = (Array.isArray(candidates) ? candidates : [])
-        .filter(Boolean)
-        .map((k) => String(k).toLowerCase());
-
-      // add a couple aliases that sometimes appear
-      const expanded = [];
-      for (const k of tryKeys) {
-        expanded.push(k);
-        if (k === "security") expanded.push("security_trust", "trust");
-        if (k === "mobile") expanded.push("mobile_experience");
-        if (k === "structure") expanded.push("structure_semantics");
-        if (k === "seo") expanded.push("seo_foundations");
-      }
-
-      // Try findings FIRST (this is where yours live)
-      for (const k of expanded) {
-        if (findingsObj?.signals?.[k]?.lines) {
-          const out = lineify(findingsObj.signals[k].lines);
-          if (out.length) return out;
-        }
-        if (findingsObj?.[k]?.lines) {
-          const out = lineify(findingsObj[k].lines);
-          if (out.length) return out;
-        }
-      }
-
-      // Try narrative as a fallback
-      for (const k of expanded) {
-        if (narrativeObj?.signals?.[k]?.lines) {
-          const out = lineify(narrativeObj.signals[k].lines);
-          if (out.length) return out;
-        }
-        if (narrativeObj?.[k]?.lines) {
-          const out = lineify(narrativeObj[k].lines);
-          if (out.length) return out;
-        }
-      }
-
-      return [];
-    }
-
-    // ---- Delivery Signals (scores + narrative) ----
+    // ---- Delivery Signals: scores + (optional) narrative lines ----
     const deliverySignalsHtml = (() => {
       if (!deliverySignals.length) return "";
 
-      const overallScore = asInt(scores.overall ?? root.overall, "—");
+      const narrSignals =
+        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
+          ? narrativeObj.signals
+          : {};
 
-      const overallBlock = `
-        <div class="sig overall">
-          <div class="sig-head">
-            <div class="sig-name">Overall Delivery Score</div>
-            <div class="sig-score">${esc(overallScore)}</div>
+      const overallScore = asInt(scores.overall, "—");
+
+      const renderOne = (sig, idx) => {
+        const name = String(sig.label || sig.id || "Signal");
+        const score = asInt(sig.score, "—");
+
+        const key = safeSignalKey(sig);
+        const pack = key && narrSignals && narrSignals[key] ? narrSignals[key] : null;
+        const lines = lineify(pack && pack.lines ? pack.lines : null);
+
+        const narr =
+          lines.length
+            ? `<div class="sig-lines">${lines.slice(0, 3).map((ln) => `<div class="sig-line">${esc(ln)}</div>`).join("")}</div>`
+            : "";
+
+        return `
+          <div class="card">
+            <div class="card-row">
+              <div class="card-title">${esc(name)}</div>
+              <div class="card-score">${esc(score)}</div>
+            </div>
+            ${narr}
           </div>
-          <div class="muted" style="margin-top:6px;font-size:10px;">
-            Overall delivery score reflects deterministic checks only.
+        `;
+      };
+
+      const cards = [];
+
+      // Overall delivery score first
+      cards.push(`
+        <div class="card">
+          <div class="card-row">
+            <div class="card-title">Overall Delivery Score</div>
+            <div class="card-score">${esc(overallScore)}</div>
           </div>
+          <div class="card-sub muted">Overall delivery score reflects deterministic checks only.</div>
+        </div>
+      `);
+
+      // Then each signal
+      deliverySignals.forEach((sig, i) => cards.push(renderOne(sig, i)));
+
+      return cards.join("");
+    })();
+
+    // ---- Debug box (FOR NOW) ----
+    const debugBoxHtml = (() => {
+      const narrSignals =
+        narrativeObj && narrativeObj.signals && typeof narrativeObj.signals === "object"
+          ? narrativeObj.signals
+          : null;
+
+      const narrKeys = narrSignals ? Object.keys(narrSignals) : [];
+      narrKeys.sort();
+
+      const rows = deliverySignals.map((sig) => {
+        const label = String(sig.label || sig.id || "");
+        const key = safeSignalKey(sig);
+        const pack = key && narrSignals && narrSignals[key] ? narrSignals[key] : null;
+        const lines = lineify(pack && pack.lines ? pack.lines : null);
+        return `<tr>
+          <td>${esc(label)}</td>
+          <td>${esc(String(key || "NULL"))}</td>
+          <td>${esc(String(lines.length))}</td>
+          <td>${esc(lines.slice(0, 1).join(" ").slice(0, 80))}</td>
+        </tr>`;
+      }).join("");
+
+      return `
+        <div class="debug">
+          <div class="debug-title">DEBUG (temporary)</div>
+          <div class="debug-sub">narrative.signals keys: ${esc(narrKeys.join(", ")) || "(none)"}</div>
+          <table class="debug-tbl">
+            <thead><tr><th>Signal</th><th>Mapped Key</th><th>Lines</th><th>First line</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
         </div>
       `;
+    })();
+
+    // ---- Signal Evidence (last block) ----
+    const signalEvidenceHtml = (() => {
+      if (!deliverySignals.length) return "";
 
       const blocks = deliverySignals
         .map((sig) => {
-          const name = String(sig.label || sig.id || "Signal");
-          const score = asInt(sig.score, "—");
+          const name = String(sig.label || sig.id || "Signal").trim();
+          const rows = buildEvidenceRows(sig);
+          if (!rows.length) return "";
 
-          const canonical = safeSignalKey(sig);
-          const idKey = sig && sig.id ? String(sig.id).toLowerCase() : null;
-
-          const lines = getSignalNarrLinesForCandidates([canonical, idKey]);
-          const narr = lines.length
-            ? lines.slice(0, 3).map((ln) => `<p class="sig-narr">${esc(ln)}</p>`).join("")
-            : "";
+          const trs = rows
+            .slice(0, 30)
+            .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
+            .join("");
 
           return `
-            <div class="sig">
-              <div class="sig-head">
-                <div class="sig-name">${esc(name)}</div>
-                <div class="sig-score">${esc(score)}</div>
-              </div>
-              ${narr}
+            <div class="ev-block">
+              <h3 class="ev-title">Signal Evidence — ${esc(name)}</h3>
+              <table class="tbl">
+                <thead>
+                  <tr><th>Metric</th><th>Value</th></tr>
+                </thead>
+                <tbody>${trs}</tbody>
+              </table>
             </div>
           `;
         })
-        .join("");
+        .filter(Boolean);
 
-      return overallBlock + blocks;
+      if (!blocks.length) return "";
+      return blocks.join("");
     })();
 
-    // Evidence will be added LAST in the next step (as you requested)
-    const signalEvidenceHtml = "";
-
-    // ---- CSS ----
+    // ---- Print CSS (simple + clinical) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+      h1 { font-size: 18px; margin: 0 0 10px; }
       h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+      h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
-
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
       .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
-      .sig { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
-      .sig.overall { border-color: #d9d9d9; }
-      .sig-head { display: flex; justify-content: space-between; align-items: baseline; }
-      .sig-name { font-weight: 700; font-size: 11px; }
-      .sig-score { font-weight: 700; font-size: 13px; }
-      .sig-narr { margin: 6px 0 0; }
+      .cards { margin-top: 8px; }
+      .card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
+      .card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+      .card-title { font-weight: 700; font-size: 11px; }
+      .card-score { font-weight: 700; font-size: 13px; }
+      .card-sub { font-size: 10px; margin-top: 4px; }
+      .sig-lines { margin-top: 6px; }
+      .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
+
+      .debug { border: 2px dashed #999; padding: 10px; margin: 12px 0; }
+      .debug-title { font-weight: 700; font-size: 11px; margin-bottom: 6px; }
+      .debug-sub { font-size: 10px; color: #333; margin-bottom: 8px; }
+      .debug-tbl { width: 100%; border-collapse: collapse; }
+      .debug-tbl th, .debug-tbl td { font-size: 9px; border-bottom: 1px solid #ddd; padding: 5px 6px; text-align: left; vertical-align: top; }
+
+      .ev-block { margin: 14px 0; page-break-inside: avoid; }
+      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
+
+      .tbl { width: 100%; border-collapse: collapse; }
+      .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
+      .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+      .tbl .m { width: 55%; }
+      .tbl .val { width: 45%; word-break: break-word; }
 
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- Sections ----
+    // ---- Sections: output only if it has content ----
     const executiveSection = executiveNarrativeHtml
       ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
       : "";
 
     const deliverySection = deliverySignalsHtml
-      ? `<h2>Delivery Signals</h2>${deliverySignalsHtml}`
+      ? `<h2>Delivery Signals</h2>
+         <div class="cards">${deliverySignalsHtml}</div>
+         ${debugBoxHtml}`
       : "";
 
     const evidenceSection = signalEvidenceHtml
@@ -322,7 +415,7 @@ exports.handler = async (event) => {
     <div>
       <div class="brand">iQWEB</div>
       <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
-      ${header.website ? `<div style="font-size:10px;margin-top:6px;"><strong>Website:</strong> ${esc(header.website)}</div>` : ""}
+      <div class="muted" style="font-size:10px; margin-top:4px;"><strong>Website:</strong> ${esc(header.website || "")}</div>
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
