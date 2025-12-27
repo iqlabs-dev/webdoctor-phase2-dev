@@ -164,7 +164,7 @@ exports.handler = async (event) => {
       return [];
     }
 
-    // Map signal label/id -> canonical key
+    // Canonical signal key (used only for ordering + mapping)
     function safeSignalKey(sig) {
       const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
       if (id.includes("perf")) return "performance";
@@ -222,6 +222,44 @@ exports.handler = async (event) => {
     const deliverySignalsRaw = Array.isArray(json?.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
+    // ✅ IMPORTANT: resolve the correct findings lines for each signal, with fallbacks
+    function getFindingLinesForSignalKey(key) {
+      if (!key) return null;
+
+      // Try direct
+      const direct = findings?.[key]?.lines;
+      if (direct && lineify(direct).length) return direct;
+
+      // Try common alternate key names used in your JSON
+      const altMap = {
+        performance: ["performance"],
+        mobile: ["mobile", "mobile_experience", "mobileExperience"],
+        seo: ["seo", "seo_foundations", "seoFoundations"],
+        security: ["security", "security_trust", "securityTrust"],
+        structure: ["structure", "structure_semantics", "structureSemantics"],
+        accessibility: ["accessibility"],
+      };
+
+      const alts = altMap[key] || [];
+      for (const k of alts) {
+        const v = findings?.[k]?.lines;
+        if (v && lineify(v).length) return v;
+      }
+
+      // Last resort: if your API ever returns narrative per signal in a different object
+      // (won't harm if missing)
+      const v2 =
+        narrativeObj?.[key]?.lines ||
+        narrativeObj?.[`${key}_foundations`]?.lines ||
+        narrativeObj?.[`${key}_trust`]?.lines ||
+        narrativeObj?.[`${key}_semantics`]?.lines ||
+        null;
+
+      if (v2 && lineify(v2).length) return v2;
+
+      return null;
+    }
+
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
@@ -257,9 +295,9 @@ exports.handler = async (event) => {
         for (const sig of deliverySignals) {
           const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
           const score = asInt(sig.score, "—");
-          const key = safeSignalKey(sig);
 
-          const lines = (key && findings?.[key]?.lines) || null;
+          const key = safeSignalKey(sig);
+          const lines = getFindingLinesForSignalKey(key);
 
           cards.push(`
             <div class="card">
@@ -276,22 +314,23 @@ exports.handler = async (event) => {
 
       // Fallback: no delivery_signals -> render from scores only
       const fallback = [
-        { title: "Performance", score: scores.performance },
-        { title: "Mobile Experience", score: scores.mobile },
-        { title: "SEO Foundations", score: scores.seo },
-        { title: "Security & Trust", score: scores.security },
-        { title: "Structure & Semantics", score: scores.structure },
-        { title: "Accessibility", score: scores.accessibility },
+        { title: "Performance", score: scores.performance, key: "performance" },
+        { title: "Mobile Experience", score: scores.mobile, key: "mobile" },
+        { title: "SEO Foundations", score: scores.seo, key: "seo" },
+        { title: "Security & Trust", score: scores.security, key: "security" },
+        { title: "Structure & Semantics", score: scores.structure, key: "structure" },
+        { title: "Accessibility", score: scores.accessibility, key: "accessibility" },
       ];
 
       for (const s of fallback) {
+        const lines = getFindingLinesForSignalKey(s.key);
         cards.push(`
           <div class="card">
             <div class="card-row">
               <div class="card-title">${esc(s.title)}</div>
               <div class="card-score">${esc(asInt(s.score, "—"))}</div>
             </div>
-            <div class="muted">No per-signal narrative available (missing findings).</div>
+            ${renderLines(lines, 3)}
           </div>
         `);
       }
@@ -426,7 +465,7 @@ exports.handler = async (event) => {
     `;
 
     // ---- FINAL HTML ----
-    // NOTE: "Key Metric Scores" section removed entirely.
+    // ✅ Key Metric Scores section intentionally removed.
     const html = `<!doctype html>
 <html lang="en">
 <head>
