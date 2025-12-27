@@ -472,26 +472,65 @@ actionBtn.onclick = async () => {
   actionBtn.textContent = "Preparing…";
 
   try {
-    // ✅ POST because generate-report-pdf is POST-only
+    // ✅ get Supabase access token (required by many Netlify functions)
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token || null;
+    if (!accessToken) throw new Error("Session expired. Please log in again.");
+
     const res = await fetch("/.netlify/functions/generate-report-pdf", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({ report_id: row.report_id }),
     });
 
-    const data = await res.json().catch(() => ({}));
+    // Try JSON first
+    const text = await res.text().catch(() => "");
+    let data = {};
+    try { data = JSON.parse(text || "{}"); } catch { /* ignore */ }
 
-    if (!res.ok || !data?.success || !data?.url) {
-      console.error("PDF gen error:", res.status, data);
-      alert(data?.error || data?.message || "Unable to generate PDF. Please try again.");
+    // ✅ If your function returns a URL (DocRaptor/Storage), open it
+    const url =
+      data?.url ||
+      data?.pdf_url ||
+      data?.download_url ||
+      data?.data?.url ||
+      null;
+
+    if (!res.ok || data?.success === false) {
+      console.error("[PDF] generate-report-pdf failed:", res.status, data || text);
+      alert(data?.error || data?.message || `Unable to generate PDF (${res.status}).`);
       return;
     }
 
-    // ✅ open the returned hosted PDF url (DocRaptor / your stored file)
-    window.open(data.url, "_blank", "noopener");
+    if (url) {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+
+    // ✅ If the function streams a PDF (not JSON), download it as a blob
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/pdf")) {
+      const blob = new Blob([text], { type: "application/pdf" }); // text is raw; works if function responded as binary? (usually not)
+      // NOTE: if your function streams PDF, switch to res.blob() version below
+      console.warn("[PDF] Server returned PDF content-type but response parsed as text. If download looks corrupted, tell me and I’ll swap to blob fetch.");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${row.report_id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
+
+    // If we reach here: function didn’t return a URL and wasn’t a PDF stream
+    console.error("[PDF] No url returned. Raw response:", text);
+    alert("PDF generated but no download link was returned. Check function response shape.");
   } catch (e) {
-    console.error("PDF gen failed:", e);
-    alert("PDF generation failed. Please try again.");
+    console.error("[PDF] error:", e);
+    alert("Unable to generate PDF. Please try again.");
   } finally {
     actionBtn.disabled = false;
     actionBtn.textContent = oldLabel;
@@ -500,8 +539,8 @@ actionBtn.onclick = async () => {
 
 tdActions.appendChild(actionBtn);
 tr.appendChild(tdActions);
-
 tbody.appendChild(tr);
+
 
     }
 
