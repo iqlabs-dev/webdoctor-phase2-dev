@@ -212,54 +212,49 @@ exports.handler = async (event) => {
       }
     }
 
+    // Pull per-signal narrative robustly (this fixes your “No narrative…” problem)
+    function getSignalNarrativeLines(sig, key, findings, narrativeObj) {
+      // 1) Most common: narrative embedded on the signal itself (OSD often uses this)
+      const fromSig =
+        sig?.narrative?.lines ||
+        sig?.summary?.lines ||
+        sig?.findings?.lines ||
+        sig?.narrative ||
+        sig?.summary ||
+        sig?.findings;
+
+      const arr1 = lineify(fromSig);
+      if (arr1.length) return arr1;
+
+      // 2) Some payloads store narrative under narrative.signals[key].lines
+      const fromNarrObj = narrativeObj?.signals?.[key]?.lines || narrativeObj?.[key]?.lines || null;
+      const arr2 = lineify(fromNarrObj);
+      if (arr2.length) return arr2;
+
+      // 3) Your current deterministic path: findings[key].lines
+      const fromFindings = findings?.[key]?.lines || findings?.[key] || null;
+      const arr3 = lineify(fromFindings);
+      if (arr3.length) return arr3;
+
+      return [];
+    }
+
     // ---- Data extraction ----
     const header = json?.header || {};
     const scores = json?.scores || {};
-
     const findings = (json?.findings && typeof json.findings === "object") ? json.findings : {};
-    const narrativeObj = (json?.narrative && typeof json.narrative === "object") ? json.narrative : {};
+    const narrativeObj = json?.narrative || {};
 
     const deliverySignalsRaw = Array.isArray(json?.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
-
-    // Robust lookup for per-signal narrative lines (supports multiple key styles)
-    function findLinesForKey(key) {
-      const candidates = [
-        // findings forms
-        () => findings?.[key]?.lines,
-        () => findings?.[key]?.summary?.lines,
-        () => findings?.[key + "_foundations"]?.lines,
-        () => findings?.[key + "_trust"]?.lines,
-        () => findings?.[key + "_semantics"]?.lines,
-        () => findings?.[key + "_experience"]?.lines,
-
-        // narrative forms
-        () => narrativeObj?.[key]?.lines,
-        () => narrativeObj?.[key]?.summary?.lines,
-        () => narrativeObj?.sections?.[key]?.lines,
-
-        // common alternates used in naming
-        () => (key === "seo" ? (findings?.seo_foundations?.lines || narrativeObj?.seo_foundations?.lines) : null),
-        () => (key === "security" ? (findings?.security_trust?.lines || narrativeObj?.security_trust?.lines) : null),
-        () => (key === "structure" ? (findings?.structure_semantics?.lines || narrativeObj?.structure_semantics?.lines) : null),
-        () => (key === "mobile" ? (findings?.mobile_experience?.lines || narrativeObj?.mobile_experience?.lines) : null),
-      ];
-
-      for (const fn of candidates) {
-        const v = fn();
-        const lines = lineify(v);
-        if (lines.length) return lines;
-      }
-      return [];
-    }
 
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
     const execLines =
-      findings?.executive?.lines ||
-      narrativeObj?.executive?.lines ||
-      narrativeObj?.overall?.lines ||
+      (findings?.executive?.lines) ||
+      (narrativeObj?.overall?.lines) ||
+      (narrativeObj?.executive?.lines) ||
       null;
 
     const executiveNarrativeHtml = (() => {
@@ -270,18 +265,17 @@ exports.handler = async (event) => {
 
     // ============================
     // SECTION 2: Delivery Signals (with narrative)
+    // Order:
     // overall, performance, mobile, seo, security, structure, accessibility
     // ============================
     const deliverySignalsHtml = (() => {
       const cards = [];
 
-      const overallLines = lineify(
-        findings?.overall?.lines ||
-          narrativeObj?.overall?.lines ||
-          findings?.executive?.lines ||
-          narrativeObj?.executive?.lines ||
-          null
-      );
+      // Overall first
+      const overallLines =
+        (findings?.overall?.lines) ||
+        (narrativeObj?.overall?.lines) ||
+        null;
 
       cards.push(`
         <div class="card">
@@ -293,14 +287,14 @@ exports.handler = async (event) => {
         </div>
       `);
 
+      // Render delivery_signals in canonical order with narratives
       if (deliverySignals.length) {
         for (const sig of deliverySignals) {
           const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
           const score = asInt(sig.score, "—");
           const key = safeSignalKey(sig);
 
-          const lines = key ? findLinesForKey(key) : [];
-
+          const lines = key ? getSignalNarrativeLines(sig, key, findings, narrativeObj) : [];
           cards.push(`
             <div class="card">
               <div class="card-row">
@@ -314,25 +308,24 @@ exports.handler = async (event) => {
         return cards.join("");
       }
 
-      // Fallback if delivery_signals missing
+      // Fallback: no delivery_signals -> render from scores only
       const fallback = [
-        { title: "Performance", score: scores.performance, key: "performance" },
-        { title: "Mobile Experience", score: scores.mobile, key: "mobile" },
-        { title: "SEO Foundations", score: scores.seo, key: "seo" },
-        { title: "Security & Trust", score: scores.security, key: "security" },
-        { title: "Structure & Semantics", score: scores.structure, key: "structure" },
-        { title: "Accessibility", score: scores.accessibility, key: "accessibility" },
+        { title: "Performance", score: scores.performance },
+        { title: "Mobile Experience", score: scores.mobile },
+        { title: "SEO Foundations", score: scores.seo },
+        { title: "Security & Trust", score: scores.security },
+        { title: "Structure & Semantics", score: scores.structure },
+        { title: "Accessibility", score: scores.accessibility },
       ];
 
       for (const s of fallback) {
-        const lines = findLinesForKey(s.key);
         cards.push(`
           <div class="card">
             <div class="card-row">
               <div class="card-title">${esc(s.title)}</div>
               <div class="card-score">${esc(asInt(s.score, "—"))}</div>
             </div>
-            ${renderLines(lines, 3)}
+            <div class="muted">No per-signal narrative available (missing delivery_signals/findings).</div>
           </div>
         `);
       }
@@ -340,9 +333,85 @@ exports.handler = async (event) => {
     })();
 
     // ============================
-    // SECTION 3: Key Insight Metrics
+    // SECTION 3: Key Insight Metrics (Strength / Risk / Focus / Next)
     // ============================
-    const keyMetricsHtml = (() => {
+    function deriveKeyInsights() {
+      // Use explicit payload if provided
+      const k = json?.key_insight_metrics || json?.key_insights || null;
+      if (k && typeof k === "object") {
+        const strength = k.strength || k.STRONG || k.Strength || "";
+        const risk = k.risk || k.Risk || "";
+        const focus = k.focus || k.Focus || "";
+        const next = k.next || k.Next || "";
+        const out = {
+          strength: String(strength || "").trim(),
+          risk: String(risk || "").trim(),
+          focus: String(focus || "").trim(),
+          next: String(next || "").trim(),
+        };
+        if (out.strength || out.risk || out.focus || out.next) return out;
+      }
+
+      // Derive from scores as a clean fallback
+      const sigScores = [
+        { key: "performance", label: "Performance", v: Number(scores.performance) },
+        { key: "mobile", label: "Mobile Experience", v: Number(scores.mobile) },
+        { key: "seo", label: "SEO Foundations", v: Number(scores.seo) },
+        { key: "security", label: "Security & Trust", v: Number(scores.security) },
+        { key: "structure", label: "Structure & Semantics", v: Number(scores.structure) },
+        { key: "accessibility", label: "Accessibility", v: Number(scores.accessibility) },
+      ].filter((x) => Number.isFinite(x.v));
+
+      sigScores.sort((a, b) => b.v - a.v);
+      const best = sigScores[0] || null;
+      const worst = sigScores[sigScores.length - 1] || null;
+
+      const strength = best
+        ? `${best.label} appears strongest in this scan.`
+        : "A clear strength could not be determined from the available scores.";
+
+      const focus = worst
+        ? `Focus: ${worst.label} is the lowest scoring area in this scan.`
+        : "Focus: a clear lowest scoring area could not be determined.";
+
+      const topIssues = Array.isArray(json?.top_issues) ? json.top_issues : [];
+      const risk = topIssues.length
+        ? `Risk: ${String(topIssues[0]).replace(/^.*?:\s*/, "")}`
+        : "Risk: no structured high-risk issues were provided in this scan output.";
+
+      const next = worst
+        ? `Next: start with ${worst.label}, then re-run the scan to confirm measurable improvement.`
+        : "Next: address the highest leverage fixes first, then re-run the scan.";
+
+      return { strength, risk, focus, next };
+    }
+
+    const keyInsights = deriveKeyInsights();
+
+    const keyInsightMetricsHtml = (() => {
+      const rows = [
+        { k: "Strength", v: keyInsights.strength },
+        { k: "Risk", v: keyInsights.risk },
+        { k: "Focus", v: keyInsights.focus },
+        { k: "Next", v: keyInsights.next },
+      ].filter((r) => String(r.v || "").trim());
+
+      if (!rows.length) return `<p class="muted">No key insight metrics were available for this report.</p>`;
+
+      const trs = rows
+        .map((r) => `<tr><td class="m"><strong>${esc(r.k)}</strong></td><td class="val">${esc(r.v)}</td></tr>`)
+        .join("");
+
+      return `
+        <table class="tbl">
+          <thead><tr><th>Insight</th><th>Detail</th></tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      `;
+    })();
+
+    // Keep score table (useful for print) as Key Metric Scores
+    const keyMetricScoresHtml = (() => {
       const rows = [
         { k: "Overall Delivery Score", v: asInt(scores.overall, "—") },
         { k: "Performance Score", v: asInt(scores.performance, "—") },
@@ -374,7 +443,7 @@ exports.handler = async (event) => {
         return `<ul class="issues">` + issues.map((t) => `<li>${esc(t)}</li>`).join("") + `</ul>`;
       }
 
-      // Fallback from deductions
+      // Fallback from delivery_signals deductions
       const out = [];
       const seen = new Set();
       for (const sig of deliverySignals) {
@@ -387,9 +456,9 @@ exports.handler = async (event) => {
           if (seen.has(item)) continue;
           seen.add(item);
           out.push(item);
-          if (out.length >= 10) break;
+          if (out.length >= 8) break;
         }
-        if (out.length >= 10) break;
+        if (out.length >= 8) break;
       }
 
       if (!out.length) return `<p class="muted">No structured issues detected in this scan output.</p>`;
@@ -405,7 +474,7 @@ exports.handler = async (event) => {
     })();
 
     // ============================
-    // SECTION 6: Signal Evidence (tables per signal)
+    // SECTION 6: Signal Evidence (tables per signal, in signal order)
     // ============================
     const evidenceHtml = (() => {
       if (!deliverySignals.length) return `<p class="muted">No signal evidence was available for this report.</p>`;
@@ -417,7 +486,7 @@ exports.handler = async (event) => {
           if (!rows.length) return "";
 
           const trs = rows
-            .slice(0, 60)
+            .slice(0, 50)
             .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
             .join("");
 
@@ -448,11 +517,12 @@ exports.handler = async (event) => {
       </ul>
     `;
 
-    // ---- Print CSS (clean) ----
+    // ---- Print CSS (clinical, clean) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+      h1 { font-size: 18px; margin: 0 0 10px; }
       h2 { font-size: 13px; margin: 16px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
       h3 { font-size: 12px; margin: 14px 0 8px; }
       p, li, td, th { font-size: 10.5px; line-height: 1.35; }
@@ -477,8 +547,8 @@ exports.handler = async (event) => {
       .tbl { width: 100%; border-collapse: collapse; }
       .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
       .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
-      .tbl .m { width: 70%; }
-      .tbl .val { width: 30%; word-break: break-word; }
+      .tbl .m { width: 30%; }
+      .tbl .val { width: 70%; word-break: break-word; }
       .right { text-align: right; }
 
       .issues { margin: 6px 0 0 18px; padding: 0; }
@@ -491,7 +561,7 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- FINAL HTML (ORDER EXACTLY AS SPECIFIED) ----
+    // ---- FINAL HTML (ORDER EXACTLY AS YOU SPECIFIED) ----
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -522,7 +592,10 @@ exports.handler = async (event) => {
   <div class="cards">${deliverySignalsHtml}</div>
 
   <h2>Key Insight Metrics</h2>
-  ${keyMetricsHtml}
+  ${keyInsightMetricsHtml}
+
+  <h2>Key Metric Scores</h2>
+  ${keyMetricScoresHtml}
 
   <h2>Top Issues Detected</h2>
   ${topIssuesHtml}
