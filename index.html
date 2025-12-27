@@ -359,6 +359,49 @@
   height: auto;
 }
 
+.report-preview-section {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: start;
+  margin: 72px 0;
+}
+
+/* Right-align the preview visually */
+.report-preview-wrap {
+  max-width: 460px;
+  margin-left: auto;
+}
+
+/* Make the preview smaller */
+.report-preview-frame {
+  max-height: 520px;
+}
+
+/* Optional: tighten labels above preview */
+.report-preview-kicker {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.7;
+}
+
+.report-preview-sub {
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+/* Mobile fallback */
+@media (max-width: 900px) {
+  .report-preview-section {
+    grid-template-columns: 1fr;
+  }
+
+  .report-preview-wrap {
+    max-width: 100%;
+    margin-left: 0;
+  }
+}
+
 
 
   /* === 9 SIGNALS GRID (iQWEB S-TIER) === */
@@ -911,8 +954,7 @@
 
       <!-- REPORT PREVIEW (STATIC) -->
 <div class="report-preview-wrap">
-  <div class="report-preview-kicker">Partial Report Preview</div>
-  <div class="report-preview-sub">Client website (anonymised)</div>
+
 
   <div class="report-preview-frame">
     <img
@@ -924,9 +966,7 @@
     />
   </div>
 
-  <div class="report-preview-privacy">
-    Preview uses anonymised scan data. Client sites are never shown publicly without permission.
-  </div>
+ 
 </div>
 
 
