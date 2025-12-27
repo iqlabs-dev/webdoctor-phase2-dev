@@ -65,7 +65,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
-        body: "Report data endpoint returned non-JSON: " + rawText.slice(0, 600),
+        body: "Report data endpoint returned non-JSON: " + String(rawText || "").slice(0, 600),
       };
     }
 
@@ -91,6 +91,22 @@ exports.handler = async (event) => {
       const n = Number(v);
       if (!Number.isFinite(n)) return fallback;
       return String(Math.round(n));
+    }
+
+    function formatDateTime(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso); // fallback to raw if not ISO
+      return d.toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "UTC",
+        timeZoneName: "short",
+      });
     }
 
     function lineify(v) {
@@ -176,6 +192,8 @@ exports.handler = async (event) => {
       return null;
     }
 
+    // Required order after Overall:
+    // performance, mobile, seo, security, structure, accessibility
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
 
     function sortSignals(list) {
@@ -222,6 +240,18 @@ exports.handler = async (event) => {
     const deliverySignalsRaw = Array.isArray(json?.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
+    // =====================================================
+    // LOCKED SECTION ORDER (as you specified)
+    //
+    // 1) Executive Narrative
+    // 2) Delivery Signals (overall + 6 signals) WITH narrative
+    // 3) Key Insight Metrics
+    // 4) Top Issues Detected
+    // 5) Recommended Fix Sequence
+    // 6) Signal Evidence
+    // 7) Final Notes
+    // =====================================================
+
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
@@ -238,8 +268,7 @@ exports.handler = async (event) => {
 
     // ============================
     // SECTION 2: Delivery Signals (with narrative)
-    // Order:
-    // overall, performance, mobile, seo, security, structure, accessibility
+    // Order: overall, performance, mobile, seo, security, structure, accessibility
     // ============================
     const deliverySignalsHtml = (() => {
       const cards = [];
@@ -247,7 +276,6 @@ exports.handler = async (event) => {
       // Overall card first
       const overallLines =
         (findings?.overall?.lines) ||
-        (narrativeObj?.overall?.lines) ||
         (narrativeObj?.overall?.lines) ||
         null;
 
@@ -267,7 +295,6 @@ exports.handler = async (event) => {
           const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
           const score = asInt(sig.score, "—");
           const key = safeSignalKey(sig);
-
           const lines = (key && findings?.[key]?.lines) || null;
 
           cards.push(`
@@ -285,25 +312,27 @@ exports.handler = async (event) => {
 
       // Fallback: no delivery_signals -> render from scores only
       const fallback = [
-        { title: "Performance", score: scores.performance },
-        { title: "Mobile Experience", score: scores.mobile },
-        { title: "SEO Foundations", score: scores.seo },
-        { title: "Security & Trust", score: scores.security },
-        { title: "Structure & Semantics", score: scores.structure },
-        { title: "Accessibility", score: scores.accessibility },
+        { title: "Performance", score: scores.performance, key: "performance" },
+        { title: "Mobile Experience", score: scores.mobile, key: "mobile" },
+        { title: "SEO Foundations", score: scores.seo, key: "seo" },
+        { title: "Security & Trust", score: scores.security, key: "security" },
+        { title: "Structure & Semantics", score: scores.structure, key: "structure" },
+        { title: "Accessibility", score: scores.accessibility, key: "accessibility" },
       ];
 
       for (const s of fallback) {
+        const lines = findings?.[s.key]?.lines || null;
         cards.push(`
           <div class="card">
             <div class="card-row">
               <div class="card-title">${esc(s.title)}</div>
               <div class="card-score">${esc(asInt(s.score, "—"))}</div>
             </div>
-            <div class="muted">No per-signal narrative available (missing findings).</div>
+            ${renderLines(lines, 3)}
           </div>
         `);
       }
+
       return cards.join("");
     })();
 
@@ -374,7 +403,7 @@ exports.handler = async (event) => {
     })();
 
     // ============================
-    // SECTION 6: Signal Evidence (tables per signal, in signal order)
+    // SECTION 6: Signal Evidence
     // ============================
     const evidenceHtml = (() => {
       if (!deliverySignals.length) return `<p class="muted">No signal evidence was available for this report.</p>`;
@@ -422,9 +451,11 @@ exports.handler = async (event) => {
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
+
       h1 { font-size: 18px; margin: 0 0 10px; }
       h2 { font-size: 13px; margin: 16px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
       h3 { font-size: 12px; margin: 14px 0 8px; }
+
       p, li, td, th { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
 
@@ -458,6 +489,7 @@ exports.handler = async (event) => {
       .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
 
       .notes { margin: 6px 0 0 18px; }
+
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
@@ -479,7 +511,7 @@ exports.handler = async (event) => {
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
+      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at || ""))}</div>
     </div>
   </div>
 
