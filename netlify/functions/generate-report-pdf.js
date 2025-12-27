@@ -1,177 +1,158 @@
 // netlify/functions/generate-report-pdf.js
-// Generates PDF via DocRaptor by printing a server-rendered HTML page (NO JS).
-//
-// Requires env:
-// - DOC_RAPTOR_API_KEY (note: this is your env name in Netlify)
+// Generates a PDF via DocRaptor using the server-rendered HTML from get-report-html-pdf
+// Returns application/pdf on success, otherwise a fast JSON error (no Netlify 504 mystery timeouts)
+
+const DOCRAPTOR_API_KEY = process.env.DOCRAPTOR_API_KEY;
+const DOCRAPTOR_TEST = (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
+
+// Hard timeouts (keep under Netlify gateway limits)
+const HTML_FETCH_TIMEOUT_MS = 8000;   // fail fast if HTML endpoint hangs
+const DOCRAPTOR_TIMEOUT_MS = 18000;   // fail fast if DocRaptor is slow
 
 exports.handler = async (event) => {
   // CORS / preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Accept",
-        "Cache-Control": "no-store",
-      },
+      headers: corsHeaders(),
       body: "",
     };
   }
 
-  // Enforce POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        Allow: "POST, OPTIONS",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({ error: "Method not allowed" }),
-    };
-  }
-
   try {
-    // Parse body
-    let body = {};
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch {
-      return {
-        statusCode: 400,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "Invalid JSON body" }),
-      };
+    if (event.httpMethod !== "GET") {
+      return json(405, { error: "Method not allowed" }, { Allow: "GET, OPTIONS" });
     }
 
-    const reportId = String(body.reportId || body.report_id || "").trim();
-    if (!reportId) {
-      return {
-        statusCode: 400,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "Missing reportId" }),
-      };
+    if (!DOCRAPTOR_API_KEY) {
+      return json(500, { error: "Missing DOCRAPTOR_API_KEY in Netlify environment" });
     }
 
-    const apiKey = process.env.DOC_RAPTOR_API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }),
-      };
-    }
+    const reportId = (event.queryStringParameters?.report_id || event.queryStringParameters?.reportId || "").trim();
+    if (!reportId) return json(400, { error: "Missing report_id" });
 
     const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    // DocRaptor will fetch this via GET
-    const pdfHtmlUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
-      reportId
-    )}`;
+    // 1) Fetch full HTML (fast-fail)
+    const htmlUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(reportId)}`;
 
-    // ✅ HARD CHECK: make sure the HTML URL actually returns 200 BEFORE calling DocRaptor
-    const probe = await fetch(pdfHtmlUrl, { method: "GET" });
-    const probeText = await probe.text().catch(() => "");
+    const html = await fetchWithTimeout(htmlUrl, HTML_FETCH_TIMEOUT_MS, {
+      method: "GET",
+      headers: { Accept: "text/html" },
+    }).then(async (r) => {
+      const t = await r.text().catch(() => "");
+      if (!r.ok) {
+        throw new Error(`HTML fetch failed (${r.status}): ${t.slice(0, 300)}`);
+      }
+      if (!t || t.length < 200) {
+        throw new Error("HTML fetch returned empty/too-short content");
+      }
+      return t;
+    });
 
-    if (!probe.ok) {
-      return {
-        statusCode: 500,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({
-          error: "PDF HTML endpoint failed (DocRaptor would fail too)",
-          status: probe.status,
-          url: pdfHtmlUrl,
-          details: probeText.slice(0, 1500),
-        }),
-      };
-    }
+    // 2) Send HTML to DocRaptor (fast-fail)
+    // DocRaptor API: POST https://docraptor.com/docs with JSON body.
+    // Auth: Basic base64("APIKEY:")   (note the trailing colon)
 
-    // Now call DocRaptor
-    const drResp = await fetch("https://docraptor.com/docs", {
+    const auth = Buffer.from(`${DOCRAPTOR_API_KEY}:`).toString("base64");
+
+    const docReq = {
+      // IMPORTANT: docraptor expects snake_case
+      test: DOCRAPTOR_TEST,
+      document_type: "pdf",
+      name: `${reportId}.pdf`,
+      document_content: html,
+      // These options make pagination predictable
+      prince_options: {
+        media: "print",
+      },
+    };
+
+    const pdfResp = await fetchWithTimeout("https://docraptor.com/docs", DOCRAPTOR_TIMEOUT_MS, {
       method: "POST",
       headers: {
+        "Authorization": `Basic ${auth}`,
         "Content-Type": "application/json",
         "Accept": "application/pdf",
       },
-      body: JSON.stringify({
-        user_credentials: apiKey,
-        doc: {
-          name: `${reportId}.pdf`,
-          test: false,
-          document_type: "pdf",
-          document_url: pdfHtmlUrl,
-
-          // ✅ DO NOT execute JS (prevents Promise/window errors)
-          javascript: false,
-          wait_for_javascript: false,
-
-          prince_options: {
-            media: "print",
-          },
-        },
-      }),
+      body: JSON.stringify(docReq),
     });
 
-    if (!drResp.ok) {
-      const errText = await drResp.text().catch(() => "");
-      return {
-        statusCode: 500,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({
-          error: "DocRaptor error",
-          status: drResp.status,
-          details: errText.slice(0, 3000),
-          pdfHtmlUrl,
-        }),
-      };
+    // If DocRaptor returns JSON error, surface it
+    const contentType = (pdfResp.headers.get("content-type") || "").toLowerCase();
+
+    if (!pdfResp.ok) {
+      const errText = await pdfResp.text().catch(() => "");
+      return json(502, {
+        error: "DocRaptor generation failed",
+        status: pdfResp.status,
+        details: errText.slice(0, 800),
+      });
     }
 
-    const arrayBuffer = await drResp.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    if (contentType.includes("application/json")) {
+      // DocRaptor sometimes returns JSON (e.g., queued/async or error payload)
+      const t = await pdfResp.text().catch(() => "");
+      return json(502, {
+        error: "DocRaptor returned JSON instead of PDF",
+        details: t.slice(0, 1200),
+      });
+    }
+
+    // Success: stream PDF bytes back
+    const pdfBuf = Buffer.from(await pdfResp.arrayBuffer());
 
     return {
       statusCode: 200,
-      isBase64Encoded: true,
       headers: {
+        ...corsHeaders(),
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
         "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "*",
       },
-      body: buffer.toString("base64"),
+      body: pdfBuf.toString("base64"),
+      isBase64Encoded: true,
     };
   } catch (err) {
     console.error("[generate-report-pdf] crash:", err);
-    return {
-      statusCode: 500,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({ error: err?.message || "Unknown error" }),
-    };
+    return json(500, { error: err?.message || "Unknown error" });
   }
 };
+
+/* ---------- helpers ---------- */
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Accept",
+  };
+}
+
+function json(statusCode, obj, extraHeaders = {}) {
+  return {
+    statusCode,
+    headers: {
+      ...corsHeaders(),
+      ...extraHeaders,
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+    body: JSON.stringify(obj),
+  };
+}
+
+async function fetchWithTimeout(url, ms, opts) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === "AbortError") {
+      throw new Error(`Timeout after ${ms}ms: ${url}`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
