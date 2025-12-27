@@ -1,23 +1,22 @@
 // netlify/functions/generate-report-pdf.js
 // Generates a PDF via DocRaptor using the server-rendered HTML from get-report-html-pdf
 // Supports GET + POST to match UI fetch patterns (prevents 405)
-// Returns application/pdf on success, otherwise fast JSON error (no Netlify 504 mystery timeouts)
+// Returns application/pdf on success, otherwise fast JSON error
 
-// ✅ Accept both env var spellings (you currently have DOC_RAPTOR_API_KEY in Netlify)
 const DOCRAPTOR_API_KEY =
   process.env.DOCRAPTOR_API_KEY ||
   process.env.DOCRAPTOR_KEY ||
-  process.env.DOC_RAPTOR_API_KEY || // <-- your Netlify key
+  process.env.DOC_RAPTOR_API_KEY || // <-- your Netlify key name
   "";
 
-const DOCRAPTOR_TEST = (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
+const DOCRAPTOR_TEST =
+  (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
 
-// Hard timeouts (keep under Netlify gateway limits)
-const HTML_FETCH_TIMEOUT_MS = 8000;   // fail fast if HTML endpoint hangs
-const DOCRAPTOR_TIMEOUT_MS = 18000;   // fail fast if DocRaptor is slow
+// Hard timeouts (Netlify functions can be slow on cold start; HTML can be heavy)
+const HTML_FETCH_TIMEOUT_MS = 25000;   // was 8000 (too low)
+const DOCRAPTOR_TIMEOUT_MS = 25000;    // was 18000
 
 exports.handler = async (event) => {
-  // CORS / preflight
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
   }
@@ -31,15 +30,10 @@ exports.handler = async (event) => {
       return json(500, {
         error: "Missing DocRaptor API key in Netlify environment",
         expected_any_of: ["DOCRAPTOR_API_KEY", "DOC_RAPTOR_API_KEY", "DOCRAPTOR_KEY"],
-        found: {
-          DOCRAPTOR_API_KEY: Boolean(process.env.DOCRAPTOR_API_KEY),
-          DOC_RAPTOR_API_KEY: Boolean(process.env.DOC_RAPTOR_API_KEY),
-          DOCRAPTOR_KEY: Boolean(process.env.DOCRAPTOR_KEY),
-        },
       });
     }
 
-    // Extract report_id from GET query or POST body
+    // Extract report_id
     let reportId = "";
 
     if (event.httpMethod === "GET") {
@@ -58,20 +52,12 @@ exports.handler = async (event) => {
 
     const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    // 1) Fetch full HTML (fast-fail)
+    // 1) Fetch server-rendered HTML
     const htmlUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(reportId)}`;
 
-    const html = await fetchWithTimeout(htmlUrl, HTML_FETCH_TIMEOUT_MS, {
-      method: "GET",
-      headers: { Accept: "text/html" },
-    }).then(async (r) => {
-      const t = await r.text().catch(() => "");
-      if (!r.ok) throw new Error(`HTML fetch failed (${r.status}): ${t.slice(0, 300)}`);
-      if (!t || t.length < 200) throw new Error("HTML fetch returned empty/too-short content");
-      return t;
-    });
+    const html = await fetchHtmlWithOneRetry(htmlUrl);
 
-    // 2) Send HTML to DocRaptor (fast-fail)
+    // 2) Send to DocRaptor
     const auth = Buffer.from(`${DOCRAPTOR_API_KEY}:`).toString("base64");
 
     const docReq = {
@@ -164,4 +150,36 @@ async function fetchWithTimeout(url, ms, opts) {
   } finally {
     clearTimeout(id);
   }
+}
+
+// Fetch HTML, and if we hit a timeout once, retry one time (cold start warmup)
+async function fetchHtmlWithOneRetry(htmlUrl) {
+  try {
+    return await fetchHtml(htmlUrl);
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const looksLikeTimeout = msg.includes("Timeout after");
+    if (!looksLikeTimeout) throw e;
+
+    // one retry only
+    console.warn("[generate-report-pdf] HTML fetch timed out; retrying once:", htmlUrl);
+    return await fetchHtml(htmlUrl);
+  }
+}
+
+async function fetchHtml(htmlUrl) {
+  const resp = await fetchWithTimeout(htmlUrl, HTML_FETCH_TIMEOUT_MS, {
+    method: "GET",
+    headers: { Accept: "text/html" },
+  });
+
+  const t = await resp.text().catch(() => "");
+
+  if (!resp.ok) {
+    throw new Error(`HTML fetch failed (${resp.status}): ${t.slice(0, 400)}`);
+  }
+  if (!t || t.length < 200) {
+    throw new Error("HTML fetch returned empty/too-short content");
+  }
+  return t;
 }
