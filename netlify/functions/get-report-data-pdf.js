@@ -1,28 +1,18 @@
 // netlify/functions/get-report-data-pdf.js
-// PURE PROXY (stable contract for PDF renderer)
-//
-// Fetches your already-working endpoint:
-//   /.netlify/functions/get-report-data?report_id=...
-//
-// Returns a minimal, stable JSON shape that get-report-html-pdf expects:
-// {
-//   success: true,
-//   header: { website, report_id, created_at },
-//   scores: { overall, performance, mobile, seo, security, structure, accessibility },
-//   delivery_signals: [...],
-//   findings: {...},
-//   narrative: {...},        // fallback if findings not present
-//   raw: <optional debugging>  // keep for now; you can remove later
-// }
+// Purpose: return a stable, PDF-ready payload for get-report-html-pdf.
+// It fetches your existing report JSON (from get-report-data) and normalizes it
+// so the PDF HTML renderer never breaks when fields are missing.
+
+const FETCH_TIMEOUT_MS = 20000;
 
 exports.handler = async (event) => {
-  // CORS / preflight
+  // Preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Accept",
         "Cache-Control": "no-store",
       },
@@ -30,112 +20,185 @@ exports.handler = async (event) => {
     };
   }
 
+  if (event.httpMethod !== "GET") {
+    return json(405, { success: false, error: "Method not allowed" });
+  }
+
   try {
-    if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
-      return json(405, { error: "Method not allowed" }, { Allow: "GET, POST, OPTIONS" });
-    }
+    const reportId = String(
+      (event.queryStringParameters &&
+        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
+        ""
+    ).trim();
 
-    // report_id from query (GET) or body (POST)
-    let reportId = "";
-    if (event.httpMethod === "GET") {
-      reportId = String(event.queryStringParameters?.report_id || event.queryStringParameters?.reportId || "").trim();
-    } else {
-      let body = {};
-      try {
-        body = JSON.parse(event.body || "{}");
-      } catch {
-        return json(400, { error: "Invalid JSON body" });
-      }
-      reportId = String(body.report_id || body.reportId || "").trim();
-    }
+    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    if (!reportId) return json(400, { error: "Missing report_id" });
-
+    // IMPORTANT: This fetches your existing “full” report data endpoint.
+    // If your endpoint name is different, change ONLY this path.
     const siteUrl = process.env.URL || "https://iqweb.ai";
-    const srcUrl = `${siteUrl}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
+    const srcUrl =
+      siteUrl +
+      "/.netlify/functions/get-report-data?report_id=" +
+      encodeURIComponent(reportId);
 
-    const resp = await fetch(srcUrl, { method: "GET", headers: { Accept: "application/json" } });
-    const text = await resp.text().catch(() => "");
-
-    if (!resp.ok) {
+    const rawText = await fetchTextWithTimeout(srcUrl, FETCH_TIMEOUT_MS);
+    let raw;
+    try {
+      raw = JSON.parse(rawText || "{}");
+    } catch (e) {
       return json(500, {
-        error: "Upstream get-report-data failed",
-        status: resp.status,
-        details: text.slice(0, 1200),
+        success: false,
+        error: "Source report endpoint returned non-JSON",
+        sample: (rawText || "").slice(0, 600),
       });
     }
 
-    let raw = {};
-    try {
-      raw = JSON.parse(text || "{}");
-    } catch {
-      return json(500, { error: "Upstream returned non-JSON", details: text.slice(0, 1200) });
+    if (!raw || raw.success !== true) {
+      return json(500, {
+        success: false,
+        error: "Source report endpoint returned success=false",
+      });
     }
 
-    // Defensive normalizers
-    const safeObj = (v) => (v && typeof v === "object" ? v : {});
-    const clampScore = (n) => {
-      const x = Number(n);
-      if (!Number.isFinite(x)) return null;
-      return Math.max(0, Math.min(100, Math.round(x)));
-    };
+    // ---- Normalize fields we expect for PDF ----
+    const header = raw.header || {};
+    const scores = raw.scores || {};
 
-    // Header sources vary
-    const hdr = safeObj(raw.header || raw.report || raw);
+    // Some builds used narrative, some used findings; we support both.
+    const narrative = raw.narrative || {};
+    const findings = raw.findings || raw.finding || {};
 
-    // Scores sources vary
-    const scoresSrc = safeObj(raw.scores || raw.metrics?.scores || raw.report?.scores || raw);
+    // Signals list comes in different names depending on earlier versions
+    const deliverySignals =
+      (Array.isArray(raw.delivery_signals) && raw.delivery_signals) ||
+      (Array.isArray(raw.deliverySignals) && raw.deliverySignals) ||
+      (Array.isArray(raw.signals) && raw.signals) ||
+      [];
 
-    // delivery_signals + findings are what the HTML renderer wants
-    const delivery_signals = Array.isArray(raw.delivery_signals)
-      ? raw.delivery_signals
-      : Array.isArray(raw.report?.delivery_signals)
-      ? raw.report.delivery_signals
-      : [];
+    // Ensure evidence is renderable: prefer sig.observations, else convert sig.evidence object
+    const normalizedSignals = deliverySignals.map((sig) => {
+      const out = { ...(sig || {}) };
 
-    const findings = safeObj(raw.findings || raw.report?.findings);
+      // Normalize label/id
+      out.label = out.label || out.name || out.id || "Signal";
+      out.id = out.id || out.label;
 
-    // narrative fallback (some older outputs only have narrative)
-    const narrative = safeObj(raw.narrative || raw.report?.narrative);
+      // Normalize score number-ish
+      if (typeof out.score === "undefined" && typeof out.value !== "undefined") out.score = out.value;
 
-    const out = {
+      // Normalize observations
+      if (!Array.isArray(out.observations) || out.observations.length === 0) {
+        const ev = out.evidence && typeof out.evidence === "object" && !Array.isArray(out.evidence) ? out.evidence : null;
+        if (ev) {
+          out.observations = Object.keys(ev).map((k) => ({
+            label: prettifyKey(k),
+            value: ev[k],
+          }));
+        }
+      }
+
+      // Normalize deductions list (used to derive Top Issues if needed)
+      if (!Array.isArray(out.deductions)) out.deductions = [];
+
+      return out;
+    });
+
+    // top issues: use explicit field if present, otherwise derive from deductions (deterministic)
+    const topIssues =
+      (Array.isArray(raw.top_issues) && raw.top_issues) ||
+      (Array.isArray(raw.topIssues) && raw.topIssues) ||
+      deriveTopIssuesFromSignals(normalizedSignals);
+
+    // Final PDF payload (stable)
+    const pdfPayload = {
       success: true,
       header: {
-        website: hdr.website || hdr.url || raw.url || "",
-        report_id: hdr.report_id || hdr.id || reportId,
-        created_at: hdr.created_at || raw.created_at || "",
+        website: header.website || header.url || "",
+        report_id: header.report_id || reportId,
+        created_at: header.created_at || header.report_date || "",
       },
       scores: {
-        overall: clampScore(scoresSrc.overall),
-        performance: clampScore(scoresSrc.performance),
-        mobile: clampScore(scoresSrc.mobile),
-        seo: clampScore(scoresSrc.seo),
-        security: clampScore(scoresSrc.security),
-        structure: clampScore(scoresSrc.structure),
-        accessibility: clampScore(scoresSrc.accessibility),
+        overall: scores.overall,
+        performance: scores.performance,
+        mobile: scores.mobile,
+        seo: scores.seo,
+        security: scores.security,
+        structure: scores.structure,
+        accessibility: scores.accessibility,
       },
-      delivery_signals,
-      findings,
-      narrative,
-      raw, // keep for debugging while stabilising
+      narrative,  // keep as-is
+      findings,   // keep as-is
+      delivery_signals: normalizedSignals,
+      top_issues: topIssues,
     };
 
-    return json(200, out);
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify(pdfPayload),
+    };
   } catch (err) {
-    console.error("[get-report-data-pdf] crash:", err);
-    return json(500, { error: err?.message || "Unknown error" });
+    console.error("[get-report-data-pdf] error:", err);
+    return json(500, { success: false, error: err?.message || "Unknown error" });
   }
 };
 
-function json(statusCode, obj, extraHeaders = {}) {
+function json(statusCode, obj) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
-      ...extraHeaders,
     },
     body: JSON.stringify(obj),
   };
+}
+
+function prettifyKey(k) {
+  k = String(k || "").split("_").join(" ");
+  return k.replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function deriveTopIssuesFromSignals(signals) {
+  const out = [];
+  const seen = new Set();
+
+  for (const sig of signals) {
+    const sigName = String(sig?.label || sig?.id || "Signal").trim() || "Signal";
+    const deds = Array.isArray(sig?.deductions) ? sig.deductions : [];
+    for (const d of deds) {
+      const reason = String(d?.reason || "").trim();
+      if (!reason) continue;
+      const item = `${sigName}: ${reason}`;
+      if (seen.has(item)) continue;
+      seen.add(item);
+      out.push(item);
+      if (out.length >= 10) break;
+    }
+    if (out.length >= 10) break;
+  }
+
+  return out;
+}
+
+async function fetchTextWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
+    const txt = await resp.text().catch(() => "");
+    if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
+    if (!txt || txt.length < 2) throw new Error("Empty response from source report endpoint");
+    return txt;
+  } catch (e) {
+    if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
 }

@@ -65,7 +65,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 500,
         headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
-        body: "Report data endpoint returned non-JSON: " + String(rawText || "").slice(0, 600),
+        body: "Report data endpoint returned non-JSON: " + rawText.slice(0, 600),
       };
     }
 
@@ -91,22 +91,6 @@ exports.handler = async (event) => {
       const n = Number(v);
       if (!Number.isFinite(n)) return fallback;
       return String(Math.round(n));
-    }
-
-    function formatDateTime(iso) {
-      if (!iso) return "";
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return String(iso); // fallback to raw if not ISO
-      return d.toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-        timeZone: "UTC",
-        timeZoneName: "short",
-      });
     }
 
     function lineify(v) {
@@ -192,8 +176,6 @@ exports.handler = async (event) => {
       return null;
     }
 
-    // Required order after Overall:
-    // performance, mobile, seo, security, structure, accessibility
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
 
     function sortSignals(list) {
@@ -235,29 +217,49 @@ exports.handler = async (event) => {
     const scores = json?.scores || {};
 
     const findings = (json?.findings && typeof json.findings === "object") ? json.findings : {};
-    const narrativeObj = json?.narrative || {};
+    const narrativeObj = (json?.narrative && typeof json.narrative === "object") ? json.narrative : {};
 
     const deliverySignalsRaw = Array.isArray(json?.delivery_signals) ? json.delivery_signals : [];
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
-    // =====================================================
-    // LOCKED SECTION ORDER (as you specified)
-    //
-    // 1) Executive Narrative
-    // 2) Delivery Signals (overall + 6 signals) WITH narrative
-    // 3) Key Insight Metrics
-    // 4) Top Issues Detected
-    // 5) Recommended Fix Sequence
-    // 6) Signal Evidence
-    // 7) Final Notes
-    // =====================================================
+    // Robust lookup for per-signal narrative lines (supports multiple key styles)
+    function findLinesForKey(key) {
+      const candidates = [
+        // findings forms
+        () => findings?.[key]?.lines,
+        () => findings?.[key]?.summary?.lines,
+        () => findings?.[key + "_foundations"]?.lines,
+        () => findings?.[key + "_trust"]?.lines,
+        () => findings?.[key + "_semantics"]?.lines,
+        () => findings?.[key + "_experience"]?.lines,
+
+        // narrative forms
+        () => narrativeObj?.[key]?.lines,
+        () => narrativeObj?.[key]?.summary?.lines,
+        () => narrativeObj?.sections?.[key]?.lines,
+
+        // common alternates used in naming
+        () => (key === "seo" ? (findings?.seo_foundations?.lines || narrativeObj?.seo_foundations?.lines) : null),
+        () => (key === "security" ? (findings?.security_trust?.lines || narrativeObj?.security_trust?.lines) : null),
+        () => (key === "structure" ? (findings?.structure_semantics?.lines || narrativeObj?.structure_semantics?.lines) : null),
+        () => (key === "mobile" ? (findings?.mobile_experience?.lines || narrativeObj?.mobile_experience?.lines) : null),
+      ];
+
+      for (const fn of candidates) {
+        const v = fn();
+        const lines = lineify(v);
+        if (lines.length) return lines;
+      }
+      return [];
+    }
 
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
     const execLines =
-      (findings?.executive?.lines) ||
-      (narrativeObj?.overall?.lines) ||
+      findings?.executive?.lines ||
+      narrativeObj?.executive?.lines ||
+      narrativeObj?.overall?.lines ||
       null;
 
     const executiveNarrativeHtml = (() => {
@@ -268,16 +270,18 @@ exports.handler = async (event) => {
 
     // ============================
     // SECTION 2: Delivery Signals (with narrative)
-    // Order: overall, performance, mobile, seo, security, structure, accessibility
+    // overall, performance, mobile, seo, security, structure, accessibility
     // ============================
     const deliverySignalsHtml = (() => {
       const cards = [];
 
-      // Overall card first
-      const overallLines =
-        (findings?.overall?.lines) ||
-        (narrativeObj?.overall?.lines) ||
-        null;
+      const overallLines = lineify(
+        findings?.overall?.lines ||
+          narrativeObj?.overall?.lines ||
+          findings?.executive?.lines ||
+          narrativeObj?.executive?.lines ||
+          null
+      );
 
       cards.push(`
         <div class="card">
@@ -289,13 +293,13 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      // If we have delivery_signals, render them in canonical order
       if (deliverySignals.length) {
         for (const sig of deliverySignals) {
           const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
           const score = asInt(sig.score, "—");
           const key = safeSignalKey(sig);
-          const lines = (key && findings?.[key]?.lines) || null;
+
+          const lines = key ? findLinesForKey(key) : [];
 
           cards.push(`
             <div class="card">
@@ -310,7 +314,7 @@ exports.handler = async (event) => {
         return cards.join("");
       }
 
-      // Fallback: no delivery_signals -> render from scores only
+      // Fallback if delivery_signals missing
       const fallback = [
         { title: "Performance", score: scores.performance, key: "performance" },
         { title: "Mobile Experience", score: scores.mobile, key: "mobile" },
@@ -321,7 +325,7 @@ exports.handler = async (event) => {
       ];
 
       for (const s of fallback) {
-        const lines = findings?.[s.key]?.lines || null;
+        const lines = findLinesForKey(s.key);
         cards.push(`
           <div class="card">
             <div class="card-row">
@@ -332,7 +336,6 @@ exports.handler = async (event) => {
           </div>
         `);
       }
-
       return cards.join("");
     })();
 
@@ -350,9 +353,9 @@ exports.handler = async (event) => {
         { k: "Accessibility Score", v: asInt(scores.accessibility, "—") },
       ];
 
-      const trs = rows.map((r) =>
-        `<tr><td class="m">${esc(r.k)}</td><td class="val right">${esc(r.v)}</td></tr>`
-      ).join("");
+      const trs = rows
+        .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val right">${esc(r.v)}</td></tr>`)
+        .join("");
 
       return `
         <table class="tbl">
@@ -364,7 +367,6 @@ exports.handler = async (event) => {
 
     // ============================
     // SECTION 4: Top Issues Detected
-    // Prefer json.top_issues (deterministic); fallback to deductions if present
     // ============================
     const topIssuesHtml = (() => {
       const issues = Array.isArray(json?.top_issues) ? json.top_issues : [];
@@ -372,7 +374,7 @@ exports.handler = async (event) => {
         return `<ul class="issues">` + issues.map((t) => `<li>${esc(t)}</li>`).join("") + `</ul>`;
       }
 
-      // Fallback from delivery_signals deductions
+      // Fallback from deductions
       const out = [];
       const seen = new Set();
       for (const sig of deliverySignals) {
@@ -385,9 +387,9 @@ exports.handler = async (event) => {
           if (seen.has(item)) continue;
           seen.add(item);
           out.push(item);
-          if (out.length >= 8) break;
+          if (out.length >= 10) break;
         }
-        if (out.length >= 8) break;
+        if (out.length >= 10) break;
       }
 
       if (!out.length) return `<p class="muted">No structured issues detected in this scan output.</p>`;
@@ -403,7 +405,7 @@ exports.handler = async (event) => {
     })();
 
     // ============================
-    // SECTION 6: Signal Evidence
+    // SECTION 6: Signal Evidence (tables per signal)
     // ============================
     const evidenceHtml = (() => {
       if (!deliverySignals.length) return `<p class="muted">No signal evidence was available for this report.</p>`;
@@ -415,7 +417,7 @@ exports.handler = async (event) => {
           if (!rows.length) return "";
 
           const trs = rows
-            .slice(0, 50)
+            .slice(0, 60)
             .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
             .join("");
 
@@ -446,16 +448,13 @@ exports.handler = async (event) => {
       </ul>
     `;
 
-    // ---- Print CSS (clinical, clean) ----
+    // ---- Print CSS (clean) ----
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-
-      h1 { font-size: 18px; margin: 0 0 10px; }
       h2 { font-size: 13px; margin: 16px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
       h3 { font-size: 12px; margin: 14px 0 8px; }
-
       p, li, td, th { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
 
@@ -489,11 +488,10 @@ exports.handler = async (event) => {
       .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
 
       .notes { margin: 6px 0 0 18px; }
-
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- FINAL HTML (ORDER EXACTLY AS YOU SPECIFIED) ----
+    // ---- FINAL HTML (ORDER EXACTLY AS SPECIFIED) ----
     const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -511,7 +509,7 @@ exports.handler = async (event) => {
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      <div><strong>Report Date:</strong> ${esc(formatDateTime(header.created_at || ""))}</div>
+      <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
     </div>
   </div>
 
