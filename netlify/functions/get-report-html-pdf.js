@@ -6,6 +6,10 @@
 // Data source:
 // - /.netlify/functions/get-report-data-pdf?report_id=...
 
+// Timeouts (this is the usual culprit on cold start chains)
+const DATA_FETCH_TIMEOUT_MS = 20000; // 20s for the JSON proxy chain
+const RETRY_ON_TIMEOUT_ONCE = true;
+
 exports.handler = async (event) => {
   // Preflight
   if (event.httpMethod === "OPTIONS") {
@@ -28,6 +32,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
         Allow: "GET, OPTIONS",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Method not allowed" }),
     };
@@ -43,7 +48,7 @@ exports.handler = async (event) => {
     if (!reportId) {
       return {
         statusCode: 400,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
         body: "Missing report_id",
       };
     }
@@ -55,16 +60,7 @@ exports.handler = async (event) => {
       "/.netlify/functions/get-report-data-pdf?report_id=" +
       encodeURIComponent(reportId);
 
-    const resp = await fetch(dataUrl, { method: "GET", headers: { Accept: "application/json" } });
-    const rawText = await resp.text().catch(() => "");
-
-    if (!resp.ok) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: "Failed to fetch report data (" + resp.status + "): " + rawText,
-      };
-    }
+    const rawText = await fetchJsonWithTimeoutAndRetry(dataUrl);
 
     let json;
     try {
@@ -72,7 +68,7 @@ exports.handler = async (event) => {
     } catch (e) {
       return {
         statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
         body: "Report data endpoint returned non-JSON: " + rawText.slice(0, 600),
       };
     }
@@ -314,10 +310,7 @@ exports.handler = async (event) => {
       }
 
       const trs = rows
-        .map(
-          (r) =>
-            `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`
-        )
+        .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
         .join("");
 
       return `
@@ -371,9 +364,7 @@ exports.handler = async (event) => {
         const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-        const lines =
-          (key && findings && findings[key] && findings[key].lines) ||
-          null;
+        const lines = (key && findings && findings[key] && findings[key].lines) || null;
 
         cards.push(`
           <div class="card">
@@ -483,9 +474,7 @@ exports.handler = async (event) => {
       : `<h2>Executive Narrative</h2><p class="muted">No executive narrative was available for this report.</p>`;
 
     const keyMetricsSection = `<h2>Key Insight Metrics</h2>${keyMetricsHtml}`;
-
     const topIssuesSection = `<h2>Top Issues Detected</h2>${topIssuesHtml}`;
-
     const fixSeqSection = `<h2>Recommended Fix Sequence</h2>${fixSeqHtml}`;
 
     const deliverySection = deliverySignalsHtml
@@ -493,7 +482,6 @@ exports.handler = async (event) => {
       : `<h2>Delivery Signals</h2><p class="muted">No delivery signals were available for this report.</p>`;
 
     const evidenceSection = `<h2>Evidence</h2>${evidenceHtml}`;
-
     const finalNotesSection = `<h2>Final Notes</h2>${finalNotesHtml}`;
 
     const html = `<!doctype html>
@@ -547,8 +535,51 @@ exports.handler = async (event) => {
     console.error("[get-report-html-pdf] error:", err);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: err && err.message ? err.message : "Unknown error" }),
     };
   }
 };
+
+/* ---------- fetch helpers ---------- */
+
+async function fetchWithTimeout(url, ms, opts) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function fetchJsonWithTimeoutAndRetry(url) {
+  const attempt = async () => {
+    const resp = await fetchWithTimeout(url, DATA_FETCH_TIMEOUT_MS, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    const rawText = await resp.text().catch(() => "");
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch report data (${resp.status}): ${rawText.slice(0, 600)}`);
+    }
+    if (!rawText || rawText.length < 2) {
+      throw new Error("Report data endpoint returned empty response");
+    }
+    return rawText;
+  };
+
+  try {
+    return await attempt();
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const isTimeout = msg.includes("Timeout after");
+    if (!RETRY_ON_TIMEOUT_ONCE || !isTimeout) throw e;
+
+    console.warn("[get-report-html-pdf] data fetch timed out; retrying once:", url);
+    return await attempt();
+  }
+}
