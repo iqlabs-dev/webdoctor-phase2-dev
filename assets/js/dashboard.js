@@ -457,22 +457,45 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
-   const actionBtn = document.createElement("button");
+const actionBtn = document.createElement("button");
 actionBtn.className = "btn-link btn-view";
 actionBtn.textContent = "Download PDF";
 
-actionBtn.onclick = () => {
+actionBtn.onclick = async () => {
   if (!looksLikeReportId(row.report_id)) {
     alert("PDF not ready yet. Please refresh in a moment.");
     return;
   }
 
-  const pdfUrl =
-    "/.netlify/functions/generate-report-pdf?report_id=" +
-    encodeURIComponent(row.report_id);
+  actionBtn.disabled = true;
+  const oldLabel = actionBtn.textContent;
+  actionBtn.textContent = "Preparing…";
 
-  // Direct download trigger (no OSD view)
-  window.open(pdfUrl, "_blank", "noopener");
+  try {
+    // ✅ POST because generate-report-pdf is POST-only
+    const res = await fetch("/.netlify/functions/generate-report-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: row.report_id }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data?.success || !data?.url) {
+      console.error("PDF gen error:", res.status, data);
+      alert(data?.error || data?.message || "Unable to generate PDF. Please try again.");
+      return;
+    }
+
+    // ✅ open the returned hosted PDF url (DocRaptor / your stored file)
+    window.open(data.url, "_blank", "noopener");
+  } catch (e) {
+    console.error("PDF gen failed:", e);
+    alert("PDF generation failed. Please try again.");
+  } finally {
+    actionBtn.disabled = false;
+    actionBtn.textContent = oldLabel;
+  }
 };
 
 tdActions.appendChild(actionBtn);
