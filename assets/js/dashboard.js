@@ -457,15 +457,29 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
-      const actionBtn = document.createElement("button");
-      actionBtn.className = "btn-link btn-view";
-      actionBtn.textContent = "View + Download PDF";
-      actionBtn.onclick = () => goToReportFromHistory(row.report_id);
+   const actionBtn = document.createElement("button");
+actionBtn.className = "btn-link btn-view";
+actionBtn.textContent = "Download PDF";
 
-      tdActions.appendChild(actionBtn);
-      tr.appendChild(tdActions);
+actionBtn.onclick = () => {
+  if (!looksLikeReportId(row.report_id)) {
+    alert("PDF not ready yet. Please refresh in a moment.");
+    return;
+  }
 
-      tbody.appendChild(tr);
+  const pdfUrl =
+    "/.netlify/functions/generate-report-pdf?report_id=" +
+    encodeURIComponent(row.report_id);
+
+  // Direct download trigger (no OSD view)
+  window.open(pdfUrl, "_blank", "noopener");
+};
+
+tdActions.appendChild(actionBtn);
+tr.appendChild(tdActions);
+
+tbody.appendChild(tr);
+
     }
 
     applyHistoryFilter();
