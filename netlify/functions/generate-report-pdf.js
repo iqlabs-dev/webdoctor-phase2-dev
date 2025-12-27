@@ -3,7 +3,13 @@
 // Supports GET + POST to match UI fetch patterns (prevents 405)
 // Returns application/pdf on success, otherwise fast JSON error (no Netlify 504 mystery timeouts)
 
-const DOCRAPTOR_API_KEY = process.env.DOCRAPTOR_API_KEY;
+// ✅ Accept both env var spellings (you currently have DOC_RAPTOR_API_KEY in Netlify)
+const DOCRAPTOR_API_KEY =
+  process.env.DOCRAPTOR_API_KEY ||
+  process.env.DOCRAPTOR_KEY ||
+  process.env.DOC_RAPTOR_API_KEY || // <-- your Netlify key
+  "";
+
 const DOCRAPTOR_TEST = (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
 
 // Hard timeouts (keep under Netlify gateway limits)
@@ -22,7 +28,15 @@ exports.handler = async (event) => {
     }
 
     if (!DOCRAPTOR_API_KEY) {
-      return json(500, { error: "Missing DOCRAPTOR_API_KEY in Netlify environment" });
+      return json(500, {
+        error: "Missing DocRaptor API key in Netlify environment",
+        expected_any_of: ["DOCRAPTOR_API_KEY", "DOC_RAPTOR_API_KEY", "DOCRAPTOR_KEY"],
+        found: {
+          DOCRAPTOR_API_KEY: Boolean(process.env.DOCRAPTOR_API_KEY),
+          DOC_RAPTOR_API_KEY: Boolean(process.env.DOC_RAPTOR_API_KEY),
+          DOCRAPTOR_KEY: Boolean(process.env.DOCRAPTOR_KEY),
+        },
+      });
     }
 
     // Extract report_id from GET query or POST body
