@@ -1,8 +1,12 @@
 // netlify/functions/get-report-html-pdf.js
 // PDF HTML renderer (NO JS). DocRaptor prints this HTML directly.
+// Data source:
+// - /.netlify/functions/get-report-data-pdf?report_id=...
+
+const DATA_FETCH_TIMEOUT_MS = 20000;
+const RETRY_ON_TIMEOUT_ONCE = true;
 
 exports.handler = async (event) => {
-  // Preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -23,6 +27,7 @@ exports.handler = async (event) => {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
         Allow: "GET, OPTIONS",
+        "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ error: "Method not allowed" }),
     };
@@ -38,7 +43,7 @@ exports.handler = async (event) => {
     if (!reportId) {
       return {
         statusCode: 400,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
         body: "Missing report_id",
       };
     }
@@ -46,20 +51,9 @@ exports.handler = async (event) => {
     // ---- Fetch JSON (server-side) ----
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const dataUrl =
-      siteUrl +
-      "/.netlify/functions/get-report-data-pdf?report_id=" +
-      encodeURIComponent(reportId);
+      siteUrl + "/.netlify/functions/get-report-data-pdf?report_id=" + encodeURIComponent(reportId);
 
-    const resp = await fetch(dataUrl, { method: "GET", headers: { Accept: "application/json" } });
-    const rawText = await resp.text().catch(() => "");
-
-    if (!resp.ok) {
-      return {
-        statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: "Failed to fetch report data (" + resp.status + "): " + rawText,
-      };
-    }
+    const rawText = await fetchJsonWithTimeoutAndRetry(dataUrl);
 
     let json;
     try {
@@ -67,18 +61,10 @@ exports.handler = async (event) => {
     } catch (e) {
       return {
         statusCode: 500,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Access-Control-Allow-Origin": "*" },
         body: "Report data endpoint returned non-JSON: " + rawText.slice(0, 600),
       };
     }
-
-    // ✅ Normalize: some builds return the real payload inside `raw`
-    const data = (() => {
-      const hasTopSignals = Array.isArray(json?.delivery_signals) && json.delivery_signals.length;
-      const hasRawSignals = Array.isArray(json?.raw?.delivery_signals) && json.raw.delivery_signals.length;
-      if (!hasTopSignals && hasRawSignals) return json.raw;
-      return json;
-    })();
 
     // ---- Helpers ----
     function formatDateTime(iso) {
@@ -133,20 +119,65 @@ exports.handler = async (event) => {
         .join("")}</div>`;
     }
 
-    // Map signal -> key
-    function safeSignalKey(sig) {
-      const id = String(sig?.id || "").toLowerCase();
-      const label = String(sig?.label || "").toLowerCase();
+    function prettifyKey(k) {
+      k = String(k || "").split("_").join(" ");
+      return k.replace(/\b\w/g, (m) => m.toUpperCase());
+    }
 
-      if (id === "performance" || label.includes("performance")) return "performance";
-      if (id === "mobile" || label.includes("mobile")) return "mobile";
-      if (id === "seo" || label.includes("seo")) return "seo";
-      if (id === "security" || label.includes("security") || label.includes("trust")) return "security";
-      if (id === "structure" || label.includes("structure") || label.includes("semantics")) return "structure";
-      if (id === "accessibility" || label.includes("accessibility")) return "accessibility";
+    function isEmptyValue(v) {
+      if (v === null || typeof v === "undefined") return true;
+      if (typeof v === "string" && v.trim() === "") return true;
+      if (typeof v === "object") {
+        if (Array.isArray(v) && v.length === 0) return true;
+        if (!Array.isArray(v) && Object.keys(v).length === 0) return true;
+      }
+      return false;
+    }
+
+    function formatValue(v) {
+      if (v === null) return "";
+      if (typeof v === "undefined") return "";
+      if (typeof v === "number") return String(v);
+      if (typeof v === "boolean") return v ? "true" : "false";
+      if (typeof v === "string") return v.trim();
+      try {
+        return JSON.stringify(v);
+      } catch {
+        return String(v);
+      }
+    }
+
+    // Prefer sig.observations (label/value). Otherwise use sig.evidence object.
+    function buildEvidenceRows(sig) {
+      if (Array.isArray(sig?.observations) && sig.observations.length) {
+        return sig.observations
+          .map((o) => ({ k: String(o?.label || "").trim(), v: formatValue(o?.value) }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+      }
+
+      const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
+      if (ev && !Array.isArray(ev)) {
+        const keys = Object.keys(ev).sort((a, b) => String(a).localeCompare(String(b)));
+        return keys
+          .map((k) => ({ k: prettifyKey(k), v: formatValue(ev[k]) }))
+          .filter((r) => r.k && !isEmptyValue(r.v));
+      }
+
+      return [];
+    }
+
+    function safeSignalKey(sig) {
+      const id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.includes("perf")) return "performance";
+      if (id.includes("mobile")) return "mobile";
+      if (id.includes("seo")) return "seo";
+      if (id.includes("sec") || id.includes("trust")) return "security";
+      if (id.includes("struct") || id.includes("semantic")) return "structure";
+      if (id.includes("access")) return "accessibility";
       return null;
     }
 
+    // Stable order
     const SIGNAL_ORDER = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     function sortSignals(list) {
       const arr = Array.isArray(list) ? list.slice() : [];
@@ -161,60 +192,109 @@ exports.handler = async (event) => {
       return arr;
     }
 
-    // ---- Data ----
-    const header = data?.header || {};
-    const scores = data?.scores || {};
-    const deliverySignals = sortSignals(Array.isArray(data?.delivery_signals) ? data.delivery_signals : []);
+    function buildTopIssues(deliverySignals, limit = 8) {
+      const out = [];
+      const seen = new Set();
 
-    const findings = data?.findings && typeof data.findings === "object" ? data.findings : {};
-    const narrativeObj = data?.narrative && typeof data.narrative === "object" ? data.narrative : {};
+      const prettySignalName = (sig) => String(sig?.label || sig?.id || "Signal").trim() || "Signal";
 
-    // Fallback store: narrative.signals (if present)
-    const narrSignals =
-      narrativeObj?.signals && typeof narrativeObj.signals === "object" ? narrativeObj.signals : {};
+      for (const sig of (Array.isArray(deliverySignals) ? deliverySignals : [])) {
+        const sigName = prettySignalName(sig);
+        const deds = Array.isArray(sig?.deductions) ? sig.deductions : [];
 
-    // ✅ Robust getter for signal narrative
-    function getSignalLines(key) {
-      if (!key) return [];
+        for (const d of deds) {
+          if (out.length >= limit) break;
 
-      // 1) findings[key].lines
-      const f = findings && findings[key];
-      if (f && typeof f === "object" && Array.isArray(f.lines)) return f.lines;
+          const reason = String(d?.reason || "").trim();
+          const code = String(d?.code || "").trim();
+          const msg = reason || code;
+          if (!msg) continue;
 
-      // 2) findings[key] is a string
-      if (typeof f === "string") return lineify(f);
+          const item = `${sigName}: ${msg}`;
+          if (seen.has(item)) continue;
+          seen.add(item);
+          out.push(item);
+        }
 
-      // 3) findings[key].text (some shapes)
-      if (f && typeof f === "object" && typeof f.text === "string") return lineify(f.text);
+        if (out.length >= limit) break;
+      }
 
-      // 4) fallback narrative.signals[key].lines
-      const n = narrSignals && narrSignals[key];
-      if (n && typeof n === "object" && Array.isArray(n.lines)) return n.lines;
-
-      return [];
+      return out;
     }
 
-    // ---- Executive Narrative ----
-    const execLines =
-      (findings?.executive?.lines) ||
-      (narrativeObj?.overall?.lines) ||
-      null;
+    const FIX_ORDER = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
+    function fixLabel(key) {
+      switch (key) {
+        case "security":
+          return "Security headers + policy baselines (CSP, X-Frame-Options, Permissions-Policy).";
+        case "seo":
+          return "SEO foundations (H1 presence, robots meta, canonical consistency).";
+        case "accessibility":
+          return "Accessibility quick wins (empty links/buttons, labels, focus targets).";
+        case "performance":
+          return "Performance stability (reduce payload bloat; tame inline script count).";
+        case "structure":
+          return "Structure + semantics (document structure and markup clarity).";
+        case "mobile":
+          return "Mobile experience validation (already strong — maintain, re-test after changes).";
+        default:
+          return "";
+      }
+    }
 
+    // ---- Data extraction (assumes pure proxy of get-report-data) ----
+    const header = (json && json.header) ? json.header : {};
+    const scores = (json && json.scores) ? json.scores : {};
+    const findings = (json && json.findings && typeof json.findings === "object") ? json.findings : {};
+    const deliverySignals = sortSignals(Array.isArray(json.delivery_signals) ? json.delivery_signals : []);
+
+    // ---- Executive Narrative ----
+    const execLines = (findings.executive && findings.executive.lines) || null;
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
-      if (!lines.length) return "";
+      if (!lines.length) return `<p class="muted">No executive narrative was available for this report.</p>`;
       return "<ul>" + lines.map((ln) => "<li>" + esc(ln) + "</li>").join("") + "</ul>";
+    })();
+
+    // ---- Key Insight Metrics ----
+    const keyMetricsHtml = (() => {
+      const rows = [];
+      rows.push({ k: "Overall Delivery Score", v: asInt(scores.overall, "—") });
+
+      for (const sig of deliverySignals) {
+        const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
+        rows.push({ k: `${name} Score`, v: asInt(sig.score, "—") });
+      }
+
+      const trs = rows.map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`).join("");
+
+      return `
+        <table class="tbl">
+          <thead><tr><th>Metric</th><th class="right">Value</th></tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      `;
+    })();
+
+    // ---- Top Issues Detected ----
+    const topIssuesHtml = (() => {
+      const issues = buildTopIssues(deliverySignals, 8);
+      if (!issues.length) return `<p class="muted">No structured issues detected in this scan output.</p>`;
+      return `<ul class="issues">` + issues.map((t) => `<li>${esc(t)}</li>`).join("") + `</ul>`;
+    })();
+
+    // ---- Recommended Fix Sequence ----
+    const fixSeqHtml = (() => {
+      const items = FIX_ORDER.map((k) => fixLabel(k)).filter(Boolean);
+      return `<ol class="fix">` + items.map((t) => `<li>${esc(t)}</li>`).join("") + `</ol>`;
     })();
 
     // ---- Delivery Signals ----
     const deliverySignalsHtml = (() => {
-      if (!deliverySignals.length) return "";
+      if (!deliverySignals.length) return `<p class="muted">No delivery signals were available for this report.</p>`;
 
       const overallScore = asInt(scores.overall, "—");
-      const overallLines =
-        (findings?.overall?.lines) ||
-        (narrativeObj?.overall?.lines) ||
-        null;
+      const overallLines = (findings.overall && findings.overall.lines) || null;
 
       const cards = [];
 
@@ -228,11 +308,11 @@ exports.handler = async (event) => {
         </div>
       `);
 
-      deliverySignals.forEach((sig) => {
-        const name = String(sig.label || sig.id || "Signal");
+      for (const sig of deliverySignals) {
+        const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
         const score = asInt(sig.score, "—");
         const key = safeSignalKey(sig);
-        const lines = getSignalLines(key);
+        const lines = (key && findings[key] && findings[key].lines) ? findings[key].lines : null;
 
         cards.push(`
           <div class="card">
@@ -243,43 +323,96 @@ exports.handler = async (event) => {
             ${renderLines(lines, 3)}
           </div>
         `);
-      });
+      }
 
-      return cards.join("");
+      return `<div class="cards">${cards.join("")}</div>`;
     })();
 
-    // ---- CSS ----
+    // ---- Evidence ----
+    const evidenceHtml = (() => {
+      if (!deliverySignals.length) return `<p class="muted">No evidence rows were provided in this scan output.</p>`;
+
+      const blocks = deliverySignals
+        .map((sig) => {
+          const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
+          const rows = buildEvidenceRows(sig);
+          if (!rows.length) return "";
+
+          const trs = rows
+            .slice(0, 40)
+            .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val">${esc(r.v)}</td></tr>`)
+            .join("");
+
+          return `
+            <div class="ev-block">
+              <h3 class="ev-title">Evidence — ${esc(name)}</h3>
+              <table class="tbl">
+                <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                <tbody>${trs}</tbody>
+              </table>
+            </div>
+          `;
+        })
+        .filter(Boolean);
+
+      if (!blocks.length) return `<p class="muted">No evidence rows were provided in this scan output.</p>`;
+      return blocks.join("");
+    })();
+
+    const finalNotesHtml = `
+      <ul class="notes">
+        <li>This PDF reflects deterministic checks and extracted scan evidence only.</li>
+        <li>Narrative lines are summaries tied to measured signals; treat them as diagnostic guidance, not absolute truth.</li>
+        <li>Re-run the scan after changes to confirm improvements and catch regressions.</li>
+      </ul>
+    `;
+
     const css = `
       @page { size: A4; margin: 14mm; }
       * { box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; color: #111; }
-      h2 { font-size: 13px; margin: 18px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-      p, li { font-size: 10.5px; line-height: 1.35; }
+
+      h1 { font-size: 18px; margin: 0 0 10px; }
+      h2 { font-size: 13px; margin: 16px 0 8px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+      h3 { font-size: 12px; margin: 14px 0 8px; }
+
+      p, li, td, th { font-size: 10.5px; line-height: 1.35; }
       .muted { color: #666; }
+
       .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
       .brand { font-weight: 700; font-size: 14px; }
       .meta { font-size: 10px; text-align: right; }
       .hr { border-top: 1px solid #ddd; margin: 12px 0 12px; }
 
-      .cards { margin-top: 8px; }
+      .cards { margin-top: 6px; }
       .card { border: 1px solid #e5e5e5; border-radius: 8px; padding: 10px; margin: 10px 0; page-break-inside: avoid; }
       .card-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
       .card-title { font-weight: 700; font-size: 11px; }
       .card-score { font-weight: 700; font-size: 13px; }
-
       .sig-lines { margin-top: 6px; }
       .sig-line { font-size: 10.5px; line-height: 1.35; margin-top: 4px; }
 
+      .tbl { width: 100%; border-collapse: collapse; }
+      .tbl th { text-align: left; font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #ddd; }
+      .tbl td { font-size: 10px; padding: 7px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+      .tbl .m { width: 70%; }
+      .tbl .val { width: 30%; word-break: break-word; }
+      .right { text-align: right; }
+
+      .issues { margin: 6px 0 0 18px; padding: 0; }
+      .issues li { margin: 4px 0; }
+
+      .fix { margin: 6px 0 0 18px; }
+      .fix li { margin: 4px 0; }
+
+      .ev-block { margin: 14px 0; page-break-inside: avoid; }
+      .ev-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; }
+
+      .notes { margin: 6px 0 0 18px; }
+      .notes li { margin: 4px 0; }
+
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
-
-    const executiveSection = executiveNarrativeHtml
-      ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
-      : "";
-
-    const deliverySection = deliverySignalsHtml
-      ? `<h2>Delivery Signals</h2><div class="cards">${deliverySignalsHtml}</div>`
-      : "";
 
     const html = `<!doctype html>
 <html lang="en">
@@ -304,8 +437,26 @@ exports.handler = async (event) => {
 
   <div class="hr"></div>
 
-  ${executiveSection}
-  ${deliverySection}
+  <h2>Executive Narrative</h2>
+  ${executiveNarrativeHtml}
+
+  <h2>Key Insight Metrics</h2>
+  ${keyMetricsHtml}
+
+  <h2>Top Issues Detected</h2>
+  ${topIssuesHtml}
+
+  <h2>Recommended Fix Sequence</h2>
+  ${fixSeqHtml}
+
+  <h2>Delivery Signals</h2>
+  ${deliverySignalsHtml}
+
+  <h2>Evidence</h2>
+  ${evidenceHtml}
+
+  <h2>Final Notes</h2>
+  ${finalNotesHtml}
 
   <div class="footer">
     <div>© 2025 iQWEB — All rights reserved.</div>
@@ -327,8 +478,46 @@ exports.handler = async (event) => {
     console.error("[get-report-html-pdf] error:", err);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json; charset=utf-8" },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: err && err.message ? err.message : "Unknown error" }),
     };
   }
 };
+
+/* ---------- fetch helpers ---------- */
+
+async function fetchWithTimeout(url, ms, opts) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } catch (e) {
+    if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
+    throw e;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function fetchJsonWithTimeoutAndRetry(url) {
+  const attempt = async () => {
+    const resp = await fetchWithTimeout(url, DATA_FETCH_TIMEOUT_MS, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+    });
+    const rawText = await resp.text().catch(() => "");
+    if (!resp.ok) throw new Error(`Failed to fetch report data (${resp.status}): ${rawText.slice(0, 600)}`);
+    if (!rawText || rawText.length < 2) throw new Error("Report data endpoint returned empty response");
+    return rawText;
+  };
+
+  try {
+    return await attempt();
+  } catch (e) {
+    const msg = String(e?.message || "");
+    const isTimeout = msg.includes("Timeout after");
+    if (!RETRY_ON_TIMEOUT_ONCE || !isTimeout) throw e;
+    console.warn("[get-report-html-pdf] data fetch timed out; retrying once:", url);
+    return await attempt();
+  }
+}
