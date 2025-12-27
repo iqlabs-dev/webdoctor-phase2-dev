@@ -93,6 +93,24 @@ exports.handler = async (event) => {
       return String(Math.round(n));
     }
 
+    function formatDateTime24(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  if (isNaN(d)) return "";
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const day = pad(d.getDate());
+  const month = pad(d.getMonth() + 1);
+  const year = d.getFullYear();
+
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+
+  return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
+
     function lineify(v) {
       if (!v) return [];
       if (Array.isArray(v)) return v.filter(Boolean).map(String);
@@ -552,12 +570,12 @@ exports.handler = async (event) => {
   <div class="topbar">
     <div>
       <div class="brand">iQWEB</div>
-      <div class="muted" style="font-size:10px;">Powered by Λ i Q™</div>
       <div class="muted" style="font-size:10px; margin-top:4px;"><strong>Website:</strong> ${esc(header.website || "")}</div>
     </div>
     <div class="meta">
       <div><strong>Report ID:</strong> ${esc(header.report_id || reportId)}</div>
-      <div><strong>Report Date:</strong> ${esc(header.created_at || "")}</div>
+      <div><strong>Report Date:</strong> ${esc(formatDateTime24(header.created_at))}</div>
+
     </div>
   </div>
 
