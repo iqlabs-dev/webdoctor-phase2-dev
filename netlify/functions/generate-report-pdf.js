@@ -5,15 +5,19 @@
 // - Fetches /.netlify/functions/get-report-data-pdf directly
 // - Renders print-friendly HTML locally (no get-report-html-pdf hop)
 // - Hard timeouts to avoid Netlify 504 mystery hangs
+// - Retries 429/5xx with small backoff to stop credit-burn loops
 
 const DOCRAPTOR_API_KEY =
-  process.env.DOC_RAPTOR_API_KEY || process.env.DOCRAPTOR_API_KEY || "";
+  process.env.DOC_RAPTOR_API_KEY ||
+  process.env.DOCRAPTOR_API_KEY ||
+  "";
 
-const DOCRAPTOR_TEST = (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
+const DOCRAPTOR_TEST =
+  (process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true";
 
 // Keep total runtime comfortably under Netlify gateway limits.
-const DATA_FETCH_TIMEOUT_MS = 14000;     // JSON fetch (Supabase/proxy) fast-fail
-const DOCRAPTOR_TIMEOUT_MS = 16000;      // DocRaptor call fast-fail
+const DATA_FETCH_TIMEOUT_MS = 25000; // was 14000 (too tight; caused self-timeouts)
+const DOCRAPTOR_TIMEOUT_MS = 18000;  // slightly more breathing room
 
 exports.handler = async (event) => {
   // Preflight
@@ -51,10 +55,11 @@ exports.handler = async (event) => {
 
     const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    // 1) Fetch JSON directly (no extra function hop)
+    // 1) Fetch JSON directly (retry 429/5xx so we don't burn credits)
+    // IMPORTANT: use report_id (not reportId) for the proxy endpoint
     const dataUrl = `${siteUrl}/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}`;
 
-    const reportJson = await fetchJsonWithTimeout(dataUrl, DATA_FETCH_TIMEOUT_MS);
+    const reportJson = await fetchJsonWithTimeoutAndRetry(dataUrl, DATA_FETCH_TIMEOUT_MS, 2);
 
     // 2) Render HTML locally
     const html = renderPdfHtml(reportJson, reportId);
@@ -145,6 +150,10 @@ function json(statusCode, obj, extraHeaders = {}) {
   };
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function fetchWithTimeout(url, ms, opts) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
@@ -158,25 +167,49 @@ async function fetchWithTimeout(url, ms, opts) {
   }
 }
 
-async function fetchJsonWithTimeout(url, ms) {
-  const resp = await fetchWithTimeout(url, ms, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-  });
+// Retries only when it makes sense (429 or 5xx).
+async function fetchJsonWithTimeoutAndRetry(url, ms, retries = 2) {
+  let lastErr;
 
-  const rawText = await resp.text().catch(() => "");
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const resp = await fetchWithTimeout(url, ms, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
 
-  if (!resp.ok) {
-    throw new Error(`Report JSON fetch failed (${resp.status}): ${rawText.slice(0, 400)}`);
+      const rawText = await resp.text().catch(() => "");
+
+      // Retry 429 and 5xx (these are your exact failure modes in screenshots)
+      if (resp.status === 429 || (resp.status >= 500 && resp.status <= 599)) {
+        lastErr = new Error(`Report JSON fetch failed (${resp.status}): ${rawText.slice(0, 400)}`);
+        if (attempt < retries) {
+          // Slightly longer pause for 429 to avoid hammering + burning credits
+          await sleep(resp.status === 429 ? 1400 : 600);
+          continue;
+        }
+        throw lastErr;
+      }
+
+      if (!resp.ok) {
+        throw new Error(`Report JSON fetch failed (${resp.status}): ${rawText.slice(0, 400)}`);
+      }
+
+      try {
+        return JSON.parse(rawText || "{}");
+      } catch {
+        throw new Error(`Report JSON endpoint returned non-JSON: ${rawText.slice(0, 400)}`);
+      }
+    } catch (e) {
+      lastErr = e;
+      if (attempt < retries) {
+        await sleep(500);
+        continue;
+      }
+    }
   }
 
-  let json;
-  try {
-    json = JSON.parse(rawText || "{}");
-  } catch {
-    throw new Error(`Report JSON endpoint returned non-JSON: ${rawText.slice(0, 400)}`);
-  }
-  return json;
+  throw lastErr || new Error("Report JSON fetch failed");
 }
 
 /* ---------------- renderer (copied from your PDF HTML function, local) ---------------- */
@@ -282,26 +315,23 @@ function renderPdfHtml(json, reportIdFallback) {
 
   function buildEvidenceRows(sig) {
     if (Array.isArray(sig?.observations) && sig.observations.length) {
-      const rows = sig.observations
+      return sig.observations
         .map((o) => ({
           k: String(o?.label || "").trim(),
           v: formatValue(o?.value),
         }))
         .filter((r) => r.k && !isEmptyValue(r.v));
-      return rows;
     }
 
     const ev = sig?.evidence && typeof sig.evidence === "object" ? sig.evidence : null;
     if (ev && !Array.isArray(ev)) {
-      const keys = Object.keys(ev);
-      keys.sort((a, b) => String(a).localeCompare(String(b)));
-      const rows = keys
+      const keys = Object.keys(ev).sort((a, b) => String(a).localeCompare(String(b)));
+      return keys
         .map((k) => ({
           k: prettifyKey(k),
           v: formatValue(ev[k]),
         }))
         .filter((r) => r.k && !isEmptyValue(r.v));
-      return rows;
     }
 
     return [];
@@ -346,14 +376,12 @@ function renderPdfHtml(json, reportIdFallback) {
 
         const reason = String(d?.reason || "").trim();
         const code = String(d?.code || "").trim();
-
         const msg = reason || (code ? titleCase(code) : "");
         if (!msg) continue;
 
         const item = `${sigName}: ${msg}`;
         if (seen.has(item)) continue;
         seen.add(item);
-
         out.push(item);
       }
 
@@ -399,17 +427,13 @@ function renderPdfHtml(json, reportIdFallback) {
   const keyMetricsHtml = (() => {
     const rows = [];
     rows.push({ k: "Overall Delivery Score", v: asInt(scores.overall, "—") });
-
     for (const sig of deliverySignals) {
       const name = String(sig.label || sig.id || "Signal").trim() || "Signal";
-      const v = asInt(sig.score, "—");
-      rows.push({ k: `${name} Score`, v });
+      rows.push({ k: `${name} Score`, v: asInt(sig.score, "—") });
     }
-
     const trs = rows
       .map((r) => `<tr><td class="m">${esc(r.k)}</td><td class="val right">${esc(r.v)}</td></tr>`)
       .join("");
-
     return `
       <table class="tbl">
         <thead><tr><th>Metric</th><th class="right">Value</th></tr></thead>
@@ -437,7 +461,6 @@ function renderPdfHtml(json, reportIdFallback) {
       null;
 
     const cards = [];
-
     cards.push(`
       <div class="card">
         <div class="card-row">
@@ -555,7 +578,7 @@ function renderPdfHtml(json, reportIdFallback) {
     ? `<h2>Executive Narrative</h2>${executiveNarrativeHtml}`
     : `<h2>Executive Narrative</h2><p class="muted">No executive narrative was available for this report.</p>`;
 
-  const html = `<!doctype html>
+  return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -592,6 +615,4 @@ function renderPdfHtml(json, reportIdFallback) {
   </div>
 </body>
 </html>`;
-
-  return html;
 }

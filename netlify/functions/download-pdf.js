@@ -10,9 +10,7 @@ function json(statusCode, obj) {
 }
 
 function getBaseUrl(event) {
-  // Prefer explicit site URL if set
   if (process.env.URL) return process.env.URL;
-  // Fallback to request host
   const proto = event.headers["x-forwarded-proto"] || "https";
   const host = event.headers.host;
   return `${proto}://${host}`;
@@ -31,12 +29,14 @@ export const handler = async (event) => {
 
     const baseUrl = getBaseUrl(event);
 
-    // Call the PDF generator functin
-    const res = await fetch(`${baseUrl}/.netlify/functions/generate-report-pdf`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reportId }),
-    });
+    const res = await fetch(
+      `${baseUrl}/.netlify/functions/generate-report-pdf`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_id: reportId }), // ✅ FIX
+      }
+    );
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
