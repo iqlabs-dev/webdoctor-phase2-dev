@@ -981,9 +981,32 @@
 
 
 
-  <script>
+<script>
   // ===== DocRaptor render gate (single source of truth) =====
   window.__IQWEB_REPORT_READY = false;
+
+  // Detect "PDF render mode"
+  const __IQWEB_PDF_MODE = (() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("pdf") === "1") return true;
+
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    try {
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+    } catch (_) {}
+  }
+
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
 
   // MUST be global and named EXACTLY this for DocRaptor
   window.docraptorJavaScriptFinished = function () {
@@ -1007,10 +1030,9 @@
       signals && signals.children && signals.children.length > 0;
 
     if (loaderHidden && reportVisible && hasSignals) {
-      // Expand evidence for PDF
-      try {
-        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = true));
-      } catch (_) {}
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
 
       window.__IQWEB_REPORT_READY = true;
       return;
@@ -1023,7 +1045,8 @@
   setTimeout(() => {
     if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
   }, 30000);
-  </script>
+</script>
+
 
 </body>
 </html>
