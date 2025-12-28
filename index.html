@@ -20,8 +20,12 @@
     --ink: #e5f0ff;
     --ink-soft: #c0cfeb;
     --muted: #9aa4ba;
+
+    /* ✅ iQLABS-family teal */
     --accent: #22d3ee;
+    --accent-2: #14b8a6; /* greener teal for hover */
     --accent-soft: rgba(34, 211, 238, 0.12);
+
     --danger: #fb7185;
     --border-subtle: #1f2937;
     --panel: #070d1c;
@@ -48,6 +52,16 @@
     background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
     color: var(--ink);
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* ✅ Prevent any browser default purple links */
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  a:hover {
+    color: #e0f2fe;
+    text-decoration: underline;
   }
 
   .page-shell {
@@ -140,6 +154,7 @@
     color: var(--ink-soft);
     border-color: rgba(148,163,184,0.7);
     opacity: 1;
+    text-decoration: none;
   }
 
   .nav-right {
@@ -182,6 +197,7 @@
     border-color: rgba(148,163,184,0.9);
     color: var(--ink-soft);
     background: rgba(15,23,42,0.9);
+    text-decoration: none;
   }
 
   /* LOGIN styled like a mini pricing card */
@@ -216,6 +232,7 @@
     border-color: rgba(34,211,238,0.9);
     box-shadow: 0 18px 46px rgba(34,211,238,0.55);
     color: var(--ink);
+    text-decoration: none;
   }
 
   @media (max-width: 860px) {
@@ -249,8 +266,9 @@
     margin: 0 0 18px;
   }
 
+  /* ✅ teal iQLABS-family gradient (no purple) */
   .hero-h1 span {
-    background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
+    background: linear-gradient(120deg, #b7f3ff, #22d3ee, #14b8a6);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -262,6 +280,30 @@
     max-width: 46rem;
     line-height: 1.55;
     margin: 0 0 4px;
+  }
+
+  /* ✅ Hero CTA link (force teal, kill purple) */
+  .hero-cta a {
+    display: inline-block;
+    margin-top: 4px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 160ms ease, text-shadow 160ms ease;
+  }
+
+  .hero-cta a:hover {
+    color: #5eead4;
+    text-decoration: underline;
+    text-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+  }
+
+  .hero-cta-note {
+    margin-top: 6px;
+    color: var(--ink-soft);
+    opacity: 0.9;
+    font-size: 0.85rem;
   }
 
   /* SUPPORTING SECTIONS */
@@ -657,6 +699,7 @@
     border-color: rgba(34,211,238,0.95);
     box-shadow: 0 18px 40px rgba(34,211,238,0.55);
     color: var(--ink);
+    text-decoration: none;
   }
 
   .pricing-status {
@@ -735,9 +778,9 @@
   .trust-callout ul li { margin-bottom: 4px; }
 
   .trust-link {
-    color: #7dd3fc;
+    color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted rgba(125, 211, 252, 0.7);
+    border-bottom: 1px dotted rgba(34, 211, 238, 0.55);
   }
 
   .trust-link:hover {
@@ -754,9 +797,9 @@
   }
 
   .trust-contact a {
-    color: #7dd3fc;
+    color: var(--accent);
     text-decoration: none;
-    border-bottom: 1px dotted rgba(125,211,252,0.7);
+    border-bottom: 1px dotted rgba(34,211,238,0.55);
   }
 
   .trust-contact a:hover {
@@ -789,7 +832,7 @@
     text-decoration: none;
   }
 
-  .wd-footer-links a:hover { color: var(--ink); }
+  .wd-footer-links a:hover { color: var(--ink); text-decoration: none; }
 
   .wd-powered {
     margin-left: 8px;
@@ -853,21 +896,20 @@
           <p class="hero-sub">
             It analyses performance, SEO, mobile experience, accessibility, and security signals — converting raw diagnostics into a clear, structured report you can understand at a glance and share with confidence.
           </p>
+
           <div class="hero-cta">
-<a
-  href="/report.html?report_id=EXAMPLE-REPORT-001"
-  target="_blank"
-  rel="noopener"
-  class="btn btn-primary btn-lg"
->
-  View example iQWEB report →
-</a>
+            <a
+              href="/report.html?report_id=EXAMPLE-REPORT-001"
+              target="_blank"
+              rel="noopener"
+            >
+              View example iQWEB report →
+            </a>
 
-  <div class="hero-cta-note">
-    Uses anonymised scan data. Real client reports are private.
-  </div>
-</div>
-
+            <div class="hero-cta-note">
+              Uses anonymised scan data. Real client reports are private.
+            </div>
+          </div>
         </section>
       </main>
 
