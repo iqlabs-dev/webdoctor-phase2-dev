@@ -797,7 +797,7 @@
 
 /* FOOTER */
 .wd-footer {
-  padding: 32px 0;
+  padding: 28px 0;
   border-top: 1px solid rgba(255,255,255,0.05);
   font-size: 0.75rem;
   letter-spacing: 0.04em;
@@ -808,17 +808,31 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 18px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-
-  text-align: center;
   opacity: 0.9;
+
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: 18px;
 }
 
-/* Footer links row */
+.wd-footer-left {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.wd-footer-center {
+  justify-self: center;
+}
+
+.wd-footer-right {
+  justify-self: end;
+  white-space: nowrap;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Menu links */
 .wd-footer-links {
   display: flex;
   flex-wrap: wrap;
@@ -837,6 +851,20 @@
   text-decoration: none;
 }
 
+/* Mobile: stack nicely */
+@media (max-width: 720px) {
+  .wd-footer-inner {
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+    text-align: center;
+  }
+  .wd-footer-left,
+  .wd-footer-right {
+    justify-self: center;
+  }
+}
+
+
 /* Powered by line */
 .wd-powered {
   font-size: 0.7rem;
@@ -849,15 +877,17 @@
   #how.section { margin-top: 60px !important; }
   #trust.section { margin-top: 60px !important; }
 
-  .closing-philosophy {
-    max-width: 680px;
-    margin: 60px auto 40px auto;
-    font-size: 0.98rem;
-    line-height: 1.75;
-    color: rgba(229,240,255,0.75);
-    font-style: italic;
-    text-align: center;
-  }
+.closing-philosophy {
+  max-width: 780px;
+  margin: 60px auto 40px;
+  padding: 0 18px;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: rgba(229,240,255,0.75);
+  font-style: italic;
+  text-align: center;
+}
+
 </style>
 </head>
 
@@ -1298,18 +1328,7 @@
         border-top: 1px solid rgba(255, 255, 255, 0.03);
       }
 
-      .closing-inner {
-        max-width: 780px;
-        margin: 0 auto;
-        text-align: center;
-      }
 
-      .closing-inner p {
-        font-size: 1rem;
-        line-height: 1.8;
-        color: var(--ink-soft);
-        margin: 0;
-      }
 
       @media (max-width: 600px) {
         .closing-inner p {
@@ -1320,27 +1339,28 @@
     </style>
 
     <!-- FOOTER -->
-    <footer class="wd-footer">
-      <div class="wd-footer-inner">
-        <span>© 2025 iQWEB – All rights reserved.</span>
+<footer class="wd-footer">
+  <div class="wd-footer-inner">
+    <div class="wd-footer-left">© 2025 iQWEB – All rights reserved.</div>
 
-        <span class="wd-footer-links">
-          <a href="/">Home</a>
-          <a href="/pricing.html">Pricing</a>
-          <a href="/trust.html">Trust</a>
+    <div class="wd-footer-center">
+      <div class="wd-footer-links">
+        <a href="/">Home</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="/trust.html">Trust</a>
 
-          <!-- Legal links (Paddle compliant) -->
-          <a href="https://iqlabs.co.nz/#privacy" target="_blank" rel="noopener">Privacy</a>
-          <a href="https://iqlabs.co.nz/#terms" target="_blank" rel="noopener">Terms</a>
-          <a href="https://iqlabs.co.nz/#billing" target="_blank" rel="noopener">Billing & Refunds</a>
+        <a href="https://iqlabs.co.nz/privacy" target="_blank" rel="noopener">Privacy</a>
+        <a href="https://iqlabs.co.nz/terms" target="_blank" rel="noopener">Terms</a>
+        <a href="https://iqlabs.co.nz/refunds" target="_blank" rel="noopener">Billing &amp; Refunds</a>
 
-          <!-- Parent company -->
-          <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
-        </span>
-
-        <span class="wd-powered">Powered by Λ i Q™.</span>
+        <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
       </div>
-    </footer>
+    </div>
+
+    <div class="wd-footer-right">Powered by Λ i Q™.</div>
+  </div>
+</footer>
+
 
   </div>
 
