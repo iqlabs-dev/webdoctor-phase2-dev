@@ -549,10 +549,6 @@ tbody td:nth-child(7) {
   font-size: 12px;
   color: rgba(255,255,255,.55);
 }
-#history-helper-wrap {
-  display: block;
-}
-
 
   </style>
 </head>
@@ -698,29 +694,31 @@ tbody td:nth-child(7) {
             <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
 
             <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Website</th>
-                    <th>Score</th>
-                    <th>Status</th>
-                    <th>Report ID</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="history-body"></tbody>
-              </table>
+<table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Time</th>
+      <th>Website</th>
+      <th>Score</th>
+      <th>Status</th>
+      <th>Report ID</th>
+      <th>
+        Actions
+        <div class="actions-helper">
+          Open report to review and download PDF
+        </div>
+      </th>
+    </tr>
+  </thead>
+
+  <tbody id="history-body"></tbody>
+</table>
+
             </div>
           </div>
         </div>
-  <div id="history-helper-wrap">
-  <div class="history-helper">
-    Open report to review and download PDF.
-  </div>
-</div>
-
+  
 
 
 
