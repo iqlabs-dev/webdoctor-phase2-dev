@@ -903,7 +903,7 @@
   <script src="/assets/js/report-data.js"></script>
 
   <!-- UI buttons (Back/Refresh) -->
-  <script>
+<script>
 (function () {
   const refreshBtn = document.getElementById("refreshBtn");
   const backBtn = document.getElementById("backToDashboard");
@@ -913,24 +913,38 @@
   const from = (params.get("from") || "").toLowerCase();
   const reportId = params.get("report_id");
 
-  const isExampleReport = reportId === "EXAMPLE-REPORT-001";
+  const isHistory = from === "history";
+  const isExample = !isHistory; // anything not from history is treated as public/example
 
-  if (from === "history") {
-    if (refreshBtn) refreshBtn.style.display = "none";
-    if (backBtn) backBtn.style.display = "none";
-    if (pdfBtn) {
+  // --- Back button behaviour + label ---
+  if (backBtn) {
+    if (isHistory) {
+      backBtn.textContent = "Back to dashboard";
+      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+    } else {
+      backBtn.textContent = "Back to iQWEB";
+      backBtn.onclick = () => (window.location.href = "/");
+    }
+  }
+
+  // --- Refresh button ---
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+  // --- PDF button only for history view ---
+  if (pdfBtn) {
+    if (!isHistory) {
+      pdfBtn.style.display = "none";
+    } else {
       pdfBtn.style.display = "inline-block";
       pdfBtn.onclick = async () => {
         pdfBtn.disabled = true;
         pdfBtn.textContent = "Generating PDF…";
-
         try {
           const res = await fetch("/.netlify/functions/generate-report-pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ report_id: reportId })
           });
-
           if (!res.ok) throw new Error("PDF generation failed");
 
           const blob = await res.blob();
@@ -951,22 +965,16 @@
         }
       };
     }
-  } else {
-    if (pdfBtn) pdfBtn.style.display = "none";
-    if (refreshBtn) refreshBtn.onclick = () => location.reload();
-
-    // ✅ Step 2: Example report goes back to iQWEB main page (not dashboard)
-    if (backBtn) {
-      if (isExampleReport) {
-        backBtn.textContent = "← Back to iQWEB";
-        backBtn.onclick = () => (window.location.href = "/");
-      } else {
-        backBtn.onclick = () => (window.location.href = "/dashboard.html");
-      }
-    }
   }
+
+  // --- Force ALL evidence accordions CLOSED on page load ---
+  // (Stops the example report starting with everything expanded)
+  try {
+    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+  } catch (_) {}
 })();
-  </script>
+</script>
+
 
   <script>
   // ===== DocRaptor render gate (single source of truth) =====
