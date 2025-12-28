@@ -547,7 +547,7 @@
   }
 
   /* PRICING */
-  #pricing.section { margin-top: 60px; }
+  #pricing.section { margin-top: 60px !important; }
 
   .pricing-row {
     display: flex;
@@ -593,7 +593,6 @@
   }
 
   .pricing-card:hover::before { opacity: 1; }
-  .pricing-card--featured::before { opacity: 1; }
 
   /* Permanent subtle teal border on all pricing cards */
   .pricing-card { border-color: rgba(34, 211, 238, 0.35) !important; }
@@ -622,15 +621,23 @@
     margin-bottom: 4px;
   }
 
-  .pricing-pill {
-    font-size: 0.7rem;
-    border-radius: 999px;
-    padding: 3px 8px;
-    border: 1px solid rgba(148,163,184,0.6);
-    color: rgba(148,163,184,0.9);
-    align-self: flex-start;
-    margin-top: 8px;
-    margin-bottom: 10px;
+  .pricing-note {
+    font-size: 0.84rem;
+    color: var(--muted);
+    opacity: 0.75;
+    margin: 12px 0 8px;
+  }
+
+  .pricing-lock {
+    margin: 8px 0 18px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.04);
+    border: 1px solid rgba(34, 197, 94, 0.28);
+    color: #bbf7d0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
   }
 
   .pricing-footnote {
@@ -648,25 +655,6 @@
   .pricing-footnote-link:hover {
     color: #e0f2fe;
     border-bottom-style: solid;
-  }
-
-  .pricing-lock {
-    margin: 8px 0 18px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: rgba(34, 197, 94, 0.04);
-    border: 1px solid rgba(34, 197, 94, 0.28);
-    color: #bbf7d0;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-
-  .pricing-note {
-    font-size: 0.84rem;
-    color: var(--muted);
-    opacity: 0.75;
-    margin: 12px 0 8px;
   }
 
   .pricing-cta {
@@ -700,13 +688,6 @@
     box-shadow: 0 18px 40px rgba(34,211,238,0.55);
     color: var(--ink);
     text-decoration: none;
-  }
-
-  .pricing-status {
-    font-size: 0.8rem;
-    color: var(--ink-soft);
-    min-height: 1em;
-    margin-top: 4px;
   }
 
   /* TRUST */
@@ -1234,7 +1215,6 @@
   </p>
 </section>
 
-
       <!-- TRUST -->
       <section class="section" id="trust">
         <div class="section-header">
@@ -1330,26 +1310,87 @@
       <div class="wd-footer-inner">
         <span>© 2025 iQWEB – All rights reserved.</span>
 
-    <span class="wd-footer-links">
-  <a href="/">Home</a>
-  <a href="/#pricing">Pricing</a>
+        <span class="wd-footer-links">
+          <a href="/">Home</a>
+          <a href="/#pricing">Pricing</a>
+          <a href="/trust.html">Trust</a>
 
-  <a href="/trust.html">Trust</a>
+          <!-- Legal links (Paddle compliant) -->
+          <a href="https://iqlabs.co.nz/#privacy" target="_blank" rel="noopener">Privacy</a>
+          <a href="https://iqlabs.co.nz/#terms" target="_blank" rel="noopener">Terms</a>
+          <a href="https://iqlabs.co.nz/#billing" target="_blank" rel="noopener">Billing & Refunds</a>
 
-  <!-- Legal links (Paddle compliant) -->
-  <a href="https://iqlabs.co.nz/#privacy" target="_blank" rel="noopener">Privacy</a>
-  <a href="https://iqlabs.co.nz/#terms" target="_blank" rel="noopener">Terms</a>
-  <a href="https://iqlabs.co.nz/#billing" target="_blank" rel="noopener">Billing & Refunds</a>
-
-  <!-- Parent company -->
-  <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
-</span>
-
+          <!-- Parent company -->
+          <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+        </span>
 
         <span class="wd-powered">Powered by Λ i Q™.</span>
       </div>
     </footer>
 
   </div>
+
+  <!-- =========================================================
+       ✅ STEP 1 + STEP 2: Paddle.js + Pricing Button Checkout
+       ========================================================= -->
+
+  <!-- Paddle.js (Billing) -->
+  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+
+  <script>
+    // If you're testing in sandbox, uncomment this:
+    // Paddle.Environment.set("sandbox");
+
+    // ✅ Paddle Client-side token (NOT your API key)
+    Paddle.Initialize({
+      token: "PADDLE_CLIENT_TOKEN_HERE"
+    });
+
+    // ✅ Replace these with your real Paddle Price IDs (pri_...)
+    const PRICE_IDS = {
+      single: "pri_01kdhfqjerrm5k955a18gny8ah",
+      intelligence: "pri_01kdhfxfhs3x4yv2rvr5rak91d",
+      impact: "pri_01kdhg2da6kwyhfjada6ege3y3"
+    };
+
+    function openCheckout(planKey) {
+      const priceId = PRICE_IDS[planKey];
+      if (!priceId) {
+        alert("Missing Paddle priceId for plan: " + planKey);
+        return;
+      }
+
+      const successUrl = `${location.origin}/dashboard.html?paid=1&plan=${encodeURIComponent(planKey)}`;
+      const cancelUrl  = `${location.origin}/?cancel=1`;
+
+      try {
+        Paddle.Checkout.open({
+          items: [{ priceId, quantity: 1 }],
+          settings: {
+            displayMode: "overlay",
+            successUrl,
+            cancelUrl
+          },
+          customData: {
+            plan: planKey,
+            source: "homepage_pricing",
+            ts: Date.now()
+          }
+        });
+      } catch (e) {
+        console.error("Paddle checkout error:", e);
+        alert("Checkout failed to open. Check console for details.");
+      }
+    }
+
+    // Bind all pricing buttons
+    document.querySelectorAll(".pricing-cta[data-plan]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const planKey = btn.getAttribute("data-plan");
+        openCheckout(planKey);
+      });
+    });
+  </script>
+
 </body>
 </html>
