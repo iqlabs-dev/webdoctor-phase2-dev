@@ -911,30 +911,22 @@
 
   const params = new URLSearchParams(window.location.search);
   const from = (params.get("from") || "").toLowerCase();
-  const reportId = params.get("report_id");
+  const reportId = params.get("report_id") || "";
 
   const isHistory = from === "history";
-  const isExample = !isHistory; // anything not from history is treated as public/example
+  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
 
-  // --- Back button behaviour + label ---
-  if (backBtn) {
-    if (isHistory) {
-      backBtn.textContent = "Back to dashboard";
-      backBtn.onclick = () => (window.location.href = "/dashboard.html");
-    } else {
-      backBtn.textContent = "Back to iQWEB";
-      backBtn.onclick = () => (window.location.href = "/");
-    }
-  }
+  // Default: keep evidence accordions CLOSED on web
+  try {
+    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+  } catch (_) {}
 
-  // --- Refresh button ---
-  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+  // History view: hide Back + Refresh, show PDF
+  if (isHistory) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
 
-  // --- PDF button only for history view ---
-  if (pdfBtn) {
-    if (!isHistory) {
-      pdfBtn.style.display = "none";
-    } else {
+    if (pdfBtn) {
       pdfBtn.style.display = "inline-block";
       pdfBtn.onclick = async () => {
         pdfBtn.disabled = true;
@@ -965,15 +957,28 @@
         }
       };
     }
+    return; // done
   }
 
-  // --- Force ALL evidence accordions CLOSED on page load ---
-  // (Stops the example report starting with everything expanded)
-  try {
-    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-  } catch (_) {}
+  // Preview report: remove Back + Refresh (open in new tab from homepage)
+  if (isPreview) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
+    if (pdfBtn) pdfBtn.style.display = "none";
+    return; // done
+  }
+
+  // Normal (real) report view: keep Back + Refresh
+  if (pdfBtn) pdfBtn.style.display = "none";
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+  if (backBtn) {
+    backBtn.textContent = "Back to dashboard";
+    backBtn.onclick = () => (window.location.href = "/dashboard.html");
+  }
 })();
 </script>
+
 
 
   <script>
