@@ -246,8 +246,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1.5fr);
     gap: 20px;
-    margin-top: 120px;      /* distance from nav to hero */
-    margin-bottom: 26px;    /* tighten slightly to match iQLABS feel */
+    margin-top: 120px;
+    margin-bottom: 26px;
     align-items: flex-start;
   }
 
@@ -257,7 +257,6 @@
     gap: 12px;
   }
 
-  /* BIG iQLABS-style headline */
   .hero-h1 {
     font-size: clamp(2.4rem, 3.8vw, 3.35rem);
     line-height: 1.06;
@@ -266,7 +265,6 @@
     margin: 0 0 18px;
   }
 
-  /* ✅ teal iQLABS-family gradient (no purple) */
   .hero-h1 span {
     background: linear-gradient(120deg, #b7f3ff, #22d3ee, #14b8a6);
     -webkit-background-clip: text;
@@ -282,7 +280,6 @@
     margin: 0 0 4px;
   }
 
-  /* ✅ Hero CTA link (force teal, kill purple) */
   .hero-cta a {
     display: inline-block;
     margin-top: 4px;
@@ -334,8 +331,8 @@
   }
 
   .section-title {
-    font-size: 1.06rem; /* slightly larger */
-    font-weight: 800;   /* closer to iQLABS */
+    font-size: 1.06rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-top: 0;
@@ -343,7 +340,7 @@
   }
 
   .section-subtitle {
-    font-size: 0.88rem; /* slightly larger */
+    font-size: 0.88rem;
     color: var(--muted);
     max-width: 30rem;
     line-height: 1.75;
@@ -360,14 +357,13 @@
   }
 
   .iq-section-title {
-    font-size: 1.08rem; /* slightly larger */
-    font-weight: 800;   /* closer to iQLABS */
+    font-size: 1.08rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin: 0 0 6px;
   }
 
-  /* Grid of 9 cards */
   .iq-signal-grid {
     margin-top: 18px;
     display: grid;
@@ -407,7 +403,7 @@
   }
 
   .iq-signal-title {
-    font-size: 0.94rem; /* slightly larger */
+    font-size: 0.94rem;
     font-weight: 700;
     margin: 0 0 2px;
     color: var(--ink-soft);
@@ -562,11 +558,12 @@
     border-radius: 16px;
     background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
     border: 1px solid rgba(31,41,55,0.9);
-    padding: 14px 14px 16px;
+    padding: 18px 16px 18px;              /* ⬅️ taller */
+    min-height: 260px;                    /* ⬅️ taller */
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 6px;
+    gap: 10px;                            /* ⬅️ more breathing room */
     box-shadow: 0 18px 38px rgba(15,23,42,0.85);
     transition:
       transform 0.18s ease,
@@ -615,20 +612,20 @@
     margin-bottom: 2px;
   }
 
-  .pricing-meta {
-    font-size: 0.8rem;
+  /* ✅ NEW bullet list inside pricing cards */
+  .pricing-bullets {
+    margin: 2px 0 4px;
+    padding-left: 18px;
     color: var(--muted);
-    margin-bottom: 4px;
+    font-size: 0.8rem;
+    line-height: 1.55;
   }
 
-  /* ✅ NEW: softer, cleaner footnote line inside cards */
-  .pricing-fineprint {
-    font-size: 0.76rem;
-    color: rgba(154, 164, 186, 0.85);
-    margin-top: 2px;
-    margin-bottom: 6px;
-    line-height: 1.5;
+  .pricing-bullets li {
+    margin: 0 0 6px 0;
   }
+
+  .pricing-bullets strong { color: var(--ink-soft); }
 
   .pricing-note {
     font-size: 0.84rem;
@@ -697,30 +694,6 @@
     box-shadow: 0 18px 40px rgba(34,211,238,0.55);
     color: var(--ink);
     text-decoration: none;
-  }
-
-  /* ✅ NEW: make Intelligence feel like the default choice (subtle, not loud) */
-  .pricing-card.is-featured {
-    border-color: rgba(34, 211, 238, 0.75) !important;
-    box-shadow: 0 22px 56px rgba(15,23,42,0.92);
-  }
-
-  .pricing-card.is-featured::before { opacity: 0.55; }
-
-  .pricing-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: #e0f2fe;
-    background: rgba(34,211,238,0.10);
-    border: 1px solid rgba(34,211,238,0.45);
-    z-index: 2;
   }
 
   /* TRUST */
@@ -1173,38 +1146,30 @@
       <div class="pricing-price">$49</div>
       <div class="pricing-meta-extra">One-time purchase</div>
 
-      <div class="pricing-meta">
-        1 full website diagnostic · Client-ready PDF included
-      </div>
-
-      <div class="pricing-meta">
-        Verified Report ID · No subscription
-      </div>
+      <ul class="pricing-bullets">
+        <li>1 full website diagnostic</li>
+        <li>Client-ready PDF included</li>
+        <li>Verified Report ID</li>
+        <li>No subscription</li>
+      </ul>
 
       <button class="pricing-cta" data-plan="single">
         Get report
       </button>
     </div>
 
-    <!-- INTELLIGENCE (FEATURED) -->
-    <div class="pricing-card is-featured">
-      <div class="pricing-badge">Most popular</div>
-
+    <!-- INTELLIGENCE -->
+    <div class="pricing-card">
       <div class="pricing-name">Intelligence</div>
       <div class="pricing-price">$149 / month</div>
       <div class="pricing-meta-extra">For regular use</div>
 
-      <div class="pricing-meta">
-        Up to <strong>50 reports per month</strong>
-      </div>
-
-      <div class="pricing-meta">
-        Full diagnostics · PDFs included · No auto-overage
-      </div>
-
-      <div class="pricing-fineprint">
-        Monthly reset. Unused reports don’t roll over.
-      </div>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>50 reports per month</strong></li>
+        <li>Full diagnostics + PDFs included</li>
+        <li>No auto-overage</li>
+        <li>Monthly reset — unused reports don’t roll over</li>
+      </ul>
 
       <button class="pricing-cta" data-plan="intelligence">
         Start subscription
@@ -1217,17 +1182,12 @@
       <div class="pricing-price">$249 / month</div>
       <div class="pricing-meta-extra">For high-volume teams</div>
 
-      <div class="pricing-meta">
-        Up to <strong>100 reports per month</strong>
-      </div>
-
-      <div class="pricing-meta">
-        Full diagnostics · PDFs included · No auto-overage
-      </div>
-
-      <div class="pricing-fineprint">
-        Monthly reset. Unused reports don’t roll over.
-      </div>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>100 reports per month</strong></li>
+        <li>Full diagnostics + PDFs included</li>
+        <li>No auto-overage</li>
+        <li>Monthly reset — unused reports don’t roll over</li>
+      </ul>
 
       <button class="pricing-cta" data-plan="impact">
         Start subscription
