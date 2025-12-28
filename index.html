@@ -621,6 +621,15 @@
     margin-bottom: 4px;
   }
 
+  /* ✅ NEW: softer, cleaner footnote line inside cards */
+  .pricing-fineprint {
+    font-size: 0.76rem;
+    color: rgba(154, 164, 186, 0.85);
+    margin-top: 2px;
+    margin-bottom: 6px;
+    line-height: 1.5;
+  }
+
   .pricing-note {
     font-size: 0.84rem;
     color: var(--muted);
@@ -688,6 +697,30 @@
     box-shadow: 0 18px 40px rgba(34,211,238,0.55);
     color: var(--ink);
     text-decoration: none;
+  }
+
+  /* ✅ NEW: make Intelligence feel like the default choice (subtle, not loud) */
+  .pricing-card.is-featured {
+    border-color: rgba(34, 211, 238, 0.75) !important;
+    box-shadow: 0 22px 56px rgba(15,23,42,0.92);
+  }
+
+  .pricing-card.is-featured::before { opacity: 0.55; }
+
+  .pricing-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #e0f2fe;
+    background: rgba(34,211,238,0.10);
+    border: 1px solid rgba(34,211,238,0.45);
+    z-index: 2;
   }
 
   /* TRUST */
@@ -1141,7 +1174,7 @@
       <div class="pricing-meta-extra">One-time purchase</div>
 
       <div class="pricing-meta">
-        1 website scan · Full diagnostic report · Client-ready PDF
+        1 full website diagnostic · Client-ready PDF included
       </div>
 
       <div class="pricing-meta">
@@ -1153,8 +1186,10 @@
       </button>
     </div>
 
-    <!-- INTELLIGENCE -->
-    <div class="pricing-card">
+    <!-- INTELLIGENCE (FEATURED) -->
+    <div class="pricing-card is-featured">
+      <div class="pricing-badge">Most popular</div>
+
       <div class="pricing-name">Intelligence</div>
       <div class="pricing-price">$149 / month</div>
       <div class="pricing-meta-extra">For regular use</div>
@@ -1167,12 +1202,12 @@
         Full diagnostics · PDFs included · No auto-overage
       </div>
 
-      <div class="pricing-meta">
-        Unused reports do not roll over. Plan resets monthly.
+      <div class="pricing-fineprint">
+        Monthly reset. Unused reports don’t roll over.
       </div>
 
       <button class="pricing-cta" data-plan="intelligence">
-        Start Intelligence
+        Start subscription
       </button>
     </div>
 
@@ -1190,12 +1225,12 @@
         Full diagnostics · PDFs included · No auto-overage
       </div>
 
-      <div class="pricing-meta">
-        Unused reports do not roll over. Plan resets monthly.
+      <div class="pricing-fineprint">
+        Monthly reset. Unused reports don’t roll over.
       </div>
 
       <button class="pricing-cta" data-plan="impact">
-        Start Impact
+        Start subscription
       </button>
     </div>
 
