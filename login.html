@@ -5,14 +5,12 @@
   <title>iQWEB – Sign in</title>
 
   <meta name="description" content="iQWEB is a professional website diagnostics platform that scans performance, SEO, security, and delivery signals to reveal what is holding your site back and how to fix it.">
-
   <meta name="robots" content="noindex, nofollow">
-
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <style>
-
     :root {
       --bg-top: #050814;
       --bg-mid: #050b19;
@@ -28,9 +26,7 @@
       --radius-lg: 22px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     html, body {
       margin: 0;
@@ -86,20 +82,7 @@
       font-weight: 800;
       letter-spacing: 0.26em;
       text-transform: uppercase;
-      color: var(--ink);
-      margin-bottom: 4px;
-    }
-
-    .logo span {
-      color: var(--ink);
-    }
-
-    .tagline {
-      font-size: 0.7rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 22px;
+      margin-bottom: 18px;
     }
 
     h1 {
@@ -130,12 +113,9 @@
       margin-bottom: 6px;
     }
 
-    .field {
-      margin-bottom: 16px;
-    }
+    .field { margin-bottom: 16px; }
 
-    input[type="email"],
-    input[type="text"] {
+    input {
       width: 100%;
       border-radius: 999px;
       border: 1px solid rgba(148,163,184,0.55);
@@ -143,19 +123,6 @@
       color: var(--ink);
       padding: 10px 14px;
       font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
-    }
-
-    input[type="email"]:focus,
-    input[type="text"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(34,211,238,0.5);
-      background: #020617;
-    }
-
-    input::placeholder {
-      color: var(--muted);
     }
 
     .btn-primary {
@@ -165,43 +132,10 @@
       padding: 11px 16px;
       font-size: 0.9rem;
       font-weight: 700;
-      text-transform: uppercase;
       letter-spacing: 0.14em;
-      cursor: pointer;
       background: linear-gradient(135deg, #22c55e, #14b8a6);
       color: #020617;
-      box-shadow: 0 18px 38px rgba(15,23,42,0.9);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: transform 0.12s ease-out, box-shadow 0.12s ease-out, opacity 0.12s;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-1px);
-      box-shadow: 0 24px 46px rgba(15,23,42,1);
-      opacity: 0.96;
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: default;
-      box-shadow: none;
-    }
-
-    .btn-text {
-      background: none;
-      border: none;
-      color: var(--ink-soft);
-      font-size: 0.78rem;
-      text-decoration: underline;
       cursor: pointer;
-      padding: 0;
-    }
-
-    .btn-text:hover {
-      color: var(--accent);
     }
 
     .status {
@@ -211,12 +145,20 @@
       color: var(--muted);
     }
 
-    .status.error {
-      color: var(--danger);
+    .login-footer {
+      margin-top: 14px;
+      text-align: center;
     }
 
-    .status.success {
-      color: #4ade80;
+    .login-footer a {
+      font-size: 0.75rem;
+      color: rgba(229,240,255,0.55);
+      text-decoration: none;
+      transition: color 0.18s ease;
+    }
+
+    .login-footer a:hover {
+      color: var(--accent);
     }
 
     .fine-print {
@@ -232,114 +174,6 @@
       text-decoration: none;
       border-bottom: 1px dotted rgba(34,211,238,0.6);
     }
-
-    .fine-print a:hover {
-      border-bottom-style: solid;
-    }
-
-    /* PIN STEP */
-
-    .pin-instructions {
-      font-size: 0.85rem;
-      color: var(--ink-soft);
-      line-height: 1.6;
-      margin-bottom: 18px;
-    }
-
-    .pin-email {
-      color: var(--accent);
-      font-weight: 500;
-    }
-
-    .pin-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 18px;
-    }
-
-    .pin-input {
-      width: 42px;
-      height: 46px;
-      border-radius: 14px;
-      border: 1px solid rgba(148,163,184,0.6);
-      background: rgba(15,23,42,0.98);
-      color: var(--ink);
-      text-align: center;
-      font-size: 1.1rem;
-      font-weight: 600;
-      outline: none;
-      transition: border-color 0.16s ease, box-shadow 0.16s ease;
-    }
-
-    .pin-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(34,211,238,0.5);
-    }
-
-    .pin-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 12px;
-    }
-
-    .link-inline {
-      border: none;
-      background: none;
-      padding: 0;
-      font-size: 0.78rem;
-      color: var(--accent);
-      text-decoration: underline;
-      cursor: pointer;
-    }
-
-    .link-inline:hover {
-      color: #7dd3fc;
-    }
-
-    .step {
-      display: none;
-    }
-
-    .step.active {
-      display: block;
-    }
-
-    @media (max-width: 480px) {
-      .card {
-        padding: 26px 22px 24px;
-      }
-
-      .pin-row {
-        justify-content: space-between;
-      }
-
-      .pin-input {
-        width: 38px;
-        height: 42px;
-      }
-    }
-    /* Wrong-code shake + error state */
-.pin-row.shake {
-  animation: pin-shake 0.18s ease-in-out 0s 2;
-}
-
-.pin-input.error {
-  border-color: #fb7185;
-  box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.55);
-}
-
-@keyframes pin-shake {
-  0%   { transform: translateX(0); }
-  25%  { transform: translateX(-3px); }
-  50%  { transform: translateX(3px); }
-  75%  { transform: translateX(-2px); }
-  100% { transform: translateX(0); }
-}
-
   </style>
 </head>
 
@@ -348,8 +182,8 @@
     <div class="card">
       <div class="badge"></div>
       <div class="card-inner">
-        <div class="logo"><span>IQWEB</span></div>
 
+        <div class="logo">IQWEB</div>
 
         <h1>Sign in to your dashboard</h1>
         <p class="subtitle">
@@ -357,304 +191,29 @@
           <em>No passwords. No reset emails. Just a quick PIN.</em>
         </p>
 
-        <!-- STEP 1: EMAIL -->
-        <div id="step-email" class="step active">
-          <div class="field">
-            <label for="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              autocomplete="email"
-              required />
-          </div>
-
-          <button id="btn-send-code" class="btn-primary" type="button">
-            Send sign-in code
-          </button>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com">
         </div>
 
-        <!-- STEP 2: PIN -->
-        <div id="step-pin" class="step">
-          <p class="pin-instructions">
-            We’ve emailed a 6-digit sign-in code to
-            <span id="pin-email-display" class="pin-email"></span>.<br>
-            Enter it below to open your iQWEB dashboard.
-          </p>
-
-          <div class="pin-row">
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-            <input class="pin-input" type="text" inputmode="numeric" maxlength="1" />
-          </div>
-
-          <div class="pin-meta">
-            <button id="btn-back-email" type="button" class="link-inline">
-              Change email
-            </button>
-            <button id="btn-resend-code" type="button" class="link-inline">
-              Resend code
-            </button>
-          </div>
-
-          <button id="btn-verify-code" class="btn-primary" type="button">
-            Verify &amp; sign in
-          </button>
-        </div>
+        <button class="btn-primary">Send sign-in code</button>
 
         <div id="status" class="status"></div>
 
-        <div class="fine-print">
-          By continuing you agree to our 
- <a href="/trust" target="_blank" rel="noopener">trust, security &amp; privacy notes</a>
-
+        <!-- BACK LINK ADDED -->
+        <div class="login-footer">
+          <a href="/" aria-label="Back to iQWEB homepage">← Back to iQWEB</a>
         </div>
+
+        <div class="fine-print">
+          By continuing you agree to our
+          <a href="/trust" target="_blank" rel="noopener">
+            trust, security &amp; privacy notes
+          </a>
+        </div>
+
       </div>
     </div>
   </div>
-
-  <!-- PIN login wiring: send-pin via Netlify, verifyOtp via Supabase, then redirect -->
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  // Same project + anon key as dashboard
-  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  const stepEmail       = document.getElementById("step-email");
-  const stepPin         = document.getElementById("step-pin");
-  const emailInput      = document.getElementById("email");
-  const sendBtn         = document.getElementById("btn-send-code");
-  const resendBtn       = document.getElementById("btn-resend-code");
-  const verifyBtn       = document.getElementById("btn-verify-code");
-  const backBtn         = document.getElementById("btn-back-email");
-  const statusEl        = document.getElementById("status");
-  const pinEmailDisplay = document.getElementById("pin-email-display");
-  const pinInputs       = Array.from(document.querySelectorAll(".pin-input"));
-
-  let currentEmail = "";
-
-  function setStatus(msg, type = "") {
-    statusEl.textContent = msg || "";
-    statusEl.classList.remove("error", "success");
-    if (type) statusEl.classList.add(type);
-  }
-
-  function showStep(step) {
-    if (step === "email") {
-      stepEmail.classList.add("active");
-      stepPin.classList.remove("active");
-    } else {
-      stepEmail.classList.remove("active");
-      stepPin.classList.add("active");
-    }
-    setStatus("");
-  }
-
-  async function sendCode({ isResend = false } = {}) {
-    const email = (emailInput.value || "").trim();
-    if (!email) {
-      setStatus("Please enter your email address.", "error");
-      emailInput.focus();
-      return;
-    }
-
-    currentEmail = email;
-    pinEmailDisplay.textContent = email;
-
-    sendBtn.disabled = true;
-    if (resendBtn) resendBtn.disabled = true;
-    verifyBtn.disabled = true;
-
-    setStatus(isResend ? "Resending code…" : "Sending code…");
-
-    try {
-      const res = await fetch("/.netlify/functions/send-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      sendBtn.disabled = false;
-      if (resendBtn) resendBtn.disabled = false;
-      verifyBtn.disabled = false;
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("send-pin failed:", text);
-        setStatus("Could not send code. Please try again.", "error");
-        return;
-      }
-
-      showStep("pin");
-      pinInputs.forEach((input) => (input.value = ""));
-      if (pinInputs[0]) pinInputs[0].focus();
-
-      setStatus(
-        isResend
-          ? "We’ve sent a new 6-digit code. It should arrive shortly."
-          : "Check your email for a 6-digit sign-in code.",
-        "success"
-      );
-    } catch (err) {
-      console.error("Error calling send-pin:", err);
-      setStatus("Could not send code. Please try again.", "error");
-      sendBtn.disabled = false;
-      if (resendBtn) resendBtn.disabled = false;
-      verifyBtn.disabled = false;
-    }
-  }
-
-  function getPinValue() {
-    return pinInputs.map((i) => (i.value || "").trim()).join("");
-  }
-
-  async function verifyCode() {
-    const token = getPinValue();
-
-    if (!currentEmail) {
-      setStatus("Please enter your email first.", "error");
-      showStep("email");
-      emailInput.focus();
-      return;
-    }
-
-    if (!token || token.length < 6) {
-      setStatus("Enter the 6-digit code from your email.", "error");
-      if (pinInputs[0]) pinInputs[0].focus();
-      return;
-    }
-
-    verifyBtn.disabled = true;
-    sendBtn.disabled = true;
-    if (resendBtn) resendBtn.disabled = true;
-
-    setStatus("Verifying code…");
-
-    try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: currentEmail,
-        token,
-        type: "email", // email OTP
-      });
-
-      verifyBtn.disabled = false;
-      sendBtn.disabled = false;
-      if (resendBtn) resendBtn.disabled = false;
-
-if (error) {
-  console.error("verifyOtp error:", error);
-  setStatus("Invalid or expired code. Please request a new one.", "error");
-
-  // Clear inputs + mark red
-  pinInputs.forEach((i) => {
-    i.value = "";
-    i.classList.add("error");
-  });
-
-  // Shake animation
-  const pinRow = document.querySelector(".pin-row");
-  if (pinRow) {
-    pinRow.classList.remove("shake"); 
-    void pinRow.offsetWidth; // retrigger animation
-    pinRow.classList.add("shake");
-  }
-
-  // Remove red outline after animation
-  setTimeout(() => {
-    pinInputs.forEach((i) => i.classList.remove("error"));
-  }, 350);
-
-  if (pinInputs[0]) pinInputs[0].focus();
-  return;
-}
-
-
-      console.log("verifyOtp success:", data);
-      setStatus("Signed in. Redirecting…", "success");
-      window.location.href = "/dashboard.html";
-    } catch (err) {
-      console.error("verifyOtp unexpected error:", err);
-      setStatus("Could not verify that code. Please try again.", "error");
-      verifyBtn.disabled = false;
-      sendBtn.disabled = false;
-      if (resendBtn) resendBtn.disabled = false;
-    }
-  }
-
-  function wirePinInputs() {
-    pinInputs.forEach((input, idx) => {
-      input.addEventListener("input", (e) => {
-        const value = e.target.value.replace(/\D/g, "");
-        e.target.value = value.slice(-1);
-
-        // Auto-advance focus only, no auto-verify
-        if (value && idx < pinInputs.length - 1) {
-          pinInputs[idx + 1].focus();
-        }
-      });
-
-      input.addEventListener("keydown", (e) => {
-        if (e.key === "Backspace" && !e.target.value && idx > 0) {
-          pinInputs[idx - 1].focus();
-        }
-        if (e.key === "ArrowLeft" && idx > 0) {
-          pinInputs[idx - 1].focus();
-        }
-        if (e.key === "ArrowRight" && idx < pinInputs.length - 1) {
-          pinInputs[idx + 1].focus();
-        }
-
-        // IMPORTANT: no Enter handler here.
-        // We do NOT auto-submit on Enter — user must click the button.
-      });
-
-      if (idx === 0) {
-        input.addEventListener("paste", (e) => {
-          const text = (e.clipboardData || window.clipboardData).getData("text") || "";
-          const digits = text.replace(/\D/g, "").slice(0, pinInputs.length);
-          if (!digits) return;
-          e.preventDefault();
-          digits.split("").forEach((d, i) => {
-            if (pinInputs[i]) pinInputs[i].value = d;
-          });
-          // No auto-verify after paste — user still must click the button
-          if (pinInputs[digits.length - 1]) {
-            pinInputs[digits.length - 1].focus();
-          }
-        });
-      }
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    if (emailInput) emailInput.focus();
-    wirePinInputs();
-
-    sendBtn?.addEventListener("click", () => sendCode({ isResend: false }));
-    resendBtn?.addEventListener("click", () => sendCode({ isResend: true }));
-    verifyBtn?.addEventListener("click", verifyCode);
-
-    backBtn?.addEventListener("click", () => {
-      showStep("email");
-      setStatus("");
-      emailInput.focus();
-    });
-
-    emailInput?.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        sendCode({ isResend: false });
-      }
-    });
-  });
-</script>
-
 </body>
 </html>
