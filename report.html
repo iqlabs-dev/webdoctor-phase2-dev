@@ -686,11 +686,11 @@
             </div>
           </div>
 
-<div class="top-actions">
-  <button id="backToDashboard" class="btn">Back to dashboard</button>
-  <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
-  <button id="refreshBtn" class="btn">Refresh</button>
-</div>
+          <div class="top-actions">
+            <button id="backToDashboard" class="btn">Back to dashboard</button>
+            <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+            <button id="refreshBtn" class="btn">Refresh</button>
+          </div>
 
         </div>
 
@@ -913,6 +913,8 @@
   const from = (params.get("from") || "").toLowerCase();
   const reportId = params.get("report_id");
 
+  const isExampleReport = reportId === "EXAMPLE-REPORT-001";
+
   if (from === "history") {
     if (refreshBtn) refreshBtn.style.display = "none";
     if (backBtn) backBtn.style.display = "none";
@@ -927,7 +929,6 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ report_id: reportId })
-
           });
 
           if (!res.ok) throw new Error("PDF generation failed");
@@ -953,13 +954,21 @@
   } else {
     if (pdfBtn) pdfBtn.style.display = "none";
     if (refreshBtn) refreshBtn.onclick = () => location.reload();
-    if (backBtn) backBtn.onclick = () => (window.location.href = "/dashboard.html");
+
+    // ✅ Step 2: Example report goes back to iQWEB main page (not dashboard)
+    if (backBtn) {
+      if (isExampleReport) {
+        backBtn.textContent = "← Back to iQWEB";
+        backBtn.onclick = () => (window.location.href = "/");
+      } else {
+        backBtn.onclick = () => (window.location.href = "/dashboard.html");
+      }
+    }
   }
 })();
-
   </script>
 
-<script>
+  <script>
   // ===== DocRaptor render gate (single source of truth) =====
   window.__IQWEB_REPORT_READY = false;
 
@@ -1001,11 +1010,7 @@
   setTimeout(() => {
     if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
   }, 30000);
-</script>
-
-
-
-
+  </script>
 
 </body>
 </html>
