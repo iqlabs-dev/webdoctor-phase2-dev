@@ -265,13 +265,15 @@
     margin: 0 0 18px;
   }
 
-.hero-h1 span {
-  color: #22d3ee; /* same teal as iQLABS */
+/* HERO H1 styling */
+.hero-h1 span{
+  color: var(--accent);               /* teal */
   background: none;
   -webkit-background-clip: initial;
   background-clip: initial;
   text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
 }
+
 
   .hero-sub {
     font-size: 1.05rem;
@@ -925,9 +927,11 @@
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
-          <h1 class="hero-h1">
-            iQWEB transforms <span>website data</span> into clarity.<br>
-          </h1>
+      <h1 class="hero-h1">
+  iQWEB transforms <span>website data</span><br>
+  <span>into clarity.</span>
+</h1>
+
 
           <p class="hero-sub">
             It analyses performance, SEO, mobile experience, accessibility, and security signals — converting raw diagnostics into a clear, structured report you can understand at a glance and share with confidence.
