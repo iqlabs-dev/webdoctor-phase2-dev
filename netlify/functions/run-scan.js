@@ -1109,7 +1109,7 @@ if (!uf) {
   return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
 }
 
-// Per-user bans/freezes
+// Per-user bans/freeze
 if (!isFounder && uf.is_banned) {
   return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
 }
