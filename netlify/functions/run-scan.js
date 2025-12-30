@@ -1006,6 +1006,61 @@ const authHeader =
     };
   }
 }
+async function getAdminFlags() {
+  const { data, error } = await supabase
+    .from("admin_flags")
+    .select("freeze_all, freeze_scans, freeze_pdfs, freeze_payments, maintenance_message")
+    .eq("id", 1)
+    .single();
+
+  if (error) {
+    console.error("[admin_flags] read error:", error);
+    // fail-safe: do NOT block scans if flags table has an issue
+    return { freeze_all: false, freeze_scans: false, freeze_pdfs: false, freeze_payments: false, maintenance_message: "" };
+  }
+  return data;
+}
+
+async function getUserFlags(user_id) {
+  // Ensure row exists
+  const { data: existing, error: readErr } = await supabase
+    .from("user_flags")
+    .select("user_id, is_frozen, is_banned, trial_expires_at, trial_scans_remaining, paid_until, paid_plan")
+    .eq("user_id", user_id)
+    .maybeSingle();
+
+  if (readErr) {
+    console.error("[user_flags] read error:", readErr);
+    return null;
+  }
+
+  if (existing) return existing;
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("user_flags")
+    .insert([{ user_id }])
+    .select("user_id, is_frozen, is_banned, trial_expires_at, trial_scans_remaining, paid_until, paid_plan")
+    .single();
+
+  if (insErr) {
+    console.error("[user_flags] insert error:", insErr);
+    return null;
+  }
+
+  return inserted;
+}
+
+function isPaidActive(userFlags) {
+  const paidUntil = userFlags?.paid_until ? new Date(userFlags.paid_until) : null;
+  return !!paidUntil && paidUntil.getTime() > Date.now();
+}
+
+function isTrialActive(userFlags) {
+  const exp = userFlags?.trial_expires_at ? new Date(userFlags.trial_expires_at) : null;
+  const remaining = Number(userFlags?.trial_scans_remaining || 0);
+  return !!exp && exp.getTime() > Date.now() && remaining > 0;
+}
+
 
 
 // ---------------------------------------------
@@ -1032,6 +1087,66 @@ if (!auth.ok) {
 
 const user_id = auth.user.id;
 
+// --------------------
+// Admin + Access Gate
+// --------------------
+const email = (auth.user?.email || "").toLowerCase();
+const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
+
+const flags = await getAdminFlags();
+
+// Global freezes
+if (flags.freeze_all || flags.freeze_scans) {
+  return json(503, {
+    success: false,
+    code: "scans_frozen",
+    error: flags.maintenance_message || "Scanning is temporarily disabled.",
+  });
+}
+
+const uf = await getUserFlags(user_id);
+if (!uf) {
+  return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
+}
+
+// Per-user bans/freezes
+if (!isFounder && uf.is_banned) {
+  return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
+}
+if (!isFounder && uf.is_frozen) {
+  return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
+}
+
+// Invite-only policy: must be Founder OR Paid OR Active Trial
+const paidActive = isPaidActive(uf);
+const trialActive = isTrialActive(uf);
+
+if (!isFounder && !paidActive && !trialActive) {
+  return json(402, {
+    success: false,
+    code: "access_required",
+    error: "This account does not have scanning access. Please subscribe or request an invite trial.",
+  });
+}
+
+// If trial is active, atomically consume 1 scan before doing any costly work
+if (!isFounder && !paidActive && trialActive) {
+  const { data: consume, error: consumeErr } = await supabase.rpc("consume_trial_scan", { p_user_id: user_id });
+
+  if (consumeErr) {
+    console.error("[trial] consume error:", consumeErr);
+    return json(500, { success: false, code: "trial_error", error: "Unable to apply trial usage. Please try again." });
+  }
+
+  const row = Array.isArray(consume) ? consume[0] : consume;
+  if (!row?.allowed) {
+    return json(402, {
+      success: false,
+      code: "trial_expired",
+      error: "Trial limit reached or trial expired. Please subscribe to continue.",
+    });
+  }
+}
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
     const generate_narrative = body.generate_narrative !== false;
