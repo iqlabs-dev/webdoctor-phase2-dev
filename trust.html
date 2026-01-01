@@ -157,49 +157,48 @@
       text-decoration:none;
     }
 
-    /* ===== Hero ===== */
-    .hero{
-      padding:56px 0 18px;
-    }
+/* ===== Hero (EXACT match to Privacy page) ===== */
 
-    .kicker{
-      color:rgba(229,240,255,.70);
-      text-transform:uppercase;
-      letter-spacing:.18em;
-      font-size:.72rem;
-      font-weight:700;
-      margin:0 0 10px;
-    }
+/* Wrapper */
+.hero-shell{
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr);
+  margin-top: 22px;
+  gap: 20px;
+}
 
-    h1{
-      margin:0 0 10px;
-      font-size:clamp(2.0rem, 3.4vw, 2.8rem);
-      letter-spacing:-.02em;
-      line-height:1.10;
-      font-weight:800;
-      color:var(--ink); /* iQWEB stays white */
-    }
+/* H1 */
+.hero-h1{
+  font-size: clamp(1.9rem, 2.4vw, 2.3rem);
+  line-height: 1.08;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
 
-    /* ✅ Gradient only on “Trust & Verification” (matches Privacy hero span) */
-    .h1-grad{
-      background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
-      -webkit-background-clip:text;
-      background-clip:text;
-      color:transparent;
-    }
+/* Gradient second line (this is what was missing) */
+.hero-h1 .h1-grad{
+  background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
-    .subhead{
-      color:rgba(192,207,235,.90);
-      line-height:1.75;
-      max-width:58rem;
-      margin:0;
-      font-size:1.0rem;
-    }
+/* Subheading paragraph */
+.hero-sub{
+  font-size: 1rem;
+  color: var(--ink-soft);
+  max-width: 44rem;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
 
-    .subhead strong{
-      color:var(--ink);
-      font-weight:800;
-    }
+.hero-sub strong{
+  color: var(--ink);
+  font-weight: 800;
+}
+
+
 
     /* ===== Content blocks ===== */
     .grid{
@@ -319,12 +318,14 @@
       margin:0 auto;
       text-align:center;
     }
-    .closing-inner p{
-      font-size:1rem;
-      line-height:1.8;
-      color:var(--ink-soft);
-      margin:0;
-    }
+.closing-inner p {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--ink-soft);
+  margin: 0;
+  font-style: italic;
+}
+
     @media (max-width: 600px){
       .closing-inner p{
         font-size:.95rem;
@@ -397,17 +398,25 @@
         </div>
       </header>
 
-      <!-- HERO -->
-      <section class="hero">
-        <p class="kicker">Trust</p>
-        <h1>
-          iQWEB <span class="h1-grad">Trust &amp; Verification</span>
-        </h1>
-        <p class="subhead">
-          Your reports should be <strong>reliable</strong>, <strong>verifiable</strong>, and <strong>tamper-resistant</strong>.
-          This page explains how iQWEB handles report integrity, security, privacy, verification, and governance — in plain language.
-        </p>
-      </section>
+<!-- TRUST HERO (matches Privacy format exactly) -->
+<main class="hero-shell">
+  <section>
+    <h1 class="hero-h1">
+      Trust &amp; Verification Policy<br>
+      <span class="h1-grad">
+        How trust and verification are handled when using iQWEB.
+      </span>
+    </h1>
+
+    <p class="hero-sub">
+      iQWEB is a product operated by <strong>iQLABS Ltd</strong> (New Zealand). This policy explains how we handle
+      report integrity, security, privacy, verification, and governance when you access or use iQWEB.
+    </p>
+  </section>
+</main>
+
+
+
 
       <!-- MAIN GRID -->
       <section class="grid">
@@ -541,8 +550,8 @@
         <p>
           <strong style="color:var(--ink); font-weight:800;">Trust isn’t a badge — it’s a responsibility.</strong><br><br>
           iQWEB is built to help people understand their websites without surrendering control of their data.
-          We design our systems to minimise collection, maximise transparency, and remain accountable under New Zealand law —
-          so you can use iQWEB with confidence today and trust it tomorrow.
+          We design our systems to minimise collection, maximise transparency, and remain accountable under New Zealand law.
+          So you can use iQWEB with confidence today and trust it tomorrow.
         </p>
       </div>
     </section>
