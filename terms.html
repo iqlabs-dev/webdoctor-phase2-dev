@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Terms of Service — iQWEB (iQLABS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Terms of Service for iQWEB, a product operated by iQLABS Limited (New Zealand).">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --border-subtle: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    html { font-size: 110%; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 18px 18px 32px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+    .nav-left { display: flex; flex-direction: column; gap: 2px; }
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+    }
+    .nav-subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      white-space: nowrap;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.8rem;
+    }
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+    }
+    @media (max-width: 860px) { .nav-links { display:none; } .nav { border-radius:16px; } }
+
+    .hero-shell {
+      margin-top: 22px;
+      max-width: 900px;
+    }
+    .hero-h1 {
+      font-size: clamp(1.9rem, 2.4vw, 2.3rem);
+      line-height: 1.08;
+      font-weight: 800;
+      margin: 0 0 12px;
+    }
+    .hero-h1 span {
+      background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--ink-soft);
+      max-width: 52rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .section { margin-top: 40px; }
+    .section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+      color: var(--ink);
+      opacity: 0.75;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .section-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-width: 40rem;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .legal-block {
+      margin-top: 16px;
+      max-width: 64rem;
+    }
+    .legal-block h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+    .legal-block h3 {
+      font-size: 0.9rem;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      color: var(--ink-soft);
+    }
+    .legal-block p,
+    .legal-block li {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .legal-block ul {
+      padding-left: 18px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    .email-link {
+      color: #22d3ee !important;
+      text-decoration: none;
+    }
+    .email-link:hover {
+      color: #7df3ff !important;
+      text-decoration: underline;
+    }
+
+    .closing-statement {
+      padding: 60px 20px;
+      background: var(--bg-mid);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .closing-inner {
+      max-width: 850px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .closing-inner p {
+      font-size: 1rem;
+      line-height: 1.8;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    @media (max-width: 600px) {
+      .closing-inner p {
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+    }
+
+    /* --- FOOTER (match Privacy/Refunds) --- */
+    .wd-footer {
+      padding: 26px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-top: 40px;
+    }
+    .wd-footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.9;
+      text-align: center;
+      padding: 0 18px;
+    }
+    .wd-footer a {
+      color: var(--ink-soft);
+      text-decoration: none;
+    }
+    .wd-footer a:hover { color: var(--ink); }
+
+    .wd-footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      line-height: 1.4;
+    }
+    .wd-footer-links .dot { opacity: 0.65; }
+  </style>
+</head>
+
+<body>
+<div class="page-shell">
+  <div class="shell-inner">
+
+    <!-- NAV -->
+    <header class="nav">
+      <div class="nav-left">
+        <div class="nav-title">iQLABS</div>
+        <div class="nav-subtitle">Web intelligence studio · New Zealand</div>
+      </div>
+      <nav class="nav-links">
+        <a href="/#about" class="nav-link">About</a>
+        <a href="/#products" class="nav-link">Products</a>
+        <a href="/#company" class="nav-link">Company</a>
+        <a href="/#contact" class="nav-link">Contact</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/refunds" class="nav-link">Refunds</a>
+      </nav>
+    </header>
+
+    <!-- TERMS HERO -->
+    <main class="hero-shell">
+      <h1 class="hero-h1">
+        Terms of Service<br>
+        <span>The rules for using iQWEB.</span>
+      </h1>
+      <p class="hero-sub">
+        iQWEB is a product operated by <strong>iQLABS Ltd</strong> (New Zealand). These Terms explain the conditions
+        that apply when you access or use iQWEB and any related iQLABS services.
+      </p>
+    </main>
+
+    <!-- TERMS CONTENT -->
+    <section class="section">
+      <div class="section-kicker">Legal</div>
+      <div class="section-title">Terms of Service.</div>
+      <p class="section-subtitle">
+        By creating an account, purchasing a plan, or using iQWEB, you agree to these Terms.
+        If you do not agree, please do not use our services.
+      </p>
+
+      <div class="legal-block">
+        <h2>1. Who we are</h2>
+        <p><strong>Entity:</strong> IQLABS LIMITED (“iQLABS”, “we”, “our”, “us”)</p>
+        <p>
+          <strong>Registered in:</strong> New Zealand<br>
+          <strong>NZBN:</strong> 9429053304018<br>
+          <strong>Company number:</strong> 9390071
+        </p>
+        <p>
+          <strong>Registered office:</strong> Auckland, New Zealand (full details available via the New Zealand Companies Office).<br>
+          <strong>Website:</strong> <a class="email-link" href="https://iqlabs.co.nz" target="_blank" rel="noopener">https://iqlabs.co.nz</a><br>
+          <strong>Contact:</strong> <a class="email-link" href="mailto:privacy@iqlabs.co.nz">privacy@iqlabs.co.nz</a>
+        </p>
+        <p><strong>Last updated:</strong> 12 December 2025</p>
+
+        <h3>2. Acceptance of these Terms</h3>
+        <p>By accessing or using any iQLABS product or website, you confirm that you:</p>
+        <ul>
+          <li>Have read and understood these Terms;</li>
+          <li>Are legally capable of entering into a binding contract; and</li>
+          <li>Agree to be bound by these Terms and our other policies referenced here, including our Privacy Policy and Billing & Refund Policy.</li>
+        </ul>
+
+        <h3>3. Accounts and eligibility</h3>
+        <p>You may need an account to use certain features of our products.</p>
+        <ul>
+          <li>You must provide accurate registration information and keep it up to date.</li>
+          <li>You are responsible for maintaining the confidentiality of your login details.</li>
+          <li>You are responsible for all activity that occurs under your account.</li>
+          <li>You must notify us promptly if you suspect unauthorised access to your account.</li>
+        </ul>
+
+        <h3>4. Use of services</h3>
+        <p>You may use iQLABS products to:</p>
+        <ul>
+          <li>Create and manage an account.</li>
+          <li>Scan and analyse websites or properties that you own or are authorised to analyse.</li>
+          <li>Generate, view, and download diagnostic scores and reports.</li>
+        </ul>
+        <p>You must not:</p>
+        <ul>
+          <li>Use the services in a way that violates any applicable law or regulation.</li>
+          <li>Scan, probe, or attempt to access systems without proper authorisation.</li>
+          <li>Interfere with or disrupt our infrastructure or other users’ access.</li>
+          <li>Attempt to reverse-engineer, decompile, or otherwise access the source code or underlying models of our systems, except where permitted by law.</li>
+          <li>Use the services to send spam, malware, or other harmful content.</li>
+        </ul>
+
+        <h3>5. Plans, subscriptions, and credits</h3>
+        <p>
+          We may offer free tiers, trials, paid subscriptions, and prepaid credit packs. Details of each option,
+          including features, limits, and pricing, are described on our product pricing pages (for example,
+          <a class="email-link" href="https://iqweb.ai/pricing" target="_blank" rel="noopener">https://iqweb.ai/pricing</a>).
+        </p>
+        <p>
+          How payments, renewals, credits, and taxes are handled is explained in our separate
+          <a class="email-link" href="/refunds">Billing &amp; Refund Policy</a>.
+        </p>
+        <p>
+          All purchased diagnostic reports are covered by our <strong>14-day satisfaction guarantee</strong>. If you believe
+          your report did not deliver clear value or actionable insight, you may request a refund within
+          <strong>14&nbsp;days</strong> of the original purchase date. Refunds are processed through our payment partner Paddle and
+          are subject to Paddle’s Buyer Protection policies. See our
+          <a class="email-link" href="/refunds">Billing &amp; Refund Policy</a> for details.
+        </p>
+
+        <h3>6. Intellectual property</h3>
+        <p>
+          iQLABS retains all rights, title, and interest in and to our software, platforms, documentation,
+          scoring systems, report templates, designs, branding, and related materials, including (without limitation)
+          ΛiQ, iQWEB, and PropertyIQ.
+        </p>
+        <p>
+          Subject to these Terms and any applicable order or subscription, we grant you a limited, non-exclusive,
+          non-transferable licence to access and use our services for your own business or professional purposes.
+          You may not resell, sublicense, or commercially exploit the services without our written permission.
+        </p>
+
+        <h3>7. Your content</h3>
+        <p>
+          When you submit URLs, property information, or other content to our services, you retain ownership of that
+          content. You grant iQLABS a licence to process, store, and use the content solely as necessary to provide the
+          services and improve our systems, in line with our Privacy Policy.
+        </p>
+        <p>
+          You are responsible for ensuring you have the rights and permissions needed to submit any content to our
+          services.
+        </p>
+
+        <h3>8. Acceptable use</h3>
+        <p>You agree not to use our services to:</p>
+        <ul>
+          <li>Engage in illegal, fraudulent, or harmful activities.</li>
+          <li>Harass, threaten, or harm other individuals or organisations.</li>
+          <li>Misrepresent iQLABS reports as official certifications, regulatory approvals, or guarantees.</li>
+          <li>Create competing datasets or services by systematically scraping or exporting large volumes of results, except where explicitly permitted.</li>
+        </ul>
+
+        <h3>9. Third-party services</h3>
+        <p>
+          Our products may integrate with or depend on third-party services such as Paddle, analytics providers, or AI
+          platforms (for example, OpenAI). Your use of those third-party services may be subject to their own terms and
+          privacy policies. iQLABS is not responsible for third-party services that we do not control.
+        </p>
+
+        <h3>10. Availability and changes to the services</h3>
+        <p>
+          We aim to keep our services available and reliable, but we do not guarantee uninterrupted operation.
+          We may modify, suspend, or discontinue all or part of the services at any time, for example to perform
+          maintenance, address security issues, or improve functionality.
+        </p>
+        <p>
+          Where a change materially affects your paid use of the services, we will try to provide reasonable notice,
+          consistent with applicable law and our Billing & Refund Policy.
+        </p>
+
+        <h3>11. Disclaimers</h3>
+        <p>
+          Our services, including all scores, diagnostics, and reports, are provided “as is” and “as available” without
+          warranties of any kind, whether express, implied, or statutory, including but not limited to warranties of
+          merchantability, fitness for a particular purpose, or non-infringement.
+        </p>
+        <p>
+          Diagnostic results and scores are intended as decision-support tools only. They do not constitute legal,
+          financial, or professional advice, and should not be treated as guarantees of performance, security, or
+          compliance.
+        </p>
+
+        <h3>12. Limitation of liability</h3>
+        <p>
+          To the maximum extent permitted by law, iQLABS will not be liable for any indirect, incidental, consequential,
+          special, or exemplary damages arising out of or in connection with your use of the services, including but not
+          limited to loss of profits, revenue, data, or business opportunities.
+        </p>
+        <p>
+          Where liability cannot be excluded, our total aggregate liability arising out of or relating to your use of the
+          services will not exceed the amount you have paid to iQLABS for the services during the three (3) months
+          immediately preceding the event giving rise to the claim.
+        </p>
+
+        <h3>13. Indemnity</h3>
+        <p>
+          To the extent permitted by law, you agree to indemnify and hold harmless iQLABS, our directors, officers,
+          employees, and contractors from and against any claims, damages, losses, and expenses (including reasonable
+          legal fees) arising from your use of the services, violation of these Terms, or infringement of any third-party
+          rights.
+        </p>
+
+        <h3>14. Termination</h3>
+        <p>
+          You may stop using our services at any time and may deactivate your account where such a feature is available,
+          or by contacting us.
+        </p>
+        <p>We may suspend or terminate your access to the services (including paid accounts) if:</p>
+        <ul>
+          <li>You materially breach these Terms;</li>
+          <li>Your use creates a security risk or other significant risk for us or other users; or</li>
+          <li>We are required to do so by law or by a governmental or regulatory body.</li>
+        </ul>
+        <p>
+          Termination will not affect any rights or obligations that have already accrued. Details on how billing is
+          handled on termination are set out in our Billing & Refund Policy.
+        </p>
+
+        <h3>15. Governing law and jurisdiction</h3>
+        <p>
+          These Terms are governed by the laws of New Zealand, without regard to conflict-of-law rules. Subject to any
+          mandatory local rights you may have, any disputes arising out of or in connection with these Terms or the
+          services will be subject to the exclusive jurisdiction of the New Zealand courts.
+        </p>
+
+        <h3>16. Changes to these Terms</h3>
+        <p>
+          We may update these Terms from time to time. When we do, we will update the “Last updated” date at the top of
+          this page and, where appropriate, provide additional notice (for example, via email or an in-product notice).
+        </p>
+        <p>
+          If you continue using the services after the updated Terms take effect, you will be deemed to have accepted
+          the changes.
+        </p>
+
+        <h3>17. Contact us</h3>
+        <p>
+          If you have questions about these Terms, please contact:<br>
+          <strong>Legal &amp; privacy:</strong> <a class="email-link" href="mailto:privacy@iqlabs.co.nz">privacy@iqlabs.co.nz</a><br>
+          <strong>General support:</strong> <a class="email-link" href="mailto:support@iqlabs.co.nz">support@iqlabs.co.nz</a>
+        </p>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="closing-statement">
+    <div class="closing-inner">
+      <p>
+        These Terms exist to keep things fair, clear, and predictable for everyone using iQLABS products.
+        When you work with us, you should always know what you can expect from the platform — and what we
+        expect from you in return. Simple rules, written in plain language, so we can focus on building
+        tools that actually help you do better work.
+      </p>
+    </div>
+  </section>
+
+  <!-- FOOTER (match Privacy/Refunds) -->
+  <footer class="wd-footer">
+    <div class="wd-footer-inner">
+      <span>
+        iQWEB is a product operated by iQLABS Ltd (New Zealand). · © 2025 IQLABS LIMITED · All rights reserved · Made in New Zealand.
+      </span>
+
+      <div class="wd-footer-links">
+        <a href="/#company">Company</a><span class="dot">·</span>
+        <a href="/#products">Products</a><span class="dot">·</span>
+        <a href="/privacy">Privacy</a><span class="dot">·</span>
+        <a href="/terms">Terms</a><span class="dot">·</span>
+        <a href="/refunds">Refunds</a>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

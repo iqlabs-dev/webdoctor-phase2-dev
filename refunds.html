@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Billing & Refund Policy — iQWEB (iQLABS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Billing & Refund Policy for iQWEB, a product operated by iQLABS Ltd (New Zealand). Explains payments, subscriptions, credits, taxes, and refunds." />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --border-subtle: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    html { font-size: 110%; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 18px 18px 32px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+    .nav-left { display: flex; flex-direction: column; gap: 2px; }
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+    }
+    .nav-subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      white-space: nowrap;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.8rem;
+    }
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+    }
+    @media (max-width: 860px) {
+      .nav-links { display:none; }
+      .nav { border-radius:16px; }
+    }
+
+    .hero-shell {
+      margin-top: 22px;
+      max-width: 900px;
+    }
+    .hero-h1 {
+      font-size: clamp(1.9rem, 2.4vw, 2.3rem);
+      line-height: 1.08;
+      font-weight: 800;
+      margin: 0 0 12px;
+    }
+    .hero-h1 span {
+      background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--ink-soft);
+      max-width: 52rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    .section { margin-top: 40px; }
+    .section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+      color: var(--ink);
+      opacity: 0.75;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .section-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-width: 42rem;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .legal-block {
+      margin-top: 16px;
+      max-width: 900px;
+    }
+    .legal-block h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+    .legal-block h3 {
+      font-size: 0.9rem;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      color: var(--ink-soft);
+    }
+    .legal-block p,
+    .legal-block li {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .legal-block ul {
+      padding-left: 18px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    .email-link {
+      color: #22d3ee !important;
+      text-decoration: none;
+    }
+    .email-link:hover { color: #7df3ff !important; text-decoration: underline; }
+
+    .closing-statement {
+      padding: 60px 20px;
+      background: var(--bg-mid);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .closing-inner {
+      max-width: 850px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .closing-inner p {
+      font-size: 1rem;
+      line-height: 1.8;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+
+    /* --- FOOTER (match Privacy page) --- */
+    .wd-footer {
+      padding: 26px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      margin-top: 40px;
+    }
+    .wd-footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;     /* two-line footer */
+      gap: 10px;
+      align-items: center;        /* center both lines */
+      justify-content: center;
+      opacity: 0.9;
+      text-align: center;
+      padding: 0 18px;
+    }
+    .wd-footer a { color: var(--ink-soft); text-decoration: none; }
+    .wd-footer a:hover { color: var(--ink); }
+
+    .wd-footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      line-height: 1.4;
+    }
+    .wd-footer-links .dot { opacity: 0.65; }
+  </style>
+</head>
+
+<body>
+<div class="page-shell">
+  <div class="shell-inner">
+
+    <!-- NAV -->
+    <header class="nav">
+      <div class="nav-left">
+        <div class="nav-title">iQLABS</div>
+        <div class="nav-subtitle">Web intelligence studio · New Zealand</div>
+      </div>
+      <nav class="nav-links">
+        <a href="/#about" class="nav-link">About</a>
+        <a href="/#products" class="nav-link">Products</a>
+        <a href="/#company" class="nav-link">Company</a>
+        <a href="/#contact" class="nav-link">Contact</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/refunds" class="nav-link">Refunds</a>
+      </nav>
+    </header>
+
+    <!-- HERO -->
+    <main class="hero-shell">
+      <h1 class="hero-h1">
+        Billing & Refund Policy<br>
+        <span>How your payments, credits, and refunds are handled when using iQWEB.</span>
+      </h1>
+      <p class="hero-sub">
+        iQWEB is a product operated by <strong>iQLABS Ltd</strong> (New Zealand). This policy explains how we handle
+        subscriptions, credit packs, payments, taxes, and refunds when you access or use iQWEB.
+      </p>
+    </main>
+
+    <!-- MAIN CONTENT -->
+    <section class="section">
+      <div class="section-kicker">Legal</div>
+      <div class="section-title">Billing & Refund Policy.</div>
+      <p class="section-subtitle">
+        We aim to make billing straightforward and predictable. This page explains how we apply charges,
+        how subscriptions renew, how credits work, and when refunds may be issued.
+      </p>
+
+      <div class="legal-block">
+
+        <h2>1. Who we are</h2>
+        <p><strong>Entity:</strong> IQLABS LIMITED (“iQLABS”, “we”, “our”, “us”)</p>
+        <p>
+          Registered in New Zealand<br>
+          NZBN: 9429053304018<br>
+          Company number: 9390071
+        </p>
+        <p>
+          Website: <a class="email-link" href="https://iqlabs.co.nz" target="_blank" rel="noopener">https://iqlabs.co.nz</a><br>
+          Billing contact: <a class="email-link" href="mailto:billing@iqlabs.co.nz">billing@iqlabs.co.nz</a>
+        </p>
+        <p><strong>Last updated:</strong> 12 December 2025</p>
+
+        <h3>2. Paddle as Merchant of Record</h3>
+        <p>
+          iQLABS uses <strong>Paddle.com Market Ltd</strong> (“Paddle”) as our Merchant of Record. Paddle:
+        </p>
+        <ul>
+          <li>Processes all payments for iQLABS products</li>
+          <li>Issues invoices and receipts</li>
+          <li>Calculates, collects, and remits VAT, GST, and other sales taxes</li>
+          <li>Supports billing enquiries and, where appropriate, refunds</li>
+        </ul>
+
+        <h3>3. Products covered by this policy</h3>
+        <ul>
+          <li><strong>iQWEB</strong> — Website diagnostics, scoring, and reporting</li>
+          <li><strong>PropertyIQ</strong> (planned) — Property diagnostics</li>
+          <li>Any future paid subscriptions, credit packs, or add-ons under iQLABS</li>
+        </ul>
+
+        <h3>4. Subscriptions</h3>
+        <p>Some products are offered on a recurring subscription basis.</p>
+        <ul>
+          <li>Subscriptions renew automatically unless cancelled before the renewal date.</li>
+          <li>Features, limits, and pricing are shown on product pricing pages (e.g. iqweb.ai/pricing).</li>
+          <li>You can cancel via the Paddle “Manage Subscription” link in your receipt email.</li>
+          <li>Cancelling stops future billing but does not automatically trigger refunds.</li>
+        </ul>
+
+        <h3>5. Credit packs</h3>
+        <ul>
+          <li>Credit packs are one-off purchases and are not subscriptions.</li>
+          <li>Credits generally do not expire while your account remains active.</li>
+          <li>Credits cannot be refunded once used to perform scans or generate reports.</li>
+        </ul>
+
+        <h3>6. Pricing and changes</h3>
+        <ul>
+          <li>Pricing may change over time.</li>
+          <li>Price changes do not affect past invoices already paid.</li>
+          <li>For renewing subscriptions, you will receive reasonable notice of price changes where required by law.</li>
+        </ul>
+
+        <h3>7. Taxes</h3>
+        <p>Paddle calculates and remits VAT/GST and any other required sales taxes.</p>
+        <ul>
+          <li>Taxes appear at checkout when legally required.</li>
+          <li>Paddle receipts will show tax breakdowns.</li>
+        </ul>
+
+        <h3>8. Refunds</h3>
+        <p>
+          We stand behind our products with a <strong>14-day satisfaction guarantee</strong>. If you believe your purchased report does not deliver clear value or actionable insight, you may request a refund within <strong>14&nbsp;days</strong> of purchase.
+        </p>
+        <p>Refunds may also be issued if:</p>
+        <ul>
+          <li>A technical issue prevents you from accessing your report and cannot be resolved in reasonable time</li>
+          <li>You were charged by mistake (for example, a duplicate charge)</li>
+          <li>Applicable consumer laws in your region grant you a right to a refund</li>
+        </ul>
+        <p>Refunds are generally not available if:</p>
+        <ul>
+          <li>You have generated a report and the credits have been consumed, unless the report fails to provide clear value or actionable insight</li>
+          <li>You decide not to continue using the service without a statutory basis for a refund</li>
+        </ul>
+        <p>
+          All refunds are processed via Paddle’s Buyer Protection policies and applicable consumer laws.
+        </p>
+
+        <h3>9. How to request a refund</h3>
+        <p>To request a refund within the 14-day guarantee period:</p>
+        <ul>
+          <li>Use the “View Order” or “Manage Subscription” link in your Paddle receipt email, or</li>
+          <li>Email <a class="email-link" href="mailto:billing@iqlabs.co.nz">billing@iqlabs.co.nz</a> with your order email and Paddle Order ID</li>
+        </ul>
+
+        <h3>10. Failed payments</h3>
+        <ul>
+          <li>Paddle may retry failed subscription payments automatically.</li>
+          <li>Your account may be paused or downgraded until payment succeeds.</li>
+        </ul>
+
+        <h3>11. Currency & exchange rates</h3>
+        <p>
+          Paddle may charge in your local currency. Bank conversion fees (if any) are your responsibility.
+        </p>
+
+        <h3>12. Consumer rights</h3>
+        <p>
+          Nothing in this policy overrides your rights under applicable consumer protection laws.
+        </p>
+
+        <h3>13. Changes to this policy</h3>
+        <p>
+          We may update this policy periodically. Updated versions will include an updated “Last updated” date.
+        </p>
+
+        <h3>14. Contact us</h3>
+        <p>
+          For billing or refund enquiries:<br>
+          <a class="email-link" href="mailto:billing@iqlabs.co.nz">billing@iqlabs.co.nz</a>
+        </p>
+
+      </div>
+    </section>
+  </div>
+
+  <section class="closing-statement">
+    <div class="closing-inner">
+      <p>
+        Billing should never feel like a mystery. At iQLABS we keep our pricing, subscriptions, credits,
+        and refund process as transparent as possible, with Paddle handling payments and tax on our behalf.
+        If something doesn’t look right on your invoice, we want to hear about it — and we will always aim
+        to resolve genuine issues quickly and fairly.
+      </p>
+    </div>
+  </section>
+
+  <!-- FOOTER (match Privacy page) -->
+  <footer class="wd-footer">
+    <div class="wd-footer-inner">
+      <span>
+        iQWEB is a product operated by iQLABS Ltd (New Zealand). · © 2025 IQLABS LIMITED · All rights reserved · Made in New Zealand.
+      </span>
+
+      <div class="wd-footer-links">
+        <a href="/#company">Company</a><span class="dot">·</span>
+        <a href="/#products">Products</a><span class="dot">·</span>
+        <a href="/privacy">Privacy</a><span class="dot">·</span>
+        <a href="/terms">Terms</a><span class="dot">·</span>
+        <a href="/refunds">Refunds</a>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

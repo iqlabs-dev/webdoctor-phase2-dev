@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Privacy Policy — iQWEB (iQLABS Ltd)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Privacy Policy for iQWEB, operated by iQLABS Ltd (New Zealand), explaining how we collect, use, store and protect personal data.">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --border-subtle: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    html { font-size: 110%; }
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 18px 18px 32px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+    .nav-left { display: flex; flex-direction: column; gap: 2px; }
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+    }
+    .nav-subtitle {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      white-space: nowrap;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.8rem;
+    }
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease;
+      white-space: nowrap;
+    }
+    .nav-link:hover {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+    }
+    @media (max-width: 860px) { .nav-links { display:none; } .nav { border-radius:16px; } }
+
+    .hero-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr);
+      margin-top: 22px;
+      gap: 20px;
+    }
+    .hero-h1 {
+      font-size: clamp(1.9rem, 2.4vw, 2.3rem);
+      line-height: 1.08;
+      font-weight: 800;
+      margin: 0 0 12px;
+    }
+    .hero-h1 span {
+      background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--ink-soft);
+      max-width: 44rem;
+      line-height: 1.5;
+      margin: 0 0 18px;
+    }
+
+    .section { margin-top: 40px; }
+    .section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.78rem;
+      color: var(--ink);
+      opacity: 0.75;
+    }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .section-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-width: 48rem;
+      line-height: 1.6;
+      margin-top: 8px;
+    }
+
+    .legal-block {
+      margin-top: 16px;
+      max-width: 64rem;
+    }
+    .legal-block h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+    .legal-block h3 {
+      font-size: 0.9rem;
+      margin-top: 12px;
+      margin-bottom: 4px;
+      color: var(--ink-soft);
+    }
+    .legal-block p,
+    .legal-block li {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .legal-block ul {
+      padding-left: 18px;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+
+    /* FOOTER */
+    .wd-footer {
+      padding: 26px 0;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .wd-footer-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;       /* CHANGED: two-line footer layout */
+      gap: 10px;
+      align-items: center;          /* CHANGED: center both lines */
+      justify-content: center;
+      opacity: 0.9;
+      text-align: center;
+      padding: 0 18px;
+    }
+    .wd-footer a {
+      color: var(--ink-soft);
+      text-decoration: none;
+    }
+    .wd-footer a:hover { color: var(--ink); }
+
+    /* CHANGED: ensure menu line is centered and wraps nicely */
+    .wd-footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      line-height: 1.4;
+    }
+    .wd-footer-links .dot { opacity: 0.65; }
+
+    .email-link {
+      color: #22d3ee !important;
+      text-decoration: none;
+    }
+    .email-link:hover {
+      color: #7df3ff !important;
+      text-decoration: underline;
+    }
+
+    .closing-statement {
+      padding: 60px 20px;
+      background: var(--bg-mid);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .closing-inner {
+      max-width: 850px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    .closing-inner p {
+      font-size: 1rem;
+      line-height: 1.8;
+      color: var(--ink-soft);
+      margin: 0;
+    }
+    @media (max-width: 600px) {
+      .closing-inner p {
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="page-shell">
+  <div class="shell-inner">
+
+    <!-- NAV -->
+    <header class="nav">
+      <div class="nav-left">
+        <div class="nav-title">iQLABS</div>
+        <div class="nav-subtitle">Web intelligence studio · New Zealand</div>
+      </div>
+      <nav class="nav-links">
+        <a href="/#about" class="nav-link">About</a>
+        <a href="/#products" class="nav-link">Products</a>
+        <a href="/#company" class="nav-link">Company</a>
+        <a href="/#contact" class="nav-link">Contact</a>
+        <a href="/privacy" class="nav-link">Privacy</a>
+        <a href="/terms" class="nav-link">Terms</a>
+        <a href="/refunds" class="nav-link">Refunds</a>
+      </nav>
+    </header>
+
+    <!-- PRIVACY HERO -->
+    <main class="hero-shell">
+      <section>
+        <h1 class="hero-h1">
+          Privacy Policy<br>
+          <span>How your data is handled when using iQWEB.</span>
+        </h1>
+        <p class="hero-sub">
+          iQWEB is a product operated by <strong>iQLABS Ltd</strong> (New Zealand). This policy explains what information we
+          collect, how we use it, and the choices you have when you access or use iQWEB.
+        </p>
+      </section>
+    </main>
+
+    <!-- PRIVACY CONTENT -->
+    <section class="section">
+      <div class="section-kicker">Legal</div>
+      <div class="section-title">Privacy Policy.</div>
+      <p class="section-subtitle">
+        We care about privacy and transparency. This page sets out how we collect, use, store, and protect
+        personal information when you visit our websites or use our products.
+      </p>
+
+      <div class="legal-block">
+        <h2>1. Who we are</h2>
+        <p><strong>Entity:</strong> IQLABS LIMITED (“iQLABS”, “we”, “our”, “us”)</p>
+        <p>
+          <strong>Registered in:</strong> New Zealand<br>
+          <strong>NZBN:</strong> 9429053304018<br>
+          <strong>Company number:</strong> 9390071
+        </p>
+        <p>
+          <strong>Registered office:</strong> Auckland, New Zealand (full details available via the New Zealand Companies Office).<br>
+          <strong>Website:</strong> <a class="email-link" href="https://iqlabs.co.nz" target="_blank" rel="noopener">https://iqlabs.co.nz</a><br>
+          <strong>Privacy contact:</strong> <a class="email-link" href="mailto:privacy@iqlabs.co.nz">privacy@iqlabs.co.nz</a>
+        </p>
+        <p><strong>Last updated:</strong> 6 December 2025</p>
+
+        <h3>2. Scope of this policy</h3>
+        <p>This Privacy Policy applies to:</p>
+        <ul>
+          <li>Our websites, including <a class="email-link" href="https://iqlabs.co.nz" target="_blank" rel="noopener">iqlabs.co.nz</a> and <a class="email-link" href="https://iqweb.ai" target="_blank" rel="noopener">iqweb.ai</a>.</li>
+          <li>iQWEB and other products operated by iQLABS Ltd from time to time.</li>
+          <li>Any online services, communications, or tools we provide under the iQLABS brand.</li>
+        </ul>
+        <p>
+          This policy does not cover third-party websites or services that we do not control, even if they are
+          linked from our products.
+        </p>
+
+        <h3>3. Information we collect</h3>
+        <p><strong>Information you choose to provide:</strong></p>
+        <ul>
+          <li>Name and contact details (such as email address).</li>
+          <li>Account login details (such as username and hashed passwords).</li>
+          <li>Websites or URLs you choose to scan or analyse.</li>
+          <li>Support requests, feedback, and other communications you send to us.</li>
+        </ul>
+
+        <p><strong>Information collected automatically:</strong></p>
+        <ul>
+          <li>IP address and approximate region or city.</li>
+          <li>Browser type, device type, and operating system.</li>
+          <li>Pages viewed, actions taken in the product, and timestamps.</li>
+          <li>Diagnostic information related to performance, errors, and reliability.</li>
+        </ul>
+
+        <p><strong>Payment information:</strong></p>
+        <p>
+          We do not store full card details on iQLABS servers. All payments for our products are processed
+          securely by <strong>Paddle.com Market Ltd</strong> (“Paddle”), our Merchant of Record. Paddle will collect
+          billing information as needed to complete your purchase, in line with its own terms and privacy policy.
+        </p>
+
+        <p><strong>Cookies and similar technologies:</strong></p>
+        <p>
+          We may use cookies and similar technologies to remember your preferences, keep you logged in, and gather
+          anonymous usage statistics. You can adjust your browser settings to block or delete cookies, although some
+          features of our services may not function correctly if you do so.
+        </p>
+
+        <h3>4. How we use your information</h3>
+        <p>We use personal information to:</p>
+        <ul>
+          <li>Provide, operate, and maintain our products and services.</li>
+          <li>Generate diagnostic scores and reports for the websites you choose to analyse.</li>
+          <li>Respond to enquiries, support requests, and technical issues.</li>
+          <li>Improve, test, and refine our products, including analytics on how features are used.</li>
+          <li>Protect our services and users from abuse, spam, and security threats.</li>
+          <li>Comply with legal, regulatory, and contractual obligations.</li>
+          <li>Send you service-related communications (for example, security notices or important updates).</li>
+        </ul>
+        <p>
+          Where we send optional product news or marketing communications, you can opt out at any time using the
+          unsubscribe link in the message or by contacting us.
+        </p>
+
+        <h3>5. Legal bases for processing (GDPR / UK GDPR)</h3>
+        <p>Where the EU or UK data protection laws apply, we rely on the following legal bases:</p>
+        <ul>
+          <li><strong>Performance of a contract</strong> – to provide the services you sign up for.</li>
+          <li><strong>Legitimate interests</strong> – such as improving our services, preventing abuse, and operating a secure platform.</li>
+          <li><strong>Consent</strong> – where required for certain optional uses (for example, some cookies or marketing).</li>
+          <li><strong>Legal obligation</strong> – where we must process data to comply with applicable law.</li>
+        </ul>
+
+        <h3>6. How we share information</h3>
+        <p>We do not sell your personal data.</p>
+        <p>We may share information with trusted third parties that help us run our services, including:</p>
+        <ul>
+          <li><strong>Paddle</strong> – to process payments, issue invoices, and manage taxes.</li>
+          <li>Cloud hosting, database, and storage providers.</li>
+          <li>Analytics, monitoring, and logging services.</li>
+          <li>Customer support and communication tools.</li>
+          <li>Providers like OpenAI where AI-powered features are used, in line with their terms.</li>
+        </ul>
+        <p>
+          These service providers are given access only to the information they need to perform their functions
+          and are required to handle it appropriately.
+        </p>
+        <p>
+          We may also disclose information if required by law, court order, or legal process, or if we believe it is
+          necessary to protect our rights, users, or the public.
+        </p>
+
+        <h3>7. International data transfers</h3>
+        <p>
+          iQLABS is based in New Zealand, and our service providers may operate in New Zealand, the European Union, the
+          United States, or other countries. This means your information may be transferred to and processed in
+          countries that may have different data protection laws than your own.
+        </p>
+        <p>
+          Where required, we take steps to ensure appropriate safeguards are in place, such as contractual protections
+          consistent with applicable data protection law.
+        </p>
+
+        <h3>8. Data retention</h3>
+        <p>
+          We keep personal information only for as long as reasonably necessary to provide our services, meet legal
+          obligations, resolve disputes, and enforce our agreements.
+        </p>
+        <ul>
+          <li>Account data is generally kept while your account is active.</li>
+          <li>Diagnostic data and reports may be retained for a period to support your use of the service and our product improvements.</li>
+          <li>Certain records (for example, transaction details kept by Paddle) may be retained for longer where required by tax or accounting laws.</li>
+        </ul>
+
+        <h3>9. Security</h3>
+        <p>
+          We use technical and organisational measures to protect personal information, including encryption in transit
+          (HTTPS), access controls, and monitoring of our infrastructure.
+        </p>
+        <p>
+          No online service can guarantee perfect security, but we work to protect your data and review our controls
+          regularly. If we become aware of a significant security incident affecting your data, we will take appropriate
+          steps and, where required by law, notify you and the relevant authorities.
+        </p>
+
+        <h3>10. Your rights</h3>
+        <p>Depending on your location, you may have rights over your personal information, including:</p>
+        <ul>
+          <li>Accessing the personal information we hold about you.</li>
+          <li>Requesting correction of inaccurate or incomplete data.</li>
+          <li>Requesting deletion of your data, in certain circumstances.</li>
+          <li>Objecting to or restricting certain types of processing.</li>
+          <li>Requesting a copy of your data in a portable format.</li>
+        </ul>
+        <p>
+          To exercise any of these rights, contact us at
+          <a class="email-link" href="mailto:privacy@iqlabs.co.nz">privacy@iqlabs.co.nz</a>. We may need to verify your
+          identity before responding. Some rights may be limited where we have overriding legal obligations or
+          compelling legitimate interests.
+        </p>
+
+        <h3>11. Children</h3>
+        <p>
+          iQLABS products are designed for business and professional use and are not directed at children. We do not
+          knowingly collect personal information from children under 16. If you believe a child has provided us with
+          personal information, please contact us and we will take appropriate steps.
+        </p>
+
+        <h3>12. Third-party sites and services</h3>
+        <p>
+          Our websites and products may contain links to third-party sites or services. We are not responsible for the
+          privacy practices of those third parties. We encourage you to review their privacy policies before providing
+          any personal information.
+        </p>
+
+        <h3>13. Changes to this policy</h3>
+        <p>
+          We may update this Privacy Policy from time to time to reflect changes in our practices, technologies, or
+          legal requirements. When we do, we will update the “Last updated” date at the top of this page and, where
+          appropriate, provide additional notice (for example, via email or an in-product banner).
+        </p>
+
+        <h3>14. Contact us</h3>
+        <p>
+          If you have questions about this Privacy Policy or how we handle personal information, please contact:<br>
+          <strong>Email (privacy):</strong> <a class="email-link" href="mailto:privacy@iqlabs.co.nz">privacy@iqlabs.co.nz</a><br>
+          <strong>General support:</strong> <a class="email-link" href="mailto:support@iqlabs.co.nz">support@iqlabs.co.nz</a>
+        </p>
+      </div>
+    </section>
+
+  </div>
+
+<section class="closing-statement">
+  <div class="closing-inner">
+    <p>
+      Privacy is not a feature — it is a baseline. We only collect the information we need
+      to run iQWEB, protect your account, and improve the experience. We never sell your data,
+      and we are committed to explaining our practices in clear, direct language so you always know
+      what is happening with your information.
+    </p>
+  </div>
+</section>
+
+
+  <!-- FOOTER -->
+  <footer class="wd-footer">
+    <div class="wd-footer-inner">
+      <span>iQWEB is a product operated by iQLABS Ltd (New Zealand). · © 2025 IQLABS LIMITED · All rights reserved · Made in New Zealand.</span>
+
+      <!-- CHANGED: centered menu line -->
+      <div class="wd-footer-links">
+        <a href="/#company">Company</a><span class="dot">·</span>
+        <a href="/#products">Products</a><span class="dot">·</span>
+        <a href="/privacy">Privacy</a><span class="dot">·</span>
+        <a href="/terms">Terms</a><span class="dot">·</span>
+        <a href="/refunds">Refunds</a>
+      </div>
+    </div>
+  </footer>
+</div>
+</body>
+</html>
