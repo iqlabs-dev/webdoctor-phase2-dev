@@ -17,6 +17,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /* ============================================================
    SINGLE-FLIGHT DB LOCK
+   Ensures ONE OpenAI call per report_id
    ============================================================ */
 async function claimNarrative(report_id) {
   const { data, error } = await supabase.rpc("claim_narrative_job", {
@@ -57,8 +58,8 @@ function isNonEmptyString(v) {
 
 /* ============================================================
    v5.2 CONSTRAINTS (LOCKED)
-   - overall: max 5 lines
-   - each signal: max 3 lines
+   - overall: target 4–5 lines, max 5
+   - each signal: target 2 lines, max 3
    ============================================================ */
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
@@ -72,8 +73,8 @@ function normalizeLines(text, maxLines) {
 
 /* ============================================================
    FACTS PACK (DETERMINISTIC ONLY)
-   NOTE: scores are passed through for UI/reference,
-         but hierarchy is NOT derived from scores.
+   NOTE: Scores are pass-through for UI/reference,
+         but narrative hierarchy must NOT be derived from scores.
    ============================================================ */
 function buildFactsPack(scan) {
   const metrics = safeObj(scan.metrics);
@@ -140,8 +141,8 @@ function buildFactsPack(scan) {
 
 /* ============================================================
    EVIDENCE-BASED HIERARCHY (NOT SCORE-BASED)
-   We choose a primary constraint using hard findings + deductions.
-   This is "judgement scaffolding", not templated text.
+   Select a primary constraint using hard findings + deductions.
+   This is judgement scaffolding, NOT templated prose.
    ============================================================ */
 function analyzeConstraints(facts) {
   const f = safeObj(facts.findings);
@@ -150,7 +151,6 @@ function analyzeConstraints(facts) {
   const misses = (v) => v === false;
   const hasReasons = (arr) => Array.isArray(arr) && arr.length > 0;
 
-  // Evidence flags
   const securityGaps = [
     misses(f.https) ? "HTTPS not confirmed" : null,
     misses(f.hsts) ? "HSTS missing" : null,
@@ -168,14 +168,16 @@ function analyzeConstraints(facts) {
     misses(f.title_present) ? "Title missing" : null,
   ].filter(Boolean);
 
-  const mobileGaps = [misses(f.viewport_present) ? "Viewport meta tag missing" : null].filter(Boolean);
+  const mobileGaps = [
+    misses(f.viewport_present) ? "Viewport meta tag missing" : null,
+  ].filter(Boolean);
 
-  // Start with deterministic dominance:
-  // 1) Security baseline gaps (headers) dominate most other work because they affect trust boundary.
-  // 2) Performance constraints next (if deductions exist).
-  // 3) SEO hygiene next (canonical/robots/H1/title).
-  // 4) Structure/accessibility next.
-  // 5) Mobile only if viewport missing or deductions exist.
+  // Deterministic dominance order (evidence-driven):
+  // Security baseline gaps dominate most other work (trust boundary).
+  // Then performance constraints (if deductions exist).
+  // Then SEO hygiene.
+  // Then structure/accessibility.
+  // Then mobile (if viewport missing or deductions exist).
   let primary = null;
   const primaryEvidence = [];
 
@@ -201,12 +203,12 @@ function analyzeConstraints(facts) {
     primaryEvidence.push(...mobileGaps.slice(0, 2));
     if (hasReasons(d.mobile)) primaryEvidence.push(...d.mobile.slice(0, 3));
   } else {
-    // If everything looks clean, default to SEO as "hygiene" narrative anchor (still factual)
+    // If everything looks clean, anchor on SEO hygiene neutrally
     primary = "seo";
     if (seoGaps.length) primaryEvidence.push(...seoGaps.slice(0, 2));
   }
 
-  // Secondary contributors: pick up to 2 other areas with any evidence
+  // Secondary contributors: up to 2 other areas with evidence
   const candidates = [
     { k: "security", e: securityGaps.concat(asArray(d.security)) },
     { k: "performance", e: asArray(d.performance) },
@@ -257,59 +259,119 @@ function extractResponseText(data) {
 }
 
 /* ============================================================
-   OPENAI CALL (NARRATIVE ONLY)
-   - AI writes language
-   - Deterministic logic supplies hierarchy + evidence
+   DEFENSIVE SANITISERS
+   - remove score leaks ("90/100", "measured at", "deterministic checks")
+   - remove authority wording ("must", "urgent", "essential", etc.)
+   ============================================================ */
+function softenLine(line) {
+  let s = String(line || "").trim();
+  if (!s) return s;
+
+  // Kill "score / measurement" style leaks
+  s = s.replace(/\b\d{1,3}\s*\/\s*\d{1,3}\b/g, ""); // e.g. 90/100
+  s = s.replace(/\bmeasured at\b/gi, "observed as");
+  s = s.replace(/\bdeterministic checks?\b/gi, "this scan");
+  s = s.replace(/\bfrom deterministic checks?\b/gi, "within this scan");
+
+  // Remove "command" words (soften, don’t invert meaning)
+  s = s.replace(/\bmust\b/gi, "can");
+  s = s.replace(/\burgent\b/gi, "worth prioritising");
+  s = s.replace(/\bimmediate\b/gi, "near-term");
+  s = s.replace(/\bessential\b/gi, "important");
+  s = s.replace(/\brequired\b/gi, "recommended");
+  s = s.replace(/\bno action required\b/gi, "This area appears stable within this scan.");
+
+  // Trim double spaces created by removals
+  s = s.replace(/\s{2,}/g, " ").trim();
+  return s;
+}
+
+function sanitizeNarrativeObject(n) {
+  const out = {
+    overall: { lines: [] },
+    signals: {
+      performance: { lines: [] },
+      mobile: { lines: [] },
+      seo: { lines: [] },
+      security: { lines: [] },
+      structure: { lines: [] },
+      accessibility: { lines: [] },
+    },
+  };
+
+  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5).map(softenLine);
+
+  const sig = safeObj(n?.signals);
+  const setSig = (k) => {
+    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3).map(softenLine);
+  };
+
+  setSig("performance");
+  setSig("mobile");
+  setSig("seo");
+  setSig("security");
+  setSig("structure");
+  setSig("accessibility");
+
+  return out;
+}
+
+/* ============================================================
+   OPENAI CALL (LANGUAGE ONLY)
+   - AI writes prose
+   - deterministic logic supplies hierarchy + evidence
    ============================================================ */
 async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
   }
 
-  const primaryLabel = {
+  const labels = {
     security: "security and trust",
     performance: "performance delivery",
     seo: "SEO foundations",
     structure: "structure and semantics",
     accessibility: "accessibility support",
     mobile: "mobile experience",
-  }[constraints.primary] || "delivery consistency";
+  };
 
-  const secondaryLabels = constraints.secondary.map(
-    (k) =>
-      ({
-        security: "security and trust",
-        performance: "performance delivery",
-        seo: "SEO foundations",
-        structure: "structure and semantics",
-        accessibility: "accessibility support",
-        mobile: "mobile experience",
-      }[k] || k)
-  );
+  const primaryLabel = labels[constraints.primary] || "delivery consistency";
+  const secondaryLabels = asArray(constraints.secondary).map((k) => labels[k] || k);
 
   const instructions = [
     "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
     "",
     "Non-negotiable rules:",
-    "1) Use only provided facts and constraint hierarchy. Do not invent causes or measurements.",
+    "1) Use only provided facts and the provided constraint hierarchy. Do not invent causes or measurements.",
     "2) No sales language, no hype, no blame, no fear-mongering.",
-    "3) Do not mention numeric scores or percentages anywhere.",
-    "4) Do not issue commands. Avoid: must, urgent, immediate, essential, required.",
-    "5) Use diagnostic language: indicates, suggests, within this scan, observed behavior.",
+    "3) Do NOT mention numeric scores, fractions, or percentages anywhere.",
+    "4) Do NOT mention 'deterministic checks' or 'measured at'.",
+    "5) Do NOT issue commands. Avoid: must, urgent, immediate, essential, required.",
+    "6) Use diagnostic language: indicates, suggests, within this scan, observed behavior.",
     "",
-    "Executive Narrative (overall.lines) MUST be judgemental in structure (not a summary):",
-    "- 4 to 5 lines total (max 5).",
+    "Executive Narrative (overall.lines):",
+    "- EXACTLY 4 or 5 lines (max 5).",
     "- It MUST cover 2–3 signals:",
     "  * Name the PRIMARY constraint explicitly (line 1 or line 2).",
     "  * Mention up to two SECONDARY contributors (one line).",
-    "  * Include a consequence boundary: 'Other improvements will have limited impact until…' (or equivalent).",
+    "  * Include a consequence boundary: 'Other improvements may have limited impact until…' (or equivalent).",
     "  * End with a calm sequencing focus phrased as an option: 'A sensible next focus is…'.",
     "",
     "Signal narratives (signals.*.lines):",
-    "- 2 lines ideal, max 3. Keep them specific to facts/deductions.",
-    "- If a signal has no meaningful evidence, keep it short and neutral (stable within this scan).",
+    "- 2 lines ideal, max 3. Keep them specific to facts/deductions for that signal.",
+    "- If a signal has little evidence, keep it short and neutral (stable within this scan).",
     "",
-    "IMPORTANT: The hierarchy is provided. Do not 'balance' everything equally.",
+    "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers.",
+    "Rotate these neutral openers for second lines (use each at most once per report):",
+    "- 'In practical terms,'",
+    "- 'From a delivery perspective,'",
+    "- 'At a site level,'",
+    "- 'For users, this typically means…'",
+    "- 'Operationally,'",
+    "- 'Within the scope of this scan,'",
+    "- 'From a technical standpoint,'",
+    "- 'Observed behavior indicates…'",
+    "- 'Measured signals show that…' (allowed wording, but do NOT use numbers)",
   ].join("\n");
 
   const input = [
@@ -336,7 +398,7 @@ async function callOpenAI({ facts, constraints }) {
       instructions,
       input,
       temperature: 0.2,
-      max_output_tokens: 750,
+      max_output_tokens: 800,
       text: {
         format: {
           type: "json_schema",
@@ -351,21 +413,12 @@ async function callOpenAI({ facts, constraints }) {
                 type: "object",
                 additionalProperties: false,
                 required: ["lines"],
-                properties: {
-                  lines: { type: "array", items: { type: "string" } },
-                },
+                properties: { lines: { type: "array", items: { type: "string" } } },
               },
               signals: {
                 type: "object",
                 additionalProperties: false,
-                required: [
-                  "performance",
-                  "mobile",
-                  "seo",
-                  "security",
-                  "structure",
-                  "accessibility",
-                ],
+                required: ["performance", "mobile", "seo", "security", "structure", "accessibility"],
                 properties: {
                   performance: {
                     type: "object",
@@ -429,59 +482,48 @@ async function callOpenAI({ facts, constraints }) {
 }
 
 /* ============================================================
-   ENFORCE CONSTRAINTS + GUARD AGAINST "SUMMARY MODE"
+   ENFORCE v5.2 LINE LIMITS + REQUIRED EXEC STRUCTURE
    ============================================================ */
 function enforceConstraints(n) {
-  const out = {
-    overall: { lines: [] },
-    signals: {
-      performance: { lines: [] },
-      mobile: { lines: [] },
-      seo: { lines: [] },
-      security: { lines: [] },
-      structure: { lines: [] },
-      accessibility: { lines: [] },
-    },
-  };
+  const out = sanitizeNarrativeObject(n);
 
-  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
-
-  const sig = safeObj(n?.signals);
-  const setSig = (k) => {
-    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
-  };
-
-  setSig("performance");
-  setSig("mobile");
-  setSig("seo");
-  setSig("security");
-  setSig("structure");
-  setSig("accessibility");
-
-  // Hard guard: force judgement boundary language somewhere in overall
-  const overallJoined = out.overall.lines.join(" ").toLowerCase();
-  const hasBoundary =
-    overallJoined.includes("limited impact") ||
-    overallJoined.includes("until") ||
-    overallJoined.includes("before") ||
-    overallJoined.includes("does not offset") ||
-    overallJoined.includes("outweigh");
-
-  if (!hasBoundary) {
-    // This forces the report to feel like paid judgement, not a neutral summary.
-    // (Still non-commanding and not fear-based.)
+  // Ensure overall is 4–5 lines (not 2–3)
+  if (out.overall.lines.length < 4) {
+    // pad with a calm sequencing line if needed
     out.overall.lines = normalizeLines(
       out.overall.lines.join("\n") +
-        "\nOther improvements are likely to have limited impact until the primary constraint is addressed within this scan.",
+        "\nOther improvements may have limited impact until the primary constraint is addressed within this scan." +
+        "\nA sensible next focus is to review the primary constraint first, then reassess secondary areas.",
       5
+    ).map(softenLine);
+  } else if (out.overall.lines.length > 5) {
+    out.overall.lines = out.overall.lines.slice(0, 5);
+  }
+
+  // Hard guard: must include a boundary + a “sensible next focus”
+  const joined = out.overall.lines.join(" ").toLowerCase();
+  const hasBoundary = joined.includes("limited impact") && joined.includes("until");
+  const hasNextFocus = joined.includes("sensible next focus");
+
+  if (!hasBoundary && out.overall.lines.length < 5) {
+    out.overall.lines.push(
+      softenLine("Other improvements may have limited impact until the primary constraint is addressed within this scan.")
     );
   }
+  if (!hasNextFocus && out.overall.lines.length < 5) {
+    out.overall.lines.push(
+      softenLine("A sensible next focus is to address the primary constraint first, then revisit secondary contributors.")
+    );
+  }
+
+  // Respect max 5 again after guards
+  out.overall.lines = out.overall.lines.slice(0, 5);
 
   return out;
 }
 
 /* ============================================================
-   NARRATIVE VALIDITY CHECK
+   NARRATIVE VALIDITY CHECK (STRICT)
    ============================================================ */
 function isNarrativeComplete(n) {
   const hasOverall =
