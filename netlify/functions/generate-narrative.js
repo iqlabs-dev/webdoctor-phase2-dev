@@ -200,25 +200,26 @@ function softenLine(line) {
 // Locked Executive Narrative rule (v5.2+)
 // -----------------------------
 // Enforce:
-// Line 1: Overall state + dominant risk
-// Line 2: Why this risk outweighs others
-// Line 3: Priority action
-// Line 4 (optional): What comes after
-function validateExecutiveNarrative(lines) {
+// - 3–4 lines
+// - Executive Narrative must focus on 1–3 signals max (not all six)
+function validateExecutiveNarrative(lines, maxSignals = 3) {
   if (!Array.isArray(lines)) return false;
   const clean = lines.map((l) => String(l || "").trim()).filter(Boolean);
-  return clean.length >= 3 && clean.length <= 4;
+  if (!(clean.length >= 3 && clean.length <= 4)) return false;
+
+  const mentioned = countSignalMentions(clean);
+  return mentioned <= maxSignals;
 }
 
 // -----------------------------
-// DOMINANT RISK PICKER (FIXED)
+// DOMINANT RISK + EXEC FOCUS (FIXED)
 // Deterministic, agency-sane, score-first.
 // -----------------------------
 const SCORE_BANDS = {
   criticalMax: 60, // <= 60
-  weakMax: 74,     // 61–74
-  softMax: 84,     // 75–84
-  healthyMin: 85,  // >= 85 (ineligible to lead, unless ALL are healthy)
+  weakMax: 74, // 61–74
+  softMax: 84, // 75–84
+  healthyMin: 85, // >= 85 (ineligible to lead, unless ALL are healthy)
 };
 
 const SIGNAL_LABELS = {
@@ -233,12 +234,13 @@ const SIGNAL_LABELS = {
 // Agency-first tie break (ONLY when scores are tied)
 const AGENCY_TIE_ORDER = ["security", "seo", "mobile", "performance", "structure", "accessibility"];
 
-function pickDominantRisk(facts) {
+function normScore(v) {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function getScoreMap(facts) {
   const scores = safeObj(facts?.scores);
-
-  const normScore = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
-
-  const scoreMap = {
+  return {
     security: normScore(scores.security),
     seo: normScore(scores.seo),
     mobile: normScore(scores.mobile),
@@ -246,87 +248,175 @@ function pickDominantRisk(facts) {
     structure: normScore(scores.structure),
     accessibility: normScore(scores.accessibility),
   };
+}
 
-  // Measurable security-header gap signal (used only as tie-break helper)
+function securityHeaderMissing(facts) {
   const k = safeObj(facts?.key_findings);
-  const securityHeaderMissing =
+  return (
     k.https === false ||
     k.hsts === false ||
     k.csp === false ||
     k.xfo === false ||
     k.xcto === false ||
     k.referrer_policy === false ||
-    k.permissions_policy === false;
+    k.permissions_policy === false
+  );
+}
 
-  // 1) Eligible candidates: score < 85 (critical/weak/soft only)
-  const eligible = Object.entries(scoreMap)
-    .filter(([_, v]) => v !== null && v < SCORE_BANDS.healthyMin);
+function bandOf(score) {
+  if (typeof score !== "number") return "unknown";
+  if (score <= SCORE_BANDS.criticalMax) return "critical";
+  if (score <= SCORE_BANDS.weakMax) return "weak";
+  if (score <= SCORE_BANDS.softMax) return "soft";
+  if (score >= SCORE_BANDS.healthyMin) return "healthy";
+  return "unknown";
+}
 
-  // 2) If everything is healthy (>=85), still pick the LOWEST score (best-effort lead)
-  const pool = eligible.length
-    ? eligible
-    : Object.entries(scoreMap).filter(([_, v]) => v !== null);
+// Picks the single dominant constraint by LOWEST score among eligible (<85),
+// NOT by "deductions", and never chooses a healthy 90 unless everything is healthy.
+function pickDominantRisk(facts) {
+  const scoreMap = getScoreMap(facts);
+
+  const eligible = Object.entries(scoreMap).filter(([_, v]) => v !== null && v < SCORE_BANDS.healthyMin);
+  const pool = eligible.length ? eligible : Object.entries(scoreMap).filter(([_, v]) => v !== null);
 
   if (!pool.length) {
-    // extreme edge-case: no scores at all
     return { key: "security", label: SIGNAL_LABELS.security, score: null, band: "unknown" };
   }
 
-  // 3) Pick the LOWEST score (material constraint), not "most deductions"
   let minScore = Math.min(...pool.map(([_, v]) => v));
   let tied = pool.filter(([_, v]) => v === minScore).map(([k]) => k);
 
-  // 4) Tie-break: agency order
   if (tied.length > 1) {
     tied.sort((a, b) => AGENCY_TIE_ORDER.indexOf(a) - AGENCY_TIE_ORDER.indexOf(b));
 
-    // Extra tie-bias: if security is tied AND we have measurable header gaps AND security is actually below 75
-    // (prevents "security always first" when it's not a real constraint)
-    const securityScore = scoreMap.security;
-    if (
-      tied.includes("security") &&
-      securityHeaderMissing &&
-      typeof securityScore === "number" &&
-      securityScore <= SCORE_BANDS.weakMax
-    ) {
+    // Extra tie-bias ONLY when security is truly weak/critical and measurable header gaps exist.
+    const secScore = scoreMap.security;
+    if (tied.includes("security") && securityHeaderMissing(facts) && typeof secScore === "number" && secScore <= SCORE_BANDS.weakMax) {
       tied = ["security", ...tied.filter((x) => x !== "security")];
     }
   }
 
   const key = tied[0];
   const score = scoreMap[key];
+  return { key, label: SIGNAL_LABELS[key] || key, score, band: bandOf(score) };
+}
 
-  const band =
-    typeof score !== "number"
-      ? "unknown"
-      : score <= SCORE_BANDS.criticalMax
-        ? "critical"
-        : score <= SCORE_BANDS.weakMax
-          ? "weak"
-          : score <= SCORE_BANDS.softMax
-            ? "soft"
-            : "healthy";
+// Decide whether exec should include 2nd/3rd signals (still max 3 total).
+// Rule: include secondary if it is also not-healthy AND is "close" (within 8 points)
+// OR if both are weak/critical.
+// Include tertiary only if all three are within 6 points and not-healthy.
+function pickExecFocus(facts) {
+  const scoreMap = getScoreMap(facts);
+  const entries = Object.entries(scoreMap)
+    .filter(([_, v]) => v !== null)
+    .map(([k, v]) => ({ key: k, score: v, band: bandOf(v), label: SIGNAL_LABELS[k] || k }));
 
-  return { key, label: SIGNAL_LABELS[key] || key, score, band };
+  if (!entries.length) {
+    return {
+      lead: { key: "security", label: SIGNAL_LABELS.security, score: null, band: "unknown" },
+      secondary: null,
+      tertiary: null,
+      mentionedKeys: ["security"],
+    };
+  }
+
+  // Sort by ascending score (worst first)
+  entries.sort((a, b) => a.score - b.score);
+
+  // Lead selection uses the same rule as pickDominantRisk (avoid healthy unless all healthy)
+  const leadObj = pickDominantRisk(facts);
+  const leadIndex = entries.findIndex((e) => e.key === leadObj.key);
+  const lead = leadIndex >= 0 ? entries[leadIndex] : entries[0];
+
+  // Build candidates excluding lead
+  const rest = entries.filter((e) => e.key !== lead.key);
+
+  const isLeadNotHealthy = lead.score < SCORE_BANDS.healthyMin;
+
+  const eligibleSecondary = rest.filter((e) => e.score < SCORE_BANDS.healthyMin);
+  let secondary = null;
+
+  if (!isLeadNotHealthy) {
+    // If everything is healthy, allow one "next best" area (lowest score) as "tighten"
+    secondary = rest[0] || null;
+  } else if (eligibleSecondary.length) {
+    // Pick the next-lowest not-healthy
+    const cand = eligibleSecondary[0];
+    const diff = Math.abs(cand.score - lead.score);
+
+    const bothWeakish =
+      (lead.band === "critical" || lead.band === "weak") && (cand.band === "critical" || cand.band === "weak");
+
+    if (diff <= 8 || bothWeakish) secondary = cand;
+  }
+
+  let tertiary = null;
+  if (secondary && secondary.score < SCORE_BANDS.healthyMin) {
+    const eligibleTertiary = eligibleSecondary.filter((e) => e.key !== secondary.key);
+    if (eligibleTertiary.length) {
+      const cand3 = eligibleTertiary[0];
+      const d1 = Math.abs(cand3.score - lead.score);
+      const d2 = Math.abs(cand3.score - secondary.score);
+      if (d1 <= 6 && d2 <= 6) tertiary = cand3;
+    }
+  }
+
+  const mentionedKeys = [lead.key];
+  if (secondary) mentionedKeys.push(secondary.key);
+  if (tertiary) mentionedKeys.push(tertiary.key);
+
+  return { lead, secondary, tertiary, mentionedKeys };
+}
+
+// -----------------------------
+// Signal mention limiter (exec narrative)
+// -----------------------------
+function countSignalMentions(lines) {
+  const text = lines.join(" ").toLowerCase();
+
+  const patterns = {
+    security: /(security|trust|headers|csp|hsts|x-frame|x-content-type|referrer-policy|permissions-policy)/i,
+    seo: /(seo|search|meta|canonical|robots|indexing|titles?|headings?\b)/i,
+    mobile: /(mobile|viewport|touch|tap|responsive|zoom)/i,
+    performance: /(performance|speed|load|lcp|cls|tbt|scripts?|assets?)/i,
+    structure: /(structure|semantics|markup|html|schema|dom|hierarchy)/i,
+    accessibility: /(accessibility|a11y|aria|contrast|labels?|keyboard|alt\b)/i,
+  };
+
+  let count = 0;
+  for (const k of Object.keys(patterns)) {
+    if (patterns[k].test(text)) count += 1;
+  }
+  return count;
 }
 
 function buildFallbackExecutiveNarrative(facts) {
-  const { label, band } = pickDominantRisk(facts);
+  const focus = pickExecFocus(facts);
+  const lead = focus.lead;
+  const secondary = focus.secondary;
+  const tertiary = focus.tertiary;
 
-  // Keep it truthful without "because score X", but more sane than deductions-count.
   const bandPhrase =
-    band === "critical"
-      ? "with a clear constraint"
-      : band === "weak"
-        ? "with a meaningful constraint"
-        : band === "soft"
-          ? "with one area worth tightening"
-          : "with generally stable delivery";
+    lead.band === "critical"
+      ? "a clear constraint"
+      : lead.band === "weak"
+        ? "a meaningful constraint"
+        : lead.band === "soft"
+          ? "one area worth tightening"
+          : "generally stable delivery";
 
-  const l1 = `This scan shows ${bandPhrase}, concentrated in ${label}.`;
-  const l2 = `Within the scope of this scan, the evidence indicates this area is the main source of avoidable friction compared with other signals.`;
-  const l3 = `A sensible next focus is to address the ${label} findings surfaced in the evidence, then re-scan to confirm the change lands as intended.`;
-  const l4 = `After that, shift attention to the next-lowest signal to lift overall delivery consistency.`;
+  const leadLabel = lead.label;
+
+  // Optional: mention secondary/tertiary as "next" only (keeps it 2–3 signals max)
+  const nextLabels = [secondary?.label, tertiary?.label].filter(Boolean);
+
+  const l1 = `This scan shows ${bandPhrase}, concentrated in ${leadLabel}.`;
+  const l2 = `Within the scope of this scan, the evidence indicates this is the main source of avoidable friction compared with other signals.`;
+  const l3 = `A sensible next focus is to address the ${leadLabel} findings surfaced in the evidence, then re-scan to confirm the change lands as intended.`;
+  const l4 = nextLabels.length
+    ? `After that, shift attention to ${nextLabels.join(" then ")} to lift overall delivery consistency.`
+    : `After that, shift attention to the next-lowest signal to lift overall delivery consistency.`;
 
   return [l1, l2, l3, l4].map(softenLine);
 }
@@ -347,12 +437,11 @@ function enforceConstraints(n, factsForFallback) {
     },
   };
 
-  // --- overall: HARD LOCK 3–4 lines ---
+  // --- overall: HARD LOCK 3–4 lines + MAX 3 signals mentioned ---
   const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 4);
   const overallLines = overallRaw.map(softenLine).filter(Boolean);
 
-  if (!validateExecutiveNarrative(overallLines)) {
-    // Fallback (deterministic)
+  if (!validateExecutiveNarrative(overallLines, 3)) {
     out.overall.lines = buildFallbackExecutiveNarrative(factsForFallback);
   } else {
     out.overall.lines = overallLines;
@@ -403,8 +492,25 @@ async function callOpenAI({ facts }) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
   }
 
-  // Deterministic “lead” hint for the model (still facts-based; no lying)
-  const dom = pickDominantRisk(facts);
+  // Deterministic exec focus hint (lead + optional next)
+  const focus = pickExecFocus(facts);
+  const lead = focus.lead;
+  const secondary = focus.secondary;
+  const tertiary = focus.tertiary;
+
+  const leadLabel = lead?.label || "security & trust";
+  const secondaryLabel = secondary?.label || null;
+  const tertiaryLabel = tertiary?.label || null;
+
+  const includeSecondary =
+    !!secondaryLabel && secondary?.score !== null && secondary.score < SCORE_BANDS.healthyMin;
+
+  const includeTertiary =
+    !!tertiaryLabel && tertiary?.score !== null && tertiary.score < SCORE_BANDS.healthyMin;
+
+  const allowedSignals = [leadLabel, includeSecondary ? secondaryLabel : null, includeTertiary ? tertiaryLabel : null]
+    .filter(Boolean)
+    .join(", ");
 
   const instructions = [
     "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
@@ -417,23 +523,29 @@ async function callOpenAI({ facts }) {
     "5) Use diagnostic language: 'indicates', 'suggests', 'points to', 'within this scan'.",
     "6) Output MUST match the provided JSON schema (strict).",
     "7) Line limits: overall MUST be 3 lines (optional 4th only); each signal max 3 lines.",
-    "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+    "8) Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+    "",
+    "EXEC NARRATIVE SCOPE (STRICT):",
+    "- Executive Narrative MUST focus on 1 dominant constraint, plus up to 2 secondary constraints ONLY if clearly relevant.",
+    "- It must NOT try to cover all six signals.",
+    "- Max 3 signals referenced in overall.lines across all lines.",
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "IMPORTANT PRIORITY RULE (DETERMINISTIC):",
-    `- The Executive Narrative MUST lead with the most material constraint signal based on score-first logic.`,
-    `- The selected lead signal for this scan is: "${dom.label}" (key: ${dom.key}).`,
-    "- Do not contradict this selection unless the facts clearly do not support it.",
+    "DETERMINISTIC EXEC FOCUS (do not contradict):",
+    `- Lead constraint signal: "${leadLabel}" (key: ${lead?.key || "security"}).`,
+    includeSecondary ? `- Secondary context (next): "${secondaryLabel}" (key: ${secondary?.key}).` : "- Secondary context: none required unless evidence strongly implies otherwise.",
+    includeTertiary ? `- Tertiary context (only if it fits cleanly): "${tertiaryLabel}" (key: ${tertiary?.key}).` : "- Tertiary context: none.",
+    `- Allowed signals to reference in Executive Narrative: ${allowedSignals || leadLabel}.`,
     "",
     "LOCKED STRUCTURE (NO EXCEPTIONS):",
     "- overall.lines must be 3 lines, with an optional 4th line only.",
-    "  Line 1: Overall state + dominant risk (single sentence).",
-    "  Line 2: Why this risk outweighs others (single sentence, anchored to measurable gaps).",
+    "  Line 1: Overall state + dominant constraint (single sentence).",
+    "  Line 2: Why this constraint outweighs others (single sentence, anchored to measurable gaps/evidence).",
     "  Line 3: Priority action (phrase as an option: 'A sensible next focus is…').",
-    "  Line 4 (optional): What comes after (sequencing, optional).",
+    "  Line 4 (optional): What comes after (sequencing to the next constraint ONLY).",
     "",
     "- per signal lines (2 lines ideal, max 3):",
     "  * Line 1: What the signal indicates (diagnostic).",
@@ -444,6 +556,10 @@ async function callOpenAI({ facts }) {
     "- Do NOT use headings like 'Line 1 —'. Just write the lines.",
     "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
     "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
+    "",
+    "Variation rule (no lying):",
+    "- The Executive Narrative should not feel copy-pasted.",
+    "- You may vary phrasing and sentence shape, but must remain consistent with the facts.",
     "",
     "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers. You MUST rotate neutral openers for second lines. Use each at most once per report.",
     "Approved neutral openers (rotate):",
@@ -472,8 +588,8 @@ async function callOpenAI({ facts }) {
       model: OPENAI_MODEL,
       instructions,
       input,
-      temperature: 0.2,
-      max_output_tokens: 700,
+      temperature: 0.25,
+      max_output_tokens: 750,
       text: {
         format: {
           type: "json_schema",
@@ -635,7 +751,7 @@ export async function handler(event) {
       rawNarrative = await callOpenAI({ facts });
       narrative = enforceConstraints(rawNarrative, facts);
 
-      if (validateExecutiveNarrative(narrative?.overall?.lines)) break;
+      if (validateExecutiveNarrative(narrative?.overall?.lines, 3)) break;
 
       if (attempt === 2) {
         // enforceConstraints already applied deterministic fallback, so we're safe
