@@ -77,25 +77,11 @@ function setUserUI(email) {
   }
 }
 
-function showViewReportCTA(reportId) {
+function showViewReportCTA() {
   const statusEl = $("trial-info");
   if (!statusEl) return;
 
-  if (!looksLikeReportId(reportId)) {
-    statusEl.textContent =
-      "Scan completed. Report ID not ready yet. Please refresh in a moment.";
-    return;
-  }
-
-  statusEl.innerHTML = `
-    ✅ Scan complete.
-    <button id="view-report-btn" style="margin-left:10px" class="btn-primary">
-      View report
-    </button>
-  `;
-
-  const btn = $("view-report-btn");
-  if (btn) btn.onclick = () => goToReport(reportId);
+  statusEl.textContent = "✅ Scan complete.";
 }
 
 // -----------------------------
