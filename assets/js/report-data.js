@@ -521,108 +521,154 @@
   }
 
   function renderSignalEvidence(deliverySignals) {
-    var root = $("signalEvidenceRoot");
-    if (!root) return;
-    root.innerHTML = "";
+  var root = $("signalEvidenceRoot");
+  if (!root) return;
+  root.innerHTML = "";
 
-    var list = asArray(deliverySignals);
-    if (!list.length) {
-      root.innerHTML = '<div class="summary">No signal evidence available (delivery_signals missing).</div>';
-      return;
-    }
-
-    for (var i = 0; i < list.length; i++) {
-      var sig = list[i];
-      var label = String((sig && (sig.label || sig.id)) || "Signal");
-      var score = asInt(sig && sig.score, 0);
-
-      var obs = asArray(sig && sig.observations);
-      if (!obs.length) obs = evidenceToObs(sig && sig.evidence);
-
-      var block = document.createElement("details");
-      block.className = "evidence-block";
-
-      var summary = document.createElement("summary");
-      summary.innerHTML =
-        '<span class="acc-title">' + escapeHtml(label) + "</span>" +
-        '<span class="acc-score">' + escapeHtml(String(score)) + "</span>";
-
-      var body = document.createElement("div");
-      body.className = "acc-body";
-
-      var title = document.createElement("div");
-      title.className = "evidence-title";
-      title.textContent = "Observations";
-
-      var listEl = document.createElement("div");
-      listEl.className = "evidence-list";
-
-      if (obs.length) {
-        for (var j = 0; j < obs.length && j < 24; j++) {
-          var o = obs[j] || {};
-          var kv = document.createElement("div");
-          kv.className = "kv";
-
-          var value =
-            (o.value === null) ? "null" :
-            (typeof o.value === "undefined") ? "—" :
-            String(o.value);
-
-          kv.innerHTML =
-            '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
-            '<div class="v">' + escapeHtml(value) + "</div>";
-
-          listEl.appendChild(kv);
-        }
-      } else {
-        var none = document.createElement("div");
-        none.className = "summary";
-        none.textContent = "No observations recorded.";
-        body.appendChild(none);
-      }
-
-      var issues = asArray(sig && sig.issues);
-
-      var issuesTitle = document.createElement("div");
-      issuesTitle.className = "evidence-title";
-      issuesTitle.style.marginTop = "14px";
-      issuesTitle.textContent = "Issues";
-
-      var issuesBox = document.createElement("div");
-      if (!issues.length) {
-        issuesBox.className = "summary";
-        issuesBox.textContent = "No issues detected for this signal.";
-      } else {
-        var html = "";
-        for (var k = 0; k < issues.length && k < 6; k++) {
-          var it = issues[k] || {};
-          var t = escapeHtml(it.title || "Issue");
-          var sev = escapeHtml(it.severity || "low");
-          var impact = escapeHtml(it.impact || "—");
-
-          html += '<div class="kv" style="flex-direction:column; align-items:flex-start;">';
-          html += '  <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">';
-          html += '    <div style="font-weight:800;color:var(--ink);">' + t + "</div>";
-          html += '    <div style="font-weight:800;opacity:.85;">' + sev + "</div>";
-          html += "  </div>";
-          html += '  <div class="k" style="text-transform:none; letter-spacing:0;">Impact: ';
-          html += '    <span class="impact-text" style="font-weight:700;">' + impact + "</span>";
-          html += "  </div>";
-          html += "</div>";
-        }
-        issuesBox.innerHTML = html;
-      }
-
-      body.appendChild(title);
-      body.appendChild(listEl);
-      body.appendChild(issuesTitle);
-      body.appendChild(issuesBox);
-
-      block.appendChild(summary);
-      block.appendChild(body);
-      root.appendChild(block);
-    }
+  var list = asArray(deliverySignals);
+  if (!list.length) {
+    root.innerHTML = '<div class="summary">No signal evidence available (delivery_signals missing).</div>';
+    return;
   }
+
+  function keyFromLabelOrId(sig) {
+    var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+    if (id.indexOf("perf") !== -1) return "performance";
+    if (id.indexOf("seo") !== -1) return "seo";
+    if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+    if (id.indexOf("mob") !== -1) return "mobile";
+    if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+    if (id.indexOf("access") !== -1) return "accessibility";
+    return "";
+  }
+
+  // Explains "why score is lower even though there are no issues"
+  function issuesEmptyMessage(sigKey, score, obsCount) {
+    var n = asInt(score, 0);
+
+    // Only show the “soft deductions” explanation when:
+    // - there are no issue objects
+    // - score is not high
+    // - we actually have observations/evidence (so it's not a blank scan)
+    if (n > 0 && n < 85 && obsCount > 0) {
+      if (sigKey === "structure") {
+        return "No blocking structural issues were identified. The score reflects minor best practice and hierarchy deductions rather than required fixes.";
+      }
+      if (sigKey === "performance") {
+        return "No blocking performance issues were identified in this scan. The score reflects minor delivery and best practice deductions rather than required fixes.";
+      }
+      if (sigKey === "seo") {
+        return "No blocking SEO issues were listed. The score reflects missing or incomplete foundation signals captured in this scan rather than a single required fix.";
+      }
+      if (sigKey === "mobile") {
+        return "No blocking mobile issues were listed. The score reflects missing required mobile signals captured in this scan rather than a single required fix.";
+      }
+      if (sigKey === "security") {
+        return "No issue list was produced for this signal. The score reflects missing security policies or headers observed in this scan rather than a single required fix.";
+      }
+      if (sigKey === "accessibility") {
+        return "No blocking accessibility issues were listed. The score reflects minor support deductions captured in this scan rather than required fixes.";
+      }
+      return "No blocking issues were identified. The score reflects minor deductions captured in this scan rather than required fixes.";
+    }
+
+    return "No issues detected for this signal.";
+  }
+
+  for (var i = 0; i < list.length; i++) {
+    var sig = list[i];
+    var label = String((sig && (sig.label || sig.id)) || "Signal");
+    var score = asInt(sig && sig.score, 0);
+
+    var obs = asArray(sig && sig.observations);
+    if (!obs.length) obs = evidenceToObs(sig && sig.evidence);
+
+    var block = document.createElement("details");
+    block.className = "evidence-block";
+
+    var summary = document.createElement("summary");
+    summary.innerHTML =
+      '<span class="acc-title">' + escapeHtml(label) + "</span>" +
+      '<span class="acc-score">' + escapeHtml(String(score)) + "</span>";
+
+    var body = document.createElement("div");
+    body.className = "acc-body";
+
+    var title = document.createElement("div");
+    title.className = "evidence-title";
+    title.textContent = "Observations";
+
+    var listEl = document.createElement("div");
+    listEl.className = "evidence-list";
+
+    if (obs.length) {
+      for (var j = 0; j < obs.length && j < 24; j++) {
+        var o = obs[j] || {};
+        var kv = document.createElement("div");
+        kv.className = "kv";
+
+        var value =
+          (o.value === null) ? "null" :
+          (typeof o.value === "undefined") ? "—" :
+          String(o.value);
+
+        kv.innerHTML =
+          '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
+          '<div class="v">' + escapeHtml(value) + "</div>";
+
+        listEl.appendChild(kv);
+      }
+    } else {
+      var none = document.createElement("div");
+      none.className = "summary";
+      none.textContent = "No observations recorded.";
+      body.appendChild(none);
+    }
+
+    var issues = asArray(sig && sig.issues);
+
+    var issuesTitle = document.createElement("div");
+    issuesTitle.className = "evidence-title";
+    issuesTitle.style.marginTop = "14px";
+    issuesTitle.textContent = "Issues";
+
+    var issuesBox = document.createElement("div");
+    if (!issues.length) {
+      var sigKey = keyFromLabelOrId(sig);
+      issuesBox.className = "summary";
+      issuesBox.textContent = issuesEmptyMessage(sigKey, score, obs.length);
+    } else {
+      var html = "";
+      for (var k = 0; k < issues.length && k < 6; k++) {
+        var it = issues[k] || {};
+        var t = escapeHtml(it.title || "Issue");
+        var sev = escapeHtml(it.severity || "low");
+        var impact = escapeHtml(it.impact || "—");
+
+        html += '<div class="kv" style="flex-direction:column; align-items:flex-start;">';
+        html += '  <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">';
+        html += '    <div style="font-weight:800;color:var(--ink);">' + t + "</div>";
+        html += '    <div style="font-weight:800;opacity:.85;">' + sev + "</div>";
+        html += "  </div>";
+        html += '  <div class="k" style="text-transform:none; letter-spacing:0;">Impact: ';
+        html += '    <span class="impact-text" style="font-weight:700;">' + impact + "</span>";
+        html += "  </div>";
+        html += "</div>";
+      }
+      issuesBox.innerHTML = html;
+    }
+
+    body.appendChild(title);
+    body.appendChild(listEl);
+    body.appendChild(issuesTitle);
+    body.appendChild(issuesBox);
+
+    block.appendChild(summary);
+    block.appendChild(body);
+    root.appendChild(block);
+  }
+}
+
 
   // -----------------------------
   // Key insights / top issues / fix sequence / notes (kept consistent)
