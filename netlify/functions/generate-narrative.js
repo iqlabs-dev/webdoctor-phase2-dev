@@ -57,9 +57,6 @@ function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-// v5.2 constraints:
-// - Overall narrative: target 3 lines, max 5
-// - Each signal: target 2 lines, max 3
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
   if (!s) return [];
@@ -171,6 +168,171 @@ function extractResponseText(data) {
 }
 
 // -----------------------------
+// Sanitise authority language (defensive)
+// -----------------------------
+function softenLine(line) {
+  const s = String(line || "").trim();
+  if (!s) return s;
+
+  const low = s.toLowerCase();
+
+  if (
+    low.includes("no actions needed") ||
+    low.includes("no action needed") ||
+    low.includes("no action required") ||
+    low.includes("no issues to address")
+  ) {
+    return "This area appears stable within the scope of this scan.";
+  }
+
+  if (low.includes("immediate action is needed") || low.includes("urgent")) {
+    return "This area is the most constrained in this scan and is worth reviewing first.";
+  }
+
+  if (/\bmust\b/i.test(s)) {
+    return s.replace(/\bmust\b/gi, "can");
+  }
+
+  return s;
+}
+
+// -----------------------------
+// Locked Executive Narrative rule (v5.2+)
+// -----------------------------
+// Enforce:
+// Line 1: Overall state + dominant risk
+// Line 2: Why this risk outweighs others
+// Line 3: Priority action
+// Line 4 (optional): What comes after
+function validateExecutiveNarrative(lines) {
+  if (!Array.isArray(lines)) return false;
+  const clean = lines.map((l) => String(l || "").trim()).filter(Boolean);
+  return clean.length >= 3 && clean.length <= 4;
+}
+
+// Pick dominant risk deterministically for fallback
+function pickDominantRisk(facts) {
+  const d = safeObj(facts?.signal_deductions);
+
+  const counts = {
+    security: asArray(d.security).length,
+    performance: asArray(d.performance).length,
+    seo: asArray(d.seo).length,
+    accessibility: asArray(d.accessibility).length,
+    structure: asArray(d.structure).length,
+    mobile: asArray(d.mobile).length,
+  };
+
+  // If security headers show measurable gaps, prefer security even on ties
+  const k = safeObj(facts?.key_findings);
+  const securityHeaderMissing =
+    k.https === false ||
+    k.hsts === false ||
+    k.csp === false ||
+    k.xfo === false ||
+    k.xcto === false ||
+    k.referrer_policy === false ||
+    k.permissions_policy === false;
+
+  const priorityOrder = ["security", "performance", "seo", "accessibility", "structure", "mobile"];
+
+  let best = priorityOrder[0];
+  for (const sig of priorityOrder) {
+    if (counts[sig] > counts[best]) best = sig;
+    else if (counts[sig] === counts[best]) {
+      // tie-break: security first if any measurable header gap
+      if (sig === "security" && securityHeaderMissing) best = "security";
+    }
+  }
+
+  const label = {
+    security: "security & trust",
+    performance: "performance delivery",
+    seo: "SEO foundations",
+    accessibility: "accessibility compliance",
+    structure: "structure & semantics",
+    mobile: "mobile experience",
+  }[best];
+
+  return { key: best, label, count: counts[best] };
+}
+
+function buildFallbackExecutiveNarrative(facts) {
+  const { label } = pickDominantRisk(facts);
+
+  const l1 = `This scan shows mixed delivery across signals, with the dominant risk concentrated in ${label}.`;
+  const l2 = `Multiple measurable gaps were detected in ${label}, making it the clearest constraint compared with other areas in this scan.`;
+  const l3 = `A sensible next focus is to address the ${label} gaps identified in the evidence, then re-scan to confirm the changes land as intended.`;
+  const l4 = `After that, shift attention to the next-highest deduction area to lift overall delivery consistency.`;
+
+  // Optional 4th is fine — keep it if it reads clean
+  return [l1, l2, l3, l4].map(softenLine);
+}
+
+// -----------------------------
+// Enforce line constraints + soften phrasing
+// -----------------------------
+function enforceConstraints(n, factsForFallback) {
+  const out = {
+    overall: { lines: [] },
+    signals: {
+      performance: { lines: [] },
+      mobile: { lines: [] },
+      seo: { lines: [] },
+      security: { lines: [] },
+      structure: { lines: [] },
+      accessibility: { lines: [] },
+    },
+  };
+
+  // --- overall: HARD LOCK 3–4 lines ---
+  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 4);
+  const overallLines = overallRaw.map(softenLine).filter(Boolean);
+
+  if (!validateExecutiveNarrative(overallLines)) {
+    // Fallback (deterministic)
+    out.overall.lines = buildFallbackExecutiveNarrative(factsForFallback);
+  } else {
+    out.overall.lines = overallLines;
+  }
+
+  const sig = safeObj(n?.signals);
+  const setSig = (k) => {
+    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
+    const cleaned = raw.map(softenLine).filter(Boolean);
+
+    // Keep your v5.2 signal constraints (2 ideal, max 3).
+    // If model returns 1 line, we still allow it (won’t break UI), but we prefer 2–3.
+    out.signals[k].lines = cleaned.slice(0, 3);
+  };
+
+  setSig("performance");
+  setSig("mobile");
+  setSig("seo");
+  setSig("security");
+  setSig("structure");
+  setSig("accessibility");
+
+  return out;
+}
+
+// -----------------------------
+// Narrative validity check (STRICT)
+// Prevents legacy/partial objects from blocking regeneration
+// -----------------------------
+function isNarrativeComplete(n) {
+  const hasOverall =
+    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
+
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+  const hasSignals =
+    n?.signals &&
+    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
+
+  return hasOverall && hasSignals;
+}
+
+// -----------------------------
 // OpenAI call (Responses API with JSON schema)
 // -----------------------------
 async function callOpenAI({ facts }) {
@@ -188,19 +350,19 @@ async function callOpenAI({ facts }) {
     "4) Do not take decisions out of the agent's hands. Avoid: 'No action required', 'Immediate action is needed', 'Must', 'Urgent'.",
     "5) Use diagnostic language: 'indicates', 'suggests', 'points to', 'within this scan'.",
     "6) Output MUST match the provided JSON schema (strict).",
-    "7) Line limits: overall max 5 lines; each signal max 3 lines.",
+    "7) Line limits: overall MUST be 3 lines (optional 4th only); each signal max 3 lines.",
     "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
-
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "Required structure:",
-    "- overall.lines (3 lines ideal, max 5):",
-    "  * Line 1: One-sentence summary of delivery across signals (facts-only).",
-    "  * Line 2: Biggest measurable risk or constraint (facts-only).",
-    "  * Line 3: Next focus phrased as an option for the agent (e.g., 'A sensible next focus is…').",
+    "LOCKED STRUCTURE (NO EXCEPTIONS):",
+    "- overall.lines must be 3 lines, with an optional 4th line only.",
+    "  Line 1: Overall state + dominant risk (single sentence).",
+    "  Line 2: Why this risk outweighs others (single sentence, anchored to measurable gaps).",
+    "  Line 3: Priority action (phrase as an option: 'A sensible next focus is…').",
+    "  Line 4 (optional): What comes after (sequencing, optional).",
     "",
     "- per signal lines (2 lines ideal, max 3):",
     "  * Line 1: What the signal indicates (diagnostic).",
@@ -211,20 +373,19 @@ async function callOpenAI({ facts }) {
     "- Do NOT use headings like 'Line 1 —'. Just write the lines.",
     "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
     "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
+    "",
     "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers. You MUST rotate neutral openers for second lines. Use each at most once per report.",
-"Approved neutral openers (rotate):",
-"- 'In practical terms,'",
-"- 'From a delivery perspective,'",
-"- 'At a site level,'",
-"- 'For users, this typically means…'",
-"- 'Operationally,'",
-"- 'Within the scope of this scan,'",
-"- 'From a technical standpoint,'",
-"- 'Observed behavior indicates…'",
-"- 'Measured signals show that…'",
-"Do NOT reuse 'This suggests', 'This means', or 'This indicates' more than once per report.",
-
-    
+    "Approved neutral openers (rotate):",
+    "- 'In practical terms,'",
+    "- 'From a delivery perspective,'",
+    "- 'At a site level,'",
+    "- 'For users, this typically means…'",
+    "- 'Operationally,'",
+    "- 'Within the scope of this scan,'",
+    "- 'From a technical standpoint,'",
+    "- 'Observed behavior indicates…'",
+    "- 'Measured signals show that…'",
+    "Do NOT reuse 'This suggests', 'This means', or 'This indicates' more than once per report.",
     "",
     "Facts JSON:",
     JSON.stringify(facts),
@@ -245,7 +406,7 @@ async function callOpenAI({ facts }) {
       text: {
         format: {
           type: "json_schema",
-          name: "iqweb_narrative_v52",
+          name: "iqweb_narrative_v52_locked_exec",
           strict: true,
           schema: {
             type: "object",
@@ -257,7 +418,12 @@ async function callOpenAI({ facts }) {
                 additionalProperties: false,
                 required: ["lines"],
                 properties: {
-                  lines: { type: "array", items: { type: "string" } },
+                  lines: {
+                    type: "array",
+                    minItems: 3,
+                    maxItems: 4,
+                    items: { type: "string" },
+                  },
                 },
               },
               signals: {
@@ -276,37 +442,49 @@ async function callOpenAI({ facts }) {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                   mobile: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                   seo: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                   security: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                   structure: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                   accessibility: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: { lines: { type: "array", items: { type: "string" } } },
+                    properties: {
+                      lines: { type: "array", items: { type: "string" } },
+                    },
                   },
                 },
               },
@@ -335,88 +513,6 @@ async function callOpenAI({ facts }) {
   } catch {
     throw new Error("OpenAI did not return valid JSON.");
   }
-}
-
-// -----------------------------
-// Sanitise authority language (defensive)
-// -----------------------------
-function softenLine(line) {
-  const s = String(line || "").trim();
-  if (!s) return s;
-
-  const low = s.toLowerCase();
-
-  // Remove hard authority phrasing without changing meaning
-  if (
-    low.includes("no actions needed") ||
-    low.includes("no action needed") ||
-    low.includes("no action required") ||
-    low.includes("no issues to address")
-  ) {
-    return "This area appears stable within the scope of this scan.";
-  }
-
-  if (low.includes("immediate action is needed") || low.includes("urgent")) {
-    return "This area is the most constrained in this scan and is worth reviewing first.";
-  }
-
-  // Avoid 'must'
-  if (/\bmust\b/i.test(s)) {
-    return s.replace(/\bmust\b/gi, "can");
-  }
-
-  return s;
-}
-
-// -----------------------------
-// Enforce v5.2 line constraints + soften phrasing
-// -----------------------------
-function enforceConstraints(n) {
-  const out = {
-    overall: { lines: [] },
-    signals: {
-      performance: { lines: [] },
-      mobile: { lines: [] },
-      seo: { lines: [] },
-      security: { lines: [] },
-      structure: { lines: [] },
-      accessibility: { lines: [] },
-    },
-  };
-
-  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
-  out.overall.lines = overallRaw.map(softenLine);
-
-  const sig = safeObj(n?.signals);
-  const setSig = (k) => {
-    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
-    out.signals[k].lines = raw.map(softenLine);
-  };
-
-  setSig("performance");
-  setSig("mobile");
-  setSig("seo");
-  setSig("security");
-  setSig("structure");
-  setSig("accessibility");
-
-  return out;
-}
-
-// -----------------------------
-// Narrative validity check (STRICT)
-// Prevents legacy/partial objects from blocking regeneration
-// -----------------------------
-function isNarrativeComplete(n) {
-  const hasOverall =
-    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
-
-  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-  const hasSignals =
-    n?.signals &&
-    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
-
-  return hasOverall && hasSignals;
 }
 
 // -----------------------------
@@ -478,8 +574,22 @@ export async function handler(event) {
     }
 
     const facts = buildFactsPack(scan);
-    const rawNarrative = await callOpenAI({ facts });
-    const narrative = enforceConstraints(rawNarrative);
+
+    // --- OpenAI with one retry if exec narrative doesn't validate ---
+    let rawNarrative = null;
+    let narrative = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      rawNarrative = await callOpenAI({ facts });
+      narrative = enforceConstraints(rawNarrative, facts);
+
+      if (validateExecutiveNarrative(narrative?.overall?.lines)) break;
+
+      if (attempt === 2) {
+        // enforceConstraints already applied deterministic fallback, so we're safe
+        break;
+      }
+    }
 
     const { error: upErr } = await supabase
       .from("scan_results")
