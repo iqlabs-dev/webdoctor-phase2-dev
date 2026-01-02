@@ -59,6 +59,73 @@ function nowIso() {
 }
 
 /* ============================================================
+   NARRATIVE VALIDATION (ANTI-AI CADENCE)
+   ============================================================ */
+function failsNarrativeValidation(text) {
+  if (!text || typeof text !== "string") return true;
+
+  const lower = text.toLowerCase();
+
+  const bannedOpeners = [
+    "the primary",
+    "primary focus",
+    "this report",
+    "overall,",
+    "based on",
+  ];
+
+  const firstLine = text.split("\n")[0].trim().toLowerCase();
+  if (bannedOpeners.some(o => firstLine.startsWith(o))) {
+    return true;
+  }
+
+  const repeatedPhrases = [
+    "primary focus",
+    "secondary",
+    "presents challenges",
+    "won't show clearly until",
+    "may have limited impact",
+    "consider enhancing",
+  ];
+
+  let repeats = 0;
+  repeatedPhrases.forEach(p => {
+    if (lower.includes(p)) repeats++;
+  });
+  if (repeats >= 2) return true;
+
+  const evidenceTerms = [
+    "hsts",
+    "csp",
+    "canonical",
+    "robots",
+    "meta",
+    "h1",
+    "headers",
+    "permissions-policy",
+    "referrer-policy",
+    "empty",
+    "unlabeled",
+  ];
+
+  if (!evidenceTerms.some(term => lower.includes(term))) {
+    return true;
+  }
+
+  const genericLanguage = [
+    "best practice",
+    "in order to",
+    "it is recommended",
+    "should be considered",
+  ];
+
+  if (genericLanguage.some(g => lower.includes(g))) {
+    return true;
+  }
+
+  return false;
+}
+/* ============================================================
    v5.2 CONSTRAINTS (LOCKED)
    - overall: max 5 lines
    - each signal: max 3 lines
@@ -596,14 +663,27 @@ export async function handler(event) {
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
 
-    const rawNarrative = await callOpenAI({ facts, constraints });
-    const narrative = enforceConstraints(rawNarrative);
+let rawNarrative = await callOpenAI({ facts, constraints });
+let narrative = enforceConstraints(rawNarrative);
 
-    // Save narrative
-    const { error: upErr } = await supabase
-      .from("scan_results")
-      .update({ narrative })
-      .eq("id", scan.id);
+// ---- Anti-AI cadence validation + single retry ----
+if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
+  console.log("Narrative failed validation, retrying once...");
+  const retryRaw = await callOpenAI({ facts, constraints });
+  const retryNarrative = enforceConstraints(retryRaw);
+
+  if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
+    narrative = retryNarrative;
+  }
+}
+// ---------------------------------------------------
+
+const { error: upErr } = await supabase
+  .from("scan_results")
+  .update({ narrative })
+  .eq("id", scan.id);
+
+
 
     if (upErr) {
       // mark error state
