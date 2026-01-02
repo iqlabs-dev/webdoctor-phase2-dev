@@ -1,36 +1,34 @@
 // /.netlify/functions/generate-narrative.js
 import { createClient } from "@supabase/supabase-js";
 
-// -----------------------------
-// Environment
-// -----------------------------
+/* ============================================================
+   ENVIRONMENT
+   ============================================================ */
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-// -----------------------------
-// Supabase client (define ONCE)
-// -----------------------------
+/* ============================================================
+   SUPABASE CLIENT
+   ============================================================ */
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// -----------------------------
-// Single-flight DB lock
-// Ensures ONE OpenAI call per report_id
-// -----------------------------
+/* ============================================================
+   SINGLE-FLIGHT DB LOCK
+   ============================================================ */
 async function claimNarrative(report_id) {
   const { data, error } = await supabase.rpc("claim_narrative_job", {
     p_report_id: report_id,
   });
-
   if (error) throw new Error(`claim_narrative_job failed: ${error.message}`);
   return Array.isArray(data) && data.length > 0;
 }
 
-// -----------------------------
-// Response helpers (CORS-safe)
-// -----------------------------
+/* ============================================================
+   RESPONSE HELPERS (CORS SAFE)
+   ============================================================ */
 function json(statusCode, body) {
   return {
     statusCode,
@@ -44,9 +42,9 @@ function json(statusCode, body) {
   };
 }
 
-// -----------------------------
-// Small utilities
-// -----------------------------
+/* ============================================================
+   SMALL UTILS
+   ============================================================ */
 function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
@@ -57,9 +55,11 @@ function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-// v5.2 constraints:
-// - Overall narrative: target 3 lines, max 5
-// - Each signal: target 2 lines, max 3
+/* ============================================================
+   v5.2 CONSTRAINTS (LOCKED)
+   - overall: max 5 lines
+   - each signal: max 3 lines
+   ============================================================ */
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
   if (!s) return [];
@@ -70,43 +70,11 @@ function normalizeLines(text, maxLines) {
   return lines.slice(0, maxLines);
 }
 
-// -----------------------------
-// Constraint selection (deterministic judgment)
-// Primary is chosen by risk-weighted deficiency, not "lowest score".
-// -----------------------------
-function selectConstraints(scores = {}) {
-  const map = [
-    { key: "security", label: "security trust", risk: 5, primaryBelow: 70 },
-    { key: "performance", label: "performance delivery", risk: 5, primaryBelow: 60 },
-    { key: "seo", label: "SEO foundations", risk: 4, primaryBelow: 70 },
-    { key: "structure", label: "structural semantics", risk: 3, primaryBelow: 65 },
-    { key: "mobile", label: "mobile experience", risk: 2, primaryBelow: 55 },
-    { key: "accessibility", label: "accessibility support", risk: 2, primaryBelow: 60 },
-  ];
-
-  const scored = map
-    .map((m) => ({
-      ...m,
-      score: Number(scores[m.key]),
-    }))
-    .filter((m) => Number.isFinite(m.score));
-
-  const primary =
-    scored
-      .filter((m) => m.score < m.primaryBelow)
-      .sort((a, b) => b.risk - a.risk || a.score - b.score)[0] || null;
-
-  const secondary = scored
-    .filter((m) => m.key !== primary?.key)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 2);
-
-  return { primary, secondary };
-}
-
-// -----------------------------
-// Facts pack (deterministic only)
-// -----------------------------
+/* ============================================================
+   FACTS PACK (DETERMINISTIC ONLY)
+   NOTE: scores are passed through for UI/reference,
+         but hierarchy is NOT derived from scores.
+   ============================================================ */
 function buildFactsPack(scan) {
   const metrics = safeObj(scan.metrics);
   const scores = safeObj(metrics.scores);
@@ -120,13 +88,6 @@ function buildFactsPack(scan) {
   const byId = (id) =>
     delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
 
-  const seo = byId("seo");
-  const security = byId("security");
-  const performance = byId("performance");
-  const mobile = byId("mobile");
-  const structure = byId("structure");
-  const accessibility = byId("accessibility");
-
   const pickReasons = (sig) =>
     asArray(sig?.deductions)
       .map((d) => d?.reason)
@@ -136,7 +97,8 @@ function buildFactsPack(scan) {
   return {
     report_id: scan.report_id,
     url: scan.url,
-    overall_score: scan.score_overall ?? scores.overall ?? null,
+
+    // Pass-through only (DO NOT use for narrative decisions)
     scores: {
       performance: scores.performance ?? null,
       mobile: scores.mobile ?? null,
@@ -144,8 +106,10 @@ function buildFactsPack(scan) {
       structure: scores.structure ?? null,
       security: scores.security ?? null,
       accessibility: scores.accessibility ?? null,
+      overall: scores.overall ?? scan.score_overall ?? null,
     },
-    key_findings: {
+
+    findings: {
       http_status: basic.http_status ?? null,
       content_type: basic.content_type ?? null,
       title_present: basic.title_present ?? null,
@@ -153,9 +117,6 @@ function buildFactsPack(scan) {
       canonical_present: basic.canonical_present ?? null,
       robots_meta_present: basic.robots_meta_present ?? null,
       viewport_present: basic.viewport_present ?? null,
-      html_bytes: basic.html_bytes ?? null,
-      img_count: basic.img_count ?? null,
-      img_alt_count: basic.img_alt_count ?? null,
 
       https: sec.https ?? null,
       hsts: sec.hsts ?? null,
@@ -165,145 +126,202 @@ function buildFactsPack(scan) {
       referrer_policy: sec.referrer_policy ?? null,
       permissions_policy: sec.permissions_policy ?? null,
     },
+
     signal_deductions: {
-      performance: pickReasons(performance),
-      mobile: pickReasons(mobile),
-      seo: pickReasons(seo),
-      security: pickReasons(security),
-      structure: pickReasons(structure),
-      accessibility: pickReasons(accessibility),
+      performance: pickReasons(byId("performance")),
+      mobile: pickReasons(byId("mobile")),
+      seo: pickReasons(byId("seo")),
+      security: pickReasons(byId("security")),
+      structure: pickReasons(byId("structure")),
+      accessibility: pickReasons(byId("accessibility")),
     },
   };
 }
 
-// -----------------------------
-// Extract text from Responses API result (robust)
-// -----------------------------
+/* ============================================================
+   EVIDENCE-BASED HIERARCHY (NOT SCORE-BASED)
+   We choose a primary constraint using hard findings + deductions.
+   This is "judgement scaffolding", not templated text.
+   ============================================================ */
+function analyzeConstraints(facts) {
+  const f = safeObj(facts.findings);
+  const d = safeObj(facts.signal_deductions);
+
+  const misses = (v) => v === false;
+  const hasReasons = (arr) => Array.isArray(arr) && arr.length > 0;
+
+  // Evidence flags
+  const securityGaps = [
+    misses(f.https) ? "HTTPS not confirmed" : null,
+    misses(f.hsts) ? "HSTS missing" : null,
+    misses(f.csp) ? "CSP missing" : null,
+    misses(f.xfo) ? "X-Frame-Options missing" : null,
+    misses(f.xcto) ? "X-Content-Type-Options missing" : null,
+    misses(f.referrer_policy) ? "Referrer-Policy missing" : null,
+    misses(f.permissions_policy) ? "Permissions-Policy missing" : null,
+  ].filter(Boolean);
+
+  const seoGaps = [
+    misses(f.canonical_present) ? "Canonical link missing" : null,
+    misses(f.robots_meta_present) ? "Robots meta tag missing" : null,
+    misses(f.h1_present) ? "H1 missing" : null,
+    misses(f.title_present) ? "Title missing" : null,
+  ].filter(Boolean);
+
+  const mobileGaps = [misses(f.viewport_present) ? "Viewport meta tag missing" : null].filter(Boolean);
+
+  // Start with deterministic dominance:
+  // 1) Security baseline gaps (headers) dominate most other work because they affect trust boundary.
+  // 2) Performance constraints next (if deductions exist).
+  // 3) SEO hygiene next (canonical/robots/H1/title).
+  // 4) Structure/accessibility next.
+  // 5) Mobile only if viewport missing or deductions exist.
+  let primary = null;
+  const primaryEvidence = [];
+
+  if (securityGaps.length >= 2 || hasReasons(d.security)) {
+    primary = "security";
+    primaryEvidence.push(...securityGaps.slice(0, 4));
+    if (hasReasons(d.security)) primaryEvidence.push(...d.security.slice(0, 3));
+  } else if (hasReasons(d.performance)) {
+    primary = "performance";
+    primaryEvidence.push(...d.performance.slice(0, 4));
+  } else if (seoGaps.length >= 1 || hasReasons(d.seo)) {
+    primary = "seo";
+    primaryEvidence.push(...seoGaps.slice(0, 4));
+    if (hasReasons(d.seo)) primaryEvidence.push(...d.seo.slice(0, 3));
+  } else if (hasReasons(d.structure)) {
+    primary = "structure";
+    primaryEvidence.push(...d.structure.slice(0, 4));
+  } else if (hasReasons(d.accessibility)) {
+    primary = "accessibility";
+    primaryEvidence.push(...d.accessibility.slice(0, 4));
+  } else if (mobileGaps.length >= 1 || hasReasons(d.mobile)) {
+    primary = "mobile";
+    primaryEvidence.push(...mobileGaps.slice(0, 2));
+    if (hasReasons(d.mobile)) primaryEvidence.push(...d.mobile.slice(0, 3));
+  } else {
+    // If everything looks clean, default to SEO as "hygiene" narrative anchor (still factual)
+    primary = "seo";
+    if (seoGaps.length) primaryEvidence.push(...seoGaps.slice(0, 2));
+  }
+
+  // Secondary contributors: pick up to 2 other areas with any evidence
+  const candidates = [
+    { k: "security", e: securityGaps.concat(asArray(d.security)) },
+    { k: "performance", e: asArray(d.performance) },
+    { k: "seo", e: seoGaps.concat(asArray(d.seo)) },
+    { k: "structure", e: asArray(d.structure) },
+    { k: "accessibility", e: asArray(d.accessibility) },
+    { k: "mobile", e: mobileGaps.concat(asArray(d.mobile)) },
+  ]
+    .filter((x) => x.k !== primary)
+    .map((x) => ({ ...x, e: x.e.filter(Boolean) }))
+    .filter((x) => x.e.length > 0)
+    .sort((a, b) => b.e.length - a.e.length)
+    .slice(0, 2);
+
+  const secondary = candidates.map((c) => c.k);
+  const secondaryEvidence = {};
+  for (const c of candidates) secondaryEvidence[c.k] = c.e.slice(0, 4);
+
+  return {
+    primary,
+    primary_evidence: primaryEvidence.slice(0, 5),
+    secondary,
+    secondary_evidence: secondaryEvidence,
+  };
+}
+
+/* ============================================================
+   EXTRACT TEXT (RESPONSES API ROBUST)
+   ============================================================ */
 function extractResponseText(data) {
   if (isNonEmptyString(data?.output_text)) return data.output_text;
 
   const output = asArray(data?.output);
   const parts = [];
-
   for (const o of output) {
-    const content = asArray(o?.content);
-    for (const c of content) {
+    for (const c of asArray(o?.content)) {
       if (isNonEmptyString(c?.text)) parts.push(c.text);
       if (isNonEmptyString(c?.output_text)) parts.push(c.output_text);
-
       if (c?.parsed && typeof c.parsed === "object") {
         try {
           parts.push(JSON.stringify(c.parsed));
         } catch {}
       }
-
       if (isNonEmptyString(c?.refusal)) parts.push(c.refusal);
     }
   }
-
   return parts.join("\n").trim();
 }
 
-// -----------------------------
-// Senior-dev narrative constraints (defensive)
-// -----------------------------
-const BANNED_PHRASES = [
-  "this scan",
-  "within the scope of this scan",
-  "signals indicate",
-  "score",
-  "percent",
-  "percentage",
-  "primarily constrained by",
-  "secondary at this stage",
-  "other findings are secondary",
-];
-
-function containsBannedPhrase(s) {
-  const low = String(s || "").toLowerCase();
-  return BANNED_PHRASES.some((p) => low.includes(p));
-}
-
-function containsModalHedge(s) {
-  // keep it strict: we don't want "may/could/might/probably" in executive narrative
-  const low = String(s || "").toLowerCase();
-  return /\bmay\b|\bcould\b|\bmight\b|\bprobably\b|\bpotentially\b|\bsuggests\b/.test(low);
-}
-
-function stripHardMeta(s) {
-  let out = String(s || "").trim();
-  if (!out) return out;
-
-  // Remove common meta / templated markers if the model slips them in
-  out = out.replace(/\bWithin the scope of this scan,?\s*/gi, "");
-  out = out.replace(/\bThis scan\b[:,]?\s*/gi, "");
-  out = out.replace(/\bSignals indicate\b[:,]?\s*/gi, "");
-  out = out.replace(/\bScores?\b/gi, "signals");
-  out = out.replace(/\bprimarily constrained by\b/gi, "held back by");
-  out = out.replace(/\bsecondary at this stage\b/gi, "not the first lever to pull");
-  out = out.replace(/\bother findings are secondary at this stage\b/gi, "other items can wait");
-
-  // Avoid "must"
-  out = out.replace(/\bmust\b/gi, "should");
-
-  return out.trim();
-}
-
-// -----------------------------
-// OpenAI call (Responses API with JSON schema)
-// -----------------------------
+/* ============================================================
+   OPENAI CALL (NARRATIVE ONLY)
+   - AI writes language
+   - Deterministic logic supplies hierarchy + evidence
+   ============================================================ */
 async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
   }
 
-  const primaryLabel = constraints?.primary?.label || "the most constrained area";
-  const secondaryLabels = asArray(constraints?.secondary)
-    .map((s) => s?.label)
-    .filter(Boolean);
+  const primaryLabel = {
+    security: "security and trust",
+    performance: "performance delivery",
+    seo: "SEO foundations",
+    structure: "structure and semantics",
+    accessibility: "accessibility support",
+    mobile: "mobile experience",
+  }[constraints.primary] || "delivery consistency";
+
+  const secondaryLabels = constraints.secondary.map(
+    (k) =>
+      ({
+        security: "security and trust",
+        performance: "performance delivery",
+        seo: "SEO foundations",
+        structure: "structure and semantics",
+        accessibility: "accessibility support",
+        mobile: "mobile experience",
+      }[k] || k)
+  );
 
   const instructions = [
-    "You are Λ i Q™, a senior-developer-style diagnostic narrator for iQWEB reports.",
-    "",
-    "Goal:",
-    "Write the Executive Narrative as if a senior developer reviewed the site and handed a short judgement across the desk.",
-    "It must read like experience and prioritisation, not a scan summary and not a framework.",
+    "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
     "",
     "Non-negotiable rules:",
-    "1) Do not invent facts. Use only the provided facts JSON.",
-    "2) No sales language, no hype, no blame.",
-    "3) Do not mention numeric scores, percentages, or 'score-based' reasoning anywhere.",
-    "4) Avoid meta language: do not mention 'this scan', 'signals indicate', 'within scope'.",
-    "5) Avoid hedging: do not use may/could/might/probably/potentially/suggests in the Executive Narrative.",
-    "6) Use calm, senior diagnostic language: cause → consequence → sequencing.",
-    "7) Output MUST match the provided JSON schema (strict).",
-    "8) Line limits: overall max 5 lines; each signal max 3 lines.",
+    "1) Use only provided facts and constraint hierarchy. Do not invent causes or measurements.",
+    "2) No sales language, no hype, no blame, no fear-mongering.",
+    "3) Do not mention numeric scores or percentages anywhere.",
+    "4) Do not issue commands. Avoid: must, urgent, immediate, essential, required.",
+    "5) Use diagnostic language: indicates, suggests, within this scan, observed behavior.",
     "",
-    "Priority control (STRICT):",
-    `- Primary constraint (already decided): ${primaryLabel}`,
-    `- Secondary contributors (only if relevant): ${secondaryLabels.join(", ") || "none"}`,
-    "Do not introduce new priorities beyond this hierarchy.",
+    "Executive Narrative (overall.lines) MUST be judgemental in structure (not a summary):",
+    "- 4 to 5 lines total (max 5).",
+    "- It MUST cover 2–3 signals:",
+    "  * Name the PRIMARY constraint explicitly (line 1 or line 2).",
+    "  * Mention up to two SECONDARY contributors (one line).",
+    "  * Include a consequence boundary: 'Other improvements will have limited impact until…' (or equivalent).",
+    "  * End with a calm sequencing focus phrased as an option: 'A sensible next focus is…'.",
+    "",
+    "Signal narratives (signals.*.lines):",
+    "- 2 lines ideal, max 3. Keep them specific to facts/deductions.",
+    "- If a signal has no meaningful evidence, keep it short and neutral (stable within this scan).",
+    "",
+    "IMPORTANT: The hierarchy is provided. Do not 'balance' everything equally.",
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "Executive Narrative (overall.lines):",
-    "- 3 to 5 lines total.",
-    "- Each line MUST be a single sentence.",
-    "- Write like a senior dev: overall condition → limiting factor → consequence → sequencing decision.",
-    "- Do NOT use: 'primarily constrained by', 'other findings are secondary', 'within the scope of this scan'.",
-    "- Do NOT use modal hedges (may/could/might/probably/potentially/suggests).",
-    "- Make the sequencing explicit with phrasing like 'until', 'before', 'once', 'after' (without being bossy).",
+    "Constraint hierarchy (deterministic):",
+    `PRIMARY: ${primaryLabel}`,
+    `PRIMARY_EVIDENCE: ${JSON.stringify(constraints.primary_evidence || [])}`,
+    `SECONDARY: ${JSON.stringify(secondaryLabels)}`,
+    `SECONDARY_EVIDENCE: ${JSON.stringify(constraints.secondary_evidence || {})}`,
     "",
-    "Signal narratives (signals.*.lines):",
-    "- 2 lines ideal, max 3 lines each.",
-    "- Line 1: what the signal shows, grounded in the deductions provided (facts-only).",
-    "- Line 2: what it means in practice (clear impact).",
-    "- Optional Line 3: where to look first if improvement is desired (suggestive, not commanding).",
-    "- Do not repeat the same sentence opener across multiple signals.",
-    "",
-    "Facts JSON:",
+    "Facts JSON (truth source):",
     JSON.stringify(facts),
   ].join("\n");
 
@@ -317,12 +335,12 @@ async function callOpenAI({ facts, constraints }) {
       model: OPENAI_MODEL,
       instructions,
       input,
-      temperature: 0.25,
+      temperature: 0.2,
       max_output_tokens: 750,
       text: {
         format: {
           type: "json_schema",
-          name: "iqweb_narrative_v52",
+          name: "iqweb_narrative_v52_judgement",
           strict: true,
           schema: {
             type: "object",
@@ -401,11 +419,7 @@ async function callOpenAI({ facts, constraints }) {
 
   const data = await resp.json();
   const text = extractResponseText(data);
-
-  if (!isNonEmptyString(text)) {
-    console.error("[generate-narrative] Empty text; debug keys:", Object.keys(data || {}));
-    throw new Error("OpenAI returned empty output_text.");
-  }
+  if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output.");
 
   try {
     return JSON.parse(text);
@@ -414,71 +428,10 @@ async function callOpenAI({ facts, constraints }) {
   }
 }
 
-// -----------------------------
-// Sanitise authority language (defensive)
-// -----------------------------
-function softenLine(line) {
-  const s = stripHardMeta(String(line || "").trim());
-  if (!s) return s;
-
-  const low = s.toLowerCase();
-
-  // Remove hard authority phrasing without changing meaning
-  if (
-    low.includes("no actions needed") ||
-    low.includes("no action needed") ||
-    low.includes("no action required") ||
-    low.includes("no issues to address")
-  ) {
-    return "This area appears stable based on the evidence captured here.";
-  }
-
-  if (low.includes("immediate action is needed") || low.includes("urgent")) {
-    return "This area is the clearest limiter in the current evidence and is worth reviewing first.";
-  }
-
-  // Avoid 'must'
-  if (/\bmust\b/i.test(s)) {
-    return s.replace(/\bmust\b/gi, "should");
-  }
-
-  return s;
-}
-
-// -----------------------------
-// Fallback overall narrative (deterministic, senior-dev tone)
-// Used if the model produces meta/templated language or hedging.
-// -----------------------------
-function fallbackOverall(constraints) {
-  const primaryLabel = constraints?.primary?.label || "the most constrained area";
-  const secondaryLabels = asArray(constraints?.secondary)
-    .map((s) => s?.label)
-    .filter(Boolean);
-
-  const lines = [];
-
-  // 3–4 sentences, each a single line
-  lines.push(`The site is broadly functional, but it is currently held back by ${primaryLabel}.`);
-  lines.push(
-    `Until that is addressed, improvements elsewhere tend to underperform because ${primaryLabel} becomes the gating factor for user confidence and reliable outcomes.`
-  );
-  if (secondaryLabels.length) {
-    lines.push(
-      `Once ${primaryLabel} is resolved and validated, attention can shift to ${secondaryLabels.join(
-        " and "
-      )} to capture compounding improvement.`
-    );
-  } else {
-    lines.push(`After ${primaryLabel} is stabilised, the remaining work becomes refinement rather than recovery.`);
-  }
-
-  return lines.slice(0, 5).map(softenLine);
-}
-
-// -----------------------------
-// Enforce v5.2 line constraints + senior-dev guardrails
-// -----------------------------
-function enforceConstraints(n, constraints) {
+/* ============================================================
+   ENFORCE CONSTRAINTS + GUARD AGAINST "SUMMARY MODE"
+   ============================================================ */
+function enforceConstraints(n) {
   const out = {
     overall: { lines: [] },
     signals: {
@@ -491,35 +444,11 @@ function enforceConstraints(n, constraints) {
     },
   };
 
-  // Overall: keep 3–5 lines, each a single sentence already (we enforce trimming only)
-  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5).map(softenLine);
+  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
 
-  // If overall is empty, too short, meta/templated, or hedged, fallback.
-  const overallJoined = overallRaw.join(" ").trim();
-  const badOverall =
-    overallRaw.length < 3 ||
-    containsBannedPhrase(overallJoined) ||
-    containsModalHedge(overallJoined);
-
-  out.overall.lines = badOverall ? fallbackOverall(constraints) : overallRaw;
-
-  // Signals: enforce max 3 lines each + soften meta
   const sig = safeObj(n?.signals);
   const setSig = (k) => {
-    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3).map(softenLine);
-
-    // Ensure we don't end up with empty arrays (keep minimal, neutral line if needed)
-    if (!raw.length) {
-      out.signals[k].lines = ["This area has limited evidence captured here to draw a strong conclusion."];
-      return;
-    }
-
-    // Avoid obvious meta/templated language in signals too
-    const joined = raw.join(" ").toLowerCase();
-    out.signals[k].lines =
-      joined.includes("within the scope of this scan") || joined.includes("this scan")
-        ? raw.map((l) => l.replace(/within the scope of this scan,?\s*/gi, "").replace(/\bthis scan\b[:,]?\s*/gi, "").trim()).filter(Boolean)
-        : raw;
+    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
   };
 
   setSig("performance");
@@ -529,13 +458,31 @@ function enforceConstraints(n, constraints) {
   setSig("structure");
   setSig("accessibility");
 
+  // Hard guard: force judgement boundary language somewhere in overall
+  const overallJoined = out.overall.lines.join(" ").toLowerCase();
+  const hasBoundary =
+    overallJoined.includes("limited impact") ||
+    overallJoined.includes("until") ||
+    overallJoined.includes("before") ||
+    overallJoined.includes("does not offset") ||
+    overallJoined.includes("outweigh");
+
+  if (!hasBoundary) {
+    // This forces the report to feel like paid judgement, not a neutral summary.
+    // (Still non-commanding and not fear-based.)
+    out.overall.lines = normalizeLines(
+      out.overall.lines.join("\n") +
+        "\nOther improvements are likely to have limited impact until the primary constraint is addressed within this scan.",
+      5
+    );
+  }
+
   return out;
 }
 
-// -----------------------------
-// Narrative validity check (STRICT)
-// Prevents legacy/partial objects from blocking regeneration
-// -----------------------------
+/* ============================================================
+   NARRATIVE VALIDITY CHECK
+   ============================================================ */
 function isNarrativeComplete(n) {
   const hasOverall =
     Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
@@ -544,16 +491,15 @@ function isNarrativeComplete(n) {
   const hasSignals =
     n?.signals &&
     keys.every(
-      (k) =>
-        Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0
+      (k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0
     );
 
   return hasOverall && hasSignals;
 }
 
-// -----------------------------
-// Handler
-// -----------------------------
+/* ============================================================
+   HANDLER
+   ============================================================ */
 export async function handler(event) {
   try {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
@@ -563,12 +509,11 @@ export async function handler(event) {
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
-
     if (!isNonEmptyString(report_id)) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // Get latest scan row for this report_id
+    // Load latest scan row
     const { data: scanRows, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall, narrative")
@@ -586,7 +531,7 @@ export async function handler(event) {
       });
     }
 
-    // If narrative already complete, return it
+    // Return existing narrative if complete
     if (isNarrativeComplete(scan.narrative)) {
       return json(200, {
         success: true,
@@ -598,7 +543,7 @@ export async function handler(event) {
       });
     }
 
-    // Try to claim job (prevents duplicate OpenAI calls)
+    // Claim job (prevents duplicate OpenAI calls)
     const claimed = await claimNarrative(report_id);
     if (!claimed) {
       return json(200, {
@@ -610,10 +555,10 @@ export async function handler(event) {
     }
 
     const facts = buildFactsPack(scan);
-    const constraints = selectConstraints(facts.scores);
+    const constraints = analyzeConstraints(facts);
 
     const rawNarrative = await callOpenAI({ facts, constraints });
-    const narrative = enforceConstraints(rawNarrative, constraints);
+    const narrative = enforceConstraints(rawNarrative);
 
     const { error: upErr } = await supabase
       .from("scan_results")
@@ -634,13 +579,8 @@ export async function handler(event) {
       report_id,
       scan_id: scan.id,
       saved_to: "scan_results.narrative",
+      constraints,
       narrative,
-      narrative_meta: {
-        exec_priority: {
-          primary: constraints?.primary?.key || null,
-          secondary: asArray(constraints?.secondary).map((s) => s.key).filter(Boolean),
-        },
-      },
     });
   } catch (err) {
     console.error("[generate-narrative]", err);
