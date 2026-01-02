@@ -131,7 +131,7 @@ function buildFactsPack(scan) {
     asArray(sig?.deductions)
       .map((d) => d?.reason)
       .filter(Boolean)
-      .slice(0, 5);
+      .slice(0, 6);
 
   return {
     report_id: scan.report_id,
@@ -205,6 +205,51 @@ function extractResponseText(data) {
 }
 
 // -----------------------------
+// Senior-dev narrative constraints (defensive)
+// -----------------------------
+const BANNED_PHRASES = [
+  "this scan",
+  "within the scope of this scan",
+  "signals indicate",
+  "score",
+  "percent",
+  "percentage",
+  "primarily constrained by",
+  "secondary at this stage",
+  "other findings are secondary",
+];
+
+function containsBannedPhrase(s) {
+  const low = String(s || "").toLowerCase();
+  return BANNED_PHRASES.some((p) => low.includes(p));
+}
+
+function containsModalHedge(s) {
+  // keep it strict: we don't want "may/could/might/probably" in executive narrative
+  const low = String(s || "").toLowerCase();
+  return /\bmay\b|\bcould\b|\bmight\b|\bprobably\b|\bpotentially\b|\bsuggests\b/.test(low);
+}
+
+function stripHardMeta(s) {
+  let out = String(s || "").trim();
+  if (!out) return out;
+
+  // Remove common meta / templated markers if the model slips them in
+  out = out.replace(/\bWithin the scope of this scan,?\s*/gi, "");
+  out = out.replace(/\bThis scan\b[:,]?\s*/gi, "");
+  out = out.replace(/\bSignals indicate\b[:,]?\s*/gi, "");
+  out = out.replace(/\bScores?\b/gi, "signals");
+  out = out.replace(/\bprimarily constrained by\b/gi, "held back by");
+  out = out.replace(/\bsecondary at this stage\b/gi, "not the first lever to pull");
+  out = out.replace(/\bother findings are secondary at this stage\b/gi, "other items can wait");
+
+  // Avoid "must"
+  out = out.replace(/\bmust\b/gi, "should");
+
+  return out.trim();
+}
+
+// -----------------------------
 // OpenAI call (Responses API with JSON schema)
 // -----------------------------
 async function callOpenAI({ facts, constraints }) {
@@ -218,59 +263,45 @@ async function callOpenAI({ facts, constraints }) {
     .filter(Boolean);
 
   const instructions = [
-    "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
+    "You are Λ i Q™, a senior-developer-style diagnostic narrator for iQWEB reports.",
+    "",
+    "Goal:",
+    "Write the Executive Narrative as if a senior developer reviewed the site and handed a short judgement across the desk.",
+    "It must read like experience and prioritisation, not a scan summary and not a framework.",
     "",
     "Non-negotiable rules:",
     "1) Do not invent facts. Use only the provided facts JSON.",
     "2) No sales language, no hype, no blame.",
-    "3) Do not speak in 'because score X'. The score is supporting evidence, not the reason.",
-    "4) Do not take decisions out of the agent's hands. Avoid: 'No action required', 'Immediate action is needed', 'Must', 'Urgent'.",
-    "5) Use confident diagnostic language. Avoid excessive hedging. One 'indicates' per paragraph max.",
-    "6) Output MUST match the provided JSON schema (strict).",
-    "7) Line limits: overall max 5 lines; each signal max 3 lines.",
-    "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+    "3) Do not mention numeric scores, percentages, or 'score-based' reasoning anywhere.",
+    "4) Avoid meta language: do not mention 'this scan', 'signals indicate', 'within scope'.",
+    "5) Avoid hedging: do not use may/could/might/probably/potentially/suggests in the Executive Narrative.",
+    "6) Use calm, senior diagnostic language: cause → consequence → sequencing.",
+    "7) Output MUST match the provided JSON schema (strict).",
+    "8) Line limits: overall max 5 lines; each signal max 3 lines.",
     "",
     "Priority control (STRICT):",
     `- Primary constraint (already decided): ${primaryLabel}`,
-    `- Secondary contributors (if relevant): ${secondaryLabels.join(", ") || "none"}`,
-    "- Do NOT present signals as equal.",
-    "- Do NOT introduce new priorities beyond the constraint hierarchy above.",
+    `- Secondary contributors (only if relevant): ${secondaryLabels.join(", ") || "none"}`,
+    "Do not introduce new priorities beyond this hierarchy.",
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "Required structure (STRICT):",
-    "- overall.lines (3–5 lines total):",
-    `  * Line 1 MUST state priority with hierarchy: 'This site is primarily constrained by ${primaryLabel}, not by other areas.'`,
-    "  * Line 2 MUST explain why the primary constraint matters in real-world terms (trust, conversion friction, crawl ambiguity, regressions, maintenance).",
-    "  * Line 3 MUST state that other findings are secondary at this stage.",
-    "  * Line 4 (optional): sequencing — what to address after the primary (secondary contributors only).",
-    "  * Line 5 (optional): confidence close (risk reduction / clarity).",
+    "Executive Narrative (overall.lines):",
+    "- 3 to 5 lines total.",
+    "- Each line MUST be a single sentence.",
+    "- Write like a senior dev: overall condition → limiting factor → consequence → sequencing decision.",
+    "- Do NOT use: 'primarily constrained by', 'other findings are secondary', 'within the scope of this scan'.",
+    "- Do NOT use modal hedges (may/could/might/probably/potentially/suggests).",
+    "- Make the sequencing explicit with phrasing like 'until', 'before', 'once', 'after' (without being bossy).",
     "",
-    "- per signal lines (2 lines ideal, max 3):",
-    "  * Line 1: What the signal indicates (diagnostic, facts-only).",
-    "  * Line 2: What that means in practice.",
-    "  * Optional Line 3: If improvement is desired, the first place to look (suggestive, not commanding).",
-    "",
-    "Style constraints:",
-    "- Do NOT use headings like 'Line 1 —'. Just write the lines.",
-    "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
-    "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
-    "",
-    "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers.",
-    "You MUST rotate neutral openers for second lines. Use each at most once per report.",
-    "Approved neutral openers (rotate):",
-    "- 'In practical terms,'",
-    "- 'From a delivery perspective,'",
-    "- 'At a site level,'",
-    "- 'For users, this typically means…'",
-    "- 'Operationally,'",
-    "- 'Within the scope of this scan,'",
-    "- 'From a technical standpoint,'",
-    "- 'Observed behavior indicates…'",
-    "- 'Measured signals show that…'",
-    "Do NOT reuse 'This suggests', 'This means', or 'This indicates' more than once per report.",
+    "Signal narratives (signals.*.lines):",
+    "- 2 lines ideal, max 3 lines each.",
+    "- Line 1: what the signal shows, grounded in the deductions provided (facts-only).",
+    "- Line 2: what it means in practice (clear impact).",
+    "- Optional Line 3: where to look first if improvement is desired (suggestive, not commanding).",
+    "- Do not repeat the same sentence opener across multiple signals.",
     "",
     "Facts JSON:",
     JSON.stringify(facts),
@@ -286,8 +317,8 @@ async function callOpenAI({ facts, constraints }) {
       model: OPENAI_MODEL,
       instructions,
       input,
-      temperature: 0.2,
-      max_output_tokens: 700,
+      temperature: 0.25,
+      max_output_tokens: 750,
       text: {
         format: {
           type: "json_schema",
@@ -387,7 +418,7 @@ async function callOpenAI({ facts, constraints }) {
 // Sanitise authority language (defensive)
 // -----------------------------
 function softenLine(line) {
-  const s = String(line || "").trim();
+  const s = stripHardMeta(String(line || "").trim());
   if (!s) return s;
 
   const low = s.toLowerCase();
@@ -399,24 +430,24 @@ function softenLine(line) {
     low.includes("no action required") ||
     low.includes("no issues to address")
   ) {
-    return "This area appears stable within the scope of this scan.";
+    return "This area appears stable based on the evidence captured here.";
   }
 
   if (low.includes("immediate action is needed") || low.includes("urgent")) {
-    return "This area is the most constrained in this scan and is worth reviewing first.";
+    return "This area is the clearest limiter in the current evidence and is worth reviewing first.";
   }
 
   // Avoid 'must'
   if (/\bmust\b/i.test(s)) {
-    return s.replace(/\bmust\b/gi, "can");
+    return s.replace(/\bmust\b/gi, "should");
   }
 
   return s;
 }
 
 // -----------------------------
-// Fallback overall narrative (deterministic, compliant)
-// Used if the model fails to establish hierarchy.
+// Fallback overall narrative (deterministic, senior-dev tone)
+// Used if the model produces meta/templated language or hedging.
 // -----------------------------
 function fallbackOverall(constraints) {
   const primaryLabel = constraints?.primary?.label || "the most constrained area";
@@ -425,24 +456,27 @@ function fallbackOverall(constraints) {
     .filter(Boolean);
 
   const lines = [];
-  lines.push(`This site is primarily constrained by ${primaryLabel}, not by other areas.`);
+
+  // 3–4 sentences, each a single line
+  lines.push(`The site is broadly functional, but it is currently held back by ${primaryLabel}.`);
   lines.push(
-    "Within the scope of this scan, this constraint is the clearest source of delivery risk and should be treated as the first review point."
+    `Until that is addressed, improvements elsewhere tend to underperform because ${primaryLabel} becomes the gating factor for user confidence and reliable outcomes.`
   );
-  lines.push("Other findings detected in this scan are secondary at this stage and should be sequenced after the primary constraint.");
   if (secondaryLabels.length) {
     lines.push(
-      `Once the primary constraint is addressed and validated, attention can shift to ${secondaryLabels.join(
+      `Once ${primaryLabel} is resolved and validated, attention can shift to ${secondaryLabels.join(
         " and "
       )} to capture compounding improvement.`
     );
+  } else {
+    lines.push(`After ${primaryLabel} is stabilised, the remaining work becomes refinement rather than recovery.`);
   }
-  return lines.slice(0, 5);
+
+  return lines.slice(0, 5).map(softenLine);
 }
 
 // -----------------------------
-// Enforce v5.2 line constraints + soften phrasing
-// + enforce priority hierarchy in overall (with fallback)
+// Enforce v5.2 line constraints + senior-dev guardrails
 // -----------------------------
 function enforceConstraints(n, constraints) {
   const out = {
@@ -457,23 +491,35 @@ function enforceConstraints(n, constraints) {
     },
   };
 
-  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
-  out.overall.lines = overallRaw.map(softenLine);
+  // Overall: keep 3–5 lines, each a single sentence already (we enforce trimming only)
+  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5).map(softenLine);
 
-  // Validate overall hierarchy; fallback if missing
-  const joined = out.overall.lines.join(" ").toLowerCase();
-  const hasPriority =
-    joined.includes("primarily constrained by") || joined.includes("constrained by");
-  const hasSecondary = joined.includes("secondary");
+  // If overall is empty, too short, meta/templated, or hedged, fallback.
+  const overallJoined = overallRaw.join(" ").trim();
+  const badOverall =
+    overallRaw.length < 3 ||
+    containsBannedPhrase(overallJoined) ||
+    containsModalHedge(overallJoined);
 
-  if (!hasPriority || !hasSecondary) {
-    out.overall.lines = fallbackOverall(constraints).map(softenLine);
-  }
+  out.overall.lines = badOverall ? fallbackOverall(constraints) : overallRaw;
 
+  // Signals: enforce max 3 lines each + soften meta
   const sig = safeObj(n?.signals);
   const setSig = (k) => {
-    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
-    out.signals[k].lines = raw.map(softenLine);
+    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3).map(softenLine);
+
+    // Ensure we don't end up with empty arrays (keep minimal, neutral line if needed)
+    if (!raw.length) {
+      out.signals[k].lines = ["This area has limited evidence captured here to draw a strong conclusion."];
+      return;
+    }
+
+    // Avoid obvious meta/templated language in signals too
+    const joined = raw.join(" ").toLowerCase();
+    out.signals[k].lines =
+      joined.includes("within the scope of this scan") || joined.includes("this scan")
+        ? raw.map((l) => l.replace(/within the scope of this scan,?\s*/gi, "").replace(/\bthis scan\b[:,]?\s*/gi, "").trim()).filter(Boolean)
+        : raw;
   };
 
   setSig("performance");
@@ -497,7 +543,10 @@ function isNarrativeComplete(n) {
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
   const hasSignals =
     n?.signals &&
-    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
+    keys.every(
+      (k) =>
+        Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0
+    );
 
   return hasOverall && hasSignals;
 }
