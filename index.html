@@ -315,6 +315,73 @@
   line-height: 1.5;
   color: rgba(255,255,255,0.65);
 }
+/* iQWEB pill link — refined, premium glow */
+.wd-pill-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 10px 18px;
+  border-radius: 999px;
+
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+
+  color: var(--accent);
+  text-decoration: none; /* remove underline */
+
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.14),
+    rgba(34, 211, 238, 0.05)
+  );
+  border: 1px solid rgba(34, 211, 238, 0.45);
+
+  box-shadow:
+    0 0 0 rgba(34, 211, 238, 0),
+    inset 0 0 0 rgba(255,255,255,0);
+
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 220ms ease,
+    background 180ms ease;
+
+  white-space: nowrap;
+}
+
+/* Hover — controlled glow, not neon */
+.wd-pill-link:hover {
+  text-decoration: none; /* safety */
+  transform: translateY(-1px);
+
+  border-color: rgba(34, 211, 238, 0.85);
+  background: linear-gradient(
+    180deg,
+    rgba(34, 211, 238, 0.22),
+    rgba(34, 211, 238, 0.10)
+  );
+
+  box-shadow:
+    0 0 28px rgba(34, 211, 238, 0.35),
+    0 0 60px rgba(34, 211, 238, 0.18);
+}
+
+/* Active */
+.wd-pill-link:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 18px rgba(34, 211, 238, 0.28);
+}
+
+/* Focus (keyboard users) */
+.wd-pill-link:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.55);
+  outline-offset: 3px;
+}
+
+
 
 
   /* SUPPORTING SECTIONS */
@@ -989,11 +1056,12 @@ so technical findings can be turned into clear, confident conversations and bett
     href="/report.html?report_id=EXAMPLE-REPORT-001"
     target="_blank"
     rel="noopener"
-    class="hero-link"
+    class="wd-pill-link"
   >
     View example iQWEB report →
   </a>
 </div>
+
 
 </section>
 </main>
