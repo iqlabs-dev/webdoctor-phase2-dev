@@ -902,151 +902,269 @@
   <!-- Renders the report from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
-  <!-- UI buttons (Back/Refresh) -->
-<script>
-(function () {
-  const refreshBtn = document.getElementById("refreshBtn");
-  const backBtn = document.getElementById("backToDashboard");
-  const pdfBtn = document.getElementById("downloadPdfBtn");
+  <!-- ✅ Narrative-first patch (forces UI to prefer saved narrative over scripted text) -->
+  <script>
+  (function () {
+    const SIGNAL_TITLE_TO_KEY = {
+      "PERFORMANCE": "performance",
+      "MOBILE EXPERIENCE": "mobile",
+      "SEO FOUNDATIONS": "seo",
+      "SECURITY & TRUST": "security",
+      "STRUCTURE & SEMANTICS": "structure",
+      "ACCESSIBILITY": "accessibility",
+    };
 
-  const params = new URLSearchParams(window.location.search);
-  const from = (params.get("from") || "").toLowerCase();
-  const reportId = params.get("report_id") || "";
+    function asArray(v) { return Array.isArray(v) ? v : []; }
 
-  const isHistory = from === "history";
-  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+    function getNarrativeFromGlobals() {
+      // We don't know your exact global name(s), so we probe common candidates.
+      // report-data.js almost certainly stores the loaded scan somewhere.
+      const candidates = [
+        window.__IQWEB_SCAN,
+        window.__IQWEB_REPORT,
+        window.__IQWEB_DATA,
+        window.__REPORT_DATA__,
+        window.reportData,
+        window.scanData,
+        window.currentScan,
+        window.latestScan,
+      ];
 
-  // Default: keep evidence accordions CLOSED on web
-  try {
-    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-  } catch (_) {}
-
-  // History view: hide Back + Refresh, show PDF
-  if (isHistory) {
-    if (refreshBtn) refreshBtn.style.display = "none";
-    if (backBtn) backBtn.style.display = "none";
-
-    if (pdfBtn) {
-      pdfBtn.style.display = "inline-block";
-      pdfBtn.onclick = async () => {
-        pdfBtn.disabled = true;
-        pdfBtn.textContent = "Generating PDF…";
-        try {
-          const res = await fetch("/.netlify/functions/generate-report-pdf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ report_id: reportId })
-          });
-          if (!res.ok) throw new Error("PDF generation failed");
-
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${reportId}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          alert("Unable to generate PDF. Please try again.");
-        } finally {
-          pdfBtn.disabled = false;
-          pdfBtn.textContent = "Download PDF";
+      for (const c of candidates) {
+        if (c && typeof c === "object") {
+          // accept either full scan row or { scan: row }
+          const scan = c.scan || c.data || c;
+          const narrative = scan?.narrative || scan?.scan_results?.narrative;
+          if (narrative && typeof narrative === "object") return narrative;
         }
-      };
+      }
+
+      // Last resort: some apps attach the last fetched JSON on window.__DATA__ etc.
+      try {
+        if (window.__DATA__?.narrative) return window.__DATA__.narrative;
+      } catch (_) {}
+
+      return null;
     }
-    return; // done
-  }
 
-  // Preview report: remove Back + Refresh (open in new tab from homepage)
-  if (isPreview) {
-    if (refreshBtn) refreshBtn.style.display = "none";
-    if (backBtn) backBtn.style.display = "none";
-    if (pdfBtn) pdfBtn.style.display = "none";
-    return; // done
-  }
+    function hasLines(lines) {
+      return asArray(lines).map(s => String(s || "").trim()).filter(Boolean).length > 0;
+    }
 
-  // Normal (real) report view: keep Back + Refresh
-  if (pdfBtn) pdfBtn.style.display = "none";
-  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+    function joinLines(lines) {
+      return asArray(lines)
+        .map(s => String(s || "").trim())
+        .filter(Boolean)
+        .join("\n");
+    }
 
-  if (backBtn) {
-    backBtn.textContent = "Back to dashboard";
-    backBtn.onclick = () => (window.location.href = "/dashboard.html");
-  }
-})();
-</script>
+    function applyNarrative(narrative) {
+      if (!narrative || typeof narrative !== "object") return false;
 
+      // --- Executive Narrative ---
+      const execEl = document.getElementById("narrativeText");
+      const execLines = narrative?.overall?.lines;
+      if (execEl && hasLines(execLines)) {
+        execEl.textContent = joinLines(execLines);
+      }
 
+      // --- Signal cards summaries ---
+      const grid = document.getElementById("signalsGrid");
+      if (!grid) return false;
 
-<script>
-  // ===== DocRaptor render gate (single source of truth) =====
-  window.__IQWEB_REPORT_READY = false;
+      const cards = Array.from(grid.querySelectorAll(".card"));
+      if (!cards.length) return false;
 
-  // Detect "PDF render mode"
-  const __IQWEB_PDF_MODE = (() => {
-    const p = new URLSearchParams(location.search);
-    if (p.get("pdf") === "1") return true;
+      let patched = 0;
 
-    // Backup: DocRaptor user-agent often includes "DocRaptor"
-    try {
-      return /DocRaptor/i.test(navigator.userAgent);
-    } catch (_) {
-      return false;
+      for (const card of cards) {
+        const h3 = card.querySelector("h3");
+        const summary = card.querySelector(".summary");
+        if (!h3 || !summary) continue;
+
+        const title = String(h3.textContent || "").trim().toUpperCase();
+        const key = SIGNAL_TITLE_TO_KEY[title];
+        if (!key) continue;
+
+        const lines = narrative?.signals?.[key]?.lines;
+        if (!hasLines(lines)) continue;
+
+        // Override scripted text with narrative lines
+        summary.textContent = joinLines(lines);
+        patched++;
+      }
+
+      return patched > 0;
+    }
+
+    function tryPatchLoop() {
+      // report-data.js renders async; we wait until signals exist then apply.
+      const grid = document.getElementById("signalsGrid");
+      const ready = grid && grid.children && grid.children.length >= 6;
+
+      if (!ready) {
+        setTimeout(tryPatchLoop, 120);
+        return;
+      }
+
+      const narrative = getNarrativeFromGlobals();
+
+      // If globals didn't expose narrative, still try to read from DOM dataset if any.
+      // (No-op if none.)
+      applyNarrative(narrative);
+    }
+
+    // Start once DOM is available
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", tryPatchLoop);
+    } else {
+      tryPatchLoop();
     }
   })();
+  </script>
 
-  // helper
-  function setEvidenceOpen(open) {
+  <!-- UI buttons (Back/Refresh) -->
+  <script>
+  (function () {
+    const refreshBtn = document.getElementById("refreshBtn");
+    const backBtn = document.getElementById("backToDashboard");
+    const pdfBtn = document.getElementById("downloadPdfBtn");
+
+    const params = new URLSearchParams(window.location.search);
+    const from = (params.get("from") || "").toLowerCase();
+    const reportId = params.get("report_id") || "";
+
+    const isHistory = from === "history";
+    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+
+    // Default: keep evidence accordions CLOSED on web
     try {
-      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
     } catch (_) {}
-  }
 
-  // Always CLOSED for any normal page view (OSD + Preview)
-  setEvidenceOpen(false);
+    // History view: hide Back + Refresh, show PDF
+    if (isHistory) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
 
-  // MUST be global and named EXACTLY this for DocRaptor
-  window.docraptorJavaScriptFinished = function () {
-    return window.__IQWEB_REPORT_READY === true;
-  };
+      if (pdfBtn) {
+        pdfBtn.style.display = "inline-block";
+        pdfBtn.onclick = async () => {
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = "Generating PDF…";
+          try {
+            const res = await fetch("/.netlify/functions/generate-report-pdf", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ report_id: reportId })
+            });
+            if (!res.ok) throw new Error("PDF generation failed");
 
-  (function waitForReportReady() {
-    const reportRoot = document.getElementById("reportRoot");
-    const loader = document.getElementById("loaderSection");
-    const signals = document.getElementById("signalsGrid");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
 
-    const loaderHidden =
-      loader &&
-      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-    const reportVisible =
-      reportRoot &&
-      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-    const hasSignals =
-      signals && signals.children && signals.children.length > 0;
-
-    if (loaderHidden && reportVisible && hasSignals) {
-      // ✅ Only open evidence when rendering PDF
-      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-      else setEvidenceOpen(false);
-
-      window.__IQWEB_REPORT_READY = true;
-      return;
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${reportId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            alert("Unable to generate PDF. Please try again.");
+          } finally {
+            pdfBtn.disabled = false;
+            pdfBtn.textContent = "Download PDF";
+          }
+        };
+      }
+      return; // done
     }
 
-    setTimeout(waitForReportReady, 150);
+    // Preview report: remove Back + Refresh (open in new tab from homepage)
+    if (isPreview) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
+      if (pdfBtn) pdfBtn.style.display = "none";
+      return; // done
+    }
+
+    // Normal (real) report view: keep Back + Refresh
+    if (pdfBtn) pdfBtn.style.display = "none";
+    if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+    if (backBtn) {
+      backBtn.textContent = "Back to dashboard";
+      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+    }
   })();
+  </script>
 
-  // Hard safety (prevents infinite hang)
-  setTimeout(() => {
-    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-  }, 30000);
-</script>
+  <script>
+    // ===== DocRaptor render gate (single source of truth) =====
+    window.__IQWEB_REPORT_READY = false;
 
+    // Detect "PDF render mode"
+    const __IQWEB_PDF_MODE = (() => {
+      const p = new URLSearchParams(location.search);
+      if (p.get("pdf") === "1") return true;
+
+      // Backup: DocRaptor user-agent often includes "DocRaptor"
+      try {
+        return /DocRaptor/i.test(navigator.userAgent);
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    // helper
+    function setEvidenceOpen(open) {
+      try {
+        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+      } catch (_) {}
+    }
+
+    // Always CLOSED for any normal page view (OSD + Preview)
+    setEvidenceOpen(false);
+
+    // MUST be global and named EXACTLY this for DocRaptor
+    window.docraptorJavaScriptFinished = function () {
+      return window.__IQWEB_REPORT_READY === true;
+    };
+
+    (function waitForReportReady() {
+      const reportRoot = document.getElementById("reportRoot");
+      const loader = document.getElementById("loaderSection");
+      const signals = document.getElementById("signalsGrid");
+
+      const loaderHidden =
+        loader &&
+        (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+      const reportVisible =
+        reportRoot &&
+        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+      const hasSignals =
+        signals && signals.children && signals.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) {
+        // ✅ Only open evidence when rendering PDF
+        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+        else setEvidenceOpen(false);
+
+        window.__IQWEB_REPORT_READY = true;
+        return;
+      }
+
+      setTimeout(waitForReportReady, 150);
+    })();
+
+    // Hard safety (prevents infinite hang)
+    setTimeout(() => {
+      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+    }, 30000);
+  </script>
 
 </body>
 </html>
