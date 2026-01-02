@@ -902,6 +902,120 @@
   <!-- Renders the report from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
+  <script>
+/**
+ * iQWEB Narrative Overlay (safe)
+ * - Does NOT change deterministic rendering
+ * - Simply replaces the placeholder/scripted narrative text once the report is ready
+ * - Uses your existing server function (service role) so no Supabase keys in browser
+ */
+(function () {
+  const params = new URLSearchParams(window.location.search);
+  const reportId = (params.get("report_id") || "").trim();
+  if (!reportId) return;
+
+  // Map card headings -> narrative keys
+  const CARD_MAP = [
+    { match: "PERFORMANCE", key: "performance" },
+    { match: "MOBILE", key: "mobile" },          // "MOBILE EXPERIENCE"
+    { match: "SEO", key: "seo" },                // "SEO FOUNDATIONS"
+    { match: "SECURITY", key: "security" },      // "SECURITY & TRUST"
+    { match: "STRUCTURE", key: "structure" },    // "STRUCTURE & SEMANTICS"
+    { match: "ACCESSIBILITY", key: "accessibility" },
+  ];
+
+  function joinLines(lines) {
+    return Array.isArray(lines) ? lines.filter(Boolean).join("\n") : "";
+  }
+
+  function setExecNarrative(narrative) {
+    const el = document.getElementById("narrativeText");
+    if (!el) return;
+
+    const lines = narrative?.overall?.lines;
+    const text = joinLines(lines);
+    if (!text) return;
+
+    // Render as plain text with line breaks (keeps your styling)
+    el.textContent = text;
+  }
+
+  function setSignalNarratives(narrative) {
+    const grid = document.getElementById("signalsGrid");
+    if (!grid) return;
+
+    const cards = Array.from(grid.querySelectorAll(".card"));
+    if (!cards.length) return;
+
+    for (const card of cards) {
+      const h = card.querySelector("h3");
+      const summary = card.querySelector(".summary");
+      if (!h || !summary) continue;
+
+      const title = (h.textContent || "").toUpperCase();
+
+      const hit = CARD_MAP.find(m => title.includes(m.match));
+      if (!hit) continue;
+
+      const lines = narrative?.signals?.[hit.key]?.lines;
+      const text = joinLines(lines);
+      if (!text) continue;
+
+      // Replace whatever scripted copy exists
+      summary.textContent = text;
+    }
+  }
+
+  async function fetchNarrative() {
+    const res = await fetch("/.netlify/functions/generate-narrative", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id: reportId }),
+    });
+
+    // If function fails, do nothing (report still works)
+    if (!res.ok) return null;
+
+    const data = await res.json().catch(() => null);
+    if (!data?.success) return null;
+
+    return data?.narrative || null;
+  }
+
+  // Wait until deterministic render has produced the cards, then overlay
+  function waitUntilReportReady(fn, timeoutMs = 15000) {
+    const start = Date.now();
+    (function tick() {
+      const reportRoot = document.getElementById("reportRoot");
+      const loader = document.getElementById("loaderSection");
+      const grid = document.getElementById("signalsGrid");
+
+      const loaderHidden =
+        loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+      const reportVisible =
+        reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+      const hasSignals = grid && grid.children && grid.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) return fn();
+
+      if (Date.now() - start > timeoutMs) return; // give up silently
+      setTimeout(tick, 150);
+    })();
+  }
+
+  waitUntilReportReady(async () => {
+    const narrative = await fetchNarrative();
+    if (!narrative) return;
+
+    setExecNarrative(narrative);
+    setSignalNarratives(narrative);
+  });
+})();
+</script>
+
+
   <!-- ✅ Narrative-first patch (forces UI to prefer saved narrative over scripted text) -->
   <script>
   (function () {
