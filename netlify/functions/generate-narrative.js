@@ -68,6 +68,98 @@ function normalizeLines(text, maxLines) {
 }
 
 // -----------------------------
+// Executive Narrative Leader Algorithm (deterministic)
+// -----------------------------
+function pickNarrativeLeader(deliverySignals) {
+  const arr = asArray(deliverySignals)
+    .map((s) => ({
+      id: String(s?.id || "").toLowerCase(),
+      label: String(s?.label || ""),
+      score: Number(s?.score ?? 0),
+      weakness: 100 - Number(s?.score ?? 0),
+      issues: asArray(s?.issues),
+      evidence: safeObj(s?.evidence),
+    }))
+    .filter((s) => !!s.id);
+
+  if (!arr.length) return null;
+
+  // ---- HARD FLOOR RULES ----
+  for (const s of arr) {
+    if (s.id === "seo" && s.evidence?.robots_blocks_index === true) return s;
+    if (s.id === "mobile" && s.evidence?.device_width_present === false) return s;
+    if (s.id === "performance" && s.score === 25) return s;
+    if (s.id === "security" && s.evidence?.https === false) return s;
+    if (s.id === "accessibility" && s.score === 25) return s;
+  }
+
+  // Worst first
+  const ranked = [...arr].sort((a, b) => b.weakness - a.weakness);
+  let worst = ranked[0];
+  const second = ranked[1] || null;
+
+  // ---- SECURITY GATE ----
+  // Security leads ONLY if:
+  // - has a high severity issue, OR
+  // - clearly worse than #2 by >= 15 weakness, OR
+  // - score is very low (<60)
+  if (worst?.id === "security") {
+    const hasHighSeverity = worst.issues.some((i) => String(i?.severity || "").toLowerCase() === "high");
+    const farWorse = worst.weakness >= ((second?.weakness ?? 0) + 15);
+    const veryLow = worst.score < 60;
+
+    if (!hasHighSeverity && !farWorse && !veryLow) {
+      // disqualify security from leading (but keep it ranked for secondary)
+      const withoutSecurity = ranked.filter((r) => r.id !== "security");
+      worst = withoutSecurity[0] || worst;
+    }
+  }
+
+  // ---- AGENCY PRIORITY ORDER ----
+  // If multiple are similarly weak, prefer these conversation starters:
+  const agencyPriority = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
+
+  // Use ranked weakness list, but choose the first that appears in priority order
+  const rankedIds = new Set(ranked.map((r) => r.id));
+  for (const p of agencyPriority) {
+    if (rankedIds.has(p)) {
+      const candidate = ranked.find((r) => r.id === p);
+      if (candidate) return candidate;
+    }
+  }
+
+  return worst || ranked[0] || null;
+}
+
+function pickSecondary(deliverySignals, leaderId) {
+  const ranked = asArray(deliverySignals)
+    .map((s) => ({
+      id: String(s?.id || "").toLowerCase(),
+      score: Number(s?.score ?? 0),
+      weakness: 100 - Number(s?.score ?? 0),
+      label: String(s?.label || ""),
+    }))
+    .filter((s) => !!s.id)
+    .sort((a, b) => b.weakness - a.weakness);
+
+  return ranked.find((s) => s.id && s.id !== leaderId) || null;
+}
+
+function labelForSignalId(id) {
+  const k = String(id || "").toLowerCase();
+  return (
+    {
+      security: "Security & Trust",
+      performance: "Performance",
+      seo: "SEO Foundations",
+      accessibility: "Accessibility",
+      structure: "Structure & Semantics",
+      mobile: "Mobile Experience",
+    }[k] || k
+  );
+}
+
+// -----------------------------
 // Facts pack (deterministic only)
 // -----------------------------
 function buildFactsPack(scan) {
@@ -96,10 +188,33 @@ function buildFactsPack(scan) {
       .filter(Boolean)
       .slice(0, 5);
 
+  // Add leader + secondary (deterministic) so the model can align (but we also enforce overall deterministically)
+  const leader = pickNarrativeLeader(delivery);
+  const secondary = leader ? pickSecondary(delivery, leader.id) : null;
+
   return {
     report_id: scan.report_id,
     url: scan.url,
     overall_score: scan.score_overall ?? scores.overall ?? null,
+
+    // slim delivery signal pack (to support deterministic leader + grounded narrative)
+    delivery_signals: delivery.map((s) => ({
+      id: s?.id ?? null,
+      label: s?.label ?? null,
+      score: s?.score ?? null,
+      evidence: s?.evidence ?? null,
+      issues: s?.issues ?? null,
+      deductions: s?.deductions ?? null,
+    })),
+
+    executive_leader: leader
+      ? { id: leader.id, label: labelForSignalId(leader.id), score: leader.score, weakness: leader.weakness }
+      : null,
+
+    executive_secondary: secondary
+      ? { id: secondary.id, label: labelForSignalId(secondary.id), score: secondary.score, weakness: secondary.weakness }
+      : null,
+
     scores: {
       performance: scores.performance ?? null,
       mobile: scores.mobile ?? null,
@@ -199,74 +314,52 @@ function softenLine(line) {
 // -----------------------------
 // Locked Executive Narrative rule (v5.2+)
 // -----------------------------
-// Enforce:
-// Line 1: Overall state + dominant risk
-// Line 2: Why this risk outweighs others
-// Line 3: Priority action
-// Line 4 (optional): What comes after
 function validateExecutiveNarrative(lines) {
   if (!Array.isArray(lines)) return false;
   const clean = lines.map((l) => String(l || "").trim()).filter(Boolean);
   return clean.length >= 3 && clean.length <= 4;
 }
 
-// Pick dominant risk deterministically for fallback
-function pickDominantRisk(facts) {
-  const d = safeObj(facts?.signal_deductions);
+// -----------------------------
+// Deterministic Executive Narrative builder (ALWAYS used)
+// -----------------------------
+function buildDeterministicExecutiveNarrative(facts) {
+  const delivery = asArray(facts?.delivery_signals);
+  const leader = facts?.executive_leader?.id
+    ? {
+        id: String(facts.executive_leader.id).toLowerCase(),
+        label: facts.executive_leader.label || labelForSignalId(facts.executive_leader.id),
+        score: Number(facts.executive_leader.score ?? 0),
+        weakness: Number(facts.executive_leader.weakness ?? 0),
+      }
+    : pickNarrativeLeader(delivery);
 
-  const counts = {
-    security: asArray(d.security).length,
-    performance: asArray(d.performance).length,
-    seo: asArray(d.seo).length,
-    accessibility: asArray(d.accessibility).length,
-    structure: asArray(d.structure).length,
-    mobile: asArray(d.mobile).length,
-  };
+  const secondary = facts?.executive_secondary?.id
+    ? {
+        id: String(facts.executive_secondary.id).toLowerCase(),
+        label: facts.executive_secondary.label || labelForSignalId(facts.executive_secondary.id),
+      }
+    : leader
+    ? pickSecondary(delivery, leader.id)
+    : null;
 
-  // If security headers show measurable gaps, prefer security even on ties
-  const k = safeObj(facts?.key_findings);
-  const securityHeaderMissing =
-    k.https === false ||
-    k.hsts === false ||
-    k.csp === false ||
-    k.xfo === false ||
-    k.xcto === false ||
-    k.referrer_policy === false ||
-    k.permissions_policy === false;
+  const leaderLabel = leader?.label || labelForSignalId(leader?.id || "delivery");
+  const secondaryLabel = secondary?.label || labelForSignalId(secondary?.id || "");
 
-  const priorityOrder = ["security", "performance", "seo", "accessibility", "structure", "mobile"];
+  // Hard locked 3 lines, optional 4th
+  const l1 = `This scan shows generally stable delivery, with the strongest constraint appearing in ${leaderLabel}.`;
+  const l2 = `Within the scope of this scan, this area introduces the largest measurable friction relative to other signals.`;
+  const l3 = `A sensible next focus is to address the ${leaderLabel} items identified in the evidence, then re-scan to confirm the change lands as intended.`;
 
-  let best = priorityOrder[0];
-  for (const sig of priorityOrder) {
-    if (counts[sig] > counts[best]) best = sig;
-    else if (counts[sig] === counts[best]) {
-      // tie-break: security first if any measurable header gap
-      if (sig === "security" && securityHeaderMissing) best = "security";
-    }
+  const lines = [l1, l2, l3].map(softenLine);
+
+  if (secondary?.id) {
+    const l4 = `Once that is resolved, attention can shift to ${secondaryLabel} to improve overall consistency.`;
+    lines.push(softenLine(l4));
   }
 
-  const label = {
-    security: "security & trust",
-    performance: "performance delivery",
-    seo: "SEO foundations",
-    accessibility: "accessibility compliance",
-    structure: "structure & semantics",
-    mobile: "mobile experience",
-  }[best];
-
-  return { key: best, label, count: counts[best] };
-}
-
-function buildFallbackExecutiveNarrative(facts) {
-  const { label } = pickDominantRisk(facts);
-
-  const l1 = `This scan shows mixed delivery across signals, with the dominant risk concentrated in ${label}.`;
-  const l2 = `Multiple measurable gaps were detected in ${label}, making it the clearest constraint compared with other areas in this scan.`;
-  const l3 = `A sensible next focus is to address the ${label} gaps identified in the evidence, then re-scan to confirm the changes land as intended.`;
-  const l4 = `After that, shift attention to the next-highest deduction area to lift overall delivery consistency.`;
-
-  // Optional 4th is fine — keep it if it reads clean
-  return [l1, l2, l3, l4].map(softenLine);
+  // Ensure 3–4
+  return lines.slice(0, 4);
 }
 
 // -----------------------------
@@ -285,24 +378,13 @@ function enforceConstraints(n, factsForFallback) {
     },
   };
 
-  // --- overall: HARD LOCK 3–4 lines ---
-  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 4);
-  const overallLines = overallRaw.map(softenLine).filter(Boolean);
-
-  if (!validateExecutiveNarrative(overallLines)) {
-    // Fallback (deterministic)
-    out.overall.lines = buildFallbackExecutiveNarrative(factsForFallback);
-  } else {
-    out.overall.lines = overallLines;
-  }
+  // --- overall: ALWAYS deterministic (kills “security always leads”) ---
+  out.overall.lines = buildDeterministicExecutiveNarrative(factsForFallback);
 
   const sig = safeObj(n?.signals);
   const setSig = (k) => {
     const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
     const cleaned = raw.map(softenLine).filter(Boolean);
-
-    // Keep your v5.2 signal constraints (2 ideal, max 3).
-    // If model returns 1 line, we still allow it (won’t break UI), but we prefer 2–3.
     out.signals[k].lines = cleaned.slice(0, 3);
   };
 
@@ -352,6 +434,8 @@ async function callOpenAI({ facts }) {
     "6) Output MUST match the provided JSON schema (strict).",
     "7) Line limits: overall MUST be 3 lines (optional 4th only); each signal max 3 lines.",
     "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+    "",
+    "Important: overall executive narrative will be enforced deterministically server-side. Focus on signal narratives being grounded and non-repetitive.",
   ].join("\n");
 
   const input = [
@@ -359,10 +443,7 @@ async function callOpenAI({ facts }) {
     "",
     "LOCKED STRUCTURE (NO EXCEPTIONS):",
     "- overall.lines must be 3 lines, with an optional 4th line only.",
-    "  Line 1: Overall state + dominant risk (single sentence).",
-    "  Line 2: Why this risk outweighs others (single sentence, anchored to measurable gaps).",
-    "  Line 3: Priority action (phrase as an option: 'A sensible next focus is…').",
-    "  Line 4 (optional): What comes after (sequencing, optional).",
+    "  (Note: overall will be validated/enforced server-side.)",
     "",
     "- per signal lines (2 lines ideal, max 3):",
     "  * Line 1: What the signal indicates (diagnostic).",
@@ -442,49 +523,37 @@ async function callOpenAI({ facts }) {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                   mobile: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                   seo: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                   security: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                   structure: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                   accessibility: {
                     type: "object",
                     additionalProperties: false,
                     required: ["lines"],
-                    properties: {
-                      lines: { type: "array", items: { type: "string" } },
-                    },
+                    properties: { lines: { type: "array", items: { type: "string" } } },
                   },
                 },
               },
@@ -575,25 +644,25 @@ export async function handler(event) {
 
     const facts = buildFactsPack(scan);
 
-    // --- OpenAI with one retry if exec narrative doesn't validate ---
-    let rawNarrative = null;
-    let narrative = null;
+    // --- OpenAI (signals) + deterministic overall enforcement ---
+    const rawNarrative = await callOpenAI({ facts });
+    const narrative = enforceConstraints(rawNarrative, facts);
 
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      rawNarrative = await callOpenAI({ facts });
-      narrative = enforceConstraints(rawNarrative, facts);
-
-      if (validateExecutiveNarrative(narrative?.overall?.lines)) break;
-
-      if (attempt === 2) {
-        // enforceConstraints already applied deterministic fallback, so we're safe
-        break;
-      }
+    // Extra sanity: ensure overall is always valid (it should be)
+    if (!validateExecutiveNarrative(narrative?.overall?.lines)) {
+      narrative.overall.lines = buildDeterministicExecutiveNarrative(facts);
     }
 
     const { error: upErr } = await supabase
       .from("scan_results")
-      .update({ narrative })
+      .update({
+        narrative,
+        // lightweight debug meta (optional; safe if column exists as jsonb; if not, remove)
+        // narrative_meta: {
+        //   leader: facts?.executive_leader?.id || null,
+        //   secondary: facts?.executive_secondary?.id || null,
+        // },
+      })
       .eq("id", scan.id);
 
     if (upErr) {
