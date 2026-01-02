@@ -57,6 +57,9 @@ function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
 
+// v5.2 constraints:
+// - Overall narrative: target 3 lines, max 5
+// - Each signal: target 2 lines, max 3
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
   if (!s) return [];
@@ -65,6 +68,40 @@ function normalizeLines(text, maxLines) {
     .map((l) => l.trim())
     .filter(Boolean);
   return lines.slice(0, maxLines);
+}
+
+// -----------------------------
+// Constraint selection (deterministic judgment)
+// Primary is chosen by risk-weighted deficiency, not "lowest score".
+// -----------------------------
+function selectConstraints(scores = {}) {
+  const map = [
+    { key: "security", label: "security trust", risk: 5, primaryBelow: 70 },
+    { key: "performance", label: "performance delivery", risk: 5, primaryBelow: 60 },
+    { key: "seo", label: "SEO foundations", risk: 4, primaryBelow: 70 },
+    { key: "structure", label: "structural semantics", risk: 3, primaryBelow: 65 },
+    { key: "mobile", label: "mobile experience", risk: 2, primaryBelow: 55 },
+    { key: "accessibility", label: "accessibility support", risk: 2, primaryBelow: 60 },
+  ];
+
+  const scored = map
+    .map((m) => ({
+      ...m,
+      score: Number(scores[m.key]),
+    }))
+    .filter((m) => Number.isFinite(m.score));
+
+  const primary =
+    scored
+      .filter((m) => m.score < m.primaryBelow)
+      .sort((a, b) => b.risk - a.risk || a.score - b.score)[0] || null;
+
+  const secondary = scored
+    .filter((m) => m.key !== primary?.key)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 2);
+
+  return { primary, secondary };
 }
 
 // -----------------------------
@@ -168,349 +205,17 @@ function extractResponseText(data) {
 }
 
 // -----------------------------
-// Sanitise authority language (defensive)
-// -----------------------------
-function softenLine(line) {
-  const s = String(line || "").trim();
-  if (!s) return s;
-
-  const low = s.toLowerCase();
-
-  if (
-    low.includes("no actions needed") ||
-    low.includes("no action needed") ||
-    low.includes("no action required") ||
-    low.includes("no issues to address")
-  ) {
-    return "This area appears stable within the scope of this scan.";
-  }
-
-  if (low.includes("immediate action is needed") || low.includes("urgent")) {
-    return "This area is the most constrained in this scan and is worth reviewing first.";
-  }
-
-  if (/\bmust\b/i.test(s)) {
-    return s.replace(/\bmust\b/gi, "can");
-  }
-
-  return s;
-}
-
-// -----------------------------
-// Locked Executive Narrative rule (v5.2+)
-// -----------------------------
-// Enforce:
-// - 3–4 lines
-// - Executive Narrative must focus on 1–3 signals max (not all six)
-function validateExecutiveNarrative(lines, maxSignals = 3) {
-  if (!Array.isArray(lines)) return false;
-  const clean = lines.map((l) => String(l || "").trim()).filter(Boolean);
-  if (!(clean.length >= 3 && clean.length <= 4)) return false;
-
-  const mentioned = countSignalMentions(clean);
-  return mentioned <= maxSignals;
-}
-
-// -----------------------------
-// DOMINANT RISK + EXEC FOCUS (FIXED)
-// Deterministic, agency-sane, score-first.
-// -----------------------------
-const SCORE_BANDS = {
-  criticalMax: 60, // <= 60
-  weakMax: 74, // 61–74
-  softMax: 84, // 75–84
-  healthyMin: 85, // >= 85 (ineligible to lead, unless ALL are healthy)
-};
-
-const SIGNAL_LABELS = {
-  security: "security & trust",
-  seo: "SEO foundations",
-  mobile: "mobile experience",
-  performance: "performance delivery",
-  structure: "structure & semantics",
-  accessibility: "accessibility compliance",
-};
-
-// Agency-first tie break (ONLY when scores are tied)
-const AGENCY_TIE_ORDER = ["security", "seo", "mobile", "performance", "structure", "accessibility"];
-
-function normScore(v) {
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-
-function getScoreMap(facts) {
-  const scores = safeObj(facts?.scores);
-  return {
-    security: normScore(scores.security),
-    seo: normScore(scores.seo),
-    mobile: normScore(scores.mobile),
-    performance: normScore(scores.performance),
-    structure: normScore(scores.structure),
-    accessibility: normScore(scores.accessibility),
-  };
-}
-
-function securityHeaderMissing(facts) {
-  const k = safeObj(facts?.key_findings);
-  return (
-    k.https === false ||
-    k.hsts === false ||
-    k.csp === false ||
-    k.xfo === false ||
-    k.xcto === false ||
-    k.referrer_policy === false ||
-    k.permissions_policy === false
-  );
-}
-
-function bandOf(score) {
-  if (typeof score !== "number") return "unknown";
-  if (score <= SCORE_BANDS.criticalMax) return "critical";
-  if (score <= SCORE_BANDS.weakMax) return "weak";
-  if (score <= SCORE_BANDS.softMax) return "soft";
-  if (score >= SCORE_BANDS.healthyMin) return "healthy";
-  return "unknown";
-}
-
-// Picks the single dominant constraint by LOWEST score among eligible (<85),
-// NOT by "deductions", and never chooses a healthy 90 unless everything is healthy.
-function pickDominantRisk(facts) {
-  const scoreMap = getScoreMap(facts);
-
-  const eligible = Object.entries(scoreMap).filter(([_, v]) => v !== null && v < SCORE_BANDS.healthyMin);
-  const pool = eligible.length ? eligible : Object.entries(scoreMap).filter(([_, v]) => v !== null);
-
-  if (!pool.length) {
-    return { key: "security", label: SIGNAL_LABELS.security, score: null, band: "unknown" };
-  }
-
-  let minScore = Math.min(...pool.map(([_, v]) => v));
-  let tied = pool.filter(([_, v]) => v === minScore).map(([k]) => k);
-
-  if (tied.length > 1) {
-    tied.sort((a, b) => AGENCY_TIE_ORDER.indexOf(a) - AGENCY_TIE_ORDER.indexOf(b));
-
-    // Extra tie-bias ONLY when security is truly weak/critical and measurable header gaps exist.
-    const secScore = scoreMap.security;
-    if (tied.includes("security") && securityHeaderMissing(facts) && typeof secScore === "number" && secScore <= SCORE_BANDS.weakMax) {
-      tied = ["security", ...tied.filter((x) => x !== "security")];
-    }
-  }
-
-  const key = tied[0];
-  const score = scoreMap[key];
-  return { key, label: SIGNAL_LABELS[key] || key, score, band: bandOf(score) };
-}
-
-// Decide whether exec should include 2nd/3rd signals (still max 3 total).
-// Rule: include secondary if it is also not-healthy AND is "close" (within 8 points)
-// OR if both are weak/critical.
-// Include tertiary only if all three are within 6 points and not-healthy.
-function pickExecFocus(facts) {
-  const scoreMap = getScoreMap(facts);
-  const entries = Object.entries(scoreMap)
-    .filter(([_, v]) => v !== null)
-    .map(([k, v]) => ({ key: k, score: v, band: bandOf(v), label: SIGNAL_LABELS[k] || k }));
-
-  if (!entries.length) {
-    return {
-      lead: { key: "security", label: SIGNAL_LABELS.security, score: null, band: "unknown" },
-      secondary: null,
-      tertiary: null,
-      mentionedKeys: ["security"],
-    };
-  }
-
-  // Sort by ascending score (worst first)
-  entries.sort((a, b) => a.score - b.score);
-
-  // Lead selection uses the same rule as pickDominantRisk (avoid healthy unless all healthy)
-  const leadObj = pickDominantRisk(facts);
-  const leadIndex = entries.findIndex((e) => e.key === leadObj.key);
-  const lead = leadIndex >= 0 ? entries[leadIndex] : entries[0];
-
-  // Build candidates excluding lead
-  const rest = entries.filter((e) => e.key !== lead.key);
-
-  const isLeadNotHealthy = lead.score < SCORE_BANDS.healthyMin;
-
-  const eligibleSecondary = rest.filter((e) => e.score < SCORE_BANDS.healthyMin);
-  let secondary = null;
-
-  if (!isLeadNotHealthy) {
-    // If everything is healthy, allow one "next best" area (lowest score) as "tighten"
-    secondary = rest[0] || null;
-  } else if (eligibleSecondary.length) {
-    // Pick the next-lowest not-healthy
-    const cand = eligibleSecondary[0];
-    const diff = Math.abs(cand.score - lead.score);
-
-    const bothWeakish =
-      (lead.band === "critical" || lead.band === "weak") && (cand.band === "critical" || cand.band === "weak");
-
-    if (diff <= 8 || bothWeakish) secondary = cand;
-  }
-
-  let tertiary = null;
-  if (secondary && secondary.score < SCORE_BANDS.healthyMin) {
-    const eligibleTertiary = eligibleSecondary.filter((e) => e.key !== secondary.key);
-    if (eligibleTertiary.length) {
-      const cand3 = eligibleTertiary[0];
-      const d1 = Math.abs(cand3.score - lead.score);
-      const d2 = Math.abs(cand3.score - secondary.score);
-      if (d1 <= 6 && d2 <= 6) tertiary = cand3;
-    }
-  }
-
-  const mentionedKeys = [lead.key];
-  if (secondary) mentionedKeys.push(secondary.key);
-  if (tertiary) mentionedKeys.push(tertiary.key);
-
-  return { lead, secondary, tertiary, mentionedKeys };
-}
-
-// -----------------------------
-// Signal mention limiter (exec narrative)
-// -----------------------------
-function countSignalMentions(lines) {
-  const text = lines.join(" ").toLowerCase();
-
-  const patterns = {
-    security: /(security|trust|headers|csp|hsts|x-frame|x-content-type|referrer-policy|permissions-policy)/i,
-    seo: /(seo|search|meta|canonical|robots|indexing|titles?|headings?\b)/i,
-    mobile: /(mobile|viewport|touch|tap|responsive|zoom)/i,
-    performance: /(performance|speed|load|lcp|cls|tbt|scripts?|assets?)/i,
-    structure: /(structure|semantics|markup|html|schema|dom|hierarchy)/i,
-    accessibility: /(accessibility|a11y|aria|contrast|labels?|keyboard|alt\b)/i,
-  };
-
-  let count = 0;
-  for (const k of Object.keys(patterns)) {
-    if (patterns[k].test(text)) count += 1;
-  }
-  return count;
-}
-
-function buildFallbackExecutiveNarrative(facts) {
-  const focus = pickExecFocus(facts);
-  const lead = focus.lead;
-  const secondary = focus.secondary;
-  const tertiary = focus.tertiary;
-
-  const bandPhrase =
-    lead.band === "critical"
-      ? "a clear constraint"
-      : lead.band === "weak"
-        ? "a meaningful constraint"
-        : lead.band === "soft"
-          ? "one area worth tightening"
-          : "generally stable delivery";
-
-  const leadLabel = lead.label;
-
-  // Optional: mention secondary/tertiary as "next" only (keeps it 2–3 signals max)
-  const nextLabels = [secondary?.label, tertiary?.label].filter(Boolean);
-
-  const l1 = `This scan shows ${bandPhrase}, concentrated in ${leadLabel}.`;
-  const l2 = `Within the scope of this scan, the evidence indicates this is the main source of avoidable friction compared with other signals.`;
-  const l3 = `A sensible next focus is to address the ${leadLabel} findings surfaced in the evidence, then re-scan to confirm the change lands as intended.`;
-  const l4 = nextLabels.length
-    ? `After that, shift attention to ${nextLabels.join(" then ")} to lift overall delivery consistency.`
-    : `After that, shift attention to the next-lowest signal to lift overall delivery consistency.`;
-
-  return [l1, l2, l3, l4].map(softenLine);
-}
-
-// -----------------------------
-// Enforce line constraints + soften phrasing
-// -----------------------------
-function enforceConstraints(n, factsForFallback) {
-  const out = {
-    overall: { lines: [] },
-    signals: {
-      performance: { lines: [] },
-      mobile: { lines: [] },
-      seo: { lines: [] },
-      security: { lines: [] },
-      structure: { lines: [] },
-      accessibility: { lines: [] },
-    },
-  };
-
-  // --- overall: HARD LOCK 3–4 lines + MAX 3 signals mentioned ---
-  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 4);
-  const overallLines = overallRaw.map(softenLine).filter(Boolean);
-
-  if (!validateExecutiveNarrative(overallLines, 3)) {
-    out.overall.lines = buildFallbackExecutiveNarrative(factsForFallback);
-  } else {
-    out.overall.lines = overallLines;
-  }
-
-  const sig = safeObj(n?.signals);
-  const setSig = (k) => {
-    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
-    const cleaned = raw.map(softenLine).filter(Boolean);
-    out.signals[k].lines = cleaned.slice(0, 3);
-  };
-
-  setSig("performance");
-  setSig("mobile");
-  setSig("seo");
-  setSig("security");
-  setSig("structure");
-  setSig("accessibility");
-
-  return out;
-}
-
-// -----------------------------
-// Narrative validity check (STRICT)
-// Prevents legacy/partial objects from blocking regeneration
-// -----------------------------
-function isNarrativeComplete(n) {
-  const hasOverall =
-    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
-
-  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-  const hasSignals =
-    n?.signals &&
-    keys.every(
-      (k) =>
-        Array.isArray(n.signals?.[k]?.lines) &&
-        n.signals[k].lines.filter(Boolean).length > 0
-    );
-
-  return hasOverall && hasSignals;
-}
-
-// -----------------------------
 // OpenAI call (Responses API with JSON schema)
 // -----------------------------
-async function callOpenAI({ facts }) {
+async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
   }
 
-  // Deterministic exec focus hint (lead + optional next)
-  const focus = pickExecFocus(facts);
-  const lead = focus.lead;
-  const secondary = focus.secondary;
-  const tertiary = focus.tertiary;
-
-  const leadLabel = lead?.label || "security & trust";
-  const secondaryLabel = secondary?.label || null;
-  const tertiaryLabel = tertiary?.label || null;
-
-  const includeSecondary =
-    !!secondaryLabel && secondary?.score !== null && secondary.score < SCORE_BANDS.healthyMin;
-
-  const includeTertiary =
-    !!tertiaryLabel && tertiary?.score !== null && tertiary.score < SCORE_BANDS.healthyMin;
-
-  const allowedSignals = [leadLabel, includeSecondary ? secondaryLabel : null, includeTertiary ? tertiaryLabel : null]
-    .filter(Boolean)
-    .join(", ");
+  const primaryLabel = constraints?.primary?.label || "the most constrained area";
+  const secondaryLabels = asArray(constraints?.secondary)
+    .map((s) => s?.label)
+    .filter(Boolean);
 
   const instructions = [
     "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
@@ -520,35 +225,31 @@ async function callOpenAI({ facts }) {
     "2) No sales language, no hype, no blame.",
     "3) Do not speak in 'because score X'. The score is supporting evidence, not the reason.",
     "4) Do not take decisions out of the agent's hands. Avoid: 'No action required', 'Immediate action is needed', 'Must', 'Urgent'.",
-    "5) Use diagnostic language: 'indicates', 'suggests', 'points to', 'within this scan'.",
+    "5) Use confident diagnostic language. Avoid excessive hedging. One 'indicates' per paragraph max.",
     "6) Output MUST match the provided JSON schema (strict).",
-    "7) Line limits: overall MUST be 3 lines (optional 4th only); each signal max 3 lines.",
-    "8) Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
+    "7) Line limits: overall max 5 lines; each signal max 3 lines.",
+    "- Do NOT mention numeric scores or percentages anywhere. Use qualitative language only.",
     "",
-    "EXEC NARRATIVE SCOPE (STRICT):",
-    "- Executive Narrative MUST focus on 1 dominant constraint, plus up to 2 secondary constraints ONLY if clearly relevant.",
-    "- It must NOT try to cover all six signals.",
-    "- Max 3 signals referenced in overall.lines across all lines.",
+    "Priority control (STRICT):",
+    `- Primary constraint (already decided): ${primaryLabel}`,
+    `- Secondary contributors (if relevant): ${secondaryLabels.join(", ") || "none"}`,
+    "- Do NOT present signals as equal.",
+    "- Do NOT introduce new priorities beyond the constraint hierarchy above.",
   ].join("\n");
 
   const input = [
     "Generate iQWEB narrative JSON for this scan.",
     "",
-    "DETERMINISTIC EXEC FOCUS (do not contradict):",
-    `- Lead constraint signal: "${leadLabel}" (key: ${lead?.key || "security"}).`,
-    includeSecondary ? `- Secondary context (next): "${secondaryLabel}" (key: ${secondary?.key}).` : "- Secondary context: none required unless evidence strongly implies otherwise.",
-    includeTertiary ? `- Tertiary context (only if it fits cleanly): "${tertiaryLabel}" (key: ${tertiary?.key}).` : "- Tertiary context: none.",
-    `- Allowed signals to reference in Executive Narrative: ${allowedSignals || leadLabel}.`,
-    "",
-    "LOCKED STRUCTURE (NO EXCEPTIONS):",
-    "- overall.lines must be 3 lines, with an optional 4th line only.",
-    "  Line 1: Overall state + dominant constraint (single sentence).",
-    "  Line 2: Why this constraint outweighs others (single sentence, anchored to measurable gaps/evidence).",
-    "  Line 3: Priority action (phrase as an option: 'A sensible next focus is…').",
-    "  Line 4 (optional): What comes after (sequencing to the next constraint ONLY).",
+    "Required structure (STRICT):",
+    "- overall.lines (3–5 lines total):",
+    `  * Line 1 MUST state priority with hierarchy: 'This site is primarily constrained by ${primaryLabel}, not by other areas.'`,
+    "  * Line 2 MUST explain why the primary constraint matters in real-world terms (trust, conversion friction, crawl ambiguity, regressions, maintenance).",
+    "  * Line 3 MUST state that other findings are secondary at this stage.",
+    "  * Line 4 (optional): sequencing — what to address after the primary (secondary contributors only).",
+    "  * Line 5 (optional): confidence close (risk reduction / clarity).",
     "",
     "- per signal lines (2 lines ideal, max 3):",
-    "  * Line 1: What the signal indicates (diagnostic).",
+    "  * Line 1: What the signal indicates (diagnostic, facts-only).",
     "  * Line 2: What that means in practice.",
     "  * Optional Line 3: If improvement is desired, the first place to look (suggestive, not commanding).",
     "",
@@ -557,11 +258,8 @@ async function callOpenAI({ facts }) {
     "- Avoid authority phrases: 'No actions needed', 'No issues to address', 'Immediate action', 'Must'.",
     "- If a signal is strong, say it neutrally (e.g., 'This area appears stable within this scan.').",
     "",
-    "Variation rule (no lying):",
-    "- The Executive Narrative should not feel copy-pasted.",
-    "- You may vary phrasing and sentence shape, but must remain consistent with the facts.",
-    "",
-    "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers. You MUST rotate neutral openers for second lines. Use each at most once per report.",
+    "Style rule (STRICT): Across signal narratives, do NOT repeat sentence openers.",
+    "You MUST rotate neutral openers for second lines. Use each at most once per report.",
     "Approved neutral openers (rotate):",
     "- 'In practical terms,'",
     "- 'From a delivery perspective,'",
@@ -588,12 +286,12 @@ async function callOpenAI({ facts }) {
       model: OPENAI_MODEL,
       instructions,
       input,
-      temperature: 0.25,
-      max_output_tokens: 750,
+      temperature: 0.2,
+      max_output_tokens: 700,
       text: {
         format: {
           type: "json_schema",
-          name: "iqweb_narrative_v52_locked_exec",
+          name: "iqweb_narrative_v52",
           strict: true,
           schema: {
             type: "object",
@@ -605,18 +303,20 @@ async function callOpenAI({ facts }) {
                 additionalProperties: false,
                 required: ["lines"],
                 properties: {
-                  lines: {
-                    type: "array",
-                    minItems: 3,
-                    maxItems: 4,
-                    items: { type: "string" },
-                  },
+                  lines: { type: "array", items: { type: "string" } },
                 },
               },
               signals: {
                 type: "object",
                 additionalProperties: false,
-                required: ["performance", "mobile", "seo", "security", "structure", "accessibility"],
+                required: [
+                  "performance",
+                  "mobile",
+                  "seo",
+                  "security",
+                  "structure",
+                  "accessibility",
+                ],
                 properties: {
                   performance: {
                     type: "object",
@@ -684,6 +384,125 @@ async function callOpenAI({ facts }) {
 }
 
 // -----------------------------
+// Sanitise authority language (defensive)
+// -----------------------------
+function softenLine(line) {
+  const s = String(line || "").trim();
+  if (!s) return s;
+
+  const low = s.toLowerCase();
+
+  // Remove hard authority phrasing without changing meaning
+  if (
+    low.includes("no actions needed") ||
+    low.includes("no action needed") ||
+    low.includes("no action required") ||
+    low.includes("no issues to address")
+  ) {
+    return "This area appears stable within the scope of this scan.";
+  }
+
+  if (low.includes("immediate action is needed") || low.includes("urgent")) {
+    return "This area is the most constrained in this scan and is worth reviewing first.";
+  }
+
+  // Avoid 'must'
+  if (/\bmust\b/i.test(s)) {
+    return s.replace(/\bmust\b/gi, "can");
+  }
+
+  return s;
+}
+
+// -----------------------------
+// Fallback overall narrative (deterministic, compliant)
+// Used if the model fails to establish hierarchy.
+// -----------------------------
+function fallbackOverall(constraints) {
+  const primaryLabel = constraints?.primary?.label || "the most constrained area";
+  const secondaryLabels = asArray(constraints?.secondary)
+    .map((s) => s?.label)
+    .filter(Boolean);
+
+  const lines = [];
+  lines.push(`This site is primarily constrained by ${primaryLabel}, not by other areas.`);
+  lines.push(
+    "Within the scope of this scan, this constraint is the clearest source of delivery risk and should be treated as the first review point."
+  );
+  lines.push("Other findings detected in this scan are secondary at this stage and should be sequenced after the primary constraint.");
+  if (secondaryLabels.length) {
+    lines.push(
+      `Once the primary constraint is addressed and validated, attention can shift to ${secondaryLabels.join(
+        " and "
+      )} to capture compounding improvement.`
+    );
+  }
+  return lines.slice(0, 5);
+}
+
+// -----------------------------
+// Enforce v5.2 line constraints + soften phrasing
+// + enforce priority hierarchy in overall (with fallback)
+// -----------------------------
+function enforceConstraints(n, constraints) {
+  const out = {
+    overall: { lines: [] },
+    signals: {
+      performance: { lines: [] },
+      mobile: { lines: [] },
+      seo: { lines: [] },
+      security: { lines: [] },
+      structure: { lines: [] },
+      accessibility: { lines: [] },
+    },
+  };
+
+  const overallRaw = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
+  out.overall.lines = overallRaw.map(softenLine);
+
+  // Validate overall hierarchy; fallback if missing
+  const joined = out.overall.lines.join(" ").toLowerCase();
+  const hasPriority =
+    joined.includes("primarily constrained by") || joined.includes("constrained by");
+  const hasSecondary = joined.includes("secondary");
+
+  if (!hasPriority || !hasSecondary) {
+    out.overall.lines = fallbackOverall(constraints).map(softenLine);
+  }
+
+  const sig = safeObj(n?.signals);
+  const setSig = (k) => {
+    const raw = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
+    out.signals[k].lines = raw.map(softenLine);
+  };
+
+  setSig("performance");
+  setSig("mobile");
+  setSig("seo");
+  setSig("security");
+  setSig("structure");
+  setSig("accessibility");
+
+  return out;
+}
+
+// -----------------------------
+// Narrative validity check (STRICT)
+// Prevents legacy/partial objects from blocking regeneration
+// -----------------------------
+function isNarrativeComplete(n) {
+  const hasOverall =
+    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
+
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+  const hasSignals =
+    n?.signals &&
+    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
+
+  return hasOverall && hasSignals;
+}
+
+// -----------------------------
 // Handler
 // -----------------------------
 export async function handler(event) {
@@ -742,22 +561,10 @@ export async function handler(event) {
     }
 
     const facts = buildFactsPack(scan);
+    const constraints = selectConstraints(facts.scores);
 
-    // --- OpenAI with one retry if exec narrative doesn't validate ---
-    let rawNarrative = null;
-    let narrative = null;
-
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      rawNarrative = await callOpenAI({ facts });
-      narrative = enforceConstraints(rawNarrative, facts);
-
-      if (validateExecutiveNarrative(narrative?.overall?.lines, 3)) break;
-
-      if (attempt === 2) {
-        // enforceConstraints already applied deterministic fallback, so we're safe
-        break;
-      }
-    }
+    const rawNarrative = await callOpenAI({ facts, constraints });
+    const narrative = enforceConstraints(rawNarrative, constraints);
 
     const { error: upErr } = await supabase
       .from("scan_results")
@@ -779,6 +586,12 @@ export async function handler(event) {
       scan_id: scan.id,
       saved_to: "scan_results.narrative",
       narrative,
+      narrative_meta: {
+        exec_priority: {
+          primary: constraints?.primary?.key || null,
+          secondary: asArray(constraints?.secondary).map((s) => s.key).filter(Boolean),
+        },
+      },
     });
   } catch (err) {
     console.error("[generate-narrative]", err);
