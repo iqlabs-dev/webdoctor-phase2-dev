@@ -144,42 +144,103 @@ async function startSubscriptionCheckout(planKey) {
 }
 
 // -----------------------------
-// USAGE UI (profile)
+// USAGE UI (user_flags)  ✅ FIXED (matches backend gating)
 // -----------------------------
-function updateUsageUI(profile) {
+function isFounderEmail(email) {
+  return String(email || "").trim().toLowerCase() === "david.esther@iqlabs.co.nz";
+}
+
+function toDateOrNull(v) {
+  try {
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isFinite(d.getTime()) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+function computeAccess(flags, email) {
+  const now = Date.now();
+  const founder = isFounderEmail(email);
+
+  const paidUntil = toDateOrNull(flags?.paid_until);
+  const paidActive = !!paidUntil && paidUntil.getTime() > now;
+
+  const trialExp = toDateOrNull(flags?.trial_expires_at);
+  const trialRemaining = Number(flags?.trial_scans_remaining ?? 0);
+  const trialActive = !!trialExp && trialExp.getTime() > now && trialRemaining > 0;
+
+  const frozen = !!flags?.is_frozen;
+  const banned = !!flags?.is_banned;
+
+  const canScan = founder || paidActive || trialActive;
+
+  // Display value (UI only)
+  const scansLeftDisplay = founder
+    ? "999"
+    : paidActive
+    ? "∞"
+    : trialActive
+    ? String(Math.max(0, trialRemaining))
+    : "0";
+
+  return { founder, paidActive, trialActive, frozen, banned, canScan, scansLeftDisplay };
+}
+
+function updateUsageUI(flags) {
   const banner = $("subscription-banner");
   const runScanBtn = $("run-scan");
   const scansRemainingEl = $("wd-plan-scans-remaining");
 
-  const planStatus = profile?.plan_status || null;
-  const planScansRemaining = Number(profile?.plan_scans_remaining ?? 0);
+  const access = computeAccess(flags, window.currentUserEmail);
 
-  const canScan = planStatus === "active" && planScansRemaining > 0;
+  // Hard blocks
+  if (!access.founder && (access.banned || access.frozen)) {
+    if (banner) {
+      banner.style.display = "block";
+      banner.textContent = access.banned
+        ? "Account access disabled."
+        : "Account temporarily frozen.";
+    }
+    if (runScanBtn) {
+      runScanBtn.disabled = true;
+      runScanBtn.title = access.banned
+        ? "Account access disabled."
+        : "Account temporarily frozen.";
+    }
+    if (scansRemainingEl) scansRemainingEl.textContent = "0";
+    return;
+  }
 
-  if (canScan) {
+  if (access.canScan) {
     if (banner) banner.style.display = "none";
     if (runScanBtn) {
       runScanBtn.disabled = false;
       runScanBtn.title = "";
     }
   } else {
-    if (banner) banner.style.display = "block";
+    if (banner) {
+      banner.style.display = "block";
+      banner.textContent = "Scanning disabled. No scans remaining on this account.";
+    }
     if (runScanBtn) {
       runScanBtn.disabled = true;
-      runScanBtn.title = "Choose a plan or contact us for custom scanning.";
+      runScanBtn.title = "No scans remaining on this account.";
     }
   }
 
-  if (scansRemainingEl) scansRemainingEl.textContent = String(planScansRemaining);
+  if (scansRemainingEl) scansRemainingEl.textContent = access.scansLeftDisplay;
 }
 
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
+    // IMPORTANT: dashboard gating must match backend (run-scan.js uses user_flags)
     const { data, error } = await supabase
-      .from("profiles")
-      .select("plan, plan_status, plan_scans_remaining")
+      .from("user_flags")
+      .select("is_frozen,is_banned,trial_expires_at,trial_scans_remaining,paid_until,paid_plan")
       .eq("user_id", currentUserId)
       .maybeSingle();
 
@@ -189,7 +250,7 @@ async function refreshProfile() {
       return null;
     }
 
-    window.currentProfile = data || null;
+    window.currentProfile = data || null; // keep legacy name to avoid refactors
     updateUsageUI(window.currentProfile);
     return window.currentProfile;
   } catch (err) {
@@ -553,7 +614,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       await loadScanHistory();
-      await refreshProfile();
 
       const reportId =
         scanData.report_id ??
@@ -579,7 +639,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
     } finally {
-      runBtn.disabled = false;
+      await refreshProfile(); // ✅ re-sync UI with user_flags after any attempt
     }
   });
 
