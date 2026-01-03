@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.6 — sidebar email + history click + search");
+console.log("DASHBOARD JS v3.7 — split trial + paid credits (Paddle-ready)");
 
 // ------- PLAN → PRICE MAPPING (legacy; safe to keep) -------
 const PLAN_PRICE_IDS = {
@@ -130,7 +130,10 @@ async function startSubscriptionCheckout(planKey) {
 }
 
 // -----------------------------
-// USAGE UI (user_flags)  ✅ FIXED (matches backend gating)
+// USAGE UI (Paddle-ready split credits)
+// Trial: user_flags.trial_scans_remaining + trial_expires_at
+// Paid : profiles.credits + billing_period_end
+// Total shown = trial + paid (no rollover naturally enforced by billing_period_end)
 // -----------------------------
 function isFounderEmail(email) {
   return String(email || "").trim().toLowerCase() === "david.esther@iqlabs.co.nz";
@@ -146,40 +149,62 @@ function toDateOrNull(v) {
   }
 }
 
-function computeAccess(flags, email) {
+function fmtShortDate(d) {
+  try {
+    if (!d) return "";
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function computeAccess(profile, email) {
   const now = Date.now();
   const founder = isFounderEmail(email);
 
-  const paidUntil = toDateOrNull(flags?.paid_until);
-  const paidActive = !!paidUntil && paidUntil.getTime() > now;
+  const frozen = !!(profile && profile.is_frozen);
+  const banned = !!(profile && profile.is_banned);
 
-  const trialExp = toDateOrNull(flags?.trial_expires_at);
-  const trialRemaining = Number(flags?.trial_scans_remaining ?? 0);
-  const trialActive = !!trialExp && trialExp.getTime() > now && trialRemaining > 0;
+  // TRIAL
+  const trialExp = toDateOrNull(profile && profile.trial_expires_at);
+  const trialWindowActive = !!trialExp && trialExp.getTime() > now;
+  const trialRemainingRaw = Number(profile && profile.trial_scans_remaining ? profile.trial_scans_remaining : 0);
+  const trialRemaining = trialWindowActive && trialRemainingRaw > 0 ? trialRemainingRaw : 0;
 
-  const frozen = !!flags?.is_frozen;
-  const banned = !!flags?.is_banned;
+  // PAID (subscription month window)
+  const paidEnd = toDateOrNull(profile && profile.billing_period_end);
+  const paidWindowActive = !!paidEnd && paidEnd.getTime() > now;
+  const paidCreditsRaw = Number(profile && profile.paid_credits ? profile.paid_credits : 0);
+  const paidRemaining = paidWindowActive && paidCreditsRaw > 0 ? paidCreditsRaw : 0;
 
-  const canScan = founder || paidActive || trialActive;
+  const total = trialRemaining + paidRemaining;
+  const canScan = founder || total > 0;
 
-  // Display value (UI only)
-  const scansLeftDisplay = founder
-    ? "999"
-    : paidActive
-    ? "∞"
-    : trialActive
-    ? String(Math.max(0, trialRemaining))
-    : "0";
+  return {
+    founder,
+    frozen,
+    banned,
+    canScan,
 
-  return { founder, paidActive, trialActive, frozen, banned, canScan, scansLeftDisplay };
+    trialRemaining,
+    trialExp,
+    trialWindowActive,
+
+    paidRemaining,
+    paidEnd,
+    paidWindowActive,
+
+    total,
+  };
 }
 
-function updateUsageUI(flags) {
+function updateUsageUI(profile) {
   const banner = $("subscription-banner");
   const runScanBtn = $("run-scan");
   const scansRemainingEl = $("wd-plan-scans-remaining");
+  const infoEl = $("trial-info");
 
-  const access = computeAccess(flags, window.currentUserEmail);
+  const access = computeAccess(profile, window.currentUserEmail);
 
   // Hard blocks
   if (!access.founder && (access.banned || access.frozen)) {
@@ -199,6 +224,7 @@ function updateUsageUI(flags) {
     return;
   }
 
+  // Enable/disable scan button based on total available credits
   if (access.canScan) {
     if (banner) banner.style.display = "none";
     if (runScanBtn) {
@@ -216,27 +242,93 @@ function updateUsageUI(flags) {
     }
   }
 
-  if (scansRemainingEl) scansRemainingEl.textContent = access.scansLeftDisplay;
+  // Main count displayed in the dashboard
+  if (scansRemainingEl) {
+    scansRemainingEl.textContent = access.founder ? "999" : String(access.total);
+  }
+
+  // Optional: keep the info line useful (shows split)
+  if (infoEl && !access.founder) {
+    const t =
+      access.trialRemaining > 0
+        ? `Trial: ${access.trialRemaining} (expires ${fmtShortDate(access.trialExp)})`
+        : "Trial: 0";
+
+    const p =
+      access.paidRemaining > 0
+        ? `Subscription: ${access.paidRemaining} (ends ${fmtShortDate(access.paidEnd)})`
+        : "Subscription: 0";
+
+    // Only overwrite if it isn't currently showing "Scan complete."
+    if (String(infoEl.textContent || "").indexOf("Scan complete") === -1) {
+      infoEl.textContent = `${t} • ${p}`;
+    }
+  }
 }
 
+// -----------------------------
+// Profile load (READ ONLY)
+// profiles: credits + billing_period_end (paid month window)
+// user_flags: trial_scans_remaining + trial_expires_at + freeze/ban
+// -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-    // IMPORTANT: dashboard gating must match backend (run-scan.js uses user_flags)
-    const { data, error } = await supabase
-      .from("user_flags")
-      .select("is_frozen,is_banned,trial_expires_at,trial_scans_remaining,paid_until,paid_plan")
-      .eq("user_id", currentUserId)
-      .maybeSingle();
+    // 1) Read paid credits from profiles (Paddle-ready)
+    let pRow = null;
+    try {
+      const p1 = await supabase
+        .from("profiles")
+        .select("user_id,email,credits,billing_period_end")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
 
-    if (error) {
-      console.warn("refreshProfile error (non-fatal):", error);
-      updateUsageUI(null);
-      return null;
+      if (!p1.error && p1.data) pRow = p1.data;
+    } catch (_) {
+      // ignore
     }
 
-    window.currentProfile = data || null; // keep legacy name to avoid refactors
+    // 2) Read trial + flags from user_flags
+    let fRow = null;
+    try {
+      const f1 = await supabase
+        .from("user_flags")
+        .select("is_frozen,is_banned,trial_expires_at,trial_scans_remaining")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
+
+      if (!f1.error && f1.data) fRow = f1.data;
+    } catch (_) {
+      // ignore
+    }
+
+    const paidCredits = pRow && Number.isFinite(pRow.credits) ? pRow.credits : 0;
+
+    const merged = {
+      user_id: currentUserId,
+      email: (pRow && pRow.email) ? pRow.email : (window.currentUserEmail || ""),
+
+      // Paid
+      paid_credits: paidCredits,
+      billing_period_end: (pRow && pRow.billing_period_end) ? pRow.billing_period_end : null,
+
+      // Trial
+      trial_expires_at: (fRow && fRow.trial_expires_at) ? fRow.trial_expires_at : null,
+      trial_scans_remaining: (fRow && Number.isFinite(fRow.trial_scans_remaining)) ? fRow.trial_scans_remaining : 0,
+
+      // Flags
+      is_frozen: !!(fRow && fRow.is_frozen),
+      is_banned: !!(fRow && fRow.is_banned),
+
+      // Back-compat fields (safe defaults)
+      paid_until: null,
+      paid_plan: null,
+      subscription_status: "",
+      credits: paidCredits,
+    };
+
+    window.currentProfile = merged; // keep legacy name to avoid refactors
     updateUsageUI(window.currentProfile);
     return window.currentProfile;
   } catch (err) {
@@ -625,7 +717,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
     } finally {
-      await refreshProfile(); // ✅ re-sync UI with user_flags after any attempt
+      await refreshProfile(); // ✅ re-sync UI after any attempt
+      runBtn.disabled = false;
     }
   });
 
