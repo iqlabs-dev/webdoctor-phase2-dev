@@ -1147,34 +1147,29 @@ if (!isFounder && !paidActive && trialActive) {
     });
   }
 }
-// If paid is active (and trial is not), consume 1 paid credit
+// If paid is active (and trial is not), atomically consume 1 paid credit
 if (!isFounder && paidActive && !trialActive) {
-  // We will detect whether your profiles table keys by `id` or `user_id`
-  // and then update using the correct key. This prevents "no-op" updates.
-  let profile = null;
-  let keyField = null;
+  const { data, error } = await supabase.rpc("consume_paid_credit", {
+    p_user_id: user_id,
+  });
 
-  // --- Attempt 1: profiles.id ---
-  {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", user_id)
-      .maybeSingle();
+  if (error) {
+    console.error("[paid] consume rpc error:", error);
+    return json(500, {
+      success: false,
+      code: "paid_consume_error",
+      error: "Unable to apply subscription usage. Please try again.",
+    });
+  }
 
-    if (error) {
-      console.error("[paid] read error (by id):", error);
-      return json(500, {
-        success: false,
-        code: "paid_read_error",
-        error: "Unable to verify subscription credits. Please try again.",
-      });
-    }
+  const row = Array.isArray(data) ? data[0] : data;
 
-    if (data) {
-      profile = data;
-      keyField = "id";
-    }
+  if (!row?.allowed) {
+    return json(402, {
+      success: false,
+      code: "paid_exhausted",
+      error: "No subscription credits remaining for this billing period.",
+    });
   }
 
   // --- Attempt 2: profiles.user_id (only if Attempt 1 didn't find a row) ---
