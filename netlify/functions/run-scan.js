@@ -1108,6 +1108,20 @@ const uf = await getUserFlags(user_id);
 if (!uf) {
   return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
 }
+// One-off credit lookup (user_credits table)
+const { data: oneOffRow, error: oneOffErr } = await supabase
+  .from("user_credits")
+  .select("credits")
+  .eq("user_id", user_id)
+  .maybeSingle();
+
+if (oneOffErr) {
+  console.error("[one-off] lookup error:", oneOffErr);
+}
+
+const oneOffCredits = Number(oneOffRow?.credits || 0);
+const oneOffActive = oneOffCredits > 0;
+
 
 // Per-user bans/freeze
 if (!isFounder && uf.is_banned) {
@@ -1117,17 +1131,18 @@ if (!isFounder && uf.is_frozen) {
   return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
 }
 
-// Invite-only policy: must be Founder OR Paid OR Active Trial
+// Access policy: Founder OR Paid OR Trial OR One-off credits
 const paidActive = isPaidActive(uf);
 const trialActive = isTrialActive(uf);
 
-if (!isFounder && !paidActive && !trialActive) {
+if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
   return json(402, {
     success: false,
     code: "access_required",
     error: "This account does not have scanning access. Please subscribe or request an invite trial.",
   });
 }
+
 
 // If trial is active, atomically consume 1 scan before doing any costly work
 if (!isFounder && !paidActive && trialActive) {
@@ -1304,6 +1319,16 @@ if (!isFounder && paidActive && !trialActive) {
       .insert(insertRow)
       .select("id, report_id")
       .single();
+      
+      // One-off credit consumption (post-successful scan)
+if (!isFounder && !paidActive && !trialActive && oneOffActive) {
+  await supabase
+    .from("user_credits")
+    .update({ credits: oneOffCredits - 1 })
+    .eq("user_id", user_id)
+    .gt("credits", 0);
+}
+
 
     if (saveErr) {
       console.error("[run-scan] insert error:", saveErr);
