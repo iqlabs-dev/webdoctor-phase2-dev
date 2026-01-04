@@ -1149,10 +1149,14 @@ if (!isFounder && !paidActive && trialActive) {
 }
 // If paid is active (and trial is not), consume 1 paid credit
 if (!isFounder && paidActive && !trialActive) {
+  // NOTE: In your Supabase screenshot, `profiles` uses `id` (uuid) as the user key.
+  // Your old block queried `.eq("user_id", user_id)` which can match ZERO rows and not throw.
+  // This version uses `id = auth.user.id` and verifies the update actually happened.
+
   const { data: profile, error: profErr } = await supabase
     .from("profiles")
     .select("credits")
-    .eq("user_id", user_id)
+    .eq("id", user_id)
     .single();
 
   if (profErr) {
@@ -1164,7 +1168,7 @@ if (!isFounder && paidActive && !trialActive) {
     });
   }
 
-  const credits = Number(profile?.credits || 0);
+  const credits = Number((profile && profile.credits) || 0);
 
   if (credits <= 0) {
     return json(402, {
@@ -1174,11 +1178,14 @@ if (!isFounder && paidActive && !trialActive) {
     });
   }
 
-  const { error: updateErr } = await supabase
+  // Atomic-ish consume: only update if credits > 0, and confirm a row was updated.
+  const { data: updated, error: updateErr } = await supabase
     .from("profiles")
     .update({ credits: credits - 1 })
-    .eq("user_id", user_id)
-    .gt("credits", 0);
+    .eq("id", user_id)
+    .gt("credits", 0)
+    .select("credits")
+    .single();
 
   if (updateErr) {
     console.error("[paid] consume error:", updateErr);
@@ -1188,7 +1195,18 @@ if (!isFounder && paidActive && !trialActive) {
       error: "Unable to apply subscription usage. Please try again.",
     });
   }
+
+  // If zero rows matched, Supabase can return null without throwing in some cases.
+  if (!updated) {
+    console.error("[paid] consume error: no row updated (id mismatch or credits already 0)");
+    return json(500, {
+      success: false,
+      code: "paid_consume_error",
+      error: "Unable to apply subscription usage. Please try again.",
+    });
+  }
 }
+
 
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
