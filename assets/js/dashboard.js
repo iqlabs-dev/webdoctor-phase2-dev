@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.0 — dashboard is NOT billing (pricing-only checkout)");
+console.log("DASHBOARD JS v4.1 — stable access gating + history + report nav");
 
 let currentUserId = null;
 
@@ -23,7 +23,7 @@ function looksLikeReportId(v) {
 }
 
 /**
- * Latest Scan → View report
+ * Latest Scan → View report (same tab)
  */
 function goToReport(reportId) {
   if (!looksLikeReportId(reportId)) {
@@ -38,7 +38,8 @@ function goToReport(reportId) {
 }
 
 /**
- * Scan History → View+PDF (new tab)
+ * Scan History → View + Download PDF (new tab)
+ * (PDF is handled by report.html, not the dashboard)
  */
 function goToReportFromHistory(reportId) {
   if (!looksLikeReportId(reportId)) {
@@ -59,6 +60,8 @@ function setUserUI(email) {
   if (emailEl) emailEl.textContent = email || "—";
   if (acctEl) acctEl.textContent = email ? `Signed in as ${email}` : "—";
 
+  // Note: your CSS currently forces #wd-user-initial hidden via !important.
+  // We still set it for future use (if you later allow it to show).
   if (initialEl && email) {
     const ch = (email.trim()[0] || "U").toUpperCase();
     initialEl.textContent = ch;
@@ -99,40 +102,19 @@ function goToPricing() {
   window.location.href = "/pricing.html";
 }
 
+// -----------------------------
+// Access / credits model
+// -----------------------------
 /**
- * Show "No plan active" prompt (standard SaaS pattern)
- */
-function renderNoPlanPrompt(show) {
-  // If you already have a banner area, reuse it:
-  const banner = $("subscription-banner");
-  if (!banner) return;
-
-  if (!show) {
-    banner.style.display = "none";
-    banner.innerHTML = "";
-    return;
-  }
-
-  banner.style.display = "block";
-  banner.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-      <div>
-        <div style="font-weight:800;">No plan active</div>
-        <div style="opacity:.85;">Select a plan to add scan credits and unlock ongoing use.</div>
-      </div>
-      <button id="btn-select-plan" class="btn-primary" type="button">Select a plan</button>
-    </div>
-  `;
-
-  const btn = $("btn-select-plan");
-  if (btn) btn.addEventListener("click", goToPricing);
-}
-
-/**
- * Access / credits model:
- * - Trial users: credits are valid only until trial_end
- * - Paid users: credits are valid until billing_period_end (if present), otherwise treated as available
- * - Founder: always enabled
+ * Rules (locked):
+ * - One-off credits never expire (you model this as subscription_status not trial, and no paidEnd expiry enforcement)
+ * - Subscriptions reset monthly, no rollover (you enforce this by updating credits server-side; dashboard just reads credits)
+ * - Trials expire (trial_end)
+ *
+ * Dashboard responsibility:
+ * - Read profile + flags
+ * - Determine if canScan
+ * - Show/hide your banner (DO NOT overwrite its HTML)
  */
 function computeAccess(profile, email) {
   const now = Date.now();
@@ -150,18 +132,20 @@ function computeAccess(profile, email) {
   const trialEnd = toDateOrNull(profile && (profile.trial_end || profile.trial_expires_at));
   const trialActive = subscriptionStatus === "trial" && !!trialEnd && trialEnd.getTime() > now;
 
-  // Paid window (if you have billing_period_end)
+  // Paid window (optional). If you store billing_period_end, you can treat it as an expiry window.
+  // If not present, treat paidWindowActive as true.
   const paidEnd = toDateOrNull(profile && profile.billing_period_end);
   const paidWindowActive = !!paidEnd ? paidEnd.getTime() > now : true;
 
   let remaining = credits;
 
-  // If trial expired, treat remaining as 0
+  // Trial expired => zero access (even if credits field still has a value)
   if (subscriptionStatus === "trial" && !trialActive) {
     remaining = 0;
   }
 
-  // If paid window expired (and you are using a period end), treat as 0
+  // If you use billing_period_end and it's expired, treat as 0.
+  // (This is safe; if you don't want expiry enforcement, leave billing_period_end null.)
   if (subscriptionStatus !== "trial" && paidEnd && !paidWindowActive) {
     remaining = 0;
   }
@@ -182,6 +166,13 @@ function computeAccess(profile, email) {
   };
 }
 
+/**
+ * UI updates:
+ * - banner: show/hide only (DO NOT overwrite innerHTML; your HTML contains your plan buttons)
+ * - scan button: enable/disable
+ * - scans remaining chip: remaining / 999 for founder
+ * - info line: helpful status, but don't overwrite "Scan complete."
+ */
 function updateUsageUI(profile) {
   const banner = $("subscription-banner");
   const runScanBtn = $("run-scan");
@@ -194,75 +185,11 @@ function updateUsageUI(profile) {
   if (!access.founder && (access.banned || access.frozen)) {
     if (banner) {
       banner.style.display = "block";
-      banner.textContent = access.banned
-        ? "Account access disabled."
-        : "Account temporarily frozen.";
+      // In this hard-block case, we DO replace the content with a clear message.
+      banner.innerHTML = `<div style="font-weight:800;">${
+        access.banned ? "Account access disabled." : "Account temporarily frozen."
+      }</div>`;
     }
-    if (runScanBtn) {
-      runScanBtn.disabled = true;
-      runScanBtn.title = access.banned
-        ? "Account access disabled."
-        : "Account temporarily frozen.";
-    }
-    if (scansRemainingEl) scansRemainingEl.textContent = "0";
-    return;
-  }
-
-  // Scans remaining number
-  if (scansRemainingEl) {
-    scansRemainingEl.textContent = access.founder ? "999" : String(access.total);
-  }
-
-  // Enable/disable scan button based on total available credits
-  if (access.canScan) {
-    // Has credits (or founder)
-    if (banner) banner.style.display = "none";
-    if (runScanBtn) {
-      runScanBtn.disabled = false;
-      runScanBtn.title = "";
-    }
-  } else {
-    // No credits: show plan prompt + disable scan
-    if (banner) {
-      banner.style.display = "block";
-      // IMPORTANT: keep the HTML you put in dashboard.html (buttons)
-      // so do NOT overwrite banner.innerHTML here.
-    }
-    if (runScanBtn) {
-      runScanBtn.disabled = true;
-      runScanBtn.title = "No scans remaining on this account.";
-    }
-  }
-
-  // Optional: keep the info line useful (shows split)
-  if (infoEl && !access.founder) {
-    const t =
-      access.trialRemaining > 0
-        ? `Trial: ${access.trialRemaining} (expires ${fmtShortDate(access.trialExp)})`
-        : "Trial: 0";
-
-    const p =
-      access.paidRemaining > 0
-        ? `Subscription: ${access.paidRemaining} (ends ${fmtShortDate(access.paidEnd)})`
-        : "Subscription: 0";
-
-    // Only overwrite if it isn't currently showing "Scan complete."
-    if (String(infoEl.textContent || "").indexOf("Scan complete") === -1) {
-      infoEl.textContent = `${t} • ${p}`;
-    }
-  }
-}
-
-  const runScanBtn = $("run-scan");
-  const scansRemainingEl = $("wd-plan-scans-remaining");
-  const infoEl = $("trial-info");
-
-  const access = computeAccess(profile, window.currentUserEmail);
-
-  // Hard blocks
-  if (!access.founder && (access.banned || access.frozen)) {
-    renderNoPlanPrompt(false);
-
     if (runScanBtn) {
       runScanBtn.disabled = true;
       runScanBtn.title = access.banned ? "Account access disabled." : "Account temporarily frozen.";
@@ -272,21 +199,21 @@ function updateUsageUI(profile) {
     return;
   }
 
-  // Credits display
+  // Scans remaining number
   if (scansRemainingEl) {
     scansRemainingEl.textContent = access.founder ? "999" : String(access.remaining);
   }
 
   // Enable/disable scan button
   if (access.canScan) {
-    renderNoPlanPrompt(false);
+    if (banner) banner.style.display = "none";
     if (runScanBtn) {
       runScanBtn.disabled = false;
       runScanBtn.title = "";
     }
   } else {
-    // show prompt to choose plan (dashboard should not checkout)
-    renderNoPlanPrompt(true);
+    // No credits: show your existing banner (with plan buttons) and disable scan
+    if (banner) banner.style.display = "block";
     if (runScanBtn) {
       runScanBtn.disabled = true;
       runScanBtn.title = "No scans remaining on this account.";
@@ -308,7 +235,7 @@ function updateUsageUI(profile) {
       }
     }
   }
-
+}
 
 // -----------------------------
 // Profile load (READ ONLY)
@@ -367,6 +294,7 @@ async function refreshProfile() {
     return window.currentProfile;
   } catch (err) {
     console.warn("refreshProfile unexpected (non-fatal):", err);
+    window.currentProfile = null;
     updateUsageUI(null);
     return null;
   }
@@ -629,6 +557,7 @@ async function loadScanHistory() {
 
       const actionBtn = document.createElement("button");
       actionBtn.className = "btn-link btn-view";
+      actionBtn.type = "button";
       actionBtn.textContent = "View + Download PDF";
       actionBtn.onclick = () => goToReportFromHistory(row.report_id);
 
@@ -652,16 +581,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statusEl = $("trial-info");
   const urlInput = $("site-url");
   const runBtn = $("run-scan");
-  const logoutBtn = $("logout-btn");
 
-  if (!statusEl || !urlInput || !runBtn || !logoutBtn) {
+  // Sign-out can be either #logout-btn (hidden button) or #logout-link (nav link)
+  const logoutBtn = $("logout-btn");
+  const logoutLink = $("logout-link");
+
+  if (!statusEl || !urlInput || !runBtn) {
     console.error("Dashboard elements missing from DOM.");
     return;
   }
 
   wireHistorySearch();
 
-  // If your dashboard still has old plan buttons in HTML, make them route to pricing.
+  // Optional legacy plan buttons (if present) → route to pricing
   const btnInsight = $("btn-plan-insight");
   const btnIntelligence = $("btn-plan-intelligence");
   const btnImpact = $("btn-plan-impact");
@@ -688,6 +620,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
       statusEl.textContent = "Enter a valid URL.";
+      return;
+    }
+
+    // Guard: if UI says disabled, don't run.
+    if (runBtn.disabled) {
+      statusEl.textContent = "No scans remaining. Select a plan to continue.";
       return;
     }
 
@@ -746,15 +684,25 @@ document.addEventListener("DOMContentLoaded", async () => {
       statusEl.textContent = "Scan failed: " + ((err && err.message) || "Unknown error");
     } finally {
       await refreshProfile();
+      // Only re-enable if credits still allow it (updateUsageUI will handle disable)
       runBtn.disabled = false;
+      updateUsageUI(window.currentProfile);
     }
   });
 
-  logoutBtn.addEventListener("click", async () => {
+  async function doLogout() {
     try {
       await supabase.auth.signOut();
     } finally {
       window.location.href = "/login.html";
     }
-  });
+  }
+
+  if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
+  if (logoutLink) {
+    logoutLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      doLogout();
+    });
+  }
 });

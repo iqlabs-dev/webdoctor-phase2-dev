@@ -839,12 +839,11 @@ tbody td:nth-child(7) {
     </section>
   </div>
 
-  <!-- Core wiring -->
+   <!-- Core wiring (load ONCE) -->
   <script type="module" src="/assets/js/dashboard.js"></script>
 
-  <!-- UI-only nav + contact + signout forwarding -->
- <script type="module" src="/assets/js/dashboard.js"></script>
-
+  <!-- UI-only nav + contact dropdown (no Supabase / no auth here) -->
+  <script type="module">
     const $ = (sel) => document.querySelector(sel);
 
     const navItems = Array.from(document.querySelectorAll('.nav a[data-view]'));
@@ -862,7 +861,6 @@ tbody td:nth-child(7) {
           viewId === 'view-account' ? 'Account' : 'Dashboard';
       }
 
-      // No subtitle on dashboard
       if (pageSubtitle) {
         pageSubtitle.textContent =
           viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
@@ -900,43 +898,7 @@ tbody td:nth-child(7) {
       if (contactPop.contains(e.target) || contactToggle.contains(e.target)) return;
       closeContact();
     });
-
-    // Sign out in nav forwards to real logout button (dashboard.js owns auth)
-    const logoutLink = document.getElementById('logout-link');
-    const realLogoutBtn = document.getElementById('logout-btn');
-    if (logoutLink && realLogoutBtn) {
-      logoutLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        realLogoutBtn.click();
-      });
-    }
   </script>
-<script type="module">
-  // your existing dashboard module code...
-</script>
-
-// /assets/js/pdf-download.js
-// Safe helper: does nothing unless report page elements exist.
-
-(function () {
-  try {
-    // Only run if we're on a report page (adjust selectors if yours differ)
-    var isReportPage =
-      !!document.querySelector("[data-report]") ||
-      !!document.getElementById("report-root") ||
-      /\/report\.html/i.test(location.pathname);
-
-    if (!isReportPage) return;
-
-    // If you already have PDF wiring elsewhere, stop here.
-    // This file exists mainly to avoid 404 and allow future hooks.
-    console.log("pdf-download.js loaded (report page)");
-
-    // TODO: Add your real PDF download hook here later if needed.
-  } catch (e) {
-    console.warn("pdf-download.js non-fatal error:", e);
-  }
-})();
 
 </body>
 </html>
