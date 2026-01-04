@@ -1112,7 +1112,7 @@ if (!uf) {
 const { data: oneOffRow, error: oneOffErr } = await supabase
   .from("user_credits")
   .select("credits")
-  .eq("user_id", user_id)
+  .eq("id", user_id)
   .maybeSingle();
 
 if (oneOffErr) {
@@ -1325,7 +1325,7 @@ if (!isFounder && !paidActive && !trialActive && oneOffActive) {
   await supabase
     .from("user_credits")
     .update({ credits: oneOffCredits - 1 })
-    .eq("user_id", user_id)
+    .eq("id", user_id)
     .gt("credits", 0);
 }
 

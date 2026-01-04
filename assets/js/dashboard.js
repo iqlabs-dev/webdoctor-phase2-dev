@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.1 — stable access gating + history + report nav");
+console.log("DASHBOARD JS v4.2 — two counters (Paid + Free) + free-first display");
 
 let currentUserId = null;
 
@@ -101,18 +101,18 @@ function fmtShortDate(d) {
 function goToPricing() {
   window.location.href = "/pricing.html";
 }
+
 async function startCheckout(priceKey) {
   try {
     const res = await fetch("/.netlify/functions/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-   body: JSON.stringify({
-  priceKey,
-  user_id: window.currentUserId,
-  email: window.currentUserEmail,
-  url: window.location.origin, // ✅ satisfies create-checkout-session.js validation
-}),
-
+      body: JSON.stringify({
+        priceKey,
+        user_id: window.currentUserId,
+        email: window.currentUserEmail,
+        url: window.location.origin, // ✅ satisfies create-checkout-session.js validation
+      }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -129,66 +129,75 @@ async function startCheckout(priceKey) {
 }
 
 // -----------------------------
-// Access / credits model
+// Access / credits model (UPDATED)
 // -----------------------------
 /**
- * Rules (locked):
- * - One-off credits never expire (you model this as subscription_status not trial, and no paidEnd expiry enforcement)
- * - Subscriptions reset monthly, no rollover (you enforce this by updating credits server-side; dashboard just reads credits)
- * - Trials expire (trial_end)
+ * What we show:
+ * - Paid scans (always): subscription credits (only if paid_until active) + one-off credits (user_credits)
+ * - Free scans (only if > 0): trial_scans_remaining (only if trial_expires_at active)
  *
- * Dashboard responsibility:
- * - Read profile + flags
- * - Determine if canScan
- * - Show/hide your banner (DO NOT overwrite its HTML)
+ * What gets used first:
+ * - Free scans are used before paid (backend already does this; UI must match)
  */
 function computeAccess(profile, email) {
   const now = Date.now();
-  const founder = isFounderEmail(email);
+
+  const founder = isFounderEmail(email) || !!(profile && profile.is_founder);
 
   const frozen = !!(profile && profile.is_frozen);
   const banned = !!(profile && profile.is_banned);
 
-  const creditsRaw = Number(profile && profile.credits != null ? profile.credits : 0);
-  const credits = Number.isFinite(creditsRaw) ? creditsRaw : 0;
+  // --- FREE (trial) ---
+  const trialEnd = toDateOrNull(profile && (profile.trial_expires_at || profile.trial_end));
+  const trialRemainingRaw = Number(profile && profile.trial_scans_remaining != null ? profile.trial_scans_remaining : 0);
+  const trialRemaining = Number.isFinite(trialRemainingRaw) ? trialRemainingRaw : 0;
 
-  const subscriptionStatus = String(profile && profile.subscription_status ? profile.subscription_status : "").toLowerCase();
+  const trialActive = !!trialEnd && trialEnd.getTime() > now && trialRemaining > 0;
+  const free = trialActive ? Math.max(0, trialRemaining) : 0;
 
-  // Trial window
-  const trialEnd = toDateOrNull(profile && (profile.trial_end || profile.trial_expires_at));
-  const trialActive = subscriptionStatus === "trial" && !!trialEnd && trialEnd.getTime() > now;
+  // --- PAID (subscription + one-off) ---
+  // Subscription is usable only when paid_until is active (server truth)
+  const paidUntil = toDateOrNull(profile && profile.paid_until);
+  const paidActive = !!paidUntil && paidUntil.getTime() > now;
 
-  // Paid window (optional). If you store billing_period_end, you can treat it as an expiry window.
-  // If not present, treat paidWindowActive as true.
-  const paidEnd = toDateOrNull(profile && profile.billing_period_end);
-  const paidWindowActive = !!paidEnd ? paidEnd.getTime() > now : true;
+  // subscription credits (stored in profiles.credits in your current system)
+  const subCreditsRaw = Number(profile && profile.credits != null ? profile.credits : 0);
+  const subCredits = Number.isFinite(subCreditsRaw) ? subCreditsRaw : 0;
+  const subUsable = paidActive ? Math.max(0, subCredits) : 0;
 
-  let remaining = credits;
+  // one-off credits (stored in user_credits.credits, merged as oneoff_credits)
+  const oneOffRaw = Number(profile && profile.oneoff_credits != null ? profile.oneoff_credits : 0);
+  const oneOff = Number.isFinite(oneOffRaw) ? oneOffRaw : 0;
 
-  // Trial expired => zero access (even if credits field still has a value)
-  if (subscriptionStatus === "trial" && !trialActive) {
-    remaining = 0;
-  }
+  const paid = Math.max(0, subUsable) + Math.max(0, oneOff);
+  const total = free + paid;
 
-  // If you use billing_period_end and it's expired, treat as 0.
-  // (This is safe; if you don't want expiry enforcement, leave billing_period_end null.)
-  if (subscriptionStatus !== "trial" && paidEnd && !paidWindowActive) {
-    remaining = 0;
-  }
+  const canScan = founder || total > 0;
 
-  const canScan = founder || remaining > 0;
+  // Keep older fields for minimal disruption (some UI text uses these)
+  // "subscriptionStatus" is only used for messaging; treat as "trial" if free available, else "paid" if paidActive
+  const subscriptionStatus = trialActive ? "trial" : (paidActive ? "paid" : "");
 
   return {
     founder,
     frozen,
     banned,
     canScan,
-    remaining,
-    subscriptionStatus,
+
+    // new buckets
+    free,
+    paid,
+    total,
+
+    // dates/status
     trialEnd,
     trialActive,
-    paidEnd,
-    paidWindowActive,
+    paidEnd: paidUntil,
+    paidWindowActive: paidActive,
+
+    // legacy-ish
+    remaining: total,
+    subscriptionStatus,
   };
 }
 
@@ -196,13 +205,21 @@ function computeAccess(profile, email) {
  * UI updates:
  * - banner: show/hide only (DO NOT overwrite innerHTML; your HTML contains your plan buttons)
  * - scan button: enable/disable
- * - scans remaining chip: remaining / 999 for founder
+ * - paid scans chip: paid / 999 for founder
+ * - free scans chip: only show if free > 0
  * - info line: helpful status, but don't overwrite "Scan complete."
  */
 function updateUsageUI(profile) {
   const banner = $("subscription-banner");
   const runScanBtn = $("run-scan");
-  const scansRemainingEl = $("wd-plan-scans-remaining");
+
+  // Paid scans chip keeps the existing ID (so you don't have to update CSS/HTML beyond the chip line swap)
+  const paidEl = $("wd-plan-scans-remaining");
+
+  // Free scans chip IDs (you will add these in dashboard.html)
+  const freeChip = $("wd-free-chip");
+  const freeEl = $("wd-free-scans");
+
   const infoEl = $("trial-info");
 
   const access = computeAccess(profile, window.currentUserEmail);
@@ -220,17 +237,21 @@ function updateUsageUI(profile) {
       runScanBtn.disabled = true;
       runScanBtn.title = access.banned ? "Account access disabled." : "Account temporarily frozen.";
     }
-    if (scansRemainingEl) scansRemainingEl.textContent = "0";
+    if (paidEl) paidEl.textContent = "0";
+    if (freeEl) freeEl.textContent = "0";
+    if (freeChip) freeChip.style.display = "none";
     if (infoEl) infoEl.textContent = access.banned ? "Account access disabled." : "Account temporarily frozen.";
     return;
   }
 
-  // Scans remaining number
-  if (scansRemainingEl) {
-    scansRemainingEl.textContent = access.founder ? "999" : String(access.remaining);
+  // Chips
+  if (paidEl) {
+    paidEl.textContent = access.founder ? "999" : String(access.paid);
   }
+  if (freeEl) freeEl.textContent = String(access.free);
+  if (freeChip) freeChip.style.display = access.free > 0 ? "inline-flex" : "none";
 
-  // Enable/disable scan button
+  // Enable/disable scan button + banner
   if (access.canScan) {
     if (banner) banner.style.display = "none";
     if (runScanBtn) {
@@ -250,66 +271,90 @@ function updateUsageUI(profile) {
   if (infoEl && !access.founder) {
     const current = String(infoEl.textContent || "");
     if (current.indexOf("Scan complete") === -1) {
-      if (access.subscriptionStatus === "trial") {
+      if (access.free > 0) {
         infoEl.textContent = access.trialActive
-          ? `Trial active • Expires ${fmtShortDate(access.trialEnd)}`
-          : "Trial ended • Select a plan to continue.";
+          ? `Free scans available • Expires ${fmtShortDate(access.trialEnd)}`
+          : "Free scans available.";
+      } else if (access.paid > 0) {
+        infoEl.textContent = access.paidWindowActive && access.paidEnd
+          ? `Paid scans available • Subscription active until ${fmtShortDate(access.paidEnd)}`
+          : "Paid scans available.";
       } else {
-        infoEl.textContent = access.paidEnd
-          ? `Subscription window ends ${fmtShortDate(access.paidEnd)}`
-          : (access.remaining > 0 ? "Credits available." : "No credits available. Select a plan.");
+        infoEl.textContent = "No credits available. Select a plan.";
       }
     }
   }
 }
 
 // -----------------------------
-// Profile load (READ ONLY)
-// profiles: credits + trial_end + subscription_status (+ billing_period_end if present)
-// user_flags: is_frozen / is_banned (optional)
+// Profile load (READ ONLY) — UPDATED
+// profiles: credits (+ email)
+// user_flags: is_frozen / is_banned / trial_scans_remaining / trial_expires_at / paid_until / is_founder
+// user_credits: one-off credits (credits) keyed by id
 // -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-    // 1) profiles
+    // 1) profiles (subscription credits live here as credits)
     let pRow = null;
     try {
       const p1 = await supabase
         .from("profiles")
         .select("user_id,email,credits,trial_start,trial_end,subscription_status,plan,stripe_customer_id,stripe_subscription_id")
-
         .eq("user_id", currentUserId)
         .maybeSingle();
 
       if (!p1.error && p1.data) pRow = p1.data;
     } catch (_) {}
 
-    // 2) user_flags (optional)
+    // 2) user_flags (trial + paid windows + flags)
     let fRow = null;
     try {
       const f1 = await supabase
         .from("user_flags")
-        .select("is_frozen,is_banned")
+        .select("is_frozen,is_banned,is_founder,trial_scans_remaining,trial_expires_at,paid_until")
         .eq("user_id", currentUserId)
         .maybeSingle();
 
       if (!f1.error && f1.data) fRow = f1.data;
     } catch (_) {}
 
+    // 3) user_credits (one-off packs) — IMPORTANT: table key is id
+    let cRow = null;
+    try {
+      const c1 = await supabase
+        .from("user_credits")
+        .select("credits")
+        .eq("id", currentUserId)
+        .maybeSingle();
+
+      if (!c1.error && c1.data) cRow = c1.data;
+    } catch (_) {}
+
     const merged = {
       user_id: currentUserId,
       email: (pRow && pRow.email) ? pRow.email : (window.currentUserEmail || ""),
 
-      // credits + status
+      // subscription credits
       credits: (pRow && Number.isFinite(pRow.credits)) ? pRow.credits : 0,
+
+      // legacy fields (kept)
       subscription_status: (pRow && pRow.subscription_status) ? pRow.subscription_status : "",
       plan: (pRow && pRow.plan) ? pRow.plan : "",
-      
 
-      // trial
+      // trial (legacy in profiles; kept)
       trial_start: (pRow && pRow.trial_start) ? pRow.trial_start : null,
       trial_end: (pRow && pRow.trial_end) ? pRow.trial_end : null,
+
+      // NEW: trial + paid windows from user_flags (source of truth)
+      trial_scans_remaining: (fRow && Number.isFinite(fRow.trial_scans_remaining)) ? fRow.trial_scans_remaining : 0,
+      trial_expires_at: (fRow && fRow.trial_expires_at) ? fRow.trial_expires_at : null,
+      paid_until: (fRow && fRow.paid_until) ? fRow.paid_until : null,
+      is_founder: !!(fRow && fRow.is_founder),
+
+      // NEW: one-off credits from user_credits
+      oneoff_credits: (cRow && Number.isFinite(cRow.credits)) ? cRow.credits : 0,
 
       // flags
       is_frozen: !!(fRow && fRow.is_frozen),
@@ -620,9 +665,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireHistorySearch();
 
-// Dashboard plan buttons → DIRECT Stripe checkout (Option A)
-// Dashboard plan buttons → DIRECT Stripe checkout (Option A)
-
+  // Dashboard plan buttons → DIRECT Stripe checkout (Option A)
   const { data } = await supabase.auth.getUser();
   if (!data || !data.user) {
     window.location.href = "/login.html";
@@ -636,20 +679,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   setUserUI(window.currentUserEmail);
 
   function bindCheckout(btn, key) {
-  if (!btn) return;
+    if (!btn) return;
 
-  btn.addEventListener("click", (e) => {
-    // If the button is actually an <a href="/pricing.html">...</a>
-    // this stops the browser navigating to pricing.
-    e.preventDefault();
-    e.stopPropagation();
-    startCheckout(key);
-  });
-}
+    btn.addEventListener("click", (e) => {
+      // If the button is actually an <a href="/pricing.html">...</a>
+      // this stops the browser navigating to pricing.
+      e.preventDefault();
+      e.stopPropagation();
+      startCheckout(key);
+    });
+  }
 
-bindCheckout($("btn-plan-insight"), "oneoff");      // $49
-bindCheckout($("btn-plan-intelligence"), "sub50");  // Intelligence
-bindCheckout($("btn-plan-impact"), "sub100");       // Impact
+  bindCheckout($("btn-plan-insight"), "oneoff"); // $49
+  bindCheckout($("btn-plan-intelligence"), "sub50"); // Intelligence
+  bindCheckout($("btn-plan-impact"), "sub100"); // Impact
 
   await refreshProfile();
   await loadScanHistory();
