@@ -101,6 +101,30 @@ function fmtShortDate(d) {
 function goToPricing() {
   window.location.href = "/pricing.html";
 }
+async function startCheckout(priceKey) {
+  try {
+    const res = await fetch("/.netlify/functions/create-checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        priceKey,
+        user_id: window.currentUserId,
+        email: window.currentUserEmail,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data || !data.url) {
+      throw new Error((data && data.error) || "Unable to start checkout");
+    }
+
+    window.location.href = data.url;
+  } catch (err) {
+    console.error("[CHECKOUT] failed:", err);
+    alert("Checkout could not be started. Please try again.");
+  }
+}
 
 // -----------------------------
 // Access / credits model
@@ -594,13 +618,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireHistorySearch();
 
-  // Optional legacy plan buttons (if present) → route to pricing
-  const btnInsight = $("btn-plan-insight");
-  const btnIntelligence = $("btn-plan-intelligence");
-  const btnImpact = $("btn-plan-impact");
-  if (btnInsight) btnInsight.addEventListener("click", goToPricing);
-  if (btnIntelligence) btnIntelligence.addEventListener("click", goToPricing);
-  if (btnImpact) btnImpact.addEventListener("click", goToPricing);
+// Dashboard plan buttons → DIRECT Stripe checkout (Option A)
+const btnInsight = $("btn-plan-insight");           // $49 one-off
+const btnIntelligence = $("btn-plan-intelligence"); // SUB_50 → Intelligence
+const btnImpact = $("btn-plan-impact");             // SUB_100 → Impact
+
+if (btnInsight) {
+  btnInsight.addEventListener("click", () => startCheckout("oneoff"));
+}
+
+if (btnIntelligence) {
+  btnIntelligence.addEventListener("click", () => startCheckout("sub50"));
+}
+
+if (btnImpact) {
+  btnImpact.addEventListener("click", () => startCheckout("sub100"));
+}
+
 
   const { data } = await supabase.auth.getUser();
   if (!data || !data.user) {
