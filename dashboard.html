@@ -915,6 +915,28 @@ tbody td:nth-child(7) {
   // your existing dashboard module code...
 </script>
 
-<script src="/assets/js/pdf-download.js"></script>
+// /assets/js/pdf-download.js
+// Safe helper: does nothing unless report page elements exist.
+
+(function () {
+  try {
+    // Only run if we're on a report page (adjust selectors if yours differ)
+    var isReportPage =
+      !!document.querySelector("[data-report]") ||
+      !!document.getElementById("report-root") ||
+      /\/report\.html/i.test(location.pathname);
+
+    if (!isReportPage) return;
+
+    // If you already have PDF wiring elsewhere, stop here.
+    // This file exists mainly to avoid 404 and allow future hooks.
+    console.log("pdf-download.js loaded (report page)");
+
+    // TODO: Add your real PDF download hook here later if needed.
+  } catch (e) {
+    console.warn("pdf-download.js non-fatal error:", e);
+  }
+})();
+
 </body>
 </html>
