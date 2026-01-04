@@ -1,3 +1,4 @@
+// netlify/functions/use-credit.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -24,7 +25,6 @@ export const handler = async (event) => {
     if (!user_id) return json(400, { ok: false, error: "Missing user_id" });
     if (!Number.isFinite(amount) || amount <= 0) return json(400, { ok: false, error: "Invalid amount" });
 
-    // Read current credits
     const { data: profile, error: readErr } = await supabase
       .from("profiles")
       .select("user_id,credits")
@@ -37,8 +37,8 @@ export const handler = async (event) => {
     const current = Number(profile.credits || 0);
     if (current < amount) return json(200, { ok: false, error: "No credits remaining", credits: current });
 
-    // Deduct
     const next = current - amount;
+
     const { error: updErr } = await supabase
       .from("profiles")
       .update({ credits: next })

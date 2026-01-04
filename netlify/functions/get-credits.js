@@ -1,3 +1,4 @@
+// netlify/functions/get-credits.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
