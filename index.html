@@ -1488,67 +1488,31 @@ language clients can understand and trust.
 
   </div>
 
-  <!-- =========================================================
-       ✅ STEP 1 + STEP 2: Paddle.js + Pricing Button Checkout
-       ========================================================= -->
+<script>
+  document.querySelectorAll(".pricing-cta").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const plan =
+        btn.dataset.plan ||
+        btn.dataset.buy ||
+        btn.getAttribute("data-plan") ||
+        btn.getAttribute("data-buy");
 
-  <!-- Paddle.js (Billing) -->
-  <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+      const map = {
+        single: "oneoff",
+        oneoff: "oneoff",
+        intelligence: "sub50",
+        sub50: "sub50",
+        impact: "sub100",
+        sub100: "sub100",
+      };
 
-  <script>
-    // If you're testing in sandbox, uncomment this:
-    // Paddle.Environment.set("sandbox");
+      const priceKey = map[plan];
+      if (!priceKey) return;
 
-    // ✅ Paddle Client-side token (NOT your API key)
-    Paddle.Initialize({
-      token: "live_2d6a9cf2ac4193f8a3cbf70f5d8"
+      window.location.href = `/dashboard.html?buy=${encodeURIComponent(priceKey)}`;
     });
-
-    // ✅ Replace these with your real Paddle Price IDs (pri_...)
-    const PRICE_IDS = {
-      single: "pri_01kdhfqjerrm5k955a18gny8ah",
-      intelligence: "pri_01kdhfxfhs3x4yv2rvr5rak91d",
-      impact: "pri_01kdhg2da6kwyhfjada6ege3y3"
-    };
-
-    function openCheckout(planKey) {
-      const priceId = PRICE_IDS[planKey];
-      if (!priceId) {
-        alert("Missing Paddle priceId for plan: " + planKey);
-        return;
-      }
-
-      const successUrl = `${location.origin}/dashboard.html?paid=1&plan=${encodeURIComponent(planKey)}`;
-      const cancelUrl  = `${location.origin}/?cancel=1`;
-
-      try {
-        Paddle.Checkout.open({
-          items: [{ priceId, quantity: 1 }],
-          settings: {
-            displayMode: "overlay",
-            successUrl,
-            cancelUrl
-          },
-          customData: {
-            plan: planKey,
-            source: "homepage_pricing",
-            ts: Date.now()
-          }
-        });
-      } catch (e) {
-        console.error("Paddle checkout error:", e);
-        alert("Checkout failed to open. Check console for details.");
-      }
-    }
-
-    // Bind all pricing buttons
-    document.querySelectorAll(".pricing-cta[data-plan]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const planKey = btn.getAttribute("data-plan");
-        openCheckout(planKey);
-      });
-    });
-  </script>
+  });
+</script>
 
 </body>
 </html>
