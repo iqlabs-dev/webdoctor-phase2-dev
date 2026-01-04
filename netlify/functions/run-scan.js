@@ -964,14 +964,14 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
     return { ok: false, status: 0 };
   }
 }
+
 async function requireUser(event) {
   try {
-  const headers = event.headers || {};
-const authHeader =
-  headers.authorization ||
-  headers.Authorization ||
-  "";
-
+    const headers = event.headers || {};
+    const authHeader =
+      headers.authorization ||
+      headers.Authorization ||
+      "";
 
     if (!authHeader.startsWith("Bearer ")) {
       return {
@@ -1006,6 +1006,7 @@ const authHeader =
     };
   }
 }
+
 async function getAdminFlags() {
   const { data, error } = await supabase
     .from("admin_flags")
@@ -1061,7 +1062,50 @@ function isTrialActive(userFlags) {
   return !!exp && exp.getTime() > Date.now() && remaining > 0;
 }
 
+/**
+ * ONE-OFF CREDIT CONSUMPTION (post-scan)
+ * Decrements user_credits.credits from 1→0 (or n→n-1) AFTER a scan is successfully saved.
+ * Safe no-op if the user_credits row or credits column is missing.
+ */
+async function tryConsumeOneOffCreditAfterScan(user_id) {
+  try {
+    const { data, error } = await supabase
+      .from("user_credits")
+      .select("credits")
+      .eq("user_id", user_id)
+      .maybeSingle();
 
+    if (error) {
+      console.warn("[one-off] read error:", error);
+      return;
+    }
+    if (!data) return;
+
+    const credits = Number(data.credits || 0);
+    if (credits <= 0) return;
+
+    const { data: updated, error: updateErr } = await supabase
+      .from("user_credits")
+      .update({ credits: credits - 1 })
+      .eq("user_id", user_id)
+      .gt("credits", 0)
+      .select("credits")
+      .maybeSingle();
+
+    if (updateErr) {
+      console.warn("[one-off] consume error:", updateErr);
+      return;
+    }
+    if (!updated) {
+      console.warn("[one-off] consume matched 0 rows:", { user_id });
+      return;
+    }
+
+    console.log("[one-off] credits decremented:", { before: credits, after: updated.credits, user_id });
+  } catch (e) {
+    console.warn("[one-off] fatal:", e);
+  }
+}
 
 // ---------------------------------------------
 // Handler
@@ -1081,177 +1125,175 @@ export async function handler(event) {
 
     const url = normaliseUrl(body.url || "");
     const auth = await requireUser(event);
-if (!auth.ok) {
-  return json(auth.status, { success: false, error: auth.error });
-}
+    if (!auth.ok) {
+      return json(auth.status, { success: false, error: auth.error });
+    }
 
-const user_id = auth.user.id;
+    const user_id = auth.user.id;
 
-// --------------------
-// Admin + Access Gate
-// --------------------
-const email = (auth.user?.email || "").toLowerCase();
-const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
+    // --------------------
+    // Admin + Access Gate
+    // --------------------
+    const email = (auth.user?.email || "").toLowerCase();
+    const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
 
-const flags = await getAdminFlags();
+    const flags = await getAdminFlags();
 
-// Global freezes
-if (flags.freeze_all || flags.freeze_scans) {
-  return json(503, {
-    success: false,
-    code: "scans_frozen",
-    error: flags.maintenance_message || "Scanning is temporarily disabled.",
-  });
-}
-
-const uf = await getUserFlags(user_id);
-if (!uf) {
-  return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
-}
-
-// Per-user bans/freeze
-if (!isFounder && uf.is_banned) {
-  return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
-}
-if (!isFounder && uf.is_frozen) {
-  return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
-}
-
-// Invite-only policy: must be Founder OR Paid OR Active Trial
-const paidActive = isPaidActive(uf);
-const trialActive = isTrialActive(uf);
-
-if (!isFounder && !paidActive && !trialActive) {
-  return json(402, {
-    success: false,
-    code: "access_required",
-    error: "This account does not have scanning access. Please subscribe or request an invite trial.",
-  });
-}
-
-// If trial is active, atomically consume 1 scan before doing any costly work
-if (!isFounder && !paidActive && trialActive) {
-  const { data: consume, error: consumeErr } = await supabase.rpc("consume_trial_scan", { p_user_id: user_id });
-
-  if (consumeErr) {
-    console.error("[trial] consume error:", consumeErr);
-    return json(500, { success: false, code: "trial_error", error: "Unable to apply trial usage. Please try again." });
-  }
-
-  const row = Array.isArray(consume) ? consume[0] : consume;
-  if (!row?.allowed) {
-    return json(402, {
-      success: false,
-      code: "trial_expired",
-      error: "Trial limit reached or trial expired. Please subscribe to continue.",
-    });
-  }
-}
-// If paid is active (and trial is not), consume 1 paid credit
-if (!isFounder && paidActive && !trialActive) {
-  // We will detect whether your profiles table keys by `id` or `user_id`
-  // and then update using the correct key. This prevents "no-op" updates.
-  let profile = null;
-  let keyField = null;
-
-  // --- Attempt 1: profiles.id ---
-  {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("id", user_id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("[paid] read error (by id):", error);
-      return json(500, {
+    // Global freezes
+    if (flags.freeze_all || flags.freeze_scans) {
+      return json(503, {
         success: false,
-        code: "paid_read_error",
-        error: "Unable to verify subscription credits. Please try again.",
+        code: "scans_frozen",
+        error: flags.maintenance_message || "Scanning is temporarily disabled.",
       });
     }
 
-    if (data) {
-      profile = data;
-      keyField = "id";
+    const uf = await getUserFlags(user_id);
+    if (!uf) {
+      return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
     }
-  }
 
-  // --- Attempt 2: profiles.user_id (only if Attempt 1 didn't find a row) ---
-  if (!profile) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("user_id", user_id)
-      .maybeSingle();
+    // Per-user bans/freeze
+    if (!isFounder && uf.is_banned) {
+      return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
+    }
+    if (!isFounder && uf.is_frozen) {
+      return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
+    }
 
-    if (error) {
-      console.error("[paid] read error (by user_id):", error);
-      return json(500, {
+    // Invite-only policy: must be Founder OR Paid OR Active Trial
+    const paidActive = isPaidActive(uf);
+    const trialActive = isTrialActive(uf);
+
+    if (!isFounder && !paidActive && !trialActive) {
+      return json(402, {
         success: false,
-        code: "paid_read_error",
-        error: "Unable to verify subscription credits. Please try again.",
+        code: "access_required",
+        error: "This account does not have scanning access. Please subscribe or request an invite trial.",
       });
     }
 
-    if (data) {
-      profile = data;
-      keyField = "user_id";
+    // If trial is active, atomically consume 1 scan before doing any costly work
+    if (!isFounder && !paidActive && trialActive) {
+      const { data: consume, error: consumeErr } = await supabase.rpc("consume_trial_scan", { p_user_id: user_id });
+
+      if (consumeErr) {
+        console.error("[trial] consume error:", consumeErr);
+        return json(500, { success: false, code: "trial_error", error: "Unable to apply trial usage. Please try again." });
+      }
+
+      const row = Array.isArray(consume) ? consume[0] : consume;
+      if (!row?.allowed) {
+        return json(402, {
+          success: false,
+          code: "trial_expired",
+          error: "Trial limit reached or trial expired. Please subscribe to continue.",
+        });
+      }
     }
-  }
 
-  // If we still didn't find a profile row, that’s the real problem.
-  if (!profile || !keyField) {
-    console.error("[paid] no profiles row found for user_id:", user_id);
-    return json(500, {
-      success: false,
-      code: "paid_profile_missing",
-      error: "Billing profile not found for this account. Please contact support.",
-    });
-  }
+    // If paid is active (and trial is not), consume 1 paid credit
+    if (!isFounder && paidActive && !trialActive) {
+      // We will detect whether your profiles table keys by `id` or `user_id`
+      // and then update using the correct key. This prevents "no-op" updates.
+      let profile = null;
+      let keyField = null;
 
-  const credits = Number(profile.credits || 0);
+      // --- Attempt 1: profiles.id ---
+      {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("id", user_id)
+          .maybeSingle();
 
-  if (credits <= 0) {
-    return json(402, {
-      success: false,
-      code: "paid_exhausted",
-      error: "No subscription credits remaining for this billing period.",
-    });
-  }
+        if (error) {
+          console.error("[paid] read error (by id):", error);
+          return json(500, {
+            success: false,
+            code: "paid_read_error",
+            error: "Unable to verify subscription credits. Please try again.",
+          });
+        }
 
-  // Decrement + verify update actually happened
-  const { data: updated, error: updateErr } = await supabase
-    .from("profiles")
-    .update({ credits: credits - 1 })
-    .eq(keyField, user_id)
-    .gt("credits", 0)
-    .select("credits")
-    .maybeSingle();
+        if (data) {
+          profile = data;
+          keyField = "id";
+        }
+      }
 
-  if (updateErr) {
-    console.error("[paid] consume error:", updateErr);
-    return json(500, {
-      success: false,
-      code: "paid_consume_error",
-      error: "Unable to apply subscription usage. Please try again.",
-    });
-  }
+      // --- Attempt 2: profiles.user_id (only if Attempt 1 didn't find a row) ---
+      if (!profile) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("user_id", user_id)
+          .maybeSingle();
 
-  if (!updated) {
-    console.error("[paid] consume error: update matched 0 rows", { keyField, user_id });
-    return json(500, {
-      success: false,
-      code: "paid_consume_error",
-      error: "Unable to apply subscription usage. Please try again.",
-    });
-  }
+        if (error) {
+          console.error("[paid] read error (by user_id):", error);
+          return json(500, {
+            success: false,
+            code: "paid_read_error",
+            error: "Unable to verify subscription credits. Please try again.",
+          });
+        }
 
-  console.log("[paid] credits decremented:", { before: credits, after: updated.credits, keyField, user_id });
-}
+        if (data) {
+          profile = data;
+          keyField = "user_id";
+        }
+      }
 
+      // If we still didn't find a profile row, that’s the real problem.
+      if (!profile || !keyField) {
+        console.error("[paid] no profiles row found for user_id:", user_id);
+        return json(500, {
+          success: false,
+          code: "paid_profile_missing",
+          error: "Billing profile not found for this account. Please contact support.",
+        });
+      }
 
+      const credits = Number(profile.credits || 0);
 
+      if (credits <= 0) {
+        return json(402, {
+          success: false,
+          code: "paid_exhausted",
+          error: "No subscription credits remaining for this billing period.",
+        });
+      }
+
+      // Decrement + verify update actually happened
+      const { data: updated, error: updateErr } = await supabase
+        .from("profiles")
+        .update({ credits: credits - 1 })
+        .eq(keyField, user_id)
+        .gt("credits", 0)
+        .select("credits")
+        .maybeSingle();
+
+      if (updateErr) {
+        console.error("[paid] consume error:", updateErr);
+        return json(500, {
+          success: false,
+          code: "paid_consume_error",
+          error: "Unable to apply subscription usage. Please try again.",
+        });
+      }
+
+      if (!updated) {
+        console.error("[paid] consume error: update matched 0 rows", { keyField, user_id });
+        return json(500, {
+          success: false,
+          code: "paid_consume_error",
+          error: "Unable to apply subscription usage. Please try again.",
+        });
+      }
+
+      console.log("[paid] credits decremented:", { before: credits, after: updated.credits, keyField, user_id });
+    }
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
     const generate_narrative = body.generate_narrative !== false;
@@ -1314,9 +1356,15 @@ if (!isFounder && paidActive && !trialActive) {
       });
     }
 
-    // ---------------------------------------------
+    // ONE-OFF CREDITS: decrement AFTER successful scan save
+    // Only run when NOT using trial or subscription credits (prevents double-decrement).
+    if (!isFounder && !paidActive && !trialActive) {
+      await tryConsumeOneOffCreditAfterScan(user_id);
+    }
+
+    // ---------------
     // STEP 1: Ensure reports row exists + set narrative pending
-    // ---------------------------------------------
+    // ---------------
     const reportsUpsert = await supabase
       .from("reports")
       .upsert(
