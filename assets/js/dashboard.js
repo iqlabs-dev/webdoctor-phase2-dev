@@ -619,21 +619,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   wireHistorySearch();
 
 // Dashboard plan buttons → DIRECT Stripe checkout (Option A)
-const btnInsight = $("btn-plan-insight");           // $49 one-off
-const btnIntelligence = $("btn-plan-intelligence"); // SUB_50 → Intelligence
-const btnImpact = $("btn-plan-impact");             // SUB_100 → Impact
+// Dashboard plan buttons → DIRECT Stripe checkout (Option A)
+function bindCheckout(btn, key) {
+  if (!btn) return;
 
-if (btnInsight) {
-  btnInsight.addEventListener("click", () => startCheckout("oneoff"));
+  btn.addEventListener("click", (e) => {
+    // If the button is actually an <a href="/pricing.html">...</a>
+    // this stops the browser navigating to pricing.
+    e.preventDefault();
+    e.stopPropagation();
+    startCheckout(key);
+  });
 }
 
-if (btnIntelligence) {
-  btnIntelligence.addEventListener("click", () => startCheckout("sub50"));
-}
+bindCheckout($("btn-plan-insight"), "oneoff");      // $49
+bindCheckout($("btn-plan-intelligence"), "sub50");  // Intelligence
+bindCheckout($("btn-plan-impact"), "sub100");       // Impact
 
-if (btnImpact) {
-  btnImpact.addEventListener("click", () => startCheckout("sub100"));
-}
 
 
   const { data } = await supabase.auth.getUser();
