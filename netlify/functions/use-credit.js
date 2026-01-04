@@ -1,118 +1,53 @@
-// netlify/functions/use-credit.js
-
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { persistSession: false } }
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function handler(event) {
-  // only allow POST
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: "Method not allowed. Use POST." }),
-    };
-  }
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(obj),
+  };
+}
 
+export const handler = async (event) => {
   try {
-    const { email, amount } = JSON.parse(event.body || "{}");
+    if (event.httpMethod !== "POST") return json(405, { ok: false, error: "Method not allowed" });
 
-    if (!email) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "email is required" }),
-      };
-    }
+    const body = JSON.parse(event.body || "{}");
+    const user_id = body.user_id || "";
+    const amount = Number(body.amount || 1);
 
-    const useAmount = Number.isFinite(amount) ? Number(amount) : 1;
-    if (useAmount <= 0) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "amount must be positive" }),
-      };
-    }
+    if (!user_id) return json(400, { ok: false, error: "Missing user_id" });
+    if (!Number.isFinite(amount) || amount <= 0) return json(400, { ok: false, error: "Invalid amount" });
 
-    const normalizedEmail = email.toLowerCase();
-
-    // get user
-    const { data: user, error: userErr } = await supabase
-      .from("users")
-      .select("id, credits")
-      .eq("email", normalizedEmail)
+    // Read current credits
+    const { data: profile, error: readErr } = await supabase
+      .from("profiles")
+      .select("user_id,credits")
+      .eq("user_id", user_id)
       .maybeSingle();
 
-    if (userErr) {
-      console.error("Supabase fetch error:", userErr);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "db error" }),
-      };
-    }
+    if (readErr) throw readErr;
+    if (!profile) return json(404, { ok: false, error: "Profile not found" });
 
-    if (!user) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          email: normalizedEmail,
-          success: false,
-          message: "No credits for this email",
-        }),
-      };
-    }
+    const current = Number(profile.credits || 0);
+    if (current < amount) return json(200, { ok: false, error: "No credits remaining", credits: current });
 
-    const currentCredits = user.credits || 0;
-    if (currentCredits < useAmount) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          email: normalizedEmail,
-          success: false,
-          message: "Not enough credits",
-          credits: currentCredits,
-        }),
-      };
-    }
+    // Deduct
+    const next = current - amount;
+    const { error: updErr } = await supabase
+      .from("profiles")
+      .update({ credits: next })
+      .eq("user_id", user_id);
 
-    const newCredits = currentCredits - useAmount;
+    if (updErr) throw updErr;
 
-    // update user
-    const { error: updateErr } = await supabase
-      .from("users")
-      .update({ credits: newCredits })
-      .eq("id", user.id);
-
-    if (updateErr) {
-      console.error("Supabase update error:", updateErr);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "db update error" }),
-      };
-    }
-
-    // log the deduction
-    await supabase.from("transactions").insert({
-      user_email: normalizedEmail,
-      stripe_session_id: null,
-      credits_purchased: -useAmount,
-    });
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        email: normalizedEmail,
-        success: true,
-        message: "Credit(s) used",
-        credits: newCredits,
-      }),
-    };
+    return json(200, { ok: true, credits: next });
   } catch (err) {
-    console.error("use-credit error:", err);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "server error" }),
-    };
+    return json(500, { ok: false, error: String(err?.message || err) });
   }
-}
+};
