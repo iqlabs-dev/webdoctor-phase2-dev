@@ -251,7 +251,8 @@ async function refreshProfile() {
     try {
       const p1 = await supabase
         .from("profiles")
-        .select("user_id,email,credits,trial_start,trial_end,subscription_status,plan,billing_period_end,stripe_customer_id,stripe_subscription_id")
+        .select("user_id,email,credits,trial_start,trial_end,subscription_status,plan,stripe_customer_id,stripe_subscription_id")
+
         .eq("user_id", currentUserId)
         .maybeSingle();
 
@@ -278,7 +279,7 @@ async function refreshProfile() {
       credits: (pRow && Number.isFinite(pRow.credits)) ? pRow.credits : 0,
       subscription_status: (pRow && pRow.subscription_status) ? pRow.subscription_status : "",
       plan: (pRow && pRow.plan) ? pRow.plan : "",
-      billing_period_end: (pRow && pRow.billing_period_end) ? pRow.billing_period_end : null,
+      
 
       // trial
       trial_start: (pRow && pRow.trial_start) ? pRow.trial_start : null,
