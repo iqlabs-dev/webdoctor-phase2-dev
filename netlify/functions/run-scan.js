@@ -1149,26 +1149,68 @@ if (!isFounder && !paidActive && trialActive) {
 }
 // If paid is active (and trial is not), consume 1 paid credit
 if (!isFounder && paidActive && !trialActive) {
-  // NOTE: In your Supabase screenshot, `profiles` uses `id` (uuid) as the user key.
-  // Your old block queried `.eq("user_id", user_id)` which can match ZERO rows and not throw.
-  // This version uses `id = auth.user.id` and verifies the update actually happened.
+  // We will detect whether your profiles table keys by `id` or `user_id`
+  // and then update using the correct key. This prevents "no-op" updates.
+  let profile = null;
+  let keyField = null;
 
-  const { data: profile, error: profErr } = await supabase
-    .from("profiles")
-    .select("credits")
-    .eq("id", user_id)
-    .single();
+  // --- Attempt 1: profiles.id ---
+  {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("id", user_id)
+      .maybeSingle();
 
-  if (profErr) {
-    console.error("[paid] read error:", profErr);
+    if (error) {
+      console.error("[paid] read error (by id):", error);
+      return json(500, {
+        success: false,
+        code: "paid_read_error",
+        error: "Unable to verify subscription credits. Please try again.",
+      });
+    }
+
+    if (data) {
+      profile = data;
+      keyField = "id";
+    }
+  }
+
+  // --- Attempt 2: profiles.user_id (only if Attempt 1 didn't find a row) ---
+  if (!profile) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[paid] read error (by user_id):", error);
+      return json(500, {
+        success: false,
+        code: "paid_read_error",
+        error: "Unable to verify subscription credits. Please try again.",
+      });
+    }
+
+    if (data) {
+      profile = data;
+      keyField = "user_id";
+    }
+  }
+
+  // If we still didn't find a profile row, that’s the real problem.
+  if (!profile || !keyField) {
+    console.error("[paid] no profiles row found for user_id:", user_id);
     return json(500, {
       success: false,
-      code: "paid_read_error",
-      error: "Unable to verify subscription credits. Please try again.",
+      code: "paid_profile_missing",
+      error: "Billing profile not found for this account. Please contact support.",
     });
   }
 
-  const credits = Number((profile && profile.credits) || 0);
+  const credits = Number(profile.credits || 0);
 
   if (credits <= 0) {
     return json(402, {
@@ -1178,14 +1220,14 @@ if (!isFounder && paidActive && !trialActive) {
     });
   }
 
-  // Atomic-ish consume: only update if credits > 0, and confirm a row was updated.
+  // Decrement + verify update actually happened
   const { data: updated, error: updateErr } = await supabase
     .from("profiles")
     .update({ credits: credits - 1 })
-    .eq("id", user_id)
+    .eq(keyField, user_id)
     .gt("credits", 0)
     .select("credits")
-    .single();
+    .maybeSingle();
 
   if (updateErr) {
     console.error("[paid] consume error:", updateErr);
@@ -1196,16 +1238,18 @@ if (!isFounder && paidActive && !trialActive) {
     });
   }
 
-  // If zero rows matched, Supabase can return null without throwing in some cases.
   if (!updated) {
-    console.error("[paid] consume error: no row updated (id mismatch or credits already 0)");
+    console.error("[paid] consume error: update matched 0 rows", { keyField, user_id });
     return json(500, {
       success: false,
       code: "paid_consume_error",
       error: "Unable to apply subscription usage. Please try again.",
     });
   }
+
+  console.log("[paid] credits decremented:", { before: credits, after: updated.credits, keyField, user_id });
 }
+
 
 
 
