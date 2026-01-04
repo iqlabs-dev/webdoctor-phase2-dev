@@ -19,21 +19,27 @@ function json(statusCode, obj) {
   };
 }
 
+/**
+ * Your mapping:
+ * SUB_50  = Intelligence
+ * SUB_100 = Impact
+ * ONEOFF  = Single report ($49)
+ */
 function mapPriceToPlan(priceId) {
   const sub50 = process.env.STRIPE_PRICE_SUB_50;
   const sub100 = process.env.STRIPE_PRICE_SUB_100;
   const oneoff = process.env.STRIPE_PRICE_ONEOFF_SCAN;
 
-  if (priceId === sub50) return { plan: "sub50", credits: 50 };
-  if (priceId === sub100) return { plan: "sub100", credits: 100 };
-  if (priceId === oneoff) return { plan: "oneoff", credits: 1 };
+  if (priceId === sub50) return { plan: "intelligence", credits: 50, kind: "subscription" };
+  if (priceId === sub100) return { plan: "impact", credits: 100, kind: "subscription" };
+  if (priceId === oneoff) return { plan: "oneoff", credits: 1, kind: "oneoff" };
   return null;
 }
 
 async function findProfileByUserId(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,stripe_customer_id,stripe_subscription_id")
+    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -44,7 +50,7 @@ async function findProfileByUserId(userId) {
 async function findProfileByStripeCustomer(customerId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,stripe_customer_id,stripe_subscription_id")
+    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
@@ -55,12 +61,51 @@ async function findProfileByStripeCustomer(customerId) {
 async function findProfileByStripeSubscription(subscriptionId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,stripe_customer_id,stripe_subscription_id")
+    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
     .eq("stripe_subscription_id", subscriptionId)
     .maybeSingle();
 
   if (error) throw error;
   return data;
+}
+
+/**
+ * Defensive update:
+ * If your DB doesn't have billing_period_end yet (or any future optional column),
+ * Supabase will return Postgres 42703 "column does not exist".
+ * We retry without the optional fields so Stripe webhooks never break the loop.
+ */
+function isMissingColumnError(err) {
+  const msg = (err && (err.message || err.details)) ? String(err.message || err.details) : "";
+  const code = err && err.code ? String(err.code) : "";
+  return code === "42703" || msg.toLowerCase().includes("does not exist");
+}
+
+async function safeUpdateProfile(userId, patch) {
+  // First attempt (full patch)
+  let res = await supabase.from("profiles").update(patch).eq("user_id", userId);
+  if (!res.error) return res;
+
+  // If a column is missing, drop optional fields and retry.
+  if (isMissingColumnError(res.error)) {
+    const retryPatch = { ...patch };
+    // optional fields we can live without if schema isn't present everywhere
+    delete retryPatch.billing_period_end;
+
+    res = await supabase.from("profiles").update(retryPatch).eq("user_id", userId);
+    return res;
+  }
+
+  return res;
+}
+
+function unixToIsoOrNull(unixSeconds) {
+  if (!unixSeconds) return null;
+  try {
+    return new Date(unixSeconds * 1000).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 export const handler = async (event) => {
@@ -91,65 +136,78 @@ export const handler = async (event) => {
 
       const customerId = session.customer || null;
       const subscriptionId = session.subscription || null;
-     const priceKey =
-  session?.metadata?.priceKey ||
-  session?.metadata?.price_key ||
-  null;
 
+      const priceKey =
+        session?.metadata?.priceKey ||
+        session?.metadata?.price_key ||
+        null;
 
       if (!userId) return json(200, { ok: true, note: "No user_id" });
 
       const profile = await findProfileByUserId(userId);
       if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
 
-      // Save stripe IDs (idempotent)
-      const updates = {};
-      if (customerId) updates.stripe_customer_id = customerId;
-      if (subscriptionId) updates.stripe_subscription_id = subscriptionId;
+      // Always store Stripe IDs (safe)
+      const idPatch = {};
+      if (customerId) idPatch.stripe_customer_id = customerId;
+      if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
 
-      if (Object.keys(updates).length) {
-        const { error: upErr } = await supabase.from("profiles").update(updates).eq("user_id", userId);
-        if (upErr) throw upErr;
+      if (Object.keys(idPatch).length) {
+        const up = await safeUpdateProfile(userId, idPatch);
+        if (up.error) throw up.error;
       }
 
       // One-off: increment by 1 (never expires)
       if (mode === "payment") {
         if (priceKey === "oneoff") {
-          // Prefer RPC if you have it; falls back safely if not.
           const rpc = await supabase.rpc("increment_credits", { p_user_id: userId, p_amount: 1 });
           if (rpc.error) {
-            // fallback: direct update
-            const { error: updErr } = await supabase
-              .from("profiles")
-              .update({ credits: (profile.credits || 0) + 1, plan: profile.plan || "free" })
-              .eq("user_id", userId);
-            if (updErr) throw updErr;
+            const nextCredits = (profile.credits || 0) + 1;
+            const up = await safeUpdateProfile(userId, {
+              credits: nextCredits,
+              // keep plan as-is; one-off credits don't force subscription plan
+              plan: profile.plan || null,
+            });
+            if (up.error) throw up.error;
           }
         }
         return json(200, { ok: true });
       }
 
-      // Subscription: set plan + credits immediately (invoice.paid keeps monthly reset correct)
+      // Subscription: set plan + credits + status immediately
+      // (invoice.paid will handle monthly reset again)
       if (mode === "subscription" && subscriptionId) {
         let planPayload = null;
 
-        if (priceKey === "sub50") planPayload = { plan: "sub50", credits: 50 };
-        if (priceKey === "sub100") planPayload = { plan: "sub100", credits: 100 };
+        if (priceKey === "sub50") planPayload = { plan: "intelligence", credits: 50 };
+        if (priceKey === "sub100") planPayload = { plan: "impact", credits: 100 };
 
         // Fallback: pull price from subscription if metadata missing
+        let subObj = null;
         if (!planPayload) {
-          const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
-          const priceId = sub?.items?.data?.[0]?.price?.id || null;
+          subObj = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
+          const priceId = subObj?.items?.data?.[0]?.price?.id || null;
           const mapped = priceId ? mapPriceToPlan(priceId) : null;
-          if (mapped && (mapped.plan === "sub50" || mapped.plan === "sub100")) planPayload = mapped;
+          if (mapped && mapped.kind === "subscription") {
+            planPayload = { plan: mapped.plan, credits: mapped.credits };
+          }
+        } else {
+          // still retrieve to get current_period_end for UI display
+          subObj = await stripe.subscriptions.retrieve(subscriptionId);
         }
 
+        const periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
+
         if (planPayload) {
-          const { error: planErr } = await supabase
-            .from("profiles")
-            .update({ plan: planPayload.plan, credits: planPayload.credits })
-            .eq("user_id", userId);
-          if (planErr) throw planErr;
+          const up = await safeUpdateProfile(userId, {
+            plan: planPayload.plan,
+            credits: planPayload.credits,
+            subscription_status: "active",
+            billing_period_end: periodEndIso,
+            stripe_customer_id: customerId || profile.stripe_customer_id || null,
+            stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
+          });
+          if (up.error) throw up.error;
         }
 
         return json(200, { ok: true });
@@ -173,9 +231,7 @@ export const handler = async (event) => {
       if (!mapped) return json(200, { ok: true, note: "invoice.paid: unmapped price" });
 
       // Only reset monthly for subscription plans
-      if (mapped.plan !== "sub50" && mapped.plan !== "sub100") {
-        return json(200, { ok: true });
-      }
+      if (mapped.kind !== "subscription") return json(200, { ok: true });
 
       // Find profile by subscription then customer
       let profile = null;
@@ -183,17 +239,27 @@ export const handler = async (event) => {
       if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
       if (!profile) return json(200, { ok: true, note: "invoice.paid: profile not found" });
 
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({
-          plan: mapped.plan,
-          credits: mapped.credits, // monthly reset, no rollover
-          stripe_customer_id: customerId || profile.stripe_customer_id || null,
-          stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
-        })
-        .eq("user_id", profile.user_id);
+      // Grab current period end for UI (optional)
+      let periodEndIso = null;
+      if (subscriptionId) {
+        try {
+          const subObj = await stripe.subscriptions.retrieve(subscriptionId);
+          periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
+        } catch (_) {
+          // non-fatal
+        }
+      }
 
-      if (updErr) throw updErr;
+      const up = await safeUpdateProfile(profile.user_id, {
+        plan: mapped.plan,
+        credits: mapped.credits, // monthly reset, no rollover
+        subscription_status: "active",
+        billing_period_end: periodEndIso,
+        stripe_customer_id: customerId || profile.stripe_customer_id || null,
+        stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
+      });
+
+      if (up.error) throw up.error;
 
       return json(200, { ok: true });
     }
@@ -208,11 +274,13 @@ export const handler = async (event) => {
       if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
 
       if (profile) {
-        const { error: updErr } = await supabase
-          .from("profiles")
-          .update({ plan: "free", stripe_subscription_id: null })
-          .eq("user_id", profile.user_id);
-        if (updErr) throw updErr;
+        const up = await safeUpdateProfile(profile.user_id, {
+          plan: "free",
+          subscription_status: "canceled",
+          stripe_subscription_id: null,
+          billing_period_end: null,
+        });
+        if (up.error) throw up.error;
       }
 
       return json(200, { ok: true });
