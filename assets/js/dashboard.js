@@ -106,11 +106,13 @@ async function startCheckout(priceKey) {
     const res = await fetch("/.netlify/functions/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        priceKey,
-        user_id: window.currentUserId,
-        email: window.currentUserEmail,
-      }),
+   body: JSON.stringify({
+  priceKey,
+  user_id: window.currentUserId,
+  email: window.currentUserEmail,
+  url: window.location.origin, // ✅ satisfies create-checkout-session.js validation
+}),
+
     });
 
     const data = await res.json().catch(() => ({}));
