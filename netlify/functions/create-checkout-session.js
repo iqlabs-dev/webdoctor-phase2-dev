@@ -1,128 +1,50 @@
-// netlify/functions/create-checkout-session.js
-import Stripe from 'stripe';
+import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
+});
 
-const SITE_URL =
-  process.env.SITE_URL || 'https://deluxe-sherbet-c8ac68.netlify.app';
-
-// Allow both new iQWEB plans and (optionally) legacy ones
-const ALLOWED_PRICE_IDS = new Set([
-  // current iQWEB subscription plans (LIVE env vars)
-  process.env.PRICE_ID_INSIGHT_LIVE,
-  process.env.PRICE_ID_INTELLIGENCE_LIVE,
-  process.env.PRICE_ID_IMPACT_LIVE,
-
-  // legacy WebDoctor prices if you still use them anywhere
-  process.env.PRICE_ID_SCAN,
-  process.env.PRICE_ID_DIAGNOSE,
-  process.env.PRICE_ID_REVIVE,
-]);
-
-export default async (request, context) => {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
-  }
-
-  let body;
+export const handler = async (event) => {
   try {
-    body = await request.json();
-  } catch (err) {
-    console.error('JSON parse error in create-checkout-session:', err);
-    return new Response(
-      JSON.stringify({ error: 'Invalid JSON body' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const {
-    priceId,
-    email,
-    userId,          // from dashboard
-    selectedPlan,    // "insight" | "intelligence" | "impact"
-    plan,            // fallback if frontend still sends "plan"
-    type,            // "subscription" | "credits"
-    pack,            // "10" | "25" | ...
-  } = body || {};
-
-  if (!priceId || !email) {
-    return new Response(
-      JSON.stringify({ error: 'Missing priceId or email' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  if (!ALLOWED_PRICE_IDS.has(priceId)) {
-    console.warn('Attempt to use disallowed priceId:', priceId);
-    return new Response(
-      JSON.stringify({ error: 'Invalid priceId' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // default to subscription if not specified
-  const purchaseType = type || 'subscription';
-
-  // normalise plan name so webhook always sees something sensible
-  const planName = selectedPlan || plan || '';
-
-  try {
-    let session;
-
-    if (purchaseType === 'subscription') {
-      // MONTHLY PLAN CHECKOUT
-      session = await stripe.checkout.sessions.create({
-        mode: 'subscription',
-        payment_method_types: ['card'],
-        customer_email: email,
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-
-        // 🔑 This is what the webhook will read
-        metadata: {
-          user_id: userId || '',
-          type: 'subscription',
-          plan: planName,
-        },
-
-        success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}&billing=success`,
-        cancel_url: `${SITE_URL}/#pricing`,
-      });
-    } else {
-      // ONE-OFF CREDIT PACKS
-      session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        payment_method_types: ['card'],
-        customer_email: email,
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          user_id: userId || '',
-          type: 'credits',
-          pack: pack || '',
-        },
-        success_url: `${SITE_URL}/dashboard.html?session_id={CHECKOUT_SESSION_ID}&billing=success`,
-        cancel_url: `${SITE_URL}/dashboard.html`,
-      });
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    return new Response(
-      JSON.stringify({ url: session.url }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
+
+    const PRICE_MAP = {
+      oneoff: process.env.STRIPE_PRICE_ONEOFF_SCAN,
+      sub50: process.env.STRIPE_PRICE_SUB_50,
+      sub100: process.env.STRIPE_PRICE_SUB_100,
+    };
+
+    const priceId = PRICE_MAP[priceKey];
+    if (!priceId) {
+      return { statusCode: 400, body: "Invalid price key" };
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: priceKey === "oneoff" ? "payment" : "subscription",
+      payment_method_types: ["card"],
+      line_items: [{ price: priceId, quantity: 1 }],
+      customer_email: email,
+      success_url: `${process.env.SITE_URL}/dashboard.html?checkout=success`,
+      cancel_url: `${process.env.SITE_URL}/cancelled.html`,
+      metadata: {
+        user_id,
+        price_key: priceKey,
+      },
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ url: session.url }),
+    };
   } catch (err) {
-    console.error('Stripe checkout error:', err);
-    return new Response(
-      JSON.stringify({ error: 'Stripe error' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    console.error("checkout error", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Checkout failed" }),
+    };
   }
 };
