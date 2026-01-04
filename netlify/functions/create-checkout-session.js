@@ -20,8 +20,6 @@ function cleanSiteUrl(url) {
 }
 
 function isLikelyLiveSite(siteUrl) {
-  // Treat your production domain(s) as "live"
-  // Add any others you use for prod.
   return /(^https:\/\/iqweb\.ai$)|(^https:\/\/www\.iqweb\.ai$)/i.test(siteUrl);
 }
 
@@ -31,7 +29,9 @@ export const handler = async (event) => {
       return json(405, { error: "Method Not Allowed" });
     }
 
-    const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
+    // Parse body ONCE
+    const body = JSON.parse(event.body || "{}");
+    const { priceKey, user_id, email } = body;
 
     if (!priceKey || typeof priceKey !== "string") {
       return json(400, { error: "Missing priceKey" });
@@ -56,8 +56,7 @@ export const handler = async (event) => {
 
     const site = cleanSiteUrl(process.env.SITE_URL);
 
-    // ---- Safety guard: prevent test key on live site (your exact error) ----
-    // If you're on prod domain but STRIPE_KEY is test-mode, fail fast with clarity.
+    // ---- Safety guard: prevent test key on live site ----
     if (isLikelyLiveSite(site) && STRIPE_KEY.startsWith("sk_test_")) {
       return json(500, {
         error: "Stripe misconfigured: TEST secret key is set on LIVE site.",
@@ -65,10 +64,20 @@ export const handler = async (event) => {
       });
     }
 
-    // Optional: If you ever run a staging site, you can also guard the opposite:
-    // if (!isLikelyLiveSite(site) && STRIPE_KEY.startsWith("sk_live_")) { ... }
-
     const mode = priceKey === "oneoff" ? "payment" : "subscription";
+
+    // Debug logs
+    console.log("ENV SITE_URL raw =", JSON.stringify(process.env.SITE_URL));
+    console.log("ENV URL (event.body) =", JSON.stringify(body.url));
+    console.log("CLEAN site =", JSON.stringify(site));
+
+    const successUrl = `${site}/dashboard.html?checkout=success&plan=${encodeURIComponent(
+      priceKey
+    )}&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${site}/cancelled.html`;
+
+    console.log("success_url =", successUrl);
+    console.log("cancel_url  =", cancelUrl);
 
     const session = await stripe.checkout.sessions.create({
       mode,
@@ -81,18 +90,15 @@ export const handler = async (event) => {
       // IMPORTANT: makes webhook mapping deterministic
       client_reference_id: user_id,
 
-      // Redirects
-      success_url: `${site}/dashboard.html?checkout=success&plan=${encodeURIComponent(
-        priceKey
-      )}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${site}/cancelled.html`,
+      // Redirects (USE the vars)
+      success_url: successUrl,
+      cancel_url: cancelUrl,
 
       // Metadata (keep both keys for compatibility)
       metadata: {
         user_id,
         priceKey,
         price_key: priceKey,
-        // helpful for debugging
         site,
         mode,
       },
@@ -102,7 +108,6 @@ export const handler = async (event) => {
   } catch (err) {
     console.error("checkout error", err);
 
-    // Bubble up Stripe's message (safe + useful) but not full internals
     const msg =
       (err && err.raw && err.raw.message) ||
       (err && err.message) ||
