@@ -622,7 +622,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // Dashboard plan buttons → DIRECT Stripe checkout (Option A)
 // Dashboard plan buttons → DIRECT Stripe checkout (Option A)
-function bindCheckout(btn, key) {
+
+  const { data } = await supabase.auth.getUser();
+  if (!data || !data.user) {
+    window.location.href = "/login.html";
+    return;
+  }
+
+  currentUserId = data.user.id;
+  window.currentUserId = currentUserId;
+  window.currentUserEmail = data.user.email || null;
+
+  setUserUI(window.currentUserEmail);
+
+  function bindCheckout(btn, key) {
   if (!btn) return;
 
   btn.addEventListener("click", (e) => {
@@ -637,20 +650,6 @@ function bindCheckout(btn, key) {
 bindCheckout($("btn-plan-insight"), "oneoff");      // $49
 bindCheckout($("btn-plan-intelligence"), "sub50");  // Intelligence
 bindCheckout($("btn-plan-impact"), "sub100");       // Impact
-
-
-
-  const { data } = await supabase.auth.getUser();
-  if (!data || !data.user) {
-    window.location.href = "/login.html";
-    return;
-  }
-
-  currentUserId = data.user.id;
-  window.currentUserId = currentUserId;
-  window.currentUserEmail = data.user.email || null;
-
-  setUserUI(window.currentUserEmail);
 
   await refreshProfile();
   await loadScanHistory();
