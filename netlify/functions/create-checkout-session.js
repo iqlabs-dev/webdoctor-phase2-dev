@@ -21,6 +21,16 @@ export const handler = async (event) => {
       return json(405, { error: "Method not allowed" });
     }
 
+    // -------------------------------------------------
+    // 🔒 HARD PAYMENT KILL SWITCH (SAFE MODE)
+    // -------------------------------------------------
+    if (process.env.PAYMENTS_DISABLED === "1") {
+      return json(403, {
+        error: "Payments are temporarily disabled. Please try again later.",
+        code: "payments_disabled",
+      });
+    }
+
     const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
 
     if (!priceKey) return json(400, { error: "Missing priceKey" });
@@ -38,8 +48,7 @@ export const handler = async (event) => {
       return json(400, { error: "Invalid priceKey", priceKey });
     }
 
-    // ✅ THIS IS THE CRITICAL FIX
-    // Derive base URL from the request itself
+    // Base URL derived from request (works for prod + previews)
     const origin =
       event.headers.origin ||
       `https://${event.headers.host}`;
