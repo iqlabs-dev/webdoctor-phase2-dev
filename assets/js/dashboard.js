@@ -4,14 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v3.7 — split trial + paid credits (Paddle-ready)");
-
-// ------- PLAN → PRICE MAPPING (legacy; safe to keep) -------
-const PLAN_PRICE_IDS = {
-  insight: "price_1SY1olHrtPY0HwDpXIy1WPH7",
-  intelligence: "price_1SY1pdHrtPY0HwDpJP5hYLF2",
-  impact: "price_1SY1qJHrtPY0HwDpV4GkMs0H",
-};
+console.log("DASHBOARD JS v4.0 — dashboard is NOT billing (pricing-only checkout)");
 
 let currentUserId = null;
 
@@ -26,13 +19,11 @@ window.currentUserEmail = null;
 const $ = (id) => document.getElementById(id);
 
 function looksLikeReportId(v) {
-  return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(v.trim());
+  return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(String(v || "").trim());
 }
 
 /**
  * Latest Scan → View report
- * Same tab (focused workflow)
- * ✅ NO CHANGE (OSD stays clean)
  */
 function goToReport(reportId) {
   if (!looksLikeReportId(reportId)) {
@@ -47,9 +38,7 @@ function goToReport(reportId) {
 }
 
 /**
- * Scan History → View+PDF
- * New tab (keeps dashboard context)
- * Opens report with from=history so report page can swap Refresh→Download PDF
+ * Scan History → View+PDF (new tab)
  */
 function goToReportFromHistory(reportId) {
   if (!looksLikeReportId(reportId)) {
@@ -80,61 +69,9 @@ function setUserUI(email) {
 function showViewReportCTA() {
   const statusEl = $("trial-info");
   if (!statusEl) return;
-
   statusEl.textContent = "✅ Scan complete.";
 }
 
-// -----------------------------
-// BILLING HELPERS (legacy; safe)
-// -----------------------------
-async function startSubscriptionCheckout(planKey) {
-  const statusEl = $("trial-info");
-
-  if (!currentUserId || !window.currentUserEmail) {
-    if (statusEl) statusEl.textContent = "No user detected. Please log in again.";
-    return;
-  }
-
-  const priceId = PLAN_PRICE_IDS[planKey];
-  if (!priceId) {
-    if (statusEl) statusEl.textContent = "Invalid plan selected. Please refresh and try again.";
-    return;
-  }
-
-  try {
-    if (statusEl) statusEl.textContent = "Opening secure checkout…";
-
-    const res = await fetch("/.netlify/functions/create-checkout-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        priceId,
-        email: window.currentUserEmail,
-        userId: currentUserId,
-        type: "subscription",
-        selectedPlan: planKey,
-      }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.url) {
-      console.error("Checkout error:", data);
-      if (statusEl) statusEl.textContent = "Unable to start checkout. Please try again.";
-      return;
-    }
-    window.location.href = data.url;
-  } catch (err) {
-    console.error("Checkout failed:", err);
-    if (statusEl) statusEl.textContent = "Checkout failed. Please try again.";
-  }
-}
-
-// -----------------------------
-// USAGE UI (Paddle-ready split credits)
-// Trial: user_flags.trial_scans_remaining + trial_expires_at
-// Paid : profiles.credits + billing_period_end
-// Total shown = trial + paid (no rollover naturally enforced by billing_period_end)
-// -----------------------------
 function isFounderEmail(email) {
   return String(email || "").trim().toLowerCase() === "david.esther@iqlabs.co.nz";
 }
@@ -158,6 +95,45 @@ function fmtShortDate(d) {
   }
 }
 
+function goToPricing() {
+  window.location.href = "/pricing.html";
+}
+
+/**
+ * Show "No plan active" prompt (standard SaaS pattern)
+ */
+function renderNoPlanPrompt(show) {
+  // If you already have a banner area, reuse it:
+  const banner = $("subscription-banner");
+  if (!banner) return;
+
+  if (!show) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+
+  banner.style.display = "block";
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:800;">No plan active</div>
+        <div style="opacity:.85;">Select a plan to add scan credits and unlock ongoing use.</div>
+      </div>
+      <button id="btn-select-plan" class="btn-primary" type="button">Select a plan</button>
+    </div>
+  `;
+
+  const btn = $("btn-select-plan");
+  if (btn) btn.addEventListener("click", goToPricing);
+}
+
+/**
+ * Access / credits model:
+ * - Trial users: credits are valid only until trial_end
+ * - Paid users: credits are valid until billing_period_end (if present), otherwise treated as available
+ * - Founder: always enabled
+ */
 function computeAccess(profile, email) {
   const now = Date.now();
   const founder = isFounderEmail(email);
@@ -165,36 +141,44 @@ function computeAccess(profile, email) {
   const frozen = !!(profile && profile.is_frozen);
   const banned = !!(profile && profile.is_banned);
 
-  // TRIAL
-  const trialExp = toDateOrNull(profile && profile.trial_expires_at);
-  const trialWindowActive = !!trialExp && trialExp.getTime() > now;
-  const trialRemainingRaw = Number(profile && profile.trial_scans_remaining ? profile.trial_scans_remaining : 0);
-  const trialRemaining = trialWindowActive && trialRemainingRaw > 0 ? trialRemainingRaw : 0;
+  const creditsRaw = Number(profile && profile.credits != null ? profile.credits : 0);
+  const credits = Number.isFinite(creditsRaw) ? creditsRaw : 0;
 
-  // PAID (subscription month window)
+  const subscriptionStatus = String(profile && profile.subscription_status ? profile.subscription_status : "").toLowerCase();
+
+  // Trial window
+  const trialEnd = toDateOrNull(profile && (profile.trial_end || profile.trial_expires_at));
+  const trialActive = subscriptionStatus === "trial" && !!trialEnd && trialEnd.getTime() > now;
+
+  // Paid window (if you have billing_period_end)
   const paidEnd = toDateOrNull(profile && profile.billing_period_end);
-  const paidWindowActive = !!paidEnd && paidEnd.getTime() > now;
-  const paidCreditsRaw = Number(profile && profile.paid_credits ? profile.paid_credits : 0);
-  const paidRemaining = paidWindowActive && paidCreditsRaw > 0 ? paidCreditsRaw : 0;
+  const paidWindowActive = !!paidEnd ? paidEnd.getTime() > now : true;
 
-  const total = trialRemaining + paidRemaining;
-  const canScan = founder || total > 0;
+  let remaining = credits;
+
+  // If trial expired, treat remaining as 0
+  if (subscriptionStatus === "trial" && !trialActive) {
+    remaining = 0;
+  }
+
+  // If paid window expired (and you are using a period end), treat as 0
+  if (subscriptionStatus !== "trial" && paidEnd && !paidWindowActive) {
+    remaining = 0;
+  }
+
+  const canScan = founder || remaining > 0;
 
   return {
     founder,
     frozen,
     banned,
     canScan,
-
-    trialRemaining,
-    trialExp,
-    trialWindowActive,
-
-    paidRemaining,
+    remaining,
+    subscriptionStatus,
+    trialEnd,
+    trialActive,
     paidEnd,
     paidWindowActive,
-
-    total,
   };
 }
 
@@ -224,27 +208,30 @@ function updateUsageUI(profile) {
     return;
   }
 
+  // Scans remaining number
+  if (scansRemainingEl) {
+    scansRemainingEl.textContent = access.founder ? "999" : String(access.total);
+  }
+
   // Enable/disable scan button based on total available credits
   if (access.canScan) {
+    // Has credits (or founder)
     if (banner) banner.style.display = "none";
     if (runScanBtn) {
       runScanBtn.disabled = false;
       runScanBtn.title = "";
     }
   } else {
+    // No credits: show plan prompt + disable scan
     if (banner) {
       banner.style.display = "block";
-      banner.textContent = "Scanning disabled. No scans remaining on this account.";
+      // IMPORTANT: keep the HTML you put in dashboard.html (buttons)
+      // so do NOT overwrite banner.innerHTML here.
     }
     if (runScanBtn) {
       runScanBtn.disabled = true;
       runScanBtn.title = "No scans remaining on this account.";
     }
-  }
-
-  // Main count displayed in the dashboard
-  if (scansRemainingEl) {
-    scansRemainingEl.textContent = access.founder ? "999" : String(access.total);
   }
 
   // Optional: keep the info line useful (shows split)
@@ -266,69 +253,116 @@ function updateUsageUI(profile) {
   }
 }
 
+  const runScanBtn = $("run-scan");
+  const scansRemainingEl = $("wd-plan-scans-remaining");
+  const infoEl = $("trial-info");
+
+  const access = computeAccess(profile, window.currentUserEmail);
+
+  // Hard blocks
+  if (!access.founder && (access.banned || access.frozen)) {
+    renderNoPlanPrompt(false);
+
+    if (runScanBtn) {
+      runScanBtn.disabled = true;
+      runScanBtn.title = access.banned ? "Account access disabled." : "Account temporarily frozen.";
+    }
+    if (scansRemainingEl) scansRemainingEl.textContent = "0";
+    if (infoEl) infoEl.textContent = access.banned ? "Account access disabled." : "Account temporarily frozen.";
+    return;
+  }
+
+  // Credits display
+  if (scansRemainingEl) {
+    scansRemainingEl.textContent = access.founder ? "999" : String(access.remaining);
+  }
+
+  // Enable/disable scan button
+  if (access.canScan) {
+    renderNoPlanPrompt(false);
+    if (runScanBtn) {
+      runScanBtn.disabled = false;
+      runScanBtn.title = "";
+    }
+  } else {
+    // show prompt to choose plan (dashboard should not checkout)
+    renderNoPlanPrompt(true);
+    if (runScanBtn) {
+      runScanBtn.disabled = true;
+      runScanBtn.title = "No scans remaining on this account.";
+    }
+  }
+
+  // Info line (do not overwrite "Scan complete.")
+  if (infoEl && !access.founder) {
+    const current = String(infoEl.textContent || "");
+    if (current.indexOf("Scan complete") === -1) {
+      if (access.subscriptionStatus === "trial") {
+        infoEl.textContent = access.trialActive
+          ? `Trial active • Expires ${fmtShortDate(access.trialEnd)}`
+          : "Trial ended • Select a plan to continue.";
+      } else {
+        infoEl.textContent = access.paidEnd
+          ? `Subscription window ends ${fmtShortDate(access.paidEnd)}`
+          : (access.remaining > 0 ? "Credits available." : "No credits available. Select a plan.");
+      }
+    }
+  }
+
+
 // -----------------------------
 // Profile load (READ ONLY)
-// profiles: credits + billing_period_end (paid month window)
-// user_flags: trial_scans_remaining + trial_expires_at + freeze/ban
+// profiles: credits + trial_end + subscription_status (+ billing_period_end if present)
+// user_flags: is_frozen / is_banned (optional)
 // -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-    // 1) Read paid credits from profiles (Paddle-ready)
+    // 1) profiles
     let pRow = null;
     try {
       const p1 = await supabase
         .from("profiles")
-        .select("user_id,email,credits,billing_period_end")
+        .select("user_id,email,credits,trial_start,trial_end,subscription_status,plan,billing_period_end,stripe_customer_id,stripe_subscription_id")
         .eq("user_id", currentUserId)
         .maybeSingle();
 
       if (!p1.error && p1.data) pRow = p1.data;
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
 
-    // 2) Read trial + flags from user_flags
+    // 2) user_flags (optional)
     let fRow = null;
     try {
       const f1 = await supabase
         .from("user_flags")
-        .select("is_frozen,is_banned,trial_expires_at,trial_scans_remaining")
+        .select("is_frozen,is_banned")
         .eq("user_id", currentUserId)
         .maybeSingle();
 
       if (!f1.error && f1.data) fRow = f1.data;
-    } catch (_) {
-      // ignore
-    }
-
-    const paidCredits = pRow && Number.isFinite(pRow.credits) ? pRow.credits : 0;
+    } catch (_) {}
 
     const merged = {
       user_id: currentUserId,
       email: (pRow && pRow.email) ? pRow.email : (window.currentUserEmail || ""),
 
-      // Paid
-      paid_credits: paidCredits,
+      // credits + status
+      credits: (pRow && Number.isFinite(pRow.credits)) ? pRow.credits : 0,
+      subscription_status: (pRow && pRow.subscription_status) ? pRow.subscription_status : "",
+      plan: (pRow && pRow.plan) ? pRow.plan : "",
       billing_period_end: (pRow && pRow.billing_period_end) ? pRow.billing_period_end : null,
 
-      // Trial
-      trial_expires_at: (fRow && fRow.trial_expires_at) ? fRow.trial_expires_at : null,
-      trial_scans_remaining: (fRow && Number.isFinite(fRow.trial_scans_remaining)) ? fRow.trial_scans_remaining : 0,
+      // trial
+      trial_start: (pRow && pRow.trial_start) ? pRow.trial_start : null,
+      trial_end: (pRow && pRow.trial_end) ? pRow.trial_end : null,
 
-      // Flags
+      // flags
       is_frozen: !!(fRow && fRow.is_frozen),
       is_banned: !!(fRow && fRow.is_banned),
-
-      // Back-compat fields (safe defaults)
-      paid_until: null,
-      paid_plan: null,
-      subscription_status: "",
-      credits: paidCredits,
     };
 
-    window.currentProfile = merged; // keep legacy name to avoid refactors
+    window.currentProfile = merged;
     updateUsageUI(window.currentProfile);
     return window.currentProfile;
   } catch (err) {
@@ -350,8 +384,8 @@ async function generateNarrative(reportId, accessToken) {
 
   const data = await res.json().catch(() => ({}));
 
-  if (!res.ok || data?.success === false) {
-    const msg = data?.error || data?.message || `generate-narrative failed (${res.status})`;
+  if (!res.ok || (data && data.success === false)) {
+    const msg = (data && (data.error || data.message)) || `generate-narrative failed (${res.status})`;
     throw new Error(msg);
   }
 
@@ -383,8 +417,7 @@ function updateLatestScanCard(row, opts = {}) {
   if (elDate) elDate.textContent = d ? `Scanned on ${d.toLocaleString()}` : "";
 
   const overall =
-    row.metrics?.scores?.overall ??
-    row.metrics?.scores?.overall_score ??
+    (row.metrics && row.metrics.scores && (row.metrics.scores.overall ?? row.metrics.scores.overall_score)) ??
     row.score_overall ??
     null;
 
@@ -409,14 +442,12 @@ function updateLatestScanCard(row, opts = {}) {
 
   if (elView) {
     elView.onclick = (e) => {
-      if (e?.preventDefault) e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       goToReport(row.report_id);
     };
-    if (!looksLikeReportId(row.report_id)) {
-      elView.title = "Report ID not available yet. Please refresh in a moment.";
-    } else {
-      elView.title = "";
-    }
+    elView.title = looksLikeReportId(row.report_id)
+      ? ""
+      : "Report ID not available yet. Please refresh in a moment.";
   }
 }
 
@@ -551,11 +582,12 @@ async function loadScanHistory() {
       tr.dataset.url = row.url || "";
       tr.dataset.reportid = row.report_id || "";
       tr.dataset.status = row.status || "";
+
       const overallScore =
-        row.metrics?.scores?.overall ??
-        row.metrics?.scores?.overall_score ??
+        (row.metrics && row.metrics.scores && (row.metrics.scores.overall ?? row.metrics.scores.overall_score)) ??
         row.score_overall ??
         null;
+
       tr.dataset.score = typeof overallScore === "number" ? String(Math.round(overallScore)) : "";
 
       const tdDate = document.createElement("td");
@@ -581,8 +613,7 @@ async function loadScanHistory() {
       tr.appendChild(tdUrl);
 
       const tdScore = document.createElement("td");
-      tdScore.textContent =
-        typeof overallScore === "number" ? String(Math.round(overallScore)) : "—";
+      tdScore.textContent = typeof overallScore === "number" ? String(Math.round(overallScore)) : "—";
       tr.appendChild(tdScore);
 
       const tdStatus = document.createElement("td");
@@ -630,15 +661,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   wireHistorySearch();
 
+  // If your dashboard still has old plan buttons in HTML, make them route to pricing.
   const btnInsight = $("btn-plan-insight");
   const btnIntelligence = $("btn-plan-intelligence");
   const btnImpact = $("btn-plan-impact");
-  if (btnInsight) btnInsight.addEventListener("click", () => startSubscriptionCheckout("insight"));
-  if (btnIntelligence) btnIntelligence.addEventListener("click", () => startSubscriptionCheckout("intelligence"));
-  if (btnImpact) btnImpact.addEventListener("click", () => startSubscriptionCheckout("impact"));
+  if (btnInsight) btnInsight.addEventListener("click", goToPricing);
+  if (btnIntelligence) btnIntelligence.addEventListener("click", goToPricing);
+  if (btnImpact) btnImpact.addEventListener("click", goToPricing);
 
   const { data } = await supabase.auth.getUser();
-  if (!data?.user) {
+  if (!data || !data.user) {
     window.location.href = "/login.html";
     return;
   }
@@ -664,16 +696,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token || null;
+      const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
 
       if (!accessToken) {
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
-      const payload = {
-        url: cleaned,
-        email: window.currentUserEmail || null,
-      };
+      const payload = { url: cleaned, email: window.currentUserEmail || null };
 
       const res = await fetch("/.netlify/functions/run-scan", {
         method: "POST",
@@ -686,9 +715,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       const scanData = await res.json().catch(() => ({}));
 
-      if (!res.ok || !scanData?.success) {
+      if (!res.ok || !scanData || !scanData.success) {
         console.error("[RUN-SCAN] server error:", res.status, scanData);
-        throw new Error(scanData?.error || scanData?.message || `Scan failed (${res.status})`);
+        throw new Error((scanData && (scanData.error || scanData.message)) || `Scan failed (${res.status})`);
       }
 
       await loadScanHistory();
@@ -697,7 +726,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         scanData.report_id ??
         scanData.reportId ??
         scanData.reportID ??
-        scanData.report?.report_id ??
+        (scanData.report && scanData.report.report_id) ??
         null;
 
       console.log("[RUN-SCAN] reportId:", reportId);
@@ -707,17 +736,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         statusEl.scrollIntoView({ behavior: "smooth", block: "center" });
 
         generateNarrative(reportId, accessToken).catch((e) => {
-          console.warn("[GENERATE-NARRATIVE] failed:", e?.message || e);
+          console.warn("[GENERATE-NARRATIVE] failed:", (e && e.message) || e);
         });
       } else {
-        statusEl.textContent =
-          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
+        statusEl.textContent = "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
       }
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
-      statusEl.textContent = "Scan failed: " + (err.message || "Unknown error");
+      statusEl.textContent = "Scan failed: " + ((err && err.message) || "Unknown error");
     } finally {
-      await refreshProfile(); // ✅ re-sync UI after any attempt
+      await refreshProfile();
       runBtn.disabled = false;
     }
   });

@@ -1,79 +1,54 @@
-// netlify/functions/create-checkout-session.js
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2023-10-16",
 });
 
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(obj),
-  };
-}
-
-function getSiteUrl(event) {
-  // Netlify provides URL in env, but fall back to request host safely
-  if (process.env.SITE_URL) return process.env.SITE_URL;
-  if (process.env.URL) return process.env.URL;
-
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
-}
-
-function priceIdForKey(priceKey) {
-  if (priceKey === "oneoff") return process.env.STRIPE_PRICE_ONEOFF_SCAN;
-  if (priceKey === "sub50") return process.env.STRIPE_PRICE_SUB_50;
-  if (priceKey === "sub100") return process.env.STRIPE_PRICE_SUB_100;
-  return null;
-}
-
 export const handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
-      return json(405, { ok: false, error: "Method not allowed" });
+      return { statusCode: 405, body: "Method Not Allowed" };
     }
 
-    const body = JSON.parse(event.body || "{}");
-    const priceKey = body.priceKey; // "oneoff" | "sub50" | "sub100"
-    const user_id = body.user_id;
-    const email = body.email || "";
+    const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
 
-    if (!priceKey) return json(400, { ok: false, error: "Missing priceKey" });
-    if (!user_id) return json(400, { ok: false, error: "Missing user_id" });
+    const PRICE_MAP = {
+      oneoff: process.env.STRIPE_PRICE_ONEOFF_SCAN,
+      sub50: process.env.STRIPE_PRICE_SUB_50,
+      sub100: process.env.STRIPE_PRICE_SUB_100,
+    };
 
-    const priceId = priceIdForKey(priceKey);
+    const priceId = PRICE_MAP[priceKey];
     if (!priceId) {
-      return json(400, { ok: false, error: `Missing env price ID for ${priceKey}` });
+      return { statusCode: 400, body: "Invalid price key" };
     }
 
-    const siteUrl = getSiteUrl(event);
-
-    const mode = priceKey === "oneoff" ? "payment" : "subscription";
+    const site = process.env.SITE_URL || "https://iqweb.ai";
 
     const session = await stripe.checkout.sessions.create({
-      mode,
+      mode: priceKey === "oneoff" ? "payment" : "subscription",
+      payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-
-      // Very important: lets webhook map payment -> user
-      client_reference_id: user_id,
+      customer_email: email,
+      success_url: `${site}/dashboard.html?checkout=success&plan=${encodeURIComponent(priceKey)}`,
+      cancel_url: `${site}/cancelled.html`,
       metadata: {
         user_id,
-        priceKey,
+        // ✅ send BOTH (so webhook can read either)
+        priceKey: priceKey,
+        price_key: priceKey,
       },
-
-      // Optional but helpful
-      customer_email: email || undefined,
-
-      success_url: `${siteUrl}/dashboard.html?paid=1&k=${encodeURIComponent(priceKey)}`,
-      cancel_url: `${siteUrl}/cancelled.html`,
     });
 
-    return json(200, { ok: true, url: session.url });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ url: session.url }),
+    };
   } catch (err) {
-    console.error("create-checkout-session error:", err);
-    return json(500, { ok: false, error: String(err?.message || err) });
+    console.error("checkout error", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Checkout failed" }),
+    };
   }
 };

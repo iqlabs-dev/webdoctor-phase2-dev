@@ -43,12 +43,7 @@
     a{color:var(--accent);text-decoration:none}
     a:hover{color:#e0f2fe;text-decoration:underline}
 
-    .wrap{
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-    }
-
+    .wrap{ min-height:100vh; display:flex; flex-direction:column; }
     .container{
       width:100%;
       max-width:var(--max);
@@ -57,65 +52,17 @@
       flex:1;
     }
 
-    /* smple top nav */
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      padding:10px 16px;
-      border-radius:var(--radius-pill);
-      background:linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
-      border:1px solid rgba(148,163,184,0.26);
-      box-shadow:0 18px 40px rgba(15,23,42,0.75);
-      backdrop-filter:blur(18px);
-      position:sticky;
-      top:12px;
-      z-index:10;
-    }
-
-    .brand{
-      font-weight:800;
-      letter-spacing:0.04em;
-      color:var(--ink-soft);
-      white-space:nowrap;
-    }
-
-    .navlinks{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .navlinks a{
-      font-size:0.72rem;
-      text-transform:uppercase;
-      letter-spacing:0.16em;
-      color:rgba(154,164,186,0.9);
-      border-bottom:1px solid transparent;
-      padding-bottom:2px;
-    }
-    .navlinks a:hover{
-      color:var(--ink-soft);
-      border-bottom-color:rgba(148,163,184,0.6);
-      text-decoration:none;
-    }
-
     .hero{
       text-align:center;
       margin:70px auto 24px;
       max-width:760px;
     }
-
     .hero h1{
       margin:0 0 10px;
       font-size:clamp(2rem, 3.2vw, 2.7rem);
       font-weight:900;
       letter-spacing:-0.02em;
     }
-
     .hero p{
       margin:0;
       color:rgba(229,240,255,0.78);
@@ -240,6 +187,19 @@
       text-align:center;
     }
 
+    .status{
+      max-width:760px;
+      margin:14px auto 0;
+      padding:10px 14px;
+      border-radius:12px;
+      background: rgba(34,211,238,0.06);
+      border: 1px solid rgba(34,211,238,0.22);
+      color: rgba(229,240,255,0.86);
+      font-size:0.82rem;
+      text-align:center;
+      display:none;
+    }
+
     footer{
       padding:22px 0;
       border-top:1px solid rgba(255,255,255,0.05);
@@ -260,7 +220,6 @@
     .footlinks a:hover{color:var(--ink);text-decoration:none}
 
     @media (max-width:740px){
-      .topbar{border-radius:16px}
       .hero{margin-top:54px}
       .card{max-width:none}
     }
@@ -271,8 +230,6 @@
   <div class="wrap">
     <div class="container">
 
- 
-
       <section class="hero">
         <h1>Pricing</h1>
         <p>
@@ -280,6 +237,8 @@
           One-off reports or usage-capped subscriptions — no auto-overage.
         </p>
       </section>
+
+      <div id="status" class="status"></div>
 
       <section class="pricing-row">
 
@@ -296,7 +255,7 @@
             <li>No subscription</li>
           </ul>
 
-          <button class="cta" onclick="location.href='/?start=1#pricing'">
+          <button class="cta pricing-cta" data-buy="oneoff">
             Get report
           </button>
         </article>
@@ -314,7 +273,7 @@
             <li>Monthly reset — unused reports don’t roll over</li>
           </ul>
 
-          <button class="cta" onclick="location.href='/?start=1#pricing'">
+          <button class="cta pricing-cta" data-buy="sub50">
             Start subscription
           </button>
         </article>
@@ -332,7 +291,7 @@
             <li>Monthly reset — unused reports don’t roll over</li>
           </ul>
 
-          <button class="cta" onclick="location.href='/?start=1#pricing'">
+          <button class="cta pricing-cta" data-buy="sub100">
             Start subscription
           </button>
         </article>
@@ -360,5 +319,85 @@
       </div>
     </footer>
   </div>
+
+  <script type="module">
+    import { supabase } from "/assets/js/supabaseClient.js";
+
+    const statusEl = document.getElementById("status");
+
+    function setStatus(msg) {
+      if (!statusEl) return;
+      if (!msg) {
+        statusEl.style.display = "none";
+        statusEl.textContent = "";
+        return;
+      }
+      statusEl.style.display = "block";
+      statusEl.textContent = msg;
+    }
+
+    function nextToLogin(nextUrl) {
+      const next = encodeURIComponent(nextUrl);
+      window.location.href = `/login.html?next=${next}`;
+    }
+
+    async function getUser() {
+      try {
+        const { data } = await supabase.auth.getUser();
+        return data?.user || null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function openCheckout(priceKey) {
+      const user = await getUser();
+      const nextUrl = `${location.pathname}?buy=${encodeURIComponent(priceKey)}`;
+
+      if (!user) {
+        nextToLogin(nextUrl);
+        return;
+      }
+
+      setStatus("Opening secure checkout…");
+
+      const res = await fetch("/.netlify/functions/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceKey,
+          user_id: user.id,
+          email: user.email || ""
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.url) {
+        console.error("checkout error:", data);
+        setStatus("Unable to start checkout. Please refresh and try again.");
+        return;
+      }
+
+      window.location.href = data.url;
+    }
+
+    // Wire buttons
+    document.querySelectorAll(".pricing-cta").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.getAttribute("data-buy");
+        if (!key) return;
+        openCheckout(key);
+      });
+    });
+
+    // Auto-open if pricing.html?buy=...
+    const params = new URLSearchParams(location.search);
+    const buy = params.get("buy");
+    if (buy === "oneoff" || buy === "sub50" || buy === "sub100") {
+      // small delay so page paint happens first
+      setTimeout(() => openCheckout(buy), 150);
+    }
+  </script>
+
 </body>
 </html>

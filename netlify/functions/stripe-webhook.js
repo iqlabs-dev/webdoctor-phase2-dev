@@ -91,7 +91,11 @@ export const handler = async (event) => {
 
       const customerId = session.customer || null;
       const subscriptionId = session.subscription || null;
-      const priceKey = session?.metadata?.priceKey || null; // "oneoff" | "sub50" | "sub100"
+     const priceKey =
+  session?.metadata?.priceKey ||
+  session?.metadata?.price_key ||
+  null;
+
 
       if (!userId) return json(200, { ok: true, note: "No user_id" });
 

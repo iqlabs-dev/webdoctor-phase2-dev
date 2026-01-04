@@ -312,6 +312,64 @@
     #subscription-banner strong{ font-weight: 700; }
     #subscription-banner .muted{ color: var(--muted2); }
 
+    /* Plan prompt banner (shown when no scans/plan active) */
+.plan-banner{
+  display:none; /* dashboard.js controls this */
+  border-radius: 16px;
+  border: 1px solid rgba(24,214,196,.22);
+  background: linear-gradient(180deg, rgba(24,214,196,.10), rgba(10,15,26,.55));
+  padding: 12px 14px;
+}
+
+.plan-banner-top{
+  display:flex;
+  flex-direction:column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.plan-banner-title{
+  font-weight: 800;
+  color: rgba(255,255,255,.92);
+  letter-spacing: .01em;
+  font-size: 13px;
+}
+
+.plan-banner-sub{
+  color: rgba(255,255,255,.65);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.plan-banner-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap: 10px;
+}
+
+.plan-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(24,214,196,.28);
+  background: rgba(0,0,0,.14);
+  color: rgba(255,255,255,.88);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform .16s ease, background .16s ease, border-color .16s ease;
+}
+
+.plan-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(24,214,196,.10);
+  border-color: rgba(24,214,196,.42);
+  text-decoration:none;
+}
+
+
     /* Latest scan */
     .latest{
       display:flex;
@@ -625,10 +683,19 @@ tbody td:nth-child(7) {
 
       <div class="wrap">
         <div id="view-dashboard" class="view active">
-          <div id="subscription-banner">
-            <strong>Scanning disabled.</strong>
-            <span class="muted"> No scans remaining on this account.</span>
-          </div>
+      <div id="subscription-banner" class="plan-banner">
+  <div class="plan-banner-top">
+    <div class="plan-banner-title">No plan active</div>
+    <div class="plan-banner-sub">Choose a plan to enable scanning.</div>
+  </div>
+
+  <div class="plan-banner-actions">
+    <a class="plan-btn" href="/pricing.html?buy=oneoff">Single report ($49)</a>
+    <a class="plan-btn" href="/pricing.html?buy=sub50">Intelligence ($149/mo)</a>
+    <a class="plan-btn" href="/pricing.html?buy=sub100">Impact ($249/mo)</a>
+  </div>
+</div>
+
 
           <div class="row">
             <div class="col">
@@ -742,7 +809,7 @@ tbody td:nth-child(7) {
             </div>
 
             <div style="margin-top:14px;">
-              <a id="manage-subscription" class="wd-history-link" href="#" onclick="event.preventDefault(); alert('Wire to Paddle portal later.');">
+              <a id="manage-subscription" class="wd-history-link" href="#" onclick="event.preventDefault(); alert('Wire to Stripe portal later.');">
                 Manage subscription
               </a>
             </div>
@@ -776,7 +843,8 @@ tbody td:nth-child(7) {
   <script type="module" src="/assets/js/dashboard.js"></script>
 
   <!-- UI-only nav + contact + signout forwarding -->
-  <script type="module">
+ <script type="module" src="/assets/js/dashboard.js"></script>
+
     const $ = (sel) => document.querySelector(sel);
 
     const navItems = Array.from(document.querySelectorAll('.nav a[data-view]'));
