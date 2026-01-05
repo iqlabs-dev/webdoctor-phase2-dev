@@ -1080,176 +1080,296 @@ export async function handler(event) {
     const body = JSON.parse(event.body || "{}");
 
     const url = normaliseUrl(body.url || "");
+    const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
+    const generate_narrative = body.generate_narrative !== false;
+
+    if (!url || !report_id) {
+      return json(400, { success: false, error: "Missing url or report_id" });
+    }
+
     const auth = await requireUser(event);
-if (!auth.ok) {
-  return json(auth.status, { success: false, error: auth.error });
-}
+    if (!auth.ok) {
+      return json(auth.status, { success: false, error: auth.error });
+    }
 
-const user_id = auth.user.id;
+    const user_id = auth.user.id;
 
-// --------------------
-// Admin + Access Gate
-// --------------------
-const email = (auth.user?.email || "").toLowerCase();
-const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
+    // --------------------
+    // Admin + Access Gate
+    // --------------------
+    const email = (auth.user?.email || "").toLowerCase();
+    const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
 
-const flags = await getAdminFlags();
+    const flags = await getAdminFlags();
 
-// Global freezes
-if (flags.freeze_all || flags.freeze_scans) {
-  return json(503, {
-    success: false,
-    code: "scans_frozen",
-    error: flags.maintenance_message || "Scanning is temporarily disabled.",
-  });
-}
+    // Global freezes
+    if (flags.freeze_all || flags.freeze_scans) {
+      return json(503, {
+        success: false,
+        code: "scans_frozen",
+        error: flags.maintenance_message || "Scanning is temporarily disabled.",
+      });
+    }
 
-const uf = await getUserFlags(user_id);
-if (!uf) {
-  return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
-}
-// One-off credit lookup (user_credits table)
-const { data: oneOffRow, error: oneOffErr } = await supabase
-  .from("user_credits")
-  .select("credits")
-  .eq("id", user_id)
-  .maybeSingle();
+    const uf = await getUserFlags(user_id);
+    if (!uf) {
+      return json(500, {
+        success: false,
+        code: "flags_unavailable",
+        error: "Unable to verify access. Please try again.",
+      });
+    }
 
-if (oneOffErr) {
-  console.error("[one-off] lookup error:", oneOffErr);
-}
+    // One-off credit lookup (user_credits table)
+    const { data: oneOffRow, error: oneOffErr } = await supabase
+      .from("user_credits")
+      .select("credits")
+      .eq("id", user_id)
+      .maybeSingle();
 
-const oneOffCredits = Number(oneOffRow?.credits || 0);
-const oneOffActive = oneOffCredits > 0;
+    if (oneOffErr) {
+      console.error("[one-off] lookup error:", oneOffErr);
+    }
 
+    const oneOffCredits = Number(oneOffRow?.credits || 0);
+    const oneOffActive = oneOffCredits > 0;
 
-// Per-user bans/freeze
-if (!isFounder && uf.is_banned) {
-  return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
-}
-if (!isFounder && uf.is_frozen) {
-  return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
-}
+    // Per-user bans/freeze
+    if (!isFounder && uf.is_banned) {
+      return json(403, {
+        success: false,
+        code: "user_banned",
+        error: "Account access disabled. Contact support.",
+      });
+    }
+    if (!isFounder && uf.is_frozen) {
+      return json(403, {
+        success: false,
+        code: "user_frozen",
+        error: "Account temporarily frozen. Contact support.",
+      });
+    }
 
-// Access policy: Founder OR Paid OR Trial OR One-off credits
-const paidActive = isPaidActive(uf);
-const trialActive = isTrialActive(uf);
+    // Access policy: Founder OR Paid OR Trial OR One-off credits
+    const paidActive = isPaidActive(uf);
+    const trialActive = isTrialActive(uf);
 
-if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
-  return json(402, {
-    success: false,
-    code: "access_required",
-    error: "This account does not have scanning access. Please subscribe or request an invite trial.",
-  });
-}
+    if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
+      return json(402, {
+        success: false,
+        code: "access_required",
+        error: "This account does not have scanning access. Please subscribe or request an invite trial.",
+      });
+    }
 
+    // --------------------------------------------------
+    // Consume EXACTLY ONE scan (trial → paid → one-off)
+    // --------------------------------------------------
+    let consumedFrom = null;
 
-// --------------------------------------------------
-// Consume EXACTLY ONE scan (trial → paid → one-off)
-// --------------------------------------------------
-let consumedFrom = null;
+    // 1) TRIAL / FREE scans (user_flags)
+    if (!isFounder && trialActive) {
+      const { data: consume, error: consumeErr } = await supabase.rpc(
+        "consume_trial_scan",
+        { p_user_id: user_id }
+      );
 
-// 1) TRIAL / FREE scans (user_flags)
-if (!isFounder && trialActive) {
-  const { data: consume, error: consumeErr } = await supabase.rpc(
-    "consume_trial_scan",
-    { p_user_id: user_id }
-  );
+      if (consumeErr) {
+        console.error("[trial] consume error:", consumeErr);
+        return json(500, {
+          success: false,
+          code: "trial_error",
+          error: "Unable to apply trial usage. Please try again.",
+        });
+      }
 
-  if (consumeErr) {
-    console.error("[trial] consume error:", consumeErr);
-    return json(500, {
-      success: false,
-      code: "trial_error",
-      error: "Unable to apply trial usage. Please try again.",
-    });
-  }
+      const row = Array.isArray(consume) ? consume[0] : consume;
+      if (row?.allowed) {
+        consumedFrom = "trial";
+      } else {
+        return json(402, {
+          success: false,
+          code: "trial_expired",
+          error: "Trial limit reached or trial expired. Please subscribe to continue.",
+        });
+      }
+    }
 
-  const row = Array.isArray(consume) ? consume[0] : consume;
-  if (row?.allowed) {
-    consumedFrom = "trial";
-  } else {
-    return json(402, {
-      success: false,
-      code: "trial_expired",
-      error: "Trial limit reached or trial expired. Please subscribe to continue.",
-    });
-  }
-}
+    // 2) PAID subscription scans (profiles.credits) — supports profiles.user_id OR profiles.id
+    if (!isFounder && !consumedFrom && paidActive) {
+      let profile = null;
+      let keyField = null;
 
-// 2) PAID subscription scans (profiles.credits)
-if (!isFounder && !consumedFrom && paidActive) {
-  const { data: profile, error: readErr } = await supabase
-    .from("profiles")
-    .select("credits")
-    .eq("id", user_id)
-    .maybeSingle();
+      // Attempt A: profiles.user_id
+      {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("user_id", user_id)
+          .maybeSingle();
 
-  if (readErr || !profile) {
-    console.error("[paid] read error:", readErr);
-    return json(500, {
-      success: false,
-      code: "paid_read_error",
-      error: "Unable to verify subscription credits.",
-    });
-  }
+        if (error) {
+          console.error("[paid] read error (by user_id):", error);
+          return json(500, {
+            success: false,
+            code: "paid_read_error",
+            error: "Unable to verify subscription credits.",
+          });
+        }
+        if (data) {
+          profile = data;
+          keyField = "user_id";
+        }
+      }
 
-  const credits = Number(profile.credits || 0);
-  if (credits <= 0) {
-    return json(402, {
-      success: false,
-      code: "paid_exhausted",
-      error: "No subscription credits remaining.",
-    });
-  }
+      // Attempt B: profiles.id (fallback)
+      if (!profile) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("id", user_id)
+          .maybeSingle();
 
-  const { error: updateErr } = await supabase
-    .from("profiles")
-    .update({ credits: credits - 1 })
-    .eq("id", user_id)
-    .eq("credits", credits);
+        if (error) {
+          console.error("[paid] read error (by id):", error);
+          return json(500, {
+            success: false,
+            code: "paid_read_error",
+            error: "Unable to verify subscription credits.",
+          });
+        }
+        if (data) {
+          profile = data;
+          keyField = "id";
+        }
+      }
 
-  if (updateErr) {
-    console.error("[paid] decrement error:", updateErr);
-    return json(500, {
-      success: false,
-      code: "paid_consume_error",
-      error: "Unable to apply subscription usage.",
-    });
-  }
+      if (!profile || !keyField) {
+        console.error("[paid] no profiles row found for user:", user_id);
+        return json(500, {
+          success: false,
+          code: "paid_profile_missing",
+          error: "Billing profile not found for this account. Please contact support.",
+        });
+      }
 
-  consumedFrom = "paid";
-}
+      const credits = Number(profile.credits || 0);
+      if (credits <= 0) {
+        return json(402, {
+          success: false,
+          code: "paid_exhausted",
+          error: "No subscription credits remaining.",
+        });
+      }
 
-// 3) ONE-OFF scans (user_credits)
-if (!isFounder && !consumedFrom && oneOffActive) {
-  const { error: oneOffUpdErr } = await supabase
-    .from("user_credits")
-    .update({ credits: oneOffCredits - 1 })
-    .eq("id", user_id)
-    .eq("credits", oneOffCredits);
+      // atomic-ish decrement: only update if credits > 0 and match key
+      const { data: updated, error: updateErr } = await supabase
+        .from("profiles")
+        .update({ credits: credits - 1 })
+        .eq(keyField, user_id)
+        .gt("credits", 0)
+        .select("credits")
+        .maybeSingle();
 
-  if (oneOffUpdErr) {
-    console.error("[one-off] consume error:", oneOffUpdErr);
-    return json(500, {
-      success: false,
-      code: "oneoff_consume_error",
-      error: "Unable to apply one-off scan credit.",
-    });
-  }
+      if (updateErr || !updated) {
+        console.error("[paid] decrement error:", updateErr, { keyField, user_id });
+        return json(500, {
+          success: false,
+          code: "paid_consume_error",
+          error: "Unable to apply subscription usage.",
+        });
+      }
 
-  consumedFrom = "one-off";
-}
+      consumedFrom = "paid";
+    }
 
-// Safety net (should never happen)
-if (!isFounder && !consumedFrom) {
-  return json(402, {
-    success: false,
-    code: "no_credits",
-    error: "No scan credits available.",
-  });
-}
+    // 3) ONE-OFF scans (user_credits)
+    if (!isFounder && !consumedFrom && oneOffActive) {
+      const { data: updatedRow, error: oneOffUpdErr } = await supabase
+        .from("user_credits")
+        .update({ credits: oneOffCredits - 1, updated_at: new Date().toISOString() })
+        .eq("id", user_id)
+        .gt("credits", 0)
+        .select("credits")
+        .maybeSingle();
 
+      if (oneOffUpdErr || !updatedRow) {
+        console.error("[one-off] consume error:", oneOffUpdErr);
+        return json(500, {
+          success: false,
+          code: "oneoff_consume_error",
+          error: "Unable to apply one-off scan credit.",
+        });
+      }
+
+      consumedFrom = "one-off";
+    }
+
+    // Safety net (should never happen if access gate is correct)
+    if (!isFounder && !consumedFrom) {
+      return json(402, {
+        success: false,
+        code: "no_credits",
+        error: "No scan credits available.",
+      });
+    }
+
+    // ---------------------------------------------
+    // Run scan
+    // ---------------------------------------------
+    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
+
+    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+      url,
+      html,
+      res,
+      isHtml
+    );
+
+    const metrics = {
+      scores,
+      delivery_signals,
+      basic_checks: {
+        ...basic,
+        http_status: res.status,
+        content_type: contentType || null,
+      },
+      security_headers: headers,
+      human_signals: {
+        clarity_cognitive_load: human.clarity,
+        trust_credibility: human.trust,
+        intent_conversion_readiness: human.intent,
+        maintenance_hygiene: human.maintenance,
+        freshness_signals: human.freshness,
+      },
+      explanations: notes,
+      psi: { disabled: true },
+    };
+
+    // IMPORTANT: no narrative written here.
+    const insertRow = {
+      user_id,
+      url,
+      status: "complete",
+      report_id,
+      score_overall: scores.overall,
+      metrics,
+    };
+
+    const { data: saved, error: saveErr } = await supabase
+      .from("scan_results")
+      .insert(insertRow)
+      .select("id, report_id")
+      .single();
+
+    if (saveErr) {
+      console.error("[run-scan] insert error:", saveErr);
+      return json(500, {
+        success: false,
+        error: "Failed to save scan result",
+        detail: saveErr.message || saveErr,
+      });
+    }
 
     // ---------------------------------------------
     // STEP 1: Ensure reports row exists + set narrative pending
@@ -1291,10 +1411,15 @@ if (!isFounder && !consumedFrom) {
       scores,
       narrative_requested: !!generate_narrative,
       narrative_ok,
+      consumed_from: consumedFrom, // handy for debugging
       report_url: `${origin}/report.html?report_id=${encodeURIComponent(finalReportId)}`,
     });
   } catch (e) {
     console.error("[run-scan] fatal:", e);
-    return json(500, { success: false, error: "Server error", detail: e?.message || String(e) });
+    return json(500, {
+      success: false,
+      error: "Server error",
+      detail: e?.message || String(e),
+    });
   }
 }
