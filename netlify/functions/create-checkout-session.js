@@ -63,23 +63,27 @@ export const handler = async (event) => {
 
     const mode = priceKey === "oneoff" ? "payment" : "subscription";
 
-    const session = await stripe.checkout.sessions.create({
-      mode,
-      payment_method_types: ["card"],
-      line_items: [{ price: priceId, quantity: 1 }],
+ const session = await stripe.checkout.sessions.create({
+  mode,
+  payment_method_types: ["card"],
+  line_items: [{ price: priceId, quantity: 1 }],
 
-      customer_email: email,
-      client_reference_id: user_id,
+  // ✅ Force real Stripe customer (cus_...) so portal works
+  customer_creation: "always",
 
-      success_url,
-      cancel_url,
+  customer_email: email,
+  client_reference_id: user_id,
 
-      metadata: {
-        user_id,
-        priceKey,
-        mode,
-      },
-    });
+  success_url,
+  cancel_url,
+
+  metadata: {
+    user_id,
+    priceKey,
+    mode,
+  },
+});
+
 
     return json(200, { url: session.url });
   } catch (err) {
