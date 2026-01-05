@@ -1026,7 +1026,8 @@ async function getUserFlags(user_id) {
   const { data: existing, error: readErr } = await supabase
     .from("user_flags")
     .select("user_id, is_frozen, is_banned, trial_expires_at, trial_scans_remaining, paid_until, paid_plan")
-  .eq("id", user_id)
+  .eq("user_id", user_id)
+
     .maybeSingle();
 
   if (readErr) {
@@ -1124,7 +1125,9 @@ export async function handler(event) {
     const { data: oneOffRow, error: oneOffErr } = await supabase
       .from("user_credits")
       .select("credits")
-      .eq("id", user_id)
+    .eq("id", user_id)
+
+
       .maybeSingle();
 
     if (oneOffErr) {
@@ -1222,27 +1225,29 @@ export async function handler(event) {
         }
       }
 
-      // Attempt B: profiles.id (fallback)
-      if (!profile) {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("credits")
-          .eq("id", user_id)
-          .maybeSingle();
+  // Attempt B: profiles.id (fallback)
+if (!profile) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("credits")
+    .eq("id", user_id) // ✅ actually query by id this time
+    .maybeSingle();
 
-        if (error) {
-          console.error("[paid] read error (by id):", error);
-          return json(500, {
-            success: false,
-            code: "paid_read_error",
-            error: "Unable to verify subscription credits.",
-          });
-        }
-        if (data) {
-          profile = data;
-          keyField = "id";
-        }
-      }
+  if (error) {
+    console.error("[paid] read error (by id):", error);
+    return json(500, {
+      success: false,
+      code: "paid_read_error",
+      error: "Unable to verify subscription credits.",
+    });
+  }
+
+  if (data) {
+    profile = data;
+    keyField = "id";
+  }
+}
+
 
       if (!profile || !keyField) {
         console.error("[paid] no profiles row found for user:", user_id);
@@ -1288,7 +1293,9 @@ export async function handler(event) {
       const { data: updatedRow, error: oneOffUpdErr } = await supabase
         .from("user_credits")
         .update({ credits: oneOffCredits - 1, updated_at: new Date().toISOString() })
-        .eq("id", user_id)
+    .eq("id", user_id)
+
+
         .gt("credits", 0)
         .select("credits")
         .maybeSingle();
