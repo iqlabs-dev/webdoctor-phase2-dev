@@ -238,17 +238,18 @@ async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-// 1) paid credits (PROFILES — Stripe-backed)
+// 1) paid credits (USER_CREDITS — Paddle/one-off packs)
 let ucRow = null;
 try {
   const uc1 = await supabase
-    .from("profiles")
-    .select("user_id,email,credits")
-    .eq("user_id", currentUserId)
+    .from("user_credits")
+    .select("id,email,credits")
+    .eq("id", currentUserId)
     .maybeSingle();
 
   if (!uc1.error && uc1.data) ucRow = uc1.data;
 } catch (_) {}
+
 
 
     // 2) user_flags (free scans + flags)
@@ -265,7 +266,8 @@ try {
 
     const merged = {
       user_id: currentUserId,
-      email: (ucRow && ucRow.email) ? ucRow.email : (window.currentUserEmail || ""),
+    email: (window.currentUserEmail || ""),
+
 
       paid_credits: (ucRow && Number.isFinite(ucRow.credits)) ? ucRow.credits : 0,
 
