@@ -238,17 +238,18 @@ async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-    // 1) paid credits
-    let ucRow = null;
-    try {
-      const uc1 = await supabase
-        .from("user_credits")
-        .select("id,email,credits")
-        .eq("id", currentUserId)
-        .maybeSingle();
+// 1) paid credits (PROFILES — Stripe-backed)
+let ucRow = null;
+try {
+  const uc1 = await supabase
+    .from("profiles")
+    .select("user_id,email,credits")
+    .eq("user_id", currentUserId)
+    .maybeSingle();
 
-      if (!uc1.error && uc1.data) ucRow = uc1.data;
-    } catch (_) {}
+  if (!uc1.error && uc1.data) ucRow = uc1.data;
+} catch (_) {}
+
 
     // 2) user_flags (free scans + flags)
     let ufRow = null;
