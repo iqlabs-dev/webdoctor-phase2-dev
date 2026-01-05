@@ -89,7 +89,6 @@ async function safeUpdateProfile(userId, patch) {
   // If a column is missing, drop optional fields and retry.
   if (isMissingColumnError(res.error)) {
     const retryPatch = { ...patch };
-    // optional fields we can live without if schema isn't present everywhere
     delete retryPatch.billing_period_end;
 
     res = await supabase.from("profiles").update(retryPatch).eq("user_id", userId);
@@ -106,6 +105,69 @@ function unixToIsoOrNull(unixSeconds) {
   } catch {
     return null;
   }
+}
+
+// -------------------------------------------------
+// ✅ user_credits helpers (email-keyed; dashboard reads this)
+// -------------------------------------------------
+
+function normalizeEmail(email) {
+  return (email || "").trim().toLowerCase();
+}
+
+async function findUserCreditsByEmail(email) {
+  const e = normalizeEmail(email);
+  if (!e) return null;
+
+  const { data, error } = await supabase
+    .from("user_credits")
+    .select("id,email,credits,plan,stripe_customer_id")
+    .eq("email", e)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+async function safeUpsertUserCredits(email, patch) {
+  const e = normalizeEmail(email);
+  if (!e) return { error: new Error("Missing email for user_credits upsert") };
+
+  // Requires a UNIQUE constraint on user_credits.email (recommended).
+  // If you don't have it, this will create duplicates — but it will still show you what's happening fast.
+  const payload = {
+    email: e,
+    ...patch,
+  };
+
+  let res = await supabase
+    .from("user_credits")
+    .upsert(payload, { onConflict: "email" });
+
+  if (!res.error) return res;
+
+  // If optional columns ever diverge (unlikely here), you can strip fields and retry.
+  if (isMissingColumnError(res.error)) {
+    const retry = { ...payload };
+    res = await supabase
+      .from("user_credits")
+      .upsert(retry, { onConflict: "email" });
+    return res;
+  }
+
+  return res;
+}
+
+async function incrementUserCredits(email, amount) {
+  const e = normalizeEmail(email);
+  if (!e) return { error: new Error("Missing email for incrementUserCredits") };
+
+  const existing = await findUserCreditsByEmail(e);
+  const current = existing && typeof existing.credits === "number" ? existing.credits : 0;
+  const next = current + (amount || 0);
+
+  const res = await safeUpsertUserCredits(e, { credits: next });
+  return res;
 }
 
 export const handler = async (event) => {
@@ -147,7 +209,13 @@ export const handler = async (event) => {
       const profile = await findProfileByUserId(userId);
       if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
 
-      // Always store Stripe IDs (safe)
+      const email =
+        normalizeEmail(profile.email) ||
+        normalizeEmail(session?.customer_details?.email) ||
+        normalizeEmail(session?.customer_email) ||
+        null;
+
+      // Always store Stripe IDs on profiles (existing behavior)
       const idPatch = {};
       if (customerId) idPatch.stripe_customer_id = customerId;
       if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
@@ -157,20 +225,33 @@ export const handler = async (event) => {
         if (up.error) throw up.error;
       }
 
+      // ✅ ALSO store stripe_customer_id on user_credits (so portal/customer mapping stays consistent)
+      if (email && customerId) {
+        const upUc = await safeUpsertUserCredits(email, { stripe_customer_id: customerId });
+        if (upUc.error) throw upUc.error;
+      }
+
       // One-off: increment by 1 (never expires)
       if (mode === "payment") {
         if (priceKey === "oneoff") {
+          // ✅ PRIMARY: user_credits (dashboard Paid scans reads this)
+          if (email) {
+            const inc = await incrementUserCredits(email, 1);
+            if (inc.error) throw inc.error;
+          }
+
+          // Keep legacy behavior (profiles) so admin/other UI doesn’t break
           const rpc = await supabase.rpc("increment_credits", { p_user_id: userId, p_amount: 1 });
           if (rpc.error) {
             const nextCredits = (profile.credits || 0) + 1;
             const up = await safeUpdateProfile(userId, {
               credits: nextCredits,
-              // keep plan as-is; one-off credits don't force subscription plan
               plan: profile.plan || null,
             });
             if (up.error) throw up.error;
           }
         }
+
         return json(200, { ok: true });
       }
 
@@ -192,13 +273,23 @@ export const handler = async (event) => {
             planPayload = { plan: mapped.plan, credits: mapped.credits };
           }
         } else {
-          // still retrieve to get current_period_end for UI display
           subObj = await stripe.subscriptions.retrieve(subscriptionId);
         }
 
         const periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
 
         if (planPayload) {
+          // ✅ PRIMARY: user_credits
+          if (email) {
+            const upUc = await safeUpsertUserCredits(email, {
+              plan: planPayload.plan,
+              credits: planPayload.credits,
+              stripe_customer_id: customerId || null,
+            });
+            if (upUc.error) throw upUc.error;
+          }
+
+          // Legacy: profiles
           const up = await safeUpdateProfile(userId, {
             plan: planPayload.plan,
             credits: planPayload.credits,
@@ -233,11 +324,18 @@ export const handler = async (event) => {
       // Only reset monthly for subscription plans
       if (mapped.kind !== "subscription") return json(200, { ok: true });
 
-      // Find profile by subscription then customer
+      // Prefer email directly from invoice if present
+      let email = normalizeEmail(invoice?.customer_email) || null;
+
+      // Find profile by subscription then customer (fallback) to get email
       let profile = null;
-      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
-      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
-      if (!profile) return json(200, { ok: true, note: "invoice.paid: profile not found" });
+      if (!email) {
+        if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
+        if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
+        if (profile?.email) email = normalizeEmail(profile.email);
+      }
+
+      if (!email) return json(200, { ok: true, note: "invoice.paid: no email to update user_credits" });
 
       // Grab current period end for UI (optional)
       let periodEndIso = null;
@@ -250,16 +348,26 @@ export const handler = async (event) => {
         }
       }
 
-      const up = await safeUpdateProfile(profile.user_id, {
+      // ✅ PRIMARY: user_credits
+      const upUc = await safeUpsertUserCredits(email, {
         plan: mapped.plan,
         credits: mapped.credits, // monthly reset, no rollover
-        subscription_status: "active",
-        billing_period_end: periodEndIso,
-        stripe_customer_id: customerId || profile.stripe_customer_id || null,
-        stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
+        stripe_customer_id: customerId || null,
       });
+      if (upUc.error) throw upUc.error;
 
-      if (up.error) throw up.error;
+      // Legacy: profiles (only if we found it)
+      if (profile?.user_id) {
+        const up = await safeUpdateProfile(profile.user_id, {
+          plan: mapped.plan,
+          credits: mapped.credits,
+          subscription_status: "active",
+          billing_period_end: periodEndIso,
+          stripe_customer_id: customerId || profile.stripe_customer_id || null,
+          stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
+        });
+        if (up.error) throw up.error;
+      }
 
       return json(200, { ok: true });
     }
@@ -270,10 +378,24 @@ export const handler = async (event) => {
       const subscriptionId = sub.id;
       const customerId = sub.customer || null;
 
-      let profile = await findProfileByStripeSubscription(subscriptionId);
+      let profile = null;
+      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
       if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
 
-      if (profile) {
+      const email = normalizeEmail(profile?.email) || null;
+
+      // ✅ PRIMARY: user_credits
+      if (email) {
+        const upUc = await safeUpsertUserCredits(email, {
+          plan: "free",
+          credits: 0,
+          // keep stripe_customer_id for portal/history; do NOT wipe it
+        });
+        if (upUc.error) throw upUc.error;
+      }
+
+      // Legacy: profiles
+      if (profile?.user_id) {
         const up = await safeUpdateProfile(profile.user_id, {
           plan: "free",
           subscription_status: "canceled",
