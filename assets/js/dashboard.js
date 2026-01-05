@@ -642,14 +642,39 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindCheckout($("btn-plan-intelligence"), "sub50");
   bindCheckout($("btn-plan-impact"), "sub100");
 
-  // Billing: Stripe portal
+ 
+// Billing: Stripe portal
 const manageLink = document.getElementById("manage-subscription");
 if (manageLink) {
-  manageLink.addEventListener("click", (e) => {
+  manageLink.addEventListener("click", async (e) => {
     e.preventDefault();
-    openStripePortal();
+
+    // prevent double-clicks
+    if (manageLink.dataset.loading === "1") return;
+    manageLink.dataset.loading = "1";
+
+    const originalText = manageLink.textContent;
+    manageLink.textContent = "Opening billing…";
+    manageLink.setAttribute("aria-busy", "true");
+    manageLink.style.pointerEvents = "none";
+    manageLink.style.opacity = "0.75";
+
+    try {
+      await openStripePortal(); // redirects on success
+    } catch (err) {
+      console.error("Stripe portal error:", err);
+      alert("Unable to open billing right now. Please try again.");
+
+      // restore only if it failed
+      manageLink.dataset.loading = "0";
+      manageLink.textContent = originalText;
+      manageLink.removeAttribute("aria-busy");
+      manageLink.style.pointerEvents = "";
+      manageLink.style.opacity = "";
+    }
   });
 }
+
 
   await refreshProfile();
   await loadScanHistory();
