@@ -122,6 +122,42 @@ async function startCheckout(priceKey) {
 }
 
 // -----------------------------
+// Stripe Customer Portal (Billing)
+// -----------------------------
+async function openStripePortal() {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken =
+      sessionData && sessionData.session
+        ? sessionData.session.access_token
+        : null;
+
+    if (!accessToken) {
+      throw new Error("Session expired. Please refresh and log in again.");
+    }
+
+    const res = await fetch("/.netlify/functions/stripe-portal", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({}),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || "Unable to open billing portal.");
+    }
+
+    window.location.href = data.url;
+  } catch (err) {
+    alert(err.message || "Unable to open billing portal.");
+  }
+}
+
+// -----------------------------
 // Access / credits model (Paid + Free)
 // -----------------------------
 function computeAccess(profile, email) {
@@ -605,6 +641,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindCheckout($("btn-plan-insight"), "oneoff");
   bindCheckout($("btn-plan-intelligence"), "sub50");
   bindCheckout($("btn-plan-impact"), "sub100");
+
+  // Billing: Stripe portal
+const manageLink = document.getElementById("manage-subscription");
+if (manageLink) {
+  manageLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    openStripePortal();
+  });
+}
 
   await refreshProfile();
   await loadScanHistory();
