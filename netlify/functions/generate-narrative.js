@@ -425,13 +425,122 @@ function extractResponseText(data) {
 }
 
 /* ============================================================
-   OPENAI CALL (NARRATIVE ONLY)
-   - Model writes language ONLY
-   - Deterministic logic supplies hierarchy + evidence
+   OPENAI CALL (NARRATIVE + EXEC SUMMARY)
+   - Narrative mode returns STRICT JSON (your existing schema)
+   - Executive summary mode returns plain TEXT (3–5 lines)
    ============================================================ */
-async function callOpenAI({ facts, constraints }) {
+async function callOpenAI({ mode = "narrative", facts, constraints, signals }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
+  }
+
+  // ------------------------------------------------------------------
+  // MODE B: Executive Summary (plain text, “Senior Reviewer”)
+  // ------------------------------------------------------------------
+  if (mode === "executive_summary") {
+    const safeSignals = signals && typeof signals === "object" ? signals : {};
+
+    const banned = [
+      "this report",
+      "overall,",
+      "based on",
+      "deterministic",
+      "measured",
+      "score",
+      "percent",
+      "%",
+      "must",
+      "urgent",
+      "immediately",
+      "essential",
+      "required",
+    ];
+
+    const execInstructions = [
+      "You are Λ i Q™, writing an executive summary for an iQWEB diagnostic report.",
+      "",
+      "Non-negotiable rules:",
+      "1) Use ONLY the provided facts and signals text. Do not invent causes, tools, traffic, revenue, or measurements.",
+      "2) Do not mention numbers, percentages, or the word 'score'.",
+      "3) No hype, no sales language, no fear tactics, no blame.",
+      "4) Avoid command language (do not use must/urgent/immediately/required).",
+      "5) Keep it calm and practical, like a senior reviewer speaking to an agency.",
+      "",
+      "Output rules:",
+      "- Return 3 to 5 short lines (each line a sentence or two).",
+      "- Line 1: clear overall view (what’s holding credibility/backing right now).",
+      "- Lines 2–3: the top 2 priorities, grounded in the provided signals wording.",
+      "- Final line: a sensible sequencing note (what to tackle first and why), phrased as guidance.",
+      "",
+      "Hard ban: do not include these words/phrases (or close variants):",
+      banned.map((x) => `- ${x}`).join("\n"),
+      "",
+      "Return ONLY the lines as plain text. No JSON. No bullet symbols.",
+    ].join("\n");
+
+    const execInput = [
+      "Create the executive summary lines from the provided inputs.",
+      "",
+      "Facts JSON (truth source):",
+      JSON.stringify(facts || {}),
+      "",
+      "Signals narratives (truth source):",
+      JSON.stringify(safeSignals),
+    ].join("\n");
+
+    const resp = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        // Force 4o for the exec summary (your decision)
+        model: "gpt-4o",
+        instructions: execInstructions,
+        input: execInput,
+        temperature: 0.35,
+        max_output_tokens: 220,
+      }),
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 900)}`);
+    }
+
+    const data = await resp.json();
+    const text = extractResponseText(data);
+    if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output (exec summary).");
+
+    // Normalize to 3–5 non-empty lines
+    const lines = String(text)
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // If model returns one paragraph, split gently into sentences
+    let finalLines = lines;
+    if (finalLines.length < 3) {
+      finalLines = String(text)
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    // Clamp to 5 lines max, 3 min (best effort)
+    finalLines = finalLines.slice(0, 5);
+    if (finalLines.length === 0) throw new Error("OpenAI returned unusable exec summary.");
+
+    return finalLines.join("\n");
+  }
+
+  // ------------------------------------------------------------------
+  // MODE A: Narrative JSON (your existing strict schema)
+  // ------------------------------------------------------------------
+  if (!constraints || typeof constraints !== "object") {
+    throw new Error("Missing constraints for narrative generation.");
   }
 
   const label = (k) =>
@@ -445,7 +554,7 @@ async function callOpenAI({ facts, constraints }) {
     }[k] || k);
 
   const primaryLabel = label(constraints.primary);
-  const secondaryLabels = constraints.secondary.map(label);
+  const secondaryLabels = (constraints.secondary || []).map(label);
 
   const bannedPhrases = [
     // hard-template openers
@@ -787,7 +896,42 @@ export async function handler(event) {
       }
     }
 
-    const { error: upErr } = await supabase.from("scan_results").update({ narrative }).eq("id", scan.id);
+    // --- Executive Summary (new, additive slot) ---
+// Generated AFTER narrative is finalized, using GPT-4o
+let executiveSummaryText = null;
+
+try {
+  const execSummaryRaw = await callOpenAI({
+    mode: "executive_summary",
+    facts,
+    signals: narrative.signals,
+  });
+
+  if (typeof execSummaryRaw === "string" && execSummaryRaw.trim()) {
+    executiveSummaryText = execSummaryRaw.trim();
+  }
+} catch (e) {
+  console.warn("[exec-summary] generation failed, continuing without it", e);
+}
+
+
+// Attach executive summary ONLY if it exists (safe for old reports)
+const narrativeToSave =
+  (typeof executiveSummaryText === "string" && executiveSummaryText.trim())
+    ? {
+        ...narrative,
+        executive_summary: {
+          text: executiveSummaryText.trim(),
+        },
+      }
+    : narrative;
+
+
+  const { error: upErr } = await supabase
+  .from("scan_results")
+  .update({ narrative: narrativeToSave })
+  .eq("id", scan.id);
+
 
     if (upErr) {
       await supabase
@@ -809,14 +953,15 @@ export async function handler(event) {
       });
     }
 
-    return json(200, {
-      success: true,
-      report_id,
-      scan_id: scan.id,
-      saved_to: "scan_results.narrative",
-      constraints,
-      narrative,
-    });
+   return json(200, {
+  success: true,
+  report_id,
+  scan_id: scan.id,
+  saved_to: "scan_results.narrative",
+  constraints,
+  narrative: narrativeToSave,
+});
+
   } catch (err) {
     console.error("[generate-narrative]", err);
 
