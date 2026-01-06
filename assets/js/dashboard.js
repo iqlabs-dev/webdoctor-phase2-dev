@@ -101,25 +101,39 @@ async function startCheckout(priceKey) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        priceKey,
+        priceKey: priceKey,
         user_id: window.currentUserId,
         email: window.currentUserEmail,
         url: window.location.origin,
       }),
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(function () { return {}; });
 
-    if (!res.ok || !data || !data.url) {
-      throw new Error((data && data.error) || "Unable to start checkout");
+    // If backend blocked checkout (freeze/maintenance)
+    if (!res.ok) {
+      if (data && (data.code === "checkout_frozen" || data.code === "payments_disabled")) {
+        var title = data.title ? String(data.title) : "Checkout temporarily unavailable";
+        var message = data.message ? String(data.message) : "Checkout is paused. Please try again later.";
+        alert(title + "\n\n" + message);
+        return;
+      }
+
+      var errMsg = (data && (data.error || data.message)) ? (data.error || data.message) : "Unable to start checkout";
+      throw new Error(errMsg);
+    }
+
+    if (!data || !data.url) {
+      throw new Error("Invalid checkout response (missing url)");
     }
 
     window.location.href = data.url;
   } catch (err) {
     console.error("[CHECKOUT] failed:", err);
-    alert("Checkout could not be started. Please try again.");
+    alert((err && err.message) ? err.message : "Checkout could not be started.");
   }
 }
+
 
 // -----------------------------
 // Stripe Customer Portal (Billing)
