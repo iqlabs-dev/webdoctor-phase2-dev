@@ -312,46 +312,87 @@
     return { kind: "text", text: String(v) };
   }
 
-  function renderNarrative(narrative) {
-    var textEl = $("narrativeText");
-    if (!textEl) return false;
+function renderNarrative(narrative) {
+  var textEl = $("narrativeText");
+  if (!textEl) return false;
 
-    var parsed = parseNarrativeFlexible(narrative);
+  // Executive Summary (Senior Reviewer) — optional
+  var execSection = $("executiveSummarySection");
+  var execTextEl = $("executiveSummaryText");
 
-    function setLines(lines) {
-      if (!lines || !lines.length) return false;
-      var html = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-      textEl.innerHTML = html;
-      return true;
-    }
-
-    if (parsed.kind === "text") {
-      var lines = normalizeLines(parsed.text, 5);
-      if (setLines(lines)) return true;
-      textEl.textContent = "Narrative not generated yet.";
+  function setExecText(txt) {
+    if (!execSection || !execTextEl) return false;
+    var t = (txt === null || txt === undefined) ? "" : String(txt);
+    t = t.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
+    if (!t) {
+      execSection.style.display = "none";
+      execTextEl.innerHTML = "";
       return false;
     }
+    execSection.style.display = "";
+    execTextEl.innerHTML = escapeHtml(t).replace(/\n/g, "<br>");
+    return true;
+  }
 
-    if (parsed.kind === "obj") {
-      var n = safeObj(parsed.obj);
+  var parsed = parseNarrativeFlexible(narrative);
 
-      var overallLines = asArray(n.overall && n.overall.lines);
-      var joined = overallLines.join("\n");
-      var lines2 = normalizeLines(joined, 5);
-      if (setLines(lines2)) return true;
+  function setLines(lines) {
+    if (!lines || !lines.length) return false;
+    var html = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+    textEl.innerHTML = html;
+    return true;
+  }
 
-      if (typeof n.text === "string") {
-        var t = n.text.replace(/^\s+|\s+$/g, "");
-        if (t) {
-          var lines3 = normalizeLines(t, 5);
-          if (setLines(lines3)) return true;
-        }
-      }
-    }
-
+  if (parsed.kind === "text") {
+    setExecText("");
+    var lines = normalizeLines(parsed.text, 5);
+    if (setLines(lines)) return true;
     textEl.textContent = "Narrative not generated yet.";
     return false;
   }
+
+  if (parsed.kind === "obj") {
+    var n = safeObj(parsed.obj);
+
+    // Prefer: narrative.executive_summary.text
+    var execText = "";
+    if (n.executive_summary && typeof n.executive_summary.text === "string") execText = n.executive_summary.text;
+    else if (n.executiveSummary && typeof n.executiveSummary.text === "string") execText = n.executiveSummary.text;
+    else if (typeof n.executive_summary_text === "string") execText = n.executive_summary_text;
+
+    var execOk = setExecText(execText);
+
+    var overallLines = asArray(n.overall && n.overall.lines);
+    var joined = overallLines.join("\n");
+
+    if (joined) {
+      var lines2 = normalizeLines(joined, 5);
+      if (setLines(lines2)) return true;
+    }
+
+    // back-compat: narrative.lines or narrative.text
+    if (Array.isArray(n.lines)) {
+      var linesArr = normalizeLines(asArray(n.lines).join("\n"), 5);
+      if (setLines(linesArr)) return true;
+    }
+
+    if (typeof n.text === "string") {
+      var t = n.text.replace(/^\s+|\s+$/g, "");
+      if (t) {
+        var lines3 = normalizeLines(t, 5);
+        if (setLines(lines3)) return true;
+      }
+    }
+
+    // If overall is empty but Executive Summary exists, consider narrative ready.
+    if (execOk) return true;
+  }
+
+  setExecText("");
+  textEl.textContent = "Narrative not generated yet.";
+  return false;
+}
+
 
   function summaryFallback(sig) {
     var score = asInt(sig && sig.score, 0);

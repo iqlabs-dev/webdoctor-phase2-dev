@@ -727,9 +727,20 @@
       <main id="reportRoot" style="display:none;">
 
         <!-- Executive Narrative -->
+<section class="section" id="executiveSummarySection" style="display:none;">
+          <div class="section-head">
+            <h2 class="section-title">Executive Summary</h2>
+          </div>
+          <div class="section-body">
+            <div id="executiveSummaryText" class="summary">
+              <div class="muted" style="font-size:12px;">Executive Summary will appear when available.</div>
+            </div>
+          </div>
+        </section>
+
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Executive Narrative</h2>
+            <h2 class="section-title">Signals Narrative</h2>
           </div>
           <div class="section-body">
             <div id="narrativeText" class="summary">
@@ -737,6 +748,7 @@
             </div>
           </div>
         </section>
+
 
         <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
@@ -899,386 +911,154 @@
     </div>
   </div>
 
-  <!-- Renders the report from scan_results -->
+  <!-- Renders the report frm scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
-  <script>
-/**
- * iQWEB Narrative Overlay (safe)
- * - Does NOT change deterministic rendering
- * - Simply replaces the placeholder/scripted narrative text once the report is ready
- * - Uses your existing server function (service role) so no Supabase keys in browser
- */
+  <!-- UI buttons (Back/Refresh) -->
+<script>
 (function () {
+  const refreshBtn = document.getElementById("refreshBtn");
+  const backBtn = document.getElementById("backToDashboard");
+  const pdfBtn = document.getElementById("downloadPdfBtn");
+
   const params = new URLSearchParams(window.location.search);
-  const reportId = (params.get("report_id") || "").trim();
-  if (!reportId) return;
+  const from = (params.get("from") || "").toLowerCase();
+  const reportId = params.get("report_id") || "";
 
-  // Map card headings -> narrative keys
-  const CARD_MAP = [
-    { match: "PERFORMANCE", key: "performance" },
-    { match: "MOBILE", key: "mobile" },          // "MOBILE EXPERIENCE"
-    { match: "SEO", key: "seo" },                // "SEO FOUNDATIONS"
-    { match: "SECURITY", key: "security" },      // "SECURITY & TRUST"
-    { match: "STRUCTURE", key: "structure" },    // "STRUCTURE & SEMANTICS"
-    { match: "ACCESSIBILITY", key: "accessibility" },
-  ];
+  const isHistory = from === "history";
+  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
 
-  function joinLines(lines) {
-    return Array.isArray(lines) ? lines.filter(Boolean).join("\n") : "";
-  }
+  // Default: keep evidence accordions CLOSED on web
+  try {
+    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+  } catch (_) {}
 
-  function setExecNarrative(narrative) {
-    const el = document.getElementById("narrativeText");
-    if (!el) return;
+  // History view: hide Back + Refresh, show PDF
+  if (isHistory) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
 
-    const lines = narrative?.overall?.lines;
-    const text = joinLines(lines);
-    if (!text) return;
+    if (pdfBtn) {
+      pdfBtn.style.display = "inline-block";
+      pdfBtn.onclick = async () => {
+        pdfBtn.disabled = true;
+        pdfBtn.textContent = "Generating PDF…";
+        try {
+          const res = await fetch("/.netlify/functions/generate-report-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ report_id: reportId })
+          });
+          if (!res.ok) throw new Error("PDF generation failed");
 
-    // Render as plain text with line breaks (keeps your styling)
-    el.textContent = text;
-  }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
 
-  function setSignalNarratives(narrative) {
-    const grid = document.getElementById("signalsGrid");
-    if (!grid) return;
-
-    const cards = Array.from(grid.querySelectorAll(".card"));
-    if (!cards.length) return;
-
-    for (const card of cards) {
-      const h = card.querySelector("h3");
-      const summary = card.querySelector(".summary");
-      if (!h || !summary) continue;
-
-      const title = (h.textContent || "").toUpperCase();
-
-      const hit = CARD_MAP.find(m => title.includes(m.match));
-      if (!hit) continue;
-
-      const lines = narrative?.signals?.[hit.key]?.lines;
-      const text = joinLines(lines);
-      if (!text) continue;
-
-      // Replace whatever scripted copy exists
-      summary.textContent = text;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${reportId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          alert("Unable to generate PDF. Please try again.");
+        } finally {
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = "Download PDF";
+        }
+      };
     }
+    return; // done
   }
 
-  async function fetchNarrative() {
-    const res = await fetch("/.netlify/functions/generate-narrative", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id: reportId }),
-    });
-
-    // If function fails, do nothing (report still works)
-    if (!res.ok) return null;
-
-    const data = await res.json().catch(() => null);
-    if (!data?.success) return null;
-
-    return data?.narrative || null;
+  // Preview report: remove Back + Refresh (open in new tab from homepage)
+  if (isPreview) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
+    if (pdfBtn) pdfBtn.style.display = "none";
+    return; // done
   }
 
-  // Wait until deterministic render has produced the cards, then overlay
-  function waitUntilReportReady(fn, timeoutMs = 15000) {
-    const start = Date.now();
-    (function tick() {
-      const reportRoot = document.getElementById("reportRoot");
-      const loader = document.getElementById("loaderSection");
-      const grid = document.getElementById("signalsGrid");
+  // Normal (real) report view: keep Back + Refresh
+  if (pdfBtn) pdfBtn.style.display = "none";
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
 
-      const loaderHidden =
-        loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-      const reportVisible =
-        reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-      const hasSignals = grid && grid.children && grid.children.length > 0;
-
-      if (loaderHidden && reportVisible && hasSignals) return fn();
-
-      if (Date.now() - start > timeoutMs) return; // give up silently
-      setTimeout(tick, 150);
-    })();
+  if (backBtn) {
+    backBtn.textContent = "Back to dashboard";
+    backBtn.onclick = () => (window.location.href = "/dashboard.html");
   }
-
-  waitUntilReportReady(async () => {
-    const narrative = await fetchNarrative();
-    if (!narrative) return;
-
-    setExecNarrative(narrative);
-    setSignalNarratives(narrative);
-  });
 })();
 </script>
 
 
-  <!-- ✅ Narrative-first patch (forces UI to prefer saved narrative over scripted text) -->
-  <script>
-  (function () {
-    const SIGNAL_TITLE_TO_KEY = {
-      "PERFORMANCE": "performance",
-      "MOBILE EXPERIENCE": "mobile",
-      "SEO FOUNDATIONS": "seo",
-      "SECURITY & TRUST": "security",
-      "STRUCTURE & SEMANTICS": "structure",
-      "ACCESSIBILITY": "accessibility",
-    };
 
-    function asArray(v) { return Array.isArray(v) ? v : []; }
+<script>
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
 
-    function getNarrativeFromGlobals() {
-      // We don't know your exact global name(s), so we probe common candidates.
-      // report-data.js almost certainly stores the loaded scan somewhere.
-      const candidates = [
-        window.__IQWEB_SCAN,
-        window.__IQWEB_REPORT,
-        window.__IQWEB_DATA,
-        window.__REPORT_DATA__,
-        window.reportData,
-        window.scanData,
-        window.currentScan,
-        window.latestScan,
-      ];
+  // Detect "PDF render mode"
+  const __IQWEB_PDF_MODE = (() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("pdf") === "1") return true;
 
-      for (const c of candidates) {
-        if (c && typeof c === "object") {
-          // accept either full scan row or { scan: row }
-          const scan = c.scan || c.data || c;
-          const narrative = scan?.narrative || scan?.scan_results?.narrative;
-          if (narrative && typeof narrative === "object") return narrative;
-        }
-      }
-
-      // Last resort: some apps attach the last fetched JSON on window.__DATA__ etc.
-      try {
-        if (window.__DATA__?.narrative) return window.__DATA__.narrative;
-      } catch (_) {}
-
-      return null;
-    }
-
-    function hasLines(lines) {
-      return asArray(lines).map(s => String(s || "").trim()).filter(Boolean).length > 0;
-    }
-
-    function joinLines(lines) {
-      return asArray(lines)
-        .map(s => String(s || "").trim())
-        .filter(Boolean)
-        .join("\n");
-    }
-
-    function applyNarrative(narrative) {
-      if (!narrative || typeof narrative !== "object") return false;
-
-      // --- Executive Narrative ---
-      const execEl = document.getElementById("narrativeText");
-      const execLines = narrative?.overall?.lines;
-      if (execEl && hasLines(execLines)) {
-        execEl.textContent = joinLines(execLines);
-      }
-
-      // --- Signal cards summaries ---
-      const grid = document.getElementById("signalsGrid");
-      if (!grid) return false;
-
-      const cards = Array.from(grid.querySelectorAll(".card"));
-      if (!cards.length) return false;
-
-      let patched = 0;
-
-      for (const card of cards) {
-        const h3 = card.querySelector("h3");
-        const summary = card.querySelector(".summary");
-        if (!h3 || !summary) continue;
-
-        const title = String(h3.textContent || "").trim().toUpperCase();
-        const key = SIGNAL_TITLE_TO_KEY[title];
-        if (!key) continue;
-
-        const lines = narrative?.signals?.[key]?.lines;
-        if (!hasLines(lines)) continue;
-
-        // Override scripted text with narrative lines
-        summary.textContent = joinLines(lines);
-        patched++;
-      }
-
-      return patched > 0;
-    }
-
-    function tryPatchLoop() {
-      // report-data.js renders async; we wait until signals exist then apply.
-      const grid = document.getElementById("signalsGrid");
-      const ready = grid && grid.children && grid.children.length >= 6;
-
-      if (!ready) {
-        setTimeout(tryPatchLoop, 120);
-        return;
-      }
-
-      const narrative = getNarrativeFromGlobals();
-
-      // If globals didn't expose narrative, still try to read from DOM dataset if any.
-      // (No-op if none.)
-      applyNarrative(narrative);
-    }
-
-    // Start once DOM is available
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", tryPatchLoop);
-    } else {
-      tryPatchLoop();
-    }
-  })();
-  </script>
-
-  <!-- UI buttons (Back/Refresh) -->
-  <script>
-  (function () {
-    const refreshBtn = document.getElementById("refreshBtn");
-    const backBtn = document.getElementById("backToDashboard");
-    const pdfBtn = document.getElementById("downloadPdfBtn");
-
-    const params = new URLSearchParams(window.location.search);
-    const from = (params.get("from") || "").toLowerCase();
-    const reportId = params.get("report_id") || "";
-
-    const isHistory = from === "history";
-    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
-
-    // Default: keep evidence accordions CLOSED on web
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
     try {
-      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-    } catch (_) {}
-
-    // History view: hide Back + Refresh, show PDF
-    if (isHistory) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
-
-      if (pdfBtn) {
-        pdfBtn.style.display = "inline-block";
-        pdfBtn.onclick = async () => {
-          pdfBtn.disabled = true;
-          pdfBtn.textContent = "Generating PDF…";
-          try {
-            const res = await fetch("/.netlify/functions/generate-report-pdf", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ report_id: reportId })
-            });
-            if (!res.ok) throw new Error("PDF generation failed");
-
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${reportId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-          } catch (e) {
-            alert("Unable to generate PDF. Please try again.");
-          } finally {
-            pdfBtn.disabled = false;
-            pdfBtn.textContent = "Download PDF";
-          }
-        };
-      }
-      return; // done
-    }
-
-    // Preview report: remove Back + Refresh (open in new tab from homepage)
-    if (isPreview) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
-      if (pdfBtn) pdfBtn.style.display = "none";
-      return; // done
-    }
-
-    // Normal (real) report view: keep Back + Refresh
-    if (pdfBtn) pdfBtn.style.display = "none";
-    if (refreshBtn) refreshBtn.onclick = () => location.reload();
-
-    if (backBtn) {
-      backBtn.textContent = "Back to dashboard";
-      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
     }
   })();
-  </script>
 
-  <script>
-    // ===== DocRaptor render gate (single source of truth) =====
-    window.__IQWEB_REPORT_READY = false;
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+    } catch (_) {}
+  }
 
-    // Detect "PDF render mode"
-    const __IQWEB_PDF_MODE = (() => {
-      const p = new URLSearchParams(location.search);
-      if (p.get("pdf") === "1") return true;
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
 
-      // Backup: DocRaptor user-agent often includes "DocRaptor"
-      try {
-        return /DocRaptor/i.test(navigator.userAgent);
-      } catch (_) {
-        return false;
-      }
-    })();
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
+    return window.__IQWEB_REPORT_READY === true;
+  };
 
-    // helper
-    function setEvidenceOpen(open) {
-      try {
-        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
-      } catch (_) {}
+  (function waitForReportReady() {
+    const reportRoot = document.getElementById("reportRoot");
+    const loader = document.getElementById("loaderSection");
+    const signals = document.getElementById("signalsGrid");
+
+    const loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    const reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    const hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
     }
 
-    // Always CLOSED for any normal page view (OSD + Preview)
-    setEvidenceOpen(false);
+    setTimeout(waitForReportReady, 150);
+  })();
 
-    // MUST be global and named EXACTLY this for DocRaptor
-    window.docraptorJavaScriptFinished = function () {
-      return window.__IQWEB_REPORT_READY === true;
-    };
+  // Hard safety (prevents infinite hang)
+  setTimeout(() => {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
+</script>
 
-    (function waitForReportReady() {
-      const reportRoot = document.getElementById("reportRoot");
-      const loader = document.getElementById("loaderSection");
-      const signals = document.getElementById("signalsGrid");
-
-      const loaderHidden =
-        loader &&
-        (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-      const reportVisible =
-        reportRoot &&
-        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-      const hasSignals =
-        signals && signals.children && signals.children.length > 0;
-
-      if (loaderHidden && reportVisible && hasSignals) {
-        // ✅ Only open evidence when rendering PDF
-        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-        else setEvidenceOpen(false);
-
-        window.__IQWEB_REPORT_READY = true;
-        return;
-      }
-
-      setTimeout(waitForReportReady, 150);
-    })();
-
-    // Hard safety (prevents infinite hang)
-    setTimeout(() => {
-      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-    }, 30000);
-  </script>
 
 </body>
 </html>
