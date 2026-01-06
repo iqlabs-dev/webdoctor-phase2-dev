@@ -80,7 +80,6 @@ function failsNarrativeValidation(text) {
   const lower = text.toLowerCase();
 
   const bannedOpeners = ["the primary", "primary focus", "this report", "overall,", "based on"];
-
   const firstLine = text.split("\n")[0].trim().toLowerCase();
   if (bannedOpeners.some((o) => firstLine.startsWith(o))) {
     return true;
@@ -123,7 +122,6 @@ function failsNarrativeValidation(text) {
   }
 
   const genericLanguage = ["best practice", "in order to", "it is recommended", "should be considered"];
-
   if (genericLanguage.some((g) => lower.includes(g))) {
     return true;
   }
@@ -134,7 +132,7 @@ function failsNarrativeValidation(text) {
 /* ============================================================
    v5.2 CONSTRAINTS (LOCKED)
    - overall: max 5 lines
-   - each signal: max 3 lines
+   - each signal: max 3 lines (primary signal allowed up to 5 - Option B)
    ============================================================ */
 function normalizeLines(text, maxLines) {
   const s = String(text || "").replace(/\r\n/g, "\n").trim();
@@ -144,6 +142,44 @@ function normalizeLines(text, maxLines) {
     .map((l) => l.trim())
     .filter(Boolean);
   return lines.slice(0, maxLines);
+}
+
+/* ============================================================
+   EXECUTIVE OPENER SANITIZER (ANTI-TEMPLATE)
+   If the model still starts with "The primary focus..." etc,
+   we rewrite line 1 deterministically to a human reviewer tone.
+   ============================================================ */
+function sanitizeExecutiveOpener(lines, primarySignal) {
+  const out = asArray(lines).slice();
+  if (!out.length) return out;
+
+  const first = String(out[0] || "").trim();
+  const lower = first.toLowerCase();
+
+  const bad =
+    lower.startsWith("the primary") ||
+    lower.startsWith("primary focus") ||
+    lower.startsWith("this report") ||
+    lower.startsWith("overall,") ||
+    lower.startsWith("based on");
+
+  if (!bad) return out;
+
+  const lead =
+    primarySignal === "performance"
+      ? "Delivery is the current limiter."
+      : primarySignal === "security"
+      ? "Trust signals are the current gap."
+      : primarySignal === "seo"
+      ? "Search discovery signals are the current gap."
+      : primarySignal === "accessibility"
+      ? "Accessibility support is the current limiter."
+      : primarySignal === "structure"
+      ? "Structure is mostly sound, but a few fundamentals still matter."
+      : "The next improvements are clearer once the main constraint is addressed.";
+
+  out[0] = lead;
+  return out;
 }
 
 /* ============================================================
@@ -202,7 +238,9 @@ function buildFactsPack(scan) {
       ...pickReasons(byId("seo")),
     ].filter(Boolean),
 
-    mobile: [misses(basic.viewport_present) ? "Viewport meta tag missing" : null, ...pickReasons(byId("mobile"))].filter(Boolean),
+    mobile: [misses(basic.viewport_present) ? "Viewport meta tag missing" : null, ...pickReasons(byId("mobile"))].filter(
+      Boolean
+    ),
 
     performance: [...pickReasons(byId("performance"))].filter(Boolean),
     structure: [...pickReasons(byId("structure"))].filter(Boolean),
@@ -409,6 +447,14 @@ async function callOpenAI({ facts, constraints }) {
   const secondaryLabels = constraints.secondary.map(label);
 
   const bannedPhrases = [
+    // hard-template openers
+    "the primary focus",
+    "primary focus",
+    "this report",
+    "overall,",
+    "based on",
+
+    // old scaffolds
     "primary constraint identified",
     "secondary contributors include",
     "other improvements may have limited impact",
@@ -428,21 +474,26 @@ async function callOpenAI({ facts, constraints }) {
     "3) Do not mention 'deterministic', 'measured', or 'use the evidence below'.",
     "4) No sales language, no hype, no blame, no fear-mongering.",
     "5) Avoid command language. Do not use: must, urgent, immediately, essential, required.",
-    "6) Avoid these exact phrases (or close variants):",
+    "6) Do NOT start the executive narrative with template phrases like 'The primary focus...' or similar.",
+    "7) Avoid these exact phrases (or close variants):",
     `   - ${bannedPhrases.join("\n   - ")}`,
     "",
     "Style requirement (critical):",
     "- Write like a senior reviewer explaining tradeoffs calmly to an agency.",
     "- Vary sentence structure. Do not use a fixed scaffold.",
-    "- Be specific: if evidence says 'HSTS missing' or 'canonical missing', say that plainly.",
+    "- Be specific: if evidence says 'HSTS missing' or 'Robots meta tag missing', say that plainly.",
+    "- Prefer grounded phrasing over labels like 'primary/secondary'.",
     "",
     "Output constraints:",
     "- overall.lines: 3–5 lines total (max 5).",
-    "  * Mention the PRIMARY focus early in the narrative.",
+    "  * Open with a human, natural lead sentence (not a template).",
+    "  * Mention the PRIMARY focus early.",
     "  * Mention up to two SECONDARY contributors (one line is enough).",
     "  * End with a sensible next focus (suggestion, not an order).",
     "",
-    "- signals.*.lines: 2 lines ideal, max 3.",
+    "- signals.*.lines:",
+    "  * For the PRIMARY signal: up to 5 lines is allowed if needed (still keep it tight).",
+    "  * Others: 2 lines ideal, max 3.",
     "  * Each signal MUST reference at least one evidence item if any exist for that signal.",
     "  * If there is no evidence for a signal, keep it short and neutral.",
   ].join("\n");
@@ -470,8 +521,8 @@ async function callOpenAI({ facts, constraints }) {
       model: OPENAI_MODEL,
       instructions,
       input,
-      temperature: 0.25,
-      max_output_tokens: 850,
+      temperature: 0.35,
+      max_output_tokens: 900,
       text: {
         format: {
           type: "json_schema",
@@ -576,15 +627,13 @@ function enforceConstraints(n, primarySignal) {
   };
 
   out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
+  out.overall.lines = sanitizeExecutiveOpener(out.overall.lines, String(primarySignal || "").toLowerCase());
 
   const sig = safeObj(n?.signals);
 
   const setSig = (k) => {
-    const maxLines = (k === primarySignal) ? 5 : 3;
-    out.signals[k].lines = normalizeLines(
-      asArray(sig?.[k]?.lines).join("\n"),
-      maxLines
-    );
+    const maxLines = k === primarySignal ? 5 : 3; // Option B
+    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), maxLines);
   };
 
   setSig("performance");
@@ -595,7 +644,6 @@ function enforceConstraints(n, primarySignal) {
   setSig("accessibility");
 
   // Hard guard: ensure overall contains a sequencing boundary.
-  // We add this ourselves to avoid repetitive model scaffolds.
   const joined = out.overall.lines.join(" ").toLowerCase();
   const hasBoundary =
     joined.includes("until") ||
@@ -641,15 +689,6 @@ function isNarrativeComplete(n) {
 }
 
 /* ============================================================
-   STATUS HELPERS (stored inside scan_results.narrative JSONB)
-   No schema changes required.
-   ============================================================ */
-async function setNarrativeStatusById(scanId, patch) {
-  const { error } = await supabase.from("scan_results").update({ narrative: patch }).eq("id", scanId);
-  if (error) throw new Error(`Failed to update narrative status: ${error.message}`);
-}
-
-/* ============================================================
    HANDLER
    ============================================================ */
 export async function handler(event) {
@@ -663,6 +702,8 @@ export async function handler(event) {
 
     const body = JSON.parse(event.body || "{}");
     const report_id = String(body.report_id || "").trim();
+    const force = body.force === true || body.force === "true";
+
     if (!isNonEmptyString(report_id)) {
       return json(400, { success: false, error: "Missing report_id" });
     }
@@ -684,7 +725,8 @@ export async function handler(event) {
       });
     }
 
-    if (isNarrativeComplete(scan.narrative)) {
+    // If narrative already exists, return it UNLESS caller asked to force regen.
+    if (!force && isNarrativeComplete(scan.narrative)) {
       const existing = safeObj(scan.narrative);
       const patched = {
         ...existing,
@@ -722,6 +764,7 @@ export async function handler(event) {
         narrative: {
           _status: "generating",
           _started_at: nowIso(),
+          _forced: force ? true : undefined,
         },
       })
       .eq("id", scan.id);
@@ -729,20 +772,19 @@ export async function handler(event) {
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
 
- let rawNarrative = await callOpenAI({ facts, constraints });
-let narrative = enforceConstraints(rawNarrative, constraints.primary);
+    let rawNarrative = await callOpenAI({ facts, constraints });
+    let narrative = enforceConstraints(rawNarrative, constraints.primary);
 
-// Anti-AI cadence validation + single retry
-if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
-  console.log("Narrative failed validation, retrying once...");
-  const retryRaw = await callOpenAI({ facts, constraints });
-  const retryNarrative = enforceConstraints(retryRaw, constraints.primary);
+    // Anti-AI cadence validation + single retry
+    if (failsNarrativeValidation(narrative.overall?.lines?.join("\n") || "")) {
+      console.log("Narrative failed validation, retrying once...");
+      const retryRaw = await callOpenAI({ facts, constraints });
+      const retryNarrative = enforceConstraints(retryRaw, constraints.primary);
 
-  if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
-    narrative = retryNarrative;
-  }
-}
-
+      if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join("\n") || "")) {
+        narrative = retryNarrative;
+      }
+    }
 
     const { error: upErr } = await supabase.from("scan_results").update({ narrative }).eq("id", scan.id);
 
