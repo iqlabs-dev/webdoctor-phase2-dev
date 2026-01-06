@@ -440,43 +440,64 @@ async function callOpenAI({ mode = "narrative", facts, constraints, signals }) {
   if (mode === "executive_summary") {
     const safeSignals = signals && typeof signals === "object" ? signals : {};
 
-    const banned = [
-      "this report",
-      "overall,",
-      "based on",
-      "deterministic",
-      "measured",
-      "score",
-      "percent",
-      "%",
-      "must",
-      "urgent",
-      "immediately",
-      "essential",
-      "required",
-    ];
+const banned = [
+  "this report",
+  "overall",
+  "based on",
+  "deterministic",
+  "measured",
+  "score",
+  "percent",
+  "%",
+  "must",
+  "urgent",
+  "immediately",
+  "essential",
+  "required",
 
-    const execInstructions = [
-      "You are Λ i Q™, writing an executive summary for an iQWEB diagnostic report.",
-      "",
-      "Non-negotiable rules:",
-      "1) Use ONLY the provided facts and signals text. Do not invent causes, tools, traffic, revenue, or measurements.",
-      "2) Do not mention numbers, percentages, or the word 'score'.",
-      "3) No hype, no sales language, no fear tactics, no blame.",
-      "4) Avoid command language (do not use must/urgent/immediately/required).",
-      "5) Keep it calm and practical, like a senior reviewer speaking to an agency.",
-      "",
-      "Output rules:",
-      "- Return 3 to 5 short lines (each line a sentence or two).",
-      "- Line 1: clear overall view (what’s holding credibility/backing right now).",
-      "- Lines 2–3: the top 2 priorities, grounded in the provided signals wording.",
-      "- Final line: a sensible sequencing note (what to tackle first and why), phrased as guidance.",
-      "",
-      "Hard ban: do not include these words/phrases (or close variants):",
-      banned.map((x) => `- ${x}`).join("\n"),
-      "",
-      "Return ONLY the lines as plain text. No JSON. No bullet symbols.",
-    ].join("\n");
+  // kill corporate / AI cadence
+  "benefits from",
+  "supporting its overall",
+  "prioritizing",
+  "is crucial",
+  "focusing on",
+  "could improve",
+  "will provide",
+  "foundation",
+  "subsequent",
+  "moving forward",
+  "in order to",
+  "recommended",
+  "enhancements",
+  "safeguarding",
+  "user data",
+];
+
+const execInstructions = [
+  "You are Λ i Q™, writing a short executive summary for an iQWEB diagnostic report.",
+  "",
+  "Tone: senior reviewer to an agency. Calm, specific, not corporate.",
+  "",
+  "Non-negotiable rules:",
+  "1) Use ONLY the provided facts and signals text. Do not invent causes, tools, traffic, revenue, or measurements.",
+  "2) Do not mention numbers, percentages, ratings, or the word 'score'.",
+  "3) No hype, no sales language, no fear language, no moral judgement.",
+  "4) Avoid command language (no must/urgent/immediately/required).",
+  "5) Avoid 'consultant filler' and generic phrasing.",
+  "",
+  "Output rules:",
+  "- Return 3 to 5 lines.",
+  "- Each line should be short and plain.",
+  "- Line 1: what is holding the site back right now (grounded in signals).",
+  "- Lines 2–3: the two most important fixes, using the exact evidence words where possible (HSTS, CSP, robots meta, canonical, etc.).",
+  "- Final line: sequencing in plain language (what to do first, and why), without sounding like a command.",
+  "",
+  "Hard ban: do not include these words/phrases (or close variants):",
+  banned.map((x) => `- ${x}`).join("\n"),
+  "",
+  "Return ONLY plain text lines. No JSON. No bullets.",
+].join("\n");
+
 
     const execInput = [
       "Create the executive summary lines from the provided inputs.",
@@ -836,7 +857,12 @@ export async function handler(event) {
     }
 
     // If narrative already exists, return it UNLESS caller asked to force regen.
-    if (!force && isNarrativeComplete(scan.narrative)) {
+    const hasExecSummary =
+  typeof scan.narrative?.executive_summary?.text === "string" &&
+  scan.narrative.executive_summary.text.trim().length > 0;
+
+if (!force && isNarrativeComplete(scan.narrative) && hasExecSummary) {
+
       const existing = safeObj(scan.narrative);
       const patched = {
         ...existing,
