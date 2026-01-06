@@ -170,6 +170,29 @@ async function incrementUserCredits(email, amount) {
   return res;
 }
 
+// -------------------------------------------------
+// 🔒 Payments Freeze (fulfillment guard)
+// - MUST "ack" Stripe with 200
+// - MUST NOT grant credits / plans while frozen
+// -------------------------------------------------
+async function isPaymentsFrozenForFulfillment() {
+  // Emergency env kill switch (optional)
+  if (process.env.PAYMENTS_DISABLED === "1") return true;
+
+  try {
+    const { data, error } = await supabase
+      .from("admin_flags")
+      .select("freeze_payments")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (error) return false; // fail-open (don't brick Stripe if DB hiccups)
+    return !!(data && data.freeze_payments);
+  } catch {
+    return false; // fail-open
+  }
+}
+
 export const handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -190,47 +213,51 @@ export const handler = async (event) => {
     }
 
     // ---------------- checkout.session.completed ----------------
-    if (stripeEvent.type === "checkout.session.completed") {
-      const session = stripeEvent.data.object;
+   if (stripeEvent.type === "checkout.session.completed") {
+  const session = stripeEvent.data.object;
 
-      const mode = session.mode; // "payment" or "subscription"
-      const userId = session?.metadata?.user_id || session?.client_reference_id || null;
+  const mode = session.mode; // "payment" or "subscription"
+  const userId = session?.metadata?.user_id || session?.client_reference_id || null;
 
-      const customerId = session.customer || null;
-      const subscriptionId = session.subscription || null;
+  const customerId = session.customer || null;
+  const subscriptionId = session.subscription || null;
 
-      const priceKey =
-        session?.metadata?.priceKey ||
-        session?.metadata?.price_key ||
-        null;
+  const priceKey =
+    session?.metadata?.priceKey ||
+    session?.metadata?.price_key ||
+    null;
 
-      if (!userId) return json(200, { ok: true, note: "No user_id" });
+  if (!userId) return json(200, { ok: true, note: "No user_id" });
 
-      const profile = await findProfileByUserId(userId);
-      if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
+  const profile = await findProfileByUserId(userId);
+  if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
 
-      const email =
-        normalizeEmail(profile.email) ||
-        normalizeEmail(session?.customer_details?.email) ||
-        normalizeEmail(session?.customer_email) ||
-        null;
+  const email =
+    normalizeEmail(profile.email) ||
+    normalizeEmail(session?.customer_details?.email) ||
+    normalizeEmail(session?.customer_email) ||
+    null;
 
-      // Always store Stripe IDs on profiles (existing behavior)
-      const idPatch = {};
-      if (customerId) idPatch.stripe_customer_id = customerId;
-      if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
+  // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
+  const frozen = await isPaymentsFrozenForFulfillment();
+  if (frozen) {
+    console.warn(
+      "[payments] frozen: checkout.session.completed received but fulfillment blocked",
+      { userId, email, mode, priceKey }
+    );
+    // IMPORTANT: still return 200 so Stripe does NOT retry
+    return json(200, { ok: true, frozen: true });
+  }
 
-      if (Object.keys(idPatch).length) {
-        const up = await safeUpdateProfile(userId, idPatch);
-        if (up.error) throw up.error;
-      }
+  // Always store Stripe IDs on profiles (existing behavior)
+  const idPatch = {};
+  if (customerId) idPatch.stripe_customer_id = customerId;
+  if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
 
-      // ✅ ALSO store stripe_customer_id on user_credits (so portal/customer mapping stays consistent)
-      if (email && customerId) {
-        const upUc = await safeUpsertUserCredits(email, { stripe_customer_id: customerId });
-        if (upUc.error) throw upUc.error;
-      }
-
+  if (Object.keys(idPatch).length) {
+    const up = await safeUpdateProfile(userId, idPatch);
+    if (up.error) throw up.error;
+  }
       // One-off: increment by 1 (never expires)
       if (mode === "payment") {
         if (priceKey === "oneoff") {
