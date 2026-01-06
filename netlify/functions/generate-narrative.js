@@ -895,15 +895,19 @@ if (!force && isNarrativeComplete(scan.narrative) && hasExecSummary) {
     }
 
     await supabase
-      .from("scan_results")
-      .update({
-        narrative: {
-          _status: "generating",
-          _started_at: nowIso(),
-          _forced: force ? true : undefined,
-        },
-      })
-      .eq("id", scan.id);
+  await supabase
+  .from("scan_results")
+  .update({
+    narrative_status: "generating",
+    narrative_attempts: 0,
+    narrative: {
+      _status: "generating",
+      _started_at: nowIso(),
+      _forced: force ? true : undefined,
+    },
+  })
+  .eq("id", scan.id);
+
 
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
@@ -941,53 +945,59 @@ try {
 }
 
 
+// ---- FINAL SAVE BLOCK (REPLACE ENTIRE SECTION) ----
+
 // Attach executive summary ONLY if it exists (safe for old reports)
-const narrativeToSave =
+var narrativeToSave =
   (typeof executiveSummaryText === "string" && executiveSummaryText.trim())
-    ? {
-        ...narrative,
-        executive_summary: {
-          text: executiveSummaryText.trim(),
-        },
-      }
+    ? Object.assign({}, narrative, {
+        executive_summary: { text: executiveSummaryText.trim() }
+      })
     : narrative;
 
-
-  const { error: upErr } = await supabase
+var upRes = await supabase
   .from("scan_results")
-  .update({ narrative: narrativeToSave })
+  .update({
+    narrative: narrativeToSave,
+    narrative_status: "final"
+    // NOTE: narrative_attempts is updated earlier during retry loop.
+    // We don't touch it here to avoid overwriting the final attempt count.
+  })
   .eq("id", scan.id);
 
+var upErr = upRes && upRes.error ? upRes.error : null;
 
-    if (upErr) {
-      await supabase
-        .from("scan_results")
-        .update({
-          narrative: {
-            _status: "error",
-            _error: upErr.message || String(upErr),
-            _failed_at: nowIso(),
-          },
-        })
-        .eq("id", scan.id);
+if (upErr) {
+  await supabase
+    .from("scan_results")
+    .update({
+      narrative: {
+        _status: "error",
+        _error: upErr.message || String(upErr),
+        _failed_at: nowIso()
+      },
+      narrative_status: "final" // important: never leave report stuck "generating"
+    })
+    .eq("id", scan.id);
 
-      return json(500, {
-        success: false,
-        error: "Failed to save narrative",
-        detail: upErr.message || upErr,
-        hint: "Ensure scan_results.narrative exists as jsonb.",
-      });
-    }
+  return json(500, {
+    success: false,
+    error: "Failed to save narrative",
+    detail: upErr.message || upErr,
+    hint: "Ensure scan_results.narrative exists as jsonb."
+  });
+}
 
-   return json(200, {
+return json(200, {
   success: true,
-  report_id,
+  report_id: report_id,
   scan_id: scan.id,
   saved_to: "scan_results.narrative",
-  constraints,
-  narrative: narrativeToSave,
+  constraints: constraints,
+  narrative: narrativeToSave
 });
 
+// ---- END FINAL SAVE BLOCK ----
   } catch (err) {
     console.error("[generate-narrative]", err);
 
@@ -1001,6 +1011,7 @@ const narrativeToSave =
               _error: err?.message || String(err),
               _failed_at: nowIso(),
             },
+            narrative_status: "final",
           })
           .eq("id", scan.id);
       }
@@ -1015,3 +1026,4 @@ const narrativeToSave =
     });
   }
 }
+
