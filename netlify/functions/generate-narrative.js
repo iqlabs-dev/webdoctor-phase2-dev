@@ -559,7 +559,7 @@ async function callOpenAI({ facts, constraints }) {
 /* ============================================================
    ENFORCE CONSTRAINTS + GUARDED MINIMUM QUALITY
    ============================================================ */
-function enforceConstraints(n, constraints) {
+function enforceConstraints(n, primarySignal) {
   const out = {
     _status: "ok",
     _generated_at: nowIso(),
@@ -578,8 +578,13 @@ function enforceConstraints(n, constraints) {
   out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
 
   const sig = safeObj(n?.signals);
+
   const setSig = (k) => {
-    out.signals[k].lines = normalizeLines(asArray(sig?.[k]?.lines).join("\n"), 3);
+    const maxLines = (k === primarySignal) ? 5 : 3;
+    out.signals[k].lines = normalizeLines(
+      asArray(sig?.[k]?.lines).join("\n"),
+      maxLines
+    );
   };
 
   setSig("performance");
@@ -604,7 +609,8 @@ function enforceConstraints(n, constraints) {
     joined.includes("won't land");
 
   if (!hasBoundary && out.overall.lines.length > 0) {
-    const k = String(constraints?.primary || "").toLowerCase();
+    const k = String(primarySignal || "").toLowerCase();
+
     const boundary =
       k === "performance"
         ? "Many improvements elsewhere will not land cleanly if delivery remains slow or inconsistent."
@@ -723,19 +729,20 @@ export async function handler(event) {
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
 
-    let rawNarrative = await callOpenAI({ facts, constraints });
-    let narrative = enforceConstraints(rawNarrative, constraints);
+ let rawNarrative = await callOpenAI({ facts, constraints });
+let narrative = enforceConstraints(rawNarrative, constraints.primary);
 
-    // Anti-AI cadence validation + single retry
-    if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
-      console.log("Narrative failed validation, retrying once...");
-      const retryRaw = await callOpenAI({ facts, constraints });
-      const retryNarrative = enforceConstraints(retryRaw, constraints);
+// Anti-AI cadence validation + single retry
+if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
+  console.log("Narrative failed validation, retrying once...");
+  const retryRaw = await callOpenAI({ facts, constraints });
+  const retryNarrative = enforceConstraints(retryRaw, constraints.primary);
 
-      if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
-        narrative = retryNarrative;
-      }
-    }
+  if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
+    narrative = retryNarrative;
+  }
+}
+
 
     const { error: upErr } = await supabase.from("scan_results").update({ narrative }).eq("id", scan.id);
 
