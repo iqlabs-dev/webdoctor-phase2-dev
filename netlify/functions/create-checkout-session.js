@@ -21,13 +21,39 @@ export const handler = async (event) => {
       return json(405, { error: "Method not allowed" });
     }
 
+        // -------------------------------------------------
+    // 🔒 PAYMENTS FREEZE (Admin flag + emergency env)
     // -------------------------------------------------
-    // 🔒 HARD PAYMENT KILL SWITCH (SAFE MODE)
-    // -------------------------------------------------
-    if (process.env.PAYMENTS_DISABLED === "1") {
+    async function isPaymentsFrozen() {
+      // Emergency nuke switch (env)
+      if (process.env.PAYMENTS_DISABLED === "1") {
+        return { frozen: true, reason: "env_kill_switch" };
+      }
+
+      // Admin-controlled flag (DB)
+      try {
+        const { data, error } = await supabase
+          .from("admin_flags")
+          .select("freeze_payments, freeze_reason")
+          .eq("id", 1)
+          .maybeSingle();
+
+        if (error) return { frozen: false }; // fail-open
+        if (data && data.freeze_payments === true) {
+          return { frozen: true, reason: data.freeze_reason || "admin_freeze" };
+        }
+        return { frozen: false };
+      } catch (_) {
+        return { frozen: false };
+      }
+    }
+
+    const freeze = await isPaymentsFrozen();
+    if (freeze.frozen) {
       return json(403, {
         error: "Payments are temporarily disabled. Please try again later.",
         code: "payments_disabled",
+        reason: freeze.reason,
       });
     }
 
@@ -63,26 +89,46 @@ export const handler = async (event) => {
 
     const mode = priceKey === "oneoff" ? "payment" : "subscription";
 
- const session = await stripe.checkout.sessions.create({
-  mode,
-  payment_method_types: ["card"],
-  line_items: [{ price: priceId, quantity: 1 }],
+    // Try reuse an existing Stripe customer (prevents duplicates)
+    let stripeCustomerId = null;
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("stripe_customer_id")
+        .eq("user_id", user_id)
+        .maybeSingle();
 
-  // ✅ Force real Stripe customer (cus_...) so portal works
-  customer_creation: "always",
+      if (profile?.stripe_customer_id?.startsWith("cus_")) {
+        stripeCustomerId = profile.stripe_customer_id;
+      }
+    } catch (e) {
+      // non-fatal — fallback to creating a customer
+    }
 
-  customer_email: email,
-  client_reference_id: user_id,
+    const session = await stripe.checkout.sessions.create({
+      mode,
+      payment_method_types: ["card"],
+      line_items: [{ price: priceId, quantity: 1 }],
 
-  success_url,
-  cancel_url,
+      ...(stripeCustomerId
+        ? { customer: stripeCustomerId }
+        : {
+            customer_creation: "always",
+            customer_email: email,
+          }),
 
-  metadata: {
-    user_id,
-    priceKey,
-    mode,
-  },
-});
+      client_reference_id: user_id,
+
+      success_url,
+      cancel_url,
+
+      metadata: {
+        user_id,
+        priceKey,
+        mode,
+      },
+    });
+
 
 
     return json(200, { url: session.url });
