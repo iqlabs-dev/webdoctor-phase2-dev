@@ -56,14 +56,19 @@ export const handler = async (event) => {
     }
 
     // ✅ Block NEW checkout session creation here
-    const freeze = await isPaymentsFrozen();
-    if (freeze.frozen) {
-      return json(403, {
-        error: "Payments are temporarily disabled. Please try again later.",
-        code: "payments_disabled",
-        reason: freeze.reason,
-      });
-    }
+  const freeze = await isPaymentsFrozen();
+if (freeze.frozen) {
+  return json(503, {
+    ok: false,
+    code: "checkout_frozen",
+    title: "Checkout temporarily unavailable",
+    message:
+      freeze.reason
+        ? `Checkout is paused: ${freeze.reason}. Please try again shortly.`
+        : "Checkout is currently frozen for maintenance. Please try again later.",
+  });
+}
+
 
     const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
 

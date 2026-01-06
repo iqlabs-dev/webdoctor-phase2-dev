@@ -351,6 +351,17 @@ export const handler = async (event) => {
       // Only reset monthly for subscription plans
       if (mapped.kind !== "subscription") return json(200, { ok: true });
 
+      // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
+const frozen = await isPaymentsFrozenForFulfillment();
+if (frozen) {
+  console.warn(
+    "[payments] frozen: invoice.paid received but fulfillment blocked",
+    { customerId, subscriptionId, priceId }
+  );
+  return json(200, { ok: true, frozen: true });
+}
+
+
       // Prefer email directly from invoice if present
       let email = normalizeEmail(invoice?.customer_email) || null;
 
@@ -404,6 +415,17 @@ export const handler = async (event) => {
       const sub = stripeEvent.data.object;
       const subscriptionId = sub.id;
       const customerId = sub.customer || null;
+
+      // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
+const frozen = await isPaymentsFrozenForFulfillment();
+if (frozen) {
+  console.warn(
+    "[payments] frozen: customer.subscription.deleted received but fulfillment blocked",
+    { customerId, subscriptionId }
+  );
+  return json(200, { ok: true, frozen: true });
+}
+
 
       let profile = null;
       if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
