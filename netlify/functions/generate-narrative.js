@@ -58,6 +58,19 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+// Score bands are allowed as a deterministic fallback when a provider score exists
+// but the delivery signal did not include usable deduction reasons.
+// Narrative MUST NOT output numeric scores.
+function scoreBand(score) {
+  if (score === null || score === undefined) return null;
+  const n = Number(score);
+  if (!Number.isFinite(n)) return null;
+  if (n < 50) return "poor";
+  if (n < 70) return "needs_work";
+  if (n < 85) return "ok";
+  return "strong";
+}
+
 /* ============================================================
    NARRATIVE VALIDATION (ANTI-AI CADENCE)
    ============================================================ */
@@ -66,16 +79,10 @@ function failsNarrativeValidation(text) {
 
   const lower = text.toLowerCase();
 
-  const bannedOpeners = [
-    "the primary",
-    "primary focus",
-    "this report",
-    "overall,",
-    "based on",
-  ];
+  const bannedOpeners = ["the primary", "primary focus", "this report", "overall,", "based on"];
 
   const firstLine = text.split("\n")[0].trim().toLowerCase();
-  if (bannedOpeners.some(o => firstLine.startsWith(o))) {
+  if (bannedOpeners.some((o) => firstLine.startsWith(o))) {
     return true;
   }
 
@@ -89,7 +96,7 @@ function failsNarrativeValidation(text) {
   ];
 
   let repeats = 0;
-  repeatedPhrases.forEach(p => {
+  repeatedPhrases.forEach((p) => {
     if (lower.includes(p)) repeats++;
   });
   if (repeats >= 2) return true;
@@ -106,25 +113,24 @@ function failsNarrativeValidation(text) {
     "referrer-policy",
     "empty",
     "unlabeled",
+    "performance",
+    "load",
+    "slow",
   ];
 
-  if (!evidenceTerms.some(term => lower.includes(term))) {
+  if (!evidenceTerms.some((term) => lower.includes(term))) {
     return true;
   }
 
-  const genericLanguage = [
-    "best practice",
-    "in order to",
-    "it is recommended",
-    "should be considered",
-  ];
+  const genericLanguage = ["best practice", "in order to", "it is recommended", "should be considered"];
 
-  if (genericLanguage.some(g => lower.includes(g))) {
+  if (genericLanguage.some((g) => lower.includes(g))) {
     return true;
   }
 
   return false;
 }
+
 /* ============================================================
    v5.2 CONSTRAINTS (LOCKED)
    - overall: max 5 lines
@@ -143,11 +149,22 @@ function normalizeLines(text, maxLines) {
 /* ============================================================
    FACTS PACK (DETERMINISTIC ONLY)
    NOTE: scores are passed through for UI/reference only.
-         Narrative decisions MUST NOT be derived from scores.
+         Narrative decisions MUST NOT output numeric scores.
+         Bands may be used as a deterministic fallback when deductions are missing.
    ============================================================ */
 function buildFactsPack(scan) {
   const metrics = safeObj(scan.metrics);
   const scores = safeObj(metrics.scores);
+  const bands = {
+    performance: scoreBand(scores.performance ?? null),
+    mobile: scoreBand(scores.mobile ?? null),
+    seo: scoreBand(scores.seo ?? null),
+    structure: scoreBand(scores.structure ?? null),
+    security: scoreBand(scores.security ?? null),
+    accessibility: scoreBand(scores.accessibility ?? null),
+    overall: scoreBand(scores.overall ?? scan.score_overall ?? null),
+  };
+
   const basic = safeObj(metrics.basic_checks);
   const sec = safeObj(metrics.security_headers);
 
@@ -155,8 +172,7 @@ function buildFactsPack(scan) {
     ? asArray(metrics.delivery_signals)
     : asArray(safeObj(metrics.metrics).delivery_signals);
 
-  const byId = (id) =>
-    delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
+  const byId = (id) => delivery.find((s) => String(s?.id || "").toLowerCase() === id) || null;
 
   const pickReasons = (sig) =>
     asArray(sig?.deductions)
@@ -164,7 +180,6 @@ function buildFactsPack(scan) {
       .filter(Boolean)
       .slice(0, 8);
 
-  // Build per-signal evidence lists (facts + deductions) so the model can’t drift into generic filler.
   const misses = (v) => v === false;
 
   const evidence = {
@@ -187,21 +202,39 @@ function buildFactsPack(scan) {
       ...pickReasons(byId("seo")),
     ].filter(Boolean),
 
-    mobile: [
-      misses(basic.viewport_present) ? "Viewport meta tag missing" : null,
-      ...pickReasons(byId("mobile")),
-    ].filter(Boolean),
+    mobile: [misses(basic.viewport_present) ? "Viewport meta tag missing" : null, ...pickReasons(byId("mobile"))].filter(Boolean),
 
     performance: [...pickReasons(byId("performance"))].filter(Boolean),
     structure: [...pickReasons(byId("structure"))].filter(Boolean),
     accessibility: [...pickReasons(byId("accessibility"))].filter(Boolean),
   };
 
+  // Deterministic fallbacks: if a score band is poor/needs_work but the provider
+  // did not supply deduction reasons, add a non-numeric evidence hook so the narrative
+  // can still be truthful and useful.
+  const ensureBandEvidence = (key, label) => {
+    const band = bands[key];
+    if (!band) return;
+    const hasReasons = evidence[key] && evidence[key].length > 0;
+    if (hasReasons) return;
+
+    if (band === "poor") evidence[key] = [`${label} rating is low`];
+    else if (band === "needs_work") evidence[key] = [`${label} rating needs work`];
+  };
+
+  ensureBandEvidence("performance", "Performance");
+  ensureBandEvidence("mobile", "Mobile experience");
+  ensureBandEvidence("seo", "SEO");
+  ensureBandEvidence("structure", "Structure");
+  ensureBandEvidence("security", "Security");
+  ensureBandEvidence("accessibility", "Accessibility");
+
   return {
     report_id: scan.report_id,
     url: scan.url,
+    bands,
 
-    // Pass-through only (DO NOT use for narrative decisions)
+    // Pass-through only (DO NOT output in narrative)
     scores: {
       performance: scores.performance ?? null,
       mobile: scores.mobile ?? null,
@@ -230,22 +263,21 @@ function buildFactsPack(scan) {
       permissions_policy: sec.permissions_policy ?? null,
     },
 
-    evidence, // <-- THIS is what the narrative should hook into.
+    evidence,
   };
 }
 
 /* ============================================================
-   EVIDENCE-BASED HIERARCHY (NOT SCORE-BASED)
-   Choose a primary constraint using hard findings + evidence volume.
+   EVIDENCE-BASED HIERARCHY (HUMAN-LIKE, ANTI-REPETITION)
+   Primary selection uses evidence and score bands (non-numeric) as fallback.
+   Security cannot auto-dominate unless it is genuinely dominant.
    ============================================================ */
 function analyzeConstraints(facts) {
   const e = safeObj(facts.evidence);
+  const bands = safeObj(facts.bands);
 
   const count = (k) => asArray(e[k]).filter(Boolean).length;
 
-  // Evidence-driven ordering: security dominates if multiple headers missing or any security evidence exists.
-  // SEO next (canonical/robots/H1/title), then performance, then structure/accessibility, then mobile.
-  // This is judgement scaffolding, not text templating.
   const securityCount = count("security");
   const seoCount = count("seo");
   const perfCount = count("performance");
@@ -253,36 +285,80 @@ function analyzeConstraints(facts) {
   const a11yCount = count("accessibility");
   const mobileCount = count("mobile");
 
-  let primary = "seo";
-  if (securityCount >= 2) primary = "security";
-  else if (perfCount >= 3) primary = "performance";
-  else if (seoCount >= 1) primary = "seo";
-  else if (structCount >= 2) primary = "structure";
-  else if (a11yCount >= 2) primary = "accessibility";
-  else if (mobileCount >= 1) primary = "mobile";
+  const bandWeight = (b) => (b === "poor" ? 3 : b === "needs_work" ? 2 : 0);
 
-  const all = [
-    { k: "security", n: securityCount },
-    { k: "performance", n: perfCount },
-    { k: "seo", n: seoCount },
-    { k: "structure", n: structCount },
-    { k: "accessibility", n: a11yCount },
-    { k: "mobile", n: mobileCount },
-  ]
+  const findings = safeObj(facts.findings);
+  const coreSecMissing =
+    (findings.https === false ? 3 : 0) +
+    (findings.hsts === false ? 1 : 0) +
+    (findings.csp === false ? 1 : 0) +
+    (findings.xfo === false ? 1 : 0) +
+    (findings.xcto === false ? 1 : 0);
+
+  const severity = {
+    performance: perfCount + bandWeight(bands.performance),
+    seo: seoCount + bandWeight(bands.seo),
+    security: securityCount + coreSecMissing + bandWeight(bands.security),
+    structure: structCount + bandWeight(bands.structure),
+    accessibility: a11yCount + bandWeight(bands.accessibility),
+    mobile: mobileCount + bandWeight(bands.mobile),
+  };
+
+  const candidates = Object.entries(severity)
+    .map(([k, v]) => ({ k, v }))
+    .filter((x) => x.v > 0);
+
+  if (candidates.length === 0) {
+    return {
+      primary: "seo",
+      primary_evidence: asArray(e.seo).slice(0, 6),
+      secondary: [],
+      secondary_evidence: {},
+    };
+  }
+
+  const tieOrder = ["performance", "seo", "security", "accessibility", "structure", "mobile"];
+  candidates.sort((a, b) => {
+    if (b.v !== a.v) return b.v - a.v;
+    return tieOrder.indexOf(a.k) - tieOrder.indexOf(b.k);
+  });
+
+  const top = candidates[0];
+  const perf = candidates.find((c) => c.k === "performance");
+  const sec = candidates.find((c) => c.k === "security");
+
+  let primary = top.k;
+
+  // If performance exists and is within 1 point of the top severity, lead with performance.
+  if (perf && top.k !== "performance" && perf.v >= top.v - 1) {
+    primary = "performance";
+  }
+
+  // Only allow security to lead when truly dominant.
+  if (sec && primary === "security") {
+    const second = candidates.find((c) => c.k !== "security");
+    const secondV = second ? second.v : 0;
+    const dominant = sec.v >= secondV + 2;
+    if (!dominant && perf) {
+      primary = "performance";
+    }
+  }
+
+  const secondary = candidates
     .filter((x) => x.k !== primary)
-    .filter((x) => x.n > 0)
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 2);
+    .slice(0, 2)
+    .map((x) => x.k);
 
-  const secondary = all.map((x) => x.k);
+  const secondary_evidence = {};
+  secondary.forEach((k) => {
+    secondary_evidence[k] = asArray(e[k]).slice(0, 3);
+  });
 
   return {
     primary,
     primary_evidence: asArray(e[primary]).slice(0, 6),
     secondary,
-    secondary_evidence: Object.fromEntries(
-      secondary.map((k) => [k, asArray(e[k]).slice(0, 5)])
-    ),
+    secondary_evidence,
   };
 }
 
@@ -332,7 +408,6 @@ async function callOpenAI({ facts, constraints }) {
   const primaryLabel = label(constraints.primary);
   const secondaryLabels = constraints.secondary.map(label);
 
-  // These are the phrases making your screenshots look “templated”.
   const bannedPhrases = [
     "primary constraint identified",
     "secondary contributors include",
@@ -363,9 +438,8 @@ async function callOpenAI({ facts, constraints }) {
     "",
     "Output constraints:",
     "- overall.lines: 3–5 lines total (max 5).",
-    "  * Name the PRIMARY focus (early in the narrative).",
+    "  * Mention the PRIMARY focus early in the narrative.",
     "  * Mention up to two SECONDARY contributors (one line is enough).",
-    "  * Include a sequencing boundary in calm language: e.g. 'Many gains elsewhere won’t show cleanly until…' (no commands).",
     "  * End with a sensible next focus (suggestion, not an order).",
     "",
     "- signals.*.lines: 2 lines ideal, max 3.",
@@ -419,14 +493,7 @@ async function callOpenAI({ facts, constraints }) {
               signals: {
                 type: "object",
                 additionalProperties: false,
-                required: [
-                  "performance",
-                  "mobile",
-                  "seo",
-                  "security",
-                  "structure",
-                  "accessibility",
-                ],
+                required: ["performance", "mobile", "seo", "security", "structure", "accessibility"],
                 properties: {
                   performance: {
                     type: "object",
@@ -492,9 +559,8 @@ async function callOpenAI({ facts, constraints }) {
 /* ============================================================
    ENFORCE CONSTRAINTS + GUARDED MINIMUM QUALITY
    ============================================================ */
-function enforceConstraints(n) {
+function enforceConstraints(n, constraints) {
   const out = {
-    // meta for admin monitoring (extra keys OK in JSONB; UI can ignore)
     _status: "ok",
     _generated_at: nowIso(),
 
@@ -523,24 +589,32 @@ function enforceConstraints(n) {
   setSig("structure");
   setSig("accessibility");
 
-  // Hard guard: ensure overall contains a sequencing boundary (without command language)
+  // Hard guard: ensure overall contains a sequencing boundary.
+  // We add this ourselves to avoid repetitive model scaffolds.
   const joined = out.overall.lines.join(" ").toLowerCase();
   const hasBoundary =
-    joined.includes("limited impact") ||
     joined.includes("until") ||
     joined.includes("before") ||
     joined.includes("won’t show") ||
     joined.includes("won't show") ||
     joined.includes("does not offset") ||
     joined.includes("doesn’t offset") ||
-    joined.includes("doesn't offset");
+    joined.includes("doesn't offset") ||
+    joined.includes("won’t land") ||
+    joined.includes("won't land");
 
   if (!hasBoundary && out.overall.lines.length > 0) {
-    out.overall.lines = normalizeLines(
-      out.overall.lines.join("\n") +
-        "\nMany gains elsewhere are unlikely to show cleanly until the main constraint is addressed.",
-      5
-    );
+    const k = String(constraints?.primary || "").toLowerCase();
+    const boundary =
+      k === "performance"
+        ? "Many improvements elsewhere will not land cleanly if delivery remains slow or inconsistent."
+        : k === "seo"
+        ? "Many gains elsewhere will not show cleanly if search discovery signals stay unclear."
+        : k === "security"
+        ? "Many improvements elsewhere will not feel fully credible if basic trust policies are missing."
+        : "Many gains elsewhere are unlikely to show cleanly until the main constraint is steadier.";
+
+    out.overall.lines = normalizeLines(out.overall.lines.join("\n") + "\n" + boundary, 5);
   }
 
   return out;
@@ -550,15 +624,12 @@ function enforceConstraints(n) {
    NARRATIVE VALIDITY CHECK
    ============================================================ */
 function isNarrativeComplete(n) {
-  const hasOverall =
-    Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
+  const hasOverall = Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
 
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
   const hasSignals =
     n?.signals &&
-    keys.every(
-      (k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0
-    );
+    keys.every((k) => Array.isArray(n.signals?.[k]?.lines) && n.signals[k].lines.filter(Boolean).length > 0);
 
   return hasOverall && hasSignals;
 }
@@ -568,13 +639,7 @@ function isNarrativeComplete(n) {
    No schema changes required.
    ============================================================ */
 async function setNarrativeStatusById(scanId, patch) {
-  const { error } = await supabase
-    .from("scan_results")
-    .update({
-      narrative: patch,
-    })
-    .eq("id", scanId);
-
+  const { error } = await supabase.from("scan_results").update({ narrative: patch }).eq("id", scanId);
   if (error) throw new Error(`Failed to update narrative status: ${error.message}`);
 }
 
@@ -596,7 +661,6 @@ export async function handler(event) {
       return json(400, { success: false, error: "Missing report_id" });
     }
 
-    // Load latest scan row
     const { data: scanRows, error: scanErr } = await supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall, narrative")
@@ -614,7 +678,6 @@ export async function handler(event) {
       });
     }
 
-    // If narrative exists and is complete, return it (also normalize status)
     if (isNarrativeComplete(scan.narrative)) {
       const existing = safeObj(scan.narrative);
       const patched = {
@@ -623,7 +686,6 @@ export async function handler(event) {
         _generated_at: existing._generated_at || scan.created_at || nowIso(),
       };
 
-      // Only write back if needed
       if (!existing._status || !existing._generated_at) {
         await supabase.from("scan_results").update({ narrative: patched }).eq("id", scan.id);
       }
@@ -638,7 +700,6 @@ export async function handler(event) {
       });
     }
 
-    // Claim job (prevents duplicate OpenAI calls)
     const claimed = await claimNarrative(report_id);
     if (!claimed) {
       return json(200, {
@@ -649,7 +710,6 @@ export async function handler(event) {
       });
     }
 
-    // Mark generating
     await supabase
       .from("scan_results")
       .update({
@@ -663,30 +723,23 @@ export async function handler(event) {
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
 
-let rawNarrative = await callOpenAI({ facts, constraints });
-let narrative = enforceConstraints(rawNarrative);
+    let rawNarrative = await callOpenAI({ facts, constraints });
+    let narrative = enforceConstraints(rawNarrative, constraints);
 
-// ---- Anti-AI cadence validation + single retry ----
-if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
-  console.log("Narrative failed validation, retrying once...");
-  const retryRaw = await callOpenAI({ facts, constraints });
-  const retryNarrative = enforceConstraints(retryRaw);
+    // Anti-AI cadence validation + single retry
+    if (failsNarrativeValidation(narrative.overall?.lines?.join(" ") || "")) {
+      console.log("Narrative failed validation, retrying once...");
+      const retryRaw = await callOpenAI({ facts, constraints });
+      const retryNarrative = enforceConstraints(retryRaw, constraints);
 
-  if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
-    narrative = retryNarrative;
-  }
-}
-// ---------------------------------------------------
+      if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join(" ") || "")) {
+        narrative = retryNarrative;
+      }
+    }
 
-const { error: upErr } = await supabase
-  .from("scan_results")
-  .update({ narrative })
-  .eq("id", scan.id);
-
-
+    const { error: upErr } = await supabase.from("scan_results").update({ narrative }).eq("id", scan.id);
 
     if (upErr) {
-      // mark error state
       await supabase
         .from("scan_results")
         .update({
@@ -717,7 +770,6 @@ const { error: upErr } = await supabase
   } catch (err) {
     console.error("[generate-narrative]", err);
 
-    // Best-effort error status update (only if we know scan.id)
     try {
       if (scan?.id) {
         await supabase
