@@ -538,34 +538,37 @@ function enforceConstraints(n, facts, constraints) {
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
   // -----------------------------
-  // Executive Narrative (Value Mode: What’s Wrong → What Matters → What to Fix First)
+  // Executive Narrative (Value Mode) — 4 lines max, human cadence
   // -----------------------------
-  const lines = [];
+  const primaryLabel = label(primarySignal);
+  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
-  // 1) What’s wrong
-  lines.push("This website is being held back for one primary reason:");
-  lines.push("the current " + primaryLabel + " baseline is creating avoidable friction for users and search engines.");
+  const ev = primaryEvidence.length
+    ? compactEvidence(primaryEvidence, 2)
+    : "";
 
-  // 2) What matters (contrast + evidence)
-  lines.push("The biggest constraint is " + primaryLabel + ", not " + chooseNotThis(primarySignal) + ".");
-  if (primaryEvidence.length) {
-    lines.push("The clearest evidence in this scan is " + compactEvidence(primaryEvidence, 2) + ".");
-  } else {
-    lines.push("The scan shows gaps in the baseline signals that reduce consistency and resilience over time.");
-  }
+  // Line 1: What’s wrong (single primary constraint)
+  const L1 =
+    "This website is underperforming for one primary reason: " +
+    primaryLabel +
+    " is creating avoidable friction for users and search engines.";
 
-  // 3) What it’s NOT + bottleneck line
-  lines.push(calmNonPrimary(primarySignal));
-  lines.push(primaryLabel.charAt(0).toUpperCase() + primaryLabel.slice(1) + " is the bottleneck.");
+  // Line 2: What matters (evidence-led, no fluff)
+  const L2 = ev
+    ? "The clearest evidence in this scan is " + ev + "."
+    : "The evidence points to baseline gaps that reduce consistency and trust in delivery.";
 
-  // 4) Payoff block (your existing cadence)
-  lines.push("Fixing the top two issues first will produce measurable gains in:");
-  lines.push("time-to-interaction");
-  lines.push("search visibility");
-  lines.push("user retention");
-  lines.push("before any design, SEO copy, or marketing spend will pay off.");
+  // Line 3: What it’s NOT (contrast without claiming perfection)
+  const notThis = chooseNotThis(primarySignal);
+  const L3 =
+    "The bottleneck is " + primaryLabel + ", not " + notThis + " — fix the constraint before investing in polish or campaigns.";
 
-  out.overall.lines = lines;
+  // Line 4: What to fix first (payoff + outcomes)
+  const L4 =
+    "Fix the top two issues first to lift time-to-interaction, search visibility, and early user retention.";
+
+  out.overall.lines = [L1, L2, L3, L4];
+
 
   function buildFixFirst() {
     const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
