@@ -271,10 +271,10 @@ exports.handler = async (event) => {
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
-    const execLines =
-      findings?.executive?.lines ||
-          narrativeObj?.executive?.lines ||
-      null;
+  const execLines =
+  narrativeObj?.overall?.lines ||
+  narrativeObj?.executive?.lines ||
+  null;
 
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
