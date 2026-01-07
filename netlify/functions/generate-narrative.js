@@ -1,5 +1,6 @@
+/* eslint-disable */
 // /.netlify/functions/generate-narrative.js
-import { createClient } from "@supabase/supabase-js";
+const { createClient } = require("@supabase/supabase-js");
 
 /**
  * iQWEB Narrative Generator (Value Mode)
@@ -36,7 +37,7 @@ function json(statusCode, body) {
 function nowIso() {
   try {
     return new Date().toISOString();
-  } catch {
+  } catch (e) {
     return "";
   }
 }
@@ -77,10 +78,8 @@ function uniq(arr) {
 // Strip banned phrases / template scaffolds (for signal lines)
 function scrubLine(s) {
   s = cleanLine(s);
-
   if (!s) return "";
 
-  // Remove “deterministic/score/measured” style words if they slip in
   const bannedWords = [
     "deterministic",
     "measured",
@@ -95,8 +94,10 @@ function scrubLine(s) {
   const low = s.toLowerCase();
   for (let i = 0; i < bannedWords.length; i++) {
     if (low.indexOf(bannedWords[i]) !== -1) {
-      // soft scrub: remove the word/phrase
-      const re = new RegExp(bannedWords[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "ig");
+      const re = new RegExp(
+        bannedWords[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "ig"
+      );
       s = s.replace(re, "");
       s = cleanLine(s);
     }
@@ -120,7 +121,7 @@ function clipLines(lines, max) {
 function flattenText(n) {
   try {
     return JSON.stringify(n);
-  } catch {
+  } catch (e) {
     return "";
   }
 }
@@ -134,7 +135,6 @@ function buildFactsFromScanRow(row) {
   const delivery = asArray(metrics.delivery_signals);
   const issuesList = asArray(metrics.issues_list || metrics.issues || []);
 
-  // Build a compact evidence bundle per signal
   const signalEvidence = {
     performance: [],
     mobile: [],
@@ -149,7 +149,6 @@ function buildFactsFromScanRow(row) {
     const id = String(sig.id || sig.label || "").toLowerCase();
     const issues = asArray(sig.issues);
 
-    // map to canonical keys
     let key = "";
     if (id.indexOf("perf") !== -1) key = "performance";
     else if (id.indexOf("mobile") !== -1) key = "mobile";
@@ -167,7 +166,6 @@ function buildFactsFromScanRow(row) {
     }
   }
 
-  // Evidence blocks (security_headers/basic_checks etc)
   const evidenceBlocks = {
     security_headers: safeObj(metrics.security_headers),
     basic_checks: safeObj(metrics.basic_checks),
@@ -177,7 +175,6 @@ function buildFactsFromScanRow(row) {
     accessibility: safeObj(metrics.accessibility),
   };
 
-  // Create a truth pack used by deterministic constraints + OpenAI
   const facts = {
     report_id: row.report_id || "",
     url: row.url || "",
@@ -219,17 +216,13 @@ function buildFactsFromScanRow(row) {
 function chooseHierarchy(facts) {
   const se = safeObj(facts.signal_evidence);
 
-  // A simple deterministic ranking by evidence count (fallback when scores are absent)
-  // Note: This is not “score-based”; it’s “issue signal density” based.
   const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
-
   const counts = {};
   for (let i = 0; i < order.length; i++) {
     const k = order[i];
     counts[k] = asArray(se[k]).length;
   }
 
-  // pick primary = max count; tie break by order
   let primary = order[0];
   let best = -1;
   for (let i = 0; i < order.length; i++) {
@@ -241,11 +234,7 @@ function chooseHierarchy(facts) {
     }
   }
 
-  // secondary = next 2 by count
-  const sorted = order
-    .slice()
-    .sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-
+  const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
   const secondary = [];
   for (let i = 0; i < sorted.length; i++) {
     const k = sorted[i];
@@ -255,7 +244,6 @@ function chooseHierarchy(facts) {
     if (secondary.length >= 2) break;
   }
 
-  // Evidence lists
   const primary_evidence = asArray(se[primary]).slice(0, 5);
   const secondary_evidence = {};
   for (let i = 0; i < secondary.length; i++) {
@@ -273,8 +261,6 @@ function chooseHierarchy(facts) {
 
 /* ============================================================
    OPENAI CALL (SIGNALS ONLY)
-   - Model writes language ONLY for per-signal narratives
-   - Deterministic logic supplies hierarchy + evidence
    ============================================================ */
 async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
@@ -292,17 +278,16 @@ async function callOpenAI({ facts, constraints }) {
     }[k] || k);
 
   const primaryLabel = label(String(constraints.primary || "").toLowerCase());
-  const secondaryLabels = asArray(constraints.secondary || []).map((k) => label(String(k).toLowerCase()));
+  const secondaryLabels = asArray(constraints.secondary || []).map((k) =>
+    label(String(k).toLowerCase())
+  );
 
   const bannedPhrases = [
-    // hard-template openers
     "the primary focus",
     "primary focus",
     "this report",
     "overall,",
     "based on",
-
-    // old scaffolds
     "primary constraint identified",
     "secondary contributors include",
     "other improvements may have limited impact",
@@ -392,7 +377,14 @@ async function callOpenAI({ facts, constraints }) {
               signals: {
                 type: "object",
                 additionalProperties: false,
-                required: ["performance", "mobile", "seo", "security", "structure", "accessibility"],
+                required: [
+                  "performance",
+                  "mobile",
+                  "seo",
+                  "security",
+                  "structure",
+                  "accessibility",
+                ],
                 properties: {
                   performance: {
                     type: "object",
@@ -446,13 +438,11 @@ async function callOpenAI({ facts, constraints }) {
 
   const data = await resp.json();
 
-  // Extract text safely from Responses API
   const extractResponseText = (payload) => {
     try {
       if (payload && payload.output_text) return payload.output_text;
     } catch (e) {}
 
-    // fallback: scan output array
     try {
       const out = asArray(payload && payload.output);
       for (let i = 0; i < out.length; i++) {
@@ -476,15 +466,16 @@ async function callOpenAI({ facts, constraints }) {
 
   try {
     return JSON.parse(text);
-  } catch {
+  } catch (e) {
     throw new Error("OpenAI did not return valid JSON.");
   }
 }
+
 /* ============================================================
    ENFORCE CONSTRAINTS + GUARDED MINIMUM QUALITY
    ============================================================ */
 function enforceConstraints(n, facts, constraints) {
-  const primarySignal = String(constraints?.primary || "").toLowerCase();
+  const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
 
   const out = {
     _status: "ok",
@@ -502,9 +493,6 @@ function enforceConstraints(n, facts, constraints) {
     },
   };
 
-  // -----------------------------
-  // Executive Narrative (Value Mode: paragraph cadence, evidence-led)
-  // -----------------------------
   const label = (k) =>
     ({
       security: "security and trust",
@@ -520,14 +508,17 @@ function enforceConstraints(n, facts, constraints) {
     if (!list.length) return "";
     if (list.length === 1) return list[0];
     if (list.length === 2) return list[0] + " and " + list[1];
-    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
+    return (
+      list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1]
+    );
   }
 
   const primaryLabel = label(primarySignal);
-  const primaryEvidence = asArray(constraints?.primary_evidence).filter(Boolean);
-  const secondaryLabels = asArray(constraints?.secondary || []).map((k) => label(String(k).toLowerCase()));
+  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
+  const secondaryLabels = asArray((constraints && constraints.secondary) || []).map((k) =>
+    label(String(k).toLowerCase())
+  );
 
-  // Paragraph-style narrative (each line is rendered as its own paragraph in UI/PDF)
   const lines = [];
 
   if (primarySignal === "performance" || primarySignal === "mobile") {
@@ -540,7 +531,9 @@ function enforceConstraints(n, facts, constraints) {
     if (primaryEvidence.length) {
       lines.push("In this scan, the strongest evidence points to " + compactEvidence(primaryEvidence, 2) + ".");
     } else {
-      lines.push("In this scan, the strongest evidence points to delays before pages become usable, especially on mobile connections.");
+      lines.push(
+        "In this scan, the strongest evidence points to delays before pages become usable, especially on mobile connections."
+      );
     }
 
     lines.push("Security configuration appears mostly standard and is not the limiting factor right now.");
@@ -570,14 +563,10 @@ function enforceConstraints(n, facts, constraints) {
 
   out.overall.lines = lines;
 
-  // -----------------------------
-  // What to Fix First (and Why) — separate block rendered after Executive Narrative
-  // -----------------------------
   function buildFixFirst() {
-    const primaryE = asArray(constraints?.primary_evidence).filter(Boolean);
+    const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
     const topPrimary = primaryE.slice(0, 2);
 
-    // Title: short, readable
     let fixTitle = "";
     if (primarySignal === "performance" || primarySignal === "mobile") {
       fixTitle = "Rendering and load behaviour (reduce time to usable)";
@@ -596,7 +585,6 @@ function enforceConstraints(n, facts, constraints) {
     const why = [];
     if (topPrimary.length) {
       for (let i = 0; i < topPrimary.length; i++) {
-        // Keep evidence phrasing verbatim for audit integrity
         why.push("This scan flags: " + topPrimary[i] + ".");
       }
     } else {
@@ -627,18 +615,13 @@ function enforceConstraints(n, facts, constraints) {
 
   out.fix_first = buildFixFirst();
 
-  // -----------------------------
-  // Signal narratives (model output, constrained)
-  // -----------------------------
-  const sig = safeObj(n?.signals);
+  const sig = safeObj(n && n.signals);
 
   const setSig = (k) => {
     const src = safeObj(sig && sig[k]);
     const srcLines = asArray(src.lines);
 
-    // primary signal may be slightly longer
     const max = k === primarySignal ? 4 : 3;
-
     const clipped = clipLines(srcLines, max);
 
     if (clipped.length) {
@@ -646,8 +629,7 @@ function enforceConstraints(n, facts, constraints) {
       return;
     }
 
-    // Fallback: use evidence items as a neutral summary
-    const evidence = asArray(facts?.signal_evidence && facts.signal_evidence[k]).filter(Boolean);
+    const evidence = asArray(facts && facts.signal_evidence && facts.signal_evidence[k]).filter(Boolean);
     if (evidence.length) {
       const a = evidence.slice(0, 2);
       out.signals[k].lines = [
@@ -674,15 +656,15 @@ function enforceConstraints(n, facts, constraints) {
    NARRATIVE VALIDITY CHECK
    ============================================================ */
 function isNarrativeComplete(n) {
-  const hasOverall = Array.isArray(n?.overall?.lines) && n.overall.lines.filter(Boolean).length > 0;
+  const hasOverall = Array.isArray(n && n.overall && n.overall.lines) && n.overall.lines.filter(Boolean).length > 0;
 
-  const sig = safeObj(n?.signals);
+  const sig = safeObj(n && n.signals);
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
 
   let ok = true;
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i];
-    const has = Array.isArray(sig?.[k]?.lines) && sig[k].lines.filter(Boolean).length > 0;
+    const has = Array.isArray(sig && sig[k] && sig[k].lines) && sig[k].lines.filter(Boolean).length > 0;
     if (!has) ok = false;
   }
 
@@ -702,9 +684,9 @@ async function writeNarrative(report_id, narrative) {
 }
 
 /* ============================================================
-   MAIN HANDLER
+   MAIN HANDLER (CommonJS export for Netlify)
    ============================================================ */
-export async function handler(event) {
+exports.handler = async function handler(event) {
   if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
   if (event.httpMethod !== "POST") {
@@ -732,20 +714,17 @@ export async function handler(event) {
     const row = (scanRows && scanRows[0]) || null;
     if (!row) return json(404, { success: false, error: "Report not found" });
 
-    // If already generated and not forcing, return success
     if (!force && row.narrative && isNarrativeComplete(row.narrative)) {
       return json(200, { success: true, status: "already_generated" });
     }
 
-    // Facts + constraints
     const facts = buildFactsFromScanRow(row);
     const constraints = chooseHierarchy(facts);
-    // OpenAI for per-signal lines (overall will be overridden)
+
     let modelOut = null;
     try {
       modelOut = await callOpenAI({ facts, constraints });
     } catch (e) {
-      // if OpenAI fails, still allow deterministic exec narrative + evidence-based fallbacks
       modelOut = {
         overall: { lines: [""] },
         signals: {
@@ -762,7 +741,6 @@ export async function handler(event) {
 
     const enforced = enforceConstraints(modelOut, facts, constraints);
 
-    // Write back to DB
     await writeNarrative(report_id, enforced);
 
     return json(200, {
@@ -776,12 +754,10 @@ export async function handler(event) {
     const msg = err && err.message ? err.message : String(err);
     return json(500, { success: false, error: msg });
   }
-}
+};
 
-/* ============================================================
-   DEBUG UTIL (optional)
-   ============================================================ */
-export const _debug = {
+// Debug helpers (optional)
+exports._debug = {
   buildFactsFromScanRow,
   chooseHierarchy,
   enforceConstraints,
