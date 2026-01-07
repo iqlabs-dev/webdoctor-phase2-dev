@@ -316,6 +316,7 @@
 
   // ---- Executive Summary contract enforcement ----
 // ---- Executive Summary contract enforcement ----
+// ---- Executive Summary contract enforcement ----
 function execSummaryValid(text) {
   if (text === null || text === undefined) return false;
 
@@ -327,18 +328,52 @@ function execSummaryValid(text) {
   var firstChar = t.charAt(0);
   if (firstChar === "{" || firstChar === "[") return false;
 
-  // Reject obvious bullet-list formatting
-  if (t.indexOf("•") !== -1) return false;
+  // Split + trim lines, ignore blank lines
+  var raw = t.split("\n");
+  var lines = [];
+  for (var i = 0; i < raw.length; i++) {
+    var line = String(raw[i] || "").replace(/^\s+|\s+$/g, "");
+    if (line) lines.push(line);
+  }
 
-  // Reject "- " bullets at line start
-  var lines = t.split("\n");
-  for (var i = 0; i < lines.length; i++) {
-    var line = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
-    if (line.indexOf("- ") === 0) return false;
+  // Contract: must be 1–4 short lines
+  if (!lines.length) return false;
+  if (lines.length > 4) return false;
+
+  // Reject bullets / checklist formatting
+  for (var b = 0; b < lines.length; b++) {
+    if (lines[b].indexOf("•") !== -1) return false;
+    if (lines[b].indexOf("- ") === 0) return false;
+  }
+
+  var joined = (" " + lines.join(" ") + " ").toLowerCase();
+
+  // Reject “do X” / action language (imperatives)
+  var badPhrases = [
+    " address ", " implement ", " fix ", " add ", " start ", " upgrade ",
+    " improve ", " optimize ", " optimise ", " ensure ", " consider ",
+    " you should ", " we recommend ", " recommended ", " to strengthen ",
+    " to improve ", " to enhance ", " to fix ", " to address "
+  ];
+  for (var j = 0; j < badPhrases.length; j++) {
+    if (joined.indexOf(badPhrases[j]) !== -1) return false;
+  }
+
+  // Exec Summary must NOT name specific checks/headers/tools
+  var badTerms = [
+    "robots", "meta tag", "referrer-policy", "referrer policy",
+    "permissions-policy", "permissions policy",
+    "content-security-policy", "content security policy", "csp",
+    "hsts", "x-frame-options", "x-content-type-options",
+    "lighthouse", "pagespeed", "psi"
+  ];
+  for (var k = 0; k < badTerms.length; k++) {
+    if (joined.indexOf(badTerms[k]) !== -1) return false;
   }
 
   return true;
 }
+
 
 
   function renderNarrative(narrative) {
