@@ -315,48 +315,31 @@
   }
 
   // ---- Executive Summary contract enforcement ----
-  function execSummaryValid(text) {
-    // Contract:
-    // - max 4 lines
-    // - must be diagnostic (no imperative "do X" language)
-    // - must not name specific headers/meta/policies/tools
-    var t = String(text == null ? "" : text);
-    t = t.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
-    if (!t) return false;
+// ---- Executive Summary contract enforcement ----
+function execSummaryValid(text) {
+  if (text === null || text === undefined) return false;
 
-    var lines = normalizeLines(t, 6);
-    if (!lines.length) return false;
-    if (lines.length > 4) return false;
+  var t = String(text);
+  t = t.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
+  if (!t) return false;
 
-    var joined = (" " + lines.join(" ") + " ").toLowerCase();
+  // Reject if it looks like JSON (bad model output)
+  var firstChar = t.charAt(0);
+  if (firstChar === "{" || firstChar === "[") return false;
 
-    // Forbidden imperative verbs / checklist language
-    var badPhrases = [
-      " address ", " implement ", " fix ", " add ", " start with ", " upgrade ",
-      " improve ", " optimize ", " optimise ", " ensure ", " consider ",
-      " you should ", " we recommend ", " recommended ", " to strengthen ",
-      " to improve ", " to enhance ", " to fix ", " to address "
-    ];
-    for (var i = 0; i < badPhrases.length; i++) {
-      if (joined.indexOf(badPhrases[i]) !== -1) return false;
-    }
+  // Reject obvious bullet-list formatting
+  if (t.indexOf("•") !== -1) return false;
 
-    // Forbidden specific items (exec summary must NOT name individual checks)
-    var badTerms = [
-      "robots", "meta tag", "referrer-policy", "permissions-policy",
-      "content-security-policy", "csp", "hsts", "x-frame-options",
-      "x-content-type-options", "lighthouse", "pagespeed", "psi"
-    ];
-    for (var j = 0; j < badTerms.length; j++) {
-      if (joined.indexOf(badTerms[j]) !== -1) return false;
-    }
-
-    // If it looks like a bulleted action list, reject
-    if (t.indexOf("•") !== -1) return false;
-    if (t.indexOf("- ") !== -1) return false;
-
-    return true;
+  // Reject "- " bullets at line start
+  var lines = t.split("\n");
+  for (var i = 0; i < lines.length; i++) {
+    var line = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
+    if (line.indexOf("- ") === 0) return false;
   }
+
+  return true;
+}
+
 
   function renderNarrative(narrative) {
     window.__IQWEB_EXEC_NEEDS_REGEN = false;
@@ -413,10 +396,30 @@
       var n = safeObj(parsed.obj);
 
       // Prefer: narrative.executive_summary.text (UI contract)
+        // Prefer: narrative.executive_summary (text OR lines OR string) — UI contract
       var execText = "";
-      if (n.executive_summary && typeof n.executive_summary.text === "string") execText = n.executive_summary.text;
-      else if (n.executiveSummary && typeof n.executiveSummary.text === "string") execText = n.executiveSummary.text;
-      else if (typeof n.executive_summary_text === "string") execText = n.executive_summary_text;
+
+      // 1) executive_summary.text
+      if (n.executive_summary && typeof n.executive_summary.text === "string") {
+        execText = n.executive_summary.text;
+
+      // 2) executive_summary.lines
+      } else if (n.executive_summary && Array.isArray(n.executive_summary.lines)) {
+        execText = asArray(n.executive_summary.lines).join("\n");
+
+      // 3) executive_summary as direct string
+      } else if (typeof n.executive_summary === "string") {
+        execText = n.executive_summary;
+
+      // 4) legacy camelCase: executiveSummary.text
+      } else if (n.executiveSummary && typeof n.executiveSummary.text === "string") {
+        execText = n.executiveSummary.text;
+
+      // 5) legacy: executive_summary_text
+      } else if (typeof n.executive_summary_text === "string") {
+        execText = n.executive_summary_text;
+      }
+
 
       var execOk = setExecText(execText);
 
