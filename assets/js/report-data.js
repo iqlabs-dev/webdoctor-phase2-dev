@@ -46,15 +46,21 @@
   }
 
   function normalizeLines(text, maxLines) {
+    if (typeof maxLines === "undefined") maxLines = 5;
+
     var s = String(text == null ? "" : text);
     s = s.replace(/\r\n/g, "\n");
     s = s.replace(/^\s+|\s+$/g, "");
     if (!s) return [];
+
     var parts = s.split("\n");
     var out = [];
-    var i;
-    for (i = 0; i < parts.length; i++) {
+    for (var i = 0; i < parts.length; i++) {
       var t = String(parts[i] || "").replace(/^\s+|\s+$/g, "");
+
+      // collapse inner whitespace (PDF + UI consistency)
+      t = t.replace(/\s+/g, " ");
+
       if (t) out.push(t);
       if (out.length >= maxLines) break;
     }
@@ -65,7 +71,13 @@
     var cleaned = [];
     for (var i = 0; i < lines.length; i++) {
       var s = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
+
+      // collapse inner whitespace so comparisons are stable
+      s = s.replace(/\s+/g, " ");
+      if (!s) continue;
+
       var low = s.toLowerCase();
+
       if (
         i === 2 &&
         (
@@ -79,7 +91,8 @@
       ) {
         continue;
       }
-      if (s) cleaned.push(s);
+
+      cleaned.push(s);
     }
     return cleaned;
   }
@@ -109,6 +122,57 @@
       return d.toString();
     }
   }
+
+  // Executive narrative clamp (ES5 + Prince-safe)
+  // Forces a single tight paragraph and max N sentences.
+  function clampExecutiveNarrativeText(text, maxSentences) {
+    if (typeof maxSentences === "undefined") maxSentences = 5;
+
+    var s = String(text == null ? "" : text);
+
+    // collapse newlines into spaces
+    s = s.replace(/\r\n/g, "\n");
+    s = s.replace(/\n+/g, " ");
+
+    // collapse whitespace
+    s = s.replace(/\s+/g, " ");
+    s = s.replace(/^\s+|\s+$/g, "");
+    if (!s) return "";
+
+    // Prince-safe sentence scan (no lookbehind)
+    var parts = [];
+    var buf = "";
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      buf += ch;
+
+      if (ch === "." || ch === "!" || ch === "?") {
+        var next = (i + 1 < s.length) ? s.charAt(i + 1) : "";
+        if (next === " " || next === "") {
+          var sent = buf.replace(/^\s+|\s+$/g, "");
+          if (sent) parts.push(sent);
+          buf = "";
+        }
+      }
+    }
+
+    var tail = buf.replace(/^\s+|\s+$/g, "");
+    if (tail) parts.push(tail);
+
+    // If we didn't split cleanly (e.g., no punctuation), treat as one sentence
+    if (!parts.length) parts = [s];
+
+    var out = [];
+    for (var j = 0; j < parts.length; j++) {
+      var t = String(parts[j] || "").replace(/^\s+|\s+$/g, "");
+      if (!t) continue;
+      out.push(t);
+      if (out.length >= maxSentences) break;
+    }
+
+    return out.join(" ");
+  }
+
 
   // -----------------------------
   // URL helpers (NO URLSearchParams - Prince-safe)
@@ -318,16 +382,18 @@
 
     var parsed = parseNarrativeFlexible(narrative);
 
-    function setLines(lines) {
-      if (!lines || !lines.length) return false;
-      var html = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-      textEl.innerHTML = html;
+    function setTextAsFiveSentences(rawText) {
+      var clamped = clampExecutiveNarrativeText(rawText, 5);
+      if (!clamped) return false;
+
+      // Render as a single paragraph (no headings, no bullets)
+      // Keep line breaks out to avoid "tool output" vibe
+      textEl.textContent = clamped;
       return true;
     }
 
     if (parsed.kind === "text") {
-      var lines = normalizeLines(parsed.text, 5);
-      if (setLines(lines)) return true;
+      if (setTextAsFiveSentences(parsed.text)) return true;
       textEl.textContent = "Narrative not generated yet.";
       return false;
     }
@@ -335,23 +401,23 @@
     if (parsed.kind === "obj") {
       var n = safeObj(parsed.obj);
 
+      // Preferred contract: narrative.overall.lines (array)
       var overallLines = asArray(n.overall && n.overall.lines);
-      var joined = overallLines.join("\n");
-      var lines2 = normalizeLines(joined, 5);
-      if (setLines(lines2)) return true;
+      if (overallLines.length) {
+        var joined = overallLines.join(" ");
+        if (setTextAsFiveSentences(joined)) return true;
+      }
 
+      // Fallback: narrative.text (string)
       if (typeof n.text === "string") {
-        var t = n.text.replace(/^\s+|\s+$/g, "");
-        if (t) {
-          var lines3 = normalizeLines(t, 5);
-          if (setLines(lines3)) return true;
-        }
+        if (setTextAsFiveSentences(n.text)) return true;
       }
     }
 
     textEl.textContent = "Narrative not generated yet.";
     return false;
   }
+
 
   function summaryFallback(sig) {
     var score = asInt(sig && sig.score, 0);
