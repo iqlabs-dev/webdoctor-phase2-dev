@@ -33,6 +33,27 @@ function asInt(v, fallback = 0) {
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, Math.round(n)));
 }
+
+function overallSummaryFromScore(score) {
+  const s = Number(score);
+
+  const disclaimer =
+    "This score reflects deterministic checks only and does not measure brand or content effectiveness.";
+
+  if (!Number.isFinite(s)) {
+    return `Overall delivery score unavailable. ${disclaimer}`;
+  }
+
+  let lead =
+    s >= 90 ? "Overall delivery is excellent." :
+    s >= 80 ? "Overall delivery is good." :
+    s >= 70 ? "Overall delivery is fair." :
+    s >= 60 ? "Overall delivery needs improvement." :
+              "Overall delivery is poor.";
+
+  return `${lead} ${disclaimer}`;
+}
+
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
@@ -131,7 +152,9 @@ function normaliseSignal(sig) {
       reason: isNonEmptyString(d?.reason) ? String(d.reason).trim() : "Deduction applied.",
       code: isNonEmptyString(d?.code) ? String(d.code).trim() : "",
     })),
-    observations: asArray(s.observations).length ? asArray(s.observations) : evidenceToObservations(s.evidence),
+    observations: asArray(s.observations).length
+      ? asArray(s.observations)
+      : evidenceToObservations(s.evidence),
     issues: asArray(s.issues).length ? asArray(s.issues) : deductionsToIssues(s),
     evidence: safeObj(s.evidence),
   };
@@ -233,6 +256,8 @@ export async function handler(event) {
           accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
         };
 
+    const overall_summary = overallSummaryFromScore(scores.overall);
+
     const bc = safeObj(metrics.basic_checks);
     const sh = safeObj(metrics.security_headers);
 
@@ -269,7 +294,12 @@ export async function handler(event) {
     const fix_plan = asArray(metrics.fix_plan);
 
     // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
-    const narrative = normaliseNarrativeForUI(scan.narrative);
+    let narrative = normaliseNarrativeForUI(scan.narrative);
+
+    // Attach deterministic overall summary so UI + PDF use the same source
+    if (narrative && typeof narrative === "object") {
+      narrative.overall_summary = narrative.overall_summary || overall_summary;
+    }
 
     return json(200, {
       success: true,
@@ -279,6 +309,7 @@ export async function handler(event) {
         created_at: scan.created_at,
       },
       scores,
+      overall_summary,
       delivery_signals,
       key_metrics,
       findings,
