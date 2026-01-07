@@ -598,7 +598,7 @@
     return out;
   }
 
-  function renderSignalEvidence(deliverySignals) {
+function renderSignalEvidence(deliverySignals) {
   var root = $("signalEvidenceRoot");
   if (!root) return;
   root.innerHTML = "";
@@ -651,6 +651,24 @@
     }
 
     return "No issues detected for this signal.";
+  }
+
+  // Renders a visually-consistent "issue card" even when there are no issues[]
+  function renderEmptyIssuesCard(label, msg) {
+    var t = escapeHtml(label || "Issues");
+    var m = escapeHtml(msg || "No issues detected for this signal.");
+
+    var html = "";
+    html += '<div class="kv" style="flex-direction:column; align-items:flex-start;">';
+    html += '  <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">';
+    html += '    <div style="font-weight:800;color:var(--ink);">' + t + "</div>";
+    html += '    <div style="font-weight:800;opacity:.85;">note</div>';
+    html += "  </div>";
+    html += '  <div class="k" style="text-transform:none; letter-spacing:0;">';
+    html += '    <span class="impact-text" style="font-weight:700;">' + m + "</span>";
+    html += "  </div>";
+    html += "</div>";
+    return html;
   }
 
   for (var i = 0; i < list.length; i++) {
@@ -711,10 +729,13 @@
     issuesTitle.textContent = "Issues";
 
     var issuesBox = document.createElement("div");
+
     if (!issues.length) {
+      // IMPORTANT: keep styling consistent by rendering an "issue card" instead of plain summary text
       var sigKey = keyFromLabelOrId(sig);
-      issuesBox.className = "summary";
-      issuesBox.textContent = issuesEmptyMessage(sigKey, score, obs.length);
+      var msg = issuesEmptyMessage(sigKey, score, obs.length);
+      issuesBox.className = "evidence-list"; // match the card area spacing
+      issuesBox.innerHTML = renderEmptyIssuesCard(label + ": no blocking issues detected", msg);
     } else {
       var html = "";
       for (var k = 0; k < issues.length && k < 6; k++) {
@@ -746,6 +767,7 @@
     root.appendChild(block);
   }
 }
+
 
 
   // -----------------------------
