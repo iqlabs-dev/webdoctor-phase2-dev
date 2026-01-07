@@ -257,8 +257,9 @@ function buildFactsPack(scan) {
     const hasReasons = evidence[key] && evidence[key].length > 0;
     if (hasReasons) return;
 
-    if (band === "poor") evidence[key] = [`${label} rating is low`];
-    else if (band === "needs_work") evidence[key] = [`${label} rating needs work`];
+if (band === "poor") evidence[key] = [`${label} shows weak delivery signals`];
+else if (band === "needs_work") evidence[key] = [`${label} shows room for improvement`];
+
   };
 
   ensureBandEvidence("performance", "Performance");
