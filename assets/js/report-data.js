@@ -1,15 +1,22 @@
+/* eslint-disable */
 // /assets/js/report-data.js
-// iQWEB Report UI — Contract v1.0
-// -------------------------------------------------------------
-// Notes:
-// - Prince / DocRaptor compatibility: avoid modern JS features
-// - The report page can be rendered in normal browser mode or PDF mode
-// -------------------------------------------------------------
-
+// iQWEB Report UI — Contract v5.2 (Prince/DocRaptor SAFE - ES5 compatible)
+//
+// FIX (Contract bridge):
+// - Supports NEW get-report-data JSON shape (header/scores/delivery_signals/key_metrics/narrative)
+// - Still supports LEGACY shape (url/report_id/metrics.scores/metrics.delivery_signals/etc)
+// - Executive Narrative renders as paragraphs (spacing preserved)
+// - “What to Fix First (and Why)” rendered as a NEW block immediately after Executive Narrative
+// - Attempts to dismiss “Building Report” overlay safely after render
+//
 (function () {
   // -----------------------------
-  // Helpers
+  // Globals
   // -----------------------------
+  if (typeof window.__IQWEB_REPORT_READY === "undefined") {
+    window.__IQWEB_REPORT_READY = false;
+  }
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -17,7 +24,6 @@
   function safeObj(v) {
     return v && typeof v === "object" ? v : {};
   }
-
   function asArray(v) {
     return Array.isArray(v) ? v : [];
   }
@@ -27,6 +33,8 @@
     var n = Number(v);
     if (!isFinite(n)) return fallback;
     n = Math.round(n);
+    if (n < 0) n = 0;
+    if (n > 100) n = 100;
     return n;
   }
 
@@ -38,6 +46,33 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#039;");
+  }
+
+  function normalizeLines(text, maxLines) {
+    if (typeof maxLines === "undefined") maxLines = 18;
+
+    var s = String(text == null ? "" : text);
+    s = s.replace(/\r\n/g, "\n");
+    s = s.replace(/^\s+|\s+$/g, "");
+    if (!s) return [];
+
+    var parts = s.split("\n");
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var t = String(parts[i] || "").replace(/^\s+|\s+$/g, "");
+      t = t.replace(/\s+/g, " ");
+      if (t) out.push(t);
+      if (out.length >= maxLines) break;
+    }
+    return out;
+  }
+
+  function verdict(score) {
+    var n = asInt(score, 0);
+    if (n >= 90) return "Strong";
+    if (n >= 75) return "Good";
+    if (n >= 55) return "Needs work";
+    return "Needs attention";
   }
 
   function formatDate(iso) {
@@ -210,7 +245,12 @@
 
   function generateNarrative(reportId) {
     var force = getQueryParam("regen") === "1";
-    return fetchJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId, force: force }, false);
+    return fetchJson(
+      "POST",
+      "/.netlify/functions/generate-narrative",
+      { report_id: reportId, force: force },
+      false
+    );
   }
 
   function wireBackToDashboard() {
@@ -221,51 +261,109 @@
     });
   }
 
-  // Executive narrative clamp (ES5 + Prince-safe)
-  // Forces a single tight paragraph and max N sentences.
-  function clampExecutiveNarrativeText(text, maxSentences) {
-    if (typeof maxSentences === "undefined") maxSentences = 5;
+  // -----------------------------
+  // Data contract bridge (NEW vs LEGACY)
+  // -----------------------------
+  function pickReportUrl(data) {
+    data = safeObj(data);
+    if (data.url) return String(data.url || "");
+    if (data.header && data.header.website) return String(data.header.website || "");
+    if (data.header && data.header.url) return String(data.header.url || "");
+    return "";
+  }
 
-    var s = String(text == null ? "" : text);
+  function pickReportId(data) {
+    data = safeObj(data);
+    if (data.report_id) return String(data.report_id || "");
+    if (data.header && data.header.report_id) return String(data.header.report_id || "");
+    return "";
+  }
 
-    // collapse newlines into spaces
-    s = s.replace(/\r\n/g, "\n");
-    s = s.replace(/\n+/g, " ");
+  function pickCreatedAt(data) {
+    data = safeObj(data);
+    if (data.created_at) return String(data.created_at || "");
+    if (data.generated_at) return String(data.generated_at || "");
+    if (data.header && data.header.created_at) return String(data.header.created_at || "");
+    return "";
+  }
 
-    // collapse whitespace
-    s = s.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+  function pickScores(data) {
+    data = safeObj(data);
+    if (data.scores && typeof data.scores === "object") return safeObj(data.scores);
+    var metrics = safeObj(data.metrics);
+    return safeObj(metrics.scores || {});
+  }
 
-    if (!s) return "";
-
-    // naive sentence split (no lookbehind)
-    var parts = [];
-    var buf = "";
-    for (var i = 0; i < s.length; i++) {
-      var ch = s.charAt(i);
-      buf += ch;
-
-      if (ch === "." || ch === "!" || ch === "?") {
-        var next = (i + 1 < s.length) ? s.charAt(i + 1) : "";
-        if (next === " " || next === "") {
-          var sent = buf.replace(/^\s+|\s+$/g, "");
-          if (sent) parts.push(sent);
-          buf = "";
-        }
-      }
+  function pickOverallSummary(data, overallScore) {
+    data = safeObj(data);
+    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
+    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
+      return data.narrative.overall_summary;
     }
+    // legacy note
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". " +
+      "This score reflects deterministic checks only and does not measure brand or content effectiveness."
+    );
+  }
 
-    var tail = buf.replace(/^\s+|\s+$/g, "");
-    if (tail) parts.push(tail);
+  function pickDeliverySignals(data) {
+    data = safeObj(data);
+    if (Array.isArray(data.delivery_signals)) return data.delivery_signals;
+    var metrics = safeObj(data.metrics);
+    if (Array.isArray(metrics.delivery_signals)) return metrics.delivery_signals;
+    return [];
+  }
 
-    // If we didn't split cleanly (e.g., no punctuation), treat as one sentence.
-    if (!parts.length) parts = [s];
+  function pickIssuesList(data) {
+    data = safeObj(data);
+    // new contract: issues are embedded per-signal and maybe data.findings / data.fix_plan etc
+    var metrics = safeObj(data.metrics);
+    if (Array.isArray(metrics.issues_list)) return metrics.issues_list;
+    if (Array.isArray(metrics.issues)) return metrics.issues;
+    // no top-level list in your new payload (fine)
+    return [];
+  }
 
-    // clamp to maxSentences
-    if (parts.length > maxSentences) {
-      parts = parts.slice(0, maxSentences);
-    }
+  function pickEvidenceBlocks(data) {
+    data = safeObj(data);
+    // new contract: key_metrics holds the compact evidence bundle
+    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
 
-    return parts.join(" ").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+    // legacy: metrics had these blocks
+    var metrics = safeObj(data.metrics);
+    return {
+      security_headers: safeObj(metrics.security_headers),
+      basic_checks: safeObj(metrics.basic_checks),
+      structure: safeObj(metrics.structure),
+      performance: safeObj(metrics.performance),
+      seo: safeObj(metrics.seo),
+      accessibility: safeObj(metrics.accessibility),
+    };
+  }
+
+  function pickNarrative(data) {
+    data = safeObj(data);
+    return data.narrative || data.narrative_json || data.narrative_text || "";
+  }
+
+  // -----------------------------
+  // Overall
+  // -----------------------------
+  function renderOverall(scores, overallSummary) {
+    scores = safeObj(scores);
+    var overall = asInt(scores.overall, 0);
+
+    var pill = $("overallPill");
+    if (pill) pill.textContent = String(overall);
+
+    var bar = $("overallBar");
+    if (bar) bar.style.width = overall + "%";
+
+    var note = $("overallNote");
+    if (note) note.textContent = overallSummary || "";
   }
 
   // -----------------------------
@@ -278,9 +376,10 @@
       var s = v.replace(/^\s+|\s+$/g, "");
       if (!s) return { kind: "empty", text: "" };
 
-      // attempt JSON string
-      if ((s.charAt(0) === "{" && s.charAt(s.length - 1) === "}") ||
-          (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]")) {
+      if (
+        (s.charAt(0) === "{" && s.charAt(s.length - 1) === "}") ||
+        (s.charAt(0) === "[" && s.charAt(s.length - 1) === "]")
+      ) {
         try {
           return { kind: "obj", obj: JSON.parse(s) };
         } catch (e) {}
@@ -292,19 +391,16 @@
     return { kind: "text", text: String(v) };
   }
 
-  // UPDATED: paragraph narrative + separate Fix First block
   function renderNarrative(narrative) {
     var textEl = $("narrativeText");
     if (!textEl) return false;
 
     var parsed = parseNarrativeFlexible(narrative);
 
-    // Render helper: paragraph-style (preserves spacing + cadence)
     function renderParagraphs(lines) {
       var clean = [];
       for (var i = 0; i < lines.length; i++) {
         var s = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
-        // keep natural spacing, but collapse internal runs
         s = s.replace(/\s+/g, " ");
         if (s) clean.push(s);
       }
@@ -318,7 +414,6 @@
       return true;
     }
 
-    // Render helper: text -> paragraphs (split by blank lines, then by line)
     function renderFromText(rawText) {
       var t = String(rawText == null ? "" : rawText);
       t = t.replace(/\r\n/g, "\n");
@@ -339,7 +434,6 @@
       return renderParagraphs(lines);
     }
 
-    // Ensure a dedicated Fix-First block exists immediately after narrativeText
     function ensureFixFirstContainer() {
       var existing = $("fixFirstBlock");
       if (existing) return existing;
@@ -361,13 +455,6 @@
       return wrap;
     }
 
-    function removeFixFirstContainerIfExists() {
-      try {
-        var ex = $("fixFirstBlock");
-        if (ex && ex.parentNode) ex.parentNode.removeChild(ex);
-      } catch (e) {}
-    }
-
     function renderFixFirst(nObj) {
       var ff = safeObj(nObj && nObj.fix_first);
       var title = String(ff.fix_first || "").replace(/^\s+|\s+$/g, "");
@@ -376,7 +463,8 @@
       var out = asArray(ff.expected_outcome);
 
       if (!title && !why.length && !dep.length && !out.length) {
-        removeFixFirstContainerIfExists();
+        var ex = $("fixFirstBlock");
+        if (ex && ex.parentNode) ex.parentNode.removeChild(ex);
         return false;
       }
 
@@ -395,8 +483,13 @@
       }
 
       var html = "";
-      html += "<div style='font-weight:800; font-size:14px; letter-spacing:.2px; margin-bottom:10px;'>What to Fix First (and Why)</div>";
-      html += "<div style='margin-top:6px;'><span style='font-weight:800;'>Fix first:</span> " + escapeHtml(title || "—") + "</div>";
+      html +=
+        "<div style='font-weight:800; font-size:14px; letter-spacing:.2px; margin-bottom:10px;'>What to Fix First (and Why)</div>";
+
+      html +=
+        "<div style='margin-top:6px;'><span style='font-weight:800;'>Fix first:</span> " +
+        escapeHtml(title || "—") +
+        "</div>";
 
       html += "<div style='margin-top:10px; font-weight:800;'>Why this matters:</div>";
       html += listHtml(why);
@@ -414,23 +507,13 @@
     // ----------------------------------------------------------
     // Main logic
     // ----------------------------------------------------------
-
     if (parsed.kind === "text") {
-      var okText = renderFromText(parsed.text);
-      if (!okText) {
-        textEl.textContent = "Narrative not generated yet.";
-        removeFixFirstContainerIfExists();
-        return false;
-      }
-      // no fix_first data in plain text mode
-      removeFixFirstContainerIfExists();
-      return true;
+      return renderFromText(parsed.text);
     }
 
     if (parsed.kind === "obj") {
       var n = safeObj(parsed.obj);
 
-      // Preferred: paragraph lines array
       var overallLines = asArray(n.overall && n.overall.lines);
       if (overallLines.length) {
         if (renderParagraphs(overallLines)) {
@@ -439,7 +522,13 @@
         }
       }
 
-      // Fallback: narrative.text (string)
+      if (typeof n.executive_lead === "string" && n.executive_lead) {
+        if (renderFromText(n.executive_lead)) {
+          renderFixFirst(n);
+          return true;
+        }
+      }
+
       if (typeof n.text === "string") {
         if (renderFromText(n.text)) {
           renderFixFirst(n);
@@ -449,56 +538,16 @@
     }
 
     textEl.textContent = "Narrative not generated yet.";
-    removeFixFirstContainerIfExists();
+    try {
+      var ex2 = $("fixFirstBlock");
+      if (ex2 && ex2.parentNode) ex2.parentNode.removeChild(ex2);
+    } catch (e) {}
     return false;
   }
 
   // -----------------------------
-  // Signals rendering
+  // Delivery Signals grid
   // -----------------------------
-  function normalizeLines(text, maxLines) {
-    if (typeof maxLines === "undefined") maxLines = 18;
-
-    var s = String(text == null ? "" : text);
-    s = s.replace(/\r\n/g, "\n");
-    s = s.replace(/^\s+|\s+$/g, "");
-    if (!s) return [];
-
-    var parts = s.split("\n");
-    var out = [];
-    for (var i = 0; i < parts.length; i++) {
-      var t = String(parts[i] || "").replace(/^\s+|\s+$/g, "");
-      t = t.replace(/\s+/g, " ");
-      if (t) out.push(t);
-      if (out.length >= maxLines) break;
-    }
-    return out;
-  }
-
-  function stripAuthorityLineIfPresent(lines) {
-    var cleaned = [];
-    for (var i = 0; i < lines.length; i++) {
-      var s = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
-      s = s.replace(/\s+/g, " ");
-      if (!s) continue;
-
-      var low = s.toLowerCase();
-      if (
-        i === 2 &&
-        (low === "no action required." ||
-          low === "no action required at this time." ||
-          low === "no action required" ||
-          low === "no immediate fixes are required in this area." ||
-          low === "no issues to address in this area." ||
-          low === "no improvements needed in this area.")
-      ) {
-        continue;
-      }
-      cleaned.push(s);
-    }
-    return cleaned;
-  }
-
   function summaryFallback(sig) {
     var score = asInt(sig && sig.score, 0);
     var label = String((sig && (sig.label || sig.id)) || "This signal");
@@ -518,18 +567,6 @@
     }
     return base + "\nUse the evidence below to decide what to prioritise.";
   }
-  function keyFromSig(sig) {
-    var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-    if (id.indexOf("perf") !== -1) return "performance";
-    if (id.indexOf("mobile") !== -1) return "mobile";
-    if (id.indexOf("seo") !== -1) return "seo";
-    if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
-    if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-    if (id.indexOf("access") !== -1) return "accessibility";
-
-    id = id.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
-    return id || null;
-  }
 
   function renderSignals(deliverySignals, narrative) {
     var grid = $("signalsGrid");
@@ -538,13 +575,50 @@
 
     var list = asArray(deliverySignals);
     if (!list.length) {
-      grid.innerHTML = '<div class="summary">Contract violation: delivery_signals missing.</div>';
+      grid.innerHTML = '<div class="summary">No delivery signals returned.</div>';
       return;
     }
 
     var parsedNarr = parseNarrativeFlexible(narrative);
     var narrObj = parsedNarr.kind === "obj" ? safeObj(parsedNarr.obj) : {};
     var narrSignals = safeObj(narrObj.signals) || safeObj(narrObj.delivery_signals) || safeObj(narrObj.deliverySignals) || {};
+
+    function keyFromSig(sig) {
+      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.indexOf("perf") !== -1) return "performance";
+      if (id.indexOf("mobile") !== -1) return "mobile";
+      if (id.indexOf("seo") !== -1) return "seo";
+      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+      if (id.indexOf("access") !== -1) return "accessibility";
+
+      id = id.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      return id || null;
+    }
+
+    function stripAuthorityLineIfPresent(lines) {
+      var cleaned = [];
+      for (var i = 0; i < lines.length; i++) {
+        var s = String(lines[i] || "").replace(/^\s+|\s+$/g, "");
+        s = s.replace(/\s+/g, " ");
+        if (!s) continue;
+
+        var low = s.toLowerCase();
+        if (
+          i === 2 &&
+          (low === "no action required." ||
+            low === "no action required at this time." ||
+            low === "no action required" ||
+            low === "no immediate fixes are required in this area." ||
+            low === "no issues to address in this area." ||
+            low === "no improvements needed in this area.")
+        ) {
+          continue;
+        }
+        cleaned.push(s);
+      }
+      return cleaned;
+    }
 
     for (var i = 0; i < list.length; i++) {
       var sig = list[i];
@@ -582,43 +656,8 @@
   }
 
   // -----------------------------
-  // Overall
+  // Issues
   // -----------------------------
-  function verdict(score) {
-    var n = asInt(score, 0);
-    if (n >= 90) return "Strong";
-    if (n >= 75) return "Good";
-    if (n >= 55) return "Needs work";
-    return "Needs attention";
-  }
-
-  function renderOverall(scores) {
-    var overall = asInt(scores && scores.overall, 0);
-
-    var pill = $("overallPill");
-    if (pill) pill.textContent = String(overall);
-
-    var bar = $("overallBar");
-    if (bar) bar.style.width = overall + "%";
-
-    var note = $("overallNote");
-    if (note) {
-      note.textContent =
-        "Overall delivery is " +
-        verdict(overall).toLowerCase() +
-        ". " +
-        "This score reflects deterministic checks only and does not measure brand or content effectiveness.";
-    }
-  }
-
-  function prettifyKey(k) {
-    if (!k) return "";
-    return String(k)
-      .replace(/[_\-]+/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/^\s+|\s+$/g, "");
-  }
-
   function renderIssues(issues) {
     var el = $("issuesList");
     if (!el) return;
@@ -670,7 +709,7 @@
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
         var title = String(it.title || "Issue");
-        var detail = String(it.detail || it.description || "");
+        var detail = String(it.detail || it.description || it.impact || "");
         html += "<div class='evidence-item'>";
         html += "<div class='evidence-title'>" + escapeHtml(title) + "</div>";
         if (detail) html += "<div class='evidence-detail'>" + escapeHtml(detail) + "</div>";
@@ -688,35 +727,64 @@
 
     el.innerHTML = html;
   }
-  function renderEvidenceBlocks(metrics) {
+
+  // -----------------------------
+  // Evidence blocks
+  // -----------------------------
+  function prettifyKey(k) {
+    if (!k) return "";
+    return String(k)
+      .replace(/[_\-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^\s+|\s+$/g, "");
+  }
+
+  function renderEvidenceBlocks(evidence) {
     var el = $("evidenceBlocks");
     if (!el) return;
 
-    metrics = safeObj(metrics);
+    evidence = safeObj(evidence);
 
-    var blocks = [
-      { key: "security_headers", title: "Security Headers" },
-      { key: "basic_checks", title: "Basic Checks" },
-      { key: "structure", title: "Structure" },
-      { key: "performance", title: "Performance" },
-      { key: "seo", title: "SEO" },
-      { key: "accessibility", title: "Accessibility" }
-    ];
+    // If this is the NEW shape (key_metrics), show it in grouped blocks.
+    // We’ll render top-level groups as details, then key/value rows.
+    var keysTop = Object.keys(evidence || {});
+    if (!keysTop.length) {
+      el.innerHTML = "<p class='muted'>No evidence blocks available for this scan.</p>";
+      return;
+    }
 
     var html = "";
-    for (var i = 0; i < blocks.length; i++) {
-      var b = blocks[i];
-      var obj = safeObj(metrics[b.key]);
-      var keys = Object.keys(obj || {});
+    for (var i = 0; i < keysTop.length; i++) {
+      var groupKey = keysTop[i];
+      var group = evidence[groupKey];
+
+      if (group == null) continue;
+
+      // if group is scalar, render as a single row block
+      if (typeof group !== "object") {
+        html += "<details class='evidence-block'>";
+        html += "<summary>" + escapeHtml(prettifyKey(groupKey)) + "</summary>";
+        html += "<div class='evidence-inner'>";
+        html += "<div class='evidence-row'>";
+        html += "<div class='evidence-key'>value</div>";
+        html += "<div class='evidence-val'>" + escapeHtml(String(group)) + "</div>";
+        html += "</div>";
+        html += "</div>";
+        html += "</details>";
+        continue;
+      }
+
+      var groupObj = safeObj(group);
+      var keys = Object.keys(groupObj || {});
       if (!keys.length) continue;
 
       html += "<details class='evidence-block'>";
-      html += "<summary>" + escapeHtml(b.title) + "</summary>";
+      html += "<summary>" + escapeHtml(prettifyKey(groupKey)) + "</summary>";
       html += "<div class='evidence-inner'>";
 
       for (var j = 0; j < keys.length; j++) {
         var k = keys[j];
-        var v = obj[k];
+        var v = groupObj[k];
         var val = v;
         if (typeof v === "boolean") val = v ? "true" : "false";
         if (v == null) val = "—";
@@ -820,7 +888,6 @@
 
     if (renderNarrative(currentNarrative)) return;
 
-    // session guard
     var key = "iqweb_narrative_requested_" + reportId;
     try {
       if (typeof sessionStorage !== "undefined") {
@@ -829,63 +896,96 @@
       }
     } catch (e) {}
 
-    // Request generation once
     generateNarrative(reportId)
       .then(function () {
         return waitForNarrativePresence(getNarrativeFn, 7000, 500);
       })
       .catch(function () {
-        // ignore — UI will still render the fallback content
+        // ignore
       });
   }
+
+  // Attempt to dismiss any “building/loading overlay”
+  function dismissLoadingUI() {
+    try {
+      document.body.classList.add("iqweb-report-loaded");
+    } catch (e) {}
+
+    var ids = [
+      "loading",
+      "loader",
+      "loadingOverlay",
+      "buildingOverlay",
+      "reportLoading",
+      "reportLoader",
+      "buildingReport",
+      "pageLoading",
+    ];
+    for (var i = 0; i < ids.length; i++) {
+      var el = $(ids[i]);
+      if (el) {
+        try {
+          el.style.display = "none";
+        } catch (e) {}
+      }
+    }
+
+    // common class-based overlays
+    try {
+      var cands = document.querySelectorAll(".loading, .loader, .loading-overlay, .overlay, .building, .building-overlay");
+      for (var j = 0; j < cands.length; j++) {
+        try {
+          cands[j].style.display = "none";
+        } catch (e) {}
+      }
+    } catch (e) {}
+  }
+
   function renderAll(data) {
     data = safeObj(data);
 
-    // Header
-    setHeaderWebsite(data.url || "");
-    setHeaderReportId(data.report_id || "");
-    setHeaderReportDate(data.created_at || data.generated_at || "");
+    // Bridge fields
+    var url = pickReportUrl(data);
+    var reportId = pickReportId(data) || getReportIdFromUrl();
+    var createdAt = pickCreatedAt(data);
 
-    // Scores (if present)
-    var metrics = safeObj(data.metrics);
-    var scores = safeObj(metrics.scores || {});
-    if (scores && typeof scores.overall !== "undefined") {
-      renderOverall(scores);
-    }
+    var scores = pickScores(data);
+    var overallSummary = pickOverallSummary(data, scores.overall);
+
+    var deliverySignals = pickDeliverySignals(data);
+    var issuesList = pickIssuesList(data);
+    var evidenceBlocks = pickEvidenceBlocks(data);
+    var narrative = pickNarrative(data);
+
+    // Header
+    setHeaderWebsite(url);
+    setHeaderReportId(reportId);
+    setHeaderReportDate(createdAt);
+
+    // Overall
+    renderOverall(scores, overallSummary);
 
     // Narrative
-    var narrative = data.narrative || data.narrative_json || data.narrative_text || "";
-    var reportId = data.report_id || "";
     var getNarrativeFn = function () {
       return fetchReportData(reportId).then(function (d) {
         d = safeObj(d);
-        return d.narrative || d.narrative_json || d.narrative_text || "";
+        return pickNarrative(d);
       });
     };
     ensureNarrative(reportId, narrative, getNarrativeFn);
 
     // Signals
-    var deliverySignals = asArray(metrics.delivery_signals);
     renderSignals(deliverySignals, narrative);
 
     // Issues
-    renderIssues(asArray(metrics.issues_list || metrics.issues || []));
+    renderIssues(issuesList);
     renderIssuesBySignal(deliverySignals);
 
     // Evidence
-    renderEvidenceBlocks(metrics);
+    renderEvidenceBlocks(evidenceBlocks);
 
-    // Extra: allow CSS to know it's loaded
-    try {
-      document.documentElement.className += " report-ready";
-    } catch (e) {}
-  }
-
-  function showError(msg) {
-    var el = $("pageError");
-    if (!el) return;
-    el.textContent = msg || "Unknown error";
-    el.style.display = "block";
+    // Always dismiss loading once we’ve rendered the deterministic blocks
+    dismissLoadingUI();
   }
 
   function boot() {
@@ -893,7 +993,11 @@
 
     var reportId = getReportIdFromUrl();
     if (!reportId) {
-      showError("Missing report_id in URL.");
+      var el = $("pageError");
+      if (el) {
+        el.textContent = "Missing report_id in URL.";
+        el.style.display = "block";
+      }
       return;
     }
 
@@ -903,114 +1007,31 @@
       .then(function (data) {
         renderAll(data);
 
-        // PDF mode: expand evidence + signal DocRaptor
         if (isPdfMode()) {
           return waitForPdfReady();
         }
-        return false;
+      })
+      .then(function () {
+        window.__IQWEB_REPORT_READY = true;
+        // extra: ensure overlay gone
+        dismissLoadingUI();
       })
       .catch(function (err) {
-        showError("Failed to load report: " + (err && err.message ? err.message : String(err)));
+        var el = $("pageError");
+        if (el) {
+          el.textContent = "Failed to load report: " + (err && err.message ? err.message : String(err));
+          el.style.display = "block";
+        }
       });
   }
 
-  // -----------------------------
-  // Misc utilities used elsewhere in file
-  // -----------------------------
-  function safeText(v) {
-    return String(v == null ? "" : v).replace(/^\s+|\s+$/g, "");
-  }
-
-  function setText(id, v) {
-    var el = $(id);
-    if (!el) return;
-    el.textContent = v;
-  }
-
-  function setHtml(id, html) {
-    var el = $(id);
-    if (!el) return;
-    el.innerHTML = html;
-  }
-
-  function setAttr(id, attr, val) {
-    var el = $(id);
-    if (!el) return;
-    if (val == null || val === "") el.removeAttribute(attr);
-    else el.setAttribute(attr, String(val));
-  }
-
-  // -------------------------------------------------------------
-  // Below: legacy/extra UI wiring preserved as-is from your original
-  // -------------------------------------------------------------
-
-  // Some deployments add a "pdf debug" banner etc
-  function setPdfModeBadge() {
-    var el = $("pdfModeBadge");
-    if (!el) return;
-    if (isPdfMode()) {
-      el.style.display = "inline-block";
-    } else {
-      el.style.display = "none";
-    }
-  }
-
-  function setFromHistoryBadge() {
-    var el = $("fromHistoryBadge");
-    if (!el) return;
-    var from = getQueryParam("from");
-    if (from === "history") el.style.display = "inline-block";
-    else el.style.display = "none";
-  }
-
-  function wireRefresh() {
-    var btn = $("refreshReport");
-    if (!btn) return;
-    btn.addEventListener("click", function () {
-      try {
-        window.location.reload();
-      } catch (e) {}
-    });
-  }
-
-  function wirePrint() {
-    var btn = $("printReport");
-    if (!btn) return;
-    btn.addEventListener("click", function () {
-      try {
-        window.print();
-      } catch (e) {}
-    });
-  }
-
-  // Start
   try {
-    setPdfModeBadge();
-    setFromHistoryBadge();
-    wireRefresh();
-    wirePrint();
-
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot);
     } else {
       boot();
     }
   } catch (e) {
-    showError("Report init failed.");
+    // no-op
   }
-
 })();
-/* ----------------------------------------------------------------
-   End-of-file compatibility note:
-
-   This file is designed to run in both:
-   - standard browsers
-   - DocRaptor/Prince for PDF rendering
-
-   Avoid:
-   - URLSearchParams
-   - arrow functions
-   - optional chaining
-   - async/await
-   - template literals
------------------------------------------------------------------- */
