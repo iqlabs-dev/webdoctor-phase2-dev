@@ -271,11 +271,11 @@ exports.handler = async (event) => {
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
-const execLines =
-  findings?.executive?.lines ||
-  narrativeObj?.executive?.lines ||
-  null;
-
+    const execLines =
+      findings?.executive?.lines ||
+      narrativeObj?.overall?.lines ||
+      narrativeObj?.executive?.lines ||
+      null;
 
     const executiveNarrativeHtml = (() => {
       const lines = lineify(execLines);
@@ -556,7 +556,7 @@ const execLines =
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- FINAL HTML (ORDR EXACTLY AS YOU SPECIFIED) ----
+    // ---- FINAL HTML (ORDER EXACTLY AS YOU SPECIFIED) ----
     // ✅ Key Metric Scores removed from output
     const html = `<!doctype html>
 <html lang="en">
