@@ -269,7 +269,7 @@ exports.handler = async (event) => {
     const deliverySignals = sortSignals(deliverySignalsRaw);
 
     // ============================
-    // SECTION 1: Executiv Narrative
+    // SECTION 1: Executive Narrative
     // ============================
     const execLines =
       findings?.executive?.lines ||
