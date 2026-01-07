@@ -557,7 +557,7 @@ exports.handler = async (event) => {
       .footer { margin-top: 16px; font-size: 9px; color: #666; display: flex; justify-content: space-between; }
     `;
 
-    // ---- FINAL HTML (ORDER EXACTLY AS YOU SPECIFIED) ----
+    // ---- FINAL HTML (ORDR EXACTLY AS YOU SPECIFIED) ----
     // ✅ Key Metric Scores removed from output
     const html = `<!doctype html>
 <html lang="en">

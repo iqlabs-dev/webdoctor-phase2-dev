@@ -2,7 +2,7 @@
 // Generates PDF via DocRaptor by printing a server-rendered HTML page (NO JS).
 //
 // Requires env:
-// - DOC_RAPTOR_API_KEY (note: this is your env name in Netlify)
+// - DOC_RAPTOR_API_KY (note: ths is your env name in Netlify)
 
 exports.handler = async (event) => {
   // CORS / preflight
