@@ -430,33 +430,32 @@ function execSummaryValid(text) {
     if (parsed.kind === "obj") {
       var n = safeObj(parsed.obj);
 
-      // Prefer: narrative.executive_summary.text (UI contract)
-        // Prefer: narrative.executive_summary (text OR lines OR string) — UI contract
-      var execText = "";
+// Prefer: narrative.executive_summary (text OR lines) then fallbacks
+var execText = "";
 
-      // 1) executive_summary.text
-      if (n.executive_summary && typeof n.executive_summary.text === "string") {
-        execText = n.executive_summary.text;
+// 1) executive_summary.text
+if (n.executive_summary && typeof n.executive_summary.text === "string") {
+  execText = n.executive_summary.text;
 
-      // 2) executive_summary.lines
-      } else if (n.executive_summary && Array.isArray(n.executive_summary.lines)) {
-        execText = asArray(n.executive_summary.lines).join("\n");
+// 2) executive_summary.lines (array)
+} else if (n.executive_summary && Array.isArray(n.executive_summary.lines)) {
+  execText = asArray(n.executive_summary.lines).join("\n");
 
-      // 3) executive_summary as direct string
-      } else if (typeof n.executive_summary === "string") {
-        execText = n.executive_summary;
+// 3) executive_summary as direct string
+} else if (typeof n.executive_summary === "string") {
+  execText = n.executive_summary;
 
-      // 4) legacy camelCase: executiveSummary.text
-      } else if (n.executiveSummary && typeof n.executiveSummary.text === "string") {
-        execText = n.executiveSummary.text;
+// 4) legacy camelCase
+} else if (n.executiveSummary && typeof n.executiveSummary.text === "string") {
+  execText = n.executiveSummary.text;
 
-      // 5) legacy: executive_summary_text
-      } else if (typeof n.executive_summary_text === "string") {
-        execText = n.executive_summary_text;
-      }
+// 5) legacy flat field
+} else if (typeof n.executive_summary_text === "string") {
+  execText = n.executive_summary_text;
+}
 
+var execOk = setExecText(execText);
 
-      var execOk = setExecText(execText);
 
       var overallLines = asArray(n.overall && n.overall.lines);
       var joined = overallLines.join("\n");
