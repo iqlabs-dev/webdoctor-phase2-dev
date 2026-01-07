@@ -273,8 +273,7 @@ exports.handler = async (event) => {
     // ============================
     const execLines =
       findings?.executive?.lines ||
-      narrativeObj?.overall?.lines ||
-      narrativeObj?.executive?.lines ||
+          narrativeObj?.executive?.lines ||
       null;
 
     const executiveNarrativeHtml = (() => {
