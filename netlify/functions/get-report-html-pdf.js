@@ -274,7 +274,7 @@ exports.handler = async (event) => {
   const execLines =
   findings?.executive?.lines ||
   narrativeObj?.executive?.lines ||
-  narrativeObj?.executive_lead ||   // (supports older shape if present)
+  narrativeObj?.executive_lead ||   // (supports older shpe if present)
   null;
 
 
