@@ -425,143 +425,13 @@ function extractResponseText(data) {
 }
 
 /* ============================================================
-   OPENAI CALL (NARRATIVE + EXEC SUMMARY)
-   - Narrative mode returns STRICT JSON (your existing schema)
-   - Executive summary mode returns plain TEXT (3–5 lines)
+   OPENAI CALL (NARRATIVE ONLY)
+   - Model writes language ONLY
+   - Deterministic logic supplies hierarchy + evidence
    ============================================================ */
-async function callOpenAI({ mode = "narrative", facts, constraints, signals }) {
+async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
-  }
-
-  // ------------------------------------------------------------------
-  // MODE B: Executive Summary (plain text, “Senior Reviewer”)
-  // ------------------------------------------------------------------
-  if (mode === "executive_summary") {
-    const safeSignals = signals && typeof signals === "object" ? signals : {};
-
-const banned = [
-  "this report",
-  "overall",
-  "based on",
-  "deterministic",
-  "measured",
-  "score",
-  "percent",
-  "%",
-  "must",
-  "urgent",
-  "immediately",
-  "essential",
-  "required",
-
-  // kill corporate / AI cadence
-  "benefits from",
-  "supporting its overall",
-  "prioritizing",
-  "is crucial",
-  "focusing on",
-  "could improve",
-  "will provide",
-  "foundation",
-  "subsequent",
-  "moving forward",
-  "in order to",
-  "recommended",
-  "enhancements",
-  "safeguarding",
-  "user data",
-];
-
-const execInstructions = [
-  "You are Λ i Q™, writing a short executive summary for an iQWEB diagnostic report.",
-  "",
-  "Tone: senior reviewer to an agency. Calm, specific, not corporate.",
-  "",
-  "Non-negotiable rules:",
-  "1) Use ONLY the provided facts and signals text. Do not invent causes, tools, traffic, revenue, or measurements.",
-  "2) Do not mention numbers, percentages, ratings, or the word 'score'.",
-  "3) No hype, no sales language, no fear language, no moral judgement.",
-  "4) Avoid command language (no must/urgent/immediately/required).",
-  "5) Avoid 'consultant filler' and generic phrasing.",
-  "",
-  "Output rules:",
-  "- Return 3 to 5 lines.",
-  "- Each line should be short and plain.",
-  "- Line 1: what is holding the site back right now (grounded in signals).",
-  "- Lines 2–3: the two most important fixes, using the exact evidence words where possible (HSTS, CSP, robots meta, canonical, etc.).",
-  "- Final line: sequencing in plain language (what to do first, and why), without sounding like a command.",
-  "",
-  "Hard ban: do not include these words/phrases (or close variants):",
-  banned.map((x) => `- ${x}`).join("\n"),
-  "",
-  "Return ONLY plain text lines. No JSON. No bullets.",
-].join("\n");
-
-
-    const execInput = [
-      "Create the executive summary lines from the provided inputs.",
-      "",
-      "Facts JSON (truth source):",
-      JSON.stringify(facts || {}),
-      "",
-      "Signals narratives (truth source):",
-      JSON.stringify(safeSignals),
-    ].join("\n");
-
-    const resp = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        // Force 4o for the exec summary (your decision)
-        model: "gpt-4o",
-        instructions: execInstructions,
-        input: execInput,
-        temperature: 0.35,
-        max_output_tokens: 220,
-      }),
-    });
-
-    if (!resp.ok) {
-      const t = await resp.text().catch(() => "");
-      throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 900)}`);
-    }
-
-    const data = await resp.json();
-    const text = extractResponseText(data);
-    if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output (exec summary).");
-
-    // Normalize to 3–5 non-empty lines
-    const lines = String(text)
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    // If model returns one paragraph, split gently into sentences
-    let finalLines = lines;
-    if (finalLines.length < 3) {
-      finalLines = String(text)
-        .replace(/\s+/g, " ")
-        .split(/(?<=[.!?])\s+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-
-    // Clamp to 5 lines max, 3 min (best effort)
-    finalLines = finalLines.slice(0, 5);
-    if (finalLines.length === 0) throw new Error("OpenAI returned unusable exec summary.");
-
-    return finalLines.join("\n");
-  }
-
-  // ------------------------------------------------------------------
-  // MODE A: Narrative JSON (your existing strict schema)
-  // ------------------------------------------------------------------
-  if (!constraints || typeof constraints !== "object") {
-    throw new Error("Missing constraints for narrative generation.");
   }
 
   const label = (k) =>
@@ -575,7 +445,7 @@ const execInstructions = [
     }[k] || k);
 
   const primaryLabel = label(constraints.primary);
-  const secondaryLabels = (constraints.secondary || []).map(label);
+  const secondaryLabels = constraints.secondary.map(label);
 
   const bannedPhrases = [
     // hard-template openers
@@ -857,12 +727,7 @@ export async function handler(event) {
     }
 
     // If narrative already exists, return it UNLESS caller asked to force regen.
-    const hasExecSummary =
-  typeof scan.narrative?.executive_summary?.text === "string" &&
-  scan.narrative.executive_summary.text.trim().length > 0;
-
-if (!force && isNarrativeComplete(scan.narrative) && hasExecSummary) {
-
+    if (!force && isNarrativeComplete(scan.narrative)) {
       const existing = safeObj(scan.narrative);
       const patched = {
         ...existing,
@@ -895,19 +760,15 @@ if (!force && isNarrativeComplete(scan.narrative) && hasExecSummary) {
     }
 
     await supabase
-  await supabase
-  .from("scan_results")
-  .update({
-    narrative_status: "generating",
-    narrative_attempts: 0,
-    narrative: {
-      _status: "generating",
-      _started_at: nowIso(),
-      _forced: force ? true : undefined,
-    },
-  })
-  .eq("id", scan.id);
-
+      .from("scan_results")
+      .update({
+        narrative: {
+          _status: "generating",
+          _started_at: nowIso(),
+          _forced: force ? true : undefined,
+        },
+      })
+      .eq("id", scan.id);
 
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
@@ -926,78 +787,36 @@ if (!force && isNarrativeComplete(scan.narrative) && hasExecSummary) {
       }
     }
 
-    // --- Executive Summary (new, additive slot) ---
-// Generated AFTER narrative is finalized, using GPT-4o
-let executiveSummaryText = null;
+    const { error: upErr } = await supabase.from("scan_results").update({ narrative }).eq("id", scan.id);
 
-try {
-  const execSummaryRaw = await callOpenAI({
-    mode: "executive_summary",
-    facts,
-    signals: narrative.signals,
-  });
+    if (upErr) {
+      await supabase
+        .from("scan_results")
+        .update({
+          narrative: {
+            _status: "error",
+            _error: upErr.message || String(upErr),
+            _failed_at: nowIso(),
+          },
+        })
+        .eq("id", scan.id);
 
-  if (typeof execSummaryRaw === "string" && execSummaryRaw.trim()) {
-    executiveSummaryText = execSummaryRaw.trim();
-  }
-} catch (e) {
-  console.warn("[exec-summary] generation failed, continuing without it", e);
-}
+      return json(500, {
+        success: false,
+        error: "Failed to save narrative",
+        detail: upErr.message || upErr,
+        hint: "Ensure scan_results.narrative exists as jsonb.",
+      });
+    }
 
-
-// ---- FINAL SAVE BLOCK (REPLACE ENTIRE SECTION) ----
-
-// Attach executive summary ONLY if it exists (safe for old reports)
-var narrativeToSave =
-  (typeof executiveSummaryText === "string" && executiveSummaryText.trim())
-    ? Object.assign({}, narrative, {
-        executive_summary: { text: executiveSummaryText.trim() }
-      })
-    : narrative;
-
-var upRes = await supabase
-  .from("scan_results")
-  .update({
-    narrative: narrativeToSave,
-    narrative_status: "final"
-    // NOTE: narrative_attempts is updated earlier during retry loop.
-    // We don't touch it here to avoid overwriting the final attempt count.
-  })
-  .eq("id", scan.id);
-
-var upErr = upRes && upRes.error ? upRes.error : null;
-
-if (upErr) {
-  await supabase
-    .from("scan_results")
-    .update({
-      narrative: {
-        _status: "error",
-        _error: upErr.message || String(upErr),
-        _failed_at: nowIso()
-      },
-      narrative_status: "final" // important: never leave report stuck "generating"
-    })
-    .eq("id", scan.id);
-
-  return json(500, {
-    success: false,
-    error: "Failed to save narrative",
-    detail: upErr.message || upErr,
-    hint: "Ensure scan_results.narrative exists as jsonb."
-  });
-}
-
-return json(200, {
-  success: true,
-  report_id: report_id,
-  scan_id: scan.id,
-  saved_to: "scan_results.narrative",
-  constraints: constraints,
-  narrative: narrativeToSave
-});
-
-// ---- END FINAL SAVE BLOCK ----
+    return json(200, {
+      success: true,
+      report_id,
+      scan_id: scan.id,
+      saved_to: "scan_results.narrative",
+      constraints,
+      narrative,
+    });
   } catch (err) {
     console.error("[generate-narrative]", err);
 
@@ -1011,7 +830,6 @@ return json(200, {
               _error: err?.message || String(err),
               _failed_at: nowIso(),
             },
-            narrative_status: "final",
           })
           .eq("id", scan.id);
       }
@@ -1026,4 +844,3 @@ return json(200, {
     });
   }
 }
-

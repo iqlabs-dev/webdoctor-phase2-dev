@@ -19,8 +19,6 @@
   if (typeof window.__IQWEB_REPORT_READY === "undefined") {
     window.__IQWEB_REPORT_READY = false;
   }
-  // If exec summary fails contract validation, we’ll set this true
-  window.__IQWEB_EXEC_NEEDS_REGEN = false;
 
   function $(id) { return document.getElementById(id); }
 
@@ -314,101 +312,9 @@
     return { kind: "text", text: String(v) };
   }
 
-  // ---- Executive Summary contract enforcement ----
-// ---- Executive Summary contract enforcement ----
-// ---- Executive Summary contract enforcement ----
-function execSummaryValid(text) {
-  if (text === null || text === undefined) return false;
-
-  var t = String(text);
-  t = t.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
-  if (!t) return false;
-
-  // Reject if it looks like JSON (bad model output)
-  var firstChar = t.charAt(0);
-  if (firstChar === "{" || firstChar === "[") return false;
-
-  // Split + trim lines, ignore blank lines
-  var raw = t.split("\n");
-  var lines = [];
-  for (var i = 0; i < raw.length; i++) {
-    var line = String(raw[i] || "").replace(/^\s+|\s+$/g, "");
-    if (line) lines.push(line);
-  }
-
-  // Contract: must be 1–4 short lines
-  if (!lines.length) return false;
-  if (lines.length > 4) return false;
-
-  // Reject bullets / checklist formatting
-  for (var b = 0; b < lines.length; b++) {
-    if (lines[b].indexOf("•") !== -1) return false;
-    if (lines[b].indexOf("- ") === 0) return false;
-  }
-
-  var joined = (" " + lines.join(" ") + " ").toLowerCase();
-
-  // Reject “do X” / action language (imperatives)
-  var badPhrases = [
-    " address ", " implement ", " fix ", " add ", " start ", " upgrade ",
-    " improve ", " optimize ", " optimise ", " ensure ", " consider ",
-    " you should ", " we recommend ", " recommended ", " to strengthen ",
-    " to improve ", " to enhance ", " to fix ", " to address "
-  ];
-  for (var j = 0; j < badPhrases.length; j++) {
-    if (joined.indexOf(badPhrases[j]) !== -1) return false;
-  }
-
-  // Exec Summary must NOT name specific checks/headers/tools
-  var badTerms = [
-    "robots", "meta tag", "referrer-policy", "referrer policy",
-    "permissions-policy", "permissions policy",
-    "content-security-policy", "content security policy", "csp",
-    "hsts", "x-frame-options", "x-content-type-options",
-    "lighthouse", "pagespeed", "psi"
-  ];
-  for (var k = 0; k < badTerms.length; k++) {
-    if (joined.indexOf(badTerms[k]) !== -1) return false;
-  }
-
-  return true;
-}
-
-
-
   function renderNarrative(narrative) {
-    window.__IQWEB_EXEC_NEEDS_REGEN = false;
-
     var textEl = $("narrativeText");
     if (!textEl) return false;
-
-    // Executive Summary — optional
-    var execSection = $("executiveSummarySection");
-    var execTextEl = $("executiveSummaryText");
-
-    function hideExec() {
-      if (!execSection || !execTextEl) return false;
-      execSection.style.display = "none";
-      execTextEl.innerHTML = "";
-      return false;
-    }
-
-    function setExecText(txt) {
-      if (!execSection || !execTextEl) return false;
-      var t = (txt === null || txt === undefined) ? "" : String(txt);
-      t = t.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
-      if (!t) return hideExec();
-
-      // Enforce contract: if invalid, hide and request regen
-      if (!execSummaryValid(t)) {
-        window.__IQWEB_EXEC_NEEDS_REGEN = true;
-        return hideExec();
-      }
-
-      execSection.style.display = "";
-      execTextEl.innerHTML = escapeHtml(t).replace(/\n/g, "<br>");
-      return true;
-    }
 
     var parsed = parseNarrativeFlexible(narrative);
 
@@ -420,7 +326,6 @@ function execSummaryValid(text) {
     }
 
     if (parsed.kind === "text") {
-      hideExec();
       var lines = normalizeLines(parsed.text, 5);
       if (setLines(lines)) return true;
       textEl.textContent = "Narrative not generated yet.";
@@ -430,70 +335,20 @@ function execSummaryValid(text) {
     if (parsed.kind === "obj") {
       var n = safeObj(parsed.obj);
 
-// Prefer: narrative.executive_summary (text OR lines) then fallbacks
-var execText = "";
-
-// 1) executive_summary.text
-if (n.executive_summary && typeof n.executive_summary.text === "string") {
-  execText = n.executive_summary.text;
-
-// 2) executive_summary.lines (array)
-} else if (n.executive_summary && Array.isArray(n.executive_summary.lines)) {
-  execText = asArray(n.executive_summary.lines).join("\n");
-
-// 3) executive_summary as direct string
-} else if (typeof n.executive_summary === "string") {
-  execText = n.executive_summary;
-
-// 4) legacy camelCase
-} else if (n.executiveSummary && typeof n.executiveSummary.text === "string") {
-  execText = n.executiveSummary.text;
-
-// 5) legacy flat field
-} else if (typeof n.executive_summary_text === "string") {
-  execText = n.executive_summary_text;
-}
-
-var execOk = setExecText(execText);
-
-
       var overallLines = asArray(n.overall && n.overall.lines);
       var joined = overallLines.join("\n");
-
-      if (joined) {
-        var lines2 = normalizeLines(joined, 5);
-        if (setLines(lines2)) {
-          // If exec was rejected, force one regen attempt (interactive only)
-          if (window.__IQWEB_EXEC_NEEDS_REGEN) return false;
-          return true;
-        }
-      }
-
-      // back-compat: narrative.lines or narrative.text
-      if (Array.isArray(n.lines)) {
-        var linesArr = normalizeLines(asArray(n.lines).join("\n"), 5);
-        if (setLines(linesArr)) {
-          if (window.__IQWEB_EXEC_NEEDS_REGEN) return false;
-          return true;
-        }
-      }
+      var lines2 = normalizeLines(joined, 5);
+      if (setLines(lines2)) return true;
 
       if (typeof n.text === "string") {
-        var t2 = n.text.replace(/^\s+|\s+$/g, "");
-        if (t2) {
-          var lines3 = normalizeLines(t2, 5);
-          if (setLines(lines3)) {
-            if (window.__IQWEB_EXEC_NEEDS_REGEN) return false;
-            return true;
-          }
+        var t = n.text.replace(/^\s+|\s+$/g, "");
+        if (t) {
+          var lines3 = normalizeLines(t, 5);
+          if (setLines(lines3)) return true;
         }
       }
-
-      // If overall is empty but Executive Summary exists and is valid, consider narrative ready.
-      if (execOk) return true;
     }
 
-    hideExec();
     textEl.textContent = "Narrative not generated yet.";
     return false;
   }
@@ -666,134 +521,154 @@ var execOk = setExecText(execText);
   }
 
   function renderSignalEvidence(deliverySignals) {
-    var root = $("signalEvidenceRoot");
-    if (!root) return;
-    root.innerHTML = "";
+  var root = $("signalEvidenceRoot");
+  if (!root) return;
+  root.innerHTML = "";
 
-    var list = asArray(deliverySignals);
-    if (!list.length) {
-      root.innerHTML = '<div class="summary">No signal evidence available (delivery_signals missing).</div>';
-      return;
-    }
-
-    function keyFromLabelOrId(sig) {
-      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.indexOf("perf") !== -1) return "performance";
-      if (id.indexOf("seo") !== -1) return "seo";
-      if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1) return "structure";
-      if (id.indexOf("mob") !== -1) return "mobile";
-      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-      if (id.indexOf("access") !== -1) return "accessibility";
-      return "";
-    }
-
-    function issuesEmptyMessage(sigKey, score, obsCount) {
-      var n = asInt(score, 0);
-      if (n > 0 && n < 85 && obsCount > 0) {
-        if (sigKey === "structure") return "No blocking structural issues were identified. The score reflects minor best practice and hierarchy deductions rather than required fixes.";
-        if (sigKey === "performance") return "No blocking performance issues were identified in this scan. The score reflects minor delivery and best practice deductions rather than required fixes.";
-        if (sigKey === "seo") return "No blocking SEO issues were listed. The score reflects missing or incomplete foundation signals captured in this scan rather than a single required fix.";
-        if (sigKey === "mobile") return "No blocking mobile issues were listed. The score reflects missing required mobile signals captured in this scan rather than a single required fix.";
-        if (sigKey === "security") return "No issue list was produced for this signal. The score reflects missing security policies or headers observed in this scan rather than a single required fix.";
-        if (sigKey === "accessibility") return "No blocking accessibility issues were listed. The score reflects minor support deductions captured in this scan rather than required fixes.";
-        return "No blocking issues were identified. The score reflects minor deductions captured in this scan rather than required fixes.";
-      }
-      return "No issues detected for this signal.";
-    }
-
-    for (var i = 0; i < list.length; i++) {
-      var sig = list[i];
-      var label = String((sig && (sig.label || sig.id)) || "Signal");
-      var score = asInt(sig && sig.score, 0);
-
-      var obs = asArray(sig && sig.observations);
-      if (!obs.length) obs = evidenceToObs(sig && sig.evidence);
-
-      var block = document.createElement("details");
-      block.className = "evidence-block";
-
-      var summary = document.createElement("summary");
-      summary.innerHTML =
-        '<span class="acc-title">' + escapeHtml(label) + "</span>" +
-        '<span class="acc-score">' + escapeHtml(String(score)) + "</span>";
-
-      var body = document.createElement("div");
-      body.className = "acc-body";
-
-      var title = document.createElement("div");
-      title.className = "evidence-title";
-      title.textContent = "Observations";
-
-      var listEl = document.createElement("div");
-      listEl.className = "evidence-list";
-
-      if (obs.length) {
-        for (var j = 0; j < obs.length && j < 24; j++) {
-          var o = obs[j] || {};
-          var kv = document.createElement("div");
-          kv.className = "kv";
-
-          var value =
-            (o.value === null) ? "null" :
-            (typeof o.value === "undefined") ? "—" :
-            String(o.value);
-
-          kv.innerHTML =
-            '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
-            '<div class="v">' + escapeHtml(value) + "</div>";
-
-          listEl.appendChild(kv);
-        }
-      } else {
-        var none = document.createElement("div");
-        none.className = "summary";
-        none.textContent = "No observations recorded.";
-        body.appendChild(none);
-      }
-
-      var issues = asArray(sig && sig.issues);
-
-      var issuesTitle = document.createElement("div");
-      issuesTitle.className = "evidence-title";
-      issuesTitle.style.marginTop = "14px";
-      issuesTitle.textContent = "Issues";
-
-      var issuesBox = document.createElement("div");
-      if (!issues.length) {
-        var sigKey = keyFromLabelOrId(sig);
-        issuesBox.className = "summary";
-        issuesBox.textContent = issuesEmptyMessage(sigKey, score, obs.length);
-      } else {
-        var html = "";
-        for (var k = 0; k < issues.length && k < 6; k++) {
-          var it = issues[k] || {};
-          var t = escapeHtml(it.title || "Issue");
-          var sev = escapeHtml(it.severity || "low");
-          var impact = escapeHtml(it.impact || "—");
-
-          html += '<div class="kv" style="flex-direction:column; align-items:flex-start;">';
-          html += '  <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">';
-          html += '    <div style="font-weight:800;color:var(--ink);">' + t + "</div>";
-          html += '    <div style="font-weight:800;opacity:.85;">' + sev + "</div>";
-          html += "  </div>";
-          html += '  <div class="k" style="text-transform:none; letter-spacing:0;">Impact: ';
-          html += '    <span class="impact-text" style="font-weight:700;">' + impact + "</span>";
-          html += "  </div>";
-          html += "</div>";
-        }
-        issuesBox.innerHTML = html;
-      }
-
-      body.appendChild(title);
-      body.appendChild(listEl);
-      body.appendChild(issuesTitle);
-      body.appendChild(issuesBox);
-
-      block.appendChild(summary);
-      block.appendChild(body);
-      root.appendChild(block);
-    }
+  var list = asArray(deliverySignals);
+  if (!list.length) {
+    root.innerHTML = '<div class="summary">No signal evidence available (delivery_signals missing).</div>';
+    return;
   }
+
+  function keyFromLabelOrId(sig) {
+    var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+    if (id.indexOf("perf") !== -1) return "performance";
+    if (id.indexOf("seo") !== -1) return "seo";
+    if (id.indexOf("struct") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+    if (id.indexOf("mob") !== -1) return "mobile";
+    if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+    if (id.indexOf("access") !== -1) return "accessibility";
+    return "";
+  }
+
+  // Explains "why score is lower even though there are no issues"
+  function issuesEmptyMessage(sigKey, score, obsCount) {
+    var n = asInt(score, 0);
+
+    // Only show the “soft deductions” explanation when:
+    // - there are no issue objects
+    // - score is not high
+    // - we actually have observations/evidence (so it's not a blank scan)
+    if (n > 0 && n < 85 && obsCount > 0) {
+      if (sigKey === "structure") {
+        return "No blocking structural issues were identified. The score reflects minor best practice and hierarchy deductions rather than required fixes.";
+      }
+      if (sigKey === "performance") {
+        return "No blocking performance issues were identified in this scan. The score reflects minor delivery and best practice deductions rather than required fixes.";
+      }
+      if (sigKey === "seo") {
+        return "No blocking SEO issues were listed. The score reflects missing or incomplete foundation signals captured in this scan rather than a single required fix.";
+      }
+      if (sigKey === "mobile") {
+        return "No blocking mobile issues were listed. The score reflects missing required mobile signals captured in this scan rather than a single required fix.";
+      }
+      if (sigKey === "security") {
+        return "No issue list was produced for this signal. The score reflects missing security policies or headers observed in this scan rather than a single required fix.";
+      }
+      if (sigKey === "accessibility") {
+        return "No blocking accessibility issues were listed. The score reflects minor support deductions captured in this scan rather than required fixes.";
+      }
+      return "No blocking issues were identified. The score reflects minor deductions captured in this scan rather than required fixes.";
+    }
+
+    return "No issues detected for this signal.";
+  }
+
+  for (var i = 0; i < list.length; i++) {
+    var sig = list[i];
+    var label = String((sig && (sig.label || sig.id)) || "Signal");
+    var score = asInt(sig && sig.score, 0);
+
+    var obs = asArray(sig && sig.observations);
+    if (!obs.length) obs = evidenceToObs(sig && sig.evidence);
+
+    var block = document.createElement("details");
+    block.className = "evidence-block";
+
+    var summary = document.createElement("summary");
+    summary.innerHTML =
+      '<span class="acc-title">' + escapeHtml(label) + "</span>" +
+      '<span class="acc-score">' + escapeHtml(String(score)) + "</span>";
+
+    var body = document.createElement("div");
+    body.className = "acc-body";
+
+    var title = document.createElement("div");
+    title.className = "evidence-title";
+    title.textContent = "Observations";
+
+    var listEl = document.createElement("div");
+    listEl.className = "evidence-list";
+
+    if (obs.length) {
+      for (var j = 0; j < obs.length && j < 24; j++) {
+        var o = obs[j] || {};
+        var kv = document.createElement("div");
+        kv.className = "kv";
+
+        var value =
+          (o.value === null) ? "null" :
+          (typeof o.value === "undefined") ? "—" :
+          String(o.value);
+
+        kv.innerHTML =
+          '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
+          '<div class="v">' + escapeHtml(value) + "</div>";
+
+        listEl.appendChild(kv);
+      }
+    } else {
+      var none = document.createElement("div");
+      none.className = "summary";
+      none.textContent = "No observations recorded.";
+      body.appendChild(none);
+    }
+
+    var issues = asArray(sig && sig.issues);
+
+    var issuesTitle = document.createElement("div");
+    issuesTitle.className = "evidence-title";
+    issuesTitle.style.marginTop = "14px";
+    issuesTitle.textContent = "Issues";
+
+    var issuesBox = document.createElement("div");
+    if (!issues.length) {
+      var sigKey = keyFromLabelOrId(sig);
+      issuesBox.className = "summary";
+      issuesBox.textContent = issuesEmptyMessage(sigKey, score, obs.length);
+    } else {
+      var html = "";
+      for (var k = 0; k < issues.length && k < 6; k++) {
+        var it = issues[k] || {};
+        var t = escapeHtml(it.title || "Issue");
+        var sev = escapeHtml(it.severity || "low");
+        var impact = escapeHtml(it.impact || "—");
+
+        html += '<div class="kv" style="flex-direction:column; align-items:flex-start;">';
+        html += '  <div style="display:flex; width:100%; justify-content:space-between; gap:10px;">';
+        html += '    <div style="font-weight:800;color:var(--ink);">' + t + "</div>";
+        html += '    <div style="font-weight:800;opacity:.85;">' + sev + "</div>";
+        html += "  </div>";
+        html += '  <div class="k" style="text-transform:none; letter-spacing:0;">Impact: ';
+        html += '    <span class="impact-text" style="font-weight:700;">' + impact + "</span>";
+        html += "  </div>";
+        html += "</div>";
+      }
+      issuesBox.innerHTML = html;
+    }
+
+    body.appendChild(title);
+    body.appendChild(listEl);
+    body.appendChild(issuesTitle);
+    body.appendChild(issuesBox);
+
+    block.appendChild(summary);
+    block.appendChild(body);
+    root.appendChild(block);
+  }
+}
+
 
   // -----------------------------
   // Key insights / top issues / fix sequence / notes (kept consistent)
@@ -1029,11 +904,9 @@ var execOk = setExecText(execText);
     var textEl = $("narrativeText");
     if (!textEl) return;
 
-    // If renderNarrative returns true, we’re done.
-    // If it returns false, it means either narrative missing OR exec rejected (contract fail).
     if (renderNarrative(currentNarrative)) return;
 
-    // session guard (only one request per session per report)
+    // session guard
     var key = "iqweb_narrative_requested_" + reportId;
     try {
       if (typeof sessionStorage !== "undefined") {
@@ -1107,7 +980,7 @@ var execOk = setExecText(execText);
         // PDF mode: never wait on narrative; just finish cleanly
         return waitForPdfReady();
       } else {
-        // Interactive mode: allow narrative to trigger if missing OR exec got rejected
+        // Interactive mode: allow narrative to trigger if missing
         ensureNarrative(header.report_id || reportId, data && data.narrative);
         return true;
       }
@@ -1118,7 +991,7 @@ var execOk = setExecText(execText);
         statusEl.textContent = "Failed to load report data: " + (err && err.message ? err.message : String(err));
       }
 
-      // PDF mode MUST NEVER hang
+      // PDF mod MUST NEVER hang
       if (pdf) {
         return waitForPdfReady();
       }
