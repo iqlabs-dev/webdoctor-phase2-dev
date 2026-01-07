@@ -33,7 +33,7 @@ exports.handler = async (event) => {
 
     if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    // IMPORTANT: This fetches your existing “full” report data endpoint.
+    // IMPORTANT: This fetches your existng “full” report data endpoint.
     // If your endpoint name is different, change ONLY this path.
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const srcUrl =
