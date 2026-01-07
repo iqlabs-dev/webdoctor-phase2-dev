@@ -3,11 +3,11 @@
 //
 // Why this exists:
 // - DocRaptor uses Prince. Prince JS is often NOT modern-browser compatible.
-// - Modern syntax (async/await, ??=, ?. , replaceAll, etc.) can cause a PARSE ERROR.
+// - Modern syntx (async/await, ??=, ?. , replaceAll, etc.) can cause a PARSE ERROR.
 // - If the file fails to parse, NOTHING runs, and PDF captures the loader ("Building Report").
 //
 // This file:
-// - Uses ES5-style syntax (var/functions, no async/await)
+// - Uses ES5-style syntx (var/functions, no async/await)
 // - Uses XHR in PDF mode (no dependency on fetch)
 // - Always signals DocRaptor completion in PDF mode (success or failure)
 // - Produces a print-friendly version of the SAME OSD report (same HTML, same narrative)
