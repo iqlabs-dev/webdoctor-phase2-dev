@@ -271,10 +271,9 @@ exports.handler = async (event) => {
     // ============================
     // SECTION 1: Executive Narrative
     // ============================
-  const execLines =
+const execLines =
   findings?.executive?.lines ||
   narrativeObj?.executive?.lines ||
-  narrativeObj?.executive_lead ||   // (supports older shpe if present)
   null;
 
 
