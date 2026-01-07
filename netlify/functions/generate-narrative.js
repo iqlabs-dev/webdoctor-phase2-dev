@@ -508,53 +508,57 @@ function enforceConstraints(n, facts, constraints) {
     if (!list.length) return "";
     if (list.length === 1) return list[0];
     if (list.length === 2) return list[0] + " and " + list[1];
-    return (
-      list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1]
-    );
+    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
+  }
+
+  function chooseNotThis(primary) {
+    if (primary === "performance" || primary === "mobile") return "design or content";
+    if (primary === "seo") return "brand, visuals, or ad spend";
+    if (primary === "security") return "copy, content, or layout polish";
+    if (primary === "structure") return "design tweaks or new pages";
+    if (primary === "accessibility") return "marketing or cosmetic redesign";
+    return "low-impact polish";
+  }
+
+  function calmNonPrimary(primary) {
+    // Keep this safe: do NOT claim “all good”, only “not the limiting factor in this scan”
+    if (primary === "performance" || primary === "mobile") {
+      return "Security configuration does not appear to be the limiting factor in this scan.";
+    }
+    if (primary === "security") {
+      return "Performance and delivery are not the primary constraint in this scan.";
+    }
+    if (primary === "seo" || primary === "structure" || primary === "accessibility") {
+      return "Security and performance are not the primary constraint in this scan.";
+    }
+    return "Other areas may improve later, but they are not the primary constraint in this scan.";
   }
 
   const primaryLabel = label(primarySignal);
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
-  const secondaryLabels = asArray((constraints && constraints.secondary) || []).map((k) =>
-    label(String(k).toLowerCase())
-  );
 
+  // -----------------------------
+  // Executive Narrative (Value Mode: What’s Wrong → What Matters → What to Fix First)
+  // -----------------------------
   const lines = [];
 
-  if (primarySignal === "performance" || primarySignal === "mobile") {
-    lines.push("This website is underperforming for one primary reason:");
-    lines.push(
-      "it delivers content slower and less reliably than users and search engines expect, which directly reduces engagement, rankings, and conversions."
-    );
+  // 1) What’s wrong
+  lines.push("This website is being held back for one primary reason:");
+  lines.push("the current " + primaryLabel + " baseline is creating avoidable friction for users and search engines.");
 
-    lines.push("The biggest constraint is rendering and load behaviour, not design or content.");
-    if (primaryEvidence.length) {
-      lines.push("In this scan, the strongest evidence points to " + compactEvidence(primaryEvidence, 2) + ".");
-    } else {
-      lines.push(
-        "In this scan, the strongest evidence points to delays before pages become usable, especially on mobile connections."
-      );
-    }
-
-    lines.push("Security configuration appears mostly standard and is not the limiting factor right now.");
-    lines.push("Performance and delivery are the bottleneck.");
+  // 2) What matters (contrast + evidence)
+  lines.push("The biggest constraint is " + primaryLabel + ", not " + chooseNotThis(primarySignal) + ".");
+  if (primaryEvidence.length) {
+    lines.push("The clearest evidence in this scan is " + compactEvidence(primaryEvidence, 2) + ".");
   } else {
-    lines.push("This website is being held back by one primary constraint:");
-    lines.push("the current " + primaryLabel + " baseline creates avoidable friction for users and search engines.");
-
-    if (primaryEvidence.length) {
-      lines.push("The clearest evidence in this scan is " + compactEvidence(primaryEvidence, 2) + ".");
-    } else {
-      lines.push("The scan shows gaps in the foundational signals that reduce consistency and resilience over time.");
-    }
-
-    if (secondaryLabels.length) {
-      lines.push("Secondary contributors include " + secondaryLabels.slice(0, 2).join(" and ") + ", but they are not the bottleneck.");
-    } else {
-      lines.push("Other improvements may help later, but they are not the bottleneck in this scan.");
-    }
+    lines.push("The scan shows gaps in the baseline signals that reduce consistency and resilience over time.");
   }
 
+  // 3) What it’s NOT + bottleneck line
+  lines.push(calmNonPrimary(primarySignal));
+  lines.push(primaryLabel.charAt(0).toUpperCase() + primaryLabel.slice(1) + " is the bottleneck.");
+
+  // 4) Payoff block (your existing cadence)
   lines.push("Fixing the top two issues first will produce measurable gains in:");
   lines.push("time-to-interaction");
   lines.push("search visibility");
@@ -651,6 +655,7 @@ function enforceConstraints(n, facts, constraints) {
 
   return out;
 }
+
 
 /* ============================================================
    NARRATIVE VALIDITY CHECK
