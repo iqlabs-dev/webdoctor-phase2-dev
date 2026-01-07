@@ -319,10 +319,21 @@
     return fetchJson("GET", url2, null, false);
   }
 
-  function generateNarrative(reportId) {
-    // interactive only
-    return fetchJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId }, false);
-  }
+ function generateNarrative(reportId) {
+  // interactive only
+  var force = getQueryParam("regen") === "1";
+
+  return fetchJson(
+    "POST",
+    "/.netlify/functions/generate-narrative",
+    {
+      report_id: reportId,
+      force: force
+    },
+    false
+  );
+}
+
 
   function wireBackToDashboard() {
     var btn = $("backToDashboard");

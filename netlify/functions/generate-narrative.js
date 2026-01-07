@@ -611,7 +611,9 @@ async function callOpenAI({ facts, constraints }) {
 /* ============================================================
    ENFORCE CONSTRAINTS + GUARDED MINIMUM QUALITY
    ============================================================ */
-function enforceConstraints(n, primarySignal) {
+function enforceConstraints(n, facts, constraints) {
+  const primarySignal = String(constraints?.primary || "").toLowerCase();
+
   const out = {
     _status: "ok",
     _generated_at: nowIso(),
@@ -627,9 +629,138 @@ function enforceConstraints(n, primarySignal) {
     },
   };
 
-  out.overall.lines = normalizeLines(asArray(n?.overall?.lines).join("\n"), 5);
-  out.overall.lines = sanitizeExecutiveOpener(out.overall.lines, String(primarySignal || "").toLowerCase());
+  // -----------------------------
+  // Executive Narrative (LOCKED 5 sentences, deterministic)
+  // -----------------------------
+  const label = (k) =>
+    ({
+      security: "security and trust",
+      performance: "performance delivery",
+      seo: "SEO foundations",
+      structure: "structure and semantics",
+      accessibility: "accessibility support",
+      mobile: "mobile experience",
+    }[k] || k);
 
+  const impactArea = (k) =>
+    ({
+      performance: "reliable user experience",
+      security: "user trust and safe browsing",
+      seo: "search discovery",
+      accessibility: "broader user support",
+      structure: "consistency and maintainability",
+      mobile: "mobile usability",
+    }[k] || "reliable operation");
+
+  // Pick a truthful baseline strength based on what is clearly present
+  function baselineStrengthAndCapability(f) {
+    const bands = safeObj(f?.bands);
+    const findings = safeObj(f?.findings);
+
+    // Prefer clear positives (strong mobile/structure) before generic “ok”
+    if (bands.mobile === "strong" && bands.structure === "strong") {
+      return {
+        strength: "strong mobile and structural foundations",
+        capability: "support a stable experience across common devices and layouts today",
+      };
+    }
+    if (bands.structure === "strong") {
+      return {
+        strength: "sound structural foundations",
+        capability: "present content reliably with fewer layout and hierarchy surprises",
+      };
+    }
+    if (bands.mobile === "strong") {
+      return {
+        strength: "strong mobile support",
+        capability: "serve mobile users without major compatibility friction",
+      };
+    }
+
+    // Fallback: use basic “present/working” signals (no speculation)
+    if (findings.https === true && findings.title_present !== false) {
+      return {
+        strength: "a usable baseline",
+        capability: "operate as a functional public-facing site today",
+      };
+    }
+
+    return {
+      strength: "a mixed baseline",
+      capability: "operate, but with uneven foundations across core signals",
+    };
+  }
+
+  // Join evidence into a clean, non-bulleted phrase list (no numbers, no hype)
+  function compactEvidence(evidenceList, maxItems) {
+    const list = asArray(evidenceList).filter(Boolean).slice(0, maxItems || 3);
+    // Keep the exact phrasing from facts pack (truth-source)
+    // Join with commas + “and” at end
+    if (!list.length) return "";
+    if (list.length === 1) return list[0];
+    if (list.length === 2) return list[0] + " and " + list[1];
+    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
+  }
+
+  const base = baselineStrengthAndCapability(facts);
+
+  const primaryLabel = label(primarySignal);
+  const primaryEvidence = asArray(constraints?.primary_evidence).filter(Boolean);
+
+  // Primary risk category wording must be one of your allowed categories, but we keep it human
+  const primaryRiskCategory =
+    primarySignal === "security"
+      ? "security and trust"
+      : primarySignal === "performance"
+      ? "performance"
+      : primarySignal === "seo"
+      ? "SEO"
+      : primarySignal === "accessibility"
+      ? "accessibility"
+      : primarySignal === "structure"
+      ? "structure and semantics"
+      : primarySignal === "mobile"
+      ? "mobile experience"
+      : "foundation";
+
+  // Specific missing signals must be explicit from evidence (no invention)
+  const missingSignalsText = compactEvidence(primaryEvidence, 3) || "several key foundation signals";
+
+  // Sentence 1 — BASELINE
+  const s1 =
+    "This site demonstrates " +
+    base.strength +
+    ", indicating it is capable of " +
+    base.capability +
+    ".";
+
+  // Sentence 2 — PRIMARY RISK (more narrative, but still factual)
+  const s2 =
+    "However, several " +
+    primaryRiskCategory +
+    " signals are missing, which reduces confidence in the site’s readiness for " +
+    impactArea(primarySignal) +
+    ".";
+
+  // Sentence 3 — SPECIFIC EXAMPLES (evidence-driven)
+  const s3 =
+    "In particular, the absence of " +
+    missingSignalsText +
+    " introduces unnecessary exposure and weakens trust as usage increases.";
+
+  // Sentence 4 — SECONDARY GAPS (fixed per your rule; no extra categories)
+  const s4 =
+    "SEO and accessibility foundations also show gaps that do not prevent operation today, but reduce consistency and resilience over time.";
+
+  // Sentence 5 — PRIORITY ORDER (fixed per your rule)
+  const s5 =
+    "These baseline issues should be addressed before investing further in marketing, conversion optimisation, or traffic growth.";
+
+  out.overall.lines = [s1, s2, s3, s4, s5];
+
+  // -----------------------------
+  // Signal narratives (model output, constrained)
+  // -----------------------------
   const sig = safeObj(n?.signals);
 
   const setSig = (k) => {
@@ -644,36 +775,9 @@ function enforceConstraints(n, primarySignal) {
   setSig("structure");
   setSig("accessibility");
 
-  // Hard guard: ensure overall contains a sequencing boundary.
-  const joined = out.overall.lines.join(" ").toLowerCase();
-  const hasBoundary =
-    joined.includes("until") ||
-    joined.includes("before") ||
-    joined.includes("won’t show") ||
-    joined.includes("won't show") ||
-    joined.includes("does not offset") ||
-    joined.includes("doesn’t offset") ||
-    joined.includes("doesn't offset") ||
-    joined.includes("won’t land") ||
-    joined.includes("won't land");
-
-  if (!hasBoundary && out.overall.lines.length > 0) {
-    const k = String(primarySignal || "").toLowerCase();
-
-    const boundary =
-      k === "performance"
-        ? "Many improvements elsewhere will not land cleanly if delivery remains slow or inconsistent."
-        : k === "seo"
-        ? "Many gains elsewhere will not show cleanly if search discovery signals stay unclear."
-        : k === "security"
-        ? "Many improvements elsewhere will not feel fully credible if basic trust policies are missing."
-        : "Many gains elsewhere are unlikely to show cleanly until the main constraint is steadier.";
-
-    out.overall.lines = normalizeLines(out.overall.lines.join("\n") + "\n" + boundary, 5);
-  }
-
   return out;
 }
+
 
 /* ============================================================
    NARRATIVE VALIDITY CHECK
@@ -773,14 +877,17 @@ export async function handler(event) {
     const facts = buildFactsPack(scan);
     const constraints = analyzeConstraints(facts);
 
-    let rawNarrative = await callOpenAI({ facts, constraints });
-    let narrative = enforceConstraints(rawNarrative, constraints.primary);
+  let rawNarrative = await callOpenAI({ facts, constraints });
+let narrative = enforceConstraints(rawNarrative, facts, constraints);
+
+
 
     // Anti-AI cadence validation + single retry
     if (failsNarrativeValidation(narrative.overall?.lines?.join("\n") || "")) {
       console.log("Narrative failed validation, retrying once...");
       const retryRaw = await callOpenAI({ facts, constraints });
-      const retryNarrative = enforceConstraints(retryRaw, constraints.primary);
+   const retryNarrative = enforceConstraints(retryRaw, facts, constraints);
+
 
       if (!failsNarrativeValidation(retryNarrative.overall?.lines?.join("\n") || "")) {
         narrative = retryNarrative;
