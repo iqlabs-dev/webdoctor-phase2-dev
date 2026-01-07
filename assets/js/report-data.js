@@ -527,11 +527,40 @@
         raw = asArray(narrSignals[key].lines);
       }
 
+            // --- build observations + issues counts for guardrail ---
+      var obs = asArray(sig && sig.observations);
+      if (!obs.length) obs = evidenceToObs(sig && sig.evidence);
+      var obsCount = obs.length;
+
+      var issues = asArray(sig && sig.issues);
+
+      // --- AI lines (if present) ---
       var rawJoined = raw.join("\n");
       var cardLines = normalizeLines(rawJoined, 3);
       var safeLines = stripAuthorityLineIfPresent(cardLines);
 
       var bodyText = safeLines.length ? safeLines.join("\n") : summaryFallback(sig);
+
+      // --- GUARDRAIL: if there are no issues listed but score is low, force a deterministic explanation ---
+      // This keeps the top card consistent with the Evidence section.
+      if ((!issues || !issues.length) && score > 0 && score < 85 && obsCount > 0) {
+        if (key === "structure") {
+          bodyText = "No blocking structural issues were identified. The score reflects minor best practice and hierarchy deductions rather than required fixes.";
+        } else if (key === "performance") {
+          bodyText = "No blocking performance issues were identified in this scan. The score reflects minor delivery and best practice deductions rather than required fixes.";
+        } else if (key === "seo") {
+          bodyText = "No blocking SEO issues were listed. The score reflects missing or incomplete foundation signals captured in this scan rather than a single required fix.";
+        } else if (key === "mobile") {
+          bodyText = "No blocking mobile issues were listed. The score reflects missing required mobile signals captured in this scan rather than a single required fix.";
+        } else if (key === "security") {
+          bodyText = "No issue list was produced for this signal. The score reflects missing security policies or headers observed in this scan rather than a single required fix.";
+        } else if (key === "accessibility") {
+          bodyText = "No blocking accessibility issues were listed. The score reflects minor support deductions captured in this scan rather than required fixes.";
+        } else {
+          bodyText = "No blocking issues were identified. The score reflects minor deductions captured in this scan rather than required fixes.";
+        }
+      }
+
 
       var card = document.createElement("div");
       card.className = "card";
@@ -703,14 +732,22 @@ function renderEmptyIssuesCard(msg) {
         var kv = document.createElement("div");
         kv.className = "kv";
 
-        var value =
-          (o.value === null) ? "null" :
-          (typeof o.value === "undefined") ? "—" :
-          String(o.value);
+var raw =
+  (o.value === null) ? "null" :
+  (typeof o.value === "undefined") ? "—" :
+  String(o.value);
 
-        kv.innerHTML =
-          '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
-          '<div class="v">' + escapeHtml(value) + "</div>";
+// prevent layout blowouts from long strings
+var value = raw;
+value = value.replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+var maxLen = 72;
+var display = value;
+if (value.length > maxLen) display = value.slice(0, maxLen) + "…";
+
+kv.innerHTML =
+  '<div class="k">' + escapeHtml(o.label || "Observation") + "</div>" +
+  '<div class="v" title="' + escapeHtml(value) + '">' + escapeHtml(display) + "</div>";
+
 
         listEl.appendChild(kv);
       }
