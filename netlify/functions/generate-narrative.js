@@ -254,8 +254,13 @@ function buildFactsPack(scan) {
   const ensureBandEvidence = (key, label) => {
     const band = bands[key];
     if (!band) return;
-    const hasReasons = evidence[key] && evidence[key].length > 0;
-    if (hasReasons) return;
+const hasReasons = evidence[key] && evidence[key].length > 0;
+
+// NEW: if issues explicitly say "no blocking", do not inject negative fallback
+const issuesText = (metrics?.issues?.[key] || "").toLowerCase();
+if (issuesText.includes("no blocking")) return;
+
+if (hasReasons) return;
 
 if (band === "poor") evidence[key] = [`${label} shows weak delivery signals`];
 else if (band === "needs_work") evidence[key] = [`${label} shows room for improvement`];

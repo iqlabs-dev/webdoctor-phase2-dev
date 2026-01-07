@@ -399,7 +399,8 @@
 
       // Render as a single paragraph (no headings, no bullets)
       // Keep line breaks out to avoid "tool output" vibe
-      textEl.textContent = clamped;
+     textEl.innerHTML = escapeHtml(clamped).replace(/\n\n+/g, "<br><br>");
+
       return true;
     }
 
