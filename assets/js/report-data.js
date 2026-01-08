@@ -4,8 +4,10 @@
 // IMPORTANT: This file matches IDs in your report.html:
 // loaderSection, reportRoot, siteUrl, reportId, reportDate,
 // overallPill, overallBar, overallNote, signalsGrid,
-// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText.
+// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+// PLUS: fixFirstBlock (new)
 
+/* eslint-disable */
 (function () {
   // -----------------------------
   // Helpers
@@ -58,22 +60,6 @@
     if (n >= 75) return "Good";
     if (n >= 55) return "Needs work";
     return "Needs attention";
-  }
-
-  function cleanText(s) {
-    s = String(s == null ? "" : s);
-    s = s.replace(/\r\n/g, "\n");
-    s = s.replace(/[ \t]+/g, " ");
-    s = s.replace(/^\s+|\s+$/g, "");
-    return s;
-  }
-
-  function clipText(s, maxChars) {
-    s = cleanText(s);
-    if (!s) return "";
-    if (!maxChars) maxChars = 220;
-    if (s.length <= maxChars) return s;
-    return s.slice(0, maxChars - 1).replace(/\s+\S*$/, "") + "…";
   }
 
   // Query param (ES5)
@@ -210,76 +196,25 @@
     data = safeObj(data);
     if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
     var m = safeObj(data.metrics);
-    // legacy had various blocks; wrap them
     return safeObj(m);
+  }
+
+  function pickOverallSummary(data, overallScore) {
+    data = safeObj(data);
+    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
+    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
+      return data.narrative.overall_summary;
+    }
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
+    );
   }
 
   function pickNarrative(data) {
     data = safeObj(data);
     return data.narrative || "";
-  }
-
-  // Build the “Overall Delivery” note from narrative (not placeholder text)
-  function buildOverallSummaryFromNarrative(narrative, overallScore) {
-    // narrative may be "", string, or object
-    if (narrative && typeof narrative === "object") {
-      // Prefer fix_first if available (best “value”)
-      var ff = safeObj(narrative.fix_first);
-      var ffTitle = cleanText(ff.fix_first || "");
-      var why = asArray(ff.why);
-
-      if (ffTitle) {
-        var line = "Focus first: " + ffTitle + ".";
-        if (why.length) {
-          // strip boilerplate prefix if present
-          var w = cleanText(why[0] || "");
-          w = w.replace(/^This scan flags:\s*/i, "");
-          w = w.replace(/^The scan flags:\s*/i, "");
-          if (w) line += " " + w;
-        }
-        return clipText(line, 240);
-      }
-
-      // Otherwise use first 1–2 executive lines if present
-      var overallLines = asArray(narrative.overall && narrative.overall.lines);
-      if (overallLines.length) {
-        var joined = "";
-        for (var i = 0; i < overallLines.length; i++) {
-          var s = cleanText(overallLines[i]);
-          if (!s) continue;
-          joined += (joined ? " " : "") + s;
-          if (joined.length > 260) break;
-          if (i >= 1) break; // 1–2 lines only
-        }
-        if (joined) return clipText(joined, 240);
-      }
-    }
-
-    // If narrative is a string, use a short first-line excerpt
-    if (typeof narrative === "string" && cleanText(narrative)) {
-      var first = cleanText(narrative).split("\n")[0];
-      if (first) return clipText(first, 240);
-    }
-
-    // Fallback (still useful, but not “deterministic score” sounding)
-    return (
-      "Overall delivery is " +
-      verdict(asInt(overallScore, 0)).toLowerCase() +
-      ". This reflects automated checks and does not assess brand or content effectiveness."
-    );
-  }
-
-  function pickOverallSummary(data, overallScore, narrative) {
-    data = safeObj(data);
-
-    // If backend provided an explicit summary, use it (rare)
-    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
-    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
-      return data.narrative.overall_summary;
-    }
-
-    // Prefer narrative-derived note (human, scan-specific)
-    return buildOverallSummaryFromNarrative(narrative, overallScore);
   }
 
   // -----------------------------
@@ -328,16 +263,8 @@
     if (note) note.textContent = overallSummary || "";
   }
 
-  function refreshOverallNote(scores, narrative) {
-    var note = $("overallNote");
-    if (!note) return;
-    scores = safeObj(scores);
-    var text = buildOverallSummaryFromNarrative(narrative, scores.overall);
-    if (text) note.textContent = text;
-  }
-
   // -----------------------------
-  // Narrative rendering (respects your “line max” rules by taking provided lines)
+  // Executive Narrative rendering
   // -----------------------------
   function renderNarrative(narrative) {
     var el = $("narrativeText");
@@ -396,6 +323,75 @@
   }
 
   // -----------------------------
+  // NEW: What to Fix First (and Why) block
+  // Renders under Executive Narrative in #fixFirstBlock
+  // -----------------------------
+  function renderFixFirstBlock(narrative) {
+    var root = $("fixFirstBlock");
+    if (!root) return false;
+
+    // Clear if no narrative yet
+    if (!narrative || typeof narrative !== "object") {
+      root.innerHTML = "";
+      return false;
+    }
+
+    var ff = safeObj(narrative.fix_first);
+    var fixFirst = String(ff.fix_first || "").trim();
+    var why = asArray(ff.why).filter(Boolean);
+    var waitOn = asArray(ff.deprioritise).filter(Boolean);
+    var outcome = asArray(ff.expected_outcome).filter(Boolean);
+
+    // If empty, hide silently
+    if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
+      root.innerHTML = "";
+      return false;
+    }
+
+    function list(items) {
+      if (!items || !items.length) return "<div class='muted' style='font-size:12px;'>—</div>";
+      var html = "<ul style='margin:8px 0 0 18px; padding:0;'>";
+      for (var i = 0; i < items.length; i++) {
+        var s = String(items[i] || "").trim();
+        if (!s) continue;
+        html += "<li style='margin:0 0 6px 0; line-height:1.5;'>" + escapeHtml(s) + "</li>";
+      }
+      html += "</ul>";
+      return html;
+    }
+
+    // Use same “card” styling as the rest of the report
+    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
+    var htmlOut = "";
+    htmlOut += "<div class='card' style='margin-top:14px;'>";
+    htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
+    htmlOut += "<h3 style='margin:0;'>What to Fix First (and Why)</h3>";
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
+
+    htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
+    htmlOut += list(why);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>";
+    htmlOut += list(waitOn);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>";
+    htmlOut += list(outcome);
+    htmlOut += "</div>";
+
+    htmlOut += "</div>";
+    htmlOut += "</div>";
+
+    root.innerHTML = htmlOut;
+    return true;
+  }
+
+  // -----------------------------
   // Delivery signal cards
   // -----------------------------
   function renderSignalsGrid(signals, narrative) {
@@ -423,13 +419,18 @@
     }
 
     function fallbackSummary(sig) {
+      var score = asInt(sig.score, 0);
+      var label = String(sig.label || sig.id || "This signal");
+      var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
+
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      // Safer, less “template-y” fallback (no “deterministic”, no “measured at”)
-      if (issues.length) return "Issues were flagged in this area that are worth prioritising.";
-      if (!issues.length && deds.length) return "Deductions were applied based on observed evidence.";
-      return "No clear issues were flagged for this signal in the current scan.";
+      if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
+      if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
+      if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
+
+      return s;
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -443,7 +444,6 @@
 
       var summary = "";
       if (lines.length) {
-        // join as short narrative
         summary = String(lines.join("\n"));
       } else {
         summary = fallbackSummary(sig);
@@ -573,7 +573,6 @@
 
   // -----------------------------
   // Key Insight Metrics (Strength / Risk / Focus / Next)
-  // Deterministic, derived from scores + top issues.
   // -----------------------------
   function renderKeyInsights(scores, signals) {
     var root = $("keyMetricsRoot");
@@ -589,7 +588,6 @@
       { key: "Next",     text: "Not available from this scan output yet." }
     ];
 
-    // Strength: highest score domain
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var best = { k: "", v: -1 };
     var worst = { k: "", v: 999 };
@@ -605,7 +603,6 @@
     if (best.k) items[0].text = best.k.toUpperCase() + " is strongest (" + best.v + "/100).";
     if (worst.k) items[1].text = worst.k.toUpperCase() + " is the main risk (" + worst.v + "/100).";
 
-    // Focus / Next from first meaningful issue/deduction
     var focus = "";
     var next = "";
 
@@ -621,7 +618,6 @@
     }
 
     if (!focus) {
-      // Try deductions
       for (var d = 0; d < signals.length; d++) {
         var sd = safeObj(signals[d]);
         var deds = asArray(sd.deductions);
@@ -636,7 +632,6 @@
     if (focus) items[2].text = focus;
     if (next) items[3].text = next;
 
-    // Render into your exact markup style
     var html = '<div class="insight-list">';
     for (var j = 0; j < items.length; j++) {
       html +=
@@ -651,7 +646,7 @@
   }
 
   // -----------------------------
-  // Top Issues (pull from signal issues + deductions)
+  // Top Issues
   // -----------------------------
   function renderTopIssues(signals) {
     var root = $("topIssuesRoot");
@@ -676,7 +671,6 @@
       }
     }
 
-    // If no explicit issues, use deductions as “issues”
     if (!issuesOut.length) {
       for (var k = 0; k < signals.length; k++) {
         var sd = safeObj(signals[k]);
@@ -687,13 +681,12 @@
           issuesOut.push({
             title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
             sev: "MONITOR",
-            why: "Penalty applied from scan evidence."
+            why: "Penalty applied from deterministic evidence."
           });
         }
       }
     }
 
-    // Render (cap to 6 to keep tight)
     var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
 
     var html = "";
@@ -726,7 +719,7 @@
   }
 
   // -----------------------------
-  // Fix Sequence (deterministic and simple)
+  // Fix Sequence
   // -----------------------------
   function renderFixSequence(scores, signals) {
     var root = $("fixSequenceRoot");
@@ -735,7 +728,6 @@
     scores = safeObj(scores);
     signals = asArray(signals);
 
-    // Choose “Phase 1 focus” = first issue title OR lowest score domain
     var focus = "";
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
@@ -746,7 +738,6 @@
       }
     }
     if (!focus) {
-      // lowest score
       var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
       var worst = { k: "", v: 999 };
       for (var j = 0; j < domains.length; j++) {
@@ -758,11 +749,9 @@
       if (worst.k) focus = "Stabilise " + worst.k.toUpperCase() + " baseline first.";
     }
 
-    // Replace only the bullet text inside your existing phase blocks
     try {
       var phases = root.querySelectorAll(".phase");
       if (phases && phases.length >= 3) {
-        // Phase 1
         var ul1 = phases[0].querySelector("ul");
         if (ul1) {
           ul1.innerHTML =
@@ -771,7 +760,6 @@
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
 
-        // Phase 2
         var ul2 = phases[1].querySelector("ul");
         if (ul2) {
           ul2.innerHTML =
@@ -780,7 +768,6 @@
             "<li>Validate with a second re-scan and keep a before/after record.</li>";
         }
 
-        // Phase 3
         var ul3 = phases[2].querySelector("ul");
         if (ul3) {
           ul3.innerHTML =
@@ -789,22 +776,19 @@
             "<li>Build a lightweight change log tied to scan IDs for auditability.</li>";
         }
       }
-    } catch (e) {
-      // do nothing safely
-    }
+    } catch (e) {}
   }
 
   // -----------------------------
   // Narrative generation: non-blocking
   // -----------------------------
-  function ensureNarrative(reportId, narrative, scores) {
-    // If we already have narrative, render it and refresh overall note
-    if (renderNarrative(narrative)) {
-      refreshOverallNote(scores, narrative);
-      return;
-    }
+  function ensureNarrative(reportId, narrative) {
+    // Render whatever we already have
+    var hasExecutive = renderNarrative(narrative);
+    renderFixFirstBlock(narrative);
 
-    // Otherwise try to generate once per session
+    if (hasExecutive) return;
+
     var key = "iqweb_narrative_requested_" + reportId;
     try {
       if (typeof sessionStorage !== "undefined") {
@@ -814,14 +798,11 @@
     } catch (e) {}
 
     generateNarrative(reportId)
-      .then(function () {
-        // re-fetch report data to get narrative
-        return fetchReportData(reportId);
-      })
+      .then(function () { return fetchReportData(reportId); })
       .then(function (data2) {
         var n = pickNarrative(data2);
         renderNarrative(n);
-        refreshOverallNote(scores, n);
+        renderFixFirstBlock(n);
       })
       .catch(function () {
         // ignore narrative errors
@@ -837,57 +818,39 @@
     var header = pickHeader(data);
     var scores = pickScores(data);
     var signals = pickSignals(data);
-    var keyMetrics = pickKeyMetrics(data);
     var narrative = pickNarrative(data);
 
-    // Header
     setHeaderUI(header);
 
-    // Overall (now uses narrative if available)
-    var overallSummary = pickOverallSummary(data, scores.overall, narrative);
+    var overallSummary = pickOverallSummary(data, scores.overall);
     setOverallUI(scores, overallSummary);
 
-    // Show report (critical)
     showReport();
 
-    // Narrative (non-blocking) + refresh overall note when generated
-    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative, scores);
+    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
 
-    // Delivery signal cards
     renderSignalsGrid(signals, narrative);
-
-    // Evidence section
     renderSignalEvidence(signals);
-
-    // Key Insight Metrics (deterministic)
     renderKeyInsights(scores, signals);
-
-    // Top issues
     renderTopIssues(signals);
-
-    // Fix sequence
     renderFixSequence(scores, signals);
 
-    // Set global flag used by your DocRaptor gate
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
 
   function boot() {
     var reportId = getReportIdFromUrl();
-    if (!reportId) {
-      return;
-    }
+    if (!reportId) return;
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
       .catch(function () {
-        // Fallback: at least stop infinite loading so you can see something
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
         var n = $("narrativeText");
-        if (n) {
-          n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
-        }
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        var ff = $("fixFirstBlock");
+        if (ff) ff.innerHTML = "";
       });
   }
 
@@ -897,7 +860,5 @@
     } else {
       boot();
     }
-  } catch (e) {
-    // no-op
-  }
+  } catch (e) {}
 })();
