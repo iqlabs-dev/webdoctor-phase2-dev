@@ -474,8 +474,17 @@ async function callOpenAI({ facts, constraints }) {
   // -----------------------------
   // Executive Narrative — evidence-first, non-repetitive (4 lines max)
   // -----------------------------
-  const primaryLabel = label(primarySignal);
-  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
+const primaryLabel =
+  typeof label === "function"
+    ? label(primarySignal)
+    : (primarySignal === "seo" ? "search visibility"
+      : primarySignal === "security" ? "security and trust"
+      : primarySignal === "structure" ? "structure and semantics"
+      : primarySignal === "accessibility" ? "accessibility"
+      : primarySignal === "mobile" ? "mobile experience"
+      : primarySignal === "performance" ? "performance"
+      : String(primarySignal || "delivery"));
+
 
   const ev = primaryEvidence.length
     ? compactEvidence(primaryEvidence, 2)
