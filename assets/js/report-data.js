@@ -60,6 +60,22 @@
     return "Needs attention";
   }
 
+  function cleanText(s) {
+    s = String(s == null ? "" : s);
+    s = s.replace(/\r\n/g, "\n");
+    s = s.replace(/[ \t]+/g, " ");
+    s = s.replace(/^\s+|\s+$/g, "");
+    return s;
+  }
+
+  function clipText(s, maxChars) {
+    s = cleanText(s);
+    if (!s) return "";
+    if (!maxChars) maxChars = 220;
+    if (s.length <= maxChars) return s;
+    return s.slice(0, maxChars - 1).replace(/\s+\S*$/, "") + "…";
+  }
+
   // Query param (ES5)
   function getQueryParam(name) {
     try {
@@ -198,22 +214,72 @@
     return safeObj(m);
   }
 
-  function pickOverallSummary(data, overallScore) {
+  function pickNarrative(data) {
     data = safeObj(data);
+    return data.narrative || "";
+  }
+
+  // Build the “Overall Delivery” note from narrative (not placeholder text)
+  function buildOverallSummaryFromNarrative(narrative, overallScore) {
+    // narrative may be "", string, or object
+    if (narrative && typeof narrative === "object") {
+      // Prefer fix_first if available (best “value”)
+      var ff = safeObj(narrative.fix_first);
+      var ffTitle = cleanText(ff.fix_first || "");
+      var why = asArray(ff.why);
+
+      if (ffTitle) {
+        var line = "Focus first: " + ffTitle + ".";
+        if (why.length) {
+          // strip boilerplate prefix if present
+          var w = cleanText(why[0] || "");
+          w = w.replace(/^This scan flags:\s*/i, "");
+          w = w.replace(/^The scan flags:\s*/i, "");
+          if (w) line += " " + w;
+        }
+        return clipText(line, 240);
+      }
+
+      // Otherwise use first 1–2 executive lines if present
+      var overallLines = asArray(narrative.overall && narrative.overall.lines);
+      if (overallLines.length) {
+        var joined = "";
+        for (var i = 0; i < overallLines.length; i++) {
+          var s = cleanText(overallLines[i]);
+          if (!s) continue;
+          joined += (joined ? " " : "") + s;
+          if (joined.length > 260) break;
+          if (i >= 1) break; // 1–2 lines only
+        }
+        if (joined) return clipText(joined, 240);
+      }
+    }
+
+    // If narrative is a string, use a short first-line excerpt
+    if (typeof narrative === "string" && cleanText(narrative)) {
+      var first = cleanText(narrative).split("\n")[0];
+      if (first) return clipText(first, 240);
+    }
+
+    // Fallback (still useful, but not “deterministic score” sounding)
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". This reflects automated checks and does not assess brand or content effectiveness."
+    );
+  }
+
+  function pickOverallSummary(data, overallScore, narrative) {
+    data = safeObj(data);
+
+    // If backend provided an explicit summary, use it (rare)
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
     if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
       return data.narrative.overall_summary;
     }
-    return (
-      "Overall delivery is " +
-      verdict(asInt(overallScore, 0)).toLowerCase() +
-      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
-    );
-  }
 
-  function pickNarrative(data) {
-    data = safeObj(data);
-    return data.narrative || "";
+    // Prefer narrative-derived note (human, scan-specific)
+    return buildOverallSummaryFromNarrative(narrative, overallScore);
   }
 
   // -----------------------------
@@ -260,6 +326,14 @@
     if (pill) pill.textContent = String(overall);
     if (bar) bar.style.width = overall + "%";
     if (note) note.textContent = overallSummary || "";
+  }
+
+  function refreshOverallNote(scores, narrative) {
+    var note = $("overallNote");
+    if (!note) return;
+    scores = safeObj(scores);
+    var text = buildOverallSummaryFromNarrative(narrative, scores.overall);
+    if (text) note.textContent = text;
   }
 
   // -----------------------------
@@ -349,18 +423,13 @@
     }
 
     function fallbackSummary(sig) {
-      var score = asInt(sig.score, 0);
-      var label = String(sig.label || sig.id || "This signal");
-      var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
-
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
-      if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
-      if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
-
-      return s;
+      // Safer, less “template-y” fallback (no “deterministic”, no “measured at”)
+      if (issues.length) return "Issues were flagged in this area that are worth prioritising.";
+      if (!issues.length && deds.length) return "Deductions were applied based on observed evidence.";
+      return "No clear issues were flagged for this signal in the current scan.";
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -546,11 +615,7 @@
       if (issues.length) {
         var it = safeObj(issues[0]);
         focus = String(it.title || it.id || "").trim();
-        if (it.evidence && typeof it.evidence === "object") {
-          next = "Address: " + focus + " (then re-scan to confirm).";
-        } else {
-          next = "Address: " + focus + " (then re-scan to confirm).";
-        }
+        next = "Address: " + focus + " (then re-scan to confirm).";
         break;
       }
     }
@@ -622,7 +687,7 @@
           issuesOut.push({
             title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
             sev: "MONITOR",
-            why: "Penalty applied from deterministic evidence."
+            why: "Penalty applied from scan evidence."
           });
         }
       }
@@ -694,7 +759,6 @@
     }
 
     // Replace only the bullet text inside your existing phase blocks
-    // (we’ll keep your structure and inject 1-2 more specific bullets)
     try {
       var phases = root.querySelectorAll(".phase");
       if (phases && phases.length >= 3) {
@@ -726,16 +790,19 @@
         }
       }
     } catch (e) {
-      // If DOM structure changes, do nothing safely
+      // do nothing safely
     }
   }
 
   // -----------------------------
   // Narrative generation: non-blocking
   // -----------------------------
-  function ensureNarrative(reportId, narrative) {
-    // If we already have narrative, render it
-    if (renderNarrative(narrative)) return;
+  function ensureNarrative(reportId, narrative, scores) {
+    // If we already have narrative, render it and refresh overall note
+    if (renderNarrative(narrative)) {
+      refreshOverallNote(scores, narrative);
+      return;
+    }
 
     // Otherwise try to generate once per session
     var key = "iqweb_narrative_requested_" + reportId;
@@ -754,6 +821,7 @@
       .then(function (data2) {
         var n = pickNarrative(data2);
         renderNarrative(n);
+        refreshOverallNote(scores, n);
       })
       .catch(function () {
         // ignore narrative errors
@@ -775,15 +843,15 @@
     // Header
     setHeaderUI(header);
 
-    // Overall
-    var overallSummary = pickOverallSummary(data, scores.overall);
+    // Overall (now uses narrative if available)
+    var overallSummary = pickOverallSummary(data, scores.overall, narrative);
     setOverallUI(scores, overallSummary);
 
     // Show report (critical)
     showReport();
 
-    // Narrative (non-blocking)
-    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
+    // Narrative (non-blocking) + refresh overall note when generated
+    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative, scores);
 
     // Delivery signal cards
     renderSignalsGrid(signals, narrative);
@@ -807,7 +875,6 @@
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) {
-      // If you ever add an error element, you can show it here
       return;
     }
 
