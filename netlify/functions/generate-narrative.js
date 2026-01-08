@@ -534,6 +534,86 @@ function enforceConstraints(n, facts, constraints) {
     return "Other areas may improve later, but they are not the primary constraint in this scan.";
   }
 
+/* ============================================================
+   SEVERITY RESOLUTION (FIX-FIRST ENGINE)
+   ============================================================ */
+
+// 10–15 lines, deterministic, no fancy JS
+function severityFromScore(score) {
+  var n = Number(score);
+  if (!isFinite(n)) return "monitor";
+  if (n <= 35) return "critical";
+  if (n <= 55) return "high";
+  if (n <= 75) return "medium";
+  return "low";
+}
+
+function chooseFixFirst(signals, scores) {
+  signals = Array.isArray(signals) ? signals : [];
+  scores = scores && typeof scores === "object" ? scores : {};
+
+  // words that suggest "this blocks all downstream improvements"
+  var BLOCKERS = ["render", "hydration", "load", "lcp", "cls", "interaction", "input", "tap", "keyboard", "index", "crawl", "canonical", "robots"];
+
+  var best = null;
+
+  // helper: map signal.id to score key safely
+  function scoreForSignalId(id) {
+    id = String(id || "").toLowerCase();
+    var key =
+      id.indexOf("perf") !== -1 ? "performance" :
+      id.indexOf("mobile") !== -1 ? "mobile" :
+      id.indexOf("seo") !== -1 ? "seo" :
+      (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) ? "security" :
+      (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) ? "structure" :
+      id.indexOf("access") !== -1 ? "accessibility" :
+      id;
+
+    var v = scores[key];
+    v = Number(v);
+    return isFinite(v) ? v : 100;
+  }
+
+  for (var i = 0; i < signals.length; i++) {
+    var sig = signals[i] || {};
+    var issues = Array.isArray(sig.issues) ? sig.issues : [];
+    var sid = sig.id || sig.label || "";
+
+    // If there are no issues, skip (we only choose from real issues)
+    if (!issues.length) continue;
+
+    var sigScore = scoreForSignalId(sid);
+
+    for (var j = 0; j < issues.length; j++) {
+      var issue = issues[j] || {};
+      var title = String(issue.title || issue.id || "").toLowerCase();
+
+      var isBlocker = false;
+      for (var b = 0; b < BLOCKERS.length; b++) {
+        if (title.indexOf(BLOCKERS[b]) !== -1) { isBlocker = true; break; }
+      }
+
+      // rank: lower is better
+      // - blocker issues get priority
+      // - lower signal score gets priority
+      // - earlier issues win ties (stable ordering)
+      var rank = (isBlocker ? 0 : 1000) + (sigScore * 10) + j;
+
+      if (!best || rank < best.rank) {
+        best = {
+          signal: sid,
+          issue: issue,
+          rank: rank,
+          severity: severityFromScore(sigScore)
+        };
+      }
+    }
+  }
+
+  return best; // {signal, issue, rank, severity} or null
+}
+
+
   // -----------------------------
   // Executive Narrative (Value Mode) — 4 lines max, human cadence
   // -----------------------------
