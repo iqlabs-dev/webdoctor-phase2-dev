@@ -471,151 +471,8 @@ async function callOpenAI({ facts, constraints }) {
   }
 }
 
-/* ============================================================
-   ENFORCE CONSTRAINTS + GUARDED MINIMUM QUALITY
-   ============================================================ */
-function enforceConstraints(n, facts, constraints) {
-  const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
-
-  const out = {
-    _status: "ok",
-    _generated_at: nowIso(),
-
-    overall: { lines: [] },
-    fix_first: { fix_first: "", why: [], deprioritise: [], expected_outcome: [] },
-    signals: {
-      performance: { lines: [] },
-      mobile: { lines: [] },
-      seo: { lines: [] },
-      security: { lines: [] },
-      structure: { lines: [] },
-      accessibility: { lines: [] },
-    },
-  };
-
-  const label = (k) =>
-    ({
-      security: "security and trust",
-      performance: "performance and delivery",
-      seo: "search visibility",
-      structure: "structure and indexing",
-      accessibility: "accessibility and usability",
-      mobile: "mobile experience",
-    }[k] || "delivery");
-
-  function compactEvidence(evidenceList, maxItems) {
-    const list = asArray(evidenceList).filter(Boolean).slice(0, maxItems || 2);
-    if (!list.length) return "";
-    if (list.length === 1) return list[0];
-    if (list.length === 2) return list[0] + " and " + list[1];
-    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
-  }
-
-  function chooseNotThis(primary) {
-    if (primary === "performance" || primary === "mobile") return "design or content";
-    if (primary === "seo") return "brand, visuals, or ad spend";
-    if (primary === "security") return "copy, content, or layout polish";
-    if (primary === "structure") return "design tweaks or new pages";
-    if (primary === "accessibility") return "marketing or cosmetic redesign";
-    return "low-impact polish";
-  }
-
-  function calmNonPrimary(primary) {
-    // Keep this safe: do NOT claim “all good”, only “not the limiting factor in this scan”
-    if (primary === "performance" || primary === "mobile") {
-      return "Security configuration does not appear to be the limiting factor in this scan.";
-    }
-    if (primary === "security") {
-      return "Performance and delivery are not the primary constraint in this scan.";
-    }
-    if (primary === "seo" || primary === "structure" || primary === "accessibility") {
-      return "Security and performance are not the primary constraint in this scan.";
-    }
-    return "Other areas may improve later, but they are not the primary constraint in this scan.";
-  }
-
-/* ============================================================
-   SEVERITY RESOLUTION (FIX-FIRST ENGINE)
-   ============================================================ */
-
-// 10–15 lines, deterministic, no fancy JS
-function severityFromScore(score) {
-  var n = Number(score);
-  if (!isFinite(n)) return "monitor";
-  if (n <= 35) return "critical";
-  if (n <= 55) return "high";
-  if (n <= 75) return "medium";
-  return "low";
-}
-
-function chooseFixFirst(signals, scores) {
-  signals = Array.isArray(signals) ? signals : [];
-  scores = scores && typeof scores === "object" ? scores : {};
-
-  // words that suggest "this blocks all downstream improvements"
-  var BLOCKERS = ["render", "hydration", "load", "lcp", "cls", "interaction", "input", "tap", "keyboard", "index", "crawl", "canonical", "robots"];
-
-  var best = null;
-
-  // helper: map signal.id to score key safely
-  function scoreForSignalId(id) {
-    id = String(id || "").toLowerCase();
-    var key =
-      id.indexOf("perf") !== -1 ? "performance" :
-      id.indexOf("mobile") !== -1 ? "mobile" :
-      id.indexOf("seo") !== -1 ? "seo" :
-      (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) ? "security" :
-      (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) ? "structure" :
-      id.indexOf("access") !== -1 ? "accessibility" :
-      id;
-
-    var v = scores[key];
-    v = Number(v);
-    return isFinite(v) ? v : 100;
-  }
-
-  for (var i = 0; i < signals.length; i++) {
-    var sig = signals[i] || {};
-    var issues = Array.isArray(sig.issues) ? sig.issues : [];
-    var sid = sig.id || sig.label || "";
-
-    // If there are no issues, skip (we only choose from real issues)
-    if (!issues.length) continue;
-
-    var sigScore = scoreForSignalId(sid);
-
-    for (var j = 0; j < issues.length; j++) {
-      var issue = issues[j] || {};
-      var title = String(issue.title || issue.id || "").toLowerCase();
-
-      var isBlocker = false;
-      for (var b = 0; b < BLOCKERS.length; b++) {
-        if (title.indexOf(BLOCKERS[b]) !== -1) { isBlocker = true; break; }
-      }
-
-      // rank: lower is better
-      // - blocker issues get priority
-      // - lower signal score gets priority
-      // - earlier issues win ties (stable ordering)
-      var rank = (isBlocker ? 0 : 1000) + (sigScore * 10) + j;
-
-      if (!best || rank < best.rank) {
-        best = {
-          signal: sid,
-          issue: issue,
-          rank: rank,
-          severity: severityFromScore(sigScore)
-        };
-      }
-    }
-  }
-
-  return best; // {signal, issue, rank, severity} or null
-}
-
-
   // -----------------------------
-  // Executive Narrative (Value Mode) — 4 lines max, human cadence
+  // Executive Narrative — evidence-first, non-repetitive (4 lines max)
   // -----------------------------
   const primaryLabel = label(primarySignal);
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
@@ -624,25 +481,62 @@ function chooseFixFirst(signals, scores) {
     ? compactEvidence(primaryEvidence, 2)
     : "";
 
-  // Line 1: What’s wrong (single primary constraint)
-  const L1 =
-    "This website is underperforming for one primary reason: " +
-    primaryLabel +
-    " is creating avoidable friction for users and search engines.";
+  function baselineLine() {
+    if (primarySignal === "performance" || primarySignal === "mobile") {
+      return "This site delivers reliably across devices, with no major rendering failures detected.";
+    }
+    if (primarySignal === "seo") {
+      return "This site is technically solid, but discovery signals are inconsistent.";
+    }
+    if (primarySignal === "structure") {
+      return "The structure is generally stable, but crawler interpretation is uneven.";
+    }
+    if (primarySignal === "security") {
+      return "The site functions as expected, but trust protections are unevenly applied.";
+    }
+    if (primarySignal === "accessibility") {
+      return "The site is usable for most users, but interaction clarity varies.";
+    }
+    return "The site operates as expected, with some baseline inconsistencies.";
+  }
 
-  // Line 2: What matters (evidence-led, no fluff)
+  function consequenceLine() {
+    if (primarySignal === "seo") {
+      return "When discovery signals conflict, search engines may index unintended URLs or split ranking authority.";
+    }
+    if (primarySignal === "structure") {
+      return "This can reduce crawl clarity and make indexing less predictable across key pages.";
+    }
+    if (primarySignal === "performance" || primarySignal === "mobile") {
+      return "This increases time-to-interaction and raises the risk of early user drop-offs.";
+    }
+    if (primarySignal === "accessibility") {
+      return "These gaps increase friction for keyboard users and assistive technologies.";
+    }
+    if (primarySignal === "security") {
+      return "Missing protections weaken trust signals without necessarily breaking functionality.";
+    }
+    return "These inconsistencies limit downstream improvements.";
+  }
+
+  function priorityLine() {
+    const notThis = chooseNotThis(primarySignal);
+    return "Address this constraint before investing further in " + notThis + ".";
+  }
+
+  // Line 1: Baseline context (no verdict language)
+  const L1 = baselineLine();
+
+  // Line 2: Concrete evidence (avoid category repetition)
   const L2 = ev
-    ? "The clearest evidence in this scan is " + ev + "."
-    : "The evidence points to baseline gaps that reduce consistency and trust in delivery.";
+    ? "The scan detected " + ev + "."
+    : "The scan highlights baseline gaps that reduce consistency and reliability.";
 
-  // Line 3: What it’s NOT (contrast without claiming perfection)
-  const notThis = chooseNotThis(primarySignal);
-  const L3 =
-    "The bottleneck is " + primaryLabel + ", not " + notThis + " — fix the constraint before investing in polish or campaigns.";
+  // Line 3: Consequence (real-world effect)
+  const L3 = consequenceLine();
 
-  // Line 4: What to fix first (payoff + outcomes)
-  const L4 =
-    "Fix the top two issues first to lift time-to-interaction, search visibility, and early user retention.";
+  // Line 4: Priority (what waits)
+  const L4 = priorityLine();
 
   out.overall.lines = [L1, L2, L3, L4];
 
@@ -734,7 +628,7 @@ function chooseFixFirst(signals, scores) {
   setSig("accessibility");
 
   return out;
-}
+
 
 
 /* ============================================================
