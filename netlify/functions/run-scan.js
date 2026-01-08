@@ -1,4 +1,317 @@
-// /.netlify/functions/run-scan.js
+// 
+// ---------------------------------------------
+// PageSpeed Insights (Lighthouse) helpers
+// ---------------------------------------------
+async function fetchPSI(url, strategy = "desktop") {
+  if (!PSI_API_KEY) return { ok: false, error: "PSI_API_KEY_missing" };
+
+  const qs = new URLSearchParams({
+    url,
+    strategy,
+    key: PSI_API_KEY,
+  });
+
+  // Ask for the categories we map into iQWEB signals.
+  // Note: PSI supports multiple category params.
+  ["performance", "accessibility", "seo", "best-practices"].forEach((c) =>
+    qs.append("category", c)
+  );
+
+  const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${qs.toString()}`;
+
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), PSI_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(endpoint, { method: "GET", signal: controller.signal });
+    const json = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: "psi_http_error",
+        status: res.status,
+        details: json?.error?.message || null,
+      };
+    }
+
+    return { ok: true, data: json };
+  } catch (e) {
+    return { ok: false, error: "psi_fetch_failed", details: String(e?.message || e) };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function lhAudit(lh, id) {
+  const a = lh?.audits?.[id];
+  if (!a) return null;
+  return {
+    id,
+    score: typeof a.score === "number" ? a.score : null,
+    numericValue: typeof a.numericValue === "number" ? a.numericValue : null,
+    displayValue: a.displayValue || null,
+    // Savings (for opportunities)
+    overallSavingsMs:
+      typeof a?.details?.overallSavingsMs === "number" ? a.details.overallSavingsMs : null,
+    overallSavingsBytes:
+      typeof a?.details?.overallSavingsBytes === "number"
+        ? a.details.overallSavingsBytes
+        : null,
+  };
+}
+
+function lhFactsFromPSI(psiJson) {
+  const lh = psiJson?.lighthouseResult || null;
+  if (!lh) return { lh: null, facts: null, audits: null };
+
+  // Core metrics: prefer audit numericValue fields (ms), CLS is unit.
+  const LCP = lhAudit(lh, "largest-contentful-paint")?.numericValue ?? null; // ms
+  const CLS = lhAudit(lh, "cumulative-layout-shift")?.numericValue ?? null;
+  const INP = lhAudit(lh, "interaction-to-next-paint")?.numericValue ?? null; // ms (may be missing)
+  const TBT = lhAudit(lh, "total-blocking-time")?.numericValue ?? null; // ms fallback
+  const FCP = lhAudit(lh, "first-contentful-paint")?.numericValue ?? null; // ms
+  const SI = lhAudit(lh, "speed-index")?.numericValue ?? null; // ms
+  const TTFB =
+    lhAudit(lh, "server-response-time")?.numericValue ??
+    lhAudit(lh, "time-to-first-byte")?.numericValue ??
+    null;
+
+  const facts = {
+    LCP_ms: LCP,
+    CLS,
+    INP_ms: INP,
+    TBT_ms: TBT,
+    FCP_ms: FCP,
+    speedIndex_ms: SI,
+    TTFB_ms: TTFB,
+  };
+
+  // Selected audits we map into flags (trimmed).
+  const audits = {
+    "render-blocking-resources": lhAudit(lh, "render-blocking-resources"),
+    "unused-javascript": lhAudit(lh, "unused-javascript"),
+    "unused-css-rules": lhAudit(lh, "unused-css-rules"),
+    "offscreen-images": lhAudit(lh, "offscreen-images"),
+    "modern-image-formats": lhAudit(lh, "modern-image-formats"),
+    "uses-responsive-images": lhAudit(lh, "uses-responsive-images"),
+    "uses-text-compression": lhAudit(lh, "uses-text-compression"),
+    "third-party-summary": lhAudit(lh, "third-party-summary"),
+    "bootup-time": lhAudit(lh, "bootup-time"),
+    "long-tasks": lhAudit(lh, "long-tasks"),
+
+    // Mobile UX audits (also exist in desktop but primarily relevant to mobile)
+    "tap-targets": lhAudit(lh, "tap-targets"),
+    "font-size": lhAudit(lh, "font-size"),
+    "content-width": lhAudit(lh, "content-width"),
+
+    // Accessibility/semantics
+    "image-alt": lhAudit(lh, "image-alt"),
+    "label": lhAudit(lh, "label"),
+    "link-name": lhAudit(lh, "link-name"),
+    "button-name": lhAudit(lh, "button-name"),
+    "color-contrast": lhAudit(lh, "color-contrast"),
+    "heading-order": lhAudit(lh, "heading-order"),
+    "landmark-one-main": lhAudit(lh, "landmark-one-main"),
+    "html-has-lang": lhAudit(lh, "html-has-lang"),
+  };
+
+  return { lh, facts, audits };
+}
+
+function addFlag(flags, code, severity, evidence = {}) {
+  adminFlags.push({ code, severity, evidence });
+}
+
+function severityForThree(value, med, high, critical) {
+  if (typeof value !== "number") return null;
+  if (value > critical) return "critical";
+  if (value > high) return "high";
+  if (value > med) return "med";
+  return null;
+}
+
+function evaluateFlags({ lhMobile, lhDesktop, basic, securityHeaders }) {
+  const flags = [];
+
+  // Thresholds (locked v1)
+  const T = {
+    CLS: { med: 0.1, high: 0.25, critical: 0.35 },
+    INP: { med: 200, high: 500, critical: 800 },
+    TBT: { med: 200, high: 600, critical: 1000 },
+    LCP: { med: 2500, high: 4000, critical: 6000 },
+    TTFB: { med: 800, high: 1800, critical: 3000 },
+    mobileVsDesktopRatio: 2.0,
+  };
+
+  // Helper to apply metric rules for a given device
+  function applyCoreMetrics(device, facts) {
+    if (!facts) return;
+
+    // CLS
+    const clsSev = severityForThree(facts.CLS, T.CLS.med, T.CLS.high, T.CLS.critical);
+    if (clsSev) {
+      addFlag(
+        flags,
+        clsSev === "critical" ? "LAYOUT_VOLATILE_CRITICAL" : "LAYOUT_VOLATILE",
+        clsSev,
+        { device, CLS: facts.CLS }
+      );
+    }
+
+    // INP preferred; fallback to TBT
+    if (typeof facts.INP_ms === "number") {
+      const inpSev = severityForThree(facts.INP_ms, T.INP.med, T.INP.high, T.INP.critical);
+      if (inpSev) {
+        addFlag(
+          flags,
+          inpSev === "critical" ? "INTERACTION_DELAY_CRITICAL" : "INTERACTION_DELAY",
+          inpSev,
+          { device, INP_ms: facts.INP_ms }
+        );
+      }
+    } else if (typeof facts.TBT_ms === "number") {
+      const tbtSev = severityForThree(facts.TBT_ms, T.TBT.med, T.TBT.high, T.TBT.critical);
+      if (tbtSev) {
+        addFlag(
+          flags,
+          tbtSev === "critical" ? "MAIN_THREAD_BLOCKED_CRITICAL" : "MAIN_THREAD_BLOCKED",
+          tbtSev,
+          { device, TBT_ms: facts.TBT_ms }
+        );
+      }
+    }
+
+    // LCP
+    const lcpSev = severityForThree(facts.LCP_ms, T.LCP.med, T.LCP.high, T.LCP.critical);
+    if (lcpSev) {
+      addFlag(
+        flags,
+        lcpSev === "critical" ? "SLOW_LCP_CRITICAL" : "SLOW_LCP",
+        lcpSev,
+        { device, LCP_ms: facts.LCP_ms }
+      );
+    }
+
+    // TTFB
+    const ttfbSev = severityForThree(facts.TTFB_ms, T.TTFB.med, T.TTFB.high, T.TTFB.critical);
+    if (ttfbSev) {
+      addFlag(
+        flags,
+        ttfbSev === "critical" ? "SLOW_SERVER_RESPONSE_CRITICAL" : "SLOW_SERVER_RESPONSE",
+        ttfbSev,
+        { device, TTFB_ms: facts.TTFB_ms }
+      );
+    }
+  }
+
+  applyCoreMetrics("mobile", lhMobile?.facts);
+  applyCoreMetrics("desktop", lhDesktop?.facts);
+
+  // Root-cause audits (use whichever device is present; mobile preferred)
+  function auditFail(device, audits, id) {
+    const a = audits?.[id];
+    if (!a) return false;
+    // Many audits treat score 1 as pass; 0 as fail. Sometimes null means N/A.
+    return typeof a.score === "number" ? a.score < 0.9 : false;
+  }
+  const primaryAudits = lhMobile?.audits || lhDesktop?.audits;
+
+  if (primaryAudits) {
+    if (auditFail("any", primaryAudits, "render-blocking-resources")) {
+      addFlag(flags, "RENDER_BLOCKING_PRESENT", "med", {
+        savings_ms: primaryAudits["render-blocking-resources"]?.overallSavingsMs ?? null,
+      });
+    }
+    if (auditFail("any", primaryAudits, "unused-javascript")) {
+      addFlag(flags, "UNUSED_JS_BLOAT", "med", {
+        wasted_bytes: primaryAudits["unused-javascript"]?.overallSavingsBytes ?? null,
+      });
+    }
+    if (auditFail("any", primaryAudits, "unused-css-rules")) {
+      addFlag(flags, "UNUSED_CSS_BLOAT", "med", {
+        wasted_bytes: primaryAudits["unused-css-rules"]?.overallSavingsBytes ?? null,
+      });
+    }
+    if (auditFail("any", primaryAudits, "offscreen-images")) {
+      addFlag(flags, "LAZY_LOADING_MISSING", "med", {
+        wasted_bytes: primaryAudits["offscreen-images"]?.overallSavingsBytes ?? null,
+      });
+    }
+    if (auditFail("any", primaryAudits, "modern-image-formats")) {
+      addFlag(flags, "LEGACY_IMAGE_FORMATS", "med", {});
+    }
+    if (auditFail("any", primaryAudits, "uses-responsive-images")) {
+      addFlag(flags, "RESPONSIVE_IMAGES_MISSING", "med", {});
+    }
+    if (auditFail("any", primaryAudits, "uses-text-compression")) {
+      addFlag(flags, "TEXT_COMPRESSION_MISSING", "med", {});
+    }
+    if (auditFail("any", primaryAudits, "bootup-time")) {
+      addFlag(flags, "HEAVY_JS_EXECUTION", "med", {});
+    }
+    if (auditFail("any", primaryAudits, "long-tasks")) {
+      addFlag(flags, "LONG_TASKS_PRESENT", "med", {});
+    }
+
+    // Mobile UX specific (use mobile audits if present)
+    const mobAud = lhMobile?.audits;
+    if (mobAud) {
+      if (auditFail("mobile", mobAud, "tap-targets")) addFlag(flags, "TAP_TARGETS_TOO_SMALL", "med", {});
+      if (auditFail("mobile", mobAud, "font-size")) addFlag(flags, "TEXT_TOO_SMALL", "med", {});
+      if (auditFail("mobile", mobAud, "content-width")) addFlag(flags, "HORIZONTAL_OVERFLOW", "high", {});
+    }
+
+    // Accessibility blockers (prefer iQWEB deterministic when available)
+    const a11yAud = primaryAudits;
+    if (auditFail("any", a11yAud, "image-alt") || (typeof basic?.img_alt_ratio === "number" && basic.img_alt_ratio < 0.9)) {
+      addFlag(flags, "ALT_TEXT_GAPS", "med", { img_alt_ratio: basic?.img_alt_ratio ?? null });
+    }
+    const hasForms = (basic?.form_controls_count || 0) > 0;
+    if (auditFail("any", a11yAud, "label") || (hasForms && (basic?.labels_with_for_count || 0) === 0)) {
+      addFlag(flags, "FORM_LABEL_GAPS", "high", { form_controls_count: basic?.form_controls_count ?? 0 });
+    }
+    if (auditFail("any", a11yAud, "link-name") || (basic?.empty_links_detected || 0) > 0) {
+      addFlag(flags, "LINKS_WITHOUT_NAMES", "high", { empty_links_detected: basic?.empty_links_detected ?? 0 });
+    }
+    if (auditFail("any", a11yAud, "button-name") || (basic?.empty_buttons_detected || 0) > 0) {
+      addFlag(flags, "BUTTONS_WITHOUT_NAMES", "high", { empty_buttons_detected: basic?.empty_buttons_detected ?? 0 });
+    }
+    if (auditFail("any", a11yAud, "color-contrast")) {
+      addFlag(flags, "LOW_CONTRAST_TEXT", "med", {});
+    }
+  }
+
+  // SEO foundations from deterministic scan
+  if (basic) {
+    if (!basic.title_present) addFlag(flags, "TITLE_MISSING", "high", {});
+    if (!basic.meta_description_present) addFlag(flags, "META_DESCRIPTION_MISSING", "med", {});
+    if (!basic.h1_present) addFlag(flags, "H1_MISSING", "med", {});
+    if (!basic.canonical_present) addFlag(flags, "CANONICAL_MISSING", "med", {});
+    if (basic.robots_blocks_index) addFlag(flags, "INDEXING_BLOCKED", "critical", {});
+  }
+
+  // Trust hardening gaps from security headers
+  const sh = securityHeaders || {};
+  if (sh.https === false) addFlag(flags, "HTTPS_NOT_ENFORCED", "critical", {});
+  const misses = [
+    sh.hsts === false,
+    sh.x_content_type_options === false,
+    sh.referrer_policy === false,
+    sh.permissions_policy === false,
+  ].filter(Boolean).length;
+
+  if (misses >= 3) addFlag(flags, "TRUST_HARDENING_GAPS", "high", { missing_count: misses });
+
+  // Cross-device mismatch
+  const mLCP = lhMobile?.facts?.LCP_ms;
+  const dLCP = lhDesktop?.facts?.LCP_ms;
+  if (typeof mLCP === "number" && typeof dLCP === "number" && dLCP > 0 && mLCP / dLCP >= T.mobileVsDesktopRatio) {
+    addFlag(flags, "MOBILE_DELIVERY_DEGRADES", "high", { mobile_LCP_ms: mLCP, desktop_LCP_ms: dLCP });
+  }
+
+  return flags;
+}
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -1081,6 +1394,24 @@ export async function handler(event) {
     const body = JSON.parse(event.body || "{}");
 
     const url = normaliseUrl(body.url || "");
+    const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
+    const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
+
+    // Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
+    const psi = { enabled: psiEnabled, desktop: null, mobile: null, errors: [] };
+
+    const psiPromises = psiStrategies.map(async (strategy) => {
+      const r = await fetchPSI(url, strategy);
+      if (!r.ok) {
+        psi.errors.push({ strategy, error: r.error, status: r.status || null, details: r.details || null });
+        return;
+      }
+      const { facts, audits } = lhFactsFromPSI(r.data);
+      psi[strategy] = { facts, audits };
+    });
+
+    await Promise.allSettled(psiPromises);
+
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
     const generate_narrative = body.generate_narrative !== false;
 
@@ -1101,14 +1432,14 @@ export async function handler(event) {
     const email = (auth.user?.email || "").toLowerCase();
     const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
 
-    const flags = await getAdminFlags();
+    const adminFlags = await getAdminFlags();
 
     // Global freezes
-    if (flags.freeze_all || flags.freeze_scans) {
+    if (adminFlags.freeze_all || adminFlags.freeze_scans) {
       return json(503, {
         success: false,
         code: "scans_frozen",
-        error: flags.maintenance_message || "Scanning is temporarily disabled.",
+        error: adminFlags.maintenance_message || "Scanning is temporarily disabled.",
       });
     }
 
@@ -1333,8 +1664,20 @@ if (!profile) {
       isHtml
     );
 
-    const metrics = {
+    // ---------------------------------------------
+// Lighthouse + flag engine (Stage 1–2)
+// ---------------------------------------------
+    const derivedFlags = evaluateFlags({
+      lhMobile: psi.mobile,
+      lhDesktop: psi.desktop,
+      basic,
+      securityHeaders: headers,
+    });
+
+const metrics = {
       scores,
+      psi,
+      flags: derivedFlags,
       delivery_signals,
       basic_checks: {
         ...basic,
