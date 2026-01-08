@@ -1686,26 +1686,26 @@ if (!profile) {
     });
 
 const metrics = {
-      scores,
-      psi,
-      flags: derivedFlags,
-      delivery_signals,
-      basic_checks: {
-        ...basic,
-        http_status: res.status,
-        content_type: contentType || null,
-      },
-      security_headers: headers,
-      human_signals: {
-        clarity_cognitive_load: human.clarity,
-        trust_credibility: human.trust,
-        intent_conversion_readiness: human.intent,
-        maintenance_hygiene: human.maintenance,
-        freshness_signals: human.freshness,
-      },
-      explanations: notes,
-      psi: { disabled: true },
-    };
+  scores,
+  psi,                 // ✅ keep the real PSI results
+  flags: derivedFlags,
+  delivery_signals,
+  basic_checks: {
+    ...basic,
+    http_status: res.status,
+    content_type: contentType || null,
+  },
+  security_headers: headers,
+  human_signals: {
+    clarity_cognitive_load: human.clarity,
+    trust_credibility: human.trust,
+    intent_conversion_readiness: human.intent,
+    maintenance_hygiene: human.maintenance,
+    freshness_signals: human.freshness,
+  },
+  explanations: notes,
+};
+
 
     // IMPORTANT: no narrative written here.
     const insertRow = {
