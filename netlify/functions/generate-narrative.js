@@ -530,55 +530,105 @@ function enforceConstraints(n, facts, constraints) {
   // -----------------------------
   // Executive Narrative — signal-led, stronger language (4 lines max)
   // -----------------------------
-  function baselineLine() {
-    if (primarySignal === "performance" || primarySignal === "mobile") {
-      return "This website is underperforming for one primary reason: it delivers content slower and less reliably than users and search engines expect.";
-    }
-    if (primarySignal === "seo") {
-      return "This site is technically solid, but discovery signals are inconsistent.";
-    }
-    if (primarySignal === "structure") {
-      return "This site is usable, but page structure signals are inconsistent, which makes interpretation and indexing less predictable.";
-    }
-    if (primarySignal === "security") {
-      return "This site functions, but trust protections are incomplete, weakening confidence signals for users and modern browsers.";
-    }
-    if (primarySignal === "accessibility") {
-      return "The site works for most users, but key interactions aren’t consistently accessible, creating friction for keyboard and assistive technology users.";
-    }
-    return "This site is operating, but a baseline delivery constraint is limiting results.";
+  // -----------------------------
+  // Executive Narrative — evidence-led (4 lines, NOT generic)
+  // -----------------------------
+  const topEv = (primaryEvidence && primaryEvidence[0]) ? String(primaryEvidence[0]) : "";
+  const evLow = topEv.toLowerCase();
+
+  function pick(arr, seed) {
+    if (!arr || !arr.length) return "";
+    let h = 0;
+    const s = String(seed || "");
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return arr[h % arr.length];
   }
 
-  function evidenceLine() {
-    if (ev) return "The clearest evidence in this scan is " + ev + ".";
-    return "The scan flags baseline issues that are worth prioritising.";
+  function execLinesFromEvidence(primarySig, evidenceText) {
+    const e = String(evidenceText || "").trim();
+    const el = e.toLowerCase();
+
+    // --- SEO: Canonical mismatch ---
+    if (el.includes("canonical") && el.includes("mismatch")) {
+      const L1 = pick([
+        "Search engines are being given conflicting signals about the preferred URL for this site.",
+        "This site’s discovery signals are unstable because the canonical setup conflicts across URLs.",
+        "Indexing consistency is being weakened by an inconsistent canonical configuration."
+      ], e);
+
+      const L2 = "The scan flagged: " + e + ".";
+
+      const L3 = pick([
+        "When canonical signals disagree, Google can index the “wrong” version, split authority, or show inconsistent pages in results.",
+        "Conflicting canonicals can cause ranking signals to fragment and indexing to drift between URL variants.",
+        "This can lead to duplicated indexing and diluted search visibility even if the content itself is fine."
+      ], e);
+
+      const L4 = "Fix the canonical source-of-truth first, then re-scan before spending on SEO copy or campaigns.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- SEO: Missing canonical tag ---
+    if (el.includes("canonical") && (el.includes("missing") || el.includes("absent") || el.includes("no canonical"))) {
+      const L1 = pick([
+        "Search engines don’t have a clear ‘preferred URL’ signal for this site.",
+        "This site is missing a clean canonical signal, which weakens indexing consistency.",
+        "Discovery signals are incomplete because the canonical preference isn’t declared."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without a canonical, crawlers may treat URL variants as separate pages and split authority between them.",
+        "This increases the chance of duplicate indexing and unpredictable rankings across similar URLs.",
+        "Even small URL variations can create multiple indexed versions, which reduces clarity in search."
+      ], e);
+      const L4 = "Set a canonical standard for key pages first, then verify indexing behaviour on re-scan.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Accessibility: Empty links ---
+    if (el.includes("empty") && el.includes("<a")) {
+      const L1 = pick([
+        "User interaction clarity is being reduced by broken or empty link elements.",
+        "Some navigation elements are present but not meaningful to users or assistive tech.",
+        "Interaction reliability is being weakened by link elements that don’t resolve to usable targets."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Empty links create dead-ends for keyboard users and screen readers and can break expected navigation paths.",
+        "This increases friction in real user journeys and makes accessibility tooling flag the site repeatedly.",
+        "These gaps can block completion flows and reduce trust in the site’s basic usability."
+      ], e);
+      const L4 = "Fix broken/empty interactive elements first, then re-test navigation and forms.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Security: HSTS missing ---
+    if (el.includes("hsts") && (el.includes("missing") || el.includes("not enabled") || el.includes("absent"))) {
+      const L1 = pick([
+        "Browser-level trust protections are incomplete on this site.",
+        "Security hardening is partially missing, which weakens modern trust expectations.",
+        "Trust signals are being held back by missing baseline browser security headers."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without HSTS, users are more exposed to downgrade and interception risks on hostile networks.",
+        "This doesn’t usually break the site, but it reduces protection and can affect trust posture.",
+        "It’s an avoidable gap that keeps the security baseline below modern expectations."
+      ], e);
+      const L4 = "Enable HSTS safely (with correct preload strategy if needed) and re-scan to confirm the baseline.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Default (still not generic-generic) ---
+    const L1 = "The main constraint right now is " + primaryLabel + " consistency, not visual polish.";
+    const L2 = e ? ("The scan flagged: " + e + ".") : "The scan flagged baseline issues that reduce consistency.";
+    const L3 = "Stabilising the top issues first makes downstream work (SEO, UX, campaigns) actually pay off.";
+    const L4 = "Fix the top two flagged items in this area, then re-scan to confirm the constraint is removed.";
+    return [L1, L2, L3, L4];
   }
 
-  function consequenceLine() {
-    if (primarySignal === "performance" || primarySignal === "mobile") {
-      return "When pages take too long to become usable, visitors abandon before the site has a chance to persuade or convert.";
-    }
-    if (primarySignal === "seo") {
-      return "When discovery signals conflict, search engines may split ranking authority or index unintended URLs.";
-    }
-    if (primarySignal === "structure") {
-      return "This reduces crawl clarity and makes it harder for search engines to understand what matters most across key pages.";
-    }
-    if (primarySignal === "security") {
-      return "Missing protections can weaken trust signals without necessarily breaking functionality — but it still raises risk and doubt.";
-    }
-    if (primarySignal === "accessibility") {
-      return "These gaps increase friction, reduce completion rates on forms and navigation, and can block some users entirely.";
-    }
-    return "This constraint limits downstream improvements until it’s addressed.";
-  }
+  out.overall.lines = execLinesFromEvidence(primarySignal, topEv);
 
-  function priorityLine() {
-    const notThis = chooseNotThis(primarySignal);
-    return "The bottleneck is " + primaryLabel + ", not " + notThis + " — fix the constraint first.";
-  }
-
-  out.overall.lines = [baselineLine(), evidenceLine(), consequenceLine(), priorityLine()];
 
   // -----------------------------
   // Fix First block (deterministic)
