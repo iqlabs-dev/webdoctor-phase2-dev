@@ -534,9 +534,6 @@ function enforceConstraints(n, facts, constraints) {
     return "Other areas may improve later, but they are not the primary constraint in this scan.";
   }
 
-  const primaryLabel = label(primarySignal);
-  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
-
   // -----------------------------
   // Executive Narrative (Value Mode) — 4 lines max, human cadence
   // -----------------------------
