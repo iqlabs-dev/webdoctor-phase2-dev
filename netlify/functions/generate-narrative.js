@@ -43,7 +43,7 @@ function nowIso() {
 }
 
 function isNonEmptyString(v) {
-  return typeof v === "string" && v.replace(/^\s+|\s+$/g, "");
+  return typeof v === "string" && v.trim().length > 0;
 }
 
 function safeObj(v) {
@@ -58,7 +58,7 @@ function cleanLine(s) {
   s = String(s == null ? "" : s);
   s = s.replace(/\r\n/g, "\n");
   s = s.replace(/[ \t]+/g, " ");
-  s = s.replace(/^\s+|\s+$/g, "");
+  s = s.trim();
   return s;
 }
 
@@ -471,9 +471,12 @@ async function callOpenAI({ facts, constraints }) {
   }
 }
 
-  // -----------------------------
-  // Executive Narrative — evidence-first, non-repetitive (4 lines max)
-  // -----------------------------
+/* ============================================================
+   ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
+   - Builds deterministic executive narrative (4 lines)
+   - Builds deterministic fix_first block
+   - Clips / falls back for signal lines
+   ============================================================ */
 function enforceConstraints(n, facts, constraints) {
   const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
 
@@ -510,13 +513,13 @@ function enforceConstraints(n, facts, constraints) {
     const a = asArray(list).filter(Boolean).slice(0, max);
     if (!a.length) return "";
     if (a.length === 1) return a[0];
-    return a[0] + ", and " + a[1];
+    return a[0] + " and " + a[1];
   }
 
   function chooseNotThis(sig) {
-    if (sig === "performance" || sig === "mobile") return "design polish or campaigns";
+    if (sig === "performance" || sig === "mobile") return "design polish, SEO copy, or campaigns";
     if (sig === "seo") return "polish or paid traffic";
-    if (sig === "structure") return "cosmetic redesign";
+    if (sig === "structure") return "cosmetic redesign or new sections";
     if (sig === "security") return "visual changes alone";
     if (sig === "accessibility") return "marketing spend or cosmetic changes";
     return "polish or campaigns";
@@ -524,58 +527,62 @@ function enforceConstraints(n, facts, constraints) {
 
   const ev = primaryEvidence.length ? compactEvidence(primaryEvidence, 2) : "";
 
+  // -----------------------------
+  // Executive Narrative — signal-led, stronger language (4 lines max)
+  // -----------------------------
   function baselineLine() {
     if (primarySignal === "performance" || primarySignal === "mobile") {
-      return "This site delivers reliably across devices, with no major rendering failures detected.";
+      return "This website is underperforming for one primary reason: it delivers content slower and less reliably than users and search engines expect.";
     }
     if (primarySignal === "seo") {
       return "This site is technically solid, but discovery signals are inconsistent.";
     }
     if (primarySignal === "structure") {
-      return "The structure is generally stable, but crawler interpretation is uneven.";
+      return "This site is usable, but page structure signals are inconsistent, which makes interpretation and indexing less predictable.";
     }
     if (primarySignal === "security") {
-      return "The site functions as expected, but trust protections are unevenly applied.";
+      return "This site functions, but trust protections are incomplete, weakening confidence signals for users and modern browsers.";
     }
     if (primarySignal === "accessibility") {
-      return "The site is usable for most users, but interaction clarity varies.";
+      return "The site works for most users, but key interactions aren’t consistently accessible, creating friction for keyboard and assistive technology users.";
     }
-    return "The site operates as expected, with some baseline inconsistencies.";
+    return "This site is operating, but a baseline delivery constraint is limiting results.";
+  }
+
+  function evidenceLine() {
+    if (ev) return "The clearest evidence in this scan is " + ev + ".";
+    return "The scan flags baseline issues that are worth prioritising.";
   }
 
   function consequenceLine() {
+    if (primarySignal === "performance" || primarySignal === "mobile") {
+      return "When pages take too long to become usable, visitors abandon before the site has a chance to persuade or convert.";
+    }
     if (primarySignal === "seo") {
-      return "When discovery signals conflict, search engines may index unintended URLs or split ranking authority.";
+      return "When discovery signals conflict, search engines may split ranking authority or index unintended URLs.";
     }
     if (primarySignal === "structure") {
-      return "This can reduce crawl clarity and make indexing less predictable across key pages.";
-    }
-    if (primarySignal === "performance" || primarySignal === "mobile") {
-      return "This increases time-to-interaction and raises the risk of early user drop-offs.";
-    }
-    if (primarySignal === "accessibility") {
-      return "These gaps increase friction for keyboard users and assistive technologies.";
+      return "This reduces crawl clarity and makes it harder for search engines to understand what matters most across key pages.";
     }
     if (primarySignal === "security") {
-      return "Missing protections weaken trust signals without necessarily breaking functionality.";
+      return "Missing protections can weaken trust signals without necessarily breaking functionality — but it still raises risk and doubt.";
     }
-    return "These inconsistencies limit downstream improvements.";
+    if (primarySignal === "accessibility") {
+      return "These gaps increase friction, reduce completion rates on forms and navigation, and can block some users entirely.";
+    }
+    return "This constraint limits downstream improvements until it’s addressed.";
   }
 
   function priorityLine() {
     const notThis = chooseNotThis(primarySignal);
-    return "Address this constraint before investing further in " + notThis + ".";
+    return "The bottleneck is " + primaryLabel + ", not " + notThis + " — fix the constraint first.";
   }
 
-  const L1 = baselineLine();
-  const L2 = ev
-    ? "The scan detected " + ev + "."
-    : "The scan highlights baseline gaps that reduce consistency and reliability.";
-  const L3 = consequenceLine();
-  const L4 = priorityLine();
+  out.overall.lines = [baselineLine(), evidenceLine(), consequenceLine(), priorityLine()];
 
-  out.overall.lines = [L1, L2, L3, L4];
-
+  // -----------------------------
+  // Fix First block (deterministic)
+  // -----------------------------
   function buildFixFirst() {
     const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
     const topPrimary = primaryE.slice(0, 2);
@@ -606,23 +613,26 @@ function enforceConstraints(n, facts, constraints) {
 
     const deprioritise = [];
     if (primarySignal === "performance" || primarySignal === "mobile") {
-      deprioritise.push("Fine-tuning design polish or copy changes until pages become usable faster.");
-      deprioritise.push("Low-impact security tweaks unless a clear risk is explicitly flagged.");
+      deprioritise.push("Design polish, copy tweaks, or campaign spend until pages become usable faster.");
+      deprioritise.push("Low-impact security tweaks unless a specific risk is explicitly flagged.");
     } else {
       deprioritise.push("Cosmetic design changes that do not address the core constraint.");
       deprioritise.push("Marketing spend before the baseline issue is stabilised.");
     }
 
     const expected_outcome = [];
-    expected_outcome.push("Faster time to usable pages and fewer early drop-offs.");
-    expected_outcome.push("More consistent results from search crawlers and performance tooling.");
-    expected_outcome.push("Clearer before/after improvements on re-scan.");
+    expected_outcome.push("Cleaner before/after improvements on re-scan.");
+    expected_outcome.push("More predictable results from crawlers and tooling.");
+    expected_outcome.push("Reduced avoidable friction for real users.");
 
     return { fix_first: fixTitle, why, deprioritise, expected_outcome };
   }
 
   out.fix_first = buildFixFirst();
 
+  // -----------------------------
+  // Signals lines (AI output, clipped + fallback)
+  // -----------------------------
   const sig = safeObj(n && n.signals);
 
   const setSig = (k) => {
@@ -641,8 +651,8 @@ function enforceConstraints(n, facts, constraints) {
     if (evidence.length) {
       const a = evidence.slice(0, 2);
       out.signals[k].lines = [
-        "Evidence in this area includes " + (a.length === 2 ? a[0] + " and " + a[1] : a[0]) + ".",
-        "Addressing these items improves consistency and reduces avoidable friction.",
+        "Evidence here includes " + (a.length === 2 ? a[0] + " and " + a[1] : a[0]) + ".",
+        "Fixing these items reduces avoidable friction and improves consistency.",
       ];
       return;
     }
@@ -660,14 +670,13 @@ function enforceConstraints(n, facts, constraints) {
   return out;
 }
 
-
-
-
 /* ============================================================
    NARRATIVE VALIDITY CHECK
    ============================================================ */
 function isNarrativeComplete(n) {
-  const hasOverall = Array.isArray(n && n.overall && n.overall.lines) && n.overall.lines.filter(Boolean).length > 0;
+  const hasOverall =
+    Array.isArray(n && n.overall && n.overall.lines) &&
+    n.overall.lines.filter(Boolean).length > 0;
 
   const sig = safeObj(n && n.signals);
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -675,7 +684,8 @@ function isNarrativeComplete(n) {
   let ok = true;
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i];
-    const has = Array.isArray(sig && sig[k] && sig[k].lines) && sig[k].lines.filter(Boolean).length > 0;
+    const has =
+      Array.isArray(sig && sig[k] && sig[k].lines) && sig[k].lines.filter(Boolean).length > 0;
     if (!has) ok = false;
   }
 
@@ -686,10 +696,7 @@ function isNarrativeComplete(n) {
    STORE NARRATIVE
    ============================================================ */
 async function writeNarrative(report_id, narrative) {
-  const { error } = await supabase
-    .from("scan_results")
-    .update({ narrative })
-    .eq("report_id", report_id);
+  const { error } = await supabase.from("scan_results").update({ narrative }).eq("report_id", report_id);
 
   if (error) throw new Error("Failed to write narrative: " + (error.message || String(error)));
 }
