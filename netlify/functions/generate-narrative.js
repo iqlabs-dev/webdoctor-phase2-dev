@@ -474,21 +474,55 @@ async function callOpenAI({ facts, constraints }) {
   // -----------------------------
   // Executive Narrative — evidence-first, non-repetitive (4 lines max)
   // -----------------------------
-const primaryLabel =
-  typeof label === "function"
-    ? label(primarySignal)
-    : (primarySignal === "seo" ? "search visibility"
-      : primarySignal === "security" ? "security and trust"
-      : primarySignal === "structure" ? "structure and semantics"
-      : primarySignal === "accessibility" ? "accessibility"
-      : primarySignal === "mobile" ? "mobile experience"
-      : primarySignal === "performance" ? "performance"
-      : String(primarySignal || "delivery"));
+function enforceConstraints(n, facts, constraints) {
+  const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
 
+  const label = (k) =>
+    ({
+      security: "security and trust",
+      performance: "performance and delivery",
+      seo: "search visibility",
+      structure: "structure and semantics",
+      accessibility: "accessibility and usability",
+      mobile: "mobile experience",
+    }[k] || "delivery");
 
-  const ev = primaryEvidence.length
-    ? compactEvidence(primaryEvidence, 2)
-    : "";
+  const primaryLabel = label(primarySignal);
+
+  const out = {
+    _status: "ok",
+    _generated_at: nowIso(),
+    overall: { lines: [] },
+    fix_first: null,
+    signals: {
+      performance: { lines: [] },
+      mobile: { lines: [] },
+      seo: { lines: [] },
+      security: { lines: [] },
+      structure: { lines: [] },
+      accessibility: { lines: [] },
+    },
+  };
+
+  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
+
+  function compactEvidence(list, max) {
+    const a = asArray(list).filter(Boolean).slice(0, max);
+    if (!a.length) return "";
+    if (a.length === 1) return a[0];
+    return a[0] + ", and " + a[1];
+  }
+
+  function chooseNotThis(sig) {
+    if (sig === "performance" || sig === "mobile") return "design polish or campaigns";
+    if (sig === "seo") return "polish or paid traffic";
+    if (sig === "structure") return "cosmetic redesign";
+    if (sig === "security") return "visual changes alone";
+    if (sig === "accessibility") return "marketing spend or cosmetic changes";
+    return "polish or campaigns";
+  }
+
+  const ev = primaryEvidence.length ? compactEvidence(primaryEvidence, 2) : "";
 
   function baselineLine() {
     if (primarySignal === "performance" || primarySignal === "mobile") {
@@ -533,22 +567,14 @@ const primaryLabel =
     return "Address this constraint before investing further in " + notThis + ".";
   }
 
-  // Line 1: Baseline context (no verdict language)
   const L1 = baselineLine();
-
-  // Line 2: Concrete evidence (avoid category repetition)
   const L2 = ev
     ? "The scan detected " + ev + "."
     : "The scan highlights baseline gaps that reduce consistency and reliability.";
-
-  // Line 3: Consequence (real-world effect)
   const L3 = consequenceLine();
-
-  // Line 4: Priority (what waits)
   const L4 = priorityLine();
 
   out.overall.lines = [L1, L2, L3, L4];
-
 
   function buildFixFirst() {
     const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
@@ -592,12 +618,7 @@ const primaryLabel =
     expected_outcome.push("More consistent results from search crawlers and performance tooling.");
     expected_outcome.push("Clearer before/after improvements on re-scan.");
 
-    return {
-      fix_first: fixTitle,
-      why,
-      deprioritise,
-      expected_outcome,
-    };
+    return { fix_first: fixTitle, why, deprioritise, expected_outcome };
   }
 
   out.fix_first = buildFixFirst();
@@ -637,6 +658,8 @@ const primaryLabel =
   setSig("accessibility");
 
   return out;
+}
+
 
 
 
