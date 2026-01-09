@@ -1451,8 +1451,18 @@ const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: n
 });
 
 
-   Promise.allSettled(psiPromises).catch(() => {});
-    psi.pending = false;
+await Promise.allSettled(psiPromises);
+psi.pending = false;
+
+console.log("[run-scan] PSI result", {
+  enabled: psi.enabled,
+  strategies: psiStrategies,
+  has_mobile: !!psi.mobile,
+  has_desktop: !!psi.desktop,
+  errors: psi.errors,
+});
+
+
 
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
