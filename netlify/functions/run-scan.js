@@ -2,10 +2,13 @@
 // PSI (PageSpeed Insights) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
-const PSI_STRATEGIES = (process.env.PSI_STRATEGIES || "mobile,desktop")
+const PSI_STRATEGIES = String(process.env.PSI_STRATEGIES || "mobile,desktop")
   .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .map((s) => s.trim().toLowerCase())
+  .filter((s) => s === "mobile" || s === "desktop");
+
+  console.log("[run-scan] PSI strategies:", psiStrategies, "raw env:", process.env.PSI_STRATEGIES);
+
 
 // PSI fetch timeout (ms)
 const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || 120000);
