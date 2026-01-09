@@ -1421,7 +1421,14 @@ console.log("[run-scan] PSI state", {
 });
 
     // Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
-const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: null, errors: [] };
+const psi = {
+  enabled: psiEnabled,
+  pending: psiEnabled && psiStrategies.length > 0,
+  desktop: null,
+  mobile: null,
+  errors: [],
+};
+
 
 
  const psiPromises = psiStrategies.map(async (strategy) => {
@@ -1451,7 +1458,8 @@ const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: n
 });
 
 
-await Promise.allSettled(psiPromises);
+await Promise.allSettled(psiPromises).catch(() => {});
+
 psi.pending = false;
 
 console.log("[run-scan] PSI result", {
