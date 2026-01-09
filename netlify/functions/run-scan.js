@@ -2,16 +2,16 @@
 // PSI (PageSpeed Insights) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
+
+// Allowed: "mobile", "desktop" (env can be "mobile,desktop" etc)
 const PSI_STRATEGIES = String(process.env.PSI_STRATEGIES || "mobile,desktop")
   .split(",")
-  .map((s) => s.trim().toLowerCase())
+  .map((s) => String(s).trim().toLowerCase())
   .filter((s) => s === "mobile" || s === "desktop");
 
-  console.log("[run-scan] PSI strategies:", psiStrategies, "raw env:", process.env.PSI_STRATEGIES);
-
-
 // PSI fetch timeout (ms)
-const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || 120000);
+const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || "120000");
+
 
  
 // ---------------------------------------------
@@ -1411,6 +1411,14 @@ export async function handler(event) {
     const url = normaliseUrl(body.url || "");
     const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
+
+    // ✅ SAFE LOG — psiStrategies EXISTS HERE
+console.log("[run-scan] PSI state", {
+  enabled: psiEnabled,
+  strategies: psiStrategies,
+  include_lighthouse: body.include_lighthouse,
+  timeout_ms: PSI_TIMEOUT_MS,
+});
 
     // Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
 const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: null, errors: [] };
