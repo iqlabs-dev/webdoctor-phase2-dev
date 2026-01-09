@@ -2,8 +2,7 @@
 // PSI (PageSpeed Insights) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
-const PSI_STRATEGIES = (process.env.PSI_STRATEGIES || "desktop,mobile")
-
+const PSI_STRATEGIES = (process.env.PSI_STRATEGIES || "mobile,desktop")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -1409,43 +1408,40 @@ export async function handler(event) {
     const url = normaliseUrl(body.url || "");
     const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
-    console.log("[run-scan] PSI enabled:", psiEnabled, "| strategies:", psiStrategies, "| include_lighthouse:", body.include_lighthouse);
+
+    // Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
+const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: null, errors: [] };
 
 
-// Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
-// IMPORTANT: do NOT await PSI here (Netlify HTTP timeout risk).
-// We record PSI as "pending" and let the scan complete reliably.
-const psi = {
-  enabled: psiEnabled,
-  pending: psiEnabled && psiStrategies.length > 0,
-  desktop: null,
-  mobile: null,
-  errors: [],
-};
+ const psiPromises = psiStrategies.map(async (strategy) => {
+  try {
+    const r = await fetchPSI(url, strategy);
 
-const psiPromises = psiStrategies.map(async (strategy) => {
-  const r = await fetchPSI(url, strategy);
-  if (!r.ok) {
+    if (!r.ok) {
+      psi.errors.push({
+        strategy,
+        error: r.error,
+        status: r.status || null,
+        details: r.details || null,
+      });
+      return;
+    }
+
+    const { facts, audits } = lhFactsFromPSI(r.data);
+    psi[strategy] = { facts, audits };
+  } catch (e) {
     psi.errors.push({
       strategy,
-      error: r.error,
-      status: r.status || null,
-      details: r.details || null,
+      error: "psi_exception",
+      status: null,
+      details: String(e?.message || e),
     });
-    return;
   }
-  const { facts, audits } = lhFactsFromPSI(r.data);
-  psi[strategy] = { facts, audits };
 });
 
-// Fire-and-forget to avoid 504s
-Promise.allSettled(psiPromises)
-  .then(() => {
-    // PSI results are NOT persisted by this function unless you build a separate updater.
-    // This log is just for visibility while testing.
-    console.log("[run-scan] PSI finished (not awaited). errors:", psi.errors?.length || 0);
-  })
-  .catch((e) => console.warn("[run-scan] PSI Promise.allSettled failed:", e));
+
+    await Promise.allSettled(psiPromises);
+    psi.pending = false;
 
 
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
