@@ -1440,7 +1440,7 @@ const psi = { enabled: psiEnabled, pending: psiEnabled, desktop: null, mobile: n
 });
 
 
-    await Promise.allSettled(psiPromises);
+   Promise.allSettled(psiPromises).catch(() => {});
     psi.pending = false;
 
 
