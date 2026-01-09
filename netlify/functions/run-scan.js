@@ -2,13 +2,15 @@
 // PSI (PageSpeed Insights) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
-const PSI_STRATEGIES = (process.env.PSI_STRATEGIES || "mobile,desktop")
+const PSI_STRATEGIES = (process.env.PSI_STRATEGIES || "desktop,mobile")
+
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
 // PSI fetch timeout (ms)
-const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || "12000");
+const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || 120000);
+
  
 // ---------------------------------------------
 // PageSpeed Insights (Lighthouse) helpers
