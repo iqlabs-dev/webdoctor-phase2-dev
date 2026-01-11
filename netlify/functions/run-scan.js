@@ -1420,7 +1420,19 @@ console.log("[run-scan] PSI state", {
   timeout_ms: PSI_TIMEOUT_MS,
 });
 
-    // Fetch PSI/Lighthouse in parallel (non-fatal if it fails)
+// ---------------------------------------------
+// PSI: return pending immediately, run PSI in background to avoid Netlify 504 timeouts
+// (FULL REPLACEMENT BLOCK — paste exactly)
+// ---------------------------------------------
+
+const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
+const generate_narrative = body.generate_narrative !== false;
+
+if (!url || !report_id) {
+  return json(400, { success: false, error: "Missing url or report_id" });
+}
+
+// Create PSI container (results will be filled by background worker later)
 const psi = {
   enabled: psiEnabled,
   pending: psiEnabled && psiStrategies.length > 0,
@@ -1429,63 +1441,53 @@ const psi = {
   errors: [],
 };
 
+// Fire-and-forget background PSI (do NOT await)
+if (psi.pending) {
+  const baseUrl =
+    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
 
-
- const psiPromises = psiStrategies.map(async (strategy) => {
-  try {
-    const r = await fetchPSI(url, strategy);
-
-    if (!r.ok) {
-      psi.errors.push({
-        strategy,
-        error: r.error,
-        status: r.status || null,
-        details: r.details || null,
-      });
-      return;
-    }
-
-    const { facts, audits } = lhFactsFromPSI(r.data);
-    psi[strategy] = { facts, audits };
-  } catch (e) {
+  // If baseUrl is missing, we still proceed without PSI rather than failing the scan.
+  if (baseUrl) {
+    fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        report_id,
+        url,
+        strategies: psiStrategies,
+      }),
+    }).catch(() => {});
+  } else {
+    // Can't self-call worker (rare). Leave pending=false so scan doesn't look stuck.
+    psi.pending = false;
     psi.errors.push({
-      strategy,
-      error: "psi_exception",
+      strategy: "all",
+      error: "psi_worker_baseurl_missing",
       status: null,
-      details: String(e?.message || e),
+      details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
     });
   }
-});
+}
 
-
-await Promise.allSettled(psiPromises).catch(() => {});
-
-psi.pending = false;
-
-console.log("[run-scan] PSI result", {
+console.log("[run-scan] PSI (background) state", {
   enabled: psi.enabled,
+  pending: psi.pending,
   strategies: psiStrategies,
-  has_mobile: !!psi.mobile,
-  has_desktop: !!psi.desktop,
-  errors: psi.errors,
+  include_lighthouse: body.include_lighthouse,
+  timeout_ms: PSI_TIMEOUT_MS,
 });
 
+// ---------------------------------------------
+// Auth continues as normal
+// ---------------------------------------------
 
+const auth = await requireUser(event);
+if (!auth.ok) {
+  return json(auth.status, { success: false, error: auth.error });
+}
 
+const user_id = auth.user.id;
 
-    const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
-    const generate_narrative = body.generate_narrative !== false;
-
-    if (!url || !report_id) {
-      return json(400, { success: false, error: "Missing url or report_id" });
-    }
-
-    const auth = await requireUser(event);
-    if (!auth.ok) {
-      return json(auth.status, { success: false, error: auth.error });
-    }
-
-    const user_id = auth.user.id;
 
     // --------------------
     // Admin + Access Gate
