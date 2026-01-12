@@ -27,16 +27,26 @@ function sleep(ms) {
 async function fetchWithTimeout(url, ms) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), ms);
+
   try {
     const res = await fetch(url, { signal: controller.signal });
     const text = await res.text();
+
+    // ✅ If JSON parse fails, mark as not-ok so we don't silently write null metrics
     let data = null;
     try {
       data = JSON.parse(text);
-    } catch {
-      data = null;
+    } catch (e) {
+      return {
+        ok: false,
+        status: res.status,
+        data: null,
+        raw: text ? String(text).slice(0, 400) : null,
+        error: "psi_non_json_response",
+      };
     }
-    return { ok: res.ok, status: res.status, data, raw: text };
+
+    return { ok: res.ok, status: res.status, data, raw: null };
   } catch (e) {
     return { ok: false, status: null, data: null, raw: null, error: String(e?.message || e) };
   } finally {
@@ -101,22 +111,47 @@ async function fetchPSI(url, strategy) {
   const qs = new URLSearchParams();
   qs.set("url", url);
   qs.set("strategy", strategy);
-  qs.set("category", "performance");
-  qs.set("category", "accessibility");
-  qs.set("category", "seo");
-  qs.set("category", "best-practices");
+
+  // ✅ IMPORTANT: use append, NOT set, otherwise you overwrite categories
+  qs.append("category", "performance");
+  qs.append("category", "accessibility");
+  qs.append("category", "seo");
+  qs.append("category", "best-practices");
+
   qs.set("key", PSI_API_KEY);
 
   const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${qs.toString()}`;
 
   const r = await fetchWithTimeout(endpoint, PSI_TIMEOUT_MS);
+
   if (!r.ok) {
     const msg =
       r.error ||
       (r.data?.error?.message ? String(r.data.error.message) : null) ||
       (r.raw ? String(r.raw).slice(0, 200) : "PSI request failed");
+
     return { ok: false, status: r.status, error: "psi_fetch_failed", details: msg, data: null };
   }
+
+  // ✅ If JSON exists but lighthouseResult is missing, treat as failure (prevents null facts)
+  if (!r.data || !r.data.lighthouseResult) {
+    const snippet = (() => {
+      try {
+        return JSON.stringify(r.data).slice(0, 400);
+      } catch {
+        return null;
+      }
+    })();
+
+    return {
+      ok: false,
+      status: r.status,
+      error: "psi_missing_lighthouse",
+      details: snippet || "Response missing lighthouseResult",
+      data: null,
+    };
+  }
+
   return { ok: true, status: r.status, error: null, details: null, data: r.data };
 }
 
@@ -130,13 +165,42 @@ async function fetchPSIWithRetry(url, strategy, maxTries = 3) {
   return last;
 }
 
-// Final state correction: ensure metrics.psi.pending=false in DB even if merges/races leave it behind
-async function forcePendingFalse(report_id) {
+async function readScanRow(report_id, user_id) {
+  let q = supabase
+    .from("scan_results")
+    .select("id, metrics")
+    .eq("report_id", report_id)
+    .limit(1);
+
+  if (user_id) q = q.eq("user_id", user_id);
+
+  const { data: rows, error } = await q;
+  if (error) return { row: null, error };
+  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+  return { row, error: null };
+}
+
+async function writeMetrics(rowId, existingMetrics, psi) {
+  const nextMetrics = {
+    ...(existingMetrics && typeof existingMetrics === "object" ? existingMetrics : {}),
+    psi,
+  };
+
+  const { error: updErr } = await supabase
+    .from("scan_results")
+    .update({ metrics: nextMetrics })
+    .eq("id", rowId);
+
+  if (updErr) return { ok: false, error: updErr };
+
+  // ✅ Final state correction (your RPC)
   try {
-    await supabase.rpc("force_psi_pending_false", { p_report_id: report_id });
+    await supabase.rpc("force_psi_pending_false", { p_report_id: psi._report_id_for_rpc });
   } catch (e) {
     console.warn("[psi-worker-background] force_psi_pending_false failed:", e);
   }
+
+  return { ok: true, error: null };
 }
 
 export async function handler(event) {
@@ -180,62 +244,30 @@ export async function handler(event) {
     }
   }
 
-  // We compute PSI now; locally it's not pending.
   psi.pending = false;
 
-  // ✅ IMPORTANT: write into scan_results.metrics.psi (NOT scan_results.psi)
-  let q = supabase
-    .from("scan_results")
-    .select("id, metrics")
-    .eq("report_id", report_id)
-    .limit(1);
+  // Hack to pass report_id into writeMetrics without changing structure elsewhere
+  psi._report_id_for_rpc = report_id;
 
-  if (user_id) q = q.eq("user_id", user_id);
-
-  const { data: rows, error: readErr } = await q;
-
-  if (readErr) {
-    console.error("[psi-worker-background] read failed:", readErr);
+  // 1) Try to read row immediately
+  const first = await readScanRow(report_id, user_id);
+  if (first.error) {
+    console.error("[psi-worker-background] read failed:", first.error);
     return json(200, { ok: false, wrote: false, error: "supabase_read_failed" });
   }
 
-  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
-
-  // If the scan row isn't there yet, do a short retry window (most common race condition).
-  if (!row) {
+  // 2) If row missing, retry window (race condition)
+  if (!first.row) {
     for (let i = 0; i < 6; i++) {
       await sleep(500);
-
-      let rq = supabase
-        .from("scan_results")
-        .select("id, metrics")
-        .eq("report_id", report_id)
-        .limit(1);
-
-      if (user_id) rq = rq.eq("user_id", user_id);
-
-      const { data: r2, error: e2 } = await rq;
-
-      if (!e2 && Array.isArray(r2) && r2.length) {
-        const rrow = r2[0];
-
-        const nextMetrics = {
-          ...(rrow.metrics && typeof rrow.metrics === "object" ? rrow.metrics : {}),
-          psi,
-        };
-
-        const { error: updErr } = await supabase
-          .from("scan_results")
-          .update({ metrics: nextMetrics })
-          .eq("id", rrow.id);
-
-        if (updErr) {
-          console.error("[psi-worker-background] update failed (after retry):", updErr);
+      const retry = await readScanRow(report_id, user_id);
+      if (retry.error) continue;
+      if (retry.row) {
+        const w = await writeMetrics(retry.row.id, retry.row.metrics, psi);
+        if (!w.ok) {
+          console.error("[psi-worker-background] update failed:", w.error);
           return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
         }
-
-        // ✅ Final state correction: force metrics.psi.pending=false in DB
-        await forcePendingFalse(report_id);
 
         console.log("[psi-worker-background] wrote PSI (after retry)", {
           report_id,
@@ -244,7 +276,7 @@ export async function handler(event) {
           errors: psi.errors.length,
         });
 
-        return json(200, { ok: true, wrote: true });
+        return json(200, { ok: true, wrote: true, errors: psi.errors.length });
       }
     }
 
@@ -252,24 +284,12 @@ export async function handler(event) {
     return json(200, { ok: false, wrote: false, error: "scan_row_missing" });
   }
 
-  // Normal path: row exists
-  const nextMetrics = {
-    ...(row.metrics && typeof row.metrics === "object" ? row.metrics : {}),
-    psi,
-  };
-
-  const { error: updErr } = await supabase
-    .from("scan_results")
-    .update({ metrics: nextMetrics })
-    .eq("id", row.id);
-
-  if (updErr) {
-    console.error("[psi-worker-background] update failed:", updErr);
+  // 3) Normal update path
+  const w = await writeMetrics(first.row.id, first.row.metrics, psi);
+  if (!w.ok) {
+    console.error("[psi-worker-background] update failed:", w.error);
     return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
   }
-
-  // ✅ Final state correction: force metrics.psi.pending=false in DB
-  await forcePendingFalse(report_id);
 
   console.log("[psi-worker-background] wrote PSI", {
     report_id,
@@ -278,5 +298,8 @@ export async function handler(event) {
     errors: psi.errors.length,
   });
 
-  return json(200, { ok: true, wrote: true });
+  // strip internal helper key before returning
+  delete psi._report_id_for_rpc;
+
+  return json(200, { ok: true, wrote: true, errors: psi.errors.length });
 }
