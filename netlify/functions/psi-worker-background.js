@@ -9,6 +9,10 @@ const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || 120000);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+/* -------------------------------------------------- */
+/* Helpers                                            */
+/* -------------------------------------------------- */
+
 function json(statusCode, body) {
   return {
     statusCode,
@@ -20,9 +24,7 @@ function json(statusCode, body) {
   };
 }
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function fetchWithTimeout(url, ms) {
   const controller = new AbortController();
@@ -33,9 +35,7 @@ async function fetchWithTimeout(url, ms) {
     let data = null;
     try {
       data = JSON.parse(text);
-    } catch {
-      data = null;
-    }
+    } catch {}
     return { ok: res.ok, status: res.status, data, raw: text };
   } catch (e) {
     return { ok: false, status: null, data: null, raw: null, error: String(e?.message || e) };
@@ -43,6 +43,10 @@ async function fetchWithTimeout(url, ms) {
     clearTimeout(t);
   }
 }
+
+/* -------------------------------------------------- */
+/* PSI parsing                                        */
+/* -------------------------------------------------- */
 
 function lhFactsFromPSI(psiJson) {
   const lh = psiJson?.lighthouseResult || null;
@@ -97,40 +101,51 @@ function lhFactsFromPSI(psiJson) {
   return { facts, audits: auditsOut };
 }
 
+/* -------------------------------------------------- */
+/* PSI fetch                                          */
+/* -------------------------------------------------- */
+
 async function fetchPSI(url, strategy) {
   const qs = new URLSearchParams();
   qs.set("url", url);
   qs.set("strategy", strategy);
-  qs.set("category", "performance");
-  qs.set("category", "accessibility");
-  qs.set("category", "seo");
-  qs.set("category", "best-practices");
+
+  // IMPORTANT: append categories (set() would overwrite)
+  qs.append("category", "performance");
+  qs.append("category", "accessibility");
+  qs.append("category", "seo");
+  qs.append("category", "best-practices");
+
   qs.set("key", PSI_API_KEY);
 
   const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?${qs.toString()}`;
-
   const r = await fetchWithTimeout(endpoint, PSI_TIMEOUT_MS);
+
   if (!r.ok) {
     const msg =
       r.error ||
-      (r.data?.error?.message ? String(r.data.error.message) : null) ||
+      r.data?.error?.message ||
       (r.raw ? String(r.raw).slice(0, 200) : "PSI request failed");
     return { ok: false, status: r.status, error: "psi_fetch_failed", details: msg, data: null };
   }
-  return { ok: true, status: r.status, error: null, details: null, data: r.data };
+
+  return { ok: true, status: r.status, data: r.data };
 }
 
 async function fetchPSIWithRetry(url, strategy, maxTries = 3) {
-  let last = null;
-  for (let attempt = 1; attempt <= maxTries; attempt++) {
+  let last;
+  for (let i = 0; i < maxTries; i++) {
     last = await fetchPSI(url, strategy);
     if (last.ok) return last;
-    if (attempt < maxTries) await sleep(800 * attempt);
+    await sleep(800 * (i + 1));
   }
   return last;
 }
 
-// Final state correction: ensure metrics.psi.pending=false in DB even if merges/races leave it behind
+/* -------------------------------------------------- */
+/* DB hard-fix                                        */
+/* -------------------------------------------------- */
+
 async function forcePendingFalse(report_id) {
   try {
     await supabase.rpc("force_psi_pending_false", { p_report_id: report_id });
@@ -139,77 +154,76 @@ async function forcePendingFalse(report_id) {
   }
 }
 
-export async function handler(event) {
-  if (event.httpMethod !== "POST") return json(405, { ok: false, error: "Method not allowed" });
+/* -------------------------------------------------- */
+/* Handler                                            */
+/* -------------------------------------------------- */
 
-  if (!PSI_API_KEY) return json(200, { ok: true, skipped: true, reason: "PSI_API_KEY missing" });
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
+    return json(405, { ok: false, error: "Method not allowed" });
+  }
+
+  if (!PSI_API_KEY) {
+    return json(200, { ok: true, skipped: true, reason: "PSI_API_KEY missing" });
+  }
 
   const body = JSON.parse(event.body || "{}");
   const report_id = String(body.report_id || "").trim();
   const url = String(body.url || "").trim();
   const strategies = Array.isArray(body.strategies) ? body.strategies : [];
-  const user_id = String(body.user_id || "").trim(); // optional safety gate
+  const user_id = String(body.user_id || "").trim();
 
-  if (!report_id || !url || strategies.length === 0) {
+  if (!report_id || !url || !strategies.length) {
     return json(400, { ok: false, error: "Missing report_id/url/strategies" });
   }
 
-  const psi = { enabled: true, pending: true, desktop: null, mobile: null, errors: [] };
+  const psi = { enabled: true, pending: true, mobile: null, desktop: null, errors: [] };
 
   for (const strategy of strategies) {
     try {
-      const r = await fetchPSIWithRetry(url, strategy, 3);
+      const r = await fetchPSIWithRetry(url, strategy);
       if (!r.ok) {
+        psi.errors.push({ strategy, error: r.error, details: r.details || null });
+        continue;
+      }
+
+      const { facts, audits } = lhFactsFromPSI(r.data);
+
+      // HARD GUARD — require at least one real metric
+      const hasCore =
+        facts &&
+        (
+          facts.LCP_ms > 0 ||
+          facts.FCP_ms > 0 ||
+          facts.speedIndex_ms > 0 ||
+          facts.TBT_ms >= 0 ||
+          facts.TTFB_ms >= 0 ||
+          facts.CLS >= 0
+        );
+
+      if (!hasCore) {
         psi.errors.push({
           strategy,
-          error: r.error,
-          status: r.status || null,
-          details: r.details || null,
+          error: "psi_no_core_metrics",
+          details: "Lighthouse returned no usable metrics",
         });
         continue;
       }
-const { facts, audits } = lhFactsFromPSI(r.data);
 
-// ❗ Guard: do NOT accept PSI runs that return no core metrics
-const hasAnyCoreFact =
-  facts &&
-  (
-    facts.LCP_ms != null ||
-    facts.FCP_ms != null ||
-    facts.TBT_ms != null ||
-    facts.speedIndex_ms != null ||
-    facts.CLS != null
-  );
-
-if (!hasAnyCoreFact) {
-  psi.errors.push({
-    strategy,
-    error: "psi_no_core_facts",
-    status: r.status || null,
-    details: "PSI returned data but lighthouse core metrics were missing.",
-  });
-  continue;
-}
-
-psi[strategy] = { facts, audits };
-
+      psi[strategy] = { facts, audits };
     } catch (e) {
       psi.errors.push({
         strategy,
         error: "psi_exception",
-        status: null,
         details: String(e?.message || e),
       });
     }
   }
 
-  // We compute PSI now; locally it's not pending.
-const gotMobile = !!psi.mobile;
-const gotDesktop = !!psi.desktop;
-psi.pending = !(gotMobile || gotDesktop); // pending stays true if nothing valid came back
+  /* ---------------------------------------------- */
+  /* Read existing scan row                          */
+  /* ---------------------------------------------- */
 
-
-  // ✅ IMPORTANT: write into scan_results.metrics.psi (NOT scan_results.psi)
   let q = supabase
     .from("scan_results")
     .select("id, metrics")
@@ -218,70 +232,31 @@ psi.pending = !(gotMobile || gotDesktop); // pending stays true if nothing valid
 
   if (user_id) q = q.eq("user_id", user_id);
 
-  const { data: rows, error: readErr } = await q;
+  const { data: rows } = await q;
+  const row = rows?.[0];
 
-  if (readErr) {
-    console.error("[psi-worker-background] read failed:", readErr);
-    return json(200, { ok: false, wrote: false, error: "supabase_read_failed" });
-  }
-
-  const row = Array.isArray(rows) && rows.length ? rows[0] : null;
-
-  // If the scan row isn't there yet, do a short retry window (most common race condition).
   if (!row) {
-    for (let i = 0; i < 6; i++) {
-      await sleep(500);
-
-      let rq = supabase
-        .from("scan_results")
-        .select("id, metrics")
-        .eq("report_id", report_id)
-        .limit(1);
-
-      if (user_id) rq = rq.eq("user_id", user_id);
-
-      const { data: r2, error: e2 } = await rq;
-
-      if (!e2 && Array.isArray(r2) && r2.length) {
-        const rrow = r2[0];
-
-        const nextMetrics = {
-          ...(rrow.metrics && typeof rrow.metrics === "object" ? rrow.metrics : {}),
-          psi,
-        };
-
-        const { error: updErr } = await supabase
-          .from("scan_results")
-          .update({ metrics: nextMetrics })
-          .eq("id", rrow.id);
-
-        if (updErr) {
-          console.error("[psi-worker-background] update failed (after retry):", updErr);
-          return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
-        }
-
-        // ✅ Final state correction: force metrics.psi.pending=false in DB
-        await forcePendingFalse(report_id);
-
-        console.log("[psi-worker-background] wrote PSI (after retry)", {
-          report_id,
-          has_mobile: !!psi.mobile,
-          has_desktop: !!psi.desktop,
-          errors: psi.errors.length,
-        });
-
-        return json(200, { ok: true, wrote: true });
-      }
-    }
-
-    console.warn("[psi-worker-background] scan_results row not found for report_id:", report_id);
     return json(200, { ok: false, wrote: false, error: "scan_row_missing" });
   }
 
-  // Normal path: row exists
+  /* ---------------------------------------------- */
+  /* Merge PSI safely                                */
+  /* ---------------------------------------------- */
+
+  const prevPsi = row.metrics?.psi || {};
+
+  const mergedPsi = {
+    ...prevPsi,
+    ...psi,
+    mobile: psi.mobile || prevPsi.mobile || null,
+    desktop: psi.desktop || prevPsi.desktop || null,
+  };
+
+  mergedPsi.pending = !(mergedPsi.mobile || mergedPsi.desktop);
+
   const nextMetrics = {
-    ...(row.metrics && typeof row.metrics === "object" ? row.metrics : {}),
-    psi,
+    ...(row.metrics || {}),
+    psi: mergedPsi,
   };
 
   const { error: updErr } = await supabase
@@ -294,14 +269,17 @@ psi.pending = !(gotMobile || gotDesktop); // pending stays true if nothing valid
     return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
   }
 
-  // ✅ Final state correction: force metrics.psi.pending=false in DB
-  await forcePendingFalse(report_id);
+  // FINAL HARD CORRECTION (only when PSI exists)
+  if (mergedPsi.mobile || mergedPsi.desktop) {
+    await forcePendingFalse(report_id);
+  }
 
-  console.log("[psi-worker-background] wrote PSI", {
+  console.log("[psi-worker-background] PSI complete", {
     report_id,
-    has_mobile: !!psi.mobile,
-    has_desktop: !!psi.desktop,
-    errors: psi.errors.length,
+    has_mobile: !!mergedPsi.mobile,
+    has_desktop: !!mergedPsi.desktop,
+    pending: mergedPsi.pending,
+    errors: mergedPsi.errors.length,
   });
 
   return json(200, { ok: true, wrote: true });
