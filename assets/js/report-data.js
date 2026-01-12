@@ -360,8 +360,6 @@
       return html;
     }
 
-    // Use same “card” styling as the rest of the report
-    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
     var htmlOut = "";
     htmlOut += "<div class='card' style='margin-top:14px;'>";
     htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
@@ -392,7 +390,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards
+  // Delivery signal cards (FIXED: ALWAYS 9 SLOTS)
   // -----------------------------
   function renderSignalsGrid(signals, narrative) {
     var grid = $("signalsGrid");
@@ -401,21 +399,75 @@
     signals = asArray(signals);
     grid.innerHTML = "";
 
-    // narrative signals map
+    // Narrative signals map (if present)
     var narrSignals = {};
     if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
       narrSignals = narrative.signals;
     }
 
-    function keyFor(sig) {
-      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.indexOf("perf") !== -1) return "performance";
-      if (id.indexOf("mobile") !== -1) return "mobile";
-      if (id.indexOf("seo") !== -1) return "seo";
-      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
-      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-      if (id.indexOf("access") !== -1) return "accessibility";
-      return (sig && sig.id) ? String(sig.id) : "";
+    // Canonical 9-card contract (always render these, in this order)
+    var SLOTS = [
+      { key: "performance",   label: "Performance" },
+      { key: "mobile",        label: "Mobile Experience" },
+      { key: "rendering",     label: "Rendering & Delivery" },
+      { key: "seo",           label: "SEO" },
+      { key: "indexability",  label: "Indexability & Metadata" },
+      { key: "structure",     label: "Structure & Semantics" },
+      { key: "accessibility", label: "Accessibility" },
+      { key: "security",      label: "Security & Trust" },
+      { key: "best_practices",label: "Baseline Hygiene" }
+    ];
+
+    function norm(s) {
+      return String(s || "").toLowerCase();
+    }
+
+    function matchesAny(text, arr) {
+      for (var i = 0; i < arr.length; i++) {
+        if (text.indexOf(arr[i]) !== -1) return true;
+      }
+      return false;
+    }
+
+    // Best-effort mapping from existing signal id/label to our 9 slots
+    function slotKeyForSignal(sig) {
+      sig = safeObj(sig);
+      var id = norm(sig.id || "");
+      var label = norm(sig.label || "");
+      var t = (id + " " + label).replace(/\s+/g, " ").trim();
+
+      // Primary known keys (your current 6)
+      if (matchesAny(t, ["performance", "perf", "lcp", "cls", "fcp", "tbt", "ttfb", "speed"])) return "performance";
+      if (matchesAny(t, ["mobile", "responsive", "viewport", "touch", "tap", "layout mobile"])) return "mobile";
+      if (matchesAny(t, ["seo", "search", "robots", "sitemap", "canonical", "meta description", "title tag"])) return "seo";
+      if (matchesAny(t, ["structure", "semantic", "semantics", "html structure", "headings", "h1", "schema"])) return "structure";
+      if (matchesAny(t, ["security", "trust", "tls", "ssl", "https", "headers", "csp", "hsts"])) return "security";
+      if (matchesAny(t, ["accessibility", "a11y", "aria", "alt", "contrast", "label"])) return "accessibility";
+
+      // Additional slots (new)
+      if (matchesAny(t, ["render", "rendering", "delivery", "cdn", "cache", "compression", "brotli", "gzip", "server", "edge", "ttfb"])) return "rendering";
+      if (matchesAny(t, ["index", "indexable", "indexability", "metadata", "meta", "og:", "open graph", "twitter card", "robots meta"])) return "indexability";
+      if (matchesAny(t, ["best practice", "best_practice", "baseline", "hygiene", "quality", "lint"])) return "best_practices";
+
+      // If your backend already emits stable ids, respect them if they match slot keys:
+      if (t === "rendering") return "rendering";
+      if (t === "indexability") return "indexability";
+      if (t === "best_practices") return "best_practices";
+      return "";
+    }
+
+    // Pick the best matching signal for a slot
+    function findSignalForSlot(slotKey) {
+      var best = null;
+      for (var i = 0; i < signals.length; i++) {
+        var sig = safeObj(signals[i]);
+        var k = slotKeyForSignal(sig);
+        if (k === slotKey) {
+          best = sig;
+          break;
+        }
+      }
+      return best;
     }
 
     function fallbackSummary(sig) {
@@ -433,34 +485,51 @@
       return s;
     }
 
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
+    function renderSlot(slot) {
+      var sig = findSignalForSlot(slot.key);
 
-      var k = keyFor(sig);
+      // Narrative lines for this slot (if present)
       var lines = [];
-      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
+      if (narrSignals && narrSignals[slot.key] && narrSignals[slot.key].lines) {
+        lines = asArray(narrSignals[slot.key].lines);
+      }
 
+      var scoreText = "—";
+      var barWidth = 0;
       var summary = "";
-      if (lines.length) {
-        summary = String(lines.join("\n"));
+
+      if (sig) {
+        var score = asInt(sig.score, 0);
+        scoreText = String(score);
+        barWidth = score;
+
+        if (lines.length) {
+          summary = String(lines.join("\n"));
+        } else {
+          summary = fallbackSummary(sig);
+        }
       } else {
-        summary = fallbackSummary(sig);
+        // Deterministic, trust-safe empty card
+        summary =
+          "Not available — this signal could not be reliably measured for this site in the current scan output.\n" +
+          "If you expect this to be present, re-run the scan or review the scan pipeline for this domain.";
       }
 
       var card = document.createElement("div");
       card.className = "card";
       card.innerHTML =
         '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+          "<h3>" + escapeHtml(slot.label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(scoreText) + "</div>" +
         "</div>" +
-        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+        '<div class="bar"><div style="width:' + barWidth + '%;"></div></div>' +
         '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
 
       grid.appendChild(card);
     }
+
+    // Always 9 cards, always the same order
+    for (var s = 0; s < SLOTS.length; s++) renderSlot(SLOTS[s]);
   }
 
   // -----------------------------
@@ -810,7 +879,7 @@
   }
 
   // -----------------------------
-  // Main render
+  // Main rende
   // -----------------------------
   function renderAll(data) {
     data = safeObj(data);
