@@ -130,6 +130,15 @@ async function fetchPSIWithRetry(url, strategy, maxTries = 3) {
   return last;
 }
 
+// Final state correction: ensure metrics.psi.pending=false in DB even if merges/races leave it behind
+async function forcePendingFalse(report_id) {
+  try {
+    await supabase.rpc("force_psi_pending_false", { p_report_id: report_id });
+  } catch (e) {
+    console.warn("[psi-worker-background] force_psi_pending_false failed:", e);
+  }
+}
+
 export async function handler(event) {
   if (event.httpMethod !== "POST") return json(405, { ok: false, error: "Method not allowed" });
 
@@ -171,6 +180,7 @@ export async function handler(event) {
     }
   }
 
+  // We compute PSI now; locally it's not pending.
   psi.pending = false;
 
   // ✅ IMPORTANT: write into scan_results.metrics.psi (NOT scan_results.psi)
@@ -190,33 +200,42 @@ export async function handler(event) {
   }
 
   const row = Array.isArray(rows) && rows.length ? rows[0] : null;
+
+  // If the scan row isn't there yet, do a short retry window (most common race condition).
   if (!row) {
-    // If the scan row isn't there yet, do a short retry window (most common race condition).
     for (let i = 0; i < 6; i++) {
       await sleep(500);
+
       let rq = supabase
         .from("scan_results")
         .select("id, metrics")
         .eq("report_id", report_id)
         .limit(1);
+
       if (user_id) rq = rq.eq("user_id", user_id);
 
       const { data: r2, error: e2 } = await rq;
+
       if (!e2 && Array.isArray(r2) && r2.length) {
         const rrow = r2[0];
+
         const nextMetrics = {
           ...(rrow.metrics && typeof rrow.metrics === "object" ? rrow.metrics : {}),
           psi,
         };
+
         const { error: updErr } = await supabase
           .from("scan_results")
           .update({ metrics: nextMetrics })
           .eq("id", rrow.id);
 
         if (updErr) {
-          console.error("[psi-worker-background] update failed:", updErr);
+          console.error("[psi-worker-background] update failed (after retry):", updErr);
           return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
         }
+
+        // ✅ Final state correction: force metrics.psi.pending=false in DB
+        await forcePendingFalse(report_id);
 
         console.log("[psi-worker-background] wrote PSI (after retry)", {
           report_id,
@@ -233,6 +252,7 @@ export async function handler(event) {
     return json(200, { ok: false, wrote: false, error: "scan_row_missing" });
   }
 
+  // Normal path: row exists
   const nextMetrics = {
     ...(row.metrics && typeof row.metrics === "object" ? row.metrics : {}),
     psi,
@@ -247,6 +267,9 @@ export async function handler(event) {
     console.error("[psi-worker-background] update failed:", updErr);
     return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
   }
+
+  // ✅ Final state correction: force metrics.psi.pending=false in DB
+  await forcePendingFalse(report_id);
 
   console.log("[psi-worker-background] wrote PSI", {
     report_id,
