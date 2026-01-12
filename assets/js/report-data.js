@@ -192,13 +192,6 @@
     return asArray(m.delivery_signals);
   }
 
-  function pickKeyMetrics(data) {
-    data = safeObj(data);
-    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
-    var m = safeObj(data.metrics);
-    return safeObj(m);
-  }
-
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
@@ -215,6 +208,34 @@
   function pickNarrative(data) {
     data = safeObj(data);
     return data.narrative || "";
+  }
+
+  // -----------------------------
+  // NEW: Fallback score derivation from signals (so cards populate)
+  // -----------------------------
+  function deriveScoresFromSignals(scores, signals) {
+    scores = safeObj(scores);
+    signals = asArray(signals);
+
+    function setIfMissing(key, val) {
+      if (typeof scores[key] === "undefined" || scores[key] === null) scores[key] = val;
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var s = safeObj(signals[i]);
+      var label = String(s.label || s.id || "").toLowerCase();
+      var sc = asInt(s.score, -1);
+      if (sc < 0) continue;
+
+      if (label.indexOf("performance") !== -1) setIfMissing("performance", sc);
+      else if (label.indexOf("mobile") !== -1) setIfMissing("mobile", sc);
+      else if (label.indexOf("seo") !== -1) setIfMissing("seo", sc);
+      else if (label.indexOf("structure") !== -1 || label.indexOf("semantic") !== -1) setIfMissing("structure", sc);
+      else if (label.indexOf("security") !== -1 || label.indexOf("trust") !== -1) setIfMissing("security", sc);
+      else if (label.indexOf("access") !== -1) setIfMissing("accessibility", sc);
+    }
+
+    return scores;
   }
 
   // -----------------------------
@@ -322,15 +343,23 @@
     return false;
   }
 
+  function hasFixFirst(narrative) {
+    if (!narrative || typeof narrative !== "object") return false;
+    var ff = safeObj(narrative.fix_first);
+    if (String(ff.fix_first || "").trim()) return true;
+    if (asArray(ff.why).length) return true;
+    if (asArray(ff.deprioritise).length) return true;
+    if (asArray(ff.expected_outcome).length) return true;
+    return false;
+  }
+
   // -----------------------------
-  // NEW: What to Fix First (and Why) block
-  // Renders under Executive Narrative in #fixFirstBlock
+  // What to Fix First block
   // -----------------------------
   function renderFixFirstBlock(narrative) {
     var root = $("fixFirstBlock");
     if (!root) return false;
 
-    // Clear if no narrative yet
     if (!narrative || typeof narrative !== "object") {
       root.innerHTML = "";
       return false;
@@ -342,9 +371,14 @@
     var waitOn = asArray(ff.deprioritise).filter(Boolean);
     var outcome = asArray(ff.expected_outcome).filter(Boolean);
 
-    // If empty, hide silently
     if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
-      root.innerHTML = "";
+      root.innerHTML =
+        "<div class='card' style='margin-top:14px;'>" +
+          "<div class='card-top' style='align-items:flex-start;'>" +
+            "<h3 style='margin:0;'>What to Fix First (and Why)</h3>" +
+          "</div>" +
+          "<div class='muted' style='margin-top:10px; font-size:12px;'>Fix First is not available yet for this report. (Narrative enrichment pending.)</div>" +
+        "</div>";
       return false;
     }
 
@@ -367,21 +401,10 @@
     htmlOut += "</div>";
 
     htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
-
     htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
-    htmlOut += list(why);
-    htmlOut += "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>";
-    htmlOut += list(waitOn);
-    htmlOut += "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>";
-    htmlOut += list(outcome);
-    htmlOut += "</div>";
-
+    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>" + list(why) + "</div>";
+    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>" + list(waitOn) + "</div>";
+    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>" + list(outcome) + "</div>";
     htmlOut += "</div>";
     htmlOut += "</div>";
 
@@ -390,7 +413,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (FIXED: ALWAYS 9 SLOTS)
+  // Delivery signal cards
   // -----------------------------
   function renderSignalsGrid(signals, narrative) {
     var grid = $("signalsGrid");
@@ -399,75 +422,20 @@
     signals = asArray(signals);
     grid.innerHTML = "";
 
-    // Narrative signals map (if present)
     var narrSignals = {};
     if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
       narrSignals = narrative.signals;
     }
 
-    // Canonical 9-card contract (always render these, in this order)
-    var SLOTS = [
-      { key: "performance",   label: "Performance" },
-      { key: "mobile",        label: "Mobile Experience" },
-      { key: "rendering",     label: "Rendering & Delivery" },
-      { key: "seo",           label: "SEO" },
-      { key: "indexability",  label: "Indexability & Metadata" },
-      { key: "structure",     label: "Structure & Semantics" },
-      { key: "accessibility", label: "Accessibility" },
-      { key: "security",      label: "Security & Trust" },
-      { key: "best_practices",label: "Baseline Hygiene" }
-    ];
-
-    function norm(s) {
-      return String(s || "").toLowerCase();
-    }
-
-    function matchesAny(text, arr) {
-      for (var i = 0; i < arr.length; i++) {
-        if (text.indexOf(arr[i]) !== -1) return true;
-      }
-      return false;
-    }
-
-    // Best-effort mapping from existing signal id/label to our 9 slots
-    function slotKeyForSignal(sig) {
-      sig = safeObj(sig);
-      var id = norm(sig.id || "");
-      var label = norm(sig.label || "");
-      var t = (id + " " + label).replace(/\s+/g, " ").trim();
-
-      // Primary known keys (your current 6)
-      if (matchesAny(t, ["performance", "perf", "lcp", "cls", "fcp", "tbt", "ttfb", "speed"])) return "performance";
-      if (matchesAny(t, ["mobile", "responsive", "viewport", "touch", "tap", "layout mobile"])) return "mobile";
-      if (matchesAny(t, ["seo", "search", "robots", "sitemap", "canonical", "meta description", "title tag"])) return "seo";
-      if (matchesAny(t, ["structure", "semantic", "semantics", "html structure", "headings", "h1", "schema"])) return "structure";
-      if (matchesAny(t, ["security", "trust", "tls", "ssl", "https", "headers", "csp", "hsts"])) return "security";
-      if (matchesAny(t, ["accessibility", "a11y", "aria", "alt", "contrast", "label"])) return "accessibility";
-
-      // Additional slots (new)
-      if (matchesAny(t, ["render", "rendering", "delivery", "cdn", "cache", "compression", "brotli", "gzip", "server", "edge", "ttfb"])) return "rendering";
-      if (matchesAny(t, ["index", "indexable", "indexability", "metadata", "meta", "og:", "open graph", "twitter card", "robots meta"])) return "indexability";
-      if (matchesAny(t, ["best practice", "best_practice", "baseline", "hygiene", "quality", "lint"])) return "best_practices";
-
-      // If your backend already emits stable ids, respect them if they match slot keys:
-      if (t === "rendering") return "rendering";
-      if (t === "indexability") return "indexability";
-      if (t === "best_practices") return "best_practices";
-      return "";
-    }
-
-    // Pick the best matching signal for a slot
-    function findSignalForSlot(slotKey) {
-      var best = null;
-      for (var i = 0; i < signals.length; i++) {
-        var sig = safeObj(signals[i]);
-        var k = slotKeyForSignal(sig);
-        if (k === slotKey) {
-          best = sig;
-          break;
-        }
-      }
-      return best;
+    function keyFor(sig) {
+      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.indexOf("perf") !== -1) return "performance";
+      if (id.indexOf("mobile") !== -1) return "mobile";
+      if (id.indexOf("seo") !== -1) return "seo";
+      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+      if (id.indexOf("access") !== -1) return "accessibility";
+      return (sig && sig.id) ? String(sig.id) : "";
     }
 
     function fallbackSummary(sig) {
@@ -485,55 +453,35 @@
       return s;
     }
 
-    function renderSlot(slot) {
-      var sig = findSignalForSlot(slot.key);
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var score = asInt(sig.score, 0);
 
-      // Narrative lines for this slot (if present)
+      var k = keyFor(sig);
       var lines = [];
-      if (narrSignals && narrSignals[slot.key] && narrSignals[slot.key].lines) {
-        lines = asArray(narrSignals[slot.key].lines);
-      }
+      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
-      var scoreText = "—";
-      var barWidth = 0;
       var summary = "";
-
-      if (sig) {
-        var score = asInt(sig.score, 0);
-        scoreText = String(score);
-        barWidth = score;
-
-        if (lines.length) {
-          summary = String(lines.join("\n"));
-        } else {
-          summary = fallbackSummary(sig);
-        }
-      } else {
-        // Deterministic, trust-safe empty card
-        summary =
-          "Not available — this signal could not be reliably measured for this site in the current scan output.\n" +
-          "If you expect this to be present, re-run the scan or review the scan pipeline for this domain.";
-      }
+      if (lines.length) summary = String(lines.join("\n"));
+      else summary = fallbackSummary(sig);
 
       var card = document.createElement("div");
       card.className = "card";
       card.innerHTML =
         '<div class="card-top">' +
-          "<h3>" + escapeHtml(slot.label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(scoreText) + "</div>" +
+          "<h3>" + escapeHtml(label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
         "</div>" +
-        '<div class="bar"><div style="width:' + barWidth + '%;"></div></div>' +
+        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
         '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
 
       grid.appendChild(card);
     }
-
-    // Always 9 cards, always the same order
-    for (var s = 0; s < SLOTS.length; s++) renderSlot(SLOTS[s]);
   }
 
   // -----------------------------
-  // Signal Evidence (accordions per signal)
+  // Signal Evidence
   // -----------------------------
   function renderSignalEvidence(signals) {
     var root = $("signalEvidenceRoot");
@@ -575,7 +523,6 @@
 
       var body = '<div class="acc-body">';
 
-      // Issues
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
         for (var j = 0; j < issues.length; j++) {
@@ -593,7 +540,6 @@
         }
       }
 
-      // Deductions
       if (deds.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
         body += "<div class='evidence-list'>";
@@ -606,7 +552,6 @@
         body += "</div>";
       }
 
-      // Observations
       if (obs.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
         body += "<div class='evidence-list'>";
@@ -617,7 +562,6 @@
         body += "</div>";
       }
 
-      // Evidence object (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -630,7 +574,6 @@
       }
 
       body += "</div>";
-
       det.innerHTML = summary + body;
       root.appendChild(det);
     }
@@ -641,7 +584,7 @@
   }
 
   // -----------------------------
-  // Key Insight Metrics (Strength / Risk / Focus / Next)
+  // Key Insight Metrics
   // -----------------------------
   function renderKeyInsights(scores, signals) {
     var root = $("keyMetricsRoot");
@@ -722,7 +665,6 @@
     if (!root) return;
 
     signals = asArray(signals);
-
     var issuesOut = [];
 
     for (var i = 0; i < signals.length; i++) {
@@ -852,11 +794,12 @@
   // Narrative generation: non-blocking
   // -----------------------------
   function ensureNarrative(reportId, narrative) {
-    // Render whatever we already have
     var hasExecutive = renderNarrative(narrative);
-    renderFixFirstBlock(narrative);
+    var hasFF = renderFixFirstBlock(narrative);
 
-    if (hasExecutive) return;
+    // IMPORTANT CHANGE:
+    // Only skip generation when BOTH executive AND fix-first exist.
+    if (hasExecutive && hasFF) return;
 
     var key = "iqweb_narrative_requested_" + reportId;
     try {
@@ -879,15 +822,18 @@
   }
 
   // -----------------------------
-  // Main rende
+  // Main render
   // -----------------------------
   function renderAll(data) {
     data = safeObj(data);
 
     var header = pickHeader(data);
-    var scores = pickScores(data);
     var signals = pickSignals(data);
+    var scores = pickScores(data);
     var narrative = pickNarrative(data);
+
+    // Fill missing domain scores from evidence signals (so top cards populate)
+    scores = deriveScoresFromSignals(scores, signals);
 
     setHeaderUI(header);
 
