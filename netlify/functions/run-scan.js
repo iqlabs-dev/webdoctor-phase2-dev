@@ -1435,13 +1435,14 @@ if (!url || !report_id) {
 
 
 // Create PSI container (results will be filled by background worker later)
+// IMPORTANT: run-scan must NOT write psi.pending (worker owns pending)
 const psi = {
   enabled: psiEnabled,
-  pending: psiEnabled && psiStrategies.length > 0,
   desktop: null,
   mobile: null,
   errors: [],
 };
+
 
 
 
@@ -1761,8 +1762,9 @@ const metrics = {
       });
     }
 
-    // Fire-and-forget background PSI (do NOT await)
-if (psi.pending) {
+// Fire-and-forget background PSI (do NOT await)
+// IMPORTANT: do NOT touch psi.pending here (worker owns it)
+if (psiEnabled && psiStrategies.length > 0) {
   const baseUrl =
     process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
 
@@ -1770,21 +1772,21 @@ if (psi.pending) {
     fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-  report_id: saved.report_id,
-  url,
-  strategies: psiStrategies,
-  user_id,
-})
-
+      body: JSON.stringify({
+        report_id: saved.report_id || report_id,
+        url,
+        strategies: psiStrategies,
+        user_id,
+      }),
     }).catch(() => {});
   } else {
-    psi.pending = false;
+    // Don't set pending here — just record the reason
     psi.errors.push({
       strategy: "all",
       error: "psi_worker_baseurl_missing",
       status: null,
-      details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
+      details:
+        "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
     });
   }
 }

@@ -183,29 +183,31 @@ export async function handler(event) {
     try {
       const r = await fetchPSIWithRetry(url, strategy);
       if (!r.ok) {
-        psi.errors.push({ strategy, error: r.error, details: r.details || null });
+        psi.errors.push({ strategy, error: r.error, status: r.status || null, details: r.details || null });
         continue;
       }
 
       const { facts, audits } = lhFactsFromPSI(r.data);
 
-      // HARD GUARD — require at least one real metric
+      // HARD GUARD — require at least one real metric (non-null)
       const hasCore =
         facts &&
         (
-          facts.LCP_ms > 0 ||
-          facts.FCP_ms > 0 ||
-          facts.speedIndex_ms > 0 ||
-          facts.TBT_ms >= 0 ||
-          facts.TTFB_ms >= 0 ||
-          facts.CLS >= 0
+          facts.LCP_ms != null ||
+          facts.FCP_ms != null ||
+          facts.TBT_ms != null ||
+          facts.speedIndex_ms != null ||
+          facts.CLS != null ||
+          facts.TTFB_ms != null ||
+          facts.INP_ms != null
         );
 
       if (!hasCore) {
         psi.errors.push({
           strategy,
           error: "psi_no_core_metrics",
-          details: "Lighthouse returned no usable metrics",
+          status: r.status || null,
+          details: "PSI returned data but lighthouse core metrics were missing.",
         });
         continue;
       }
@@ -215,25 +217,39 @@ export async function handler(event) {
       psi.errors.push({
         strategy,
         error: "psi_exception",
+        status: null,
         details: String(e?.message || e),
       });
     }
   }
 
   /* ---------------------------------------------- */
-  /* Read existing scan row                          */
+  /* Read existing scan row (with race retry)        */
   /* ---------------------------------------------- */
 
-  let q = supabase
-    .from("scan_results")
-    .select("id, metrics")
-    .eq("report_id", report_id)
-    .limit(1);
+  let row = null;
 
-  if (user_id) q = q.eq("user_id", user_id);
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let q = supabase
+      .from("scan_results")
+      .select("id, metrics")
+      .eq("report_id", report_id)
+      .limit(1);
 
-  const { data: rows } = await q;
-  const row = rows?.[0];
+    if (user_id) q = q.eq("user_id", user_id);
+
+    const { data: rows, error: readErr } = await q;
+
+    if (readErr) {
+      console.error("[psi-worker-background] read failed:", readErr);
+      return json(200, { ok: false, wrote: false, error: "supabase_read_failed" });
+    }
+
+    row = rows?.[0] || null;
+    if (row) break;
+
+    await sleep(500);
+  }
 
   if (!row) {
     return json(200, { ok: false, wrote: false, error: "scan_row_missing" });
@@ -243,19 +259,20 @@ export async function handler(event) {
   /* Merge PSI safely                                */
   /* ---------------------------------------------- */
 
-  const prevPsi = row.metrics?.psi || {};
+  const prevPsi = (row.metrics && typeof row.metrics === "object" ? row.metrics.psi : null) || {};
 
   const mergedPsi = {
     ...prevPsi,
     ...psi,
     mobile: psi.mobile || prevPsi.mobile || null,
     desktop: psi.desktop || prevPsi.desktop || null,
+    errors: [...(Array.isArray(prevPsi.errors) ? prevPsi.errors : []), ...(Array.isArray(psi.errors) ? psi.errors : [])],
   };
 
   mergedPsi.pending = !(mergedPsi.mobile || mergedPsi.desktop);
 
   const nextMetrics = {
-    ...(row.metrics || {}),
+    ...(row.metrics && typeof row.metrics === "object" ? row.metrics : {}),
     psi: mergedPsi,
   };
 
@@ -282,5 +299,5 @@ export async function handler(event) {
     errors: mergedPsi.errors.length,
   });
 
-  return json(200, { ok: true, wrote: true });
+  return json(200, { ok: true, wrote: true, pending: mergedPsi.pending });
 }
