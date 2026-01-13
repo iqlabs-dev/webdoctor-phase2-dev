@@ -1,466 +1,433 @@
 /* eslint-disable */
+
 // /assets/js/report-data.js
-// iQWEB Report Renderer — v5.2 (ES5, no modules)
-// ✅ Matches IDs in current report.html:
-// loaderSection, reportRoot, siteUrl, reportId, reportDate,
-// overallPill, overallBar, overallNote,
-// signalsGrid9 + score-*, bar-*, summary-*,
-// psiMobilePill/Bar/Summary, psiDesktopPill/Bar/Summary,
-// htmlDeliveryPill/Bar/Summary,
-// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot,
-// fixFirstPill, fixFirstTitle, fixFirstWhy, fixFirstDeprioritise, fixFirstOutcome,
-// narrativeText
+// iQWEB Report Renderer — v5.2 (Polling + “Building report…”)
 
 (function () {
   // -----------------------------
   // Helpers
   // -----------------------------
-  function $(id) { return document.getElementById(id); }
-  function safeObj(v) { return v && typeof v === "object" ? v : {}; }
-  function asArray(v) { return Array.isArray(v) ? v : (v == null ? [] : [v]); }
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
+  }
 
-  function getQueryParam(name) {
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
+  }
+
+  function isNonEmptyString(v) {
+    return typeof v === "string" && v.trim().length > 0;
+  }
+
+  function fmtBytes(n) {
+    var v = Number(n);
+    if (!isFinite(v) || v <= 0) return "";
+    if (v < 1024) return Math.round(v) + " B";
+    if (v < 1024 * 1024) return Math.round(v / 1024) + " KiB";
+    return (v / (1024 * 1024)).toFixed(1) + " MiB";
+  }
+
+  function fmtMs(n) {
+    var v = Number(n);
+    if (!isFinite(v) || v < 0) return "";
+    if (v < 1000) return Math.round(v) + " ms";
+    return (v / 1000).toFixed(1) + " s";
+  }
+
+  function getReportIdFromUrl() {
     try {
-      var params = new URLSearchParams(window.location.search || "");
-      return params.get(name);
+      var url = new URL(window.location.href);
+      return (
+        url.searchParams.get("report_id") ||
+        url.searchParams.get("id") ||
+        ""
+      ).trim();
     } catch (e) {
-      var q = window.location.search || "";
-      q = q.replace(/^\?/, "");
-      var parts = q.split("&");
-      for (var i = 0; i < parts.length; i++) {
-        var kv = parts[i].split("=");
-        if (decodeURIComponent(kv[0] || "") === name) return decodeURIComponent(kv[1] || "");
-      }
-      return null;
+      return "";
     }
   }
 
-  function clampPct(n) {
-    n = Number(n);
-    if (!isFinite(n)) return 0;
-    if (n < 0) n = 0;
-    if (n > 100) n = 100;
-    return n;
+  // -----------------------------
+  // DOM helpers
+  // -----------------------------
+  function showLoader(isOn) {
+    var loader = document.getElementById("loaderSection");
+    var root = document.getElementById("reportRoot");
+    if (!loader || !root) return;
+    loader.style.display = isOn ? "flex" : "none";
+    root.style.display = isOn ? "none" : "block";
   }
 
-  function setBar(barEl, pct) {
-    if (!barEl) return;
-    var p = clampPct(pct);
-    barEl.style.width = p + "%";
+  function setLoaderStatus(msg) {
+    var el = document.getElementById("loaderStatus");
+    if (!el) return;
+    if (typeof msg !== "string" || !msg.trim()) return;
+    el.textContent = msg;
   }
 
-  function escapeHtml(str) {
-    str = String(str == null ? "" : str);
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function fmtNum(n, dp) {
-    n = Number(n);
-    if (!isFinite(n)) return "—";
-    dp = dp == null ? 0 : dp;
-    var pow = Math.pow(10, dp);
-    return String(Math.round(n * pow) / pow);
-  }
-
-  function msToS(ms) {
-    ms = Number(ms);
-    if (!isFinite(ms)) return "—";
-    return fmtNum(ms / 1000, 1) + "s";
-  }
-
-  function fmtDateLocal(isoOrTs) {
-    try {
-      if (!isoOrTs) return "—";
-      var d = new Date(isoOrTs);
-      if (isNaN(d.getTime())) return "—";
-      return d.toLocaleString(undefined, {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-    } catch (e) {
-      return "—";
+  function showFatal(msg) {
+    var el = document.getElementById("fatalError");
+    if (!el) return;
+    if (!msg) {
+      el.style.display = "none";
+      el.textContent = "";
+      return;
     }
+    el.style.display = "block";
+    el.textContent = msg;
   }
 
-  function fetchJson(method, url, body) {
-    var opts = { method: method, headers: { "Content-Type": "application/json" } };
-    if (body) opts.body = JSON.stringify(body);
-    return fetch(url, opts).then(function (r) {
-      if (!r.ok) {
-        return r.text().then(function (t) {
-          throw new Error("HTTP " + r.status + " " + (t || ""));
-        });
-      }
-      return r.json();
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
     });
   }
 
   // -----------------------------
-  // Data fetch
+  // Network
+  // IMPORTANT: without a timeout, fetch can hang forever => stuck on “Building report…”
   // -----------------------------
-  function fetchReportData(reportId) {
-    var pdfToken = getQueryParam("pdf_token") || "";
-    if (pdfToken) {
-      return fetchJson(
-        "GET",
-        "/.netlify/functions/get-report-data-pdf?report_id=" +
-          encodeURIComponent(reportId) +
-          "&pdf_token=" +
-          encodeURIComponent(pdfToken)
-      );
+  async function fetchJson(url, opts) {
+    opts = opts || {};
+    var timeoutMs = typeof opts.timeoutMs === "number" ? opts.timeoutMs : 25000;
+    var fetchOpts = opts.fetch || {};
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var t = null;
+
+    if (ctrl) {
+      fetchOpts.signal = ctrl.signal;
+      t = setTimeout(function () {
+        try { ctrl.abort(); } catch (e) {}
+      }, timeoutMs);
     }
-    return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
+
+    try {
+      var res = await fetch(url, fetchOpts);
+      var text = await res.text();
+      if (t) clearTimeout(t);
+
+      var data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+
+      if (!res.ok) {
+        var msg = (data && (data.error || data.detail)) ? (data.error || data.detail) : ("HTTP " + res.status);
+        throw new Error(msg);
+      }
+      return data;
+    } catch (e) {
+      if (t) clearTimeout(t);
+      throw e;
+    }
   }
 
-  function generateNarrative(reportId) {
-    var force = getQueryParam("regen") === "1";
-    return fetchJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId, force: force });
+  function buildGetReportDataUrl(reportId) {
+    return "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId);
+  }
+
+  async function fetchReportData(reportId) {
+    return await fetchJson(buildGetReportDataUrl(reportId), { timeoutMs: 25000 });
+  }
+
+  async function generateNarrative(reportId) {
+    return await fetchJson("/.netlify/functions/generate-narrative", {
+      timeoutMs: 120000,
+      fetch: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_id: reportId }),
+      },
+    });
   }
 
   // -----------------------------
-  // Render: header + overall
+  // “Ready” checks
   // -----------------------------
-  function renderHeader(meta, basic, reportId) {
-    if ($("reportId")) $("reportId").textContent = reportId || "—";
-    if ($("reportDate")) $("reportDate").textContent = fmtDateLocal(meta.report_date || meta.created_at || meta.createdAt);
+  function isMetricsReady(d) {
+    if (!d || d.success !== true) return false;
 
-    var url = basic.url || meta.url || meta.site_url || meta.siteUrl || "";
-    if ($("siteUrl")) $("siteUrl").textContent = url ? url : "—";
+    var bc = d.basic_checks || {};
+    var ds = Array.isArray(d.delivery_signals) ? d.delivery_signals : [];
+    var psi = d.psi || {};
+
+    var hasBasics =
+      typeof bc === "object" &&
+      (typeof bc.http_status === "number" || typeof bc.html_bytes === "number");
+
+    var hasSignals = ds.length >= 3; // tolerant (usually 6)
+
+    var psiOk =
+      psi &&
+      typeof psi === "object" &&
+      psi.enabled === true &&
+      psi.pending !== true &&
+      (psi.mobile || psi.desktop);
+
+    return hasBasics && hasSignals && psiOk;
   }
 
-  function renderOverall(scores) {
+  function isNarrativeReady(d) {
+    var n = d && d.narrative;
+    if (!n || typeof n !== "object") return false;
+
+    if (typeof n.executive_lead === "string" && n.executive_lead.trim().length) return true;
+
+    try {
+      var lines = n.overall && Array.isArray(n.overall.lines) ? n.overall.lines.filter(Boolean) : [];
+      return lines.length >= 3;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function pollUntilReady(reportId, opts) {
+    opts = opts || {};
+    var maxMs = typeof opts.maxMs === "number" ? opts.maxMs : 10 * 60 * 1000; // 10 minutes
+    var intervalMs = typeof opts.intervalMs === "number" ? opts.intervalMs : 1500;
+    var started = Date.now();
+
+    var narrativeTriggered = false;
+
+    while (Date.now() - started < maxMs) {
+      setLoaderStatus("Building report… checking scan data");
+
+      var data = null;
+      try {
+        data = await fetchReportData(reportId);
+      } catch (e) {
+        setLoaderStatus("Building report… retrying");
+        await sleep(Math.min(intervalMs * 2, 4000));
+        continue;
+      }
+
+      if (!isMetricsReady(data)) {
+        setLoaderStatus("Building report… waiting for scan metrics");
+        await sleep(intervalMs);
+        continue;
+      }
+
+      if (!isNarrativeReady(data) && !narrativeTriggered) {
+        narrativeTriggered = true;
+        setLoaderStatus("Building report… generating narrative");
+        try { await generateNarrative(reportId); } catch (e) {}
+        await sleep(800);
+        continue;
+      }
+
+      if (!isNarrativeReady(data) && narrativeTriggered) {
+        setLoaderStatus("Building report… finalising narrative");
+        await sleep(intervalMs);
+        continue;
+      }
+
+      setLoaderStatus("Building report… finalising");
+      return data;
+    }
+
+    throw new Error("Timed out waiting for report data to be ready.");
+  }
+
+  // -----------------------------
+  // Rendering helpers (existing style)
+  // -----------------------------
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function setText(id, text) {
+    var el = byId(id);
+    if (!el) return;
+    el.textContent = text == null ? "" : String(text);
+  }
+
+  function setHTML(id, html) {
+    var el = byId(id);
+    if (!el) return;
+    el.innerHTML = html || "";
+  }
+
+  function renderScores(scores) {
     scores = safeObj(scores);
-    var overall = scores.overall;
-    if ($("overallPill")) $("overallPill").textContent = isFinite(Number(overall)) ? String(overall) : "—";
-    setBar($("overallBar"), overall);
-
-    var note = "Overall delivery is fair. This score reflects deterministic checks only and does not measure brand or content effectiveness.";
-    if ($("overallNote")) $("overallNote").textContent = note;
+    setText("scoreOverall", scores.overall);
+    setText("scorePerformance", scores.performance);
+    setText("scoreMobile", scores.mobile);
+    setText("scoreSEO", scores.seo);
+    setText("scoreSecurity", scores.security);
+    setText("scoreStructure", scores.structure);
+    setText("scoreAccessibility", scores.accessibility);
   }
 
-  // -----------------------------
-  // Executive Narrative (Contract A)
-  // -----------------------------
-  function trimText(s) {
-    return String(s == null ? "" : s).replace(/^\s+|\s+$/g, "");
+  function renderHeader(header) {
+    header = safeObj(header);
+    setText("websiteUrl", header.website || "");
+    setText("reportId", header.report_id || "");
+    setText("createdAt", header.created_at || "");
   }
 
-  function countSentences(text) {
-    text = trimText(text);
-    if (!text) return 0;
-    var parts = text.split(/[.!?]+/g);
-    var n = 0;
-    for (var i = 0; i < parts.length; i++) {
-      if (trimText(parts[i])) n++;
-    }
-    return n;
+  function renderSummary(overallSummary) {
+    setText("overallSummary", overallSummary || "");
   }
 
-  function validateNarrativeContract(lines) {
-    var out = { ok: false, reason: "" };
+  function renderPSI(psi) {
+    psi = safeObj(psi);
+    var mobile = safeObj(psi.mobile);
+    var desktop = safeObj(psi.desktop);
 
-    if (!lines || !lines.length) {
-      out.reason = "not generated yet.";
-      return out;
+    function renderSide(prefix, side) {
+      var facts = safeObj(side.facts);
+      setText(prefix + "LCP", fmtMs(facts.LCP_ms));
+      setText(prefix + "FCP", fmtMs(facts.FCP_ms));
+      setText(prefix + "TBT", fmtMs(facts.TBT_ms));
+      setText(prefix + "CLS", isFinite(Number(facts.CLS)) ? Number(facts.CLS).toFixed(3) : "");
     }
-    if (lines.length !== 5) {
-      out.reason = "requires exactly 5 paragraphs, but " + lines.length + " were provided.";
-      return out;
+
+    renderSide("m", mobile);
+    renderSide("d", desktop);
+  }
+
+  function renderDeliverySignals(list) {
+    list = asArray(list);
+
+    var container = byId("signalsGrid");
+    if (!container) return;
+
+    function badge(score) {
+      var s = Number(score);
+      if (!isFinite(s)) s = 0;
+      var cls =
+        s >= 90 ? "score-good" :
+        s >= 75 ? "score-warn" :
+                  "score-bad";
+      return '<span class="score-badge ' + cls + '">' + s + "</span>";
     }
 
-    // ✅ Real bans only (do not ban “desktop/mobile/security/trust”)
-    var forbidden = [
-      "score",
-      "/100",
-      "lighthouse",
-      "ai",
-      "scan",
-      "tool",
-      "automation",
-      "recommend",
-      "should",
-      "fix"
-    ];
+    var html = "";
+    for (var i = 0; i < list.length; i++) {
+      var sig = safeObj(list[i]);
+      var lines = [];
 
-    for (var i = 0; i < 5; i++) {
-      var p = trimText(lines[i]);
-      if (!p) {
-        out.reason = "paragraph " + (i + 1) + " is empty.";
-        return out;
-      }
-
-      var sc = countSentences(p);
-      if (sc < 1 || sc > 2) {
-        out.reason = "paragraph " + (i + 1) + " must be 1–2 sentences.";
-        return out;
-      }
-
-      var segs = p.split(/[.!?]+/g);
-      for (var j = 0; j < segs.length; j++) {
-        var seg = trimText(segs[j]);
-        if (!seg) continue;
-        if (seg.length > 240) {
-          out.reason = "a sentence in paragraph " + (i + 1) + " exceeds the 240 character limit.";
-          return out;
+      if (asArray(sig.issues).length) {
+        var issues = asArray(sig.issues).slice(0, 3);
+        for (var j = 0; j < issues.length; j++) {
+          var it = safeObj(issues[j]);
+          if (isNonEmptyString(it.title)) lines.push(it.title);
+        }
+      } else if (asArray(sig.deductions).length) {
+        var deds = asArray(sig.deductions).slice(0, 3);
+        for (var k = 0; k < deds.length; k++) {
+          var d = safeObj(deds[k]);
+          if (isNonEmptyString(d.reason)) lines.push(d.reason);
         }
       }
 
-      var pLower = p.toLowerCase();
-      for (var k = 0; k < forbidden.length; k++) {
-        var f = String(forbidden[k]);
-        var fLower = f.toLowerCase();
-        if (pLower.indexOf(fLower) !== -1) {
-          out.reason = "contains forbidden term: \"" + f + "\".";
-          return out;
-        }
-      }
+      if (!lines.length) lines.push("No major issues flagged in this area.");
+
+      html +=
+        '<div class="signal-card">' +
+        '<div class="signal-head">' +
+        "<div>" +
+        '<div class="signal-label">' + (sig.label || sig.id || "Signal") + "</div>" +
+        "</div>" +
+        badge(sig.score) +
+        "</div>" +
+        '<div class="signal-body">' +
+        "<ul>" +
+        lines.map(function (x) { return "<li>" + String(x) + "</li>"; }).join("") +
+        "</ul>" +
+        "</div>" +
+        "</div>";
     }
 
-    if (String(lines[1]).toLowerCase().indexOf("desktop") === -1) {
-      out.reason = "paragraph 2 must explicitly reference desktop behaviour.";
-      return out;
-    }
-    if (String(lines[2]).toLowerCase().indexOf("mobile") === -1) {
-      out.reason = "paragraph 3 must explicitly reference mobile behaviour.";
-      return out;
-    }
-
-    var p4 = String(lines[3]).toLowerCase();
-    var hasConstraintAnchor =
-      p4.indexOf("script") !== -1 ||
-      p4.indexOf("javascript") !== -1 ||
-      p4.indexOf("browser") !== -1 ||
-      p4.indexOf("render") !== -1 ||
-      p4.indexOf("asset") !== -1 ||
-      p4.indexOf("execution") !== -1 ||
-      p4.indexOf("layout") !== -1 ||
-      p4.indexOf("shift") !== -1;
-    if (!hasConstraintAnchor) {
-      out.reason = "paragraph 4 must name a single dominant technical constraint.";
-      return out;
-    }
-
-    var p5 = String(lines[4]).toLowerCase();
-    var hasTrustAnchor =
-      p5.indexOf("trust") !== -1 ||
-      p5.indexOf("security") !== -1 ||
-      p5.indexOf("header") !== -1 ||
-      p5.indexOf("hsts") !== -1 ||
-      p5.indexOf("policy") !== -1;
-    if (!hasTrustAnchor) {
-      out.reason = "paragraph 5 must describe a trust/risk posture signal.";
-      return out;
-    }
-
-    out.ok = true;
-    out.reason = "";
-    return out;
+    container.innerHTML = html;
   }
 
   function renderExecutiveNarrative(narrative) {
-    var box = $("narrativeText");
-    if (!box) return;
-
     narrative = safeObj(narrative);
 
-    var overallLines = safeObj(narrative.overall);
-    var lines = asArray(overallLines.lines).filter(function (v) {
-      return trimText(v);
-    });
+    var text = "";
+    if (isNonEmptyString(narrative.executive_lead)) {
+      text = narrative.executive_lead;
+    } else {
+      var lines = asArray(narrative?.overall?.lines).filter(Boolean);
+      text = lines.join("\n");
+    }
 
-    var v = validateNarrativeContract(lines);
-    if (!v.ok) {
-      box.innerHTML =
-        "<p>Executive Narrative unavailable.</p>" +
-        "<p class='muted'>Reason: " + escapeHtml(v.reason) + "</p>";
+    if (!text) text = "Narrative is still being generated for this report.";
+
+    var parts = String(text).split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    var html = parts.map(function (p) { return "<p>" + p + "</p>"; }).join("");
+    setHTML("executiveNarrative", html);
+  }
+
+  function renderFixFirst(narrative) {
+    narrative = safeObj(narrative);
+    var ff = safeObj(narrative.fix_first);
+
+    if (!ff || typeof ff !== "object") {
+      setText("fixFirstTitle", "");
+      setHTML("fixFirstWhy", "");
+      setHTML("fixFirstDeprioritise", "");
+      setHTML("fixFirstOutcome", "");
       return;
     }
 
-    var out = "";
-    for (var i = 0; i < lines.length; i++) {
-      out += "<p>" + escapeHtml(trimText(lines[i])) + "</p>";
-    }
-    box.innerHTML = out;
+    setText("fixFirstTitle", ff.fix_first || "");
+
+    var why = asArray(ff.why).map(function (x) { return "<li>" + String(x) + "</li>"; }).join("");
+    var dep = asArray(ff.deprioritise).map(function (x) { return "<li>" + String(x) + "</li>"; }).join("");
+    var out = asArray(ff.expected_outcome).map(function (x) { return "<li>" + String(x) + "</li>"; }).join("");
+
+    setHTML("fixFirstWhy", "<ul>" + why + "</ul>");
+    setHTML("fixFirstDeprioritise", "<ul>" + dep + "</ul>");
+    setHTML("fixFirstOutcome", "<ul>" + out + "</ul>");
   }
 
-  // -----------------------------
-  // Render: Delivery cards
-  // -----------------------------
-  function findSignal(deliverySignals, id) {
-    var arr = asArray(deliverySignals);
-    for (var i = 0; i < arr.length; i++) {
-      if (arr[i] && arr[i].id === id) return arr[i];
-    }
-    return null;
-  }
-
-  function renderPSICard(which, psiObj) {
-    psiObj = safeObj(psiObj);
-    var facts = safeObj(psiObj.facts);
-
-    var pill = $(which === "mobile" ? "psiMobilePill" : "psiDesktopPill");
-    var bar = $(which === "mobile" ? "psiMobileBar" : "psiDesktopBar");
-    var summary = $(which === "mobile" ? "psiMobileSummary" : "psiDesktopSummary");
-
-    var hasData = facts && (isFinite(Number(facts.LCP_ms)) || isFinite(Number(facts.FCP_ms)) || isFinite(Number(facts.CLS)));
-    if (!hasData) {
-      if (pill) pill.textContent = "—";
-      setBar(bar, 0);
-      if (summary) summary.textContent = "Not available yet.";
-      return;
-    }
-
-    if (pill) pill.textContent = "OK";
-    setBar(bar, 100);
-
-    var lcp = isFinite(Number(facts.LCP_ms)) ? ("LCP " + msToS(facts.LCP_ms)) : null;
-    var cls = isFinite(Number(facts.CLS)) ? ("CLS " + fmtNum(facts.CLS, 3)) : null;
-    var tbt = isFinite(Number(facts.TBT_ms)) ? ("TBT " + fmtNum(facts.TBT_ms, 0) + "ms") : null;
-    var ttfb = isFinite(Number(facts.TTFB_ms)) ? ("TTFB " + fmtNum(facts.TTFB_ms, 0) + "ms") : null;
-
-    var bits = [lcp, cls, tbt, ttfb].filter(Boolean);
-    if (summary) summary.textContent = bits.length ? bits.join(" • ") : "PSI data captured.";
-  }
-
-  function renderHTMLDeliveryCard(basic, deliverySignals) {
-    basic = safeObj(basic);
-    var pill = $("htmlDeliveryPill");
-    var bar = $("htmlDeliveryBar");
-    var summary = $("htmlDeliverySummary");
-
-    var htmlBytes = basic.html_bytes;
-    var inlineScripts = basic.inline_script_count;
-
-    var perf = findSignal(deliverySignals, "performance");
-    if (perf && perf.evidence) {
-      if (isFinite(Number(perf.evidence.html_bytes))) htmlBytes = perf.evidence.html_bytes;
-      if (isFinite(Number(perf.evidence.inline_script_count))) inlineScripts = perf.evidence.inline_script_count;
-    }
-
-    var ok = isFinite(Number(htmlBytes)) || isFinite(Number(inlineScripts));
-    if (!ok) {
-      if (pill) pill.textContent = "—";
-      setBar(bar, 0);
-      if (summary) summary.textContent = "Not available yet.";
-      return;
-    }
-
-    if (pill) pill.textContent = "OK";
-    setBar(bar, 100);
-
-    var bits = [];
-    if (isFinite(Number(htmlBytes))) bits.push("HTML " + fmtNum(htmlBytes, 0) + " bytes");
-    if (isFinite(Number(inlineScripts))) bits.push("Inline scripts " + fmtNum(inlineScripts, 0));
-    if (summary) summary.textContent = bits.join(" • ");
-  }
-
-  function renderCategoryCard(signalId, scores, explanations) {
-    scores = safeObj(scores);
-    explanations = safeObj(explanations);
-
-    var scoreEl = $("score-" + signalId);
-    var barEl = $("bar-" + signalId);
-    var sumEl = $("summary-" + signalId);
-
-    var score = scores[signalId];
-    if (scoreEl) scoreEl.textContent = isFinite(Number(score)) ? (String(score) + "/100") : "—";
-    setBar(barEl, score);
-
-    var expl = explanations[signalId];
-    if (sumEl) sumEl.textContent = expl ? String(expl) : "—";
-  }
-
-  function renderSignalsGrid(data) {
+  function renderReport(data) {
     data = safeObj(data);
 
-    var psi = safeObj(data.psi);
-    var enabled = psi.enabled === true && psi.pending !== true;
+    renderHeader(data.header);
+    renderScores(data.scores);
+    renderSummary(data.overall_summary);
 
-    if (!enabled) {
-      renderPSICard("mobile", null);
-      renderPSICard("desktop", null);
-    } else {
-      renderPSICard("mobile", safeObj(psi.mobile));
-      renderPSICard("desktop", safeObj(psi.desktop));
-    }
+    renderPSI(data.psi);
+    renderDeliverySignals(data.delivery_signals);
 
-    renderHTMLDeliveryCard(safeObj(data.basic_checks), asArray(data.delivery_signals));
-
-    renderCategoryCard("performance", safeObj(data.scores), safeObj(data.explanations));
-    renderCategoryCard("mobile", safeObj(data.scores), safeObj(data.explanations));
-    renderCategoryCard("seo", safeObj(data.scores), safeObj(data.explanations));
-    renderCategoryCard("structure", safeObj(data.scores), safeObj(data.explanations));
-    renderCategoryCard("security", safeObj(data.scores), safeObj(data.explanations));
-    renderCategoryCard("accessibility", safeObj(data.scores), safeObj(data.explanations));
+    renderExecutiveNarrative(data.narrative);
+    renderFixFirst(data.narrative);
   }
 
   // -----------------------------
-  // Main
+  // Boot: polling flow
   // -----------------------------
-  function showLoader(on) {
-    var loader = $("loaderSection");
-    var root = $("reportRoot");
-    if (loader) loader.style.display = on ? "block" : "none";
-    if (root) root.style.display = on ? "none" : "block";
-  }
+  async function boot() {
+    try {
+      var reportId = getReportIdFromUrl();
+      if (!reportId) {
+        showLoader(false);
+        showFatal("Missing report_id in URL.");
+        return;
+      }
 
-  function boot() {
-    var reportId = getQueryParam("report_id") || getQueryParam("id");
-    if (!reportId) {
+      showLoader(true);
+      setLoaderStatus("Building report…");
+
+      // Poll until metrics are present and narrative is generated.
+      var data = await pollUntilReady(reportId, { maxMs: 10 * 60 * 1000, intervalMs: 1500 });
+
+      showFatal("");
+      renderReport(data);
+
       showLoader(false);
-      var nt = $("narrativeText");
-      if (nt) nt.innerHTML = "<p>Missing report_id.</p>";
-      return;
+    } catch (e) {
+      console.error(e);
+      showLoader(false);
+      showFatal(
+        "Report is still being built. Please refresh in a moment. " +
+          (e && e.message ? e.message : "")
+      );
     }
-
-    showLoader(true);
-
-    fetchReportData(reportId)
-      .then(function (res) {
-        if (!res || res.success !== true) throw new Error((res && res.error) || "Unable to load report.");
-
-        var header = safeObj(res.header);
-        var basic = safeObj(res.basic_checks);
-
-        renderHeader(header, basic, reportId);
-        renderOverall(safeObj(res.scores));
-        renderSignalsGrid(res);
-
-        renderExecutiveNarrative(safeObj(res.narrative));
-
-        showLoader(false);
-
-        // If narrative missing, generate it once (unless regen=0 explicitly)
-        var n = safeObj(res.narrative);
-        var hasOverall = n && n.overall && Array.isArray(n.overall.lines) && n.overall.lines.length > 0;
-        if (!hasOverall && getQueryParam("regen") !== "0") {
-          return generateNarrative(reportId).then(function () {
-            return fetchReportData(reportId).then(function (res2) {
-              if (res2 && res2.success === true) {
-                renderExecutiveNarrative(safeObj(res2.narrative));
-              }
-            });
-          });
-        }
-      })
-      .catch(function (err) {
-        showLoader(false);
-        var nt = $("narrativeText");
-        if (nt) nt.innerHTML = "<p>Unable to load report.</p><p class='muted'>" + escapeHtml(err && err.message) + "</p>";
-      });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
+  document.addEventListener("DOMContentLoaded", function () {
     boot();
-  }
+  });
 })();
