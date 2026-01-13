@@ -1011,7 +1011,32 @@ function enforceConstraints(n, facts, constraints) {
       return `Address the top baseline signals first, then re-scan to confirm the constraint has cleared.`;
     })();
 
-    const lines = [L1, L2, L3, L4].map(cleanLine).filter(Boolean).slice(0, 4);
+    const L5 = (function () {
+  // Paragraph 5 = ordering + re-scan closure, anchored to this site
+  const title = String(u?.site_id?.title_text || "");
+  const host = String(u?.site_id?.host || facts.host || "");
+
+  // Prefer an explicit next anchor if available (SEO/Trust)
+  const next = anchorPool.find((a) =>
+    a && a.text && (a.key === "canonical_missing" || a.key === "h1_missing" || a.key === "hsts_missing")
+  );
+
+  if (next && next.text) {
+    return `Once the primary baseline gap is cleared, the next clean win is: ${next.text.replace(/\.$/, "")}.`;
+  }
+
+  if (title) {
+    return `After stabilising the baseline signals, re-check how "${title}" is interpreted on mobile and by crawlers.`;
+  }
+
+  return `After stabilising the baseline signals, re-scan ${host || "the site"} to confirm the constraint has cleared.`;
+})();
+
+const lines = [L1, L2, L3, L4, L5]
+  .map(cleanLine)
+  .filter(Boolean)
+  .slice(0, 5);
+
 
     // Final guard: if somehow generic, inject a hard anchor
     const v = validateExecutiveSpecificity(lines, facts);
@@ -1180,12 +1205,14 @@ function enforceConstraints(n, facts, constraints) {
     const pool = buildAnchorPool(facts);
     const hard = pickDeterministic(pool, facts.url || facts.report_id || "hard", 2);
     const host = String(u?.site_id?.host || facts.host || "");
-    out.overall.lines = [
-      cleanLine(`On ${host || "this site"}, baseline findings are specific and observable.`),
-      cleanLine(hard[0] && hard[0].text ? hard[0].text : "A baseline signal is missing."),
-      cleanLine(hard[1] && hard[1].text ? hard[1].text : "A second baseline signal is missing."),
-      cleanLine("Address these first, then re-scan to confirm the constraint has cleared."),
-    ].filter(Boolean).slice(0, 4);
+out.overall.lines = [
+  cleanLine(`On ${host || "this site"}, baseline findings are specific and observable.`),
+  cleanLine(hard[0] && hard[0].text ? hard[0].text : "A baseline signal is missing."),
+  cleanLine(hard[1] && hard[1].text ? hard[1].text : "A second baseline signal is missing."),
+  cleanLine("Clear the top baseline gap first, then re-check mobile and crawler interpretation."),
+  cleanLine("Re-scan after changes to confirm the primary constraint has cleared."),
+].filter(Boolean).slice(0, 5);
+
     out._status = "ok_fallback_executive";
   }
 

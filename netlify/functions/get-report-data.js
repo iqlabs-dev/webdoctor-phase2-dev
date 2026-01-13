@@ -169,26 +169,20 @@ function normaliseSignal(sig) {
 
 // -----------------------------
 // Narrative normaliser (v5.2 -> UI-compatible)
-// - Your UI currently expects narrative.executive_lead (string)
-// - v5.2 generator produces narrative.overall.lines (array)
 // -----------------------------
 function normaliseNarrativeForUI(raw) {
-  // Preserve nulls (don’t convert to {})
   if (!raw || typeof raw !== "object") return null;
 
-  // If already old-shape, keep as-is
   if (isNonEmptyString(raw.executive_lead)) return raw;
 
-  // If v5.2 shape, map overall.lines -> executive_lead
   const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
   if (overallLines.length) {
     return {
       ...raw,
-      executive_lead: overallLines.slice(0, 5).join("\n"), // respects your max line constraints
+      executive_lead: overallLines.slice(0, 5).join("\n"),
     };
   }
 
-  // Otherwise return as-is (may still be useful for debugging)
   return raw;
 }
 
@@ -209,9 +203,6 @@ export async function handler(event) {
 
     const byNumericId = isNumericString(reportParam);
 
-    // IMPORTANT:
-    // - Do NOT use .single() here, because it errors on 0 rows AND on duplicate report_id rows.
-    // - Instead: fetch array, order desc, take first.
     let q = supabase
       .from("scan_results")
       .select("id, report_id, url, created_at, metrics, score_overall, narrative")
@@ -228,7 +219,7 @@ export async function handler(event) {
         error: "Supabase query failed",
         detail: scanErr.message || String(scanErr),
         hint:
-          "If this suddenly started after deploy, check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
+          "Check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
       });
     }
 
@@ -258,45 +249,10 @@ export async function handler(event) {
 
     const overall_summary = overallSummaryFromScore(scores.overall);
 
-    const bc = safeObj(metrics.basic_checks);
-    const sh = safeObj(metrics.security_headers);
-
-    const key_metrics = {
-      http: {
-        status: bc.http_status ?? null,
-        content_type: bc.content_type ?? null,
-        final_url: scan.url ?? null,
-      },
-      page: {
-        title_present: bc.title_present ?? null,
-        canonical_present: bc.canonical_present ?? null,
-        h1_present: bc.h1_present ?? null,
-        viewport_present: bc.viewport_present ?? null,
-      },
-      content: {
-        html_bytes: bc.html_bytes ?? null,
-        img_count: bc.img_count ?? null,
-        img_alt_count: bc.img_alt_count ?? null,
-      },
-      freshness: safeObj(bc.freshness_signals),
-      security: {
-        https: sh.https ?? null,
-        hsts_present: sh.hsts ?? null,
-        csp_present: sh.content_security_policy ?? null,
-        x_frame_options_present: sh.x_frame_options ?? null,
-        x_content_type_options_present: sh.x_content_type_options ?? null,
-        referrer_policy_present: sh.referrer_policy ?? null,
-        permissions_policy_present: sh.permissions_policy ?? null,
-      },
-    };
-
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
     let narrative = normaliseNarrativeForUI(scan.narrative);
-
-    // Attach deterministic overall summary so UI + PDF use the same source
     if (narrative && typeof narrative === "object") {
       narrative.overall_summary = narrative.overall_summary || overall_summary;
     }
@@ -310,8 +266,14 @@ export async function handler(event) {
       },
       scores,
       overall_summary,
+
+      // ✅ These are what report-data.js expects for PSI + HTML/Delivery + summaries
+      basic_checks: safeObj(metrics.basic_checks),
+      security_headers: safeObj(metrics.security_headers),
+      explanations: safeObj(metrics.explanations),
+      psi: safeObj(metrics.psi),
+
       delivery_signals,
-      key_metrics,
       findings,
       fix_plan,
       narrative,
