@@ -1,230 +1,283 @@
 // /assets/js/report-data.js
+// Renderer + polling handoff hooks for report.html (v5.2 UI)
 
-/* -------------------------------------------------- */
-/* Tiny DOM helpers                                   */
-/* -------------------------------------------------- */
-function $(id) {
-  return document.getElementById(id);
-}
+(function () {
+  "use strict";
 
-function showLoader(on) {
-  const loader = $("loaderSection");
-  const root = $("reportRoot");
-  if (!loader || !root) return;
-
-  loader.style.display = on ? "block" : "none";
-  root.style.display = on ? "none" : "block";
-}
-
-function setLoaderText(text) {
-  const el = $("loaderText");
-  if (el) el.textContent = String(text || "");
-}
-
-function showError(msg) {
-  const el = $("errorBox");
-  if (!el) return;
-  el.style.display = "block";
-  el.textContent = String(msg || "Unknown error");
-}
-
-function clearError() {
-  const el = $("errorBox");
-  if (!el) return;
-  el.style.display = "none";
-  el.textContent = "";
-}
-
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function getQueryParam(name) {
-  const u = new URL(window.location.href);
-  return u.searchParams.get(name);
-}
-
-/* -------------------------------------------------- */
-/* Fetch helpers                                      */
-/* -------------------------------------------------- */
-async function fetchJson(url, opts) {
-  const r = await fetch(url, opts);
-  const text = await r.text();
-  let data = null;
-  try {
-    data = JSON.parse(text);
-  } catch (_) {
-    data = { success: false, error: "Non-JSON response", raw: text };
+  /* -----------------------------
+     Tiny DOM helpers
+  ----------------------------- */
+  function $(id) {
+    return document.getElementById(id);
   }
 
-  if (!r.ok) {
-    const msg = data?.error || data?.detail || `HTTP ${r.status}`;
-    throw new Error(msg);
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
+  }
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
   }
 
-  return data;
-}
-
-async function fetchReportData(reportId) {
-  const url = `/.netlify/functions/get-report-data?report_id=${encodeURIComponent(
-    reportId
-  )}`;
-  return fetchJson(url);
-}
-
-async function generateNarrative(reportId) {
-  return fetchJson("/.netlify/functions/generate-narrative", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ report_id: reportId }),
-  });
-}
-
-/* -------------------------------------------------- */
-/* Rendering (minimal – uses your existing DOM)        */
-/* -------------------------------------------------- */
-function safeObj(v) {
-  return v && typeof v === "object" ? v : {};
-}
-function asArray(v) {
-  return Array.isArray(v) ? v : [];
-}
-
-function renderHeader(res) {
-  const h = safeObj(res.header);
-  const website = $("hdrWebsite");
-  const rid = $("hdrReportId");
-  const created = $("hdrCreated");
-
-  if (website) website.textContent = h.website || "";
-  if (rid) rid.textContent = h.report_id || "";
-  if (created) created.textContent = h.created_at || "";
-}
-
-function renderScores(res) {
-  const s = safeObj(res.scores);
-  const set = (id, v) => {
+  function setText(id, value) {
     const el = $(id);
-    if (el) el.textContent = String(v ?? "");
+    if (el) el.textContent = value == null ? "" : String(value);
+  }
+
+  function setWidth(id, pct) {
+    const el = $(id);
+    if (!el) return;
+    const n = Number(pct);
+    if (!Number.isFinite(n)) return;
+    el.style.width = Math.max(0, Math.min(100, n)) + "%";
+  }
+
+  function showLoader(on) {
+    const loader = $("loaderSection");
+    const root = $("reportRoot");
+    if (loader) loader.style.display = on ? "flex" : "none";
+    if (root) root.style.display = on ? "none" : "block";
+  }
+
+  function setLoaderStatus(text) {
+    const el = $("loaderStatus");
+    if (el) el.textContent = String(text || "");
+  }
+
+  function getQueryParam(name) {
+    try {
+      return new URL(window.location.href).searchParams.get(name);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  /* -----------------------------
+     Rendering
+  ----------------------------- */
+  function renderHeader(res) {
+    const h = safeObj(res.header);
+
+    const siteUrl = $("siteUrl");
+    if (siteUrl) {
+      const url = h.website || "—";
+      siteUrl.textContent = url;
+      siteUrl.href = h.website || "#";
+    }
+
+    setText("reportId", h.report_id || "—");
+    setText("reportDate", h.created_at ? String(h.created_at).slice(0, 10) : "—");
+  }
+
+  function renderOverall(res) {
+    const scores = safeObj(res.scores);
+    const overall = Number(scores.overall);
+
+    setText("overallPill", Number.isFinite(overall) ? overall : "—");
+    setWidth("overallBar", Number.isFinite(overall) ? overall : 0);
+
+    const note = res.overall_summary || "";
+    setText("overallNote", note);
+  }
+
+  function renderSignalCards(res) {
+    const scores = safeObj(res.scores);
+    const explanations = safeObj(res.explanations);
+
+    // These IDs exist in your HTML for the 6 core signal cards
+    const map = [
+      ["performance", "score-performance", "bar-performance", "summary-performance"],
+      ["mobile", "score-mobile", "bar-mobile", "summary-mobile"],
+      ["seo", "score-seo", "bar-seo", "summary-seo"],
+      ["structure", "score-structure", "bar-structure", "summary-structure"],
+      ["security", "score-security", "bar-security", "summary-security"],
+      ["accessibility", "score-accessibility", "bar-accessibility", "summary-accessibility"],
+    ];
+
+    map.forEach(([key, scoreId, barId, summaryId]) => {
+      const v = Number(scores[key]);
+      setText(scoreId, Number.isFinite(v) ? v : "—");
+      setWidth(barId, Number.isFinite(v) ? v : 0);
+      setText(summaryId, explanations[key] || "—");
+    });
+  }
+
+  function renderPSIAnchors(res) {
+    const psi = safeObj(res.psi);
+    const mobile = safeObj(psi.mobile);
+    const desktop = safeObj(psi.desktop);
+
+    // We don’t have PSI “scores” in your payload, so show a concise status + key facts.
+    function fmtFacts(facts) {
+      const f = safeObj(facts);
+      const parts = [];
+      if (Number.isFinite(Number(f.LCP_ms))) parts.push("LCP " + Math.round(Number(f.LCP_ms)) + "ms");
+      if (Number.isFinite(Number(f.TTFB_ms))) parts.push("TTFB " + Math.round(Number(f.TTFB_ms)) + "ms");
+      if (Number.isFinite(Number(f.CLS))) parts.push("CLS " + Number(f.CLS).toFixed(3));
+      return parts.length ? parts.join(" · ") : "Not available yet.";
+    }
+
+    const mobileReady = !!mobile.facts;
+    const desktopReady = !!desktop.facts;
+
+    setText("psiMobilePill", mobileReady ? "READY" : "—");
+    setWidth("psiMobileBar", mobileReady ? 100 : 0);
+    setText("psiMobileSummary", mobileReady ? fmtFacts(mobile.facts) : "Not available yet.");
+
+    setText("psiDesktopPill", desktopReady ? "READY" : "—");
+    setWidth("psiDesktopBar", desktopReady ? 100 : 0);
+    setText("psiDesktopSummary", desktopReady ? fmtFacts(desktop.facts) : "Not available yet.");
+  }
+
+  function renderHtmlAnchor(res) {
+    const bc = safeObj(res.basic_checks);
+
+    // Simple heuristic score for the “HTML / Delivery” anchor (not your main scoring model)
+    // This is just to populate the UI card so it doesn’t look empty.
+    let score = null;
+    if (Number.isFinite(Number(bc.html_bytes))) {
+      const bytes = Number(bc.html_bytes);
+      // 0..200KB -> 100..0 rough curve
+      score = Math.max(0, Math.min(100, Math.round(100 - (bytes / 200000) * 100)));
+    }
+
+    setText("htmlPill", score == null ? "—" : score);
+    setWidth("htmlBar", score == null ? 0 : score);
+
+    const bits = [];
+    if (Number.isFinite(Number(bc.html_bytes))) bits.push("HTML " + Number(bc.html_bytes).toLocaleString() + " bytes");
+    if (Number.isFinite(Number(bc.inline_script_count))) bits.push("Inline scripts " + Number(bc.inline_script_count));
+    if (typeof bc.http_status === "number") bits.push("HTTP " + bc.http_status);
+    setText("htmlSummary", bits.length ? bits.join(" · ") : "Not available yet.");
+  }
+
+  function renderNarrative(res) {
+    const n = safeObj(res.narrative);
+
+    // Your API sometimes returns narrative.overall.lines; sometimes just overall_summary.
+    const lines = asArray(n?.overall?.lines).filter((l) => typeof l === "string" && l.trim().length);
+
+    const narrativeBox = $("narrativeText");
+    if (!narrativeBox) return;
+
+    if (lines.length) {
+      narrativeBox.textContent = lines.join("\n");
+    } else if (typeof n.overall_summary === "string" && n.overall_summary.trim()) {
+      narrativeBox.textContent = n.overall_summary.trim();
+    } else {
+      narrativeBox.innerHTML =
+        "<div class='muted' style='font-size:12px;'>Narrative is still generating…</div>";
+    }
+  }
+
+  function renderAll(res) {
+    renderHeader(res);
+    renderOverall(res);
+    renderSignalCards(res);
+    renderPSIAnchors(res);
+    renderHtmlAnchor(res);
+    renderNarrative(res);
+  }
+
+  /* -----------------------------
+     Network helpers (only used when NOT polling)
+  ----------------------------- */
+  async function fetchJson(url, opts) {
+    const r = await fetch(url, opts);
+    const text = await r.text();
+    let data = null;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      data = { success: false, error: "Non-JSON response", raw: text };
+    }
+    if (!r.ok) {
+      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
+    }
+    return data;
+  }
+
+  function fetchReportData(reportId) {
+    const url =
+      "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId);
+    return fetchJson(url, { cache: "no-store" });
+  }
+
+  /* -----------------------------
+     ✅ Globals expected by report-polling.js
+  ----------------------------- */
+  window.IQWEB_showLoader = showLoader;
+
+  window.IQWEB_handleReportData = function (reportId, payload) {
+    if (!payload || payload.success !== true) {
+      showLoader(false);
+
+      const msg =
+        (payload && (payload.error || payload.detail)) ||
+        "Unable to load report data.";
+      const nt = $("narrativeText");
+      if (nt) {
+        nt.innerHTML =
+          "<p>Unable to load report.</p><p class='muted'>" + escapeHtml(msg) + "</p>";
+      }
+      return;
+    }
+
+    // ✅ Core payload exists → render immediately, hide loader
+    renderAll(payload);
+    showLoader(false);
   };
 
-  set("scoreOverall", s.overall);
-  set("scorePerformance", s.performance);
-  set("scoreMobile", s.mobile);
-  set("scoreSEO", s.seo);
-  set("scoreSecurity", s.security);
-  set("scoreStructure", s.structure);
-  set("scoreAccessibility", s.accessibility);
-}
-
-function renderSummary(res) {
-  const el = $("overallSummary");
-  if (el) el.textContent = res.overall_summary || "";
-}
-
-function renderPSI(res) {
-  // If you already have PSI rendering logic elsewhere, keep it.
-  // This stub just confirms data exists.
-  const el = $("psiStatus");
-  const psi = safeObj(res.psi);
-  if (el) el.textContent = psi?.enabled === false ? "PSI disabled" : "PSI ready";
-}
-
-function renderSignalsGrid(res) {
-  // If you already have a signal renderer, keep it.
-  // This stub shows count only.
-  const el = $("signalsCount");
-  const signals = asArray(res.delivery_signals);
-  if (el) el.textContent = `${signals.length} signals`;
-}
-
-function renderExecutiveNarrative(res) {
-  const box = $("executiveNarrative");
-  if (!box) return;
-
-  const n = safeObj(res.narrative);
-  const lines = asArray(n?.overall?.lines).filter(Boolean);
-
-  if (lines.length) {
-    box.textContent = lines.join("\n");
-    return;
-  }
-
-  // Narrative not ready yet (but report IS ready)
-  box.textContent = "Narrative is still generating…";
-}
-
-/* -------------------------------------------------- */
-/* Boot                                                */
-/* -------------------------------------------------- */
-function boot() {
-  const reportId = getQueryParam("report_id") || getQueryParam("id");
-
-  if (!reportId) {
-    showLoader(false);
-    showError("Missing report_id in the URL.");
-    return;
-  }
-
-  showLoader(true);
-  clearError();
-  setLoaderText("Building report…");
-
-  (async () => {
-    try {
-      const res = await fetchReportData(reportId);
-
-      if (!res?.success) {
-        throw new Error(res?.error || "Unable to load report data.");
-      }
-
-      // ✅ Render immediately when core data is present
-      renderHeader(res);
-      renderScores(res);
-      renderSummary(res);
-      renderPSI(res);
-      renderSignalsGrid(res);
-      renderExecutiveNarrative(res);
-
-      // ✅ IMPORTANT: never block UI on narrative
+  /* -----------------------------
+     Boot
+  ----------------------------- */
+  function boot() {
+    const reportId = getQueryParam("report_id") || getQueryParam("id");
+    if (!reportId) {
       showLoader(false);
-
-      // If narrative missing, trigger generation + poll quietly
-      const hasOverallLines =
-        Array.isArray(res?.narrative?.overall?.lines) &&
-        res.narrative.overall.lines.length > 0;
-
-      if (!hasOverallLines && getQueryParam("regen") !== "0") {
-        setLoaderText("Building narrative…");
-
-        try {
-          await generateNarrative(reportId);
-        } catch (e) {
-          // Non-fatal
-          console.warn("[narrative] generate failed:", e);
-        }
-
-        // Poll up to ~90s
-        for (let i = 0; i < 60; i++) {
-          await sleep(1500);
-          const next = await fetchReportData(reportId);
-          const ok =
-            next?.success &&
-            Array.isArray(next?.narrative?.overall?.lines) &&
-            next.narrative.overall.lines.length > 0;
-
-          if (ok) {
-            renderExecutiveNarrative(next);
-            break;
-          }
-        }
-      }
-    } catch (err) {
-      console.error("[report] boot error:", err);
-      showLoader(false);
-      showError(err?.message || String(err));
+      const nt = $("narrativeText");
+      if (nt) nt.innerHTML = "<p>Missing report_id in URL.</p>";
+      return;
     }
-  })();
-}
 
-boot();
+    // If polling is enabled, do nothing here.
+    if (window.IQWEB_USE_POLLING === true) {
+      showLoader(true);
+      setLoaderStatus("Building Report…");
+      return;
+    }
+
+    // Non-polling mode: fetch once and render.
+    showLoader(true);
+    setLoaderStatus("Building Report…");
+
+    fetchReportData(reportId)
+      .then(function (res) {
+        window.IQWEB_handleReportData(reportId, res);
+      })
+      .catch(function (err) {
+        showLoader(false);
+        const nt = $("narrativeText");
+        if (nt) {
+          nt.innerHTML =
+            "<p>Unable to load report.</p><p class='muted'>" +
+            escapeHtml(err && err.message) +
+            "</p>";
+        }
+      });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();

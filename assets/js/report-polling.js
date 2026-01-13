@@ -1,58 +1,102 @@
-// /assets/js/report-polling.js
+/* /assets/js/report-polling.js
+   Polls get-report-data until core metrics exist, then hands off to report-data.js renderer.
+*/
+(function () {
+  "use strict";
 
-const POLL_INTERVAL_MS = 3000;   // 3 seconds
-const MAX_WAIT_MS = 10 * 60 * 1000; // 10 minutes
-
-const qs = new URLSearchParams(location.search);
-const reportId = qs.get("report_id");
-
-if (!reportId) {
-  showFatal("Missing report_id in URL");
-}
-
-const startTime = Date.now();
-
-async function poll() {
-  try {
-    const res = await fetch(`/.netlify/functions/get-report-data?report_id=${reportId}`);
-    const data = await res.json();
-
-    if (!res.ok || !data.success) {
-      throw new Error(data?.error || "Fetch failed");
+  function qs(name) {
+    try {
+      return new URLSearchParams(window.location.search).get(name);
+    } catch (_) {
+      return null;
     }
+  }
 
-    // ✅ REQUIRED: deterministic data must exist
-    const ready =
-      data.psi &&
-      Array.isArray(data.delivery_signals) &&
-      data.delivery_signals.length > 0;
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
 
-    if (!ready) {
-      if (Date.now() - startTime > MAX_WAIT_MS) {
-        showFatal("Report generation timed out. Please retry.");
-        return;
+  function looksReady(payload) {
+    if (!payload || payload.success !== true) return false;
+
+    // Any of these indicates the scan has populated the core report payload.
+    const hasSignals =
+      Array.isArray(payload.delivery_signals) && payload.delivery_signals.length >= 3;
+
+    const hasBasic =
+      payload.basic_checks &&
+      (typeof payload.basic_checks.http_status === "number" ||
+        typeof payload.basic_checks.title_present === "boolean");
+
+    const hasPsi =
+      payload.psi &&
+      payload.psi.enabled === true &&
+      payload.psi.pending === false &&
+      (payload.psi.mobile || payload.psi.desktop);
+
+    return hasSignals || hasBasic || hasPsi;
+  }
+
+  async function poll(reportId) {
+    const url =
+      "/.netlify/functions/get-report-data?report_id=" +
+      encodeURIComponent(reportId);
+
+    let attempt = 0;
+    let waitMs = 1200;
+    const maxWaitMs = 6000;
+    const maxAttempts = 60; // ~3–4 mins worst case with backoff
+
+    while (attempt < maxAttempts) {
+      attempt++;
+
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        const data = await res.json().catch(() => null);
+
+        if (looksReady(data)) return data;
+
+        // If API returned "not found" or hard error, stop early
+        if (data && data.success === false && /not found/i.test(data.error || "")) {
+          return data;
+        }
+      } catch (e) {
+        // ignore and retry
       }
 
-      updateLoader("Waiting for scan data to complete…");
-      setTimeout(poll, POLL_INTERVAL_MS);
-      return;
+      await sleep(waitMs);
+      waitMs = Math.min(maxWaitMs, Math.round(waitMs * 1.25));
     }
 
-    // ✅ We are ready
-    renderReport(data);
+    return { success: false, error: "Timed out waiting for report data." };
+  }
 
-    // Narrative handling (non-blocking)
-    if (!data.narrative) {
-      showNarrativeUnavailable(
-        "Executive narrative unavailable because scan analysis is still processing."
+  async function start() {
+    const reportId = qs("report_id") || qs("id");
+    if (!reportId) return;
+
+    // Tell report-data.js to stay in loader mode until we call it.
+    window.IQWEB_USE_POLLING = true;
+
+    // Ensure loader is visible while we poll.
+    if (typeof window.IQWEB_showLoader === "function") {
+      window.IQWEB_showLoader(true);
+    }
+
+    const payload = await poll(reportId);
+
+    if (typeof window.IQWEB_handleReportData === "function") {
+      window.IQWEB_handleReportData(reportId, payload);
+    } else {
+      console.error(
+        "[report-polling] IQWEB_handleReportData missing. Ensure report-data.js is loaded before report-polling.js."
       );
     }
-
-  } catch (err) {
-    console.error("Polling error:", err);
-    updateLoader("Retrying…");
-    setTimeout(poll, POLL_INTERVAL_MS);
   }
-}
 
-poll();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+})();
