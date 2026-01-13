@@ -149,51 +149,165 @@
   }
 
   // -----------------------------
-  // Render: Executive Narrative (fallback)
+  // Render: Executive Narrative (Contract A + reason)
   // -----------------------------
-  function renderExecutiveNarrative(narrative, basic, scores) {
+  function trimText(s) {
+    return String(s == null ? "" : s).replace(/^\s+|\s+$/g, "");
+  }
+
+  function countSentences(text) {
+    text = trimText(text);
+    if (!text) return 0;
+    // Split on sentence-ending punctuation.
+    // Keep it conservative: we don't try to parse abbreviations.
+    var parts = text.split(/[.!?]+/g);
+    var n = 0;
+    for (var i = 0; i < parts.length; i++) {
+      if (trimText(parts[i])) n++;
+    }
+    return n;
+  }
+
+  function validateNarrativeContract(lines) {
+    // Contract A: all-or-nothing. If any clause fails, suppress entire narrative.
+    // We treat each line as a paragraph.
+    var out = { ok: false, reason: "" };
+
+    // 1) Structural
+    if (!lines || !lines.length) {
+      out.reason = "not generated yet.";
+      return out;
+    }
+    if (lines.length !== 5) {
+      out.reason = "requires exactly 5 paragraphs, but " + lines.length + " were provided.";
+      return out;
+    }
+
+    // 2) Language bans (lightweight enforcement)
+    // We only check the narrative text itself here.
+    var forbidden = [
+      "score",
+      "/100",
+      "lighthouse",
+      "ai",
+      "scan",
+      "tool",
+      "automation",
+      "recommend",
+      "should",
+      "fix",
+      "SEO",
+      "Performance",
+      "Accessibility",
+      "Security",
+      "Mobile",
+      "Structure"
+    ];
+
+    // 3) Per-paragraph checks
+    for (var i = 0; i < 5; i++) {
+      var p = trimText(lines[i]);
+      if (!p) {
+        out.reason = "paragraph " + (i + 1) + " is empty.";
+        return out;
+      }
+
+      // sentence count 1–2
+      var sc = countSentences(p);
+      if (sc < 1 || sc > 2) {
+        out.reason = "paragraph " + (i + 1) + " must be 1–2 sentences.";
+        return out;
+      }
+
+      // sentence char limit check
+      var segs = p.split(/[.!?]+/g);
+      for (var j = 0; j < segs.length; j++) {
+        var seg = trimText(segs[j]);
+        if (!seg) continue;
+        if (seg.length > 240) {
+          out.reason = "a sentence in paragraph " + (i + 1) + " exceeds the 240 character limit.";
+          return out;
+        }
+      }
+
+      // forbidden terms (case-insensitive containment)
+      var pLower = p.toLowerCase();
+      for (var k = 0; k < forbidden.length; k++) {
+        var f = String(forbidden[k]);
+        var fLower = f.toLowerCase();
+        if (pLower.indexOf(fLower) !== -1) {
+          out.reason = "contains forbidden term: \"" + f + "\".";
+          return out;
+        }
+      }
+    }
+
+    // 4) Role checks (light keyword presence)
+    if (String(lines[1]).toLowerCase().indexOf("desktop") === -1) {
+      out.reason = "paragraph 2 must explicitly reference desktop behaviour.";
+      return out;
+    }
+    if (String(lines[2]).toLowerCase().indexOf("mobile") === -1) {
+      out.reason = "paragraph 3 must explicitly reference mobile behaviour.";
+      return out;
+    }
+
+    var p4 = String(lines[3]).toLowerCase();
+    var hasConstraintAnchor =
+      p4.indexOf("script") !== -1 ||
+      p4.indexOf("javascript") !== -1 ||
+      p4.indexOf("browser") !== -1 ||
+      p4.indexOf("render") !== -1 ||
+      p4.indexOf("asset") !== -1 ||
+      p4.indexOf("execution") !== -1 ||
+      p4.indexOf("front") !== -1;
+    if (!hasConstraintAnchor) {
+      out.reason = "paragraph 4 must name a single dominant technical constraint.";
+      return out;
+    }
+
+    var p5 = String(lines[4]).toLowerCase();
+    var hasTrustAnchor =
+      p5.indexOf("trust") !== -1 ||
+      p5.indexOf("security") !== -1 ||
+      p5.indexOf("header") !== -1 ||
+      p5.indexOf("hsts") !== -1 ||
+      p5.indexOf("policy") !== -1;
+    if (!hasTrustAnchor) {
+      out.reason = "paragraph 5 must describe a trust/risk posture signal.";
+      return out;
+    }
+
+    out.ok = true;
+    out.reason = "";
+    return out;
+  }
+
+  function renderExecutiveNarrative(narrative) {
     var box = $("narrativeText");
     if (!box) return;
 
     narrative = safeObj(narrative);
-    basic = safeObj(basic);
-    scores = safeObj(scores);
 
-    // If narrative exists, use it
     var overallLines = safeObj(narrative.overall);
-    var lines = asArray(overallLines.lines).filter(Boolean);
+    var lines = asArray(overallLines.lines).filter(function (v) {
+      return trimText(v);
+    });
 
-    if (lines.length) {
-      var out = "";
-      for (var i = 0; i < lines.length; i++) {
-        out += "<p>" + escapeHtml(lines[i]) + "</p>";
-      }
-      box.innerHTML = out;
+    var v = validateNarrativeContract(lines);
+    if (!v.ok) {
+      // Contract A: suppress entire narrative, but state why.
+      box.innerHTML =
+        "<p>Executive Narrative unavailable.</p>" +
+        "<p class='muted'>Reason: " + escapeHtml(v.reason) + "</p>";
       return;
     }
 
-    // Deterministic fallback (so it never looks “empty”)
-    var htmlKb = isFinite(Number(basic.html_bytes)) ? Math.round(Number(basic.html_bytes) / 1024) : null;
-    var title = basic.title_text ? String(basic.title_text) : null;
-
-    var h1Missing = basic.h1_present === false;
-    var canonicalMissing = basic.canonical_present === false;
-
-    var sOverall = isFinite(Number(scores.overall)) ? Number(scores.overall) : null;
-    var sWeakest = pickWeakest(scores);
-
-    var p1 = "Baseline delivery is " + (sOverall != null && sOverall >= 75 ? "mostly stable" : "inconsistent") + (htmlKb ? " (HTML ~" + htmlKb + " KiB)." : ".");
-    var p2 = title ? 'Page title is "' + title + '".' : "Page title was observed.";
-    var p3 = h1Missing ? "A primary H1 heading was not observed (semantic clarity gap)." : "A primary H1 heading was observed.";
-    var p4 = canonicalMissing ? "Canonical link was not observed (risk of diluted URL signals)." : "Canonical link was observed.";
-    var p5 = sWeakest ? ("Primary constraint to stabilise next: " + sWeakest.label + ".") : "Primary constraint to stabilise next: structure + delivery hygiene.";
-
-    box.innerHTML =
-      "<p>" + escapeHtml(p1) + "</p>" +
-      "<p>" + escapeHtml(p2) + "</p>" +
-      "<p>" + escapeHtml(p3) + "</p>" +
-      "<p>" + escapeHtml(p4) + "</p>" +
-      "<p>" + escapeHtml(p5) + "</p>";
+    var out = "";
+    for (var i = 0; i < lines.length; i++) {
+      out += "<p>" + escapeHtml(trimText(lines[i])) + "</p>";
+    }
+    box.innerHTML = out;
   }
 
   // -----------------------------
@@ -603,7 +717,7 @@
         renderHeader(meta, basic, reportId);
         renderOverall(scores);
         renderSignalsGrid(data);
-        renderExecutiveNarrative(narrative, basic, scores);
+        renderExecutiveNarrative(narrative);
         renderKeyInsightMetrics(scores, deliverySignals);
         renderTopIssues(deliverySignals);
         renderFixSequence(scores, deliverySignals);
@@ -624,7 +738,7 @@
             .then(function (fresh) {
               fresh = safeObj(fresh);
               var n2 = safeObj(fresh.narrative || {});
-              renderExecutiveNarrative(n2, safeObj(fresh.basic_checks), safeObj(fresh.scores));
+              renderExecutiveNarrative(n2);
               renderFixFirst(n2, safeObj(fresh.basic_checks), safeObj(fresh.scores), asArray(fresh.delivery_signals));
             })
             .catch(function () {
@@ -634,7 +748,12 @@
       })
       .catch(function (err) {
         showLoader(false);
-        if ($("narrativeText")) $("narrativeText").innerHTML = "<p>Unable to load report data.</p><p class='muted'>" + escapeHtml(String(err && err.message ? err.message : err)) + "</p>";
+        if ($("narrativeText")) {
+          $("narrativeText").innerHTML =
+            "<p>Unable to load report data.</p><p class='muted'>" +
+            escapeHtml(String(err && err.message ? err.message : err)) +
+            "</p>";
+        }
       });
   }
 
