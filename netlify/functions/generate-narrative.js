@@ -184,7 +184,16 @@ function isMetricsReadyForNarrative(metrics) {
   const deskAud = psi.desktop && psi.desktop.audits;
   const auditsOk = !!mobAud && !!deskAud;
 
-  return scoresOk && basicOk && signalsOk && psiEnabled && psiPendingFalse && mobOk && deskOk && auditsOk;
+  return (
+    scoresOk &&
+    basicOk &&
+    signalsOk &&
+    psiEnabled &&
+    psiPendingFalse &&
+    mobOk &&
+    deskOk &&
+    auditsOk
+  );
 }
 
 /* ============================================================
@@ -193,7 +202,6 @@ function isMetricsReadyForNarrative(metrics) {
 function sentenceCount(s) {
   const t = cleanLine(s);
   if (!t) return 0;
-  // rough sentence split on . ! ? (ignores edge cases but good enough for enforcement)
   const parts = t.split(/[.!?]+/).map((x) => x.trim()).filter(Boolean);
   return parts.length;
 }
@@ -203,7 +211,6 @@ function clampToMax2Sentences(paragraph) {
   if (!p) return "";
   if (sentenceCount(p) <= 2) return p;
 
-  // Keep first 2 sentences
   const matches = p.match(/[^.!?]+[.!?]*/g) || [];
   let out = "";
   let count = 0;
@@ -215,7 +222,6 @@ function clampToMax2Sentences(paragraph) {
     if (count >= 2) break;
   }
   out = cleanLine(out);
-  // ensure ends with punctuation
   if (out && !/[.!?]$/.test(out)) out += ".";
   return out;
 }
@@ -223,10 +229,7 @@ function clampToMax2Sentences(paragraph) {
 function paragraphsToLines(paragraphs) {
   const out = [];
   const ps = asArray(paragraphs).map(cleanLine).filter(Boolean);
-  for (let i = 0; i < ps.length; i++) {
-    // keep each paragraph as a “line” entry too
-    out.push(ps[i]);
-  }
+  for (let i = 0; i < ps.length; i++) out.push(ps[i]);
   return out;
 }
 
@@ -278,7 +281,6 @@ function buildFactsFromScanRow(row) {
     performance: safeObj(metrics.performance),
     seo: safeObj(metrics.seo),
     accessibility: safeObj(metrics.accessibility),
-    // PSI is stored under metrics.psi by your worker
     psi: safeObj(metrics.psi),
   };
 
@@ -313,12 +315,10 @@ function buildFactsFromScanRow(row) {
       accessibility: uniq(signalEvidence.accessibility).slice(0, 12),
     },
     evidence_blocks: evidenceBlocks,
-    // Uniqueness pack is computed later deterministically from evidence_blocks
     uniqueness: null,
   };
 
   facts.uniqueness = buildUniquenessPack(facts);
-
   return facts;
 }
 
@@ -328,7 +328,6 @@ function buildUniquenessPack(facts) {
   const sh = safeObj(eb.security_headers);
   const psi = safeObj(eb.psi);
 
-  // PSI highlights (prefer mobile, then desktop)
   const psiMobileFacts = safeObj(psi.mobile && psi.mobile.facts);
   const psiDesktopFacts = safeObj(psi.desktop && psi.desktop.facts);
   const psiMobileAudits = safeObj(psi.mobile && psi.mobile.audits);
@@ -338,10 +337,12 @@ function buildUniquenessPack(facts) {
   const unusedJsDesktop = safeObj(psiDesktopAudits["unused-javascript"]);
 
   const unusedJsBytes =
-    (typeof unusedJsMobile.overallSavingsBytes === "number" && isFinite(unusedJsMobile.overallSavingsBytes)
+    (typeof unusedJsMobile.overallSavingsBytes === "number" &&
+    isFinite(unusedJsMobile.overallSavingsBytes)
       ? unusedJsMobile.overallSavingsBytes
       : null) ||
-    (typeof unusedJsDesktop.overallSavingsBytes === "number" && isFinite(unusedJsDesktop.overallSavingsBytes)
+    (typeof unusedJsDesktop.overallSavingsBytes === "number" &&
+    isFinite(unusedJsDesktop.overallSavingsBytes)
       ? unusedJsDesktop.overallSavingsBytes
       : null) ||
     null;
@@ -355,17 +356,21 @@ function buildUniquenessPack(facts) {
     },
     html: {
       html_bytes: typeof bc.html_bytes === "number" ? bc.html_bytes : null,
-      inline_script_count: typeof bc.inline_script_count === "number" ? bc.inline_script_count : null,
+      inline_script_count:
+        typeof bc.inline_script_count === "number" ? bc.inline_script_count : null,
     },
     seo_basics: {
       meta_description_present: !!bc.meta_description_present,
-      meta_description_length: typeof bc.meta_description_length === "number" ? bc.meta_description_length : null,
+      meta_description_length:
+        typeof bc.meta_description_length === "number" ? bc.meta_description_length : null,
       canonical_present: !!bc.canonical_present,
       canonical_href: isNonEmptyString(bc.canonical_href) ? String(bc.canonical_href) : "",
       h1_present: !!bc.h1_present,
       h1_count: typeof bc.h1_count === "number" ? bc.h1_count : null,
       robots_meta_present: !!bc.robots_meta_present,
-      robots_meta_content: isNonEmptyString(bc.robots_meta_content) ? String(bc.robots_meta_content) : "",
+      robots_meta_content: isNonEmptyString(bc.robots_meta_content)
+        ? String(bc.robots_meta_content)
+        : "",
       robots_blocks_index: !!bc.robots_blocks_index,
     },
     mobile_basics: {
@@ -375,8 +380,10 @@ function buildUniquenessPack(facts) {
     },
     a11y_basics: {
       html_lang_present: !!bc.html_lang_present,
-      empty_links_detected: typeof bc.empty_links_detected === "number" ? bc.empty_links_detected : null,
-      empty_buttons_detected: typeof bc.empty_buttons_detected === "number" ? bc.empty_buttons_detected : null,
+      empty_links_detected:
+        typeof bc.empty_links_detected === "number" ? bc.empty_links_detected : null,
+      empty_buttons_detected:
+        typeof bc.empty_buttons_detected === "number" ? bc.empty_buttons_detected : null,
       img_count: typeof bc.img_count === "number" ? bc.img_count : null,
       img_alt_ratio: typeof bc.img_alt_ratio === "number" ? bc.img_alt_ratio : null,
     },
@@ -392,11 +399,30 @@ function buildUniquenessPack(facts) {
     psi_highlights: {
       has_mobile: !!psi.mobile,
       has_desktop: !!psi.desktop,
-      // Prefer mobile for user-facing experience
-      LCP_ms: typeof psiMobileFacts.LCP_ms === "number" ? psiMobileFacts.LCP_ms : (typeof psiDesktopFacts.LCP_ms === "number" ? psiDesktopFacts.LCP_ms : null),
-      FCP_ms: typeof psiMobileFacts.FCP_ms === "number" ? psiMobileFacts.FCP_ms : (typeof psiDesktopFacts.FCP_ms === "number" ? psiDesktopFacts.FCP_ms : null),
-      TBT_ms: typeof psiMobileFacts.TBT_ms === "number" ? psiMobileFacts.TBT_ms : (typeof psiDesktopFacts.TBT_ms === "number" ? psiDesktopFacts.TBT_ms : null),
-      CLS: typeof psiMobileFacts.CLS === "number" ? psiMobileFacts.CLS : (typeof psiDesktopFacts.CLS === "number" ? psiDesktopFacts.CLS : null),
+      LCP_ms:
+        typeof psiMobileFacts.LCP_ms === "number"
+          ? psiMobileFacts.LCP_ms
+          : typeof psiDesktopFacts.LCP_ms === "number"
+            ? psiDesktopFacts.LCP_ms
+            : null,
+      FCP_ms:
+        typeof psiMobileFacts.FCP_ms === "number"
+          ? psiMobileFacts.FCP_ms
+          : typeof psiDesktopFacts.FCP_ms === "number"
+            ? psiDesktopFacts.FCP_ms
+            : null,
+      TBT_ms:
+        typeof psiMobileFacts.TBT_ms === "number"
+          ? psiMobileFacts.TBT_ms
+          : typeof psiDesktopFacts.TBT_ms === "number"
+            ? psiDesktopFacts.TBT_ms
+            : null,
+      CLS:
+        typeof psiMobileFacts.CLS === "number"
+          ? psiMobileFacts.CLS
+          : typeof psiDesktopFacts.CLS === "number"
+            ? psiDesktopFacts.CLS
+            : null,
       unused_js_bytes: unusedJsBytes,
     },
   };
@@ -459,7 +485,7 @@ function chooseHierarchy(facts) {
 function allEvidenceText(facts) {
   const out = [];
   const se = safeObj(facts && facts.signal_evidence);
-  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"]; // fixed set
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
 
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i];
@@ -479,7 +505,6 @@ function allEvidenceText(facts) {
     if (d) out.push(d);
   }
 
-  // Add uniqueness pack tokens as searchable evidence
   const u = safeObj(facts && facts.uniqueness);
   try {
     out.push(JSON.stringify(u));
@@ -519,11 +544,9 @@ function applyOverrides(facts, base) {
   const constraints = safeObj(base);
   const texts = allEvidenceText(facts);
 
-  // ---- Override 0: MOBILE foundation blocker (viewport missing -> force MOBILE primary)
   const mobMatchers = ["viewport", "device-width", "mobile inputs missing", "viewport not observable"];
   const mobHits = findMatches(texts, mobMatchers, 5);
 
-  // ---- Override 1: SEO discovery blockers (force SEO primary)
   const seoMatchers = [
     /missing\s*h1/,
     "h1 missing",
@@ -542,11 +565,9 @@ function applyOverrides(facts, base) {
   ];
   const seoHits = findMatches(texts, seoMatchers, 5);
 
-  // ---- Override 2: Layout volatility / CLS (force PERFORMANCE primary, but tag it)
   const clsMatchers = ["layout shift", "cumulative layout shift", "cls", "visual stability"];
   const clsHits = findMatches(texts, clsMatchers, 5);
 
-  // ---- Override 3: Structural invalidity / modern web non-compliance (force STRUCTURE primary)
   const structureMatchers = [
     "doctype",
     "charset",
@@ -561,15 +582,19 @@ function applyOverrides(facts, base) {
   ];
   const structureHits = findMatches(texts, structureMatchers, 5);
 
-  // priority: structural invalidity > mobile blocker > SEO blockers > CLS/layout volatility
   let override = null;
   if (structureHits.length) {
     override = { primary: "structure", tag: "structural_invalidity", evidence: structureHits };
   } else if (mobHits.length) {
-    // Only override to mobile if viewport is actually missing in uniqueness pack
     const u = safeObj(facts && facts.uniqueness);
     const vpMissing = u && u.mobile_basics && u.mobile_basics.viewport_present === false;
-    if (vpMissing) override = { primary: "mobile", tag: "mobile_blocker", evidence: ["Viewport meta tag not observable"] };
+    if (vpMissing) {
+      override = {
+        primary: "mobile",
+        tag: "mobile_blocker",
+        evidence: ["Viewport meta tag not observable"],
+      };
+    }
   } else if (seoHits.length) {
     override = { primary: "seo", tag: "seo_blocker", evidence: seoHits };
   } else if (clsHits.length) {
@@ -578,7 +603,6 @@ function applyOverrides(facts, base) {
 
   if (!override) return constraints;
 
-  // Rebuild secondary using the original ordering preference, but respecting override primary.
   const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
   const se = safeObj(facts && facts.signal_evidence);
   const counts = {};
@@ -665,7 +689,8 @@ async function callOpenAI({ facts, constraints }) {
     `   - ${bannedPhrases.join("\n   - ")}`,
     "",
     "North Star requirement (critical):",
-    "- Every signal narrative MUST include at least one site-specific anchor from the evidence (e.g., missing viewport, missing canonical, missing <html lang>, empty links count, HSTS missing, title text, PSI unused JS savings).",
+    "- Every signal narrative MUST include at least one site-specific anchor from the evidence.",
+    "- Anchors can be missing/present flags, concrete headers, observed counts, title text, or PSI phrases that include values (e.g., 'LCP around 17.4 s', 'unused JavaScript savings about 120 KiB').",
     "- If you cannot anchor a line to evidence, keep it short and neutral.",
     "",
     "Style requirement (critical):",
@@ -839,45 +864,58 @@ function buildAnchorPool(facts) {
   if (host) pool.push({ key: "host", sig: "structure", text: `Site host is ${host}.` });
 
   const htmlBytes = u?.html?.html_bytes;
-  if (typeof htmlBytes === "number") pool.push({ key: "html_bytes", sig: "performance", text: `HTML payload is about ${fmtBytes(htmlBytes)}.` });
+  if (typeof htmlBytes === "number")
+    pool.push({ key: "html_bytes", sig: "performance", text: `HTML payload is about ${fmtBytes(htmlBytes)}.` });
 
-  // Mobile
   if (u?.mobile_basics?.viewport_present === false) {
     pool.push({ key: "viewport_missing", sig: "mobile", text: "Viewport meta tag was not observed." });
   } else if (u?.mobile_basics?.viewport_present === true) {
     pool.push({ key: "viewport_present", sig: "mobile", text: "Viewport meta tag is present." });
   }
 
-  // SEO basics
-  if (u?.seo_basics?.canonical_present === false) pool.push({ key: "canonical_missing", sig: "seo", text: "Canonical link tag is not present." });
-  if (u?.seo_basics?.meta_description_present === false) pool.push({ key: "meta_description_missing", sig: "seo", text: "Meta description is missing." });
-  if (u?.seo_basics?.h1_present === false) pool.push({ key: "h1_missing", sig: "seo", text: "No H1 heading was observed." });
-  if (u?.seo_basics?.robots_meta_present === false) pool.push({ key: "robots_meta_missing", sig: "seo", text: "Robots meta tag was not found." });
-  if (u?.seo_basics?.robots_blocks_index === true) pool.push({ key: "robots_blocks_index", sig: "seo", text: "Robots signals indicate indexing may be blocked." });
+  if (u?.seo_basics?.canonical_present === false)
+    pool.push({ key: "canonical_missing", sig: "seo", text: "Canonical link tag is not present." });
+  if (u?.seo_basics?.meta_description_present === false)
+    pool.push({ key: "meta_description_missing", sig: "seo", text: "Meta description is missing." });
+  if (u?.seo_basics?.h1_present === false)
+    pool.push({ key: "h1_missing", sig: "seo", text: "No H1 heading was observed." });
+  if (u?.seo_basics?.robots_meta_present === false)
+    pool.push({ key: "robots_meta_missing", sig: "seo", text: "Robots meta tag was not found." });
+  if (u?.seo_basics?.robots_blocks_index === true)
+    pool.push({ key: "robots_blocks_index", sig: "seo", text: "Robots signals indicate indexing may be blocked." });
 
-  // Accessibility
-  if (u?.a11y_basics?.html_lang_present === false) pool.push({ key: "lang_missing", sig: "accessibility", text: "<html lang> attribute is missing." });
+  if (u?.a11y_basics?.html_lang_present === false)
+    pool.push({ key: "lang_missing", sig: "accessibility", text: "<html lang> attribute is missing." });
   const emptyLinks = u?.a11y_basics?.empty_links_detected;
-  if (typeof emptyLinks === "number" && emptyLinks > 0) pool.push({ key: "empty_links", sig: "accessibility", text: `${emptyLinks} empty link element(s) were detected.` });
+  if (typeof emptyLinks === "number" && emptyLinks > 0)
+    pool.push({ key: "empty_links", sig: "accessibility", text: `${emptyLinks} empty link element(s) were detected.` });
 
-  // Security headers
   const sh = safeObj(u?.security_headers);
-  if (sh.https === true && sh.hsts === false) pool.push({ key: "hsts_missing", sig: "security", text: "HSTS was not observed." });
-  if (sh.referrer_policy === false) pool.push({ key: "referrer_policy_missing", sig: "security", text: "Referrer-Policy was not observed." });
-  if (sh.permissions_policy === false) pool.push({ key: "permissions_policy_missing", sig: "security", text: "Permissions-Policy was not observed." });
+  if (sh.https === true && sh.hsts === false)
+    pool.push({ key: "hsts_missing", sig: "security", text: "HSTS was not observed." });
+  if (sh.referrer_policy === false)
+    pool.push({ key: "referrer_policy_missing", sig: "security", text: "Referrer-Policy was not observed." });
+  if (sh.permissions_policy === false)
+    pool.push({ key: "permissions_policy_missing", sig: "security", text: "Permissions-Policy was not observed." });
 
-  // PSI highlights (optional)
   const ph = safeObj(u?.psi_highlights);
-  if (typeof ph.LCP_ms === "number") pool.push({ key: "psi_lcp", sig: "performance", text: `PSI shows LCP around ${fmtMs(ph.LCP_ms)}.` });
-  if (typeof ph.FCP_ms === "number") pool.push({ key: "psi_fcp", sig: "performance", text: `PSI shows FCP around ${fmtMs(ph.FCP_ms)}.` });
-  if (typeof ph.TBT_ms === "number") pool.push({ key: "psi_tbt", sig: "performance", text: `PSI shows total blocking time around ${fmtMs(ph.TBT_ms)}.` });
-  if (typeof ph.unused_js_bytes === "number" && ph.unused_js_bytes > 0) pool.push({ key: "unused_js", sig: "performance", text: `PSI estimates unused JavaScript savings of about ${fmtBytes(ph.unused_js_bytes)}.` });
+  if (typeof ph.LCP_ms === "number")
+    pool.push({ key: "psi_lcp", sig: "performance", text: `PSI shows LCP around ${fmtMs(ph.LCP_ms)}.` });
+  if (typeof ph.FCP_ms === "number")
+    pool.push({ key: "psi_fcp", sig: "performance", text: `PSI shows FCP around ${fmtMs(ph.FCP_ms)}.` });
+  if (typeof ph.TBT_ms === "number")
+    pool.push({ key: "psi_tbt", sig: "performance", text: `PSI shows total blocking time around ${fmtMs(ph.TBT_ms)}.` });
+  if (typeof ph.unused_js_bytes === "number" && ph.unused_js_bytes > 0)
+    pool.push({
+      key: "unused_js",
+      sig: "performance",
+      text: `PSI estimates unused JavaScript savings of about ${fmtBytes(ph.unused_js_bytes)}.`,
+    });
 
   return pool;
 }
 
 function symptomForAnchorKey(key) {
-  // Deterministic “user-visible” symptom mapping
   switch (key) {
     case "viewport_missing":
       return "On phones, the page may render at a desktop scale (text small / horizontal scrolling) until users zoom.";
@@ -899,8 +937,6 @@ function symptomForAnchorKey(key) {
       return "Browser feature permissions aren’t explicitly constrained, weakening modern hardening baselines.";
     case "unused_js":
       return "Extra JavaScript payload is being shipped that could be trimmed to reduce unnecessary work on lower-end devices.";
-    case "html_bytes":
-      return "The document itself is lean, so perceived problems are more likely to be baseline signals and compliance rather than page weight.";
     default:
       return "";
   }
@@ -929,34 +965,51 @@ function pickDeterministic(list, seed, n) {
 }
 
 /* ============================================================
-   NORTH STAR: SPECIFICITY VALIDATOR
-   - Rejects generic narrative and forces deterministic fallback
+   NORTH STAR: STRICT SPECIFICITY VALIDATOR
    ============================================================ */
-function countAnchorHits(text, anchorPool) {
+function anchorNeedlesFromPool(anchorPool) {
+  const needles = [];
+  const pool = asArray(anchorPool);
+
+  for (let i = 0; i < pool.length; i++) {
+    const a = pool[i];
+    if (!a) continue;
+
+    // Key as phrase
+    if (a.key) needles.push(String(a.key).toLowerCase().replace(/_/g, " "));
+
+    // Anchor text itself (lowercased) – these contain actual facts/phrases
+    if (a.text) needles.push(String(a.text).toLowerCase());
+  }
+
+  // Also allow these *only when expressed as concrete header names*, not generic words.
+  needles.push("referrer-policy");
+  needles.push("permissions-policy");
+  needles.push("content-security-policy");
+  needles.push("hsts");
+
+  // PSI should be referenced as PSI (fix prior bug: "ps i" was wrong)
+  needles.push("psi");
+
+  return uniq(needles).filter(Boolean);
+}
+
+function hasSiteIdentifier(joinedLower, facts) {
+  const u = safeObj(facts && facts.uniqueness);
+  const host = String(u?.site_id?.host || facts.host || "");
+  const title = String(u?.site_id?.title_text || "");
+
+  const okHost = host && joinedLower.indexOf(host.toLowerCase()) !== -1;
+  const okTitle = title && joinedLower.indexOf(title.toLowerCase()) !== -1;
+
+  return !!(okHost || okTitle);
+}
+
+function countStrictAnchorHits(text, facts, anchorPool) {
   const t = String(text || "").toLowerCase();
   if (!t) return 0;
 
-  const needles = [];
-  // Include anchor texts + key phrases likely to appear
-  for (let i = 0; i < anchorPool.length; i++) {
-    const a = anchorPool[i];
-    if (a && a.text) needles.push(String(a.text).toLowerCase());
-    if (a && a.key) needles.push(String(a.key).toLowerCase().replace(/_/g, " "));
-  }
-
-  // Add core phrases that define “site-specific”
-  needles.push("viewport");
-  needles.push("canonical");
-  needles.push("meta description");
-  needles.push("hsts");
-  needles.push("referrer-policy");
-  needles.push("permissions-policy");
-  needles.push("<html lang>");
-  needles.push("empty link");
-  needles.push("ps i");
-  needles.push("lcp");
-  needles.push("fcp");
-  needles.push("unused javascript");
+  const needles = anchorNeedlesFromPool(anchorPool);
 
   let hits = 0;
   for (let i = 0; i < needles.length; i++) {
@@ -964,6 +1017,10 @@ function countAnchorHits(text, anchorPool) {
     if (!n) continue;
     if (t.indexOf(n) !== -1) hits++;
   }
+
+  // Site id counts as an extra hit (it’s a hard “this site” marker)
+  if (hasSiteIdentifier(t, facts)) hits++;
+
   return hits;
 }
 
@@ -973,26 +1030,15 @@ function validateExecutiveSpecificity(paragraphsOrLines, facts) {
 
   const pool = buildAnchorPool(facts);
   const joined = lines.join(" ");
-  const hitCount = countAnchorHits(joined, pool);
+  const hitCount = countStrictAnchorHits(joined, facts, pool);
 
-  // Must include at least TWO anchors OR one anchor + explicit site identifier (host/title)
-  const u = safeObj(facts && facts.uniqueness);
-  const host = String(u?.site_id?.host || facts.host || "");
-  const title = String(u?.site_id?.title_text || "");
-
-  const hasSiteId =
-    (host && joined.toLowerCase().indexOf(host.toLowerCase()) !== -1) ||
-    (title && joined.toLowerCase().indexOf(title.toLowerCase()) !== -1);
-
-  const ok = hitCount >= 2 || (hitCount >= 1 && hasSiteId);
+  // Require at least 2 strict hits (anchors +/or site id)
+  const ok = hitCount >= 2;
   return ok ? { ok: true } : { ok: false, reason: "not_enough_site_specific_anchors" };
 }
 
 /* ============================================================
-   ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
-   - Deterministic Executive Narrative (5 paragraphs) anchored to this site
-   - Deterministic Fix First block anchored to this site
-   - Signals: AI output clipped + validated; fallback anchored to this site
+   ENFORCE CONSTRAINTS
    ============================================================ */
 function enforceConstraints(n, facts, constraints) {
   const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
@@ -1012,7 +1058,7 @@ function enforceConstraints(n, facts, constraints) {
   const out = {
     _status: "ok",
     _generated_at: nowIso(),
-    overall: { paragraphs: [], lines: [] }, // paragraphs are canonical; lines retained for compatibility
+    overall: { paragraphs: [], lines: [] },
     fix_first: null,
     signals: {
       performance: { lines: [] },
@@ -1026,11 +1072,10 @@ function enforceConstraints(n, facts, constraints) {
 
   const u = safeObj(facts && facts.uniqueness);
   const anchorPool = buildAnchorPool(facts);
-
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
   // -----------------------------
-  // Executive Narrative (5 PARAGRAPHS, each 1–2 sentences)
+  // Executive Narrative (5 PARAGRAPHS, each 1–2 sentences) – MUST contain 2+ anchors
   // -----------------------------
   function buildExecutiveParagraphs() {
     const host = String(u?.site_id?.host || facts.host || "");
@@ -1041,68 +1086,82 @@ function enforceConstraints(n, facts, constraints) {
     const candidatesPrimary = anchorPool.filter((a) => a && a.sig === primarySignal);
     const candidatesNonPrimary = anchorPool.filter((a) => a && a.sig !== primarySignal);
 
-    const pickedPrimary = pickDeterministic(candidatesPrimary, facts.report_id || facts.url || "p", 1)[0] || null;
+    // pick 2 primary anchors if possible (this is what makes it “THIS site”)
+    const pickedPrimary = pickDeterministic(candidatesPrimary, facts.report_id || facts.url || "p", 2);
     const pickedOther = pickDeterministic(candidatesNonPrimary, facts.url || facts.report_id || "o", 2);
 
-    const primaryAnchorText =
-      pickedPrimary && pickedPrimary.text
-        ? pickedPrimary.text
-        : (primaryEvidence[0] ? `The scan flagged: ${primaryEvidence[0]}.` : "");
+    const anchorA = pickedPrimary[0] || pickedOther[0] || null;
+    const anchorB = pickedPrimary[1] || pickedOther[1] || null;
 
-    // Paragraph 1: baseline + one concrete anchor (avoid generic)
+    const siteId = host ? `on ${host}` : "on this site";
+
+    // P1 baseline must include site identifier + one concrete observed fact
     const capBits = [];
     if (typeof htmlBytes === "number") capBits.push(`HTML is about ${fmtBytes(htmlBytes)}`);
     if (typeof ph.FCP_ms === "number") capBits.push(`FCP around ${fmtMs(ph.FCP_ms)}`);
     const P1 = capBits.length
-      ? `On ${host || "this site"}, baseline delivery looks capable (${capBits.slice(0, 2).join(", ")}).`
-      : `On ${host || "this site"}, baseline delivery signals are readable and observable.`;
+      ? `Initial delivery signals ${siteId} are readable (${capBits.slice(0, 2).join(", ")}).`
+      : `Initial delivery signals ${siteId} are readable and observable.`;
 
-    // Paragraph 2: primary constraint (must be anchored)
-    const P2 = primaryAnchorText
-      ? (primaryAnchorText.endsWith(".") ? primaryAnchorText : primaryAnchorText + ".")
-      : `The tightest constraint is in ${primaryLabel}.`;
+    // P2 primary constraint must include an anchor, otherwise use primary evidence title
+    let P2 = "";
+    if (anchorA && anchorA.text) {
+      P2 = anchorA.text;
+    } else if (primaryEvidence[0]) {
+      P2 = `The clearest constraint is: ${primaryEvidence[0]}.`;
+    } else {
+      P2 = `The clearest constraint sits in ${primaryLabel}.`;
+    }
 
-    // Paragraph 3: a user-visible symptom mapped from an anchor
-    const symKey =
-      (pickedPrimary && pickedPrimary.key) ||
-      (pickedOther[0] && pickedOther[0].key) ||
-      "";
-    const sym = symptomForAnchorKey(symKey);
+    // P3 symptom mapped from an anchor key if possible
+    const sym = symptomForAnchorKey((anchorA && anchorA.key) || (anchorB && anchorB.key) || "");
     const P3 = sym
       ? sym
-      : (pickedOther[0] && pickedOther[0].text
-          ? `Another site-specific signal is present: ${pickedOther[0].text.replace(/\.$/, "")}.`
-          : `This shows up as avoidable friction before users can confidently move through the page.`);
+      : anchorB && anchorB.text
+        ? `A second site-specific signal is present: ${anchorB.text.replace(/\.$/, "")}.`
+        : `This tends to show up as avoidable friction before users can move through the page comfortably.`;
 
-    // Paragraph 4: what to do first + what not to waste time on (no “must/urgent”)
-    const next = pickedOther.find((x) => x && x.text && x.sig !== primarySignal);
-    const nextText = next && next.text ? next.text.replace(/\.$/, "") : "";
-    const P4 = nextText
-      ? `Clear the ${primaryLabel} baseline first, then address: ${nextText}.`
-      : `Clear the ${primaryLabel} baseline first, then re-check secondary readiness signals.`;
+    // P4 what to do first (no commanding words) and include another anchor if we have it
+    const P4 =
+      anchorB && anchorB.text && anchorB !== anchorA
+        ? `Clear the ${primaryLabel} baseline first, then address: ${anchorB.text.replace(/\.$/, "")}.`
+        : `Clear the ${primaryLabel} baseline first, then re-check the secondary readiness signals.`;
 
-    // Paragraph 5: close with site-specific recheck
+    // P5 recheck with title/host
     const P5 = title
       ? `After changes, re-check how "${title}" is interpreted on mobile and by crawlers.`
       : `After changes, re-scan ${host || "the site"} to confirm the primary constraint has cleared.`;
 
     let paragraphs = [P1, P2, P3, P4, P5].map(clampToMax2Sentences).filter(Boolean).slice(0, 5);
 
-    // Specificity guard: if generic, inject a hard anchor into paragraph 2
+    // hard enforce 2+ anchors; if not, inject strongest missing-baseline anchors
     const v = validateExecutiveSpecificity(paragraphs, facts);
     if (v.ok) return paragraphs;
 
-    const hard =
-      anchorPool.find((a) => a && (a.key === "viewport_missing" || a.key === "canonical_missing" || a.key === "lang_missing" || a.key === "hsts_missing")) ||
-      anchorPool[0] ||
-      null;
-
-    if (hard && hard.text) {
-      const injected = paragraphs.slice();
-      injected[1] = clampToMax2Sentences(hard.text);
-      paragraphs = injected.slice(0, 5);
+    const hardMissing = [];
+    for (let i = 0; i < anchorPool.length; i++) {
+      const a = anchorPool[i];
+      if (!a || !a.text) continue;
+      if (
+        a.key === "viewport_missing" ||
+        a.key === "canonical_missing" ||
+        a.key === "lang_missing" ||
+        a.key === "hsts_missing" ||
+        a.key === "referrer_policy_missing" ||
+        a.key === "permissions_policy_missing" ||
+        a.key === "unused_js"
+      ) {
+        hardMissing.push(a);
+      }
     }
 
+    const inject = pickDeterministic(hardMissing.length ? hardMissing : anchorPool, facts.url || facts.report_id || "inj", 2);
+
+    const injected = paragraphs.slice();
+    if (inject[0] && inject[0].text) injected[1] = clampToMax2Sentences(inject[0].text);
+    if (inject[1] && inject[1].text) injected[3] = clampToMax2Sentences(`Next, address: ${inject[1].text.replace(/\.$/, "")}.`);
+
+    paragraphs = injected.slice(0, 5);
     return paragraphs;
   }
 
@@ -1139,16 +1198,15 @@ function enforceConstraints(n, facts, constraints) {
     }
 
     const why = [];
-
-    // Always include at least 2 site-specific anchors across the why list
     const primaryAnchors = anchorPool.filter((a) => a && a.sig === primarySignal);
     const pickedWhy = pickDeterministic(primaryAnchors, facts.url || facts.report_id || "why", 2);
 
     for (let i = 0; i < pickedWhy.length; i++) {
-      if (pickedWhy[i] && pickedWhy[i].text) why.push(`Observed: ${pickedWhy[i].text.replace(/\.$/, "")}.`);
+      if (pickedWhy[i] && pickedWhy[i].text) {
+        why.push(`Observed: ${pickedWhy[i].text.replace(/\.$/, "")}.`);
+      }
     }
 
-    // If not enough anchors for this signal, add top evidence titles
     if (why.length < 2) {
       const pe = asArray(constraints && constraints.primary_evidence).filter(Boolean).slice(0, 2);
       for (let i = 0; i < pe.length && why.length < 2; i++) {
@@ -1156,7 +1214,6 @@ function enforceConstraints(n, facts, constraints) {
       }
     }
 
-    // Add one symptom line if we can
     const symKey = pickedWhy[0] && pickedWhy[0].key ? pickedWhy[0].key : "";
     const sym = symptomForAnchorKey(symKey);
     if (sym) why.push(sym);
@@ -1181,33 +1238,29 @@ function enforceConstraints(n, facts, constraints) {
   out.fix_first = buildFixFirst();
 
   // -----------------------------
-  // Signals lines (AI output, clipped + fallback)
-  // North Star: each signal MUST include at least one anchor or explicit evidence
+  // Signals lines (AI output, clipped + strict anchor check; fallback anchored)
   // -----------------------------
   const sig = safeObj(n && n.signals);
 
   function signalAnchorsFor(k) {
     const pool = anchorPool.filter((a) => a && a.sig === k);
-    // Also allow pulling from signal_evidence titles (delivery issues)
+
     const titles = asArray(facts && facts.signal_evidence && facts.signal_evidence[k]).filter(Boolean);
     const titleAnchors = titles.slice(0, 3).map((t) => ({ key: `issue_${k}`, sig: k, text: String(t) }));
+
     return pool.concat(titleAnchors);
   }
 
   function validateSignalSpecificity(lines, k) {
     const lns = asArray(lines).map(cleanLine).filter(Boolean);
     if (!lns.length) return false;
+
     const pool = signalAnchorsFor(k);
-    const joined = lns.join(" ").toLowerCase();
+    const joined = lns.join(" ");
+    const hits = countStrictAnchorHits(joined, facts, pool);
 
-    // require at least one anchor hit OR presence of a direct evidence keyword
-    const hitCount = countAnchorHits(joined, pool);
-    if (hitCount >= 1) return true;
-
-    // extra strict for PRIMARY
-    if (k === primarySignal) return false;
-
-    return false;
+    // Primary must have at least 1 strict hit; others too (we want everything anchored)
+    return hits >= 1;
   }
 
   const setSig = (k) => {
@@ -1222,7 +1275,6 @@ function enforceConstraints(n, facts, constraints) {
       return;
     }
 
-    // Fallback: build anchored lines deterministically (2 lines, max 3)
     const anchors = signalAnchorsFor(k);
     const picked = pickDeterministic(anchors, `${facts.report_id || ""}:${k}`, k === primarySignal ? 2 : 1);
 
@@ -1255,13 +1307,12 @@ function enforceConstraints(n, facts, constraints) {
   // Final executive guard (should always pass now)
   const execCheck = validateExecutiveSpecificity(out.overall.paragraphs, facts);
   if (!execCheck.ok) {
-    // Hard fallback: force in two anchors
     const pool = buildAnchorPool(facts);
     const hard = pickDeterministic(pool, facts.url || facts.report_id || "hard", 2);
     const host = String(u?.site_id?.host || facts.host || "");
 
     out.overall.paragraphs = [
-      clampToMax2Sentences(`On ${host || "this site"}, baseline findings are specific and observable.`),
+      clampToMax2Sentences(`Initial findings on ${host || "this site"} are specific and observable.`),
       clampToMax2Sentences(hard[0] && hard[0].text ? hard[0].text : "A baseline signal is missing."),
       clampToMax2Sentences(hard[1] && hard[1].text ? hard[1].text : "A second baseline signal is missing."),
       clampToMax2Sentences("Clear the top baseline gap first, then re-check mobile and crawler interpretation."),
@@ -1279,10 +1330,8 @@ function enforceConstraints(n, facts, constraints) {
    NARRATIVE VALIDITY CHECK
    ============================================================ */
 function isNarrativeComplete(n) {
-  // Prefer paragraphs (new), fall back to lines (old)
   const paras = asArray(n && n.overall && n.overall.paragraphs).filter(Boolean);
   const lines = asArray(n && n.overall && n.overall.lines).filter(Boolean);
-
   const hasOverall = paras.length > 0 || lines.length > 0;
 
   const sig = safeObj(n && n.signals);
@@ -1338,7 +1387,6 @@ exports.handler = async function handler(event) {
     const row = (scanRows && scanRows[0]) || null;
     if (!row) return json(404, { success: false, error: "Report not found" });
 
-    // Reliability gate: wait until metrics are actually complete (prevents partial narrative + UI errors)
     if (!force && !isMetricsReadyForNarrative(row.metrics)) {
       return json(202, {
         success: false,

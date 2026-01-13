@@ -1,102 +1,94 @@
-/* /assets/js/report-polling.js
-   Polls get-report-data until core metrics exist, then hands off to report-data.js renderer.
-*/
+// /assets/js/report-polling.js
 (function () {
   "use strict";
 
-  function qs(name) {
+  const POLL_INTERVAL_MS = 2000;
+  const MAX_POLLS = 300; // ~10 minutes hard cap
+
+  function getQueryParam(name) {
     try {
-      return new URLSearchParams(window.location.search).get(name);
+      return new URL(window.location.href).searchParams.get(name);
     } catch (_) {
       return null;
     }
   }
 
-  function sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
+  async function fetchJson(url) {
+    const r = await fetch(url, { cache: "no-store" });
+    const text = await r.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Invalid JSON response");
+    }
+    if (!r.ok) {
+      throw new Error(data?.error || `HTTP ${r.status}`);
+    }
+    return data;
   }
 
-  function looksReady(payload) {
+  function fetchReport(reportId) {
+    return fetchJson(
+      "/.netlify/functions/get-report-data?report_id=" +
+        encodeURIComponent(reportId)
+    );
+  }
+
+  function isReportReady(payload) {
     if (!payload || payload.success !== true) return false;
 
-    // Any of these indicates the scan has populated the core report payload.
-    const hasSignals =
-      Array.isArray(payload.delivery_signals) && payload.delivery_signals.length >= 3;
+    // Core metrics must exist
+    if (!payload.scores || typeof payload.scores.overall !== "number") {
+      return false;
+    }
 
-    const hasBasic =
-      payload.basic_checks &&
-      (typeof payload.basic_checks.http_status === "number" ||
-        typeof payload.basic_checks.title_present === "boolean");
+    // PSI must be finished if enabled
+    if (payload.psi?.enabled === true && payload.psi?.pending === true) {
+      return false;
+    }
 
-    const hasPsi =
-      payload.psi &&
-      payload.psi.enabled === true &&
-      payload.psi.pending === false &&
-      (payload.psi.mobile || payload.psi.desktop);
-
-    return hasSignals || hasBasic || hasPsi;
+    return true;
   }
 
-  async function poll(reportId) {
-    const url =
-      "/.netlify/functions/get-report-data?report_id=" +
-      encodeURIComponent(reportId);
+  async function startPolling(reportId) {
+    let attempts = 0;
 
-    let attempt = 0;
-    let waitMs = 1200;
-    const maxWaitMs = 6000;
-    const maxAttempts = 60; // ~3–4 mins worst case with backoff
+    window.IQWEB_showLoader?.(true);
 
-    while (attempt < maxAttempts) {
-      attempt++;
+    while (attempts < MAX_POLLS) {
+      attempts++;
 
       try {
-        const res = await fetch(url, { cache: "no-store" });
-        const data = await res.json().catch(() => null);
+        const res = await fetchReport(reportId);
 
-        if (looksReady(data)) return data;
-
-        // If API returned "not found" or hard error, stop early
-        if (data && data.success === false && /not found/i.test(data.error || "")) {
-          return data;
+        if (isReportReady(res)) {
+          window.IQWEB_handleReportData?.(reportId, res);
+          return;
         }
-      } catch (e) {
-        // ignore and retry
+      } catch (err) {
+        console.warn("[polling] fetch failed:", err.message);
       }
 
-      await sleep(waitMs);
-      waitMs = Math.min(maxWaitMs, Math.round(waitMs * 1.25));
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    return { success: false, error: "Timed out waiting for report data." };
+    // Hard timeout
+    window.IQWEB_showLoader?.(false);
+    const el = document.getElementById("narrativeText");
+    if (el) {
+      el.innerHTML =
+        "<p>Report is taking longer than expected.</p>" +
+        "<p class='muted'>Please refresh in a moment.</p>";
+    }
   }
 
-  async function start() {
-    const reportId = qs("report_id") || qs("id");
+  document.addEventListener("DOMContentLoaded", function () {
+    const reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
 
-    // Tell report-data.js to stay in loader mode until we call it.
-    window.IQWEB_USE_POLLING = true;
-
-    // Ensure loader is visible while we poll.
-    if (typeof window.IQWEB_showLoader === "function") {
-      window.IQWEB_showLoader(true);
+    if (window.IQWEB_USE_POLLING === true) {
+      startPolling(reportId);
     }
-
-    const payload = await poll(reportId);
-
-    if (typeof window.IQWEB_handleReportData === "function") {
-      window.IQWEB_handleReportData(reportId, payload);
-    } else {
-      console.error(
-        "[report-polling] IQWEB_handleReportData missing. Ensure report-data.js is loaded before report-polling.js."
-      );
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", start);
-  } else {
-    start();
-  }
+  });
 })();
