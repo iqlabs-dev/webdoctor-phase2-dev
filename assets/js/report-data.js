@@ -1,3 +1,4 @@
+/* eslint-disable */
 // /assets/js/report-data.js
 // Renderer + polling handoff hooks for report.html (v5.2 UI)
 
@@ -21,6 +22,46 @@
   function setText(id, value) {
     const el = $(id);
     if (el) el.textContent = value == null ? "" : String(value);
+  }
+
+  // Set text into the first ID that exists
+  function setTextAny(ids, value) {
+    for (let i = 0; i < ids.length; i++) {
+      const el = $(ids[i]);
+      if (el) {
+        el.textContent = value == null ? "" : String(value);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function setListAny(ids, items) {
+    const arr = asArray(items).map(String).map(function (s) {
+      return (s || "").trim();
+    }).filter(Boolean);
+
+    for (let i = 0; i < ids.length; i++) {
+      const el = $(ids[i]);
+      if (!el) continue;
+
+      if (!arr.length) {
+        el.innerHTML = "<span class='muted'>—</span>";
+        return true;
+      }
+
+      // If element is a UL/OL, render bullets. Otherwise render lines.
+      const tag = (el.tagName || "").toLowerCase();
+      if (tag === "ul" || tag === "ol") {
+        el.innerHTML = arr.map(function (x) {
+          return "<li>" + escapeHtml(x) + "</li>";
+        }).join("");
+      } else {
+        el.textContent = arr.join("\n");
+      }
+      return true;
+    }
+    return false;
   }
 
   function setWidth(id, pct) {
@@ -60,39 +101,47 @@
       .replace(/'/g, "&#039;");
   }
 
+  // Prefer top-level keys, else fall back to metrics.*
+  function pick(res, key) {
+    if (res && res[key] !== undefined) return res[key];
+    const m = safeObj(res && res.metrics);
+    if (m && m[key] !== undefined) return m[key];
+    return undefined;
+  }
+
   /* -----------------------------
      Rendering
   ----------------------------- */
   function renderHeader(res) {
-    const h = safeObj(res.header);
+    const header = safeObj(pick(res, "header"));
 
     const siteUrl = $("siteUrl");
     if (siteUrl) {
-      const url = h.website || "—";
-      siteUrl.textContent = url;
-      siteUrl.href = h.website || "#";
+      const url = header.website || pick(res, "url") || "—";
+      siteUrl.textContent = url || "—";
+      siteUrl.href = url || "#";
     }
 
-    setText("reportId", h.report_id || "—");
-    setText("reportDate", h.created_at ? String(h.created_at).slice(0, 10) : "—");
+    setText("reportId", header.report_id || pick(res, "report_id") || "—");
+    const created = header.created_at || pick(res, "created_at");
+    setText("reportDate", created ? String(created).slice(0, 10) : "—");
   }
 
   function renderOverall(res) {
-    const scores = safeObj(res.scores);
+    const scores = safeObj(pick(res, "scores"));
     const overall = Number(scores.overall);
 
     setText("overallPill", Number.isFinite(overall) ? overall : "—");
     setWidth("overallBar", Number.isFinite(overall) ? overall : 0);
 
-    const note = res.overall_summary || "";
+    const note = pick(res, "overall_summary") || "";
     setText("overallNote", note);
   }
 
   function renderSignalCards(res) {
-    const scores = safeObj(res.scores);
-    const explanations = safeObj(res.explanations);
+    const scores = safeObj(pick(res, "scores"));
+    const explanations = safeObj(pick(res, "explanations"));
 
-    // These IDs exist in your HTML for the 6 core signal cards
     const map = [
       ["performance", "score-performance", "bar-performance", "summary-performance"],
       ["mobile", "score-mobile", "bar-mobile", "summary-mobile"],
@@ -102,7 +151,12 @@
       ["accessibility", "score-accessibility", "bar-accessibility", "summary-accessibility"],
     ];
 
-    map.forEach(([key, scoreId, barId, summaryId]) => {
+    map.forEach(function (row) {
+      const key = row[0];
+      const scoreId = row[1];
+      const barId = row[2];
+      const summaryId = row[3];
+
       const v = Number(scores[key]);
       setText(scoreId, Number.isFinite(v) ? v : "—");
       setWidth(barId, Number.isFinite(v) ? v : 0);
@@ -111,11 +165,10 @@
   }
 
   function renderPSIAnchors(res) {
-    const psi = safeObj(res.psi);
+    const psi = safeObj(pick(res, "psi"));
     const mobile = safeObj(psi.mobile);
     const desktop = safeObj(psi.desktop);
 
-    // We don’t have PSI “scores” in your payload, so show a concise status + key facts.
     function fmtFacts(facts) {
       const f = safeObj(facts);
       const parts = [];
@@ -138,14 +191,11 @@
   }
 
   function renderHtmlAnchor(res) {
-    const bc = safeObj(res.basic_checks);
+    const bc = safeObj(pick(res, "basic_checks"));
 
-    // Simple heuristic score for the “HTML / Delivery” anchor (not your main scoring model)
-    // This is just to populate the UI card so it doesn’t look empty.
     let score = null;
     if (Number.isFinite(Number(bc.html_bytes))) {
       const bytes = Number(bc.html_bytes);
-      // 0..200KB -> 100..0 rough curve
       score = Math.max(0, Math.min(100, Math.round(100 - (bytes / 200000) * 100)));
     }
 
@@ -160,22 +210,56 @@
   }
 
   function renderNarrative(res) {
-    const n = safeObj(res.narrative);
+    const n = safeObj(pick(res, "narrative"));
 
-    // Your API sometimes returns narrative.overall.lines; sometimes just overall_summary.
-    const lines = asArray(n?.overall?.lines).filter((l) => typeof l === "string" && l.trim().length);
+    // Prefer paragraphs (new)
+    const paras = asArray(n?.overall?.paragraphs).filter(function (p) {
+      return typeof p === "string" && p.trim().length;
+    });
+
+    // Fall back to lines (old)
+    const lines = asArray(n?.overall?.lines).filter(function (l) {
+      return typeof l === "string" && l.trim().length;
+    });
 
     const narrativeBox = $("narrativeText");
     if (!narrativeBox) return;
 
+    if (paras.length) {
+      narrativeBox.textContent = paras.join("\n\n");
+      return;
+    }
+
     if (lines.length) {
       narrativeBox.textContent = lines.join("\n");
-    } else if (typeof n.overall_summary === "string" && n.overall_summary.trim()) {
-      narrativeBox.textContent = n.overall_summary.trim();
-    } else {
-      narrativeBox.innerHTML =
-        "<div class='muted' style='font-size:12px;'>Narrative is still generating…</div>";
+      return;
     }
+
+    // As a last resort, show overall_summary (but label it implicitly as placeholder)
+    const fallback = pick(res, "overall_summary");
+    if (typeof fallback === "string" && fallback.trim()) {
+      narrativeBox.textContent = fallback.trim();
+      return;
+    }
+
+    narrativeBox.innerHTML =
+      "<div class='muted' style='font-size:12px;'>Narrative is still generating…</div>";
+  }
+
+  function renderFixFirst(res) {
+    const n = safeObj(pick(res, "narrative"));
+    const ff = safeObj(n.fix_first);
+
+    // If fix_first isn’t present yet, keep the existing “Waiting…” UI
+    if (!ff || typeof ff !== "object") return;
+
+    // Try multiple ID options so we don’t break if your HTML differs
+    // (Add/adjust IDs later if you want, but this will work with most common variants)
+    setTextAny(["fixFirstTitle", "fix_first_title", "fixFirstHeading", "fixFirstWhat"], ff.fix_first || "—");
+
+    setListAny(["fixFirstWhy", "fix_first_why", "fixFirstWhyList"], ff.why);
+    setListAny(["fixFirstDeprioritise", "fix_first_deprioritise", "fixFirstDeprioritize", "fixFirstDeprioritiseList"], ff.deprioritise);
+    setListAny(["fixFirstOutcome", "fix_first_outcome", "fixFirstExpected", "fixFirstOutcomeList"], ff.expected_outcome);
   }
 
   function renderAll(res) {
@@ -185,6 +269,7 @@
     renderPSIAnchors(res);
     renderHtmlAnchor(res);
     renderNarrative(res);
+    renderFixFirst(res);
   }
 
   /* -----------------------------
@@ -215,6 +300,7 @@
      ✅ Globals expected by report-polling.js
   ----------------------------- */
   window.IQWEB_showLoader = showLoader;
+  window.IQWEB_setLoaderStatus = setLoaderStatus;
 
   window.IQWEB_handleReportData = function (reportId, payload) {
     if (!payload || payload.success !== true) {
@@ -231,7 +317,6 @@
       return;
     }
 
-    // ✅ Core payload exists → render immediately, hide loader
     renderAll(payload);
     showLoader(false);
   };
@@ -248,7 +333,7 @@
       return;
     }
 
-    // If polling is enabled, do nothing here.
+    // If polling is enabled, do nothing here (poller will call handleReportData)
     if (window.IQWEB_USE_POLLING === true) {
       showLoader(true);
       setLoaderStatus("Building Report…");

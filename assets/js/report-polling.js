@@ -13,8 +13,8 @@
     }
   }
 
-  async function fetchJson(url) {
-    const r = await fetch(url, { cache: "no-store" });
+  async function fetchJson(url, opts) {
+    const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
     const text = await r.text();
     let data;
     try {
@@ -23,7 +23,7 @@
       throw new Error("Invalid JSON response");
     }
     if (!r.ok) {
-      throw new Error(data?.error || `HTTP ${r.status}`);
+      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
     }
     return data;
   }
@@ -35,41 +35,95 @@
     );
   }
 
-  function isReportReady(payload) {
-    if (!payload || payload.success !== true) return false;
+  function hasNarrative(payload) {
+    const n = payload?.narrative || payload?.metrics?.narrative;
+    const paras = Array.isArray(n?.overall?.paragraphs) ? n.overall.paragraphs : [];
+    const lines = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
+    return (paras.filter(Boolean).length > 0) || (lines.filter(Boolean).length > 0);
+  }
 
-    // Core metrics must exist
-    if (!payload.scores || typeof payload.scores.overall !== "number") {
-      return false;
-    }
+  function metricsReady(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    const scores = payload?.scores || payload?.metrics?.scores;
 
-    // PSI must be finished if enabled
-    if (payload.psi?.enabled === true && payload.psi?.pending === true) {
-      return false;
+    if (!scores || typeof scores.overall !== "number") return false;
+
+    // If PSI is enabled, require pending=false
+    if (psi?.enabled === true) {
+      if (psi?.pending !== false) return false;
+      if (!psi?.mobile?.facts || !psi?.desktop?.facts) return false;
     }
 
     return true;
   }
 
+  async function triggerNarrative(reportId) {
+    // fire-and-forget style; we’ll just keep polling afterward
+    try {
+      await fetchJson("/.netlify/functions/generate-narrative", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_id: reportId }),
+      });
+      return true;
+    } catch (e) {
+      // If it returns 202 (processing) or similar, fetchJson would throw.
+      // That’s OK — polling will continue.
+      return false;
+    }
+  }
+
   async function startPolling(reportId) {
     let attempts = 0;
+    let narrativeTriggered = false;
 
     window.IQWEB_showLoader?.(true);
+    window.IQWEB_setLoaderStatus?.("Building Report…");
 
     while (attempts < MAX_POLLS) {
       attempts++;
 
+      let res = null;
       try {
-        const res = await fetchReport(reportId);
-
-        if (isReportReady(res)) {
-          window.IQWEB_handleReportData?.(reportId, res);
-          return;
-        }
+        res = await fetchReport(reportId);
       } catch (err) {
         console.warn("[polling] fetch failed:", err.message);
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        continue;
       }
 
+      // Always render whatever we have (so the page doesn’t look dead)
+      if (res && res.success === true) {
+        window.IQWEB_handleReportData?.(reportId, res);
+      }
+
+      // If metrics are still building, keep waiting
+      if (!metricsReady(res)) {
+        window.IQWEB_showLoader?.(true);
+        window.IQWEB_setLoaderStatus?.("Collecting metrics…");
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        continue;
+      }
+
+      // Metrics ready but narrative not yet present → trigger once
+      if (!hasNarrative(res) && !narrativeTriggered) {
+        window.IQWEB_showLoader?.(true);
+        window.IQWEB_setLoaderStatus?.("Generating narrative…");
+        await triggerNarrative(reportId);
+        narrativeTriggered = true;
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        continue;
+      }
+
+      // Narrative present → done
+      if (hasNarrative(res)) {
+        window.IQWEB_showLoader?.(false);
+        return;
+      }
+
+      // If narrative was triggered but still not present yet
+      window.IQWEB_showLoader?.(true);
+      window.IQWEB_setLoaderStatus?.("Finalising report…");
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
