@@ -9,6 +9,11 @@ const { createClient } = require("@supabase/supabase-js");
  * - Executive narrative is deterministic + evidence-anchored (site-specific tokens required)
  * - Signals narratives come from OpenAI but are constrained + scrubbed + validated
  * - Adds fix_first block as a separate section for the UI
+ *
+ * IMPORTANT:
+ * - Executive Narrative is 5 PARAGRAPHS (not 5 lines).
+ * - We store overall.paragraphs (5 items) and also keep overall.lines for backward compatibility.
+ * - We hard-gate generation until metrics.psi + delivery_signals are fully populated.
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -149,6 +154,80 @@ function flattenText(n) {
   } catch (e) {
     return "";
   }
+}
+
+/* ============================================================
+   METRICS READINESS GATE (RELIABILITY)
+   - Do NOT generate narrative until PSI + delivery_signals are populated.
+   ============================================================ */
+function isMetricsReadyForNarrative(metrics) {
+  const m = metrics && typeof metrics === "object" ? metrics : {};
+  const psi = m.psi && typeof m.psi === "object" ? m.psi : {};
+
+  // Top-level sanity
+  const scoresOk = m.scores && typeof m.scores.overall === "number";
+  const basicOk = m.basic_checks && typeof m.basic_checks.http_status === "number";
+  const signalsOk = Array.isArray(m.delivery_signals) && m.delivery_signals.length >= 6;
+
+  // PSI readiness
+  const psiEnabled = psi.enabled === true;
+  const psiPendingFalse = psi.pending === false;
+
+  const mobFacts = psi.mobile && psi.mobile.facts;
+  const deskFacts = psi.desktop && psi.desktop.facts;
+
+  const mobOk = mobFacts && typeof mobFacts.LCP_ms === "number";
+  const deskOk = deskFacts && typeof deskFacts.LCP_ms === "number";
+
+  // audits object exists
+  const mobAud = psi.mobile && psi.mobile.audits;
+  const deskAud = psi.desktop && psi.desktop.audits;
+  const auditsOk = !!mobAud && !!deskAud;
+
+  return scoresOk && basicOk && signalsOk && psiEnabled && psiPendingFalse && mobOk && deskOk && auditsOk;
+}
+
+/* ============================================================
+   EXEC PARAGRAPH HELPERS
+   ============================================================ */
+function sentenceCount(s) {
+  const t = cleanLine(s);
+  if (!t) return 0;
+  // rough sentence split on . ! ? (ignores edge cases but good enough for enforcement)
+  const parts = t.split(/[.!?]+/).map((x) => x.trim()).filter(Boolean);
+  return parts.length;
+}
+
+function clampToMax2Sentences(paragraph) {
+  let p = cleanLine(paragraph);
+  if (!p) return "";
+  if (sentenceCount(p) <= 2) return p;
+
+  // Keep first 2 sentences
+  const matches = p.match(/[^.!?]+[.!?]*/g) || [];
+  let out = "";
+  let count = 0;
+  for (let i = 0; i < matches.length; i++) {
+    const chunk = cleanLine(matches[i]);
+    if (!chunk) continue;
+    out += (out ? " " : "") + chunk;
+    count += sentenceCount(chunk) || 1;
+    if (count >= 2) break;
+  }
+  out = cleanLine(out);
+  // ensure ends with punctuation
+  if (out && !/[.!?]$/.test(out)) out += ".";
+  return out;
+}
+
+function paragraphsToLines(paragraphs) {
+  const out = [];
+  const ps = asArray(paragraphs).map(cleanLine).filter(Boolean);
+  for (let i = 0; i < ps.length; i++) {
+    // keep each paragraph as a “line” entry too
+    out.push(ps[i]);
+  }
+  return out;
 }
 
 /* ============================================================
@@ -888,8 +967,8 @@ function countAnchorHits(text, anchorPool) {
   return hits;
 }
 
-function validateExecutiveSpecificity(overallLines, facts) {
-  const lines = asArray(overallLines).map(cleanLine).filter(Boolean);
+function validateExecutiveSpecificity(paragraphsOrLines, facts) {
+  const lines = asArray(paragraphsOrLines).map(cleanLine).filter(Boolean);
   if (!lines.length) return { ok: false, reason: "overall_empty" };
 
   const pool = buildAnchorPool(facts);
@@ -911,7 +990,7 @@ function validateExecutiveSpecificity(overallLines, facts) {
 
 /* ============================================================
    ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
-   - Deterministic Executive Narrative (4 lines) anchored to this site
+   - Deterministic Executive Narrative (5 paragraphs) anchored to this site
    - Deterministic Fix First block anchored to this site
    - Signals: AI output clipped + validated; fallback anchored to this site
    ============================================================ */
@@ -933,7 +1012,7 @@ function enforceConstraints(n, facts, constraints) {
   const out = {
     _status: "ok",
     _generated_at: nowIso(),
-    overall: { lines: [] },
+    overall: { paragraphs: [], lines: [] }, // paragraphs are canonical; lines retained for compatibility
     fix_first: null,
     signals: {
       performance: { lines: [] },
@@ -951,16 +1030,13 @@ function enforceConstraints(n, facts, constraints) {
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
   // -----------------------------
-  // Executive Narrative (North Star)
-  // Strategy:
-  // - Always include at least 2 site-specific anchors, not just "scan flagged X"
-  // - Include one "capacity" line if PSI/HTML indicates lean delivery
-  // - Include one "symptom" line derived from an anchor
+  // Executive Narrative (5 PARAGRAPHS, each 1–2 sentences)
   // -----------------------------
-  function buildExecutive() {
+  function buildExecutiveParagraphs() {
     const host = String(u?.site_id?.host || facts.host || "");
     const title = String(u?.site_id?.title_text || "");
     const htmlBytes = u?.html?.html_bytes;
+    const ph = safeObj(u?.psi_highlights);
 
     const candidatesPrimary = anchorPool.filter((a) => a && a.sig === primarySignal);
     const candidatesNonPrimary = anchorPool.filter((a) => a && a.sig !== primarySignal);
@@ -968,92 +1044,70 @@ function enforceConstraints(n, facts, constraints) {
     const pickedPrimary = pickDeterministic(candidatesPrimary, facts.report_id || facts.url || "p", 1)[0] || null;
     const pickedOther = pickDeterministic(candidatesNonPrimary, facts.url || facts.report_id || "o", 2);
 
-    // If primary has no anchor, fall back to top evidence title
     const primaryAnchorText =
       pickedPrimary && pickedPrimary.text
         ? pickedPrimary.text
         : (primaryEvidence[0] ? `The scan flagged: ${primaryEvidence[0]}.` : "");
 
-    // Capacity line (uses HTML/PSI if present)
+    // Paragraph 1: baseline + one concrete anchor (avoid generic)
     const capBits = [];
-    if (typeof htmlBytes === "number") capBits.push(`HTML is lean (~${fmtBytes(htmlBytes)})`);
-    const ph = safeObj(u?.psi_highlights);
-    if (typeof ph.FCP_ms === "number") capBits.push(`FCP sits around ${fmtMs(ph.FCP_ms)}`);
-    if (typeof ph.LCP_ms === "number") capBits.push(`LCP sits around ${fmtMs(ph.LCP_ms)}`);
+    if (typeof htmlBytes === "number") capBits.push(`HTML is about ${fmtBytes(htmlBytes)}`);
+    if (typeof ph.FCP_ms === "number") capBits.push(`FCP around ${fmtMs(ph.FCP_ms)}`);
+    const P1 = capBits.length
+      ? `On ${host || "this site"}, baseline delivery looks capable (${capBits.slice(0, 2).join(", ")}).`
+      : `On ${host || "this site"}, baseline delivery signals are readable and observable.`;
 
-    const L1 =
-      capBits.length
-        ? `On ${host || "this site"}, baseline delivery looks efficient (${capBits.slice(0, 2).join(", ")}).`
-        : `On ${host || "this site"}, the constraint is not visual polish; it’s baseline readiness signals.`
+    // Paragraph 2: primary constraint (must be anchored)
+    const P2 = primaryAnchorText
+      ? (primaryAnchorText.endsWith(".") ? primaryAnchorText : primaryAnchorText + ".")
+      : `The tightest constraint is in ${primaryLabel}.`;
 
-    // Primary constraint line (explicit and anchored)
-    const L2 =
-      primaryAnchorText
-        ? (primaryAnchorText.endsWith(".") ? primaryAnchorText : primaryAnchorText + ".")
-        : `The scan indicates gaps concentrated in ${primaryLabel}.`
-
-    // Symptom line based on primary anchor key (or secondary)
-    const symKey = pickedPrimary && pickedPrimary.key ? pickedPrimary.key : (pickedOther[0] && pickedOther[0].key ? pickedOther[0].key : "");
+    // Paragraph 3: a user-visible symptom mapped from an anchor
+    const symKey =
+      (pickedPrimary && pickedPrimary.key) ||
+      (pickedOther[0] && pickedOther[0].key) ||
+      "";
     const sym = symptomForAnchorKey(symKey);
-    const L3 = sym
+    const P3 = sym
       ? sym
       : (pickedOther[0] && pickedOther[0].text
-          ? `Another site-specific signal: ${pickedOther[0].text.replace(/\.$/, "")}.`
-          : `Downstream work becomes inconsistent until the top baseline gaps are removed.`);
+          ? `Another site-specific signal is present: ${pickedOther[0].text.replace(/\.$/, "")}.`
+          : `This shows up as avoidable friction before users can confidently move through the page.`);
 
-    // Close line: action ordering without "must/urgent"
-    const L4 = (function () {
-      const extra = pickedOther.find((x) => x && x.text && x.sig !== primarySignal);
-      if (extra && extra.text) {
-        return `After addressing ${primaryLabel}, the next clean win is: ${extra.text.replace(/\.$/, "")}.`;
-      }
-      if (title) return `Tighten the baseline signals first, then re-check how "${title}" is interpreted by phones and crawlers.`;
-      return `Address the top baseline signals first, then re-scan to confirm the constraint has cleared.`;
-    })();
+    // Paragraph 4: what to do first + what not to waste time on (no “must/urgent”)
+    const next = pickedOther.find((x) => x && x.text && x.sig !== primarySignal);
+    const nextText = next && next.text ? next.text.replace(/\.$/, "") : "";
+    const P4 = nextText
+      ? `Clear the ${primaryLabel} baseline first, then address: ${nextText}.`
+      : `Clear the ${primaryLabel} baseline first, then re-check secondary readiness signals.`;
 
-    const L5 = (function () {
-  // Paragraph 5 = ordering + re-scan closure, anchored to this site
-  const title = String(u?.site_id?.title_text || "");
-  const host = String(u?.site_id?.host || facts.host || "");
+    // Paragraph 5: close with site-specific recheck
+    const P5 = title
+      ? `After changes, re-check how "${title}" is interpreted on mobile and by crawlers.`
+      : `After changes, re-scan ${host || "the site"} to confirm the primary constraint has cleared.`;
 
-  // Prefer an explicit next anchor if available (SEO/Trust)
-  const next = anchorPool.find((a) =>
-    a && a.text && (a.key === "canonical_missing" || a.key === "h1_missing" || a.key === "hsts_missing")
-  );
+    let paragraphs = [P1, P2, P3, P4, P5].map(clampToMax2Sentences).filter(Boolean).slice(0, 5);
 
-  if (next && next.text) {
-    return `Once the primary baseline gap is cleared, the next clean win is: ${next.text.replace(/\.$/, "")}.`;
-  }
+    // Specificity guard: if generic, inject a hard anchor into paragraph 2
+    const v = validateExecutiveSpecificity(paragraphs, facts);
+    if (v.ok) return paragraphs;
 
-  if (title) {
-    return `After stabilising the baseline signals, re-check how "${title}" is interpreted on mobile and by crawlers.`;
-  }
+    const hard =
+      anchorPool.find((a) => a && (a.key === "viewport_missing" || a.key === "canonical_missing" || a.key === "lang_missing" || a.key === "hsts_missing")) ||
+      anchorPool[0] ||
+      null;
 
-  return `After stabilising the baseline signals, re-scan ${host || "the site"} to confirm the constraint has cleared.`;
-})();
-
-const lines = [L1, L2, L3, L4, L5]
-  .map(cleanLine)
-  .filter(Boolean)
-  .slice(0, 5);
-
-
-    // Final guard: if somehow generic, inject a hard anchor
-    const v = validateExecutiveSpecificity(lines, facts);
-    if (v.ok) return lines;
-
-    // Deterministic injection: add viewport/canonical/lang anchor if present
-    const hard = anchorPool.find((a) => a && (a.key === "viewport_missing" || a.key === "canonical_missing" || a.key === "lang_missing" || a.key === "hsts_missing")) || null;
     if (hard && hard.text) {
-      const injected = lines.slice();
-      injected[1] = cleanLine(hard.text);
-      return injected.slice(0, 4);
+      const injected = paragraphs.slice();
+      injected[1] = clampToMax2Sentences(hard.text);
+      paragraphs = injected.slice(0, 5);
     }
 
-    return lines;
+    return paragraphs;
   }
 
-  out.overall.lines = buildExecutive();
+  out.overall.paragraphs = buildExecutiveParagraphs();
+  out.overall.lines = paragraphsToLines(out.overall.paragraphs);
 
   // -----------------------------
   // Fix First block (deterministic + anchored)
@@ -1199,20 +1253,22 @@ const lines = [L1, L2, L3, L4, L5]
   setSig("accessibility");
 
   // Final executive guard (should always pass now)
-  const execCheck = validateExecutiveSpecificity(out.overall.lines, facts);
+  const execCheck = validateExecutiveSpecificity(out.overall.paragraphs, facts);
   if (!execCheck.ok) {
     // Hard fallback: force in two anchors
     const pool = buildAnchorPool(facts);
     const hard = pickDeterministic(pool, facts.url || facts.report_id || "hard", 2);
     const host = String(u?.site_id?.host || facts.host || "");
-out.overall.lines = [
-  cleanLine(`On ${host || "this site"}, baseline findings are specific and observable.`),
-  cleanLine(hard[0] && hard[0].text ? hard[0].text : "A baseline signal is missing."),
-  cleanLine(hard[1] && hard[1].text ? hard[1].text : "A second baseline signal is missing."),
-  cleanLine("Clear the top baseline gap first, then re-check mobile and crawler interpretation."),
-  cleanLine("Re-scan after changes to confirm the primary constraint has cleared."),
-].filter(Boolean).slice(0, 5);
 
+    out.overall.paragraphs = [
+      clampToMax2Sentences(`On ${host || "this site"}, baseline findings are specific and observable.`),
+      clampToMax2Sentences(hard[0] && hard[0].text ? hard[0].text : "A baseline signal is missing."),
+      clampToMax2Sentences(hard[1] && hard[1].text ? hard[1].text : "A second baseline signal is missing."),
+      clampToMax2Sentences("Clear the top baseline gap first, then re-check mobile and crawler interpretation."),
+      clampToMax2Sentences(`Re-scan ${host || "the site"} after changes to confirm the primary constraint has cleared.`),
+    ].filter(Boolean).slice(0, 5);
+
+    out.overall.lines = paragraphsToLines(out.overall.paragraphs);
     out._status = "ok_fallback_executive";
   }
 
@@ -1223,9 +1279,11 @@ out.overall.lines = [
    NARRATIVE VALIDITY CHECK
    ============================================================ */
 function isNarrativeComplete(n) {
-  const hasOverall =
-    Array.isArray(n && n.overall && n.overall.lines) &&
-    n.overall.lines.filter(Boolean).length > 0;
+  // Prefer paragraphs (new), fall back to lines (old)
+  const paras = asArray(n && n.overall && n.overall.paragraphs).filter(Boolean);
+  const lines = asArray(n && n.overall && n.overall.lines).filter(Boolean);
+
+  const hasOverall = paras.length > 0 || lines.length > 0;
 
   const sig = safeObj(n && n.signals);
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -1279,6 +1337,17 @@ exports.handler = async function handler(event) {
 
     const row = (scanRows && scanRows[0]) || null;
     if (!row) return json(404, { success: false, error: "Report not found" });
+
+    // Reliability gate: wait until metrics are actually complete (prevents partial narrative + UI errors)
+    if (!force && !isMetricsReadyForNarrative(row.metrics)) {
+      return json(202, {
+        success: false,
+        status: "processing",
+        reason: "metrics_not_ready",
+        detail: "Waiting for PSI + delivery metrics to be fully populated.",
+        report_id,
+      });
+    }
 
     if (!force && row.narrative && isNarrativeComplete(row.narrative)) {
       return json(200, { success: true, status: "already_generated" });
@@ -1334,5 +1403,6 @@ exports._debug = {
   buildUniquenessPack,
   buildAnchorPool,
   validateExecutiveSpecificity,
+  isMetricsReadyForNarrative,
 };
 // End of file
