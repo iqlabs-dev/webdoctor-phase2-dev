@@ -35,11 +35,64 @@
     );
   }
 
-  function hasNarrative(payload) {
-    const n = payload?.narrative || payload?.metrics?.narrative;
+  function countNonEmptyStrings(arr) {
+    if (!Array.isArray(arr)) return 0;
+    return arr.filter((v) => typeof v === "string" && v.trim().length > 0).length;
+  }
+
+  function hasExecNarrativeNorthStar(n) {
+    // North star schema: narrative.executive_narrative.{framing,behaviour_split,root_constraint,...}.lines[]
+    if (!n || typeof n !== "object") return false;
+
+    const exec = n.executive_narrative;
+    if (!exec || typeof exec !== "object") return false;
+
+    // Fast "is this populated" checks across your known sections
+    const framing = countNonEmptyStrings(exec?.framing?.lines);
+    const structureSeo = countNonEmptyStrings(exec?.structure_seo?.lines);
+    const trustSec = countNonEmptyStrings(exec?.trust_security?.lines);
+    const root = countNonEmptyStrings(exec?.root_constraint?.lines);
+    const siteSpec = countNonEmptyStrings(exec?.site_specificity?.lines);
+
+    const mobileSplit = countNonEmptyStrings(exec?.behaviour_split?.mobile?.lines);
+    const desktopSplit = countNonEmptyStrings(exec?.behaviour_split?.desktop?.lines);
+
+    const fixOrderItems = Array.isArray(exec?.fix_order?.items) ? exec.fix_order.items : [];
+    const fixOrderLines =
+      fixOrderItems.reduce((sum, it) => sum + countNonEmptyStrings(it?.lines), 0);
+
+    const total =
+      framing +
+      structureSeo +
+      trustSec +
+      root +
+      siteSpec +
+      mobileSplit +
+      desktopSplit +
+      fixOrderLines;
+
+    return total > 0;
+  }
+
+  function hasNarrativeLegacy(n) {
+    // Legacy schema: narrative.overall.paragraphs OR narrative.overall.lines
     const paras = Array.isArray(n?.overall?.paragraphs) ? n.overall.paragraphs : [];
     const lines = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
-    return (paras.filter(Boolean).length > 0) || (lines.filter(Boolean).length > 0);
+    return countNonEmptyStrings(paras) > 0 || countNonEmptyStrings(lines) > 0;
+  }
+
+  function hasNarrative(payload) {
+    // Accept narrative from either root or nested metrics
+    const n = payload?.narrative || payload?.metrics?.narrative;
+    if (!n) return false;
+
+    // Prefer north star schema if present
+    if (hasExecNarrativeNorthStar(n)) return true;
+
+    // Fallback to legacy
+    if (hasNarrativeLegacy(n)) return true;
+
+    return false;
   }
 
   function metricsReady(payload) {
@@ -48,7 +101,7 @@
 
     if (!scores || typeof scores.overall !== "number") return false;
 
-    // If PSI is enabled, require pending=false
+    // If PSI is enabled, require pending=false and facts present
     if (psi?.enabled === true) {
       if (psi?.pending !== false) return false;
       if (!psi?.mobile?.facts || !psi?.desktop?.facts) return false;
