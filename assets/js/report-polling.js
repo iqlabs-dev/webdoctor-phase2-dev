@@ -46,11 +46,11 @@
     const n = payload?.narrative || payload?.metrics?.narrative;
     if (!n) return false;
 
-    // Legacy: narrative.overall.lines / paragraphs
+    // Legacy
     if (anyNonEmptyStrings(n?.overall?.lines)) return true;
     if (anyNonEmptyStrings(n?.overall?.paragraphs)) return true;
 
-    // New: narrative.executive_narrative.* (your north star schema)
+    // New schema (north star)
     const en = n?.executive_narrative;
     if (!en) return false;
 
@@ -59,28 +59,48 @@
     if (anyNonEmptyStrings(en?.structure_seo?.lines)) return true;
     if (anyNonEmptyStrings(en?.trust_security?.lines)) return true;
     if (anyNonEmptyStrings(en?.site_specificity?.lines)) return true;
-
-    // Behaviour split may contain lines too
     if (anyNonEmptyStrings(en?.behaviour_split?.mobile?.lines)) return true;
     if (anyNonEmptyStrings(en?.behaviour_split?.desktop?.lines)) return true;
 
-    // Fix order lines
     const items = en?.fix_order?.items;
     if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
 
     return false;
   }
 
-  function metricsReady(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi;
+  function hasScores(payload) {
     const scores = payload?.scores || payload?.metrics?.scores;
+    return !!scores && typeof scores.overall === "number";
+  }
 
-    if (!scores || typeof scores.overall !== "number") return false;
+  function psiEnabled(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    return psi?.enabled === true;
+  }
 
-    // If PSI is enabled, require pending=false AND facts present
-    if (psi?.enabled === true) {
-      if (psi?.pending !== false) return false;
-      if (!psi?.mobile?.facts || !psi?.desktop?.facts) return false;
+  function psiPending(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    if (!psi || psi.enabled !== true) return false;
+    return psi?.pending !== false;
+  }
+
+  function psiHasMobileFacts(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    return !!psi?.mobile?.facts;
+  }
+
+  function psiHasDesktopFacts(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    return !!psi?.desktop?.facts;
+  }
+
+  function metricsReady(payload) {
+    if (!hasScores(payload)) return false;
+
+    // If PSI enabled, require pending=false AND facts present
+    if (psiEnabled(payload)) {
+      if (psiPending(payload)) return false;
+      if (!psiHasMobileFacts(payload) || !psiHasDesktopFacts(payload)) return false;
     }
 
     return true;
@@ -100,11 +120,43 @@
     }
   }
 
+  // -----------------------------
+  // Status messaging (the whole point)
+  // -----------------------------
+  function setStatus(msg) {
+    window.IQWEB_setLoaderStatus?.(msg);
+  }
+
+  function computeStatus(payload, narrativeTriggered) {
+    if (!payload || payload.success !== true) return "Fetching scan data…";
+
+    if (!hasScores(payload)) return "Scan complete. Computing scores…";
+
+    // PSI phase
+    if (psiEnabled(payload)) {
+      if (psiPending(payload)) {
+        const m = psiHasMobileFacts(payload);
+        const d = psiHasDesktopFacts(payload);
+        if (!m && !d) return "Running PSI (mobile + desktop)…";
+        if (m && !d) return "Running PSI (desktop)…";
+        if (!m && d) return "Running PSI (mobile)…";
+        return "Running PSI…";
+      }
+    }
+
+    // Narrative phase (optional)
+    if (!hasNarrative(payload)) {
+      if (!narrativeTriggered) return "Preparing narrative…";
+      return "Generating narrative…";
+    }
+
+    return "Finalising report…";
+  }
+
   function failVisible(msg) {
     console.error("[polling]", msg);
     window.IQWEB_showLoader?.(false);
 
-    // Show something visible even if the page template is minimal
     const el = document.getElementById("narrativeText") || document.body;
     if (el) {
       try {
@@ -121,7 +173,7 @@
     let narrativeWaitPolls = 0;
 
     window.IQWEB_showLoader?.(true);
-    window.IQWEB_setLoaderStatus?.("Building Report…");
+    setStatus("Building Report…");
 
     while (attempts < MAX_POLLS) {
       attempts++;
@@ -131,16 +183,18 @@
         res = await fetchReport(reportId);
       } catch (err) {
         console.warn("[polling] fetch failed:", err.message);
+        setStatus("Retrying…");
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }
 
-      // If backend returned success, try render immediately.
+      // Always show a live status based on what we see
+      setStatus(computeStatus(res, narrativeTriggered));
+
+      // Render whatever we have so the page doesn't look dead
       if (res && res.success === true) {
         try {
-          // IMPORTANT: if this function is missing, you’ll never render anything.
           if (typeof window.IQWEB_handleReportData !== "function") {
-            // Don’t spin forever — surface the problem.
             failVisible("IQWEB_handleReportData is not loaded (script order / missing include).");
             return;
           }
@@ -154,22 +208,23 @@
       // Wait for metrics
       if (!metricsReady(res)) {
         window.IQWEB_showLoader?.(true);
-        window.IQWEB_setLoaderStatus?.("Collecting metrics…");
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }
 
-      // At this point: metrics are ready. Narrative is OPTIONAL.
-      // If we already have narrative in either schema, finish.
+      // Metrics are ready: at this point the report is usable.
+      // Hide loader even if narrative isn't ready (we'll continue lightly for narrative).
+      window.IQWEB_showLoader?.(false);
+
+      // If narrative already present, we're done.
       if (hasNarrative(res)) {
-        window.IQWEB_showLoader?.(false);
+        setStatus("");
         return;
       }
 
-      // Trigger narrative once (non-blocking)
+      // Trigger narrative once
       if (!narrativeTriggered) {
-        window.IQWEB_showLoader?.(true);
-        window.IQWEB_setLoaderStatus?.("Generating narrative…");
+        setStatus("Generating narrative…");
         await triggerNarrative(reportId);
         narrativeTriggered = true;
         narrativeWaitPolls = 0;
@@ -181,20 +236,17 @@
       narrativeWaitPolls++;
 
       if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
-        // Stop blocking. Report is usable without narrative.
-        window.IQWEB_showLoader?.(false);
-        // Optional: if you have a status area, set a soft message:
-        window.IQWEB_setLoaderStatus?.("");
+        // Stop trying to look "busy". Leave report usable.
+        setStatus("");
         return;
       }
 
-      window.IQWEB_showLoader?.(true);
-      window.IQWEB_setLoaderStatus?.("Finalising report…");
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
     // Hard timeout
     window.IQWEB_showLoader?.(false);
+    setStatus("");
     const el = document.getElementById("narrativeText");
     if (el) {
       el.innerHTML =
