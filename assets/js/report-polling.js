@@ -111,9 +111,22 @@
       }
 
       // Always render whatever we have (so the page doesn’t look dead)
-      if (res && res.success === true) {
-        window.IQWEB_handleReportData?.(reportId, res);
-      }
+     if (res && res.success === true) {
+  try {
+    window.IQWEB_handleReportData?.(reportId, res);
+  } catch (e) {
+    console.error("[render] IQWEB_handleReportData crashed:", e);
+    window.IQWEB_showLoader?.(false);
+    const el = document.getElementById("narrativeText");
+    if (el) {
+      el.innerHTML =
+        "<p><strong>Render error:</strong> the report data was returned, but the UI failed to render it.</p>" +
+        "<p class='muted'>Open DevTools Console and copy the first error line.</p>";
+    }
+    return;
+  }
+}
+
 
       // If metrics are still building, keep waiting
       if (!metricsReady(res)) {
