@@ -2,595 +2,49 @@
 (function () {
   "use strict";
 
-  // -----------------------------
-  // Tiny DOM helpers
-  // -----------------------------
-  function $(id) {
+  // --------------------------------------------
+  // Helpers
+  // --------------------------------------------
+  function $(sel) {
+    return document.querySelector(sel);
+  }
+  function $id(id) {
     return document.getElementById(id);
   }
-
-  // -----------------------------
-  // Public hooks for report-polling.js (and other orchestrators)
-  // -----------------------------
-  // These are SAFE: we only define them if not already present.
-  function _setText(id, txt) {
-    const el = $(id);
-    if (!el) return;
-    el.textContent = txt == null || String(txt).trim() === "" ? "—" : String(txt);
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
   }
-
-  function _setHref(id, href, label) {
-    const el = $(id);
-    if (!el) return;
-    if (href) {
-      el.href = href;
-      el.textContent = label || href;
-    } else {
-      el.removeAttribute("href");
-      el.textContent = "—";
-    }
+  function safeStr(v) {
+    return typeof v === "string" ? v : "";
   }
-
-  function _showLoader(on) {
-    const loader = $("loaderSection");
-    const root = $("reportRoot");
-    if (loader) loader.style.display = on ? "" : "none";
-    if (root) root.style.display = on ? "none" : "";
+  function safeNum(v) {
+    return typeof v === "number" && isFinite(v) ? v : null;
   }
-
-  function _setLoaderStatus(msg) {
-    const el = $("loaderStatus");
-    if (!el) return;
-    el.textContent = msg || "";
+  function clamp01(n) {
+    if (typeof n !== "number" || !isFinite(n)) return null;
+    return Math.max(0, Math.min(1, n));
   }
-
-  if (typeof window.IQWEB_showLoader !== "function") {
-    window.IQWEB_showLoader = _showLoader;
+  function clamp100(n) {
+    if (typeof n !== "number" || !isFinite(n)) return null;
+    return Math.max(0, Math.min(100, n));
   }
-  if (typeof window.IQWEB_setLoaderStatus !== "function") {
-    window.IQWEB_setLoaderStatus = _setLoaderStatus;
+  function fmtScore(n) {
+    const v = clamp100(n);
+    if (v === null) return "—";
+    return String(Math.round(v));
   }
-
-  // Main render hook used by report-polling.js
-  if (typeof window.IQWEB_handleReportData !== "function") {
-    window.IQWEB_handleReportData = function (reportId, payload) {
-      try {
-        // Always try to render header fast (even if partial)
-        const header = payload && payload.header ? payload.header : {};
-        _setHref("siteUrl", header.website || (payload && payload.website), header.website || (payload && payload.website));
-        _setText("reportId", header.report_id || (payload && payload.report_id) || reportId);
-        _setText("reportDate", header.report_date || (payload && payload.report_date) || (payload && payload.created_at) || "");
-
-        // If we can render the full report, do it; otherwise keep loader visible.
-        if (payload && payload.success === true) {
-          renderAll(payload);
-          _showLoader(false);
-        } else {
-          _showLoader(true);
-        }
-      } catch (e) {
-        console.error("[report-data] IQWEB_handleReportData failed:", e);
-        // Keep something visible so user isn't stuck
-        _showLoader(false);
-        const el = $("narrativeText") || document.body;
-        try {
-          el.innerHTML =
-            "<p><strong>Report render error</strong></p><p class='muted'>" +
-            (e && e.message ? e.message : String(e)) +
-            "</p>";
-        } catch (_) {}
-      }
-    };
+  function fmtMs(n) {
+    const v = safeNum(n);
+    if (v === null) return "—";
+    return `${Math.round(v)}ms`;
   }
-
-  // -----------------------------
-  // Formatting helpers
-  // -----------------------------
-  function clamp(n, min, max) {
-    n = Number(n);
-    if (Number.isNaN(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function pct(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return String(clamp(Number(n), 0, 100));
-  }
-
-  function ms(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return Math.round(Number(n)) + "ms";
-  }
-
-  function num(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return String(Math.round(Number(n)));
-  }
-
-  function safeStr(v, fallback) {
-    if (v == null) return fallback == null ? "" : fallback;
-    const s = String(v);
-    return s.length ? s : fallback == null ? "" : fallback;
-  }
-
-  function anyNonEmptyStrings(arr) {
-    return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
-  }
-
-  // -----------------------------
-  // Payload access helpers (supports legacy + newer schema)
-  // -----------------------------
-  function pickHeader(data) {
-    return data && data.header ? data.header : {};
-  }
-
-  function pickScores(data) {
-    // legacy: data.metrics.scores
-    if (data && data.scores) return data.scores;
-    if (data && data.metrics && data.metrics.scores) return data.metrics.scores;
-    return null;
-  }
-
-  function pickPsi(data) {
-    if (data && data.psi) return data.psi;
-    if (data && data.metrics && data.metrics.psi) return data.metrics.psi;
-    return null;
-  }
-
-  function pickNarrative(data) {
-    if (data && data.narrative) return data.narrative;
-    if (data && data.metrics && data.metrics.narrative) return data.metrics.narrative;
-    return null;
-  }
-
-  // -----------------------------
-  // UI element getters
-  // -----------------------------
-  function elHeaderWebsite() {
-    return $("siteUrl");
-  }
-  function elHeaderReportId() {
-    return $("reportId");
-  }
-  function elHeaderReportDate() {
-    return $("reportDate");
-  }
-
-  function elExecNarrative() {
-    return $("execNarrativeText");
-  }
-
-  function elFixPrimaryConstraint() {
-    return $("fixPrimaryConstraint");
-  }
-  function elFixWhatToFixFirst() {
-    return $("fixWhatToFixFirst");
-  }
-  function elFixDeprioritise() {
-    return $("fixDeprioritise");
-  }
-  function elFixExpectedOutcome() {
-    return $("fixExpectedOutcome");
-  }
-
-  function elOverallScoreValue() {
-    return $("overallScoreValue");
-  }
-  function elOverallScoreBar() {
-    return $("overallScoreBar");
-  }
-  function elOverallSummary() {
-    return $("overallSummary");
-  }
-
-  function elPsiMobileReady() {
-    return $("psiMobileReady");
-  }
-  function elPsiDesktopReady() {
-    return $("psiDesktopReady");
-  }
-  function elPsiMobileLine() {
-    return $("psiMobileLine");
-  }
-  function elPsiDesktopLine() {
-    return $("psiDesktopLine");
-  }
-
-  function elCardScore(id) {
-    return $(id);
-  }
-  function elCardBar(id) {
-    return $(id);
-  }
-  function elCardBlurb(id) {
-    return $(id);
-  }
-
-  function elEvidenceWrap() {
-    return $("signalEvidence");
-  }
-
-  // -----------------------------
-  // Render: header
-  // -----------------------------
-  function renderHeader(data) {
-    const h = pickHeader(data);
-
-    const website = h.website || (data && data.website) || "";
-    const reportId = h.report_id || (data && data.report_id) || "";
-    const reportDate = h.report_date || (data && data.report_date) || "";
-
-    const siteEl = elHeaderWebsite();
-    if (siteEl) {
-      if (website) {
-        siteEl.href = website;
-        siteEl.textContent = website;
-      } else {
-        siteEl.removeAttribute("href");
-        siteEl.textContent = "—";
-      }
-    }
-
-    const idEl = elHeaderReportId();
-    if (idEl) idEl.textContent = reportId ? reportId : "—";
-
-    const dateEl = elHeaderReportDate();
-    if (dateEl) dateEl.textContent = reportDate ? reportDate : "—";
-  }
-
-  // -----------------------------
-  // Render: Delivery Signals + overall
-  // -----------------------------
-  function setBar(el, score) {
-    if (!el) return;
-    const s = clamp(score, 0, 100);
-    el.style.width = s + "%";
-    // keep the color logic in CSS if you have it; this just sets width
-  }
-
-  function renderOverall(data) {
-    const scores = pickScores(data);
-    const summary = data && data.overall_summary ? data.overall_summary : (data && data.metrics && data.metrics.overall_summary ? data.metrics.overall_summary : "");
-
-    const overall = scores && typeof scores.overall === "number" ? scores.overall : null;
-
-    const val = elOverallScoreValue();
-    if (val) val.textContent = overall == null ? "—" : String(Math.round(overall));
-
-    setBar(elOverallScoreBar(), overall == null ? 0 : overall);
-
-    const s = elOverallSummary();
-    if (s) s.textContent = safeStr(summary, "");
-  }
-
-  // -----------------------------
-  // Render: PSI tiles
-  // -----------------------------
-  function renderPsi(data) {
-    const psi = pickPsi(data);
-
-    // If PSI not enabled, show "—"
-    if (!psi || psi.enabled !== true) {
-      if (elPsiMobileReady()) elPsiMobileReady().textContent = "—";
-      if (elPsiDesktopReady()) elPsiDesktopReady().textContent = "—";
-      if (elPsiMobileLine()) elPsiMobileLine().textContent = "";
-      if (elPsiDesktopLine()) elPsiDesktopLine().textContent = "";
-      return;
-    }
-
-    const pending = psi.pending === true;
-    if (elPsiMobileReady()) elPsiMobileReady().textContent = pending ? "PENDING" : "READY";
-    if (elPsiDesktopReady()) elPsiDesktopReady().textContent = pending ? "PENDING" : "READY";
-
-    const mf = psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
-    const df = psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
-
-    const mobileLine = mf
-      ? "LCP " + ms(mf.LCP_ms) + " · TTFB " + ms(mf.TTFB_ms) + " · CLS " + (mf.CLS == null ? "—" : Number(mf.CLS).toFixed(3))
-      : "";
-    const desktopLine = df
-      ? "LCP " + ms(df.LCP_ms) + " · TTFB " + ms(df.TTFB_ms) + " · CLS " + (df.CLS == null ? "—" : Number(df.CLS).toFixed(3))
-      : "";
-
-    if (elPsiMobileLine()) elPsiMobileLine().textContent = mobileLine;
-    if (elPsiDesktopLine()) elPsiDesktopLine().textContent = desktopLine;
-  }
-
-  // -----------------------------
-  // Render: signal cards
-  // -----------------------------
-  function renderCards(data) {
-    const scores = pickScores(data) || {};
-    const explanations = data && data.explanations ? data.explanations : (data && data.metrics && data.metrics.explanations ? data.metrics.explanations : {});
-
-    // Map:
-    // performance → performanceScore, performanceBar, performanceBlurb
-    // mobile      → mobileScore, mobileBar, mobileBlurb
-    // seo         → seoScore, seoBar, seoBlurb
-    // structure   → structureScore, structureBar, structureBlurb
-    // security    → securityScore, securityBar, securityBlurb
-    // accessibility → accessibilityScore, accessibilityBar, accessibilityBlurb
-
-    function setCard(key, scoreId, barId, blurbId) {
-      const score = typeof scores[key] === "number" ? scores[key] : null;
-
-      const scoreEl = elCardScore(scoreId);
-      if (scoreEl) scoreEl.textContent = score == null ? "—" : String(Math.round(score));
-
-      setBar(elCardBar(barId), score == null ? 0 : score);
-
-      const blurbEl = elCardBlurb(blurbId);
-      if (blurbEl) blurbEl.textContent = safeStr(explanations && explanations[key], "");
-    }
-
-    setCard("performance", "performanceScore", "performanceBar", "performanceBlurb");
-    setCard("mobile", "mobileScore", "mobileBar", "mobileBlurb");
-    setCard("seo", "seoScore", "seoBar", "seoBlurb");
-    setCard("structure", "structureScore", "structureBar", "structureBlurb");
-    setCard("security", "securityScore", "securityBar", "securityBlurb");
-    setCard("accessibility", "accessibilityScore", "accessibilityBar", "accessibilityBlurb");
-
-    // Optional HTML/Delivery mini-card (if present in template)
-    const basic = data && data.basic_checks ? data.basic_checks : (data && data.metrics && data.metrics.basic_checks ? data.metrics.basic_checks : null);
-    if (basic) {
-      const htmlScoreEl = $("htmlScore");
-      const htmlLineEl = $("htmlLine");
-      const htmlBarEl = $("htmlBar");
-
-      // If you have a separate html score, prefer it; otherwise derive a light heuristic
-      let htmlScore = null;
-      if (scores && typeof scores.html === "number") {
-        htmlScore = scores.html;
-      } else {
-        // simple heuristic (do not overthink)
-        // smaller HTML + fewer inline scripts tends to be better
-        const bytes = Number(basic.html_bytes || 0);
-        const scripts = Number(basic.inline_script_count || 0);
-        let s = 100;
-        if (bytes > 200000) s -= 30;
-        else if (bytes > 120000) s -= 15;
-        else if (bytes > 80000) s -= 8;
-
-        if (scripts > 15) s -= 20;
-        else if (scripts > 8) s -= 10;
-        else if (scripts > 4) s -= 5;
-
-        htmlScore = clamp(s, 0, 100);
-      }
-
-      if (htmlScoreEl) htmlScoreEl.textContent = String(Math.round(htmlScore));
-      if (htmlBarEl) setBar(htmlBarEl, htmlScore);
-
-      const line =
-        "HTML " +
-        (basic.html_bytes != null ? Number(basic.html_bytes).toLocaleString() + " bytes" : "—") +
-        " · inline scripts " +
-        (basic.inline_script_count != null ? String(basic.inline_script_count) : "—") +
-        " · HTTP " +
-        (basic.http_status != null ? String(basic.http_status) : "—");
-      if (htmlLineEl) htmlLineEl.textContent = line;
-    }
-  }
-
-  // -----------------------------
-  // Render: Executive Narrative + Fix First (supports new schema)
-  // -----------------------------
-  function renderNarrative(data) {
-    const n = pickNarrative(data);
-
-    // Executive Narrative block at top:
-    const execEl = elExecNarrative();
-    if (execEl) {
-      // Prefer new schema: narrative.executive_narrative.framing.lines
-      const en = n && n.executive_narrative ? n.executive_narrative : null;
-
-      if (en && anyNonEmptyStrings(en.framing && en.framing.lines)) {
-        execEl.textContent = en.framing.lines.filter(Boolean).join(" ");
-      } else {
-        // Legacy: overall_summary (short)
-        const summary = data && data.overall_summary ? data.overall_summary : (n && n.overall_summary ? n.overall_summary : "");
-        execEl.textContent = safeStr(summary, "");
-      }
-    }
-
-    // Fix First panel:
-    const primaryEl = elFixPrimaryConstraint();
-    const whatEl = elFixWhatToFixFirst();
-    const deprEl = elFixDeprioritise();
-    const outEl = elFixExpectedOutcome();
-
-    // New schema has fix_order.items, root_constraint.lines etc
-    const en2 = n && n.executive_narrative ? n.executive_narrative : null;
-
-    if (en2) {
-      // Primary constraint
-      if (primaryEl) {
-        const rc = en2.root_constraint && Array.isArray(en2.root_constraint.lines) ? en2.root_constraint.lines.filter(Boolean) : [];
-        primaryEl.textContent = rc.length ? rc[0] : "—";
-      }
-
-      // What to fix first (first item in fix_order)
-      if (whatEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length) {
-          const first = items[0];
-          const lines = Array.isArray(first.lines) ? first.lines.filter(Boolean) : [];
-          whatEl.innerHTML =
-            "<strong>" +
-            safeStr(first.title, "What to Fix First") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          whatEl.textContent = "—";
-        }
-      }
-
-      // Deprioritise (second item)
-      if (deprEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length >= 2) {
-          const second = items[1];
-          const lines = Array.isArray(second.lines) ? second.lines.filter(Boolean) : [];
-          deprEl.innerHTML =
-            "<strong>" +
-            safeStr(second.title, "Deprioritise (for now)") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          deprEl.textContent = "—";
-        }
-      }
-
-      // Expected outcome (third item or trust_security line)
-      if (outEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length >= 3) {
-          const third = items[2];
-          const lines = Array.isArray(third.lines) ? third.lines.filter(Boolean) : [];
-          outEl.innerHTML =
-            "<strong>" +
-            safeStr(third.title, "Expected outcome") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          // fallback: first trust/security line
-          const ts = en2.trust_security && Array.isArray(en2.trust_security.lines) ? en2.trust_security.lines.filter(Boolean) : [];
-          outEl.textContent = ts.length ? ts[0] : "—";
-        }
-      }
-
-      return;
-    }
-
-    // Legacy narrative fields (if any)
-    if (primaryEl) primaryEl.textContent = "—";
-    if (whatEl) whatEl.textContent = "—";
-    if (deprEl) deprEl.textContent = "—";
-    if (outEl) outEl.textContent = "—";
-  }
-
-  // -----------------------------
-  // Render: Signal Evidence
-  // -----------------------------
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      switch (c) {
-        case "&":
-          return "&amp;";
-        case "<":
-          return "&lt;";
-        case ">":
-          return "&gt;";
-        case '"':
-          return "&quot;";
-        case "'":
-          return "&#039;";
-        default:
-          return c;
-      }
-    });
-  }
-
-  function renderEvidence(data) {
-    const wrap = elEvidenceWrap();
-    if (!wrap) return;
-
-    const signals = Array.isArray(data && data.delivery_signals ? data.delivery_signals : (data && data.metrics && data.metrics.delivery_signals ? data.metrics.delivery_signals : null))
-      ? (data.delivery_signals || data.metrics.delivery_signals)
-      : [];
-
-    if (!signals.length) {
-      wrap.innerHTML = "<div class='muted'>No evidence available.</div>";
-      return;
-    }
-
-    // Build a simple list: Signal → Deductions + Observations
-    const out = [];
-    for (let i = 0; i < signals.length; i++) {
-      const s = signals[i] || {};
-      const label = s.label || s.id || "Signal";
-      const score = typeof s.score === "number" ? Math.round(s.score) : null;
-
-      const deductions = Array.isArray(s.deductions) ? s.deductions : [];
-      const observations = Array.isArray(s.observations) ? s.observations : [];
-      const issues = Array.isArray(s.issues) ? s.issues : [];
-
-      out.push("<div class='evidence-block'>");
-      out.push(
-        "<div class='evidence-head'><div class='evidence-title'>" +
-          esc(label) +
-          "</div><div class='evidence-score'>" +
-          (score == null ? "—" : esc(score)) +
-          "</div></div>"
-      );
-
-      if (deductions.length) {
-        out.push("<div class='evidence-sub'>Deductions</div><ul class='evidence-list'>");
-        for (let d = 0; d < deductions.length; d++) {
-          const dd = deductions[d] || {};
-          out.push("<li><span class='evidence-points'>-" + esc(dd.points || 0) + "</span> " + esc(dd.reason || dd.code || "Deduction") + "</li>");
-        }
-        out.push("</ul>");
-      }
-
-      if (issues.length) {
-        out.push("<div class='evidence-sub'>Issues</div><ul class='evidence-list'>");
-        for (let j = 0; j < issues.length; j++) {
-          const it = issues[j] || {};
-          out.push("<li><strong>" + esc(it.title || it.id || "Issue") + "</strong><div class='muted'>" + esc(it.impact || "") + "</div></li>");
-        }
-        out.push("</ul>");
-      }
-
-      if (observations.length) {
-        out.push("<div class='evidence-sub'>Observations</div><ul class='evidence-list'>");
-        for (let o = 0; o < observations.length; o++) {
-          const ob = observations[o] || {};
-          out.push("<li><span class='evidence-k'>" + esc(ob.label || "Observation") + ":</span> <span class='evidence-v'>" + esc(ob.value) + "</span></li>");
-        }
-        out.push("</ul>");
-      }
-
-      out.push("</div>");
-    }
-
-    wrap.innerHTML = out.join("");
-  }
-
-  // -----------------------------
-  // Orchestration
-  // -----------------------------
-  function renderAll(data) {
-    renderHeader(data);
-    renderOverall(data);
-    renderPsi(data);
-    renderCards(data);
-    renderNarrative(data);
-    renderEvidence(data);
-
-    // show report
-    const root = $("reportRoot");
-    if (root) root.style.display = "";
-    const loader = $("loaderSection");
-    if (loader) loader.style.display = "none";
-  }
-
-  // -----------------------------
-  // Fetch helpers
-  // -----------------------------
-  async function fetchJson(url, opts) {
-    const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
-    const text = await r.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Invalid JSON response");
-    }
-    if (!r.ok) {
-      throw new Error((data && (data.error || data.detail)) || "HTTP " + r.status);
-    }
-    return data;
+  function fmtBytes(n) {
+    const v = safeNum(n);
+    if (v === null) return "—";
+    const kb = v / 1024;
+    if (kb < 1024) return `${Math.round(kb)} KB`;
+    const mb = kb / 1024;
+    return `${mb.toFixed(1)} MB`;
   }
 
   function getQueryParam(name) {
@@ -601,56 +55,535 @@
     }
   }
 
-  async function fetchReport(reportId) {
-    return fetchJson("/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
-  }
-
-  function showError(msg) {
-    console.error("[report-data]", msg);
-
-    // Hide loader
-    const loader = $("loaderSection");
-    if (loader) loader.style.display = "none";
-
-    // Show something visible
-    const el = $("narrativeText") || document.body;
+  async function fetchJson(url, opts) {
+    const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
+    const text = await r.text();
+    let data;
     try {
-      el.innerHTML = "<p><strong>Report error</strong></p><p class='muted'>" + esc(msg) + "</p>";
-    } catch (_) {}
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Invalid JSON response");
+    }
+    if (!r.ok) {
+      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
+    }
+    return data;
   }
 
-  async function boot() {
-    const reportId = getQueryParam("report_id") || getQueryParam("id");
-    if (!reportId) return;
+  function fetchReport(reportId) {
+    return fetchJson(
+      "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)
+    );
+  }
 
-    // If polling mode is enabled, do NOT fetch here. report-polling.js will call IQWEB_handleReportData.
-    if (window.IQWEB_USE_POLLING === true) {
-      // Ensure loader visible while polling
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(true);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("Building Report…");
+  // --------------------------------------------
+  // Normalisation (supports legacy + newer schema)
+  // --------------------------------------------
+function pickSignals(data) {
+    data = safeObj(data);
+
+    // Common locations
+    let raw =
+      (Array.isArray(data.delivery_signals) ? data.delivery_signals : null) ||
+      (data.delivery_signals && Array.isArray(data.delivery_signals.signals) ? data.delivery_signals.signals : null) ||
+      (data.metrics && Array.isArray(data.metrics.delivery_signals) ? data.metrics.delivery_signals : null) ||
+      (data.metrics && data.metrics.delivery_signals && Array.isArray(data.metrics.delivery_signals.signals) ? data.metrics.delivery_signals.signals : null) ||
+      (Array.isArray(data.signals) ? data.signals : null) ||
+      null;
+
+    if (Array.isArray(raw) && raw.length) return raw;
+
+    // Fallback: synthesise the minimum signal set from scores/PSI/HTML so the UI is never half-empty.
+    const scores = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
+    const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
+    const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
+    const security = safeObj(data.security_headers || (data.metrics && data.metrics.security_headers) || {});
+
+    function num(n) {
+      return typeof n === "number" && isFinite(n) ? n : null;
+    }
+
+    function scoreOrNull(v) {
+      const x = num(v);
+      return x === null ? null : Math.max(0, Math.min(100, Math.round(x)));
+    }
+
+    function mk(id, label, score, status, summary, evidence, facts) {
+      const s = scoreOrNull(score);
+      return {
+        id,
+        label,
+        score: s,
+        status: status || (s === null ? "pending" : "ready"),
+        narrative: summary || "",
+        evidence: Array.isArray(evidence) ? evidence : [],
+        facts: safeObj(facts || {}),
+      };
+    }
+
+    const mobileFacts = safeObj(psi.mobile && psi.mobile.facts);
+    const desktopFacts = safeObj(psi.desktop && psi.desktop.facts);
+
+    const out = [];
+
+    // Overall
+    out.push(
+      mk(
+        "overall",
+        "Overall Delivery Score",
+        scores.overall,
+        null,
+        data.overall_summary || data.delivery_summary || "",
+        [],
+        {}
+      )
+    );
+
+    // PSI cards (only if we have facts; otherwise keep as pending)
+    out.push(
+      mk(
+        "psi_mobile",
+        "PSI — Mobile",
+        scores.mobile,
+        mobileFacts && Object.keys(mobileFacts).length ? "ready" : "pending",
+        "",
+        [],
+        mobileFacts
+      )
+    );
+
+    out.push(
+      mk(
+        "psi_desktop",
+        "PSI — Desktop",
+        scores.performance, // legacy mapping sometimes uses performance for desktop
+        desktopFacts && Object.keys(desktopFacts).length ? "ready" : "pending",
+        "",
+        [],
+        desktopFacts
+      )
+    );
+
+    // HTML / Delivery
+    out.push(
+      mk(
+        "html_delivery",
+        "HTML / Delivery",
+        scores.structure, // best proxy if dedicated score missing
+        null,
+        "",
+        [],
+        {
+          html_bytes: num(basic.html_bytes),
+          status_code: basic.status_code || null,
+          inline_scripts_count: num(basic.inline_script_count),
+          title_present: basic.title_present,
+          viewport_present: basic.viewport_present,
+        }
+      )
+    );
+
+    // Remaining category cards (these power most of the UI)
+    out.push(mk("performance", "Performance", scores.performance, null, "", [], {}));
+    out.push(mk("mobile", "Mobile", scores.mobile, null, "", [], {}));
+    out.push(mk("seo", "SEO", scores.seo, null, "", [], {}));
+    out.push(mk("structure", "Structure", scores.structure, null, "", [], {}));
+
+    // Security: if we have any header signal data, mark ready.
+    const secReady = security && Object.keys(security).length > 0;
+    out.push(mk("security", "Security", scores.security, secReady ? "ready" : "pending", "", [], security));
+
+    out.push(mk("accessibility", "Accessibility", scores.accessibility, null, "", [], {}));
+
+    // Return only meaningful items (we keep pending ones so placeholders can show “Not available yet”)
+    return out;
+  }
+
+  function pickNarrative(data) {
+    data = safeObj(data);
+    // Legacy location
+    const legacy = data.narrative || (data.metrics && data.metrics.narrative) || null;
+    if (legacy) return legacy;
+    // Newer location (if ever nested)
+    if (data.metrics && data.metrics.executive_narrative) return { executive_narrative: data.metrics.executive_narrative };
+    return null;
+  }
+
+  function pickFixFirst(data) {
+    data = safeObj(data);
+    const ff =
+      data.fix_first ||
+      (data.metrics && data.metrics.fix_first) ||
+      (data.narrative && data.narrative.fix_first) ||
+      (data.metrics && data.metrics.narrative && data.metrics.narrative.fix_first) ||
+      null;
+    return ff;
+  }
+
+  function pickIssues(data) {
+    data = safeObj(data);
+    const issues =
+      data.issues ||
+      (data.metrics && data.metrics.issues) ||
+      (data.deductions && data.deductions.issues) ||
+      null;
+    return Array.isArray(issues) ? issues : [];
+  }
+
+  function pickEvidence(data) {
+    data = safeObj(data);
+    const ev = data.evidence || (data.metrics && data.metrics.evidence) || null;
+    return safeObj(ev);
+  }
+
+  // --------------------------------------------
+  // DOM updates
+  // --------------------------------------------
+  function setText(idOrEl, v) {
+    const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
+    if (!el) return;
+    el.textContent = v;
+  }
+
+  function setHtml(idOrEl, html) {
+    const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
+    if (!el) return;
+    el.innerHTML = html;
+  }
+
+  function setProgressBar(containerSelOrEl, pct) {
+    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
+    if (!el) return;
+    const bar = el.querySelector(".progress-fill") || el.querySelector("[data-progress-fill]");
+    if (!bar) return;
+    const v = clamp100(pct);
+    if (v === null) {
+      bar.style.width = "0%";
+      return;
+    }
+    bar.style.width = `${v}%`;
+  }
+
+  function setBadge(containerSelOrEl, txt) {
+    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
+    if (!el) return;
+    const badge = el.querySelector(".status-badge") || el.querySelector("[data-status-badge]");
+    if (!badge) return;
+    badge.textContent = txt;
+  }
+
+  // --------------------------------------------
+  // Rendering blocks
+  // --------------------------------------------
+  function renderHeader(reportId, data) {
+    const h = safeObj(data.header);
+    const url = safeStr(h.website || h.url || data.website || data.url);
+    const rid = safeStr(h.report_id || h.reportId || reportId);
+    const dt = safeStr(h.report_date || h.reportDate || data.created_at || "");
+
+    setText("hdrWebsite", url || "—");
+    setText("hdrReportId", rid || "—");
+    setText("hdrReportDate", dt ? dt.slice(0, 10) : "—");
+  }
+
+  function findSignal(signals, id) {
+    if (!Array.isArray(signals)) return null;
+    return signals.find((s) => safeStr(s.id) === id) || null;
+  }
+
+  function renderOverall(signals, data) {
+    const overall =
+      findSignal(signals, "overall") ||
+      findSignal(signals, "overall_delivery") ||
+      findSignal(signals, "overall_delivery_score") ||
+      null;
+
+    const score = overall ? overall.score : (data.scores && data.scores.overall);
+    setText("overallScoreValue", fmtScore(score));
+    setProgressBar("#overallScoreBar", score);
+
+    // Summary
+    const summary =
+      safeStr(data.overall_summary) ||
+      safeStr(data.delivery_summary) ||
+      safeStr(overall && overall.narrative) ||
+      "—";
+    setText("overallSummary", summary);
+  }
+
+  function renderPsi(signals) {
+    const mob =
+      findSignal(signals, "psi_mobile") ||
+      findSignal(signals, "psi_mobile_score") ||
+      null;
+    const desk =
+      findSignal(signals, "psi_desktop") ||
+      findSignal(signals, "psi_desktop_score") ||
+      null;
+
+    // Mobile
+    setBadge("#psiMobileCard", mob && mob.status === "ready" ? "READY" : "—");
+    setProgressBar("#psiMobileBar", mob ? mob.score : null);
+    const mf = safeObj(mob && mob.facts);
+    const mLcp = mf.LCP_ms != null ? `LCP ${fmtMs(mf.LCP_ms)}` : "Not available yet.";
+    const mTtfb = mf.TTFB_ms != null ? `TTFB ${fmtMs(mf.TTFB_ms)}` : "";
+    const mCls = mf.CLS != null ? `CLS ${mf.CLS.toFixed(3)}` : "";
+    setText("psiMobileFacts", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
+
+    // Desktop
+    setBadge("#psiDesktopCard", desk && desk.status === "ready" ? "READY" : "—");
+    setProgressBar("#psiDesktopBar", desk ? desk.score : null);
+    const df = safeObj(desk && desk.facts);
+    const dLcp = df.LCP_ms != null ? `LCP ${fmtMs(df.LCP_ms)}` : "Not available yet.";
+    const dTtfb = df.TTFB_ms != null ? `TTFB ${fmtMs(df.TTFB_ms)}` : "";
+    const dCls = df.CLS != null ? `CLS ${df.CLS.toFixed(3)}` : "";
+    setText("psiDesktopFacts", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
+  }
+
+  function renderHtmlDelivery(signals) {
+    const hd =
+      findSignal(signals, "html_delivery") ||
+      findSignal(signals, "html") ||
+      findSignal(signals, "delivery") ||
+      null;
+
+    setProgressBar("#htmlDeliveryBar", hd ? hd.score : null);
+    const f = safeObj(hd && hd.facts);
+
+    const bytes = f.html_bytes != null ? `HTML ${fmtBytes(f.html_bytes)}` : "Not available yet.";
+    const inline = f.inline_scripts_count != null ? `inline scripts ${f.inline_scripts_count}` : "";
+    const code = f.status_code != null ? `HTTP ${f.status_code}` : "";
+    setText("htmlDeliveryFacts", [bytes, inline, code].filter(Boolean).join(" · "));
+  }
+
+  function renderCategoryCards(signals, data) {
+    const scoreMap = safeObj(data.scores);
+
+    function setCard(cardId, signalId, fallbackScore, fallbackText) {
+      const s = findSignal(signals, signalId);
+      const score = s && typeof s.score === "number" ? s.score : fallbackScore;
+      setProgressBar(`#${cardId}Bar`, score);
+      setText(`${cardId}Score`, fmtScore(score));
+      setText(`${cardId}Text`, safeStr(s && s.narrative) || fallbackText || "—");
+    }
+
+    setCard("perf", "performance", scoreMap.performance, "—");
+    setCard("mobile", "mobile", scoreMap.mobile, "—");
+    setCard("seo", "seo", scoreMap.seo, "—");
+    setCard("structure", "structure", scoreMap.structure, "—");
+    setCard("security", "security", scoreMap.security, "—");
+    setCard("accessibility", "accessibility", scoreMap.accessibility, "—");
+  }
+
+  function renderExecutiveNarrative(narrative) {
+    const el = $id("narrativeText");
+    if (!el) return;
+
+    // Legacy: overall.lines / paragraphs
+    const overall = safeObj(narrative && narrative.overall);
+    const lines = Array.isArray(overall.lines) ? overall.lines.filter(Boolean) : [];
+    const paras = Array.isArray(overall.paragraphs) ? overall.paragraphs.filter(Boolean) : [];
+
+    // New: executive_narrative blocks
+    const en = safeObj(narrative && narrative.executive_narrative);
+
+    function renderLines(arr) {
+      return `<p>${arr.map((s) => safeStr(s)).join("<br>")}</p>`;
+    }
+
+    if (paras.length) {
+      setHtml(el, paras.map((p) => `<p>${safeStr(p)}</p>`).join(""));
+      return;
+    }
+    if (lines.length) {
+      setHtml(el, renderLines(lines));
       return;
     }
 
-    // Non-polling mode: fetch once and render
+    // If new schema exists, build a short display (without exceeding constraints)
+    const framing = safeObj(en.framing);
+    const root = safeObj(en.root_constraint);
+    const seo = safeObj(en.structure_seo);
+    const trust = safeObj(en.trust_security);
+    const spec = safeObj(en.site_specificity);
+
+    const chunks = [];
+    if (Array.isArray(framing.lines) && framing.lines.length) chunks.push(renderLines(framing.lines));
+    if (Array.isArray(root.lines) && root.lines.length) chunks.push(renderLines(root.lines));
+    if (Array.isArray(seo.lines) && seo.lines.length) chunks.push(renderLines(seo.lines));
+    if (Array.isArray(trust.lines) && trust.lines.length) chunks.push(renderLines(trust.lines));
+    if (Array.isArray(spec.lines) && spec.lines.length) chunks.push(renderLines(spec.lines));
+
+    if (chunks.length) {
+      setHtml(el, chunks.join(""));
+      return;
+    }
+
+    setHtml(el, "<p class='muted'>Narrative will load after scan data is available.</p>");
+  }
+
+  function renderFixFirst(fixFirst) {
+    if (!fixFirst) return;
+
+    const pc = $id("fixPrimaryConstraint");
+    const wtf = $id("fixWhatToFixFirst");
+    const dep = $id("fixDeprioritise");
+    const out = $id("fixExpectedOutcome");
+
+    if (pc) setText(pc, safeStr(fixFirst.primary_constraint) || "—");
+    if (wtf) setText(wtf, safeStr(fixFirst.what_to_fix_first) || "—");
+    if (dep) setText(dep, safeStr(fixFirst.deprioritise_for_now) || "—");
+    if (out) setText(out, safeStr(fixFirst.expected_outcome) || "—");
+  }
+
+  function renderKeyInsightMetrics(data) {
+    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics));
+    setText("kimStrength", safeStr(km.strength) || "Not available from this scan output yet.");
+    setText("kimRisk", safeStr(km.risk) || "Not available from this scan output yet.");
+    setText("kimFocus", safeStr(km.focus) || "Not available from this scan output yet.");
+    setText("kimNext", safeStr(km.next) || "Not available from this scan output yet.");
+  }
+
+  function renderIssues(data) {
+    const issues = pickIssues(data);
+    const el = $id("issuesList");
+    if (!el) return;
+
+    if (!issues.length) {
+      setHtml(
+        el,
+        "<div class='muted'><strong>No issue list available yet</strong><br>This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>"
+      );
+      return;
+    }
+
+    const max = 8;
+    const items = issues.slice(0, max).map((it) => {
+      const title = safeStr(it.title || it.label || it.id || "Issue");
+      const severity = safeStr(it.severity || it.priority || "");
+      const desc = safeStr(it.description || it.summary || "");
+      return `
+        <div class="issue-item">
+          <div class="issue-title">${title}${severity ? ` <span class="pill">${severity}</span>` : ""}</div>
+          ${desc ? `<div class="issue-desc">${desc}</div>` : ""}
+        </div>
+      `;
+    });
+
+    setHtml(el, items.join(""));
+  }
+
+  function renderEvidence(data) {
+    const ev = pickEvidence(data);
+    const el = $id("signalEvidence");
+    if (!el) return;
+
+    // If no evidence, keep it minimal (page already explains “not available”)
+    const keys = Object.keys(ev || {});
+    if (!keys.length) return;
+
+    const blocks = keys.slice(0, 12).map((k) => {
+      const v = ev[k];
+      const txt =
+        typeof v === "string"
+          ? v
+          : typeof v === "number"
+          ? String(v)
+          : Array.isArray(v)
+          ? v.map((x) => safeStr(x)).filter(Boolean).join(", ")
+          : v && typeof v === "object"
+          ? JSON.stringify(v, null, 2)
+          : "";
+      return `
+        <div class="evidence-row">
+          <div class="evidence-key">${k}</div>
+          <pre class="evidence-val">${txt}</pre>
+        </div>
+      `;
+    });
+
+    setHtml(el, blocks.join(""));
+  }
+
+  // --------------------------------------------
+  // Loader controls (hooked by report-polling.js)
+  // --------------------------------------------
+  window.IQWEB_showLoader = function (show) {
+    const overlay = $id("loadingOverlay");
+    const main = $id("mainReport");
+    if (overlay) overlay.style.display = show ? "flex" : "none";
+    if (main) main.style.display = show ? "none" : "block";
+  };
+
+  window.IQWEB_setLoaderStatus = function (txt) {
+    const el = $id("loaderStatusText");
+    if (!el) return;
+    el.textContent = txt || "";
+  };
+
+  // --------------------------------------------
+  // Main render entry (called by polling + initial load)
+  // --------------------------------------------
+  function renderAll(reportId, data) {
+    data = safeObj(data);
+
+    renderHeader(reportId, data);
+
+    const signals = pickSignals(data);
+    renderOverall(signals, data);
+    renderPsi(signals);
+    renderHtmlDelivery(signals);
+    renderCategoryCards(signals, data);
+
+    const narrative = pickNarrative(data);
+    renderExecutiveNarrative(narrative);
+
+    const fixFirst = pickFixFirst(data);
+    renderFixFirst(fixFirst);
+
+    renderKeyInsightMetrics(data);
+    renderIssues(data);
+    renderEvidence(data);
+  }
+
+  window.IQWEB_handleReportData = function (reportId, payload) {
     try {
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(true);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("Fetching report…");
+      renderAll(reportId, payload || {});
+    } catch (e) {
+      console.error("[report-data] render failed:", e);
+    }
+  };
 
-      const data = await fetchReport(reportId);
+  // --------------------------------------------
+  // Boot: one-shot fetch (polling handles ongoing)
+  // --------------------------------------------
+  async function boot(reportId) {
+    try {
+      window.IQWEB_showLoader?.(true);
+      window.IQWEB_setLoaderStatus?.("Fetching report data…");
+      const res = await fetchReport(reportId);
 
-      if (!data || data.success !== true) {
-        showError((data && (data.error || data.detail)) || "Unknown error");
-        return;
+      if (res && res.success === true) {
+        window.IQWEB_handleReportData?.(reportId, res);
       }
 
-      renderAll(data);
-
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(false);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("");
+      // If polling is enabled, report-polling.js will take over.
+      // If not, show what we have.
+      window.IQWEB_showLoader?.(false);
     } catch (e) {
-      showError(e && e.message ? e.message : String(e));
+      window.IQWEB_showLoader?.(false);
+      const el = $id("narrativeText");
+      if (el) {
+        el.innerHTML =
+          "<p><strong>Unable to load report.</strong></p>" +
+          `<p class="muted">${safeStr(e && e.message) || "Unknown error"}</p>`;
+      }
     }
   }
 
-  document.addEventListener("DOMContentLoaded", boot);
+  document.addEventListener("DOMContentLoaded", function () {
+    const reportId = getQueryParam("report_id") || getQueryParam("id");
+    if (!reportId) return;
+    boot(reportId);
+  });
 })();
