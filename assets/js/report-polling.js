@@ -35,38 +35,29 @@
     );
   }
 
-  // ✅ Updated to support BOTH schemas:
-  // - Legacy: narrative.overall.lines / paragraphs
-  // - North-star: narrative.executive_narrative (exec_north_star_v1)
+  // ✅ Updated: supports BOTH legacy + North Star narrative schemas
   function hasNarrative(payload) {
     const n = payload?.narrative || payload?.metrics?.narrative;
-    if (!n) return false;
 
-    // North-star schema
-    const en = n?.executive_narrative;
-    if (en && typeof en === "object") {
-      const framing = Array.isArray(en?.framing?.lines) ? en.framing.lines : [];
-      const root = Array.isArray(en?.root_constraint?.lines) ? en.root_constraint.lines : [];
-      const seo = Array.isArray(en?.structure_seo?.lines) ? en.structure_seo.lines : [];
-      const sec = Array.isArray(en?.trust_security?.lines) ? en.trust_security.lines : [];
-      const fixItems = Array.isArray(en?.fix_order?.items) ? en.fix_order.items : [];
-
-      const anyFixLines = fixItems.some((it) => Array.isArray(it?.lines) && it.lines.filter(Boolean).length > 0);
-      if (
-        framing.filter(Boolean).length > 0 ||
-        root.filter(Boolean).length > 0 ||
-        seo.filter(Boolean).length > 0 ||
-        sec.filter(Boolean).length > 0 ||
-        anyFixLines
-      ) {
-        return true;
-      }
-    }
-
-    // Legacy schema
+    // Legacy: narrative.overall.lines / paragraphs
     const paras = Array.isArray(n?.overall?.paragraphs) ? n.overall.paragraphs : [];
     const lines = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
-    return paras.filter(Boolean).length > 0 || lines.filter(Boolean).length > 0;
+    if (paras.filter(Boolean).length > 0) return true;
+    if (lines.filter(Boolean).length > 0) return true;
+
+    // North Star: narrative.executive_narrative
+    const exec = n?.executive_narrative;
+    if (!exec || typeof exec !== "object") return false;
+
+    // Treat it as "present" if ANY meaningful section has lines/items
+    const hasFraming = Array.isArray(exec?.framing?.lines) && exec.framing.lines.filter(Boolean).length > 0;
+    const hasRoot = Array.isArray(exec?.root_constraint?.lines) && exec.root_constraint.lines.filter(Boolean).length > 0;
+    const hasSEO = Array.isArray(exec?.structure_seo?.lines) && exec.structure_seo.lines.filter(Boolean).length > 0;
+    const hasTrust = Array.isArray(exec?.trust_security?.lines) && exec.trust_security.lines.filter(Boolean).length > 0;
+    const hasFixOrder =
+      Array.isArray(exec?.fix_order?.items) && exec.fix_order.items.length > 0;
+
+    return !!(hasFraming || hasRoot || hasSEO || hasTrust || hasFixOrder);
   }
 
   function metricsReady(payload) {
@@ -75,7 +66,7 @@
 
     if (!scores || typeof scores.overall !== "number") return false;
 
-    // If PSI is enabled, require pending=false
+    // If PSI is enabled, require pending=false and facts present
     if (psi?.enabled === true) {
       if (psi?.pending !== false) return false;
       if (!psi?.mobile?.facts || !psi?.desktop?.facts) return false;
@@ -85,6 +76,7 @@
   }
 
   async function triggerNarrative(reportId) {
+    // fire-and-forget style; we’ll just keep polling afterward
     try {
       await fetchJson("/.netlify/functions/generate-narrative", {
         method: "POST",
@@ -93,6 +85,8 @@
       });
       return true;
     } catch (e) {
+      // If it returns 202 (processing) or similar, fetchJson would throw.
+      // That’s OK — polling will continue.
       return false;
     }
   }
@@ -116,11 +110,12 @@
         continue;
       }
 
-      // Always render whatever we have
+      // Always render whatever we have (so the page doesn’t look dead)
       if (res && res.success === true) {
         window.IQWEB_handleReportData?.(reportId, res);
       }
 
+      // If metrics are still building, keep waiting
       if (!metricsReady(res)) {
         window.IQWEB_showLoader?.(true);
         window.IQWEB_setLoaderStatus?.("Collecting metrics…");
@@ -144,12 +139,13 @@
         return;
       }
 
-      // Triggered but still waiting
+      // If narrative was triggered but still not present yet
       window.IQWEB_showLoader?.(true);
       window.IQWEB_setLoaderStatus?.("Finalising report…");
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
+    // Hard timeout
     window.IQWEB_showLoader?.(false);
     const el = document.getElementById("narrativeText");
     if (el) {
