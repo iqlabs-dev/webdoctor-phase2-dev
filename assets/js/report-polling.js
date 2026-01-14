@@ -4,6 +4,7 @@
 
   const POLL_INTERVAL_MS = 2000;
   const MAX_POLLS = 300; // ~10 minutes hard cap
+  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop blocking UI
 
   function getQueryParam(name) {
     try {
@@ -30,34 +31,44 @@
 
   function fetchReport(reportId) {
     return fetchJson(
-      "/.netlify/functions/get-report-data?report_id=" +
-        encodeURIComponent(reportId)
+      "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)
     );
   }
 
-  // ✅ Updated: supports BOTH legacy + North Star narrative schemas
+  // -----------------------------
+  // Narrative detection (supports legacy + new schema)
+  // -----------------------------
+  function anyNonEmptyStrings(arr) {
+    return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
+  }
+
   function hasNarrative(payload) {
     const n = payload?.narrative || payload?.metrics?.narrative;
+    if (!n) return false;
 
     // Legacy: narrative.overall.lines / paragraphs
-    const paras = Array.isArray(n?.overall?.paragraphs) ? n.overall.paragraphs : [];
-    const lines = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
-    if (paras.filter(Boolean).length > 0) return true;
-    if (lines.filter(Boolean).length > 0) return true;
+    if (anyNonEmptyStrings(n?.overall?.lines)) return true;
+    if (anyNonEmptyStrings(n?.overall?.paragraphs)) return true;
 
-    // North Star: narrative.executive_narrative
-    const exec = n?.executive_narrative;
-    if (!exec || typeof exec !== "object") return false;
+    // New: narrative.executive_narrative.* (your north star schema)
+    const en = n?.executive_narrative;
+    if (!en) return false;
 
-    // Treat it as "present" if ANY meaningful section has lines/items
-    const hasFraming = Array.isArray(exec?.framing?.lines) && exec.framing.lines.filter(Boolean).length > 0;
-    const hasRoot = Array.isArray(exec?.root_constraint?.lines) && exec.root_constraint.lines.filter(Boolean).length > 0;
-    const hasSEO = Array.isArray(exec?.structure_seo?.lines) && exec.structure_seo.lines.filter(Boolean).length > 0;
-    const hasTrust = Array.isArray(exec?.trust_security?.lines) && exec.trust_security.lines.filter(Boolean).length > 0;
-    const hasFixOrder =
-      Array.isArray(exec?.fix_order?.items) && exec.fix_order.items.length > 0;
+    if (anyNonEmptyStrings(en?.framing?.lines)) return true;
+    if (anyNonEmptyStrings(en?.root_constraint?.lines)) return true;
+    if (anyNonEmptyStrings(en?.structure_seo?.lines)) return true;
+    if (anyNonEmptyStrings(en?.trust_security?.lines)) return true;
+    if (anyNonEmptyStrings(en?.site_specificity?.lines)) return true;
 
-    return !!(hasFraming || hasRoot || hasSEO || hasTrust || hasFixOrder);
+    // Behaviour split may contain lines too
+    if (anyNonEmptyStrings(en?.behaviour_split?.mobile?.lines)) return true;
+    if (anyNonEmptyStrings(en?.behaviour_split?.desktop?.lines)) return true;
+
+    // Fix order lines
+    const items = en?.fix_order?.items;
+    if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
+
+    return false;
   }
 
   function metricsReady(payload) {
@@ -66,7 +77,7 @@
 
     if (!scores || typeof scores.overall !== "number") return false;
 
-    // If PSI is enabled, require pending=false and facts present
+    // If PSI is enabled, require pending=false AND facts present
     if (psi?.enabled === true) {
       if (psi?.pending !== false) return false;
       if (!psi?.mobile?.facts || !psi?.desktop?.facts) return false;
@@ -76,7 +87,6 @@
   }
 
   async function triggerNarrative(reportId) {
-    // fire-and-forget style; we’ll just keep polling afterward
     try {
       await fetchJson("/.netlify/functions/generate-narrative", {
         method: "POST",
@@ -84,16 +94,31 @@
         body: JSON.stringify({ report_id: reportId }),
       });
       return true;
-    } catch (e) {
-      // If it returns 202 (processing) or similar, fetchJson would throw.
-      // That’s OK — polling will continue.
+    } catch (_) {
+      // fine — keep polling
       return false;
+    }
+  }
+
+  function failVisible(msg) {
+    console.error("[polling]", msg);
+    window.IQWEB_showLoader?.(false);
+
+    // Show something visible even if the page template is minimal
+    const el = document.getElementById("narrativeText") || document.body;
+    if (el) {
+      try {
+        el.innerHTML =
+          "<p><strong>Report render issue:</strong></p>" +
+          `<p class="muted">${String(msg)}</p>`;
+      } catch (_) {}
     }
   }
 
   async function startPolling(reportId) {
     let attempts = 0;
     let narrativeTriggered = false;
+    let narrativeWaitPolls = 0;
 
     window.IQWEB_showLoader?.(true);
     window.IQWEB_setLoaderStatus?.("Building Report…");
@@ -110,25 +135,23 @@
         continue;
       }
 
-      // Always render whatever we have (so the page doesn’t look dead)
-     if (res && res.success === true) {
-  try {
-    window.IQWEB_handleReportData?.(reportId, res);
-  } catch (e) {
-    console.error("[render] IQWEB_handleReportData crashed:", e);
-    window.IQWEB_showLoader?.(false);
-    const el = document.getElementById("narrativeText");
-    if (el) {
-      el.innerHTML =
-        "<p><strong>Render error:</strong> the report data was returned, but the UI failed to render it.</p>" +
-        "<p class='muted'>Open DevTools Console and copy the first error line.</p>";
-    }
-    return;
-  }
-}
+      // If backend returned success, try render immediately.
+      if (res && res.success === true) {
+        try {
+          // IMPORTANT: if this function is missing, you’ll never render anything.
+          if (typeof window.IQWEB_handleReportData !== "function") {
+            // Don’t spin forever — surface the problem.
+            failVisible("IQWEB_handleReportData is not loaded (script order / missing include).");
+            return;
+          }
+          window.IQWEB_handleReportData(reportId, res);
+        } catch (e) {
+          failVisible("IQWEB_handleReportData crashed: " + (e?.message || String(e)));
+          return;
+        }
+      }
 
-
-      // If metrics are still building, keep waiting
+      // Wait for metrics
       if (!metricsReady(res)) {
         window.IQWEB_showLoader?.(true);
         window.IQWEB_setLoaderStatus?.("Collecting metrics…");
@@ -136,23 +159,35 @@
         continue;
       }
 
-      // Metrics ready but narrative not yet present → trigger once
-      if (!hasNarrative(res) && !narrativeTriggered) {
-        window.IQWEB_showLoader?.(true);
-        window.IQWEB_setLoaderStatus?.("Generating narrative…");
-        await triggerNarrative(reportId);
-        narrativeTriggered = true;
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        continue;
-      }
-
-      // Narrative present → done
+      // At this point: metrics are ready. Narrative is OPTIONAL.
+      // If we already have narrative in either schema, finish.
       if (hasNarrative(res)) {
         window.IQWEB_showLoader?.(false);
         return;
       }
 
-      // If narrative was triggered but still not present yet
+      // Trigger narrative once (non-blocking)
+      if (!narrativeTriggered) {
+        window.IQWEB_showLoader?.(true);
+        window.IQWEB_setLoaderStatus?.("Generating narrative…");
+        await triggerNarrative(reportId);
+        narrativeTriggered = true;
+        narrativeWaitPolls = 0;
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        continue;
+      }
+
+      // Narrative was triggered but not present yet — do NOT block forever.
+      narrativeWaitPolls++;
+
+      if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
+        // Stop blocking. Report is usable without narrative.
+        window.IQWEB_showLoader?.(false);
+        // Optional: if you have a status area, set a soft message:
+        window.IQWEB_setLoaderStatus?.("");
+        return;
+      }
+
       window.IQWEB_showLoader?.(true);
       window.IQWEB_setLoaderStatus?.("Finalising report…");
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
