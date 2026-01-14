@@ -2,582 +2,684 @@
 (function () {
   "use strict";
 
-  // -----------------------------
-  // Tiny DOM helpers
-  // -----------------------------
+  // --------------------------------------------------
+  // Small utilities
+  // --------------------------------------------------
   function $(id) {
     return document.getElementById(id);
   }
 
-  // -----------------------------
-  // Public hooks for report-polling.js (and other orchestrators)
-  // -----------------------------
-  // These are SAFE: we only define them if not already present.
-  function _setText(id, txt) {
-    const el = $(id);
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
+  }
+
+  function safeStr(v) {
+    return typeof v === "string" ? v : "";
+  }
+
+  function safeNum(v) {
+    return typeof v === "number" && isFinite(v) ? v : null;
+  }
+
+  function clamp01(n) {
+    if (n == null) return 0;
+    if (n < 0) return 0;
+    if (n > 1) return 1;
+    return n;
+  }
+
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
+  }
+
+  function nonEmpty(v) {
+    return typeof v === "string" && v.trim().length > 0;
+  }
+
+  function setText(id, text) {
+    var el = $(id);
     if (!el) return;
-    el.textContent = txt == null || String(txt).trim() === "" ? "—" : String(txt);
+    el.textContent = text == null ? "" : String(text);
   }
 
-  function _setHref(id, href, label) {
-    const el = $(id);
+  function setHtml(id, html) {
+    var el = $(id);
     if (!el) return;
-    if (href) {
-      el.href = href;
-      el.textContent = label || href;
-    } else {
-      el.removeAttribute("href");
-      el.textContent = "—";
-    }
+    el.innerHTML = html == null ? "" : String(html);
   }
 
-  function _showLoader(on) {
-    const loader = $("loaderSection");
-    const root = $("reportRoot");
-    if (loader) loader.style.display = on ? "" : "none";
-    if (root) root.style.display = on ? "none" : "";
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  function _setLoaderStatus(msg) {
-    const el = $("loaderStatus");
-    if (!el) return;
-    el.textContent = msg || "";
+  function pctToScore(pct) {
+    if (pct == null) return null;
+    // accept 0..100 or 0..1
+    if (pct <= 1) return Math.round(pct * 100);
+    return Math.round(pct);
   }
 
-  if (typeof window.IQWEB_showLoader !== "function") {
-    window.IQWEB_showLoader = _showLoader;
-  }
-  if (typeof window.IQWEB_setLoaderStatus !== "function") {
-    window.IQWEB_setLoaderStatus = _setLoaderStatus;
-  }
-
-  // Main render hook used by report-polling.js
-  if (typeof window.IQWEB_handleReportData !== "function") {
-    window.IQWEB_handleReportData = function (reportId, payload) {
-      try {
-        // Always try to render header fast (even if partial)
-        const header = payload && payload.header ? payload.header : {};
-        _setHref("siteUrl", header.website || (payload && payload.website), header.website || (payload && payload.website));
-        _setText("reportId", header.report_id || (payload && payload.report_id) || reportId);
-        _setText("reportDate", header.report_date || (payload && payload.report_date) || (payload && payload.created_at) || "");
-
-        // If we can render the full report, do it; otherwise keep loader visible.
-        if (payload && payload.success === true) {
-          renderAll(payload);
-          _showLoader(false);
-        } else {
-          _showLoader(true);
-        }
-      } catch (e) {
-        console.error("[report-data] IQWEB_handleReportData failed:", e);
-        // Keep something visible so user isn't stuck
-        _showLoader(false);
-        const el = $("narrativeText") || document.body;
-        try {
-          el.innerHTML =
-            "<p><strong>Report render error</strong></p><p class='muted'>" +
-            (e && e.message ? e.message : String(e)) +
-            "</p>";
-        } catch (_) {}
-      }
-    };
-  }
-
-  // -----------------------------
-  // Formatting helpers
-  // -----------------------------
-  function clamp(n, min, max) {
-    n = Number(n);
-    if (Number.isNaN(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function pct(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return String(clamp(Number(n), 0, 100));
-  }
-
-  function ms(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return Math.round(Number(n)) + "ms";
-  }
-
-  function num(n) {
-    if (n == null || n === "" || Number.isNaN(Number(n))) return "—";
-    return String(Math.round(Number(n)));
-  }
-
-  function safeStr(v, fallback) {
-    if (v == null) return fallback == null ? "" : fallback;
-    const s = String(v);
-    return s.length ? s : fallback == null ? "" : fallback;
-  }
-
-  function anyNonEmptyStrings(arr) {
-    return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
-  }
-
-  // -----------------------------
-  // Payload access helpers (supports legacy + newer schema)
-  // -----------------------------
+  // --------------------------------------------------
+  // Pickers (support legacy + new schema)
+  // --------------------------------------------------
   function pickHeader(data) {
-    return data && data.header ? data.header : {};
+    data = safeObj(data);
+    if (data.header) return safeObj(data.header);
+    var m = safeObj(data.metrics);
+    if (m.header) return safeObj(m.header);
+    return {};
   }
 
   function pickScores(data) {
-    // legacy: data.metrics.scores
-    if (data && data.scores) return data.scores;
-    if (data && data.metrics && data.metrics.scores) return data.metrics.scores;
-    return null;
+    data = safeObj(data);
+    if (data.scores) return safeObj(data.scores);
+    var m = safeObj(data.metrics);
+    if (m.scores) return safeObj(m.scores);
+    return {};
   }
 
   function pickPsi(data) {
-    if (data && data.psi) return data.psi;
-    if (data && data.metrics && data.metrics.psi) return data.metrics.psi;
-    return null;
+    data = safeObj(data);
+    if (data.psi) return safeObj(data.psi);
+    var m = safeObj(data.metrics);
+    if (m.psi) return safeObj(m.psi);
+    return {};
+  }
+
+  function pickBasicChecks(data) {
+    data = safeObj(data);
+    if (data.basic_checks) return safeObj(data.basic_checks);
+    var m = safeObj(data.metrics);
+    if (m.basic_checks) return safeObj(m.basic_checks);
+    return {};
+  }
+
+  function pickSecurityHeaders(data) {
+    data = safeObj(data);
+    if (data.security_headers) return safeObj(data.security_headers);
+    var m = safeObj(data.metrics);
+    if (m.security_headers) return safeObj(m.security_headers);
+    return {};
+  }
+
+  function pickOverallSummary(data) {
+    data = safeObj(data);
+    if (data.overall_summary) return safeStr(data.overall_summary);
+    var m = safeObj(data.metrics);
+    if (m.overall_summary) return safeStr(m.overall_summary);
+    return "";
   }
 
   function pickNarrative(data) {
-    if (data && data.narrative) return data.narrative;
-    if (data && data.metrics && data.metrics.narrative) return data.metrics.narrative;
+    data = safeObj(data);
+    if (data.narrative) return safeObj(data.narrative);
+    var m = safeObj(data.metrics);
+    if (m.narrative) return safeObj(m.narrative);
+    return {};
+  }
+
+  // PATCH: support delivery_signals as array OR {signals:[...]} in both top-level and metrics.
+  function pickSignals(data) {
+    data = safeObj(data);
+
+    // Accept both shapes:
+    // A) delivery_signals: [ ... ]
+    // B) delivery_signals: { signals: [ ... ] }
+    // C) metrics.delivery_signals (legacy)
+
+    var ds = safeObj(data.delivery_signals);
+    if (Array.isArray(data.delivery_signals)) return data.delivery_signals;
+    if (Array.isArray(ds.signals)) return ds.signals;
+
+    var m = safeObj(data.metrics);
+    // legacy: metrics.delivery_signals may be an array or an object with signals
+    if (Array.isArray(m.delivery_signals)) return m.delivery_signals;
+    var mds = safeObj(m.delivery_signals);
+    if (Array.isArray(mds.signals)) return mds.signals;
+
+    return [];
+  }
+
+  // --------------------------------------------------
+  // Derived helpers
+  // --------------------------------------------------
+  function findSignal(signals, key) {
+    if (!Array.isArray(signals)) return null;
+    for (var i = 0; i < signals.length; i++) {
+      var s = safeObj(signals[i]);
+      if (s.key === key || s.id === key || s.slug === key) return s;
+      // allow "label" matching too
+      if (safeStr(s.label).toLowerCase() === String(key).toLowerCase()) return s;
+    }
     return null;
   }
 
-  // -----------------------------
-  // UI element getters
-  // -----------------------------
-  function elHeaderWebsite() {
-    return $("siteUrl");
-  }
-  function elHeaderReportId() {
-    return $("reportId");
-  }
-  function elHeaderReportDate() {
-    return $("reportDate");
+  function getSignalScore(s) {
+    s = safeObj(s);
+    // accept score 0..100 or 0..1
+    if (typeof s.score === "number") return pctToScore(s.score);
+    if (typeof s.value === "number") return pctToScore(s.value);
+    if (typeof s.percent === "number") return pctToScore(s.percent);
+    return null;
   }
 
-  function elExecNarrative() {
-    return $("execNarrativeText");
+  function getSignalNarrative(s) {
+    s = safeObj(s);
+    // support narrative fields
+    if (nonEmpty(s.summary)) return s.summary;
+    if (nonEmpty(s.narrative)) return s.narrative;
+    if (nonEmpty(s.description)) return s.description;
+    if (nonEmpty(s.text)) return s.text;
+    return "";
   }
 
-  function elFixPrimaryConstraint() {
-    return $("fixPrimaryConstraint");
-  }
-  function elFixWhatToFixFirst() {
-    return $("fixWhatToFixFirst");
-  }
-  function elFixDeprioritise() {
-    return $("fixDeprioritise");
-  }
-  function elFixExpectedOutcome() {
-    return $("fixExpectedOutcome");
-  }
+  function deriveScoresFromSignals(signals) {
+    // Used only when scores missing; best-effort mapping.
+    // Keys we care about: overall, performance, mobile, seo, structure, security, accessibility, html_delivery
+    signals = asArray(signals);
 
-  function elOverallScoreValue() {
-    return $("overallScoreValue");
-  }
-  function elOverallScoreBar() {
-    return $("overallScoreBar");
-  }
-  function elOverallSummary() {
-    return $("overallSummary");
-  }
-
-  function elPsiMobileReady() {
-    return $("psiMobileReady");
-  }
-  function elPsiDesktopReady() {
-    return $("psiDesktopReady");
-  }
-  function elPsiMobileLine() {
-    return $("psiMobileLine");
-  }
-  function elPsiDesktopLine() {
-    return $("psiDesktopLine");
-  }
-
-  function elCardScore(id) {
-    return $(id);
-  }
-  function elCardBar(id) {
-    return $(id);
-  }
-  function elCardBlurb(id) {
-    return $(id);
-  }
-
-  function elEvidenceWrap() {
-    return $("signalEvidence");
-  }
-
-  // -----------------------------
-  // Render: header
-  // -----------------------------
-  function renderHeader(data) {
-    const h = pickHeader(data);
-
-    const website = h.website || (data && data.website) || "";
-    const reportId = h.report_id || (data && data.report_id) || "";
-    const reportDate = h.report_date || (data && data.report_date) || "";
-
-    const siteEl = elHeaderWebsite();
-    if (siteEl) {
-      if (website) {
-        siteEl.href = website;
-        siteEl.textContent = website;
-      } else {
-        siteEl.removeAttribute("href");
-        siteEl.textContent = "—";
-      }
+    function take(key) {
+      var s = findSignal(signals, key);
+      var sc = getSignalScore(s);
+      return typeof sc === "number" ? sc : null;
     }
 
-    const idEl = elHeaderReportId();
-    if (idEl) idEl.textContent = reportId ? reportId : "—";
+    var out = {};
+    out.overall = take("overall") || take("delivery_overall") || take("overall_delivery");
+    out.performance = take("performance");
+    out.mobile = take("mobile");
+    out.seo = take("seo");
+    out.structure = take("structure");
+    out.security = take("security");
+    out.accessibility = take("accessibility");
+    out.html_delivery = take("html_delivery") || take("html") || take("delivery");
 
-    const dateEl = elHeaderReportDate();
-    if (dateEl) dateEl.textContent = reportDate ? reportDate : "—";
+    return out;
   }
 
-  // -----------------------------
-  // Render: Delivery Signals + overall
-  // -----------------------------
-  function setBar(el, score) {
+  // --------------------------------------------------
+  // UI rendering
+  // --------------------------------------------------
+  function setProgressBar(id, score) {
+    var el = $(id);
     if (!el) return;
-    const s = clamp(score, 0, 100);
-    el.style.width = s + "%";
-    // keep the color logic in CSS if you have it; this just sets width
+
+    if (typeof score !== "number") {
+      el.style.width = "0%";
+      el.setAttribute("aria-valuenow", "0");
+      return;
+    }
+    var pct = Math.max(0, Math.min(100, Math.round(score)));
+    el.style.width = pct + "%";
+    el.setAttribute("aria-valuenow", String(pct));
   }
 
-  function renderOverall(data) {
-    const scores = pickScores(data);
-    const summary = data && data.overall_summary ? data.overall_summary : (data && data.metrics && data.metrics.overall_summary ? data.metrics.overall_summary : "");
+  function setScoreText(id, score) {
+    var el = $(id);
+    if (!el) return;
 
-    const overall = scores && typeof scores.overall === "number" ? scores.overall : null;
-
-    const val = elOverallScoreValue();
-    if (val) val.textContent = overall == null ? "—" : String(Math.round(overall));
-
-    setBar(elOverallScoreBar(), overall == null ? 0 : overall);
-
-    const s = elOverallSummary();
-    if (s) s.textContent = safeStr(summary, "");
+    if (typeof score !== "number") {
+      el.textContent = "—";
+      return;
+    }
+    el.textContent = String(Math.max(0, Math.min(100, Math.round(score))));
   }
 
-  // -----------------------------
-  // Render: PSI tiles
-  // -----------------------------
-  function renderPsi(data) {
-    const psi = pickPsi(data);
+  function renderHeader(data) {
+    var h = pickHeader(data);
+    var website = safeStr(h.website || h.url);
+    var reportId = safeStr(h.report_id || h.id);
+    var createdAt = safeStr(h.created_at || h.createdAt);
 
-    // If PSI not enabled, show "—"
-    if (!psi || psi.enabled !== true) {
-      if (elPsiMobileReady()) elPsiMobileReady().textContent = "—";
-      if (elPsiDesktopReady()) elPsiDesktopReady().textContent = "—";
-      if (elPsiMobileLine()) elPsiMobileLine().textContent = "";
-      if (elPsiDesktopLine()) elPsiDesktopLine().textContent = "";
+    setText("headerWebsite", website || "—");
+    setText("headerReportId", reportId || "—");
+
+    // Date display: YYYY-MM-DD if parseable
+    var dateText = "—";
+    if (createdAt) {
+      var d = new Date(createdAt);
+      if (!isNaN(d.getTime())) {
+        var yyyy = d.getFullYear();
+        var mm = String(d.getMonth() + 1).padStart(2, "0");
+        var dd = String(d.getDate()).padStart(2, "0");
+        dateText = yyyy + "-" + mm + "-" + dd;
+      }
+    }
+    setText("headerReportDate", dateText);
+  }
+
+  function renderOverallDelivery(data, signals, scores, overallSummary) {
+    // Title: Overall Delivery Score
+    var overall = safeNum(scores.overall);
+    if (overall == null) {
+      // derive if missing
+      var derived = deriveScoresFromSignals(signals);
+      overall = safeNum(derived.overall);
+    }
+
+    setScoreText("overallDeliveryScore", overall);
+    setProgressBar("overallDeliveryBar", overall);
+
+    // Small summary text under the bar
+    var msg = overallSummary;
+    if (!msg) {
+      var s = findSignal(signals, "overall");
+      msg = getSignalNarrative(s);
+    }
+    if (!msg) msg = "Not available yet.";
+    setText("overallDeliverySummary", msg);
+  }
+
+  function renderPsiCards(data) {
+    var psi = pickPsi(data);
+
+    // If PSI is disabled or pending, keep placeholders.
+    var enabled = psi && psi.enabled === true;
+    var pending = enabled ? psi.pending !== false : true;
+
+    // Helper to format the small line: LCP/TTFB/CLS etc
+    function fmtFacts(facts) {
+      facts = safeObj(facts);
+      // accept ms already
+      var LCP = safeNum(facts.LCP_ms);
+      var TTFB = safeNum(facts.TTFB_ms);
+      var CLS = safeNum(facts.CLS);
+
+      var parts = [];
+      if (LCP != null) parts.push("LCP " + Math.round(LCP) + "ms");
+      if (TTFB != null) parts.push("TTFB " + Math.round(TTFB) + "ms");
+      if (CLS != null) parts.push("CLS " + CLS.toFixed(3));
+      return parts.length ? parts.join(" · ") : "Not available yet.";
+    }
+
+    // Mobile
+    setText("psiMobileStatus", enabled && !pending ? "READY" : "—");
+    setText("psiMobileFacts", enabled && !pending ? fmtFacts(psi.mobile && psi.mobile.facts) : "Not available yet.");
+
+    // Desktop
+    setText("psiDesktopStatus", enabled && !pending ? "READY" : "—");
+    setText("psiDesktopFacts", enabled && !pending ? fmtFacts(psi.desktop && psi.desktop.facts) : "Not available yet.");
+  }
+
+  function renderHtmlDeliveryCard(data, scores) {
+    var basic = pickBasicChecks(data);
+    var bytes = safeNum(basic.html_bytes);
+    var inlineScripts = safeNum(basic.inline_script_count);
+    var status = safeNum(basic.http_status);
+
+    // Score shown in the card label
+    var htmlScore = safeNum(scores.html_delivery);
+    if (htmlScore == null) htmlScore = safeNum(scores.delivery) || safeNum(scores.html) || null;
+
+    setScoreText("htmlDeliveryScore", htmlScore);
+    setProgressBar("htmlDeliveryBar", htmlScore);
+
+    var line = [];
+    if (bytes != null) line.push("HTML " + bytes.toLocaleString() + " bytes");
+    if (inlineScripts != null) line.push("inline scripts " + inlineScripts);
+    if (status != null) line.push("HTTP " + status);
+    setText("htmlDeliveryFacts", line.length ? line.join(" · ") : "Not available yet.");
+  }
+
+  function renderSignalCards(signals, scores, overallSummary) {
+    // For the 6 cards: performance, mobile, seo, structure, security, accessibility
+    function renderCard(prefix, key, fallbackScore) {
+      var s = findSignal(signals, key);
+      var sc = safeNum(scores[key]);
+      if (sc == null) sc = getSignalScore(s);
+      if (sc == null && fallbackScore != null) sc = fallbackScore;
+
+      setScoreText(prefix + "Score", sc);
+      setProgressBar(prefix + "Bar", sc);
+
+      var desc = getSignalNarrative(s);
+      if (!desc) desc = "Not available yet.";
+      setText(prefix + "Summary", desc);
+    }
+
+    renderCard("performance", "performance", null);
+    renderCard("mobile", "mobile", null);
+    renderCard("seo", "seo", null);
+    renderCard("structure", "structure", null);
+    renderCard("security", "security", null);
+    renderCard("accessibility", "accessibility", null);
+  }
+
+  function renderExecutiveNarrative(data) {
+    var n = pickNarrative(data);
+
+    // Legacy support: narrative.overall.lines or paragraphs
+    var lines = asArray(n && n.overall && n.overall.lines).filter(nonEmpty);
+    var paras = asArray(n && n.overall && n.overall.paragraphs).filter(nonEmpty);
+
+    // New schema support: narrative.executive_narrative.* (north star)
+    var en = safeObj(n.executive_narrative);
+    var enLines = [];
+
+    function pushLines(arr) {
+      arr = asArray(arr).filter(nonEmpty);
+      for (var i = 0; i < arr.length; i++) enLines.push(arr[i]);
+    }
+
+    if (en && Object.keys(en).length) {
+      pushLines(en.framing && en.framing.lines);
+      pushLines(en.root_constraint && en.root_constraint.lines);
+      pushLines(en.structure_seo && en.structure_seo.lines);
+      pushLines(en.trust_security && en.trust_security.lines);
+      pushLines(en.site_specificity && en.site_specificity.lines);
+
+      if (en.behaviour_split) {
+        pushLines(en.behaviour_split.mobile && en.behaviour_split.mobile.lines);
+        pushLines(en.behaviour_split.desktop && en.behaviour_split.desktop.lines);
+      }
+
+      // If none of the above provided, allow a direct overall fallback
+      pushLines(en.overall && en.overall.lines);
+    }
+
+    var out = "";
+
+    if (enLines.length) {
+      out =
+        "<p>" +
+        enLines
+          .slice(0, 5)
+          .map(function (s) {
+            return escapeHtml(s);
+          })
+          .join("</p><p>") +
+        "</p>";
+    } else if (paras.length) {
+      out =
+        "<p>" +
+        paras
+          .slice(0, 4)
+          .map(function (s) {
+            return escapeHtml(s);
+          })
+          .join("</p><p>") +
+        "</p>";
+    } else if (lines.length) {
+      out =
+        "<p>" +
+        lines
+          .slice(0, 5)
+          .map(function (s) {
+            return escapeHtml(s);
+          })
+          .join("</p><p>") +
+        "</p>";
+    } else {
+      out = "<p class='muted'>Narrative will load after scan data is available.</p>";
+    }
+
+    setHtml("narrativeText", out);
+  }
+
+  function renderFixFirst(signals) {
+    // Uses signals where available; shows placeholders otherwise.
+    // Primary constraint = strongest "worth fixing" / lowest score category among big levers.
+    var constraint = null;
+    var bestLabel = "";
+    var bestScore = 999;
+
+    function consider(key, label) {
+      var s = findSignal(signals, key);
+      var score = getSignalScore(s);
+      if (typeof score !== "number") return;
+      // lower score => more constraint
+      if (score < bestScore) {
+        bestScore = score;
+        bestLabel = label;
+        constraint = s;
+      }
+    }
+
+    consider("performance", "Performance delivery");
+    consider("seo", "SEO foundations");
+    consider("structure", "Structure & semantics");
+    consider("security", "Security hardening");
+    consider("accessibility", "Accessibility readiness");
+
+    if (!constraint) {
+      setText("fixFirstPrimaryConstraint", "—");
+      setText("fixFirstWhat", "—");
+      setText("fixFirstDeprioritise", "—");
+      setText("fixFirstOutcome", "—");
+      setText("fixFirstWaiting", "Waiting for narrative…");
       return;
     }
 
-    const pending = psi.pending === true;
-    if (elPsiMobileReady()) elPsiMobileReady().textContent = pending ? "PENDING" : "READY";
-    if (elPsiDesktopReady()) elPsiDesktopReady().textContent = pending ? "PENDING" : "READY";
+    setText("fixFirstPrimaryConstraint", bestLabel);
 
-    const mf = psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
-    const df = psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
+    // Pull issues and fixes if they exist
+    var issues = asArray(constraint.issues);
+    var fixes = asArray(constraint.fixes);
 
-    const mobileLine = mf
-      ? "LCP " + ms(mf.LCP_ms) + " · TTFB " + ms(mf.TTFB_ms) + " · CLS " + (mf.CLS == null ? "—" : Number(mf.CLS).toFixed(3))
-      : "";
-    const desktopLine = df
-      ? "LCP " + ms(df.LCP_ms) + " · TTFB " + ms(df.TTFB_ms) + " · CLS " + (df.CLS == null ? "—" : Number(df.CLS).toFixed(3))
-      : "";
-
-    if (elPsiMobileLine()) elPsiMobileLine().textContent = mobileLine;
-    if (elPsiDesktopLine()) elPsiDesktopLine().textContent = desktopLine;
-  }
-
-  // -----------------------------
-  // Render: signal cards
-  // -----------------------------
-  function renderCards(data) {
-    const scores = pickScores(data) || {};
-    const explanations = data && data.explanations ? data.explanations : (data && data.metrics && data.metrics.explanations ? data.metrics.explanations : {});
-
-    // Map:
-    // performance → performanceScore, performanceBar, performanceBlurb
-    // mobile      → mobileScore, mobileBar, mobileBlurb
-    // seo         → seoScore, seoBar, seoBlurb
-    // structure   → structureScore, structureBar, structureBlurb
-    // security    → securityScore, securityBar, securityBlurb
-    // accessibility → accessibilityScore, accessibilityBar, accessibilityBlurb
-
-    function setCard(key, scoreId, barId, blurbId) {
-      const score = typeof scores[key] === "number" ? scores[key] : null;
-
-      const scoreEl = elCardScore(scoreId);
-      if (scoreEl) scoreEl.textContent = score == null ? "—" : String(Math.round(score));
-
-      setBar(elCardBar(barId), score == null ? 0 : score);
-
-      const blurbEl = elCardBlurb(blurbId);
-      if (blurbEl) blurbEl.textContent = safeStr(explanations && explanations[key], "");
-    }
-
-    setCard("performance", "performanceScore", "performanceBar", "performanceBlurb");
-    setCard("mobile", "mobileScore", "mobileBar", "mobileBlurb");
-    setCard("seo", "seoScore", "seoBar", "seoBlurb");
-    setCard("structure", "structureScore", "structureBar", "structureBlurb");
-    setCard("security", "securityScore", "securityBar", "securityBlurb");
-    setCard("accessibility", "accessibilityScore", "accessibilityBar", "accessibilityBlurb");
-
-    // Optional HTML/Delivery mini-card (if present in template)
-    const basic = data && data.basic_checks ? data.basic_checks : (data && data.metrics && data.metrics.basic_checks ? data.metrics.basic_checks : null);
-    if (basic) {
-      const htmlScoreEl = $("htmlScore");
-      const htmlLineEl = $("htmlLine");
-      const htmlBarEl = $("htmlBar");
-
-      // If you have a separate html score, prefer it; otherwise derive a light heuristic
-      let htmlScore = null;
-      if (scores && typeof scores.html === "number") {
-        htmlScore = scores.html;
-      } else {
-        // simple heuristic (do not overthink)
-        // smaller HTML + fewer inline scripts tends to be better
-        const bytes = Number(basic.html_bytes || 0);
-        const scripts = Number(basic.inline_script_count || 0);
-        let s = 100;
-        if (bytes > 200000) s -= 30;
-        else if (bytes > 120000) s -= 15;
-        else if (bytes > 80000) s -= 8;
-
-        if (scripts > 15) s -= 20;
-        else if (scripts > 8) s -= 10;
-        else if (scripts > 4) s -= 5;
-
-        htmlScore = clamp(s, 0, 100);
-      }
-
-      if (htmlScoreEl) htmlScoreEl.textContent = String(Math.round(htmlScore));
-      if (htmlBarEl) setBar(htmlBarEl, htmlScore);
-
-      const line =
-        "HTML " +
-        (basic.html_bytes != null ? Number(basic.html_bytes).toLocaleString() + " bytes" : "—") +
-        " · inline scripts " +
-        (basic.inline_script_count != null ? String(basic.inline_script_count) : "—") +
-        " · HTTP " +
-        (basic.http_status != null ? String(basic.http_status) : "—");
-      if (htmlLineEl) htmlLineEl.textContent = line;
-    }
-  }
-
-  // -----------------------------
-  // Render: Executive Narrative + Fix First (supports new schema)
-  // -----------------------------
-  function renderNarrative(data) {
-    const n = pickNarrative(data);
-
-    // Executive Narrative block at top:
-    const execEl = elExecNarrative();
-    if (execEl) {
-      // Prefer new schema: narrative.executive_narrative.framing.lines
-      const en = n && n.executive_narrative ? n.executive_narrative : null;
-
-      if (en && anyNonEmptyStrings(en.framing && en.framing.lines)) {
-        execEl.textContent = en.framing.lines.filter(Boolean).join(" ");
-      } else {
-        // Legacy: overall_summary (short)
-        const summary = data && data.overall_summary ? data.overall_summary : (n && n.overall_summary ? n.overall_summary : "");
-        execEl.textContent = safeStr(summary, "");
-      }
-    }
-
-    // Fix First panel:
-    const primaryEl = elFixPrimaryConstraint();
-    const whatEl = elFixWhatToFixFirst();
-    const deprEl = elFixDeprioritise();
-    const outEl = elFixExpectedOutcome();
-
-    // New schema has fix_order.items, root_constraint.lines etc
-    const en2 = n && n.executive_narrative ? n.executive_narrative : null;
-
-    if (en2) {
-      // Primary constraint
-      if (primaryEl) {
-        const rc = en2.root_constraint && Array.isArray(en2.root_constraint.lines) ? en2.root_constraint.lines.filter(Boolean) : [];
-        primaryEl.textContent = rc.length ? rc[0] : "—";
-      }
-
-      // What to fix first (first item in fix_order)
-      if (whatEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length) {
-          const first = items[0];
-          const lines = Array.isArray(first.lines) ? first.lines.filter(Boolean) : [];
-          whatEl.innerHTML =
-            "<strong>" +
-            safeStr(first.title, "What to Fix First") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          whatEl.textContent = "—";
-        }
-      }
-
-      // Deprioritise (second item)
-      if (deprEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length >= 2) {
-          const second = items[1];
-          const lines = Array.isArray(second.lines) ? second.lines.filter(Boolean) : [];
-          deprEl.innerHTML =
-            "<strong>" +
-            safeStr(second.title, "Deprioritise (for now)") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          deprEl.textContent = "—";
-        }
-      }
-
-      // Expected outcome (third item or trust_security line)
-      if (outEl) {
-        const items = en2.fix_order && Array.isArray(en2.fix_order.items) ? en2.fix_order.items : [];
-        if (items.length >= 3) {
-          const third = items[2];
-          const lines = Array.isArray(third.lines) ? third.lines.filter(Boolean) : [];
-          outEl.innerHTML =
-            "<strong>" +
-            safeStr(third.title, "Expected outcome") +
-            "</strong><br>" +
-            (lines.length ? lines.join("<br>") : "—");
-        } else {
-          // fallback: first trust/security line
-          const ts = en2.trust_security && Array.isArray(en2.trust_security.lines) ? en2.trust_security.lines.filter(Boolean) : [];
-          outEl.textContent = ts.length ? ts[0] : "—";
-        }
-      }
-
+    if (!issues.length && !fixes.length) {
+      setText("fixFirstWhat", "Review issues in this signal.");
+      setText("fixFirstDeprioritise", "Deprioritise lower-leverage work until this improves.");
+      setText("fixFirstOutcome", "Measurable uplift in overall delivery and confidence.");
+      setText("fixFirstWaiting", "");
       return;
     }
 
-    // Legacy narrative fields (if any)
-    if (primaryEl) primaryEl.textContent = "—";
-    if (whatEl) whatEl.textContent = "—";
-    if (deprEl) deprEl.textContent = "—";
-    if (outEl) outEl.textContent = "—";
+    var topIssue = issues.find(nonEmpty) || "";
+    var topFix = fixes.find(nonEmpty) || "";
+
+    setText("fixFirstWhat", topIssue ? topIssue : "Highest leverage issue in this signal.");
+    setText("fixFirstDeprioritise", "Deprioritise cosmetic or low-impact changes until this is addressed.");
+    setText("fixFirstOutcome", topFix ? topFix : "Improves the site’s measured delivery and readiness signals.");
+    setText("fixFirstWaiting", "");
   }
 
-  // -----------------------------
-  // Render: Signal Evidence
-  // -----------------------------
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      switch (c) {
-        case "&":
-          return "&amp;";
-        case "<":
-          return "&lt;";
-        case ">":
-          return "&gt;";
-        case '"':
-          return "&quot;";
-        case "'":
-          return "&#039;";
-        default:
-          return c;
-      }
+  function renderKeyInsightMetrics(signals, scores) {
+    // This is currently heuristic; when backend provides explicit Strength/Risk/Focus/Next,
+    // you can replace this with direct fields.
+    // For now: Strength = highest score among major categories;
+    // Risk = lowest; Focus = lowest among (performance/seo/structure/security);
+    // Next = a short actionable nudge.
+
+    var cats = [
+      { key: "performance", label: "Performance" },
+      { key: "mobile", label: "Mobile" },
+      { key: "seo", label: "SEO" },
+      { key: "structure", label: "Structure" },
+      { key: "security", label: "Security" },
+      { key: "accessibility", label: "Accessibility" },
+    ];
+
+    function scoreFor(key) {
+      var sc = safeNum(scores[key]);
+      if (sc != null) return sc;
+      var s = findSignal(signals, key);
+      return getSignalScore(s);
+    }
+
+    var best = null,
+      worst = null;
+
+    for (var i = 0; i < cats.length; i++) {
+      var sc = scoreFor(cats[i].key);
+      if (typeof sc !== "number") continue;
+      if (!best || sc > best.score) best = { key: cats[i].key, label: cats[i].label, score: sc };
+      if (!worst || sc < worst.score) worst = { key: cats[i].key, label: cats[i].label, score: sc };
+    }
+
+    if (!best || !worst) {
+      setText("kimStrength", "Not available from this scan output yet.");
+      setText("kimRisk", "Not available from this scan output yet.");
+      setText("kimFocus", "Not available from this scan output yet.");
+      setText("kimNext", "Not available from this scan output yet.");
+      return;
+    }
+
+    setText("kimStrength", best.label + " looks strongest (" + best.score + "/100).");
+    setText("kimRisk", worst.label + " is the main risk (" + worst.score + "/100).");
+
+    // Focus heuristic: pick lowest among key levers excluding mobile/accessibility
+    var levers = ["performance", "seo", "structure", "security"];
+    var focus = null;
+    for (var j = 0; j < levers.length; j++) {
+      var k = levers[j];
+      var sc2 = scoreFor(k);
+      if (typeof sc2 !== "number") continue;
+      if (!focus || sc2 < focus.score) focus = { key: k, score: sc2 };
+    }
+    var focusLabel = focus ? focus.key.toUpperCase() : worst.label.toUpperCase();
+    setText("kimFocus", "Focus on " + (focus ? focusLabel : worst.label) + " first.");
+
+    // Next: use the worst signal’s first fix if present
+    var sWorst = findSignal(signals, worst.key);
+    var next = "Review the evidence blocks and apply the highest-leverage fix first.";
+    if (sWorst) {
+      var fixes = asArray(sWorst.fixes).filter(nonEmpty);
+      var issues = asArray(sWorst.issues).filter(nonEmpty);
+      if (fixes.length) next = fixes[0];
+      else if (issues.length) next = "Address: " + issues[0];
+    }
+    setText("kimNext", next);
+  }
+
+  function renderTopIssues(signals) {
+    // Build a short list of issues (max 6), deduped.
+    var issues = [];
+
+    asArray(signals).forEach(function (s) {
+      s = safeObj(s);
+      var arr = asArray(s.issues).filter(nonEmpty);
+      for (var i = 0; i < arr.length; i++) issues.push(arr[i]);
     });
-  }
 
-  function renderEvidence(data) {
-    const wrap = elEvidenceWrap();
-    if (!wrap) return;
+    // Dedup
+    var seen = {};
+    issues = issues.filter(function (x) {
+      var k = x.trim().toLowerCase();
+      if (seen[k]) return false;
+      seen[k] = true;
+      return true;
+    });
 
-    const signals = Array.isArray(data && data.delivery_signals ? data.delivery_signals : (data && data.metrics && data.metrics.delivery_signals ? data.metrics.delivery_signals : null))
-      ? (data.delivery_signals || data.metrics.delivery_signals)
-      : [];
+    var listId = "topIssuesList";
+    var el = $(listId);
+    if (!el) return;
 
-    if (!signals.length) {
-      wrap.innerHTML = "<div class='muted'>No evidence available.</div>";
+    if (!issues.length) {
+      el.innerHTML = "<div class='muted'>No issue list available yet</div>";
       return;
     }
 
-    // Build a simple list: Signal → Deductions + Observations
-    const out = [];
-    for (let i = 0; i < signals.length; i++) {
-      const s = signals[i] || {};
-      const label = s.label || s.id || "Signal";
-      const score = typeof s.score === "number" ? Math.round(s.score) : null;
+    var html = "<ul class='bullets'>";
+    issues.slice(0, 6).forEach(function (it) {
+      html += "<li>" + escapeHtml(it) + "</li>";
+    });
+    html += "</ul>";
+    el.innerHTML = html;
+  }
 
-      const deductions = Array.isArray(s.deductions) ? s.deductions : [];
-      const observations = Array.isArray(s.observations) ? s.observations : [];
-      const issues = Array.isArray(s.issues) ? s.issues : [];
+  function renderSignalEvidence(signals) {
+    // Show each signal’s evidence list if present.
+    var root = $("signalEvidenceRoot");
+    if (!root) return;
 
-      out.push("<div class='evidence-block'>");
-      out.push(
-        "<div class='evidence-head'><div class='evidence-title'>" +
-          esc(label) +
-          "</div><div class='evidence-score'>" +
-          (score == null ? "—" : esc(score)) +
-          "</div></div>"
-      );
+    var html = "";
+    var any = false;
 
-      if (deductions.length) {
-        out.push("<div class='evidence-sub'>Deductions</div><ul class='evidence-list'>");
-        for (let d = 0; d < deductions.length; d++) {
-          const dd = deductions[d] || {};
-          out.push("<li><span class='evidence-points'>-" + esc(dd.points || 0) + "</span> " + esc(dd.reason || dd.code || "Deduction") + "</li>");
-        }
-        out.push("</ul>");
-      }
+    asArray(signals).forEach(function (s) {
+      s = safeObj(s);
+      var label = safeStr(s.label || s.key || "");
+      var evidence = asArray(s.evidence).filter(nonEmpty);
 
-      if (issues.length) {
-        out.push("<div class='evidence-sub'>Issues</div><ul class='evidence-list'>");
-        for (let j = 0; j < issues.length; j++) {
-          const it = issues[j] || {};
-          out.push("<li><strong>" + esc(it.title || it.id || "Issue") + "</strong><div class='muted'>" + esc(it.impact || "") + "</div></li>");
-        }
-        out.push("</ul>");
-      }
+      if (!label) return;
+      if (!evidence.length) return;
 
-      if (observations.length) {
-        out.push("<div class='evidence-sub'>Observations</div><ul class='evidence-list'>");
-        for (let o = 0; o < observations.length; o++) {
-          const ob = observations[o] || {};
-          out.push("<li><span class='evidence-k'>" + esc(ob.label || "Observation") + ":</span> <span class='evidence-v'>" + esc(ob.value) + "</span></li>");
-        }
-        out.push("</ul>");
-      }
+      any = true;
+      html += "<div class='evidence-block'>";
+      html += "<div class='evidence-title'>" + escapeHtml(label) + "</div>";
+      html += "<ul class='bullets'>";
+      evidence.slice(0, 8).forEach(function (e) {
+        html += "<li>" + escapeHtml(e) + "</li>";
+      });
+      html += "</ul>";
+      html += "</div>";
+    });
 
-      out.push("</div>");
+    if (!any) {
+      root.innerHTML = "<div class='muted'>Evidence will appear as scan data is processed.</div>";
+      return;
     }
 
-    wrap.innerHTML = out.join("");
+    root.innerHTML = html;
   }
 
-  // -----------------------------
-  // Orchestration
-  // -----------------------------
+  // --------------------------------------------------
+  // Orchestrator
+  // --------------------------------------------------
   function renderAll(data) {
-    renderHeader(data);
-    renderOverall(data);
-    renderPsi(data);
-    renderCards(data);
-    renderNarrative(data);
-    renderEvidence(data);
+    data = safeObj(data);
 
-    // show report
-    const root = $("reportRoot");
-    if (root) root.style.display = "";
-    const loader = $("loaderSection");
-    if (loader) loader.style.display = "none";
+    // header always
+    renderHeader(data);
+
+    var signals = pickSignals(data);
+    var scores = pickScores(data);
+
+    // If scores are missing but signals exist, derive
+    if (!scores || typeof scores.overall !== "number") {
+      var derived = deriveScoresFromSignals(signals);
+      scores = Object.assign({}, derived, scores);
+    }
+
+    var overallSummary = pickOverallSummary(data);
+
+    renderExecutiveNarrative(data);
+    renderFixFirst(signals);
+    renderOverallDelivery(data, signals, scores, overallSummary);
+
+    // PSI and HTML cards depend on metrics
+    renderPsiCards(data);
+    renderHtmlDeliveryCard(data, scores);
+
+    renderSignalCards(signals, scores, overallSummary);
+    renderKeyInsightMetrics(signals, scores);
+    renderTopIssues(signals);
+    renderSignalEvidence(signals);
+
+    // Mark that we have rendered at least once
+    window.__IQWEB_REPORT_READY = true;
   }
 
-  // -----------------------------
-  // Fetch helpers
-  // -----------------------------
+  // --------------------------------------------------
+  // External hook for report-polling.js
+  // report-polling fetches JSON and calls this renderer.
+  // We intentionally allow multiple calls so the UI can
+  // progressively fill as data becomes available.
+  // --------------------------------------------------
+  window.IQWEB_handleReportData = function (reportId, payload) {
+    try {
+      renderAll(payload);
+    } catch (e) {
+      console.error("[report-data] render failed:", e);
+      // Don't throw — polling will continue and we want UI to stay alive.
+    }
+  };
+
+  // --------------------------------------------------
+  // Boot (non-polling fallback)
+  // --------------------------------------------------
+  function getQueryParam(name) {
+    try {
+      return new URL(window.location.href).searchParams.get(name);
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function fetchJson(url, opts) {
     const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
     const text = await r.text();
@@ -588,67 +690,28 @@
       throw new Error("Invalid JSON response");
     }
     if (!r.ok) {
-      throw new Error((data && (data.error || data.detail)) || "HTTP " + r.status);
+      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
     }
     return data;
   }
 
-  function getQueryParam(name) {
-    try {
-      return new URL(window.location.href).searchParams.get(name);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  async function fetchReport(reportId) {
-    return fetchJson("/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
-  }
-
-  function showError(msg) {
-    console.error("[report-data]", msg);
-
-    // Hide loader
-    const loader = $("loaderSection");
-    if (loader) loader.style.display = "none";
-
-    // Show something visible
-    const el = $("narrativeText") || document.body;
-    try {
-      el.innerHTML = "<p><strong>Report error</strong></p><p class='muted'>" + esc(msg) + "</p>";
-    } catch (_) {}
-  }
-
   async function boot() {
-    const reportId = getQueryParam("report_id") || getQueryParam("id");
+    // If polling is enabled, report-polling.js owns fetching + progress messaging.
+    if (window.IQWEB_USE_POLLING === true) return;
+
+    var reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
 
-    // If polling mode is enabled, do NOT fetch here. report-polling.js will call IQWEB_handleReportData.
-    if (window.IQWEB_USE_POLLING === true) {
-      // Ensure loader visible while polling
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(true);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("Building Report…");
-      return;
-    }
-
-    // Non-polling mode: fetch once and render
     try {
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(true);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("Fetching report…");
+      var res = await fetchJson(
+        "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)
+      );
 
-      const data = await fetchReport(reportId);
-
-      if (!data || data.success !== true) {
-        showError((data && (data.error || data.detail)) || "Unknown error");
-        return;
+      if (res && res.success === true) {
+        renderAll(res);
       }
-
-      renderAll(data);
-
-      if (typeof window.IQWEB_showLoader === "function") window.IQWEB_showLoader(false);
-      if (typeof window.IQWEB_setLoaderStatus === "function") window.IQWEB_setLoaderStatus("");
     } catch (e) {
-      showError(e && e.message ? e.message : String(e));
+      console.error("[report-data] boot fetch failed:", e);
     }
   }
 
