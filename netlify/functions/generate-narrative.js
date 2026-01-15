@@ -1047,6 +1047,31 @@ exports.handler = async function handler(event) {
     if (scanErr) throw new Error("Failed to read scan row: " + (scanErr.message || String(scanErr)));
 
     const row = (scanRows && scanRows[0]) || null;
+
+    const metrics = safeObj(row.metrics);
+const psi = safeObj(metrics.psi);
+
+// If PSI is enabled, wait until it is no longer pending AND has at least one device populated.
+// (Allow force=true to override.)
+const psiEnabled = psi.enabled === true;
+const psiPending = psi.pending === true;
+const hasAnyPsi =
+  (psi.mobile && psi.mobile.facts) || (psi.desktop && psi.desktop.facts);
+
+if (!force && psiEnabled && (psiPending || !hasAnyPsi)) {
+  // do NOT write narrative yet
+  return json(202, {
+    success: true,
+    status: "psi_pending",
+    report_id,
+    psi: {
+      enabled: psiEnabled,
+      pending: psiPending,
+      hasAnyPsi: !!hasAnyPsi,
+    },
+  });
+}
+
     if (!row) return json(404, { success: false, error: "Report not found" });
 
     if (!force && row.narrative && isNarrativeComplete(row.narrative)) {
