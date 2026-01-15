@@ -5,7 +5,7 @@
   const POLL_INTERVAL_MS = 2000;
   const MAX_POLLS = 300; // ~10 minutes hard cap
   const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind overlay
-  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying for narrative
+  const MAX_NARRATIVE_WAIT_POLLS = 90; // ~3 minutes after trigger, then stop trying for narrative
 
   function getQueryParam(name) {
     try {
@@ -47,11 +47,11 @@
     const n = payload?.narrative || payload?.metrics?.narrative;
     if (!n) return false;
 
-    // Legacy
+    // Legacy schema
     if (anyNonEmptyStrings(n?.overall?.lines)) return true;
     if (anyNonEmptyStrings(n?.overall?.paragraphs)) return true;
 
-    // New schema
+    // New schema (if you ever switch)
     const en = n?.executive_narrative;
     if (!en) return false;
 
@@ -86,17 +86,10 @@
     const hasDesktopFacts =
       !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
 
-    // IMPORTANT:
-    // Treat PSI as enabled if:
-    // - psi.enabled === true, OR
-    // - psi exists and has mobile/desktop containers (even if flags missing)
     const enabled =
       psi?.enabled === true ||
-      (!!psi && (typeof psi === "object") && ("mobile" in psi || "desktop" in psi));
+      (!!psi && typeof psi === "object" && ("mobile" in psi || "desktop" in psi));
 
-    // pending rules:
-    // - if backend provides pending boolean, trust it
-    // - else pending until we have BOTH mobile + desktop facts
     let pending = false;
     if (enabled) {
       if (typeof psi?.pending === "boolean") {
@@ -128,14 +121,13 @@
       !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
 
     const hasHtmlDeliveryBlock = !!payload?.html_delivery;
-
     const hasScores = scoresPresent(payload);
 
     return Boolean(hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores);
   }
 
   // -----------------------------
-  // Narrative trigger (optional)
+  // Narrative trigger
   // -----------------------------
   async function triggerNarrative(reportId) {
     try {
@@ -238,7 +230,7 @@
 
       const psi = psiState(res);
 
-      // Status only (never block UI)
+      // PSI status (never block UI)
       if (psi.enabled && psi.pending) {
         if (psi.hasMobileFacts && !psi.hasDesktopFacts) {
           setStatus("PSI: mobile ready… waiting for desktop…");
@@ -255,8 +247,13 @@
         setStatus("");
       }
 
-      // Narrative trigger once (optional)
-      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered) {
+      const narrativeReady = hasNarrative(res);
+
+      // KEY CHANGE #1:
+      // Only trigger narrative when PSI is finished (if PSI enabled).
+      const canTriggerNarrative = psi.enabled ? !psi.pending : true;
+
+      if (!narrativeGiveUp && !narrativeReady && canTriggerNarrative && !narrativeTriggered) {
         setStatus("Generating narrative…");
         await triggerNarrative(reportId);
         narrativeTriggered = true;
@@ -265,28 +262,27 @@
         continue;
       }
 
-      if (!narrativeGiveUp && narrativeTriggered && !hasNarrative(res)) {
+      // If we triggered narrative, keep waiting (even if PSI is already ready)
+      if (!narrativeGiveUp && narrativeTriggered && !narrativeReady) {
         narrativeWaitPolls++;
         if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
           narrativeGiveUp = true;
-          // keep polling for PSI if PSI is enabled/pending
         } else {
-          setStatus("Finalising narrative…");
+          setStatus("Narrative is generating… press Refresh in a minute.");
           await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
           continue;
         }
       }
 
-      // EXIT CONDITIONS (fixed):
-      // - If PSI is enabled, keep polling until PSI is NOT pending (or timeout)
-      // - If PSI is not enabled, we can stop once narrative is present or we gave up
+      // KEY CHANGE #2:
+      // Exit only when PSI is done (if enabled) AND narrative is ready (or we gave up).
       if (psi.enabled) {
-        if (!psi.pending) {
+        if (!psi.pending && (narrativeReady || narrativeGiveUp)) {
           setStatus("");
           return;
         }
       } else {
-        if (hasNarrative(res) || narrativeGiveUp) {
+        if (narrativeReady || narrativeGiveUp) {
           setStatus("");
           return;
         }
