@@ -5,9 +5,9 @@ const { createClient } = require("@supabase/supabase-js");
 /**
  * iQWEB Narrative Generator (Value Mode)
  * - Generates narrative JSON for a scan (stored back into scan_results.narrative)
- * - Executive narrative is deterministic, paragraph-cadence, evidence-led
+ * - Executive narrative is GPT-authored but schema-constrained + validated
+ * - Constraint hierarchy + fix_first are deterministic
  * - Signals narratives come from OpenAI but are constrained + scrubbed
- * - Adds fix_first block as a separate section for the UI
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -289,14 +289,6 @@ function allEvidenceText(facts) {
   return uniq(out);
 }
 
-function textHasAny(hay, needles) {
-  const h = String(hay || "").toLowerCase();
-  for (let i = 0; i < needles.length; i++) {
-    if (h.indexOf(String(needles[i]).toLowerCase()) !== -1) return true;
-  }
-  return false;
-}
-
 function findMatches(texts, matchers, max) {
   const out = [];
   const list = asArray(texts);
@@ -307,9 +299,13 @@ function findMatches(texts, matchers, max) {
     for (let j = 0; j < matchers.length; j++) {
       const m = matchers[j];
       if (typeof m === "string") {
-        if (low.indexOf(m.toLowerCase()) !== -1) { hit = true; break; }
+        if (low.indexOf(m.toLowerCase()) !== -1) {
+          hit = true;
+          break;
+        }
       } else if (m && m.test && m.test(low)) {
-        hit = true; break;
+        hit = true;
+        break;
       }
     }
     if (hit) {
@@ -326,20 +322,25 @@ function applyOverrides(facts, base) {
 
   // ---- Override 1: SEO discovery blockers (force SEO primary)
   const seoMatchers = [
-    /missing\s*h1/, "h1 missing", "no h1",
-    "canonical mismatch", "canonical missing", "missing canonical", "no canonical",
-    "noindex", "robots", "blocked by robots", "x-robots-tag",
-    "sitemap", "meta description missing", "missing meta description",
+    /missing\s*h1/,
+    "h1 missing",
+    "no h1",
+    "canonical mismatch",
+    "canonical missing",
+    "missing canonical",
+    "no canonical",
+    "noindex",
+    "robots",
+    "blocked by robots",
+    "x-robots-tag",
+    "sitemap",
+    "meta description missing",
+    "missing meta description",
   ];
   const seoHits = findMatches(texts, seoMatchers, 5);
 
   // ---- Override 2: Layout volatility / CLS (force PERFORMANCE primary, but tag it)
-  const clsMatchers = [
-    "layout shift",
-    "cumulative layout shift",
-    "cls",
-    "visual stability",
-  ];
+  const clsMatchers = ["layout shift", "cumulative layout shift", "cls", "visual stability"];
   const clsHits = findMatches(texts, clsMatchers, 5);
 
   // ---- Override 3: Structural invalidity / modern web non-compliance (force STRUCTURE primary)
@@ -360,23 +361,11 @@ function applyOverrides(facts, base) {
   // priority: structural invalidity > SEO blockers > CLS/layout volatility
   let override = null;
   if (structureHits.length) {
-    override = {
-      primary: "structure",
-      tag: "structural_invalidity",
-      evidence: structureHits,
-    };
+    override = { primary: "structure", tag: "structural_invalidity", evidence: structureHits };
   } else if (seoHits.length) {
-    override = {
-      primary: "seo",
-      tag: "seo_blocker",
-      evidence: seoHits,
-    };
+    override = { primary: "seo", tag: "seo_blocker", evidence: seoHits };
   } else if (clsHits.length) {
-    override = {
-      primary: "performance",
-      tag: "layout_volatility",
-      evidence: clsHits,
-    };
+    override = { primary: "performance", tag: "layout_volatility", evidence: clsHits };
   }
 
   if (!override) return constraints;
@@ -416,7 +405,7 @@ function applyOverrides(facts, base) {
 }
 
 /* ============================================================
-   OPENAI CALL (SIGNALS ONLY)
+   OPENAI CALL (EXEC + SIGNALS)
    ============================================================ */
 async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
@@ -463,22 +452,27 @@ async function callOpenAI({ facts, constraints }) {
     "3) Do not mention 'deterministic', 'measured', or 'use the evidence below'.",
     "4) No sales language, no hype, no blame, no fear-mongering.",
     "5) Avoid command language. Do not use: must, urgent, immediately, essential, required.",
-    "6) Avoid rigid templates. Vary sentence structure.",
+    "6) Avoid rigid templates in SIGNALS sections. Vary sentence structure.",
     "7) Avoid these exact phrases (or close variants):",
     `   - ${bannedPhrases.join("\n   - ")}`,
     "",
-    "Style requirement (critical):",
+    "Critical style requirement:",
     "- Write like a senior reviewer explaining tradeoffs calmly to an agency.",
-    "- Be specific: if evidence says 'HSTS missing' or 'Robots meta tag missing', say that plainly.",
-    "- Keep it tight. Two lines is ideal, max three per signal.",
+    "- Be specific: refer to concrete facts (e.g., H1 missing, canonical missing, headers missing, HTML size, image counts).",
+    "- Avoid abstract nouns in prose (do not say: signals, foundations, areas, insights). Prefer 'this page' / 'this HTML document' / 'this request'.",
     "",
-    "Output constraints:",
-    "- overall.lines: provide 1–2 neutral lines only (we will override overall deterministically).",
-    "- signals.*.lines:",
-    "  * PRIMARY signal: up to 4 lines max.",
-    "  * Others: 2 lines ideal, max 3.",
-    "  * Each signal MUST reference at least one evidence item if any exist for that signal.",
-    "  * If there is no evidence for a signal, keep it short and neutral.",
+    "EXECUTIVE NARRATIVE (overall.lines) rules (critical):",
+    "- Provide exactly 4–5 sentences.",
+    "- Every sentence must reference at least one concrete fact from the Facts JSON.",
+    "- Reference at least TWO different categories across the 4–5 sentences (e.g., SEO + security, or SEO + delivery).",
+    "- Do not repeat the same issue twice.",
+    "- Sentence 5 (if present) should state fix order in plain language (primary then 2–3 secondary).",
+    "",
+    "SIGNAL LINES (signals.*.lines) rules:",
+    "- PRIMARY signal: up to 4 lines max.",
+    "- Others: 2 lines ideal, max 3.",
+    "- Each signal MUST reference at least one evidence item if any exist for that signal.",
+    "- If there is no evidence for a signal, keep it short and neutral.",
     "",
     "The PRIMARY focus is:",
     `- ${primaryLabel}`,
@@ -515,7 +509,7 @@ async function callOpenAI({ facts, constraints }) {
       text: {
         format: {
           type: "json_schema",
-          name: "iqweb_narrative_v52_signals_only",
+          name: "iqweb_narrative_v53_exec_and_signals",
           strict: true,
           schema: {
             type: "object",
@@ -629,7 +623,7 @@ async function callOpenAI({ facts, constraints }) {
 
 /* ============================================================
    ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
-   - Builds deterministic executive narrative (4 lines)
+   - Uses GPT overall.lines (exec narrative) with validation + fallback
    - Builds deterministic fix_first block
    - Clips / falls back for signal lines
    ============================================================ */
@@ -665,33 +659,6 @@ function enforceConstraints(n, facts, constraints) {
 
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
-  function compactEvidence(list, max) {
-    const a = asArray(list).filter(Boolean).slice(0, max);
-    if (!a.length) return "";
-    if (a.length === 1) return a[0];
-    return a[0] + " and " + a[1];
-  }
-
-  function chooseNotThis(sig) {
-    if (sig === "performance" || sig === "mobile") return "design polish, SEO copy, or campaigns";
-    if (sig === "seo") return "polish or paid traffic";
-    if (sig === "structure") return "cosmetic redesign or new sections";
-    if (sig === "security") return "visual changes alone";
-    if (sig === "accessibility") return "marketing spend or cosmetic changes";
-    return "polish or campaigns";
-  }
-
-  const ev = primaryEvidence.length ? compactEvidence(primaryEvidence, 2) : "";
-
-  // -----------------------------
-  // Executive Narrative — signal-led, stronger language (4 lines max)
-  // -----------------------------
-  // -----------------------------
-  // Executive Narrative — evidence-led (4 lines, NOT generic)
-  // -----------------------------
-  const topEv = (primaryEvidence && primaryEvidence[0]) ? String(primaryEvidence[0]) : "";
-  const evLow = topEv.toLowerCase();
-
   function pick(arr, seed) {
     if (!arr || !arr.length) return "";
     let h = 0;
@@ -700,125 +667,141 @@ function enforceConstraints(n, facts, constraints) {
     return arr[h % arr.length];
   }
 
+  // Deterministic fallback exec narrative (only used if GPT output is empty/weak)
   function execLinesFromEvidence(primarySig, evidenceText) {
     const e = String(evidenceText || "").trim();
     const el = e.toLowerCase();
 
-    // --- SEO: Canonical mismatch ---
-    if (el.includes("canonical") && el.includes("mismatch")) {
-      const L1 = pick([
-        "Search engines are being given conflicting signals about the preferred URL for this site.",
-        "This site’s discovery signals are unstable because the canonical setup conflicts across URLs.",
-        "Indexing consistency is being weakened by an inconsistent canonical configuration."
-      ], e);
-
-      const L2 = "The scan flagged: " + e + ".";
-
-      const L3 = pick([
-        "When canonical signals disagree, Google can index the “wrong” version, split authority, or show inconsistent pages in results.",
-        "Conflicting canonicals can cause ranking signals to fragment and indexing to drift between URL variants.",
-        "This can lead to duplicated indexing and diluted search visibility even if the content itself is fine."
-      ], e);
-
-      const L4 = "Fix the canonical source-of-truth first, then re-scan before spending on SEO copy or campaigns.";
-      return [L1, L2, L3, L4];
-    }
-
     // --- SEO: Missing H1 ---
     if (el.includes("missing") && el.includes("h1")) {
-      const L1 = pick([
-        "Search engines and assistive tools are not being given a clear primary page heading signal.",
-        "Page intent is harder to interpret because the main heading structure is incomplete.",
-        "Discovery and content hierarchy signals are weakened by missing page-level headings."
-      ], e);
+      const L1 = pick(
+        [
+          "This page does not provide a clear primary heading for crawlers and assistive tools.",
+          "This HTML document is missing a primary page heading, which makes intent harder to interpret.",
+          "Page intent is less explicit because the main heading structure is incomplete on this page.",
+        ],
+        e
+      );
       const L2 = "The scan flagged: " + e + ".";
-      const L3 = pick([
-        "Without a clear H1, relevance cues are diluted and pages can be interpreted less consistently in search results.",
-        "Missing primary headings can reduce clarity for crawlers and make content hierarchy harder to infer.",
-        "This often leads to weaker page intent signals even when the content itself is adequate."
-      ], e);
-      const L4 = "Restore a clear heading hierarchy first, then re-check indexing and snippet behaviour on re-scan.";
-      return [L1, L2, L3, L4];
-    }
-
-    // --- Performance: Layout volatility / CLS ---
-    if (el.includes("layout shift") || el.includes("cumulative layout shift") || (el.includes("cls") && el.length < 80)) {
-      const L1 = pick([
-        "The page experience is being undermined by unstable layout behaviour while content is loading.",
-        "Users are likely seeing content move as the page renders, which reduces confidence and interaction success.",
-        "Layout stability is currently the limiting factor for a predictable, usable first impression."
-      ], e);
-      const L2 = "The scan flagged: " + e + ".";
-      const L3 = pick([
-        "When layout shifts occur, people mis-click, lose their place, and abandon before the site has a chance to persuade.",
-        "Layout volatility increases friction on mobile and makes the site feel unreliable even if pages ultimately load.",
-        "Stabilising above-the-fold layout improves interaction readiness and reduces bounce risk."
-      ], e);
-      const L4 = "Stabilise layout during load first (reserve space, control late-loading assets), then re-scan to confirm the experience has settled.";
+      const L3 = pick(
+        [
+          "Without an H1, relevance cues are diluted and the hierarchy has to be inferred from secondary elements.",
+          "Missing primary headings can reduce clarity for crawlers even when the content itself is adequate.",
+          "This can lead to less consistent indexing and weaker snippet interpretation over time.",
+        ],
+        e
+      );
+      const L4 =
+        "Fix order: add a real H1 first, then address canonical/security hardening, then re-scan to confirm stability.";
       return [L1, L2, L3, L4];
     }
 
     // --- SEO: Missing canonical tag ---
-    if (el.includes("canonical") && (el.includes("missing") || el.includes("absent") || el.includes("no canonical"))) {
-      const L1 = pick([
-        "Search engines don’t have a clear ‘preferred URL’ signal for this site.",
-        "This site is missing a clean canonical signal, which weakens indexing consistency.",
-        "Discovery signals are incomplete because the canonical preference isn’t declared."
-      ], e);
+    if (
+      el.includes("canonical") &&
+      (el.includes("missing") || el.includes("absent") || el.includes("no canonical"))
+    ) {
+      const L1 = pick(
+        [
+          "This page does not declare a preferred URL, which weakens indexing consistency.",
+          "This HTML document is missing a canonical reference, so URL variants cannot be consolidated cleanly.",
+          "Search engines aren’t being given a clear preferred URL signal for this page.",
+        ],
+        e
+      );
       const L2 = "The scan flagged: " + e + ".";
-      const L3 = pick([
-        "Without a canonical, crawlers may treat URL variants as separate pages and split authority between them.",
-        "This increases the chance of duplicate indexing and unpredictable rankings across similar URLs.",
-        "Even small URL variations can create multiple indexed versions, which reduces clarity in search."
-      ], e);
-      const L4 = "Set a canonical standard for key pages first, then verify indexing behaviour on re-scan.";
-      return [L1, L2, L3, L4];
-    }
-
-    // --- Accessibility: Empty links ---
-    if (el.includes("empty") && el.includes("<a")) {
-      const L1 = pick([
-        "User interaction clarity is being reduced by broken or empty link elements.",
-        "Some navigation elements are present but not meaningful to users or assistive tech.",
-        "Interaction reliability is being weakened by link elements that don’t resolve to usable targets."
-      ], e);
-      const L2 = "The scan flagged: " + e + ".";
-      const L3 = pick([
-        "Empty links create dead-ends for keyboard users and screen readers and can break expected navigation paths.",
-        "This increases friction in real user journeys and makes accessibility tooling flag the site repeatedly.",
-        "These gaps can block completion flows and reduce trust in the site’s basic usability."
-      ], e);
-      const L4 = "Fix broken/empty interactive elements first, then re-test navigation and forms.";
+      const L3 = pick(
+        [
+          "Without a canonical, crawlers may treat URL variants as separate pages and split authority between them.",
+          "This increases the chance of duplicate indexing and unpredictable results across URL variants.",
+          "Even small URL variations can create multiple indexed versions, which reduces clarity in search.",
+        ],
+        e
+      );
+      const L4 =
+        "Fix order: set a canonical standard first, then re-scan before spending time on secondary optimisations.";
       return [L1, L2, L3, L4];
     }
 
     // --- Security: HSTS missing ---
-    if (el.includes("hsts") && (el.includes("missing") || el.includes("not enabled") || el.includes("absent"))) {
-      const L1 = pick([
-        "Browser-level trust protections are incomplete on this site.",
-        "Security hardening is partially missing, which weakens modern trust expectations.",
-        "Trust signals are being held back by missing baseline browser security headers."
-      ], e);
+    if (el.includes("hsts") && (el.includes("missing") || el.includes("not") || el.includes("absent"))) {
+      const L1 = pick(
+        [
+          "Browser-level trust protections are incomplete on this site.",
+          "Security hardening is partially missing, which weakens modern browser trust expectations.",
+          "This site’s security baseline is below modern header hardening norms.",
+        ],
+        e
+      );
       const L2 = "The scan flagged: " + e + ".";
-      const L3 = pick([
-        "Without HSTS, users are more exposed to downgrade and interception risks on hostile networks.",
-        "This doesn’t usually break the site, but it reduces protection and can affect trust posture.",
-        "It’s an avoidable gap that keeps the security baseline below modern expectations."
-      ], e);
-      const L4 = "Enable HSTS safely (with correct preload strategy if needed) and re-scan to confirm the baseline.";
+      const L3 = pick(
+        [
+          "Without HSTS, users can be more exposed to downgrade risks on hostile networks.",
+          "This does not imply compromise, but it is an avoidable gap in the baseline.",
+          "Closing these gaps improves trust posture without changing site content or design.",
+        ],
+        e
+      );
+      const L4 =
+        "Fix order: close the missing trust headers first, then re-scan to confirm the baseline is hardened.";
       return [L1, L2, L3, L4];
     }
 
-    // --- Default (still not generic-generic) ---
+    // Default fallback
     const L1 = "The main constraint right now is " + primaryLabel + " consistency, not visual polish.";
-    const L2 = e ? ("The scan flagged: " + e + ".") : "The scan flagged baseline issues that reduce consistency.";
-    const L3 = "Stabilising the top issues first makes downstream work (SEO, UX, campaigns) actually pay off.";
+    const L2 = e ? "The scan flagged: " + e + "." : "The scan flagged baseline issues that reduce consistency.";
+    const L3 =
+      "Removing the top blockers first makes downstream work (SEO, UX, campaigns) more predictable and measurable.";
     const L4 = "Fix the top two flagged items in this area, then re-scan to confirm the constraint is removed.";
     return [L1, L2, L3, L4];
   }
 
-  out.overall.lines = execLinesFromEvidence(primarySignal, topEv);
+  // Validate GPT exec narrative: must look site-specific (basic gate)
+  function execLooksAnchored(lines, factsObj) {
+    const text = cleanLine(asArray(lines).join(" ").toLowerCase());
+    if (!text) return false;
 
+    const url = String((factsObj && factsObj.url) || "").toLowerCase();
+    const hasUrl = url && text.includes(url.replace(/^https?:\/\//, ""));
+
+    // Attempt to detect references to concrete anchors we usually have.
+    const anchors = [];
+
+    // common anchors that are in your facts/evidence blocks:
+    anchors.push("h1");
+    anchors.push("canonical");
+    anchors.push("hsts");
+    anchors.push("csp");
+    anchors.push("x-frame-options");
+    anchors.push("referrer");
+    anchors.push("permissions-policy");
+    anchors.push("html");
+    anchors.push("images");
+    anchors.push("alt");
+
+    let hits = 0;
+    for (let i = 0; i < anchors.length; i++) {
+      if (text.includes(anchors[i])) hits++;
+    }
+
+    // Require: at least 2 anchor-keywords, OR URL mention, and minimum length
+    if ((hits >= 2 || hasUrl) && text.length >= 120) return true;
+    return false;
+  }
+
+  // -----------------------------
+  // Executive Narrative (GPT-authored, clipped, validated, fallback)
+  // -----------------------------
+  const modelOverall = asArray(n && n.overall && n.overall.lines);
+  const clippedOverall = clipLines(modelOverall, 5);
+
+  if (clippedOverall.length >= 4 && execLooksAnchored(clippedOverall, facts)) {
+    out.overall.lines = clippedOverall.slice(0, 5);
+  } else {
+    // fallback to deterministic narrative only if GPT output is missing/weak
+    const topEv = primaryEvidence && primaryEvidence[0] ? String(primaryEvidence[0]) : "";
+    out.overall.lines = execLinesFromEvidence(primarySignal, topEv);
+  }
 
   // -----------------------------
   // Fix First block (deterministic)
@@ -831,17 +814,19 @@ function enforceConstraints(n, facts, constraints) {
 
     let fixTitle = "";
     if (primarySignal === "performance" || primarySignal === "mobile") {
-      fixTitle = overrideTag === "layout_volatility"
-        ? "Layout stability and interaction readiness (reduce shifts and mis-clicks)"
-        : "Rendering and load behaviour (reduce time to usable)";
+      fixTitle =
+        overrideTag === "layout_volatility"
+          ? "Layout stability and interaction readiness (reduce shifts and mis-clicks)"
+          : "Rendering and load behaviour (reduce time to usable)";
     } else if (primarySignal === "security") {
       fixTitle = "Missing trust protections (close the obvious gaps)";
     } else if (primarySignal === "seo") {
       fixTitle = "Indexing and discovery signals (remove the blockers)";
     } else if (primarySignal === "structure") {
-      fixTitle = overrideTag === "structural_invalidity"
-        ? "Structural foundations (make pages interpretable to browsers and crawlers)"
-        : "Structure and crawl clarity (make pages easier to interpret)";
+      fixTitle =
+        overrideTag === "structural_invalidity"
+          ? "Structural foundations (make pages interpretable to browsers and crawlers)"
+          : "Structure and crawl clarity (make pages easier to interpret)";
     } else if (primarySignal === "accessibility") {
       fixTitle = "Accessibility fundamentals (reduce friction for users and devices)";
     } else {
@@ -943,7 +928,6 @@ function isNarrativeComplete(n) {
    ============================================================ */
 async function writeNarrative(report_id, narrative) {
   const { error } = await supabase.from("scan_results").update({ narrative }).eq("report_id", report_id);
-
   if (error) throw new Error("Failed to write narrative: " + (error.message || String(error)));
 }
 
@@ -990,7 +974,7 @@ exports.handler = async function handler(event) {
       modelOut = await callOpenAI({ facts, constraints });
     } catch (e) {
       modelOut = {
-        overall: { lines: [""] },
+        overall: { lines: [] },
         signals: {
           performance: { lines: [] },
           mobile: { lines: [] },
