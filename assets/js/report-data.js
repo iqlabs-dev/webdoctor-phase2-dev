@@ -8,9 +8,6 @@
   function $(sel) {
     return document.querySelector(sel);
   }
-  function $all(sel) {
-    return Array.prototype.slice.call(document.querySelectorAll(sel));
-  }
   function $id(id) {
     return document.getElementById(id);
   }
@@ -44,6 +41,9 @@
     if (kb < 1024) return `${Math.round(kb)} KB`;
     const mb = kb / 1024;
     return `${mb.toFixed(1)} MB`;
+  }
+  function hasKeys(o) {
+    return o && typeof o === "object" && Object.keys(o).length > 0;
   }
 
   function getQueryParam(name) {
@@ -92,7 +92,7 @@
 
     if (Array.isArray(raw) && raw.length) return raw;
 
-    // Fallback: synthesise a minimal signal set so UI never looks "half built".
+    // Fallback: synthesise minimum set from scores/PSI/HTML
     const scores = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
     const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
     const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
@@ -101,10 +101,12 @@
     function num(n) {
       return typeof n === "number" && isFinite(n) ? n : null;
     }
+
     function scoreOrNull(v) {
       const x = num(v);
       return x === null ? null : Math.max(0, Math.min(100, Math.round(x)));
     }
+
     function mk(id, label, score, status, summary, evidence, facts) {
       const s = scoreOrNull(score);
       return {
@@ -140,7 +142,7 @@
         "psi_mobile",
         "PSI — Mobile",
         scores.mobile,
-        mobileFacts && Object.keys(mobileFacts).length ? "ready" : "pending",
+        hasKeys(mobileFacts) ? "ready" : "pending",
         "",
         [],
         mobileFacts
@@ -151,8 +153,8 @@
       mk(
         "psi_desktop",
         "PSI — Desktop",
-        scores.desktop ?? scores.performance,
-        desktopFacts && Object.keys(desktopFacts).length ? "ready" : "pending",
+        scores.performance,
+        hasKeys(desktopFacts) ? "ready" : "pending",
         "",
         [],
         desktopFacts
@@ -163,7 +165,7 @@
       mk(
         "html_delivery",
         "HTML / Delivery",
-        scores.html ?? scores.structure,
+        scores.structure,
         null,
         "",
         [],
@@ -200,13 +202,13 @@
 
   function pickFixFirst(data) {
     data = safeObj(data);
-    return (
+    const ff =
       data.fix_first ||
       (data.metrics && data.metrics.fix_first) ||
       (data.narrative && data.narrative.fix_first) ||
       (data.metrics && data.metrics.narrative && data.metrics.narrative.fix_first) ||
-      null
-    );
+      null;
+    return ff;
   }
 
   function pickIssues(data) {
@@ -226,7 +228,7 @@
   }
 
   // --------------------------------------------
-  // DOM updates (matches report.html IDs)
+  // DOM updates
   // --------------------------------------------
   function setText(idOrEl, v) {
     const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
@@ -240,17 +242,21 @@
     el.innerHTML = html;
   }
 
-  function setProgressBar(barId, pct) {
-    const bar = $id(barId);
+  function setProgressBar(containerSelOrEl, pct) {
+    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
+    if (!el) return;
+    const bar = el.querySelector(".progress-fill") || el.querySelector("[data-progress-fill]");
     if (!bar) return;
     const v = clamp100(pct);
     bar.style.width = v === null ? "0%" : `${v}%`;
   }
 
-  function setPill(pillId, txt) {
-    const el = $id(pillId);
+  function setBadge(containerSelOrEl, txt) {
+    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
     if (!el) return;
-    el.textContent = txt || "—";
+    const badge = el.querySelector(".status-badge") || el.querySelector("[data-status-badge]");
+    if (!badge) return;
+    badge.textContent = txt;
   }
 
   // --------------------------------------------
@@ -262,9 +268,9 @@
     const rid = safeStr(h.report_id || h.reportId || reportId);
     const dt = safeStr(h.report_date || h.reportDate || data.created_at || "");
 
-    setText("siteUrl", url || "—");
-    setText("reportId", rid || "—");
-    setText("reportDate", dt ? dt.slice(0, 10) : "—");
+    setText("hdrWebsite", url || "—");
+    setText("hdrReportId", rid || "—");
+    setText("hdrReportDate", dt ? dt.slice(0, 10) : "—");
   }
 
   function findSignal(signals, id) {
@@ -280,8 +286,8 @@
       null;
 
     const score = overall ? overall.score : (data.scores && data.scores.overall);
-    setText("overallScore", fmtScore(score));
-    setProgressBar("overallBar", score);
+    setText("overallScoreValue", fmtScore(score));
+    setProgressBar("#overallScoreBar", score);
 
     const summary =
       safeStr(data.overall_summary) ||
@@ -291,63 +297,81 @@
     setText("overallSummary", summary);
   }
 
-  function renderPsi(signals) {
-    const mob = findSignal(signals, "psi_mobile") || findSignal(signals, "psi_mobile_score") || null;
-    const desk = findSignal(signals, "psi_desktop") || findSignal(signals, "psi_desktop_score") || null;
+  // ✅ FIX: PSI render falls back to payload psi/metrics.psi if signal facts are missing
+  function renderPsi(signals, data) {
+    const mob =
+      findSignal(signals, "psi_mobile") ||
+      findSignal(signals, "psi_mobile_score") ||
+      null;
+    const desk =
+      findSignal(signals, "psi_desktop") ||
+      findSignal(signals, "psi_desktop_score") ||
+      null;
+
+    const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
+    const mfFallback = safeObj(psi.mobile && psi.mobile.facts);
+    const dfFallback = safeObj(psi.desktop && psi.desktop.facts);
 
     // Mobile
-    setPill("psiMobilePill", mob && mob.status === "ready" ? "READY" : "—");
-    setProgressBar("psiMobileBar", mob ? mob.score : null);
+    const mfFromSignal = safeObj(mob && mob.facts);
+    const mf = hasKeys(mfFromSignal) ? mfFromSignal : mfFallback;
 
-    const mf = safeObj(mob && mob.facts);
+    setBadge("#psiMobileCard", hasKeys(mf) ? "READY" : "—");
+    setProgressBar("#psiMobileBar", mob ? mob.score : (data.scores && data.scores.mobile));
     const mLcp = mf.LCP_ms != null ? `LCP ${fmtMs(mf.LCP_ms)}` : "Not available yet.";
     const mTtfb = mf.TTFB_ms != null ? `TTFB ${fmtMs(mf.TTFB_ms)}` : "";
-    const mCls = mf.CLS != null ? `CLS ${Number(mf.CLS).toFixed(3)}` : "";
-    setText("psiMobileSummary", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
+    const mCls = mf.CLS != null ? `CLS ${mf.CLS.toFixed(3)}` : "";
+    setText("psiMobileFacts", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
 
     // Desktop
-    setPill("psiDesktopPill", desk && desk.status === "ready" ? "READY" : "—");
-    setProgressBar("psiDesktopBar", desk ? desk.score : null);
+    const dfFromSignal = safeObj(desk && desk.facts);
+    const df = hasKeys(dfFromSignal) ? dfFromSignal : dfFallback;
 
-    const df = safeObj(desk && desk.facts);
+    setBadge("#psiDesktopCard", hasKeys(df) ? "READY" : "—");
+    setProgressBar("#psiDesktopBar", desk ? desk.score : (data.scores && data.scores.performance));
     const dLcp = df.LCP_ms != null ? `LCP ${fmtMs(df.LCP_ms)}` : "Not available yet.";
     const dTtfb = df.TTFB_ms != null ? `TTFB ${fmtMs(df.TTFB_ms)}` : "";
-    const dCls = df.CLS != null ? `CLS ${Number(df.CLS).toFixed(3)}` : "";
-    setText("psiDesktopSummary", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
+    const dCls = df.CLS != null ? `CLS ${df.CLS.toFixed(3)}` : "";
+    setText("psiDesktopFacts", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
   }
 
-  function renderHtmlDelivery(signals) {
-    const hd = findSignal(signals, "html_delivery") || findSignal(signals, "html") || findSignal(signals, "delivery") || null;
+  // ✅ FIX: HTML/Delivery also falls back to payload basic_checks if signal facts are missing
+  function renderHtmlDelivery(signals, data) {
+    const hd =
+      findSignal(signals, "html_delivery") ||
+      findSignal(signals, "html") ||
+      findSignal(signals, "delivery") ||
+      null;
 
-    setProgressBar("htmlBar", hd ? hd.score : null);
+    const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
+    const fFromSignal = safeObj(hd && hd.facts);
+    const f = hasKeys(fFromSignal) ? fFromSignal : basic;
 
-    const f = safeObj(hd && hd.facts);
+    setProgressBar("#htmlDeliveryBar", hd ? hd.score : (data.scores && data.scores.structure));
+
     const bytes = f.html_bytes != null ? `HTML ${fmtBytes(f.html_bytes)}` : "Not available yet.";
     const inline = f.inline_scripts_count != null ? `inline scripts ${f.inline_scripts_count}` : "";
     const code = f.status_code != null ? `HTTP ${f.status_code}` : "";
-    setText("htmlSummary", [bytes, inline, code].filter(Boolean).join(" · "));
-
-    setPill("htmlPill", "—");
+    setText("htmlDeliveryFacts", [bytes, inline, code].filter(Boolean).join(" · "));
   }
 
   function renderCategoryCards(signals, data) {
-    const scoreMap = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
+    const scoreMap = safeObj(data.scores);
 
-    function setCard(key, signalId, fallbackScore) {
+    function setCard(cardId, signalId, fallbackScore, fallbackText) {
       const s = findSignal(signals, signalId);
       const score = s && typeof s.score === "number" ? s.score : fallbackScore;
-
-      setProgressBar(`bar-${key}`, score);
-      setText(`score-${key}`, fmtScore(score));
-      setText(`summary-${key}`, safeStr(s && s.narrative) || "—");
+      setProgressBar(`#${cardId}Bar`, score);
+      setText(`${cardId}Score`, fmtScore(score));
+      setText(`${cardId}Text`, safeStr(s && s.narrative) || fallbackText || "—");
     }
 
-    setCard("performance", "performance", scoreMap.performance);
-    setCard("mobile", "mobile", scoreMap.mobile);
-    setCard("seo", "seo", scoreMap.seo);
-    setCard("structure", "structure", scoreMap.structure);
-    setCard("security", "security", scoreMap.security);
-    setCard("accessibility", "accessibility", scoreMap.accessibility);
+    setCard("perf", "performance", scoreMap.performance, "—");
+    setCard("mobile", "mobile", scoreMap.mobile, "—");
+    setCard("seo", "seo", scoreMap.seo, "—");
+    setCard("structure", "structure", scoreMap.structure, "—");
+    setCard("security", "security", scoreMap.security, "—");
+    setCard("accessibility", "accessibility", scoreMap.accessibility, "—");
   }
 
   function renderExecutiveNarrative(narrative) {
@@ -397,43 +421,37 @@
   function renderFixFirst(fixFirst) {
     if (!fixFirst) return;
 
-    setText("fixFirstPill", safeStr(fixFirst.primary_constraint) || "—");
-    setText("fixFirstTitle", safeStr(fixFirst.what_to_fix_first) || "—");
-    setText("fixFirstWhy", safeStr(fixFirst.why_it_matters || fixFirst.why || fixFirst.impact) || "Waiting for narrative…");
-    setText("fixFirstDeprioritise", safeStr(fixFirst.deprioritise_for_now) || "—");
-    setText("fixFirstOutcome", safeStr(fixFirst.expected_outcome) || "—");
+    const pc = $id("fixPrimaryConstraint");
+    const wtf = $id("fixWhatToFixFirst");
+    const dep = $id("fixDeprioritise");
+    const out = $id("fixExpectedOutcome");
+
+    if (pc) setText(pc, safeStr(fixFirst.primary_constraint) || "—");
+    if (wtf) setText(wtf, safeStr(fixFirst.what_to_fix_first) || "—");
+    if (dep) setText(dep, safeStr(fixFirst.deprioritise_for_now) || "—");
+    if (out) setText(out, safeStr(fixFirst.expected_outcome) || "—");
   }
 
   function renderKeyInsightMetrics(data) {
-    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics) || {});
-    const rows = $all("#keyMetricsRoot .metric-row");
-    if (!rows.length) return;
-
-    const map = {
-      strength: safeStr(km.strength) || "Not available from this scan output yet.",
-      risk: safeStr(km.risk) || "Not available from this scan output yet.",
-      focus: safeStr(km.focus) || "Not available from this scan output yet.",
-      next: safeStr(km.next) || "Not available from this scan output yet.",
-    };
-
-    rows.forEach((row) => {
-      const labelEl = row.querySelector(".label");
-      const textEl = row.querySelector(".text");
-      const label = safeStr(labelEl && labelEl.textContent).trim().toLowerCase();
-      if (!textEl) return;
-
-      if (label.includes("strength")) textEl.textContent = map.strength;
-      else if (label.includes("risk")) textEl.textContent = map.risk;
-      else if (label.includes("focus")) textEl.textContent = map.focus;
-      else if (label.includes("next")) textEl.textContent = map.next;
-    });
+    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics));
+    setText("kimStrength", safeStr(km.strength) || "Not available from this scan output yet.");
+    setText("kimRisk", safeStr(km.risk) || "Not available from this scan output yet.");
+    setText("kimFocus", safeStr(km.focus) || "Not available from this scan output yet.");
+    setText("kimNext", safeStr(km.next) || "Not available from this scan output yet.");
   }
 
   function renderIssues(data) {
     const issues = pickIssues(data);
-    const root = $id("topIssuesRoot");
-    if (!root) return;
-    if (!issues.length) return;
+    const el = $id("issuesList");
+    if (!el) return;
+
+    if (!issues.length) {
+      setHtml(
+        el,
+        "<div class='muted'><strong>No issue list available yet</strong><br>This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>"
+      );
+      return;
+    }
 
     const max = 8;
     const items = issues.slice(0, max).map((it) => {
@@ -448,14 +466,12 @@
       `;
     });
 
-    const listWrap = root.querySelector(".issue-list") || root.querySelector("[data-issues-list]");
-    if (listWrap) listWrap.innerHTML = items.join("");
-    else root.innerHTML = items.join("");
+    setHtml(el, items.join(""));
   }
 
   function renderEvidence(data) {
     const ev = pickEvidence(data);
-    const el = $id("signalEvidenceRoot");
+    const el = $id("signalEvidence");
     if (!el) return;
 
     const keys = Object.keys(ev || {});
@@ -481,28 +497,27 @@
       `;
     });
 
-    el.innerHTML = blocks.join("");
+    setHtml(el, blocks.join(""));
   }
 
   // --------------------------------------------
   // Loader controls (hooked by report-polling.js)
-  // Matches report.html IDs: loaderSection, loaderStatus, reportRoot
   // --------------------------------------------
   window.IQWEB_showLoader = function (show) {
-    const loader = $id("loaderSection");
-    const report = $id("reportRoot");
-    if (loader) loader.style.display = show ? "block" : "none";
-    if (report) report.style.display = show ? "none" : "block";
+    const overlay = $id("loadingOverlay");
+    const main = $id("mainReport");
+    if (overlay) overlay.style.display = show ? "flex" : "none";
+    if (main) main.style.display = show ? "none" : "block";
   };
 
   window.IQWEB_setLoaderStatus = function (txt) {
-    const el = $id("loaderStatus");
+    const el = $id("loaderStatusText");
     if (!el) return;
     el.textContent = txt || "";
   };
 
   // --------------------------------------------
-  // Main render entry (called by polling + optional initial load)
+  // Main render entry
   // --------------------------------------------
   function renderAll(reportId, data) {
     data = safeObj(data);
@@ -511,8 +526,8 @@
 
     const signals = pickSignals(data);
     renderOverall(signals, data);
-    renderPsi(signals);
-    renderHtmlDelivery(signals);
+    renderPsi(signals, data);
+    renderHtmlDelivery(signals, data);
     renderCategoryCards(signals, data);
 
     const narrative = pickNarrative(data);
@@ -535,7 +550,7 @@
   };
 
   // --------------------------------------------
-  // Boot: one-shot fetch ONLY when polling is disabled
+  // Boot: one-shot fetch (polling handles ongoing)
   // --------------------------------------------
   async function boot(reportId) {
     try {
@@ -548,10 +563,8 @@
       }
 
       window.IQWEB_showLoader?.(false);
-      window.IQWEB_setLoaderStatus?.("");
     } catch (e) {
       window.IQWEB_showLoader?.(false);
-      window.IQWEB_setLoaderStatus?.("");
       const el = $id("narrativeText");
       if (el) {
         el.innerHTML =
@@ -564,10 +577,6 @@
   document.addEventListener("DOMContentLoaded", function () {
     const reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
-
-    // If polling is on, let report-polling.js control fetch + loader.
-    if (window.IQWEB_USE_POLLING === true) return;
-
     boot(reportId);
   });
 })();
