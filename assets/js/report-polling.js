@@ -2,10 +2,19 @@
 (function () {
   "use strict";
 
-  const POLL_INTERVAL_MS = 2000;
-  const MAX_POLLS = 300; // ~10 minutes hard cap
-  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind the overlay
-  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying
+  // -----------------------------
+  // Guard: never start polling twice
+  // -----------------------------
+  if (window.__IQWEB_POLLING_STARTED) return;
+  window.__IQWEB_POLLING_STARTED = true;
+
+  const FAST_POLL_MS = 2000;     // while waiting for scores
+  const SLOW_POLL_MS = 5000;     // once report is renderable, wait for PSI updates more gently
+  const MAX_POLLS = 300;         // hard cap (~10–25 mins depending on phase)
+  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000;
+
+  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s at FAST_POLL_MS
+  const MAX_PSI_WAIT_POLLS = 120;      // ~10 mins at SLOW_POLL_MS
 
   function getQueryParam(name) {
     try {
@@ -38,40 +47,57 @@
 
   // -----------------------------
   // Narrative detection (legacy + new schema)
+  // IMPORTANT: also support payload.metrics.executive_narrative
   // -----------------------------
   function anyNonEmptyStrings(arr) {
     return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
   }
 
   function hasNarrative(payload) {
-    const n = payload?.narrative || payload?.metrics?.narrative;
-    if (!n) return false;
+    if (!payload) return false;
 
-    // Legacy
-    if (anyNonEmptyStrings(n?.overall?.lines)) return true;
-    if (anyNonEmptyStrings(n?.overall?.paragraphs)) return true;
+    // 1) Legacy locations
+    const n1 = payload.narrative || payload?.metrics?.narrative || null;
+    if (n1) {
+      if (anyNonEmptyStrings(n1?.overall?.lines)) return true;
+      if (anyNonEmptyStrings(n1?.overall?.paragraphs)) return true;
 
-    // New schema
-    const en = n?.executive_narrative;
-    if (!en) return false;
+      const en1 = n1?.executive_narrative;
+      if (en1) {
+        if (anyNonEmptyStrings(en1?.framing?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.root_constraint?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.structure_seo?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.trust_security?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.site_specificity?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.behaviour_split?.mobile?.lines)) return true;
+        if (anyNonEmptyStrings(en1?.behaviour_split?.desktop?.lines)) return true;
 
-    if (anyNonEmptyStrings(en?.framing?.lines)) return true;
-    if (anyNonEmptyStrings(en?.root_constraint?.lines)) return true;
-    if (anyNonEmptyStrings(en?.structure_seo?.lines)) return true;
-    if (anyNonEmptyStrings(en?.trust_security?.lines)) return true;
-    if (anyNonEmptyStrings(en?.site_specificity?.lines)) return true;
+        const items = en1?.fix_order?.items;
+        if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
+      }
+    }
 
-    if (anyNonEmptyStrings(en?.behaviour_split?.mobile?.lines)) return true;
-    if (anyNonEmptyStrings(en?.behaviour_split?.desktop?.lines)) return true;
+    // 2) Newer direct location used by your report-data.js fallback
+    const en2 = payload?.metrics?.executive_narrative;
+    if (en2) {
+      if (anyNonEmptyStrings(en2?.framing?.lines)) return true;
+      if (anyNonEmptyStrings(en2?.root_constraint?.lines)) return true;
+      if (anyNonEmptyStrings(en2?.structure_seo?.lines)) return true;
+      if (anyNonEmptyStrings(en2?.trust_security?.lines)) return true;
+      if (anyNonEmptyStrings(en2?.site_specificity?.lines)) return true;
 
-    const items = en?.fix_order?.items;
-    if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
+      if (anyNonEmptyStrings(en2?.behaviour_split?.mobile?.lines)) return true;
+      if (anyNonEmptyStrings(en2?.behaviour_split?.desktop?.lines)) return true;
+
+      const items = en2?.fix_order?.items;
+      if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
+    }
 
     return false;
   }
 
   // -----------------------------
-  // Readiness checks (BUT DO NOT BLOCK UI)
+  // Readiness checks
   // -----------------------------
   function scoresPresent(payload) {
     const scores = payload?.scores || payload?.metrics?.scores;
@@ -79,21 +105,17 @@
   }
 
   function psiState(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi;
-
-    // Treat PSI as enabled if we have a psi object at all (the worker populates it progressively).
-    const enabled = !!(psi && typeof psi === "object" && Object.keys(psi).length);
-
-    // Pending defaults to true unless explicitly set to false by the worker.
+    const psi = payload?.psi || payload?.metrics?.psi || {};
+    const enabled = psi?.enabled === true;
     const pending = enabled ? psi?.pending !== false : false;
 
-    const mobileFacts = psi?.mobile?.facts;
-    const desktopFacts = psi?.desktop?.facts;
+    const hasMobileFacts = !!(psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length);
+    const hasDesktopFacts = !!(psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length);
 
-    const hasMobileFacts = !!(mobileFacts && typeof mobileFacts === "object" && Object.keys(mobileFacts).length);
-    const hasDesktopFacts = !!(desktopFacts && typeof desktopFacts === "object" && Object.keys(desktopFacts).length);
+    // "ready" means both exist (you can relax this if you want partial)
+    const ready = enabled ? (hasMobileFacts && hasDesktopFacts) : true;
 
-    return { enabled, pending, hasMobileFacts, hasDesktopFacts, psi };
+    return { enabled, pending, ready, hasMobileFacts, hasDesktopFacts };
   }
 
   // -----------------------------
@@ -123,6 +145,10 @@
     window.IQWEB_showLoader?.(!!on);
   }
 
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
   function failVisible(msg) {
     console.error("[polling]", msg);
     showOverlay(false);
@@ -142,20 +168,21 @@
   // -----------------------------
   async function startPolling(reportId) {
     let attempts = 0;
+
     let narrativeTriggered = false;
     let narrativeWaitPolls = 0;
+    let psiWaitPolls = 0;
 
     const overlayStart = Date.now();
     let overlayForcedOff = false;
 
-    // Start visible so user knows something is happening
     showOverlay(true);
     setStatus("Building report…");
 
     while (attempts < MAX_POLLS) {
       attempts++;
 
-      // Stop trapping the UI behind overlay
+      // Stop trapping behind overlay
       if (!overlayForcedOff && Date.now() - overlayStart >= INITIAL_OVERLAY_HIDE_AFTER_MS) {
         overlayForcedOff = true;
         showOverlay(false);
@@ -168,11 +195,11 @@
       } catch (err) {
         console.warn("[polling] fetch failed:", err.message);
         if (!overlayForcedOff) setStatus("Connecting…");
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        await sleep(FAST_POLL_MS);
         continue;
       }
 
-      // Always render whatever we have
+      // Render whatever we have
       if (res && res.success === true) {
         if (typeof window.IQWEB_handleReportData !== "function") {
           failVisible("IQWEB_handleReportData is not loaded (missing/incorrect script include order).");
@@ -188,19 +215,45 @@
 
       const hasScores = scoresPresent(res);
       const psi = psiState(res);
+      const narrativeReady = hasNarrative(res);
 
-      // If scores not present yet, we’re still in the early pipeline
+      // Phase 1: waiting for scores -> fast polling
       if (!hasScores) {
         if (!overlayForcedOff) setStatus("Collecting scan output…");
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        await sleep(FAST_POLL_MS);
         continue;
       }
 
-      // Scores exist -> report usable even if PSI/narrative pending
+      // Scores exist -> report is renderable
       showOverlay(false);
 
-      // PSI status message (optional)
-      if (psi.enabled && psi.pending) {
+      // Narrative handling (optional)
+      if (!narrativeReady && !narrativeTriggered) {
+        setStatus("Generating narrative…");
+        await triggerNarrative(reportId);
+        narrativeTriggered = true;
+        narrativeWaitPolls = 0;
+        await sleep(FAST_POLL_MS);
+        continue;
+      }
+
+      if (narrativeTriggered && !narrativeReady) {
+        narrativeWaitPolls++;
+        if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
+          // Stop caring about narrative; report is usable without it
+          setStatus("");
+          // Continue to PSI polling if needed
+        } else {
+          setStatus("Finalising narrative…");
+          await sleep(FAST_POLL_MS);
+          continue;
+        }
+      }
+
+      // PSI handling
+      if (psi.enabled && !psi.ready) {
+        psiWaitPolls++;
+
         if (psi.hasMobileFacts && !psi.hasDesktopFacts) {
           setStatus("PSI: mobile ready… waiting for desktop…");
         } else if (!psi.hasMobileFacts && psi.hasDesktopFacts) {
@@ -208,53 +261,20 @@
         } else {
           setStatus("PSI: running performance checks…");
         }
-      } else if (psi.enabled && !psi.pending) {
-        setStatus("PSI: ready.");
-      } else {
-        setStatus("");
-      }
 
-      // Narrative is optional: trigger once when scores exist, then stop “waiting” after ~60s
-      if (!hasNarrative(res) && !narrativeTriggered) {
-        setStatus("Generating narrative…");
-        await triggerNarrative(reportId);
-        narrativeTriggered = true;
-        narrativeWaitPolls = 0;
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        // Don’t poll forever for PSI
+        if (psiWaitPolls >= MAX_PSI_WAIT_POLLS) {
+          setStatus("");
+          return;
+        }
+
+        await sleep(SLOW_POLL_MS);
         continue;
       }
 
-      if (narrativeTriggered && !hasNarrative(res)) {
-        narrativeWaitPolls++;
-        if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
-          setStatus("");
-          // Narrative is optional; keep going for PSI if enabled.
-          if (!psi.enabled) return;
-        } else {
-          setStatus("Finalising narrative…");
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-          continue;
-        }
-      }
-
-      // Stop conditions
-      // - If PSI is enabled: keep polling until psi.pending becomes false (mobile+desktop are in),
-      //   even if narrative is already present.
-      // - If PSI is not enabled: finish once narrative is present (otherwise keep polling).
-      if (psi.enabled) {
-        if (!psi.pending) {
-          setStatus("");
-          return;
-        }
-      } else {
-        if (hasNarrative(res)) {
-          setStatus("");
-          return;
-        }
-      }
-
-      // PSI still pending (or PSI disabled but narrative not ready) -> keep polling
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      // If PSI is disabled or ready, and narrative is ready OR we've stopped caring -> done
+      setStatus("");
+      return;
     }
 
     // Hard timeout
