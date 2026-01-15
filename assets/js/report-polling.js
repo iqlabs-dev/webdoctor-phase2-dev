@@ -4,8 +4,8 @@
 
   const POLL_INTERVAL_MS = 2000;
   const MAX_POLLS = 300; // ~10 minutes hard cap
-  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind overlay
-  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying for narrative
+  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind the overlay
+  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying
 
   function getQueryParam(name) {
     try {
@@ -71,55 +71,29 @@
   }
 
   // -----------------------------
-  // Readiness checks (core)
+  // Readiness checks (BUT DO NOT BLOCK UI)
   // -----------------------------
   function scoresPresent(payload) {
     const scores = payload?.scores || payload?.metrics?.scores;
-    return scores && typeof scores.overall === "number" && isFinite(scores.overall);
+    return scores && typeof scores.overall === "number";
   }
 
   function psiState(payload) {
     const psi = payload?.psi || payload?.metrics?.psi;
-    const enabled = psi?.enabled === true;
+
+    // Treat PSI as enabled if we have a psi object at all (the worker populates it progressively).
+    const enabled = !!(psi && typeof psi === "object" && Object.keys(psi).length);
+
+    // Pending defaults to true unless explicitly set to false by the worker.
     const pending = enabled ? psi?.pending !== false : false;
 
-    const hasMobileFacts =
-      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
-    const hasDesktopFacts =
-      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
+    const mobileFacts = psi?.mobile?.facts;
+    const desktopFacts = psi?.desktop?.facts;
+
+    const hasMobileFacts = !!(mobileFacts && typeof mobileFacts === "object" && Object.keys(mobileFacts).length);
+    const hasDesktopFacts = !!(desktopFacts && typeof desktopFacts === "object" && Object.keys(desktopFacts).length);
 
     return { enabled, pending, hasMobileFacts, hasDesktopFacts, psi };
-  }
-
-  // This is the IMPORTANT gate you were missing:
-  // We only consider the report "real" once at least one core scan block exists.
-  function isReportRenderable(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi;
-    const basic = payload?.basic_checks || payload?.metrics?.basic_checks;
-
-    // HTML/basic scan output counts as renderable
-    const hasHtmlBasics = !!(
-      basic &&
-      (basic.html_bytes != null ||
-        basic.status_code != null ||
-        basic.inline_script_count != null ||
-        basic.title_present != null ||
-        basic.viewport_present != null)
-    );
-
-    // PSI facts count as renderable
-    const hasPsiMobile =
-      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
-    const hasPsiDesktop =
-      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
-
-    // Some payloads may include a top-level html_delivery block
-    const hasHtmlDeliveryBlock = !!payload?.html_delivery;
-
-    // Scores count as renderable only if numeric overall exists
-    const hasScores = scoresPresent(payload);
-
-    return Boolean(hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores);
   }
 
   // -----------------------------
@@ -142,7 +116,6 @@
   // UI helpers
   // -----------------------------
   function setStatus(text) {
-    // This only shows if your overlay is visible, unless you also surface it elsewhere in HTML.
     window.IQWEB_setLoaderStatus?.(text);
   }
 
@@ -169,10 +142,8 @@
   // -----------------------------
   async function startPolling(reportId) {
     let attempts = 0;
-
     let narrativeTriggered = false;
     let narrativeWaitPolls = 0;
-    let narrativeGiveUp = false;
 
     const overlayStart = Date.now();
     let overlayForcedOff = false;
@@ -201,55 +172,50 @@
         continue;
       }
 
-      // If backend isn't "success", just keep going
-      if (!res || res.success !== true) {
+      // Always render whatever we have
+      if (res && res.success === true) {
+        if (typeof window.IQWEB_handleReportData !== "function") {
+          failVisible("IQWEB_handleReportData is not loaded (missing/incorrect script include order).");
+          return;
+        }
+        try {
+          window.IQWEB_handleReportData(reportId, res);
+        } catch (e) {
+          failVisible("IQWEB_handleReportData crashed: " + (e?.message || String(e)));
+          return;
+        }
+      }
+
+      const hasScores = scoresPresent(res);
+      const psi = psiState(res);
+
+      // If scores not present yet, we’re still in the early pipeline
+      if (!hasScores) {
         if (!overlayForcedOff) setStatus("Collecting scan output…");
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }
 
-      // Always render whatever we have (progressive fill)
-      if (typeof window.IQWEB_handleReportData !== "function") {
-        failVisible("IQWEB_handleReportData is not loaded (missing/incorrect script include order).");
-        return;
-      }
-      try {
-        window.IQWEB_handleReportData(reportId, res);
-      } catch (e) {
-        failVisible("IQWEB_handleReportData crashed: " + (e?.message || String(e)));
-        return;
-      }
-
-      // If we still don't have enough scan output to be meaningful, keep polling
-      if (!isReportRenderable(res)) {
-        if (!overlayForcedOff) setStatus("Collecting scan output…");
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        continue;
-      }
-
-      // Report is now renderable -> overlay stays off
+      // Scores exist -> report usable even if PSI/narrative pending
       showOverlay(false);
 
-      // PSI status (non-blocking)
-      const psi = psiState(res);
+      // PSI status message (optional)
       if (psi.enabled && psi.pending) {
         if (psi.hasMobileFacts && !psi.hasDesktopFacts) {
           setStatus("PSI: mobile ready… waiting for desktop…");
         } else if (!psi.hasMobileFacts && psi.hasDesktopFacts) {
           setStatus("PSI: desktop ready… waiting for mobile…");
-        } else if (psi.hasMobileFacts || psi.hasDesktopFacts) {
-          setStatus("PSI: collecting remaining checks…");
         } else {
           setStatus("PSI: running performance checks…");
         }
       } else if (psi.enabled && !psi.pending) {
         setStatus("PSI: ready.");
       } else {
-        setStatus(""); // PSI disabled
+        setStatus("");
       }
 
-      // Narrative is optional — trigger once (after renderable)
-      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered) {
+      // Narrative is optional: trigger once when scores exist, then stop “waiting” after ~60s
+      if (!hasNarrative(res) && !narrativeTriggered) {
         setStatus("Generating narrative…");
         await triggerNarrative(reportId);
         narrativeTriggered = true;
@@ -258,13 +224,12 @@
         continue;
       }
 
-      // If narrative was triggered, wait briefly then give up (BUT DO NOT STOP CORE POLLING EARLY)
-      if (!narrativeGiveUp && narrativeTriggered && !hasNarrative(res)) {
+      if (narrativeTriggered && !hasNarrative(res)) {
         narrativeWaitPolls++;
         if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
-          narrativeGiveUp = true;
-          setStatus(""); // report usable without narrative
-          // keep going for PSI completion if PSI is enabled/pending
+          setStatus("");
+          // Narrative is optional; keep going for PSI if enabled.
+          if (!psi.enabled) return;
         } else {
           setStatus("Finalising narrative…");
           await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -272,20 +237,23 @@
         }
       }
 
-      // Exit conditions:
-      // - If PSI disabled: we’re done once renderable (narrative optional)
-      // - If PSI enabled: we’re done once PSI not pending (narrative optional)
-      if (!psi.enabled) {
-        setStatus("");
-        return;
+      // Stop conditions
+      // - If PSI is enabled: keep polling until psi.pending becomes false (mobile+desktop are in),
+      //   even if narrative is already present.
+      // - If PSI is not enabled: finish once narrative is present (otherwise keep polling).
+      if (psi.enabled) {
+        if (!psi.pending) {
+          setStatus("");
+          return;
+        }
+      } else {
+        if (hasNarrative(res)) {
+          setStatus("");
+          return;
+        }
       }
 
-      if (psi.enabled && !psi.pending) {
-        setStatus("");
-        return;
-      }
-
-      // PSI still pending -> keep polling
+      // PSI still pending (or PSI disabled but narrative not ready) -> keep polling
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
@@ -305,9 +273,7 @@
     const reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
 
-    // Default ON (so you don't get “one fetch then half report”)
-    // Only disable if you explicitly set IQWEB_USE_POLLING = false somewhere.
-    if (window.IQWEB_USE_POLLING !== false) {
+    if (window.IQWEB_USE_POLLING === true) {
       startPolling(reportId);
     }
   });
