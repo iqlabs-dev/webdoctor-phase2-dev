@@ -8,6 +8,9 @@
   function $(sel) {
     return document.querySelector(sel);
   }
+  function $all(sel) {
+    return Array.prototype.slice.call(document.querySelectorAll(sel));
+  }
   function $id(id) {
     return document.getElementById(id);
   }
@@ -19,10 +22,6 @@
   }
   function safeNum(v) {
     return typeof v === "number" && isFinite(v) ? v : null;
-  }
-  function clamp01(n) {
-    if (typeof n !== "number" || !isFinite(n)) return null;
-    return Math.max(0, Math.min(1, n));
   }
   function clamp100(n) {
     if (typeof n !== "number" || !isFinite(n)) return null;
@@ -79,7 +78,7 @@
   // --------------------------------------------
   // Normalisation (supports legacy + newer schema)
   // --------------------------------------------
-function pickSignals(data) {
+  function pickSignals(data) {
     data = safeObj(data);
 
     // Common locations
@@ -93,7 +92,7 @@ function pickSignals(data) {
 
     if (Array.isArray(raw) && raw.length) return raw;
 
-    // Fallback: synthesise the minimum signal set from scores/PSI/HTML so the UI is never half-empty.
+    // Fallback: synthesise a minimal signal set so UI never looks "half built".
     const scores = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
     const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
     const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
@@ -102,12 +101,10 @@ function pickSignals(data) {
     function num(n) {
       return typeof n === "number" && isFinite(n) ? n : null;
     }
-
     function scoreOrNull(v) {
       const x = num(v);
       return x === null ? null : Math.max(0, Math.min(100, Math.round(x)));
     }
-
     function mk(id, label, score, status, summary, evidence, facts) {
       const s = scoreOrNull(score);
       return {
@@ -126,7 +123,6 @@ function pickSignals(data) {
 
     const out = [];
 
-    // Overall
     out.push(
       mk(
         "overall",
@@ -139,7 +135,6 @@ function pickSignals(data) {
       )
     );
 
-    // PSI cards (only if we have facts; otherwise keep as pending)
     out.push(
       mk(
         "psi_mobile",
@@ -156,7 +151,7 @@ function pickSignals(data) {
       mk(
         "psi_desktop",
         "PSI — Desktop",
-        scores.performance, // legacy mapping sometimes uses performance for desktop
+        scores.desktop ?? scores.performance,
         desktopFacts && Object.keys(desktopFacts).length ? "ready" : "pending",
         "",
         [],
@@ -164,12 +159,11 @@ function pickSignals(data) {
       )
     );
 
-    // HTML / Delivery
     out.push(
       mk(
         "html_delivery",
         "HTML / Delivery",
-        scores.structure, // best proxy if dedicated score missing
+        scores.html ?? scores.structure,
         null,
         "",
         [],
@@ -183,41 +177,36 @@ function pickSignals(data) {
       )
     );
 
-    // Remaining category cards (these power most of the UI)
     out.push(mk("performance", "Performance", scores.performance, null, "", [], {}));
     out.push(mk("mobile", "Mobile", scores.mobile, null, "", [], {}));
     out.push(mk("seo", "SEO", scores.seo, null, "", [], {}));
     out.push(mk("structure", "Structure", scores.structure, null, "", [], {}));
 
-    // Security: if we have any header signal data, mark ready.
     const secReady = security && Object.keys(security).length > 0;
     out.push(mk("security", "Security", scores.security, secReady ? "ready" : "pending", "", [], security));
 
     out.push(mk("accessibility", "Accessibility", scores.accessibility, null, "", [], {}));
 
-    // Return only meaningful items (we keep pending ones so placeholders can show “Not available yet”)
     return out;
   }
 
   function pickNarrative(data) {
     data = safeObj(data);
-    // Legacy location
     const legacy = data.narrative || (data.metrics && data.metrics.narrative) || null;
     if (legacy) return legacy;
-    // Newer location (if ever nested)
     if (data.metrics && data.metrics.executive_narrative) return { executive_narrative: data.metrics.executive_narrative };
     return null;
   }
 
   function pickFixFirst(data) {
     data = safeObj(data);
-    const ff =
+    return (
       data.fix_first ||
       (data.metrics && data.metrics.fix_first) ||
       (data.narrative && data.narrative.fix_first) ||
       (data.metrics && data.metrics.narrative && data.metrics.narrative.fix_first) ||
-      null;
-    return ff;
+      null
+    );
   }
 
   function pickIssues(data) {
@@ -237,7 +226,7 @@ function pickSignals(data) {
   }
 
   // --------------------------------------------
-  // DOM updates
+  // DOM updates (matches report.html IDs)
   // --------------------------------------------
   function setText(idOrEl, v) {
     const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
@@ -251,25 +240,17 @@ function pickSignals(data) {
     el.innerHTML = html;
   }
 
-  function setProgressBar(containerSelOrEl, pct) {
-    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
-    if (!el) return;
-    const bar = el.querySelector(".progress-fill") || el.querySelector("[data-progress-fill]");
+  function setProgressBar(barId, pct) {
+    const bar = $id(barId);
     if (!bar) return;
     const v = clamp100(pct);
-    if (v === null) {
-      bar.style.width = "0%";
-      return;
-    }
-    bar.style.width = `${v}%`;
+    bar.style.width = v === null ? "0%" : `${v}%`;
   }
 
-  function setBadge(containerSelOrEl, txt) {
-    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
+  function setPill(pillId, txt) {
+    const el = $id(pillId);
     if (!el) return;
-    const badge = el.querySelector(".status-badge") || el.querySelector("[data-status-badge]");
-    if (!badge) return;
-    badge.textContent = txt;
+    el.textContent = txt || "—";
   }
 
   // --------------------------------------------
@@ -281,9 +262,9 @@ function pickSignals(data) {
     const rid = safeStr(h.report_id || h.reportId || reportId);
     const dt = safeStr(h.report_date || h.reportDate || data.created_at || "");
 
-    setText("hdrWebsite", url || "—");
-    setText("hdrReportId", rid || "—");
-    setText("hdrReportDate", dt ? dt.slice(0, 10) : "—");
+    setText("siteUrl", url || "—");
+    setText("reportId", rid || "—");
+    setText("reportDate", dt ? dt.slice(0, 10) : "—");
   }
 
   function findSignal(signals, id) {
@@ -299,10 +280,9 @@ function pickSignals(data) {
       null;
 
     const score = overall ? overall.score : (data.scores && data.scores.overall);
-    setText("overallScoreValue", fmtScore(score));
-    setProgressBar("#overallScoreBar", score);
+    setText("overallScore", fmtScore(score));
+    setProgressBar("overallBar", score);
 
-    // Summary
     const summary =
       safeStr(data.overall_summary) ||
       safeStr(data.delivery_summary) ||
@@ -312,79 +292,72 @@ function pickSignals(data) {
   }
 
   function renderPsi(signals) {
-    const mob =
-      findSignal(signals, "psi_mobile") ||
-      findSignal(signals, "psi_mobile_score") ||
-      null;
-    const desk =
-      findSignal(signals, "psi_desktop") ||
-      findSignal(signals, "psi_desktop_score") ||
-      null;
+    const mob = findSignal(signals, "psi_mobile") || findSignal(signals, "psi_mobile_score") || null;
+    const desk = findSignal(signals, "psi_desktop") || findSignal(signals, "psi_desktop_score") || null;
 
     // Mobile
-    setBadge("#psiMobileCard", mob && mob.status === "ready" ? "READY" : "—");
-    setProgressBar("#psiMobileBar", mob ? mob.score : null);
+    setPill("psiMobilePill", mob && mob.status === "ready" ? "READY" : "—");
+    setProgressBar("psiMobileBar", mob ? mob.score : null);
+
     const mf = safeObj(mob && mob.facts);
     const mLcp = mf.LCP_ms != null ? `LCP ${fmtMs(mf.LCP_ms)}` : "Not available yet.";
     const mTtfb = mf.TTFB_ms != null ? `TTFB ${fmtMs(mf.TTFB_ms)}` : "";
-    const mCls = mf.CLS != null ? `CLS ${mf.CLS.toFixed(3)}` : "";
-    setText("psiMobileFacts", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
+    const mCls = mf.CLS != null ? `CLS ${Number(mf.CLS).toFixed(3)}` : "";
+    setText("psiMobileSummary", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
 
     // Desktop
-    setBadge("#psiDesktopCard", desk && desk.status === "ready" ? "READY" : "—");
-    setProgressBar("#psiDesktopBar", desk ? desk.score : null);
+    setPill("psiDesktopPill", desk && desk.status === "ready" ? "READY" : "—");
+    setProgressBar("psiDesktopBar", desk ? desk.score : null);
+
     const df = safeObj(desk && desk.facts);
     const dLcp = df.LCP_ms != null ? `LCP ${fmtMs(df.LCP_ms)}` : "Not available yet.";
     const dTtfb = df.TTFB_ms != null ? `TTFB ${fmtMs(df.TTFB_ms)}` : "";
-    const dCls = df.CLS != null ? `CLS ${df.CLS.toFixed(3)}` : "";
-    setText("psiDesktopFacts", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
+    const dCls = df.CLS != null ? `CLS ${Number(df.CLS).toFixed(3)}` : "";
+    setText("psiDesktopSummary", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
   }
 
   function renderHtmlDelivery(signals) {
-    const hd =
-      findSignal(signals, "html_delivery") ||
-      findSignal(signals, "html") ||
-      findSignal(signals, "delivery") ||
-      null;
+    const hd = findSignal(signals, "html_delivery") || findSignal(signals, "html") || findSignal(signals, "delivery") || null;
 
-    setProgressBar("#htmlDeliveryBar", hd ? hd.score : null);
+    setProgressBar("htmlBar", hd ? hd.score : null);
+
     const f = safeObj(hd && hd.facts);
-
     const bytes = f.html_bytes != null ? `HTML ${fmtBytes(f.html_bytes)}` : "Not available yet.";
     const inline = f.inline_scripts_count != null ? `inline scripts ${f.inline_scripts_count}` : "";
     const code = f.status_code != null ? `HTTP ${f.status_code}` : "";
-    setText("htmlDeliveryFacts", [bytes, inline, code].filter(Boolean).join(" · "));
+    setText("htmlSummary", [bytes, inline, code].filter(Boolean).join(" · "));
+
+    setPill("htmlPill", "—");
   }
 
   function renderCategoryCards(signals, data) {
-    const scoreMap = safeObj(data.scores);
+    const scoreMap = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
 
-    function setCard(cardId, signalId, fallbackScore, fallbackText) {
+    function setCard(key, signalId, fallbackScore) {
       const s = findSignal(signals, signalId);
       const score = s && typeof s.score === "number" ? s.score : fallbackScore;
-      setProgressBar(`#${cardId}Bar`, score);
-      setText(`${cardId}Score`, fmtScore(score));
-      setText(`${cardId}Text`, safeStr(s && s.narrative) || fallbackText || "—");
+
+      setProgressBar(`bar-${key}`, score);
+      setText(`score-${key}`, fmtScore(score));
+      setText(`summary-${key}`, safeStr(s && s.narrative) || "—");
     }
 
-    setCard("perf", "performance", scoreMap.performance, "—");
-    setCard("mobile", "mobile", scoreMap.mobile, "—");
-    setCard("seo", "seo", scoreMap.seo, "—");
-    setCard("structure", "structure", scoreMap.structure, "—");
-    setCard("security", "security", scoreMap.security, "—");
-    setCard("accessibility", "accessibility", scoreMap.accessibility, "—");
+    setCard("performance", "performance", scoreMap.performance);
+    setCard("mobile", "mobile", scoreMap.mobile);
+    setCard("seo", "seo", scoreMap.seo);
+    setCard("structure", "structure", scoreMap.structure);
+    setCard("security", "security", scoreMap.security);
+    setCard("accessibility", "accessibility", scoreMap.accessibility);
   }
 
   function renderExecutiveNarrative(narrative) {
     const el = $id("narrativeText");
     if (!el) return;
 
-    // Legacy: overall.lines / paragraphs
     const overall = safeObj(narrative && narrative.overall);
     const lines = Array.isArray(overall.lines) ? overall.lines.filter(Boolean) : [];
     const paras = Array.isArray(overall.paragraphs) ? overall.paragraphs.filter(Boolean) : [];
 
-    // New: executive_narrative blocks
     const en = safeObj(narrative && narrative.executive_narrative);
 
     function renderLines(arr) {
@@ -400,7 +373,6 @@ function pickSignals(data) {
       return;
     }
 
-    // If new schema exists, build a short display (without exceeding constraints)
     const framing = safeObj(en.framing);
     const root = safeObj(en.root_constraint);
     const seo = safeObj(en.structure_seo);
@@ -425,37 +397,43 @@ function pickSignals(data) {
   function renderFixFirst(fixFirst) {
     if (!fixFirst) return;
 
-    const pc = $id("fixPrimaryConstraint");
-    const wtf = $id("fixWhatToFixFirst");
-    const dep = $id("fixDeprioritise");
-    const out = $id("fixExpectedOutcome");
-
-    if (pc) setText(pc, safeStr(fixFirst.primary_constraint) || "—");
-    if (wtf) setText(wtf, safeStr(fixFirst.what_to_fix_first) || "—");
-    if (dep) setText(dep, safeStr(fixFirst.deprioritise_for_now) || "—");
-    if (out) setText(out, safeStr(fixFirst.expected_outcome) || "—");
+    setText("fixFirstPill", safeStr(fixFirst.primary_constraint) || "—");
+    setText("fixFirstTitle", safeStr(fixFirst.what_to_fix_first) || "—");
+    setText("fixFirstWhy", safeStr(fixFirst.why_it_matters || fixFirst.why || fixFirst.impact) || "Waiting for narrative…");
+    setText("fixFirstDeprioritise", safeStr(fixFirst.deprioritise_for_now) || "—");
+    setText("fixFirstOutcome", safeStr(fixFirst.expected_outcome) || "—");
   }
 
   function renderKeyInsightMetrics(data) {
-    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics));
-    setText("kimStrength", safeStr(km.strength) || "Not available from this scan output yet.");
-    setText("kimRisk", safeStr(km.risk) || "Not available from this scan output yet.");
-    setText("kimFocus", safeStr(km.focus) || "Not available from this scan output yet.");
-    setText("kimNext", safeStr(km.next) || "Not available from this scan output yet.");
+    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics) || {});
+    const rows = $all("#keyMetricsRoot .metric-row");
+    if (!rows.length) return;
+
+    const map = {
+      strength: safeStr(km.strength) || "Not available from this scan output yet.",
+      risk: safeStr(km.risk) || "Not available from this scan output yet.",
+      focus: safeStr(km.focus) || "Not available from this scan output yet.",
+      next: safeStr(km.next) || "Not available from this scan output yet.",
+    };
+
+    rows.forEach((row) => {
+      const labelEl = row.querySelector(".label");
+      const textEl = row.querySelector(".text");
+      const label = safeStr(labelEl && labelEl.textContent).trim().toLowerCase();
+      if (!textEl) return;
+
+      if (label.includes("strength")) textEl.textContent = map.strength;
+      else if (label.includes("risk")) textEl.textContent = map.risk;
+      else if (label.includes("focus")) textEl.textContent = map.focus;
+      else if (label.includes("next")) textEl.textContent = map.next;
+    });
   }
 
   function renderIssues(data) {
     const issues = pickIssues(data);
-    const el = $id("issuesList");
-    if (!el) return;
-
-    if (!issues.length) {
-      setHtml(
-        el,
-        "<div class='muted'><strong>No issue list available yet</strong><br>This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>"
-      );
-      return;
-    }
+    const root = $id("topIssuesRoot");
+    if (!root) return;
+    if (!issues.length) return;
 
     const max = 8;
     const items = issues.slice(0, max).map((it) => {
@@ -470,15 +448,16 @@ function pickSignals(data) {
       `;
     });
 
-    setHtml(el, items.join(""));
+    const listWrap = root.querySelector(".issue-list") || root.querySelector("[data-issues-list]");
+    if (listWrap) listWrap.innerHTML = items.join("");
+    else root.innerHTML = items.join("");
   }
 
   function renderEvidence(data) {
     const ev = pickEvidence(data);
-    const el = $id("signalEvidence");
+    const el = $id("signalEvidenceRoot");
     if (!el) return;
 
-    // If no evidence, keep it minimal (page already explains “not available”)
     const keys = Object.keys(ev || {});
     if (!keys.length) return;
 
@@ -502,27 +481,28 @@ function pickSignals(data) {
       `;
     });
 
-    setHtml(el, blocks.join(""));
+    el.innerHTML = blocks.join("");
   }
 
   // --------------------------------------------
   // Loader controls (hooked by report-polling.js)
+  // Matches report.html IDs: loaderSection, loaderStatus, reportRoot
   // --------------------------------------------
   window.IQWEB_showLoader = function (show) {
-    const overlay = $id("loadingOverlay");
-    const main = $id("mainReport");
-    if (overlay) overlay.style.display = show ? "flex" : "none";
-    if (main) main.style.display = show ? "none" : "block";
+    const loader = $id("loaderSection");
+    const report = $id("reportRoot");
+    if (loader) loader.style.display = show ? "block" : "none";
+    if (report) report.style.display = show ? "none" : "block";
   };
 
   window.IQWEB_setLoaderStatus = function (txt) {
-    const el = $id("loaderStatusText");
+    const el = $id("loaderStatus");
     if (!el) return;
     el.textContent = txt || "";
   };
 
   // --------------------------------------------
-  // Main render entry (called by polling + initial load)
+  // Main render entry (called by polling + optional initial load)
   // --------------------------------------------
   function renderAll(reportId, data) {
     data = safeObj(data);
@@ -555,7 +535,7 @@ function pickSignals(data) {
   };
 
   // --------------------------------------------
-  // Boot: one-shot fetch (polling handles ongoing)
+  // Boot: one-shot fetch ONLY when polling is disabled
   // --------------------------------------------
   async function boot(reportId) {
     try {
@@ -567,11 +547,11 @@ function pickSignals(data) {
         window.IQWEB_handleReportData?.(reportId, res);
       }
 
-      // If polling is enabled, report-polling.js will take over.
-      // If not, show what we have.
       window.IQWEB_showLoader?.(false);
+      window.IQWEB_setLoaderStatus?.("");
     } catch (e) {
       window.IQWEB_showLoader?.(false);
+      window.IQWEB_setLoaderStatus?.("");
       const el = $id("narrativeText");
       if (el) {
         el.innerHTML =
@@ -584,6 +564,10 @@ function pickSignals(data) {
   document.addEventListener("DOMContentLoaded", function () {
     const reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
+
+    // If polling is on, let report-polling.js control fetch + loader.
+    if (window.IQWEB_USE_POLLING === true) return;
+
     boot(reportId);
   });
 })();
