@@ -25,265 +25,133 @@ function json(statusCode, body) {
 function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
-function asArray(v) {
-  return Array.isArray(v) ? v : [];
-}
-function asInt(v, fallback = 0) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.min(100, Math.round(n)));
+
+function safeStr(v) {
+  return typeof v === "string" ? v : "";
 }
 
-function overallSummaryFromScore(score) {
-  const s = Number(score);
-
-  const disclaimer =
-    "This score reflects deterministic checks only and does not measure brand or content effectiveness.";
-
-  if (!Number.isFinite(s)) {
-    return `Overall delivery score unavailable. ${disclaimer}`;
-  }
-
-  let lead =
-    s >= 90 ? "Overall delivery is excellent." :
-    s >= 80 ? "Overall delivery is good." :
-    s >= 70 ? "Overall delivery is fair." :
-    s >= 60 ? "Overall delivery needs improvement." :
-              "Overall delivery is poor.";
-
-  return `${lead} ${disclaimer}`;
-}
-
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
-function isNumericString(v) {
-  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
-}
-
-function prettifyKey(k) {
-  return String(k || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function evidenceToObservations(evidence) {
-  const ev = safeObj(evidence);
-  const entries = Object.entries(ev);
-  if (!entries.length) return [];
-
-  const priority = [
-    "title_present",
-    "meta_description_present",
-    "canonical_present",
-    "canonical_matches_url",
-    "h1_present",
-    "h1_count",
-    "viewport_present",
-    "device_width_present",
-    "https",
-    "hsts",
-    "content_security_policy",
-    "x_frame_options",
-    "x_content_type_options",
-    "referrer_policy",
-    "permissions_policy",
-    "img_count",
-    "img_alt_count",
-    "alt_ratio",
-    "html_bytes",
-    "inline_script_count",
-    "head_script_block_present",
-  ];
-
-  const ranked = entries.sort((a, b) => {
-    const ai = priority.indexOf(a[0]);
-    const bi = priority.indexOf(b[0]);
-    const ar = ai === -1 ? 999 : ai;
-    const br = bi === -1 ? 999 : bi;
-    if (ar !== br) return ar - br;
-    return String(a[0]).localeCompare(String(b[0]));
-  });
-
-  return ranked.map(([key, value]) => ({
-    label: prettifyKey(key),
-    value: value === undefined ? null : value,
-    source: "evidence",
-  }));
-}
-
-function deductionsToIssues(signal) {
-  const sig = safeObj(signal);
-  const deds = asArray(sig.deductions);
-  if (!deds.length) return [];
-
-  const missing = deds.find(
-    (d) =>
-      isNonEmptyString(d?.reason) &&
-      /missing|required|not found|not observed|not confirmed/i.test(d.reason)
-  );
-
-  if (!missing) return [];
-
-  return [
-    {
-      title: `${sig.label || "Signal"}: required signal missing`,
-      severity: "high",
-      impact:
-        "This scan could not observe required inputs. Missing inputs are treated as a penalty to preserve completeness.",
-      evidence: { missing_reason: missing.reason },
-    },
-  ];
-}
-
-function normaliseSignal(sig) {
-  const s = safeObj(sig);
-
-  const out = {
-    id: s.id || "",
-    label: s.label || s.id || "Signal",
-    score: asInt(s.score, 0),
-    base_score: Number.isFinite(Number(s.base_score)) ? Number(s.base_score) : 100,
-    penalty_points: Number.isFinite(Number(s.penalty_points))
-      ? Math.max(0, Math.round(Number(s.penalty_points)))
-      : null,
-    deductions: asArray(s.deductions).map((d) => ({
-      points: Number.isFinite(Number(d?.points)) ? Math.round(Number(d.points)) : 0,
-      reason: isNonEmptyString(d?.reason) ? String(d.reason).trim() : "Deduction applied.",
-      code: isNonEmptyString(d?.code) ? String(d.code).trim() : "",
-    })),
-    observations: asArray(s.observations).length
-      ? asArray(s.observations)
-      : evidenceToObservations(s.evidence),
-    issues: asArray(s.issues).length ? asArray(s.issues) : deductionsToIssues(s),
-    evidence: safeObj(s.evidence),
-  };
-
-  if (!Number.isFinite(Number(out.penalty_points))) {
-    const dedSum = out.deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
-    out.penalty_points = Math.max(0, dedSum);
-  }
-
-  return out;
+function safeNum(v) {
+  return typeof v === "number" && isFinite(v) ? v : null;
 }
 
 // -----------------------------
-// Narrative normaliser (v5.2 -> UI-compatible)
-// -----------------------------
-function normaliseNarrativeForUI(raw) {
-  if (!raw || typeof raw !== "object") return null;
-
-  if (isNonEmptyString(raw.executive_lead)) return raw;
-
-  const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
-  if (overallLines.length) {
-    return {
-      ...raw,
-      executive_lead: overallLines.slice(0, 5).join("\n"),
-    };
-  }
-
-  return raw;
-}
-
-// -----------------------------
-// Handler
+// Main
 // -----------------------------
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") {
+    return json(200, { ok: true });
+  }
+
   try {
-    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-
-    const reportParam = String(
+    const report_id =
       event.queryStringParameters?.report_id ||
-        event.queryStringParameters?.id ||
-        ""
-    ).trim();
+      event.queryStringParameters?.id ||
+      "";
 
-    if (!reportParam) return json(400, { success: false, error: "Missing report_id" });
+    if (!report_id) {
+      return json(400, { success: false, error: "Missing report_id" });
+    }
 
-    const byNumericId = isNumericString(reportParam);
-
-    let q = supabase
+    const { data: row, error } = await supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .select("id, created_at, url, metrics, narrative")
+      .eq("id", report_id)
+      .maybeSingle();
 
-    q = byNumericId ? q.eq("id", Number(reportParam)) : q.eq("report_id", reportParam);
-
-    const { data: rows, error: scanErr } = await q;
-
-    if (scanErr) {
-      return json(500, {
-        success: false,
-        error: "Supabase query failed",
-        detail: scanErr.message || String(scanErr),
-        hint:
-          "Check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
-      });
+    if (error) {
+      console.error("[get-report-data] supabase read error:", error);
+      return json(500, { success: false, error: "Database read failed" });
     }
 
-    const scan = rows?.[0] || null;
-    if (!scan) return json(404, { success: false, error: "Report not found" });
-
-    const metrics = safeObj(scan.metrics);
-
-    const rawSignals = asArray(metrics.delivery_signals).length
-      ? metrics.delivery_signals
-      : asArray(metrics?.metrics?.delivery_signals);
-
-    const delivery_signals = asArray(rawSignals).map(normaliseSignal);
-
-    const rawScores = safeObj(metrics.scores);
-    const scores = Object.keys(rawScores).length
-      ? rawScores
-      : {
-          overall: asInt(scan.score_overall, 0),
-          performance: asInt(delivery_signals.find((s) => s.id === "performance")?.score, 0),
-          mobile: asInt(delivery_signals.find((s) => s.id === "mobile")?.score, 0),
-          seo: asInt(delivery_signals.find((s) => s.id === "seo")?.score, 0),
-          security: asInt(delivery_signals.find((s) => s.id === "security")?.score, 0),
-          structure: asInt(delivery_signals.find((s) => s.id === "structure")?.score, 0),
-          accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
-        };
-
-    const overall_summary = overallSummaryFromScore(scores.overall);
-
-    const findings = asArray(metrics.findings);
-    const fix_plan = asArray(metrics.fix_plan);
-
-    let narrative = normaliseNarrativeForUI(scan.narrative);
-    if (narrative && typeof narrative === "object") {
-      narrative.overall_summary = narrative.overall_summary || overall_summary;
+    if (!row) {
+      return json(404, { success: false, error: "Report not found" });
     }
 
+    const metrics = safeObj(row.metrics);
+    const scores = safeObj(metrics.scores);
+
+    // -----------------------------
+    // PSI normalization (LOCK CONTRACT)
+    // -----------------------------
+    const psi = safeObj(metrics.psi);
+
+    const hasMobileFacts =
+      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
+    const hasDesktopFacts =
+      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
+
+    // If psi exists at all (common in your pipeline), treat as enabled.
+    // If the pipeline truly disables PSI, you can explicitly set psi.enabled=false at write time.
+    const psiEnabled =
+      typeof psi.enabled === "boolean"
+        ? psi.enabled
+        : (psi && (("mobile" in psi) || ("desktop" in psi)));
+
+    // pending: if writer sets it, trust it; otherwise pending until both facts exist
+    const psiPending =
+      typeof psi.pending === "boolean"
+        ? psi.pending
+        : (psiEnabled ? !(hasMobileFacts && hasDesktopFacts) : false);
+
+    // Apply stable flags
+    psi.enabled = !!psiEnabled;
+    psi.pending = !!psiPending;
+
+    // -----------------------------
+    // Basic checks normalization
+    // -----------------------------
+    const basic = safeObj(metrics.basic_checks);
+    const security = safeObj(metrics.security_headers);
+
+    // -----------------------------
+    // Narrative location (keep both; frontend already supports)
+    // -----------------------------
+    const narrative = row.narrative || metrics.narrative || null;
+
+    // -----------------------------
+    // Response (stable shape)
+    // -----------------------------
     return json(200, {
       success: true,
+
       header: {
-        website: scan.url,
-        report_id: scan.report_id,
-        created_at: scan.created_at,
+        website: safeStr(row.url),
+        report_id: safeStr(row.id),
+        report_date: safeStr(row.created_at),
       },
-      scores,
-      overall_summary,
 
-      // ✅ These are what report-data.js expects for PSI + HTML/Delivery + summaries
-      basic_checks: safeObj(metrics.basic_checks),
-      security_headers: safeObj(metrics.security_headers),
-      explanations: safeObj(metrics.explanations),
-      psi: safeObj(metrics.psi),
+      website: safeStr(row.url),
+      created_at: row.created_at,
 
-      delivery_signals,
-      findings,
-      fix_plan,
+      scores: {
+        overall: safeNum(scores.overall),
+        performance: safeNum(scores.performance),
+        mobile: safeNum(scores.mobile),
+        seo: safeNum(scores.seo),
+        structure: safeNum(scores.structure),
+        security: safeNum(scores.security),
+        accessibility: safeNum(scores.accessibility),
+      },
+
+      overall_summary: safeStr(metrics.overall_summary || metrics.delivery_summary || ""),
+
+      // core blocks
+      psi,
+      basic_checks: basic,
+      security_headers: security,
+
+      // other blocks you already use in the UI
+      delivery_signals: metrics.delivery_signals,
+      issues: metrics.issues,
+      evidence: metrics.evidence,
+      fix_first: metrics.fix_first,
+      key_insight_metrics: metrics.key_insight_metrics,
+
       narrative,
+      metrics, // keep for backwards compatibility
     });
-  } catch (err) {
-    console.error("[get-report-data]", err);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: err?.message || String(err),
-    });
+  } catch (e) {
+    console.error("[get-report-data] fatal:", e);
+    return json(500, { success: false, error: "Unexpected server error" });
   }
 }

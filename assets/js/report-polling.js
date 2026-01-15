@@ -3,11 +3,9 @@
   "use strict";
 
   const POLL_INTERVAL_MS = 2000;
-  const MAX_POLLS = 300; // ~10 minutes
-  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000;
-
-  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s
-  const MAX_PSI_WAIT_POLLS = 120; // ~4 minutes then stop caring
+  const MAX_POLLS = 300; // ~10 minutes hard cap
+  const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind overlay
+  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying for narrative
 
   function getQueryParam(name) {
     try {
@@ -39,7 +37,7 @@
   }
 
   // -----------------------------
-  // Narrative detection
+  // Narrative detection (legacy + new schema)
   // -----------------------------
   function anyNonEmptyStrings(arr) {
     return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
@@ -49,9 +47,11 @@
     const n = payload?.narrative || payload?.metrics?.narrative;
     if (!n) return false;
 
+    // Legacy
     if (anyNonEmptyStrings(n?.overall?.lines)) return true;
     if (anyNonEmptyStrings(n?.overall?.paragraphs)) return true;
 
+    // New schema
     const en = n?.executive_narrative;
     if (!en) return false;
 
@@ -71,35 +71,71 @@
   }
 
   // -----------------------------
-  // Readiness checks
+  // Readiness checks (core)
   // -----------------------------
   function scoresPresent(payload) {
     const scores = payload?.scores || payload?.metrics?.scores;
-    return scores && typeof scores.overall === "number";
+    return scores && typeof scores.overall === "number" && isFinite(scores.overall);
   }
 
-  // ✅ FIX: psi pending computed from facts if pending flag isn't present
   function psiState(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi;
-    const enabled = psi?.enabled === true;
+    const psi = payload?.psi || payload?.metrics?.psi || null;
 
-    const mobileFacts = psi?.mobile?.facts && typeof psi.mobile.facts === "object" ? psi.mobile.facts : null;
-    const desktopFacts = psi?.desktop?.facts && typeof psi.desktop.facts === "object" ? psi.desktop.facts : null;
+    const hasMobileFacts =
+      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
+    const hasDesktopFacts =
+      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
 
-    const hasMobileFacts = !!mobileFacts && Object.keys(mobileFacts).length > 0;
-    const hasDesktopFacts = !!desktopFacts && Object.keys(desktopFacts).length > 0;
+    // IMPORTANT:
+    // Treat PSI as enabled if:
+    // - psi.enabled === true, OR
+    // - psi exists and has mobile/desktop containers (even if flags missing)
+    const enabled =
+      psi?.enabled === true ||
+      (!!psi && (typeof psi === "object") && ("mobile" in psi || "desktop" in psi));
 
+    // pending rules:
+    // - if backend provides pending boolean, trust it
+    // - else pending until we have BOTH mobile + desktop facts
     let pending = false;
     if (enabled) {
-      if (typeof psi?.pending === "boolean") pending = psi.pending;
-      else pending = !(hasMobileFacts && hasDesktopFacts);
+      if (typeof psi?.pending === "boolean") {
+        pending = psi.pending;
+      } else {
+        pending = !(hasMobileFacts && hasDesktopFacts);
+      }
     }
 
     return { enabled, pending, hasMobileFacts, hasDesktopFacts, psi };
   }
 
+  function isReportRenderable(payload) {
+    const psi = payload?.psi || payload?.metrics?.psi;
+    const basic = payload?.basic_checks || payload?.metrics?.basic_checks;
+
+    const hasHtmlBasics = !!(
+      basic &&
+      (basic.html_bytes != null ||
+        basic.status_code != null ||
+        basic.inline_script_count != null ||
+        basic.title_present != null ||
+        basic.viewport_present != null)
+    );
+
+    const hasPsiMobile =
+      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
+    const hasPsiDesktop =
+      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
+
+    const hasHtmlDeliveryBlock = !!payload?.html_delivery;
+
+    const hasScores = scoresPresent(payload);
+
+    return Boolean(hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores);
+  }
+
   // -----------------------------
-  // Narrative trigger
+  // Narrative trigger (optional)
   // -----------------------------
   async function triggerNarrative(reportId) {
     try {
@@ -144,9 +180,10 @@
   // -----------------------------
   async function startPolling(reportId) {
     let attempts = 0;
+
     let narrativeTriggered = false;
     let narrativeWaitPolls = 0;
-    let psiWaitPolls = 0;
+    let narrativeGiveUp = false;
 
     const overlayStart = Date.now();
     let overlayForcedOff = false;
@@ -173,52 +210,53 @@
         continue;
       }
 
-      // Always render what we have
-      if (res && res.success === true) {
-        if (typeof window.IQWEB_handleReportData !== "function") {
-          failVisible("IQWEB_handleReportData is not loaded (script include order issue).");
-          return;
-        }
-        try {
-          window.IQWEB_handleReportData(reportId, res);
-        } catch (e) {
-          failVisible("IQWEB_handleReportData crashed: " + (e?.message || String(e)));
-          return;
-        }
-      }
-
-      const hasScores = scoresPresent(res);
-      const psi = psiState(res);
-
-      if (!hasScores) {
+      if (!res || res.success !== true) {
         if (!overlayForcedOff) setStatus("Collecting scan output…");
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
       }
 
-      // Report usable now
+      if (typeof window.IQWEB_handleReportData !== "function") {
+        failVisible("IQWEB_handleReportData is not loaded (missing/incorrect script include order).");
+        return;
+      }
+
+      try {
+        window.IQWEB_handleReportData(reportId, res);
+      } catch (e) {
+        failVisible("IQWEB_handleReportData crashed: " + (e?.message || String(e)));
+        return;
+      }
+
+      if (!isReportRenderable(res)) {
+        if (!overlayForcedOff) setStatus("Collecting scan output…");
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        continue;
+      }
+
       showOverlay(false);
 
-      // PSI messaging + timeout
-      if (psi.enabled && psi.pending) {
-        psiWaitPolls++;
-        if (psiWaitPolls >= MAX_PSI_WAIT_POLLS) {
-          // Stop polling purely for PSI
-          setStatus("");
-          return;
-        }
+      const psi = psiState(res);
 
-        if (psi.hasMobileFacts && !psi.hasDesktopFacts) setStatus("PSI: mobile ready… waiting for desktop…");
-        else if (!psi.hasMobileFacts && psi.hasDesktopFacts) setStatus("PSI: desktop ready… waiting for mobile…");
-        else setStatus("PSI: running performance checks…");
+      // Status only (never block UI)
+      if (psi.enabled && psi.pending) {
+        if (psi.hasMobileFacts && !psi.hasDesktopFacts) {
+          setStatus("PSI: mobile ready… waiting for desktop…");
+        } else if (!psi.hasMobileFacts && psi.hasDesktopFacts) {
+          setStatus("PSI: desktop ready… waiting for mobile…");
+        } else if (psi.hasMobileFacts || psi.hasDesktopFacts) {
+          setStatus("PSI: collecting remaining checks…");
+        } else {
+          setStatus("PSI: running performance checks…");
+        }
       } else if (psi.enabled && !psi.pending) {
         setStatus("PSI: ready.");
       } else {
         setStatus("");
       }
 
-      // Narrative optional
-      if (!hasNarrative(res) && !narrativeTriggered) {
+      // Narrative trigger once (optional)
+      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered) {
         setStatus("Generating narrative…");
         await triggerNarrative(reportId);
         narrativeTriggered = true;
@@ -227,12 +265,11 @@
         continue;
       }
 
-      if (narrativeTriggered && !hasNarrative(res)) {
+      if (!narrativeGiveUp && narrativeTriggered && !hasNarrative(res)) {
         narrativeWaitPolls++;
         if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
-          setStatus("");
-          // Keep PSI polling if still pending; otherwise done
-          if (!psi.enabled || (psi.enabled && !psi.pending)) return;
+          narrativeGiveUp = true;
+          // keep polling for PSI if PSI is enabled/pending
         } else {
           setStatus("Finalising narrative…");
           await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -240,10 +277,19 @@
         }
       }
 
-      // Done if narrative present OR PSI done OR PSI disabled
-      if (hasNarrative(res) || !psi.enabled || (psi.enabled && !psi.pending)) {
-        setStatus("");
-        return;
+      // EXIT CONDITIONS (fixed):
+      // - If PSI is enabled, keep polling until PSI is NOT pending (or timeout)
+      // - If PSI is not enabled, we can stop once narrative is present or we gave up
+      if (psi.enabled) {
+        if (!psi.pending) {
+          setStatus("");
+          return;
+        }
+      } else {
+        if (hasNarrative(res) || narrativeGiveUp) {
+          setStatus("");
+          return;
+        }
       }
 
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -264,7 +310,7 @@
     const reportId = getQueryParam("report_id") || getQueryParam("id");
     if (!reportId) return;
 
-    if (window.IQWEB_USE_POLLING === true) {
+    if (window.IQWEB_USE_POLLING !== false) {
       startPolling(reportId);
     }
   });
