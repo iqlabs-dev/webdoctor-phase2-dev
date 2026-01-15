@@ -1,582 +1,864 @@
+/* eslint-disable */
 // /assets/js/report-data.js
+// iQWEB Report Renderer — v5.2 (ES5, no modules)
+// IMPORTANT: This file matches IDs in your report.html:
+// loaderSection, reportRoot, siteUrl, reportId, reportDate,
+// overallPill, overallBar, overallNote, signalsGrid,
+// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+// PLUS: fixFirstBlock (new)
+
+/* eslint-disable */
 (function () {
-  "use strict";
-
-  // --------------------------------------------
+  // -----------------------------
   // Helpers
-  // --------------------------------------------
-  function $(sel) {
-    return document.querySelector(sel);
-  }
-  function $id(id) {
-    return document.getElementById(id);
-  }
-  function safeObj(v) {
-    return v && typeof v === "object" ? v : {};
-  }
-  function safeStr(v) {
-    return typeof v === "string" ? v : "";
-  }
-  function safeNum(v) {
-    return typeof v === "number" && isFinite(v) ? v : null;
-  }
-  function clamp100(n) {
-    if (typeof n !== "number" || !isFinite(n)) return null;
-    return Math.max(0, Math.min(100, n));
-  }
-  function fmtScore(n) {
-    const v = clamp100(n);
-    if (v === null) return "—";
-    return String(Math.round(v));
-  }
-  function fmtMs(n) {
-    const v = safeNum(n);
-    if (v === null) return "—";
-    return `${Math.round(v)}ms`;
-  }
-  function fmtBytes(n) {
-    const v = safeNum(n);
-    if (v === null) return "—";
-    const kb = v / 1024;
-    if (kb < 1024) return `${Math.round(kb)} KB`;
-    const mb = kb / 1024;
-    return `${mb.toFixed(1)} MB`;
-  }
-  function hasKeys(o) {
-    return o && typeof o === "object" && Object.keys(o).length > 0;
+  // -----------------------------
+  function $(id) { return document.getElementById(id); }
+  function safeObj(v) { return v && typeof v === "object" ? v : {}; }
+  function asArray(v) { return Array.isArray(v) ? v : []; }
+
+  function asInt(v, fallback) {
+    if (typeof fallback === "undefined") fallback = 0;
+    var n = Number(v);
+    if (!isFinite(n)) return fallback;
+    n = Math.round(n);
+    if (n < 0) n = 0;
+    if (n > 100) n = 100;
+    return n;
   }
 
+  function escapeHtml(str) {
+    str = String(str == null ? "" : str);
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    try {
+      return d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+    } catch (e) {
+      return d.toString();
+    }
+  }
+
+  function verdict(score) {
+    var n = asInt(score, 0);
+    if (n >= 90) return "Strong";
+    if (n >= 75) return "Good";
+    if (n >= 55) return "Needs work";
+    return "Needs attention";
+  }
+
+  // Query param (ES5)
   function getQueryParam(name) {
     try {
-      return new URL(window.location.href).searchParams.get(name);
-    } catch (_) {
-      return null;
+      var q = window.location.search || "";
+      if (q.charAt(0) === "?") q = q.slice(1);
+      if (!q) return "";
+      var parts = q.split("&");
+      for (var i = 0; i < parts.length; i++) {
+        var kv = parts[i].split("=");
+        var k = decodeURIComponent(kv[0] || "");
+        if (k === name) return decodeURIComponent(kv.slice(1).join("=") || "");
+      }
+      return "";
+    } catch (e) {
+      return "";
     }
   }
 
-  async function fetchJson(url, opts) {
-    const r = await fetch(url, Object.assign({ cache: "no-store" }, opts || {}));
-    const text = await r.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Invalid JSON response");
-    }
-    if (!r.ok) {
-      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
-    }
-    return data;
+  function getReportIdFromUrl() {
+    return getQueryParam("report_id") || getQueryParam("id") || "";
   }
 
-  function fetchReport(reportId) {
-    return fetchJson(
-      "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)
-    );
+  function isPdfMode() {
+    return getQueryParam("pdf") === "1";
   }
 
-  // --------------------------------------------
-  // Normalisation (supports legacy + newer schema)
-  // --------------------------------------------
+  // -----------------------------
+  // Transport
+  // -----------------------------
+  function fetchJson(method, url, bodyObj) {
+    // Prefer fetch if present, fallback to XHR
+    if (typeof fetch === "function") {
+      var opts = { method: method, headers: { "Accept": "application/json" } };
+      if (method !== "GET") {
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(bodyObj || {});
+      }
+      return fetch(url, opts).then(function (res) {
+        return res.text().then(function (t) {
+          var data = null;
+          try { data = JSON.parse(t); } catch (e) {}
+          if (!res.ok) {
+            var msg = (data && (data.detail || data.error)) || t || ("HTTP " + res.status);
+            throw new Error(msg);
+          }
+          if (data && data.success === false) {
+            throw new Error(data.detail || data.error || "Unknown error");
+          }
+          return data;
+        });
+      });
+    }
+
+    // XHR fallback
+    return new Promise(function (resolve, reject) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.setRequestHeader("Accept", "application/json");
+        if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          var text = xhr.responseText || "";
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) {}
+          if (xhr.status < 200 || xhr.status >= 300) {
+            reject(new Error((data && (data.detail || data.error)) || text || ("HTTP " + xhr.status)));
+            return;
+          }
+          if (data && data.success === false) {
+            reject(new Error(data.detail || data.error || "Unknown error"));
+            return;
+          }
+          resolve(data);
+        };
+        xhr.onerror = function () { reject(new Error("Network error")); };
+        xhr.send(method === "GET" ? null : JSON.stringify(bodyObj || {}));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  function fetchReportData(reportId) {
+    if (isPdfMode()) {
+      var token = getQueryParam("pdf_token") || "";
+      if (!token) return Promise.reject(new Error("Missing pdf_token (PDF mode)."));
+      var url =
+        "/.netlify/functions/get-report-data-pdf?report_id=" +
+        encodeURIComponent(reportId) +
+        "&pdf_token=" +
+        encodeURIComponent(token);
+      return fetchJson("GET", url);
+    }
+    return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
+  }
+
+  function generateNarrative(reportId) {
+    var force = getQueryParam("regen") === "1";
+    return fetchJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId, force: force });
+  }
+
+  // -----------------------------
+  // Data contract bridge (new vs legacy)
+  // -----------------------------
+  function pickHeader(data) {
+    data = safeObj(data);
+    if (data.header && typeof data.header === "object") return safeObj(data.header);
+    // legacy-ish
+    return {
+      website: data.url || data.website || "",
+      report_id: data.report_id || "",
+      created_at: data.created_at || data.generated_at || ""
+    };
+  }
+
+  function pickScores(data) {
+    data = safeObj(data);
+    if (data.scores && typeof data.scores === "object") return safeObj(data.scores);
+    var m = safeObj(data.metrics);
+    return safeObj(m.scores);
+  }
+
   function pickSignals(data) {
     data = safeObj(data);
+    if (Array.isArray(data.delivery_signals)) return data.delivery_signals;
+    var m = safeObj(data.metrics);
+    return asArray(m.delivery_signals);
+  }
 
-    // Common locations
-    let raw =
-      (Array.isArray(data.delivery_signals) ? data.delivery_signals : null) ||
-      (data.delivery_signals && Array.isArray(data.delivery_signals.signals) ? data.delivery_signals.signals : null) ||
-      (data.metrics && Array.isArray(data.metrics.delivery_signals) ? data.metrics.delivery_signals : null) ||
-      (data.metrics && data.metrics.delivery_signals && Array.isArray(data.metrics.delivery_signals.signals) ? data.metrics.delivery_signals.signals : null) ||
-      (Array.isArray(data.signals) ? data.signals : null) ||
-      null;
+  function pickKeyMetrics(data) {
+    data = safeObj(data);
+    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
+    var m = safeObj(data.metrics);
+    return safeObj(m);
+  }
 
-    if (Array.isArray(raw) && raw.length) return raw;
-
-    // Fallback: synthesise minimum set from scores/PSI/HTML
-    const scores = safeObj(data.scores || (data.metrics && data.metrics.scores) || {});
-    const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
-    const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
-    const security = safeObj(data.security_headers || (data.metrics && data.metrics.security_headers) || {});
-
-    function num(n) {
-      return typeof n === "number" && isFinite(n) ? n : null;
+  function pickOverallSummary(data, overallScore) {
+    data = safeObj(data);
+    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
+    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
+      return data.narrative.overall_summary;
     }
-
-    function scoreOrNull(v) {
-      const x = num(v);
-      return x === null ? null : Math.max(0, Math.min(100, Math.round(x)));
-    }
-
-    function mk(id, label, score, status, summary, evidence, facts) {
-      const s = scoreOrNull(score);
-      return {
-        id,
-        label,
-        score: s,
-        status: status || (s === null ? "pending" : "ready"),
-        narrative: summary || "",
-        evidence: Array.isArray(evidence) ? evidence : [],
-        facts: safeObj(facts || {}),
-      };
-    }
-
-    const mobileFacts = safeObj(psi.mobile && psi.mobile.facts);
-    const desktopFacts = safeObj(psi.desktop && psi.desktop.facts);
-
-    const out = [];
-
-    out.push(
-      mk(
-        "overall",
-        "Overall Delivery Score",
-        scores.overall,
-        null,
-        data.overall_summary || data.delivery_summary || "",
-        [],
-        {}
-      )
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
     );
-
-    out.push(
-      mk(
-        "psi_mobile",
-        "PSI — Mobile",
-        scores.mobile,
-        hasKeys(mobileFacts) ? "ready" : "pending",
-        "",
-        [],
-        mobileFacts
-      )
-    );
-
-    out.push(
-      mk(
-        "psi_desktop",
-        "PSI — Desktop",
-        scores.performance,
-        hasKeys(desktopFacts) ? "ready" : "pending",
-        "",
-        [],
-        desktopFacts
-      )
-    );
-
-    out.push(
-      mk(
-        "html_delivery",
-        "HTML / Delivery",
-        scores.structure,
-        null,
-        "",
-        [],
-        {
-          html_bytes: num(basic.html_bytes),
-          status_code: basic.status_code || null,
-          inline_scripts_count: num(basic.inline_script_count),
-          title_present: basic.title_present,
-          viewport_present: basic.viewport_present,
-        }
-      )
-    );
-
-    out.push(mk("performance", "Performance", scores.performance, null, "", [], {}));
-    out.push(mk("mobile", "Mobile", scores.mobile, null, "", [], {}));
-    out.push(mk("seo", "SEO", scores.seo, null, "", [], {}));
-    out.push(mk("structure", "Structure", scores.structure, null, "", [], {}));
-
-    const secReady = security && Object.keys(security).length > 0;
-    out.push(mk("security", "Security", scores.security, secReady ? "ready" : "pending", "", [], security));
-
-    out.push(mk("accessibility", "Accessibility", scores.accessibility, null, "", [], {}));
-
-    return out;
   }
 
   function pickNarrative(data) {
     data = safeObj(data);
-    const legacy = data.narrative || (data.metrics && data.metrics.narrative) || null;
-    if (legacy) return legacy;
-    if (data.metrics && data.metrics.executive_narrative) return { executive_narrative: data.metrics.executive_narrative };
-    return null;
+    return data.narrative || "";
   }
 
-  function pickFixFirst(data) {
-    data = safeObj(data);
-    const ff =
-      data.fix_first ||
-      (data.metrics && data.metrics.fix_first) ||
-      (data.narrative && data.narrative.fix_first) ||
-      (data.metrics && data.metrics.narrative && data.metrics.narrative.fix_first) ||
-      null;
-    return ff;
+  // -----------------------------
+  // DOM actions (SHOW report / HIDE loader)
+  // -----------------------------
+  function showReport() {
+    var loader = $("loaderSection");
+    var root = $("reportRoot");
+    if (loader) loader.style.display = "none";
+    if (root) root.style.display = "block";
   }
 
-  function pickIssues(data) {
-    data = safeObj(data);
-    const issues =
-      data.issues ||
-      (data.metrics && data.metrics.issues) ||
-      (data.deductions && data.deductions.issues) ||
-      null;
-    return Array.isArray(issues) ? issues : [];
+  function setHeaderUI(header) {
+    header = safeObj(header);
+
+    var site = $("siteUrl");
+    var reportId = $("reportId");
+    var reportDate = $("reportDate");
+
+    var website = String(header.website || "").trim();
+    var rid = String(header.report_id || "").trim();
+    var created = header.created_at || header.generated_at || "";
+
+    if (site) {
+      site.textContent = website || "—";
+      if (website) {
+        site.href = website.indexOf("http") === 0 ? website : ("https://" + website);
+      } else {
+        site.removeAttribute("href");
+      }
+    }
+    if (reportId) reportId.textContent = rid || "—";
+    if (reportDate) reportDate.textContent = formatDate(created);
   }
 
-  function pickEvidence(data) {
-    data = safeObj(data);
-    const ev = data.evidence || (data.metrics && data.metrics.evidence) || null;
-    return safeObj(ev);
+  function setOverallUI(scores, overallSummary) {
+    scores = safeObj(scores);
+    var overall = asInt(scores.overall, 0);
+
+    var pill = $("overallPill");
+    var bar = $("overallBar");
+    var note = $("overallNote");
+
+    if (pill) pill.textContent = String(overall);
+    if (bar) bar.style.width = overall + "%";
+    if (note) note.textContent = overallSummary || "";
   }
 
-  // --------------------------------------------
-  // DOM updates
-  // --------------------------------------------
-  function setText(idOrEl, v) {
-    const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
-    if (!el) return;
-    el.textContent = v;
-  }
+  // -----------------------------
+  // Executive Narrative rendering
+  // -----------------------------
+  function renderNarrative(narrative) {
+    var el = $("narrativeText");
+    if (!el) return false;
 
-  function setHtml(idOrEl, html) {
-    const el = typeof idOrEl === "string" ? $id(idOrEl) : idOrEl;
-    if (!el) return;
-    el.innerHTML = html;
-  }
-
-  function setProgressBar(containerSelOrEl, pct) {
-    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
-    if (!el) return;
-    const bar = el.querySelector(".progress-fill") || el.querySelector("[data-progress-fill]");
-    if (!bar) return;
-    const v = clamp100(pct);
-    bar.style.width = v === null ? "0%" : `${v}%`;
-  }
-
-  function setBadge(containerSelOrEl, txt) {
-    const el = typeof containerSelOrEl === "string" ? $(containerSelOrEl) : containerSelOrEl;
-    if (!el) return;
-    const badge = el.querySelector(".status-badge") || el.querySelector("[data-status-badge]");
-    if (!badge) return;
-    badge.textContent = txt;
-  }
-
-  // --------------------------------------------
-  // Rendering blocks
-  // --------------------------------------------
-  function renderHeader(reportId, data) {
-    const h = safeObj(data.header);
-    const url = safeStr(h.website || h.url || data.website || data.url);
-    const rid = safeStr(h.report_id || h.reportId || reportId);
-    const dt = safeStr(h.report_date || h.reportDate || data.created_at || "");
-
-    setText("hdrWebsite", url || "—");
-    setText("hdrReportId", rid || "—");
-    setText("hdrReportDate", dt ? dt.slice(0, 10) : "—");
-  }
-
-  function findSignal(signals, id) {
-    if (!Array.isArray(signals)) return null;
-    return signals.find((s) => safeStr(s.id) === id) || null;
-  }
-
-  function renderOverall(signals, data) {
-    const overall =
-      findSignal(signals, "overall") ||
-      findSignal(signals, "overall_delivery") ||
-      findSignal(signals, "overall_delivery_score") ||
-      null;
-
-    const score = overall ? overall.score : (data.scores && data.scores.overall);
-    setText("overallScoreValue", fmtScore(score));
-    setProgressBar("#overallScoreBar", score);
-
-    const summary =
-      safeStr(data.overall_summary) ||
-      safeStr(data.delivery_summary) ||
-      safeStr(overall && overall.narrative) ||
-      "—";
-    setText("overallSummary", summary);
-  }
-
-  // ✅ FIX: PSI render falls back to payload psi/metrics.psi if signal facts are missing
-  function renderPsi(signals, data) {
-    const mob =
-      findSignal(signals, "psi_mobile") ||
-      findSignal(signals, "psi_mobile_score") ||
-      null;
-    const desk =
-      findSignal(signals, "psi_desktop") ||
-      findSignal(signals, "psi_desktop_score") ||
-      null;
-
-    const psi = safeObj(data.psi || (data.metrics && data.metrics.psi) || {});
-    const mfFallback = safeObj(psi.mobile && psi.mobile.facts);
-    const dfFallback = safeObj(psi.desktop && psi.desktop.facts);
-
-    // Mobile
-    const mfFromSignal = safeObj(mob && mob.facts);
-    const mf = hasKeys(mfFromSignal) ? mfFromSignal : mfFallback;
-
-    setBadge("#psiMobileCard", hasKeys(mf) ? "READY" : "—");
-    setProgressBar("#psiMobileBar", mob ? mob.score : (data.scores && data.scores.mobile));
-    const mLcp = mf.LCP_ms != null ? `LCP ${fmtMs(mf.LCP_ms)}` : "Not available yet.";
-    const mTtfb = mf.TTFB_ms != null ? `TTFB ${fmtMs(mf.TTFB_ms)}` : "";
-    const mCls = mf.CLS != null ? `CLS ${mf.CLS.toFixed(3)}` : "";
-    setText("psiMobileFacts", [mLcp, mTtfb, mCls].filter(Boolean).join(" · "));
-
-    // Desktop
-    const dfFromSignal = safeObj(desk && desk.facts);
-    const df = hasKeys(dfFromSignal) ? dfFromSignal : dfFallback;
-
-    setBadge("#psiDesktopCard", hasKeys(df) ? "READY" : "—");
-    setProgressBar("#psiDesktopBar", desk ? desk.score : (data.scores && data.scores.performance));
-    const dLcp = df.LCP_ms != null ? `LCP ${fmtMs(df.LCP_ms)}` : "Not available yet.";
-    const dTtfb = df.TTFB_ms != null ? `TTFB ${fmtMs(df.TTFB_ms)}` : "";
-    const dCls = df.CLS != null ? `CLS ${df.CLS.toFixed(3)}` : "";
-    setText("psiDesktopFacts", [dLcp, dTtfb, dCls].filter(Boolean).join(" · "));
-  }
-
-  // ✅ FIX: HTML/Delivery also falls back to payload basic_checks if signal facts are missing
-  function renderHtmlDelivery(signals, data) {
-    const hd =
-      findSignal(signals, "html_delivery") ||
-      findSignal(signals, "html") ||
-      findSignal(signals, "delivery") ||
-      null;
-
-    const basic = safeObj(data.basic_checks || (data.metrics && data.metrics.basic_checks) || {});
-    const fFromSignal = safeObj(hd && hd.facts);
-    const f = hasKeys(fFromSignal) ? fFromSignal : basic;
-
-    setProgressBar("#htmlDeliveryBar", hd ? hd.score : (data.scores && data.scores.structure));
-
-    const bytes = f.html_bytes != null ? `HTML ${fmtBytes(f.html_bytes)}` : "Not available yet.";
-    const inline = f.inline_scripts_count != null ? `inline scripts ${f.inline_scripts_count}` : "";
-    const code = f.status_code != null ? `HTTP ${f.status_code}` : "";
-    setText("htmlDeliveryFacts", [bytes, inline, code].filter(Boolean).join(" · "));
-  }
-
-  function renderCategoryCards(signals, data) {
-    const scoreMap = safeObj(data.scores);
-
-    function setCard(cardId, signalId, fallbackScore, fallbackText) {
-      const s = findSignal(signals, signalId);
-      const score = s && typeof s.score === "number" ? s.score : fallbackScore;
-      setProgressBar(`#${cardId}Bar`, score);
-      setText(`${cardId}Score`, fmtScore(score));
-      setText(`${cardId}Text`, safeStr(s && s.narrative) || fallbackText || "—");
+    if (!narrative) {
+      el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+      return false;
     }
 
-    setCard("perf", "performance", scoreMap.performance, "—");
-    setCard("mobile", "mobile", scoreMap.mobile, "—");
-    setCard("seo", "seo", scoreMap.seo, "—");
-    setCard("structure", "structure", scoreMap.structure, "—");
-    setCard("security", "security", scoreMap.security, "—");
-    setCard("accessibility", "accessibility", scoreMap.accessibility, "—");
-  }
+    // object contract
+    if (typeof narrative === "object") {
+      var overallLines = asArray(narrative.overall && narrative.overall.lines);
+      if (overallLines.length) {
+        var html = "";
+        for (var i = 0; i < overallLines.length; i++) {
+          var s = String(overallLines[i] || "").trim();
+          if (!s) continue;
+          html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
+        }
+        el.innerHTML = html || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+        return !!html;
+      }
 
-  function renderExecutiveNarrative(narrative) {
-    const el = $id("narrativeText");
-    if (!el) return;
-
-    const overall = safeObj(narrative && narrative.overall);
-    const lines = Array.isArray(overall.lines) ? overall.lines.filter(Boolean) : [];
-    const paras = Array.isArray(overall.paragraphs) ? overall.paragraphs.filter(Boolean) : [];
-
-    const en = safeObj(narrative && narrative.executive_narrative);
-
-    function renderLines(arr) {
-      return `<p>${arr.map((s) => safeStr(s)).join("<br>")}</p>`;
+      // fallback: executive_lead
+      if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
+        var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
+        var out = "";
+        for (var j = 0; j < parts.length; j++) {
+          var t = String(parts[j] || "").trim();
+          if (!t) continue;
+          out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
+        }
+        el.innerHTML = out;
+        return true;
+      }
     }
 
-    if (paras.length) {
-      setHtml(el, paras.map((p) => `<p>${safeStr(p)}</p>`).join(""));
-      return;
-    }
-    if (lines.length) {
-      setHtml(el, renderLines(lines));
-      return;
-    }
+    // string fallback
+    if (typeof narrative === "string" && narrative.trim()) {
+      var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
+      if (blocks.length < 2) blocks = narrative.split("\n");
 
-    const framing = safeObj(en.framing);
-    const root = safeObj(en.root_constraint);
-    const seo = safeObj(en.structure_seo);
-    const trust = safeObj(en.trust_security);
-    const spec = safeObj(en.site_specificity);
-
-    const chunks = [];
-    if (Array.isArray(framing.lines) && framing.lines.length) chunks.push(renderLines(framing.lines));
-    if (Array.isArray(root.lines) && root.lines.length) chunks.push(renderLines(root.lines));
-    if (Array.isArray(seo.lines) && seo.lines.length) chunks.push(renderLines(seo.lines));
-    if (Array.isArray(trust.lines) && trust.lines.length) chunks.push(renderLines(trust.lines));
-    if (Array.isArray(spec.lines) && spec.lines.length) chunks.push(renderLines(spec.lines));
-
-    if (chunks.length) {
-      setHtml(el, chunks.join(""));
-      return;
+      var html2 = "";
+      for (var k = 0; k < blocks.length; k++) {
+        var b = String(blocks[k] || "").trim();
+        if (!b) continue;
+        html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
+      }
+      el.innerHTML = html2 || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+      return !!html2;
     }
 
-    setHtml(el, "<p class='muted'>Narrative will load after scan data is available.</p>");
+    el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+    return false;
   }
 
-  function renderFixFirst(fixFirst) {
-    if (!fixFirst) return;
+  // -----------------------------
+  // NEW: What to Fix First (and Why) block
+  // Renders under Executive Narrative in #fixFirstBlock
+  // -----------------------------
+  function renderFixFirstBlock(narrative) {
+    var root = $("fixFirstBlock");
+    if (!root) return false;
 
-    const pc = $id("fixPrimaryConstraint");
-    const wtf = $id("fixWhatToFixFirst");
-    const dep = $id("fixDeprioritise");
-    const out = $id("fixExpectedOutcome");
+    // Clear if no narrative yet
+    if (!narrative || typeof narrative !== "object") {
+      root.innerHTML = "";
+      return false;
+    }
 
-    if (pc) setText(pc, safeStr(fixFirst.primary_constraint) || "—");
-    if (wtf) setText(wtf, safeStr(fixFirst.what_to_fix_first) || "—");
-    if (dep) setText(dep, safeStr(fixFirst.deprioritise_for_now) || "—");
-    if (out) setText(out, safeStr(fixFirst.expected_outcome) || "—");
+    var ff = safeObj(narrative.fix_first);
+    var fixFirst = String(ff.fix_first || "").trim();
+    var why = asArray(ff.why).filter(Boolean);
+    var waitOn = asArray(ff.deprioritise).filter(Boolean);
+    var outcome = asArray(ff.expected_outcome).filter(Boolean);
+
+    // If empty, hide silently
+    if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
+      root.innerHTML = "";
+      return false;
+    }
+
+    function list(items) {
+      if (!items || !items.length) return "<div class='muted' style='font-size:12px;'>—</div>";
+      var html = "<ul style='margin:8px 0 0 18px; padding:0;'>";
+      for (var i = 0; i < items.length; i++) {
+        var s = String(items[i] || "").trim();
+        if (!s) continue;
+        html += "<li style='margin:0 0 6px 0; line-height:1.5;'>" + escapeHtml(s) + "</li>";
+      }
+      html += "</ul>";
+      return html;
+    }
+
+    // Use same “card” styling as the rest of the report
+    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
+    var htmlOut = "";
+    htmlOut += "<div class='card' style='margin-top:14px;'>";
+    htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
+    htmlOut += "<h3 style='margin:0;'>What to Fix First (and Why)</h3>";
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
+
+    htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
+    htmlOut += list(why);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>";
+    htmlOut += list(waitOn);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>";
+    htmlOut += list(outcome);
+    htmlOut += "</div>";
+
+    htmlOut += "</div>";
+    htmlOut += "</div>";
+
+    root.innerHTML = htmlOut;
+    return true;
   }
 
-  function renderKeyInsightMetrics(data) {
-    const km = safeObj(data.key_insight_metrics || (data.metrics && data.metrics.key_insight_metrics));
-    setText("kimStrength", safeStr(km.strength) || "Not available from this scan output yet.");
-    setText("kimRisk", safeStr(km.risk) || "Not available from this scan output yet.");
-    setText("kimFocus", safeStr(km.focus) || "Not available from this scan output yet.");
-    setText("kimNext", safeStr(km.next) || "Not available from this scan output yet.");
+  // -----------------------------
+  // Delivery signal cards
+  // -----------------------------
+  function renderSignalsGrid(signals, narrative) {
+    var grid = $("signalsGrid");
+    if (!grid) return;
+
+    signals = asArray(signals);
+    grid.innerHTML = "";
+
+    // narrative signals map
+    var narrSignals = {};
+    if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
+      narrSignals = narrative.signals;
+    }
+
+    function keyFor(sig) {
+      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.indexOf("perf") !== -1) return "performance";
+      if (id.indexOf("mobile") !== -1) return "mobile";
+      if (id.indexOf("seo") !== -1) return "seo";
+      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+      if (id.indexOf("access") !== -1) return "accessibility";
+      return (sig && sig.id) ? String(sig.id) : "";
+    }
+
+    function fallbackSummary(sig) {
+      var score = asInt(sig.score, 0);
+      var label = String(sig.label || sig.id || "This signal");
+      var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
+
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+
+      if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
+      if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
+      if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
+
+      return s;
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var score = asInt(sig.score, 0);
+
+      var k = keyFor(sig);
+      var lines = [];
+      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
+
+      var summary = "";
+      if (lines.length) {
+        summary = String(lines.join("\n"));
+      } else {
+        summary = fallbackSummary(sig);
+      }
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="card-top">' +
+          "<h3>" + escapeHtml(label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+        "</div>" +
+        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+        '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
+
+      grid.appendChild(card);
+    }
   }
 
-  function renderIssues(data) {
-    const issues = pickIssues(data);
-    const el = $id("issuesList");
-    if (!el) return;
+  // -----------------------------
+  // Signal Evidence (accordions per signal)
+  // -----------------------------
+  function renderSignalEvidence(signals) {
+    var root = $("signalEvidenceRoot");
+    if (!root) return;
 
-    if (!issues.length) {
-      setHtml(
-        el,
-        "<div class='muted'><strong>No issue list available yet</strong><br>This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>"
+    signals = asArray(signals);
+    root.innerHTML = "";
+
+    function kvHtml(k, v) {
+      var val = v;
+      if (val === null || typeof val === "undefined") val = "—";
+      if (typeof val === "boolean") val = val ? "true" : "false";
+      return (
+        '<div class="kv">' +
+          '<div class="k">' + escapeHtml(String(k)) + "</div>" +
+          '<div class="v">' + escapeHtml(String(val)) + "</div>" +
+        "</div>"
       );
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var score = asInt(sig.score, 0);
+      var issues = asArray(sig.issues);
+      var obs = asArray(sig.observations);
+      var deds = asArray(sig.deductions);
+      var evidence = safeObj(sig.evidence);
+
+      var det = document.createElement("details");
+      det.className = "evidence-block";
+      det.open = false;
+
+      var summary =
+        '<summary>' +
+          '<div class="acc-title">' + escapeHtml(label) + "</div>" +
+          '<div class="acc-score">' + escapeHtml(String(score)) + "/100</div>" +
+        "</summary>";
+
+      var body = '<div class="acc-body">';
+
+      // Issues
+      if (issues.length) {
+        body += "<div class='evidence-title'>Issues</div>";
+        for (var j = 0; j < issues.length; j++) {
+          var it = safeObj(issues[j]);
+          var t = String(it.title || it.id || "Issue");
+          var sev = String(it.severity || "").toUpperCase();
+          var impact = String(it.impact || it.detail || it.description || "");
+          body += "<div class='issue' style='margin-bottom:10px;'>";
+          body += "<div class='issue-top'>";
+          body += "<p class='issue-title'>" + escapeHtml(t) + "</p>";
+          body += "<span class='issue-label'>" + escapeHtml(sev || "Monitor") + "</span>";
+          body += "</div>";
+          if (impact) body += "<div class='issue-why impact-text'>" + escapeHtml(impact) + "</div>";
+          body += "</div>";
+        }
+      }
+
+      // Deductions
+      if (deds.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
+        body += "<div class='evidence-list'>";
+        for (var k = 0; k < deds.length; k++) {
+          var dd = safeObj(deds[k]);
+          var pts = dd.points;
+          var reason = dd.reason || dd.code || "";
+          body += kvHtml((pts != null ? ("-" + pts + " pts") : "Deduction"), reason);
+        }
+        body += "</div>";
+      }
+
+      // Observations
+      if (obs.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
+        body += "<div class='evidence-list'>";
+        for (var m = 0; m < obs.length; m++) {
+          var o = safeObj(obs[m]);
+          body += kvHtml(o.label || ("Observation " + (m + 1)), o.value);
+        }
+        body += "</div>";
+      }
+
+      // Evidence object (key/value)
+      var eKeys = Object.keys(evidence || {});
+      if (eKeys.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
+        body += "<div class='evidence-list'>";
+        for (var n = 0; n < eKeys.length; n++) {
+          var ek = eKeys[n];
+          body += kvHtml(ek, evidence[ek]);
+        }
+        body += "</div>";
+      }
+
+      body += "</div>";
+
+      det.innerHTML = summary + body;
+      root.appendChild(det);
+    }
+
+    if (!signals.length) {
+      root.innerHTML = "<div class='muted'>No evidence blocks returned.</div>";
+    }
+  }
+
+  // -----------------------------
+  // Key Insight Metrics (Strength / Risk / Focus / Next)
+  // -----------------------------
+  function renderKeyInsights(scores, signals) {
+    var root = $("keyMetricsRoot");
+    if (!root) return;
+
+    scores = safeObj(scores);
+    signals = asArray(signals);
+
+    var items = [
+      { key: "Strength", text: "Not available from this scan output yet." },
+      { key: "Risk",     text: "Not available from this scan output yet." },
+      { key: "Focus",    text: "Not available from this scan output yet." },
+      { key: "Next",     text: "Not available from this scan output yet." }
+    ];
+
+    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var best = { k: "", v: -1 };
+    var worst = { k: "", v: 999 };
+
+    for (var i = 0; i < domains.length; i++) {
+      var k = domains[i];
+      if (typeof scores[k] === "undefined") continue;
+      var v = asInt(scores[k], 0);
+      if (v > best.v) best = { k: k, v: v };
+      if (v < worst.v) worst = { k: k, v: v };
+    }
+
+    if (best.k) items[0].text = best.k.toUpperCase() + " is strongest (" + best.v + "/100).";
+    if (worst.k) items[1].text = worst.k.toUpperCase() + " is the main risk (" + worst.v + "/100).";
+
+    var focus = "";
+    var next = "";
+
+    for (var s = 0; s < signals.length; s++) {
+      var sig = safeObj(signals[s]);
+      var issues = asArray(sig.issues);
+      if (issues.length) {
+        var it = safeObj(issues[0]);
+        focus = String(it.title || it.id || "").trim();
+        next = "Address: " + focus + " (then re-scan to confirm).";
+        break;
+      }
+    }
+
+    if (!focus) {
+      for (var d = 0; d < signals.length; d++) {
+        var sd = safeObj(signals[d]);
+        var deds = asArray(sd.deductions);
+        if (deds.length) {
+          focus = String(deds[0].reason || deds[0].code || "").trim();
+          next = "Fix: " + focus + " (then re-scan).";
+          break;
+        }
+      }
+    }
+
+    if (focus) items[2].text = focus;
+    if (next) items[3].text = next;
+
+    var html = '<div class="insight-list">';
+    for (var j = 0; j < items.length; j++) {
+      html +=
+        '<div class="insight">' +
+          '<div class="tag">' + escapeHtml(items[j].key) + "</div>" +
+          '<div class="text">' + escapeHtml(items[j].text) + "</div>" +
+        "</div>";
+    }
+    html += "</div>";
+
+    root.innerHTML = html;
+  }
+
+  // -----------------------------
+  // Top Issues
+  // -----------------------------
+  function renderTopIssues(signals) {
+    var root = $("topIssuesRoot");
+    if (!root) return;
+
+    signals = asArray(signals);
+
+    var issuesOut = [];
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var issues = asArray(sig.issues);
+
+      for (var j = 0; j < issues.length; j++) {
+        var it = safeObj(issues[j]);
+        issuesOut.push({
+          title: String(it.title || it.id || (label + ": issue")).trim(),
+          sev: String(it.severity || "monitor").toUpperCase(),
+          why: String(it.impact || it.detail || it.description || "").trim()
+        });
+      }
+    }
+
+    if (!issuesOut.length) {
+      for (var k = 0; k < signals.length; k++) {
+        var sd = safeObj(signals[k]);
+        var lab = String(sd.label || sd.id || "Signal");
+        var deds = asArray(sd.deductions);
+        for (var m = 0; m < deds.length; m++) {
+          var dd = safeObj(deds[m]);
+          issuesOut.push({
+            title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
+            sev: "MONITOR",
+            why: "Penalty applied from deterministic evidence."
+          });
+        }
+      }
+    }
+
+    var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
+
+    var html = "";
+    if (!cap) {
+      html =
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">No issues detected</p>' +
+            '<span class="issue-label">OK</span>' +
+          "</div>" +
+          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
+        "</div>";
+      root.innerHTML = html;
       return;
     }
 
-    const max = 8;
-    const items = issues.slice(0, max).map((it) => {
-      const title = safeStr(it.title || it.label || it.id || "Issue");
-      const severity = safeStr(it.severity || it.priority || "");
-      const desc = safeStr(it.description || it.summary || "");
-      return `
-        <div class="issue-item">
-          <div class="issue-title">${title}${severity ? ` <span class="pill">${severity}</span>` : ""}</div>
-          ${desc ? `<div class="issue-desc">${desc}</div>` : ""}
-        </div>
-      `;
-    });
+    for (var x = 0; x < cap; x++) {
+      var it2 = issuesOut[x];
+      html +=
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+          "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+        "</div>";
+    }
 
-    setHtml(el, items.join(""));
+    root.innerHTML = html;
   }
 
-  function renderEvidence(data) {
-    const ev = pickEvidence(data);
-    const el = $id("signalEvidence");
-    if (!el) return;
+  // -----------------------------
+  // Fix Sequence
+  // -----------------------------
+  function renderFixSequence(scores, signals) {
+    var root = $("fixSequenceRoot");
+    if (!root) return;
 
-    const keys = Object.keys(ev || {});
-    if (!keys.length) return;
+    scores = safeObj(scores);
+    signals = asArray(signals);
 
-    const blocks = keys.slice(0, 12).map((k) => {
-      const v = ev[k];
-      const txt =
-        typeof v === "string"
-          ? v
-          : typeof v === "number"
-          ? String(v)
-          : Array.isArray(v)
-          ? v.map((x) => safeStr(x)).filter(Boolean).join(", ")
-          : v && typeof v === "object"
-          ? JSON.stringify(v, null, 2)
-          : "";
-      return `
-        <div class="evidence-row">
-          <div class="evidence-key">${k}</div>
-          <pre class="evidence-val">${txt}</pre>
-        </div>
-      `;
-    });
+    var focus = "";
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var issues = asArray(sig.issues);
+      if (issues.length) {
+        focus = String(issues[0].title || issues[0].id || "").trim();
+        break;
+      }
+    }
+    if (!focus) {
+      var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
+      var worst = { k: "", v: 999 };
+      for (var j = 0; j < domains.length; j++) {
+        var k = domains[j];
+        if (typeof scores[k] === "undefined") continue;
+        var v = asInt(scores[k], 0);
+        if (v < worst.v) worst = { k: k, v: v };
+      }
+      if (worst.k) focus = "Stabilise " + worst.k.toUpperCase() + " baseline first.";
+    }
 
-    setHtml(el, blocks.join(""));
+    try {
+      var phases = root.querySelectorAll(".phase");
+      if (phases && phases.length >= 3) {
+        var ul1 = phases[0].querySelector("ul");
+        if (ul1) {
+          ul1.innerHTML =
+            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
+            "<li>Re-run the scan immediately to confirm the signal moves (before touching design/copy).</li>" +
+            "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
+        }
+
+        var ul2 = phases[1].querySelector("ul");
+        if (ul2) {
+          ul2.innerHTML =
+            "<li>Address remaining deductions in the weakest domain (SEO/Security/Accessibility depending on scores).</li>" +
+            "<li>Remove repeated sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
+            "<li>Validate with a second re-scan and keep a before/after record.</li>";
+        }
+
+        var ul3 = phases[2].querySelector("ul");
+        if (ul3) {
+          ul3.innerHTML =
+            "<li>Harden trust posture (headers/policies) only once the baseline is stable.</li>" +
+            "<li>Schedule periodic scans to prevent regressions.</li>" +
+            "<li>Build a lightweight change log tied to scan IDs for auditability.</li>";
+        }
+      }
+    } catch (e) {}
   }
 
-  // --------------------------------------------
-  // Loader controls (hooked by report-polling.js)
-  // --------------------------------------------
-  window.IQWEB_showLoader = function (show) {
-    const overlay = $id("loadingOverlay");
-    const main = $id("mainReport");
-    if (overlay) overlay.style.display = show ? "flex" : "none";
-    if (main) main.style.display = show ? "none" : "block";
-  };
+  // -----------------------------
+  // Narrative generation: non-blocking
+  // -----------------------------
+  function ensureNarrative(reportId, narrative) {
+    // Render whatever we already have
+    var hasExecutive = renderNarrative(narrative);
+    renderFixFirstBlock(narrative);
 
-  window.IQWEB_setLoaderStatus = function (txt) {
-    const el = $id("loaderStatusText");
-    if (!el) return;
-    el.textContent = txt || "";
-  };
+    if (hasExecutive) return;
 
-  // --------------------------------------------
-  // Main render entry
-  // --------------------------------------------
-  function renderAll(reportId, data) {
+    var key = "iqweb_narrative_requested_" + reportId;
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      }
+    } catch (e) {}
+
+    generateNarrative(reportId)
+      .then(function () { return fetchReportData(reportId); })
+      .then(function (data2) {
+        var n = pickNarrative(data2);
+        renderNarrative(n);
+        renderFixFirstBlock(n);
+      })
+      .catch(function () {
+        // ignore narrative errors
+      });
+  }
+
+  // -----------------------------
+  // Main render
+  // -----------------------------
+  function renderAll(data) {
     data = safeObj(data);
 
-    renderHeader(reportId, data);
+    var header = pickHeader(data);
+    var scores = pickScores(data);
+    var signals = pickSignals(data);
+    var narrative = pickNarrative(data);
 
-    const signals = pickSignals(data);
-    renderOverall(signals, data);
-    renderPsi(signals, data);
-    renderHtmlDelivery(signals, data);
-    renderCategoryCards(signals, data);
+    setHeaderUI(header);
 
-    const narrative = pickNarrative(data);
-    renderExecutiveNarrative(narrative);
+    var overallSummary = pickOverallSummary(data, scores.overall);
+    setOverallUI(scores, overallSummary);
 
-    const fixFirst = pickFixFirst(data);
-    renderFixFirst(fixFirst);
+    showReport();
 
-    renderKeyInsightMetrics(data);
-    renderIssues(data);
-    renderEvidence(data);
+    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
+
+    renderSignalsGrid(signals, narrative);
+    renderSignalEvidence(signals);
+    renderKeyInsights(scores, signals);
+    renderTopIssues(signals);
+    renderFixSequence(scores, signals);
+
+    try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
 
-  window.IQWEB_handleReportData = function (reportId, payload) {
-    try {
-      renderAll(reportId, payload || {});
-    } catch (e) {
-      console.error("[report-data] render failed:", e);
-    }
-  };
-
-  // --------------------------------------------
-  // Boot: one-shot fetch (polling handles ongoing)
-  // --------------------------------------------
-  async function boot(reportId) {
-    try {
-      window.IQWEB_showLoader?.(true);
-      window.IQWEB_setLoaderStatus?.("Fetching report data…");
-      const res = await fetchReport(reportId);
-
-      if (res && res.success === true) {
-        window.IQWEB_handleReportData?.(reportId, res);
-      }
-
-      window.IQWEB_showLoader?.(false);
-    } catch (e) {
-      window.IQWEB_showLoader?.(false);
-      const el = $id("narrativeText");
-      if (el) {
-        el.innerHTML =
-          "<p><strong>Unable to load report.</strong></p>" +
-          `<p class="muted">${safeStr(e && e.message) || "Unknown error"}</p>`;
-      }
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", function () {
-    const reportId = getQueryParam("report_id") || getQueryParam("id");
+  function boot() {
+    var reportId = getReportIdFromUrl();
     if (!reportId) return;
-    boot(reportId);
-  });
+
+    fetchReportData(reportId)
+      .then(function (data) { renderAll(data); })
+      .catch(function () {
+        showReport();
+        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+        var n = $("narrativeText");
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        var ff = $("fixFirstBlock");
+        if (ff) ff.innerHTML = "";
+      });
+  }
+
+  try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  } catch (e) {}
 })();

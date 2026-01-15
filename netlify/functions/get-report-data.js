@@ -1,10 +1,10 @@
 // /.netlify/functions/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
 // Helpers
@@ -13,11 +13,10 @@ function json(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Cache-Control": "no-store",
     },
     body: JSON.stringify(body),
   };
@@ -26,134 +25,299 @@ function json(statusCode, body) {
 function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
-
-function safeStr(v) {
-  return typeof v === "string" ? v : "";
+function asArray(v) {
+  return Array.isArray(v) ? v : [];
+}
+function asInt(v, fallback = 0) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-function firstNonEmpty(...vals) {
-  for (const v of vals) {
-    const s = safeStr(v).trim();
-    if (s) return s;
+function overallSummaryFromScore(score) {
+  const s = Number(score);
+
+  const disclaimer =
+    "This score reflects deterministic checks only and does not measure brand or content effectiveness.";
+
+  if (!Number.isFinite(s)) {
+    return `Overall delivery score unavailable. ${disclaimer}`;
   }
-  return "";
+
+  let lead =
+    s >= 90 ? "Overall delivery is excellent." :
+    s >= 80 ? "Overall delivery is good." :
+    s >= 70 ? "Overall delivery is fair." :
+    s >= 60 ? "Overall delivery needs improvement." :
+              "Overall delivery is poor.";
+
+  return `${lead} ${disclaimer}`;
+}
+
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+function isNumericString(v) {
+  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
+}
+
+function prettifyKey(k) {
+  return String(k || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function evidenceToObservations(evidence) {
+  const ev = safeObj(evidence);
+  const entries = Object.entries(ev);
+  if (!entries.length) return [];
+
+  const priority = [
+    "title_present",
+    "meta_description_present",
+    "canonical_present",
+    "canonical_matches_url",
+    "h1_present",
+    "h1_count",
+    "viewport_present",
+    "device_width_present",
+    "https",
+    "hsts",
+    "content_security_policy",
+    "x_frame_options",
+    "x_content_type_options",
+    "referrer_policy",
+    "permissions_policy",
+    "img_count",
+    "img_alt_count",
+    "alt_ratio",
+    "html_bytes",
+    "inline_script_count",
+    "head_script_block_present",
+  ];
+
+  const ranked = entries.sort((a, b) => {
+    const ai = priority.indexOf(a[0]);
+    const bi = priority.indexOf(b[0]);
+    const ar = ai === -1 ? 999 : ai;
+    const br = bi === -1 ? 999 : bi;
+    if (ar !== br) return ar - br;
+    return String(a[0]).localeCompare(String(b[0]));
+  });
+
+  return ranked.map(([key, value]) => ({
+    label: prettifyKey(key),
+    value: value === undefined ? null : value,
+    source: "evidence",
+  }));
+}
+
+function deductionsToIssues(signal) {
+  const sig = safeObj(signal);
+  const deds = asArray(sig.deductions);
+  if (!deds.length) return [];
+
+  const missing = deds.find(
+    (d) =>
+      isNonEmptyString(d?.reason) &&
+      /missing|required|not found|not observed|not confirmed/i.test(d.reason)
+  );
+
+  if (!missing) return [];
+
+  return [
+    {
+      title: `${sig.label || "Signal"}: required signal missing`,
+      severity: "high",
+      impact:
+        "This scan could not observe required inputs. Missing inputs are treated as a penalty to preserve completeness.",
+      evidence: { missing_reason: missing.reason },
+    },
+  ];
+}
+
+function normaliseSignal(sig) {
+  const s = safeObj(sig);
+
+  const out = {
+    id: s.id || "",
+    label: s.label || s.id || "Signal",
+    score: asInt(s.score, 0),
+    base_score: Number.isFinite(Number(s.base_score)) ? Number(s.base_score) : 100,
+    penalty_points: Number.isFinite(Number(s.penalty_points))
+      ? Math.max(0, Math.round(Number(s.penalty_points)))
+      : null,
+    deductions: asArray(s.deductions).map((d) => ({
+      points: Number.isFinite(Number(d?.points)) ? Math.round(Number(d.points)) : 0,
+      reason: isNonEmptyString(d?.reason) ? String(d.reason).trim() : "Deduction applied.",
+      code: isNonEmptyString(d?.code) ? String(d.code).trim() : "",
+    })),
+    observations: asArray(s.observations).length
+      ? asArray(s.observations)
+      : evidenceToObservations(s.evidence),
+    issues: asArray(s.issues).length ? asArray(s.issues) : deductionsToIssues(s),
+    evidence: safeObj(s.evidence),
+  };
+
+  if (!Number.isFinite(Number(out.penalty_points))) {
+    const dedSum = out.deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
+    out.penalty_points = Math.max(0, dedSum);
+  }
+
+  return out;
 }
 
 // -----------------------------
-// Main
+// Narrative normaliser (v5.2 -> UI-compatible)
+// - Your UI currently expects narrative.executive_lead (string)
+// - v5.2 generator produces narrative.overall.lines (array)
+// -----------------------------
+function normaliseNarrativeForUI(raw) {
+  // Preserve nulls (don’t convert to {})
+  if (!raw || typeof raw !== "object") return null;
+
+  // If already old-shape, keep as-is
+  if (isNonEmptyString(raw.executive_lead)) return raw;
+
+  // If v5.2 shape, map overall.lines -> executive_lead
+  const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
+  if (overallLines.length) {
+    return {
+      ...raw,
+      executive_lead: overallLines.slice(0, 5).join("\n"), // respects your max line constraints
+    };
+  }
+
+  // Otherwise return as-is (may still be useful for debugging)
+  return raw;
+}
+
+// -----------------------------
+// Handler
 // -----------------------------
 export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-  if (event.httpMethod !== "GET")
-    return json(405, { success: false, error: "Method not allowed" });
-
   try {
-    const qs = event.queryStringParameters || {};
-    const report_id = firstNonEmpty(qs.report_id, qs.id);
+    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
-    if (!report_id) {
-      return json(400, { success: false, error: "Missing report_id" });
-    }
+    const reportParam = String(
+      event.queryStringParameters?.report_id ||
+        event.queryStringParameters?.id ||
+        ""
+    ).trim();
+
+    if (!reportParam) return json(400, { success: false, error: "Missing report_id" });
+
+    const byNumericId = isNumericString(reportParam);
 
     // IMPORTANT:
-    // Only select columns we are confident exist.
-    // If you select a non-existent column, Supabase/PostgREST throws and you get a 500.
-    let row = null;
+    // - Do NOT use .single() here, because it errors on 0 rows AND on duplicate report_id rows.
+    // - Instead: fetch array, order desc, take first.
+    let q = supabase
+      .from("scan_results")
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    // Attempt 1: match by report_id (your normal case: "WEB-YYYYMMDD-xxxxx")
-    {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("report_id, url, created_at, metrics, narrative")
-        .eq("report_id", report_id)
-        .limit(1)
-        .maybeSingle();
+    q = byNumericId ? q.eq("id", Number(reportParam)) : q.eq("report_id", reportParam);
 
-      if (error) {
-        console.error("[get-report-data] scan_results read error (by report_id):", error);
-        return json(500, {
-          success: false,
-          error: "Database read failed",
-          detail: error.message,
-        });
-      }
+    const { data: rows, error: scanErr } = await q;
 
-      if (data) row = data;
+    if (scanErr) {
+      return json(500, {
+        success: false,
+        error: "Supabase query failed",
+        detail: scanErr.message || String(scanErr),
+        hint:
+          "If this suddenly started after deploy, check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
+      });
     }
 
-    // Attempt 2: sometimes people pass the internal UUID id by mistake
-    if (!row) {
-      const { data, error } = await supabase
-        .from("scan_results")
-        .select("report_id, url, created_at, metrics, narrative")
-        .eq("id", report_id)
-        .limit(1)
-        .maybeSingle();
+    const scan = rows?.[0] || null;
+    if (!scan) return json(404, { success: false, error: "Report not found" });
 
-      if (error) {
-        console.error("[get-report-data] scan_results read error (by id):", error);
-        return json(500, {
-          success: false,
-          error: "Database read failed",
-          detail: error.message,
-        });
-      }
+    const metrics = safeObj(scan.metrics);
 
-      if (data) row = data;
-    }
+    const rawSignals = asArray(metrics.delivery_signals).length
+      ? metrics.delivery_signals
+      : asArray(metrics?.metrics?.delivery_signals);
 
-    if (!row) {
-      return json(404, { success: false, error: "Report not found" });
-    }
+    const delivery_signals = asArray(rawSignals).map(normaliseSignal);
 
-    const metrics = safeObj(row.metrics);
-    const scores = safeObj(metrics.scores);
-    const psi = safeObj(metrics.psi);
-    const narrative = row.narrative || null;
+    const rawScores = safeObj(metrics.scores);
+    const scores = Object.keys(rawScores).length
+      ? rawScores
+      : {
+          overall: asInt(scan.score_overall, 0),
+          performance: asInt(delivery_signals.find((s) => s.id === "performance")?.score, 0),
+          mobile: asInt(delivery_signals.find((s) => s.id === "mobile")?.score, 0),
+          seo: asInt(delivery_signals.find((s) => s.id === "seo")?.score, 0),
+          security: asInt(delivery_signals.find((s) => s.id === "security")?.score, 0),
+          structure: asInt(delivery_signals.find((s) => s.id === "structure")?.score, 0),
+          accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
+        };
 
-    // Provide a stable “header” object for the UI
-    const header = {
-      website: safeStr(row.url),
-      report_id: safeStr(row.report_id),
-      report_date: safeStr(row.created_at),
+    const overall_summary = overallSummaryFromScore(scores.overall);
+
+    const bc = safeObj(metrics.basic_checks);
+    const sh = safeObj(metrics.security_headers);
+
+    const key_metrics = {
+      http: {
+        status: bc.http_status ?? null,
+        content_type: bc.content_type ?? null,
+        final_url: scan.url ?? null,
+      },
+      page: {
+        title_present: bc.title_present ?? null,
+        canonical_present: bc.canonical_present ?? null,
+        h1_present: bc.h1_present ?? null,
+        viewport_present: bc.viewport_present ?? null,
+      },
+      content: {
+        html_bytes: bc.html_bytes ?? null,
+        img_count: bc.img_count ?? null,
+        img_alt_count: bc.img_alt_count ?? null,
+      },
+      freshness: safeObj(bc.freshness_signals),
+      security: {
+        https: sh.https ?? null,
+        hsts_present: sh.hsts ?? null,
+        csp_present: sh.content_security_policy ?? null,
+        x_frame_options_present: sh.x_frame_options ?? null,
+        x_content_type_options_present: sh.x_content_type_options ?? null,
+        referrer_policy_present: sh.referrer_policy ?? null,
+        permissions_policy_present: sh.permissions_policy ?? null,
+      },
     };
 
-    // IMPORTANT:
-    // Keep both:
-    // - metrics (raw source of truth)
-    // - top-level convenience fields (legacy-friendly)
-    //
-    // report-data.js + report-polling.js already look in both places.
+    const findings = asArray(metrics.findings);
+    const fix_plan = asArray(metrics.fix_plan);
+
+    // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
+    let narrative = normaliseNarrativeForUI(scan.narrative);
+
+    // Attach deterministic overall summary so UI + PDF use the same source
+    if (narrative && typeof narrative === "object") {
+      narrative.overall_summary = narrative.overall_summary || overall_summary;
+    }
+
     return json(200, {
       success: true,
-
-      // header + basics
-      header,
-      report_id: safeStr(row.report_id),
-      url: safeStr(row.url),
-      created_at: row.created_at || null,
-
-      // raw packs
-      metrics,
-      narrative,
-
-      // convenience top-level fields (so UI can render even if it expects legacy)
+      header: {
+        website: scan.url,
+        report_id: scan.report_id,
+        created_at: scan.created_at,
+      },
       scores,
-      psi,
-      delivery_signals: metrics.delivery_signals || metrics.signals || null,
-      basic_checks: metrics.basic_checks || null,
-      security_headers: metrics.security_headers || null,
-
-      overall_summary: metrics.overall_summary || metrics.delivery_summary || "",
-      delivery_summary: metrics.delivery_summary || "",
-
-      fix_first: metrics.fix_first || (narrative && narrative.fix_first) || null,
-      key_insight_metrics: metrics.key_insight_metrics || null,
-      issues: Array.isArray(metrics.issues) ? metrics.issues : [],
-      evidence: metrics.evidence || null,
+      overall_summary,
+      delivery_signals,
+      key_metrics,
+      findings,
+      fix_plan,
+      narrative,
     });
   } catch (err) {
-    console.error("[get-report-data] unhandled:", err);
+    console.error("[get-report-data]", err);
     return json(500, {
       success: false,
       error: "Server error",

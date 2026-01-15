@@ -1,16 +1,25 @@
 /* eslint-disable */
+// /.netlify/functions/generate-narrative.js
 const { createClient } = require("@supabase/supabase-js");
 
-// -----------------------------
-// Env + Supabase
-// -----------------------------
+/**
+ * iQWEB Narrative Generator (Value Mode)
+ * - Generates narrative JSON for a scan (stored back into scan_results.narrative)
+ * - Executive narrative is deterministic, paragraph-cadence, evidence-led
+ * - Signals narratives come from OpenAI but are constrained + scrubbed
+ * - Adds fix_first block as a separate section for the UI
+ */
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // -----------------------------
-// Helpers
+// Response helpers
 // -----------------------------
 function json(statusCode, body) {
   return {
@@ -25,156 +34,1000 @@ function json(statusCode, body) {
   };
 }
 
-const safeObj = (v) => (v && typeof v === "object" ? v : {});
-const asArray = (v) => (Array.isArray(v) ? v : []);
-const clean = (s) => String(s || "").trim();
-const nowIso = () => new Date().toISOString();
+function nowIso() {
+  try {
+    return new Date().toISOString();
+  } catch (e) {
+    return "";
+  }
+}
 
-/* -------------------------------------------------- */
-/* Build Executive Narrative (North Star, Deterministic) */
-/* -------------------------------------------------- */
-function buildExecutiveNarrative(metrics, url) {
-  const psi = safeObj(metrics.psi);
-  const desktop = safeObj(psi.desktop && psi.desktop.facts);
-  const mobile = safeObj(psi.mobile && psi.mobile.facts);
-  const bc = safeObj(metrics.basic_checks);
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
 
-  // --- 1) Site intent (site-specific tone) ---
-  let siteIntent =
-    "present a large volume of promotional content and convert attention into enquiries across multiple entry points";
+function safeObj(v) {
+  return v && typeof v === "object" ? v : {};
+}
 
-  // --- 2) Lived behaviour (what a user experiences) ---
-  let behaviour =
-    "pages take a long time to settle into a usable state, with content loading in stages before interactions feel reliable";
+function asArray(v) {
+  return Array.isArray(v) ? v : [];
+}
 
-  if ((mobile.LCP_ms || 0) > 15000) {
-    behaviour =
-      "pages take a long time to become usable on mobile connections, with visible delays before content and interactions stabilise";
+function cleanLine(s) {
+  s = String(s == null ? "" : s);
+  s = s.replace(/\r\n/g, "\n");
+  s = s.replace(/[ \t]+/g, " ");
+  s = s.trim();
+  return s;
+}
+
+function uniq(arr) {
+  const out = [];
+  const seen = {};
+  for (let i = 0; i < arr.length; i++) {
+    const s = String(arr[i] || "");
+    if (!s) continue;
+    if (seen[s]) continue;
+    seen[s] = true;
+    out.push(s);
+  }
+  return out;
+}
+
+// Strip banned phrases / template scaffolds (for signal lines)
+function scrubLine(s) {
+  s = cleanLine(s);
+  if (!s) return "";
+
+  const bannedWords = [
+    "deterministic",
+    "measured",
+    "measured at",
+    "score",
+    "scoring",
+    "percent",
+    "percentage",
+    "use the evidence below",
+  ];
+
+  const low = s.toLowerCase();
+  for (let i = 0; i < bannedWords.length; i++) {
+    if (low.indexOf(bannedWords[i]) !== -1) {
+      const re = new RegExp(
+        bannedWords[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "ig"
+      );
+      s = s.replace(re, "");
+      s = cleanLine(s);
+    }
   }
 
-  // --- 3) One dominant constraint (not categories) ---
-  let constraint =
-    "how the page is assembled and rendered before it becomes interactive";
+  return s;
+}
 
-  // --- 4) Why it matters for THIS type of site ---
-  let consequence =
-    "For a promotion-driven site that relies on urgency and confidence to hold attention, this behaviour undermines trust before the message has time to land";
+function clipLines(lines, max) {
+  const out = [];
+  const list = asArray(lines);
+  for (let i = 0; i < list.length; i++) {
+    const s = scrubLine(list[i]);
+    if (!s) continue;
+    out.push(s);
+    if (out.length >= max) break;
+  }
+  return out;
+}
 
-  // --- 5) Priority order (what must come first) ---
-  let priority =
-    "Improving initial load and render behaviour should come before SEO, design changes, or conversion work, because those efforts will not perform reliably until the site becomes usable faster";
+function flattenText(n) {
+  try {
+    return JSON.stringify(n);
+  } catch (e) {
+    return "";
+  }
+}
 
-  // Fail closed: no generic filler
-  if (!siteIntent || !behaviour || !constraint || !consequence || !priority) {
-    return {
-      title: "Executive Narrative (Site-Specific, Evidence-Led)",
-      framing: { lines: [] },
-      behaviour_split: {
-        desktop: { label: "Desktop", lines: [] },
-        mobile: { label: "Mobile", lines: [] },
-      },
-      root_constraint: { lines: [] },
-      structure_seo: { lines: [] },
-      trust_security: { lines: [] },
-      fix_order: { label: "What to Fix First (Order Matters)", items: [] },
-      site_specificity: {
-        label: "Why This Is Site-Specific (Not Generic)",
-        lines: [],
-        proof_flags: [],
-      },
-      _meta: { schema_version: "exec_north_star_v1", generated_at: nowIso(), site_host: url },
+/* ============================================================
+   BUILD FACTS PACK (TRUTH SOURCE)
+   ============================================================ */
+function buildFactsFromScanRow(row) {
+  const metrics = safeObj(row.metrics);
+  const scores = safeObj(metrics.scores || {});
+  const delivery = asArray(metrics.delivery_signals);
+  const issuesList = asArray(metrics.issues_list || metrics.issues || []);
+
+  const signalEvidence = {
+    performance: [],
+    mobile: [],
+    seo: [],
+    security: [],
+    structure: [],
+    accessibility: [],
+  };
+
+  for (let i = 0; i < delivery.length; i++) {
+    const sig = safeObj(delivery[i]);
+    const id = String(sig.id || sig.label || "").toLowerCase();
+    const issues = asArray(sig.issues);
+
+    let key = "";
+    if (id.indexOf("perf") !== -1) key = "performance";
+    else if (id.indexOf("mobile") !== -1) key = "mobile";
+    else if (id.indexOf("seo") !== -1) key = "seo";
+    else if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) key = "security";
+    else if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) key = "structure";
+    else if (id.indexOf("access") !== -1) key = "accessibility";
+
+    if (!key) continue;
+
+    for (let j = 0; j < issues.length; j++) {
+      const it = safeObj(issues[j]);
+      const title = cleanLine(it.title || "");
+      if (title) signalEvidence[key].push(title);
+    }
+  }
+
+  const evidenceBlocks = {
+    security_headers: safeObj(metrics.security_headers),
+    basic_checks: safeObj(metrics.basic_checks),
+    structure: safeObj(metrics.structure),
+    performance: safeObj(metrics.performance),
+    seo: safeObj(metrics.seo),
+    accessibility: safeObj(metrics.accessibility),
+  };
+
+  const facts = {
+    report_id: row.report_id || "",
+    url: row.url || "",
+    created_at: row.created_at || "",
+    scores: {
+      overall: scores.overall,
+      performance: scores.performance,
+      mobile: scores.mobile,
+      seo: scores.seo,
+      security: scores.security,
+      structure: scores.structure,
+      accessibility: scores.accessibility,
+    },
+    issues_list: issuesList.map((x) => {
+      const it = safeObj(x);
+      return {
+        title: cleanLine(it.title || ""),
+        detail: cleanLine(it.detail || it.description || ""),
+        severity: cleanLine(it.severity || it.impact || ""),
+      };
+    }),
+    signal_evidence: {
+      performance: uniq(signalEvidence.performance).slice(0, 12),
+      mobile: uniq(signalEvidence.mobile).slice(0, 12),
+      seo: uniq(signalEvidence.seo).slice(0, 12),
+      security: uniq(signalEvidence.security).slice(0, 12),
+      structure: uniq(signalEvidence.structure).slice(0, 12),
+      accessibility: uniq(signalEvidence.accessibility).slice(0, 12),
+    },
+    evidence_blocks: evidenceBlocks,
+  };
+
+  return facts;
+}
+
+/* ============================================================
+   DETERMINE PRIMARY / SECONDARY CONSTRAINTS (DETERMINISTIC)
+   ============================================================ */
+function chooseHierarchy(facts) {
+  const se = safeObj(facts.signal_evidence);
+
+  const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
+  const counts = {};
+  for (let i = 0; i < order.length; i++) {
+    const k = order[i];
+    counts[k] = asArray(se[k]).length;
+  }
+
+  let primary = order[0];
+  let best = -1;
+  for (let i = 0; i < order.length; i++) {
+    const k = order[i];
+    const c = counts[k] || 0;
+    if (c > best) {
+      best = c;
+      primary = k;
+    }
+  }
+
+  const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const secondary = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const k = sorted[i];
+    if (k === primary) continue;
+    if ((counts[k] || 0) <= 0) continue;
+    secondary.push(k);
+    if (secondary.length >= 2) break;
+  }
+
+  const primary_evidence = asArray(se[primary]).slice(0, 5);
+  const secondary_evidence = {};
+  for (let i = 0; i < secondary.length; i++) {
+    const k = secondary[i];
+    secondary_evidence[k] = asArray(se[k]).slice(0, 4);
+  }
+
+  return {
+    primary,
+    primary_evidence,
+    secondary,
+    secondary_evidence,
+  };
+}
+
+/* ============================================================
+   OVERRIDE LAYER (REALITY CHECKS)
+   ============================================================ */
+
+function allEvidenceText(facts) {
+  const out = [];
+  const se = safeObj(facts && facts.signal_evidence);
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"]; // fixed set
+
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const arr = asArray(se[k]);
+    for (let j = 0; j < arr.length; j++) {
+      const s = cleanLine(arr[j]);
+      if (s) out.push(s);
+    }
+  }
+
+  const issues = asArray(facts && facts.issues_list);
+  for (let i = 0; i < issues.length; i++) {
+    const it = safeObj(issues[i]);
+    const t = cleanLine(it.title || "");
+    const d = cleanLine(it.detail || "");
+    if (t) out.push(t);
+    if (d) out.push(d);
+  }
+
+  return uniq(out);
+}
+
+function textHasAny(hay, needles) {
+  const h = String(hay || "").toLowerCase();
+  for (let i = 0; i < needles.length; i++) {
+    if (h.indexOf(String(needles[i]).toLowerCase()) !== -1) return true;
+  }
+  return false;
+}
+
+function findMatches(texts, matchers, max) {
+  const out = [];
+  const list = asArray(texts);
+  for (let i = 0; i < list.length; i++) {
+    const s = String(list[i] || "");
+    const low = s.toLowerCase();
+    let hit = false;
+    for (let j = 0; j < matchers.length; j++) {
+      const m = matchers[j];
+      if (typeof m === "string") {
+        if (low.indexOf(m.toLowerCase()) !== -1) { hit = true; break; }
+      } else if (m && m.test && m.test(low)) {
+        hit = true; break;
+      }
+    }
+    if (hit) {
+      out.push(cleanLine(s));
+      if (out.length >= (max || 5)) break;
+    }
+  }
+  return uniq(out);
+}
+
+function applyOverrides(facts, base) {
+  const constraints = safeObj(base);
+  const texts = allEvidenceText(facts);
+
+  // ---- Override 1: SEO discovery blockers (force SEO primary)
+  const seoMatchers = [
+    /missing\s*h1/, "h1 missing", "no h1",
+    "canonical mismatch", "canonical missing", "missing canonical", "no canonical",
+    "noindex", "robots", "blocked by robots", "x-robots-tag",
+    "sitemap", "meta description missing", "missing meta description",
+  ];
+  const seoHits = findMatches(texts, seoMatchers, 5);
+
+  // ---- Override 2: Layout volatility / CLS (force PERFORMANCE primary, but tag it)
+  const clsMatchers = [
+    "layout shift",
+    "cumulative layout shift",
+    "cls",
+    "visual stability",
+  ];
+  const clsHits = findMatches(texts, clsMatchers, 5);
+
+  // ---- Override 3: Structural invalidity / modern web non-compliance (force STRUCTURE primary)
+  const structureMatchers = [
+    "doctype",
+    "charset",
+    "lang attribute",
+    "missing title",
+    "missing <title>",
+    "invalid html",
+    "broken html",
+    "no semantic",
+    "missing landmark",
+    "no heading structure",
+  ];
+  const structureHits = findMatches(texts, structureMatchers, 5);
+
+  // priority: structural invalidity > SEO blockers > CLS/layout volatility
+  let override = null;
+  if (structureHits.length) {
+    override = {
+      primary: "structure",
+      tag: "structural_invalidity",
+      evidence: structureHits,
+    };
+  } else if (seoHits.length) {
+    override = {
+      primary: "seo",
+      tag: "seo_blocker",
+      evidence: seoHits,
+    };
+  } else if (clsHits.length) {
+    override = {
+      primary: "performance",
+      tag: "layout_volatility",
+      evidence: clsHits,
     };
   }
 
-  // Keep schema your renderer expects
-  const exec = {
-    title: "Executive Narrative (Site-Specific, Evidence-Led)",
-    framing: {
-      lines: [
-        `This site is designed to ${siteIntent}.`,
-        `In practice, ${behaviour}.`,
-        `The dominant constraint is ${constraint}, rather than the amount of content or visual design.`,
-        `${consequence}.`,
-        `${priority}.`,
+  if (!override) return constraints;
+
+  // Rebuild secondary using the original ordering preference, but respecting override primary.
+  const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
+  const se = safeObj(facts && facts.signal_evidence);
+  const counts = {};
+  for (let i = 0; i < order.length; i++) counts[order[i]] = asArray(se[order[i]]).length;
+
+  const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const secondary = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const k = sorted[i];
+    if (k === override.primary) continue;
+    if ((counts[k] || 0) <= 0) continue;
+    secondary.push(k);
+    if (secondary.length >= 2) break;
+  }
+
+  const secondary_evidence = {};
+  for (let i = 0; i < secondary.length; i++) {
+    const k = secondary[i];
+    secondary_evidence[k] = asArray(se[k]).slice(0, 4);
+  }
+
+  return {
+    primary: override.primary,
+    primary_evidence: override.evidence.slice(0, 5),
+    secondary,
+    secondary_evidence,
+    _override: {
+      tag: override.tag,
+      evidence: override.evidence.slice(0, 5),
+    },
+  };
+}
+
+/* ============================================================
+   OPENAI CALL (SIGNALS ONLY)
+   ============================================================ */
+async function callOpenAI({ facts, constraints }) {
+  if (!isNonEmptyString(OPENAI_API_KEY)) {
+    throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
+  }
+
+  const label = (k) =>
+    ({
+      security: "security and trust",
+      performance: "performance delivery",
+      seo: "search visibility",
+      structure: "structure clarity",
+      accessibility: "accessibility",
+      mobile: "mobile experience",
+    }[k] || k);
+
+  const primaryLabel = label(String(constraints.primary || "").toLowerCase());
+  const secondaryLabels = asArray(constraints.secondary || []).map((k) =>
+    label(String(k).toLowerCase())
+  );
+
+  const bannedPhrases = [
+    "the primary focus",
+    "primary focus",
+    "this report",
+    "overall,",
+    "based on",
+    "primary constraint identified",
+    "secondary contributors include",
+    "other improvements may have limited impact",
+    "within this scan is measured",
+    "measured at",
+    "deterministic checks",
+    "from deterministic checks",
+    "use the evidence below",
+  ];
+
+  const instructions = [
+    "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
+    "",
+    "Non-negotiable rules:",
+    "1) Use ONLY the provided facts/evidence. Do not invent causes, systems, traffic, or measurements.",
+    "2) Do not mention numeric scores, percentages, or the word 'score'.",
+    "3) Do not mention 'deterministic', 'measured', or 'use the evidence below'.",
+    "4) No sales language, no hype, no blame, no fear-mongering.",
+    "5) Avoid command language. Do not use: must, urgent, immediately, essential, required.",
+    "6) Avoid rigid templates. Vary sentence structure.",
+    "7) Avoid these exact phrases (or close variants):",
+    `   - ${bannedPhrases.join("\n   - ")}`,
+    "",
+    "Style requirement (critical):",
+    "- Write like a senior reviewer explaining tradeoffs calmly to an agency.",
+    "- Be specific: if evidence says 'HSTS missing' or 'Robots meta tag missing', say that plainly.",
+    "- Keep it tight. Two lines is ideal, max three per signal.",
+    "",
+    "Output constraints:",
+    "- overall.lines: provide 1–2 neutral lines only (we will override overall deterministically).",
+    "- signals.*.lines:",
+    "  * PRIMARY signal: up to 4 lines max.",
+    "  * Others: 2 lines ideal, max 3.",
+    "  * Each signal MUST reference at least one evidence item if any exist for that signal.",
+    "  * If there is no evidence for a signal, keep it short and neutral.",
+    "",
+    "The PRIMARY focus is:",
+    `- ${primaryLabel}`,
+    "SECONDARY contributors (if any):",
+    `- ${secondaryLabels.join(", ") || "none"}`,
+  ].join("\n");
+
+  const user = [
+    "Generate iQWEB narrative JSON for this scan.",
+    "",
+    "Constraint hierarchy (deterministic):",
+    `PRIMARY: ${primaryLabel}`,
+    `PRIMARY_EVIDENCE: ${JSON.stringify(constraints.primary_evidence || [])}`,
+    `SECONDARY: ${JSON.stringify(secondaryLabels)}`,
+    `SECONDARY_EVIDENCE: ${JSON.stringify(constraints.secondary_evidence || {})}`,
+    "",
+    "Facts JSON (truth source):",
+    JSON.stringify(facts),
+  ].join("\n");
+
+  const resp = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      input: [
+        { role: "system", content: instructions },
+        { role: "user", content: user },
       ],
-    },
-    behaviour_split: {
-      desktop: { label: "Desktop", lines: [] },
-      mobile: { label: "Mobile", lines: [] },
-    },
-    root_constraint: { lines: [] },
-    structure_seo: { lines: [] },
-    trust_security: { lines: [] },
-    fix_order: { label: "What to Fix First (Order Matters)", items: [] },
-    site_specificity: {
-      label: "Why This Is Site-Specific (Not Generic)",
-      lines: [],
-      proof_flags: [],
-    },
-    _meta: {
-      schema_version: "exec_north_star_v1",
-      generated_at: nowIso(),
-      site_host: url,
-      evidence_snapshot: {
-        desktop,
-        mobile,
-        html_bytes: bc.html_bytes,
-        inline_script_count: bc.inline_script_count,
-        h1_present: bc.h1_present,
-        canonical_present: bc.canonical_present,
+      max_output_tokens: 900,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "iqweb_narrative_v52_signals_only",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["overall", "signals"],
+            properties: {
+              overall: {
+                type: "object",
+                additionalProperties: false,
+                required: ["lines"],
+                properties: {
+                  lines: { type: "array", items: { type: "string" } },
+                },
+              },
+              signals: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "performance",
+                  "mobile",
+                  "seo",
+                  "security",
+                  "structure",
+                  "accessibility",
+                ],
+                properties: {
+                  performance: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  mobile: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  seo: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  security: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  structure: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                  accessibility: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["lines"],
+                    properties: { lines: { type: "array", items: { type: "string" } } },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
+    }),
+  });
+
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error(`OpenAI error ${resp.status}: ${t.slice(0, 900)}`);
+  }
+
+  const data = await resp.json();
+
+  const extractResponseText = (payload) => {
+    try {
+      if (payload && payload.output_text) return payload.output_text;
+    } catch (e) {}
+
+    try {
+      const out = asArray(payload && payload.output);
+      for (let i = 0; i < out.length; i++) {
+        const item = out[i];
+        if (item && item.type === "message") {
+          const c = asArray(item.content);
+          for (let j = 0; j < c.length; j++) {
+            if (c[j] && c[j].type === "output_text" && isNonEmptyString(c[j].text)) {
+              return c[j].text;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    return "";
+  };
+
+  const text = extractResponseText(data);
+  if (!isNonEmptyString(text)) throw new Error("OpenAI returned empty output.");
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("OpenAI did not return valid JSON.");
+  }
+}
+
+/* ============================================================
+   ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
+   - Builds deterministic executive narrative (4 lines)
+   - Builds deterministic fix_first block
+   - Clips / falls back for signal lines
+   ============================================================ */
+function enforceConstraints(n, facts, constraints) {
+  const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
+
+  const label = (k) =>
+    ({
+      security: "security and trust",
+      performance: "performance and delivery",
+      seo: "search visibility",
+      structure: "structure and semantics",
+      accessibility: "accessibility and usability",
+      mobile: "mobile experience",
+    }[k] || "delivery");
+
+  const primaryLabel = label(primarySignal);
+
+  const out = {
+    _status: "ok",
+    _generated_at: nowIso(),
+    overall: { lines: [] },
+    fix_first: null,
+    signals: {
+      performance: { lines: [] },
+      mobile: { lines: [] },
+      seo: { lines: [] },
+      security: { lines: [] },
+      structure: { lines: [] },
+      accessibility: { lines: [] },
     },
   };
 
-  return exec;
+  const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
+
+  function compactEvidence(list, max) {
+    const a = asArray(list).filter(Boolean).slice(0, max);
+    if (!a.length) return "";
+    if (a.length === 1) return a[0];
+    return a[0] + " and " + a[1];
+  }
+
+  function chooseNotThis(sig) {
+    if (sig === "performance" || sig === "mobile") return "design polish, SEO copy, or campaigns";
+    if (sig === "seo") return "polish or paid traffic";
+    if (sig === "structure") return "cosmetic redesign or new sections";
+    if (sig === "security") return "visual changes alone";
+    if (sig === "accessibility") return "marketing spend or cosmetic changes";
+    return "polish or campaigns";
+  }
+
+  const ev = primaryEvidence.length ? compactEvidence(primaryEvidence, 2) : "";
+
+  // -----------------------------
+  // Executive Narrative — signal-led, stronger language (4 lines max)
+  // -----------------------------
+  // -----------------------------
+  // Executive Narrative — evidence-led (4 lines, NOT generic)
+  // -----------------------------
+  const topEv = (primaryEvidence && primaryEvidence[0]) ? String(primaryEvidence[0]) : "";
+  const evLow = topEv.toLowerCase();
+
+  function pick(arr, seed) {
+    if (!arr || !arr.length) return "";
+    let h = 0;
+    const s = String(seed || "");
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return arr[h % arr.length];
+  }
+
+  function execLinesFromEvidence(primarySig, evidenceText) {
+    const e = String(evidenceText || "").trim();
+    const el = e.toLowerCase();
+
+    // --- SEO: Canonical mismatch ---
+    if (el.includes("canonical") && el.includes("mismatch")) {
+      const L1 = pick([
+        "Search engines are being given conflicting signals about the preferred URL for this site.",
+        "This site’s discovery signals are unstable because the canonical setup conflicts across URLs.",
+        "Indexing consistency is being weakened by an inconsistent canonical configuration."
+      ], e);
+
+      const L2 = "The scan flagged: " + e + ".";
+
+      const L3 = pick([
+        "When canonical signals disagree, Google can index the “wrong” version, split authority, or show inconsistent pages in results.",
+        "Conflicting canonicals can cause ranking signals to fragment and indexing to drift between URL variants.",
+        "This can lead to duplicated indexing and diluted search visibility even if the content itself is fine."
+      ], e);
+
+      const L4 = "Fix the canonical source-of-truth first, then re-scan before spending on SEO copy or campaigns.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- SEO: Missing H1 ---
+    if (el.includes("missing") && el.includes("h1")) {
+      const L1 = pick([
+        "Search engines and assistive tools are not being given a clear primary page heading signal.",
+        "Page intent is harder to interpret because the main heading structure is incomplete.",
+        "Discovery and content hierarchy signals are weakened by missing page-level headings."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without a clear H1, relevance cues are diluted and pages can be interpreted less consistently in search results.",
+        "Missing primary headings can reduce clarity for crawlers and make content hierarchy harder to infer.",
+        "This often leads to weaker page intent signals even when the content itself is adequate."
+      ], e);
+      const L4 = "Restore a clear heading hierarchy first, then re-check indexing and snippet behaviour on re-scan.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Performance: Layout volatility / CLS ---
+    if (el.includes("layout shift") || el.includes("cumulative layout shift") || (el.includes("cls") && el.length < 80)) {
+      const L1 = pick([
+        "The page experience is being undermined by unstable layout behaviour while content is loading.",
+        "Users are likely seeing content move as the page renders, which reduces confidence and interaction success.",
+        "Layout stability is currently the limiting factor for a predictable, usable first impression."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "When layout shifts occur, people mis-click, lose their place, and abandon before the site has a chance to persuade.",
+        "Layout volatility increases friction on mobile and makes the site feel unreliable even if pages ultimately load.",
+        "Stabilising above-the-fold layout improves interaction readiness and reduces bounce risk."
+      ], e);
+      const L4 = "Stabilise layout during load first (reserve space, control late-loading assets), then re-scan to confirm the experience has settled.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- SEO: Missing canonical tag ---
+    if (el.includes("canonical") && (el.includes("missing") || el.includes("absent") || el.includes("no canonical"))) {
+      const L1 = pick([
+        "Search engines don’t have a clear ‘preferred URL’ signal for this site.",
+        "This site is missing a clean canonical signal, which weakens indexing consistency.",
+        "Discovery signals are incomplete because the canonical preference isn’t declared."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without a canonical, crawlers may treat URL variants as separate pages and split authority between them.",
+        "This increases the chance of duplicate indexing and unpredictable rankings across similar URLs.",
+        "Even small URL variations can create multiple indexed versions, which reduces clarity in search."
+      ], e);
+      const L4 = "Set a canonical standard for key pages first, then verify indexing behaviour on re-scan.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Accessibility: Empty links ---
+    if (el.includes("empty") && el.includes("<a")) {
+      const L1 = pick([
+        "User interaction clarity is being reduced by broken or empty link elements.",
+        "Some navigation elements are present but not meaningful to users or assistive tech.",
+        "Interaction reliability is being weakened by link elements that don’t resolve to usable targets."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Empty links create dead-ends for keyboard users and screen readers and can break expected navigation paths.",
+        "This increases friction in real user journeys and makes accessibility tooling flag the site repeatedly.",
+        "These gaps can block completion flows and reduce trust in the site’s basic usability."
+      ], e);
+      const L4 = "Fix broken/empty interactive elements first, then re-test navigation and forms.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Security: HSTS missing ---
+    if (el.includes("hsts") && (el.includes("missing") || el.includes("not enabled") || el.includes("absent"))) {
+      const L1 = pick([
+        "Browser-level trust protections are incomplete on this site.",
+        "Security hardening is partially missing, which weakens modern trust expectations.",
+        "Trust signals are being held back by missing baseline browser security headers."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without HSTS, users are more exposed to downgrade and interception risks on hostile networks.",
+        "This doesn’t usually break the site, but it reduces protection and can affect trust posture.",
+        "It’s an avoidable gap that keeps the security baseline below modern expectations."
+      ], e);
+      const L4 = "Enable HSTS safely (with correct preload strategy if needed) and re-scan to confirm the baseline.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Default (still not generic-generic) ---
+    const L1 = "The main constraint right now is " + primaryLabel + " consistency, not visual polish.";
+    const L2 = e ? ("The scan flagged: " + e + ".") : "The scan flagged baseline issues that reduce consistency.";
+    const L3 = "Stabilising the top issues first makes downstream work (SEO, UX, campaigns) actually pay off.";
+    const L4 = "Fix the top two flagged items in this area, then re-scan to confirm the constraint is removed.";
+    return [L1, L2, L3, L4];
+  }
+
+  out.overall.lines = execLinesFromEvidence(primarySignal, topEv);
+
+
+  // -----------------------------
+  // Fix First block (deterministic)
+  // -----------------------------
+  function buildFixFirst() {
+    const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
+    const topPrimary = primaryE.slice(0, 2);
+
+    const overrideTag = String((constraints && constraints._override && constraints._override.tag) || "").toLowerCase();
+
+    let fixTitle = "";
+    if (primarySignal === "performance" || primarySignal === "mobile") {
+      fixTitle = overrideTag === "layout_volatility"
+        ? "Layout stability and interaction readiness (reduce shifts and mis-clicks)"
+        : "Rendering and load behaviour (reduce time to usable)";
+    } else if (primarySignal === "security") {
+      fixTitle = "Missing trust protections (close the obvious gaps)";
+    } else if (primarySignal === "seo") {
+      fixTitle = "Indexing and discovery signals (remove the blockers)";
+    } else if (primarySignal === "structure") {
+      fixTitle = overrideTag === "structural_invalidity"
+        ? "Structural foundations (make pages interpretable to browsers and crawlers)"
+        : "Structure and crawl clarity (make pages easier to interpret)";
+    } else if (primarySignal === "accessibility") {
+      fixTitle = "Accessibility fundamentals (reduce friction for users and devices)";
+    } else {
+      fixTitle = "The highest-impact baseline issues";
+    }
+
+    const why = [];
+    if (topPrimary.length) {
+      for (let i = 0; i < topPrimary.length; i++) {
+        why.push("This scan flags: " + topPrimary[i] + ".");
+      }
+    } else {
+      why.push("The scan shows the primary bottleneck in " + primaryLabel + ".");
+    }
+
+    const deprioritise = [];
+    if (primarySignal === "performance" || primarySignal === "mobile") {
+      deprioritise.push("Design polish, copy tweaks, or campaign spend until pages become usable faster.");
+      deprioritise.push("Low-impact security tweaks unless a specific risk is explicitly flagged.");
+    } else {
+      deprioritise.push("Cosmetic design changes that do not address the core constraint.");
+      deprioritise.push("Marketing spend before the baseline issue is stabilised.");
+    }
+
+    const expected_outcome = [];
+    expected_outcome.push("Cleaner before/after improvements on re-scan.");
+    expected_outcome.push("More predictable results from crawlers and tooling.");
+    expected_outcome.push("Reduced avoidable friction for real users.");
+
+    return { fix_first: fixTitle, why, deprioritise, expected_outcome };
+  }
+
+  out.fix_first = buildFixFirst();
+
+  // -----------------------------
+  // Signals lines (AI output, clipped + fallback)
+  // -----------------------------
+  const sig = safeObj(n && n.signals);
+
+  const setSig = (k) => {
+    const src = safeObj(sig && sig[k]);
+    const srcLines = asArray(src.lines);
+
+    const max = k === primarySignal ? 4 : 3;
+    const clipped = clipLines(srcLines, max);
+
+    if (clipped.length) {
+      out.signals[k].lines = clipped;
+      return;
+    }
+
+    const evidence = asArray(facts && facts.signal_evidence && facts.signal_evidence[k]).filter(Boolean);
+    if (evidence.length) {
+      const a = evidence.slice(0, 2);
+      out.signals[k].lines = [
+        "Evidence here includes " + (a.length === 2 ? a[0] + " and " + a[1] : a[0]) + ".",
+        "Fixing these items reduces avoidable friction and improves consistency.",
+      ];
+      return;
+    }
+
+    out.signals[k].lines = ["No clear issues were flagged in this area in the current scan."];
+  };
+
+  setSig("performance");
+  setSig("mobile");
+  setSig("seo");
+  setSig("security");
+  setSig("structure");
+  setSig("accessibility");
+
+  return out;
 }
 
-/* -------------------------------------------------- */
-/* Handler                                             */
-/* -------------------------------------------------- */
-exports.handler = async (event) => {
+/* ============================================================
+   NARRATIVE VALIDITY CHECK
+   ============================================================ */
+function isNarrativeComplete(n) {
+  const hasOverall =
+    Array.isArray(n && n.overall && n.overall.lines) &&
+    n.overall.lines.filter(Boolean).length > 0;
+
+  const sig = safeObj(n && n.signals);
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+
+  let ok = true;
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const has =
+      Array.isArray(sig && sig[k] && sig[k].lines) && sig[k].lines.filter(Boolean).length > 0;
+    if (!has) ok = false;
+  }
+
+  return hasOverall && ok;
+}
+
+/* ============================================================
+   STORE NARRATIVE
+   ============================================================ */
+async function writeNarrative(report_id, narrative) {
+  const { error } = await supabase.from("scan_results").update({ narrative }).eq("report_id", report_id);
+
+  if (error) throw new Error("Failed to write narrative: " + (error.message || String(error)));
+}
+
+/* ============================================================
+   MAIN HANDLER (CommonJS export for Netlify)
+   ============================================================ */
+exports.handler = async function handler(event) {
   if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
+  if (event.httpMethod !== "POST") {
+    return json(405, { success: false, error: "Method not allowed" });
+  }
+
   try {
-    const body = event.body ? JSON.parse(event.body) : {};
-    const report_id = clean(body.report_id);
-    const url = clean(body.url);
+    const body = JSON.parse(event.body || "{}");
+    const report_id = body.report_id;
+    const force = body.force === true || body.force === "true";
 
-    if (!report_id) return json(400, { success: false, error: "Missing report_id" });
+    if (!isNonEmptyString(report_id)) {
+      return json(400, { success: false, error: "Missing report_id" });
+    }
 
-    // Fetch existing scan result
-    const { data: row, error } = await supabase
+    const { data: scanRows, error: scanErr } = await supabase
       .from("scan_results")
-      .select("*")
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
       .eq("report_id", report_id)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    if (error) return json(500, { success: false, error: error.message });
+    if (scanErr) throw new Error("Failed to read scan row: " + (scanErr.message || String(scanErr)));
+
+    const row = (scanRows && scanRows[0]) || null;
     if (!row) return json(404, { success: false, error: "Report not found" });
 
-    const metrics = safeObj(row.metrics);
-    const narrative = safeObj(row.narrative);
+    if (!force && row.narrative && isNarrativeComplete(row.narrative)) {
+      return json(200, { success: true, status: "already_generated" });
+    }
 
-    // Build exec narrative (north star)
-    const exec = buildExecutiveNarrative(metrics, url || row.url || "");
+    const facts = buildFactsFromScanRow(row);
+    const constraints = applyOverrides(facts, chooseHierarchy(facts));
 
-    // Persist into narrative JSON under executive_narrative
-    const nextNarrative = {
-      ...narrative,
-      executive_narrative: exec,
-      _status: "ok",
-      _updated_at: nowIso(),
-    };
+    let modelOut = null;
+    try {
+      modelOut = await callOpenAI({ facts, constraints });
+    } catch (e) {
+      modelOut = {
+        overall: { lines: [""] },
+        signals: {
+          performance: { lines: [] },
+          mobile: { lines: [] },
+          seo: { lines: [] },
+          security: { lines: [] },
+          structure: { lines: [] },
+          accessibility: { lines: [] },
+        },
+        _openai_error: String(e && e.message ? e.message : e),
+      };
+    }
 
-    const { error: upErr } = await supabase
-      .from("scan_results")
-      .update({ narrative: nextNarrative })
-      .eq("report_id", report_id);
+    const enforced = enforceConstraints(modelOut, facts, constraints);
 
-    if (upErr) return json(500, { success: false, error: upErr.message });
+    await writeNarrative(report_id, enforced);
 
-    return json(200, { success: true, report_id, narrative: nextNarrative });
+    return json(200, {
+      success: true,
+      status: "generated",
+      report_id,
+      narrative_status: enforced._status,
+      generated_at: enforced._generated_at,
+    });
   } catch (err) {
-    return json(500, { success: false, error: err.message });
+    const msg = err && err.message ? err.message : String(err);
+    return json(500, { success: false, error: msg });
   }
 };
+
+// Debug helpers (optional)
+exports._debug = {
+  buildFactsFromScanRow,
+  chooseHierarchy,
+  enforceConstraints,
+  isNarrativeComplete,
+  scrubLine,
+  clipLines,
+  flattenText,
+};
+// End of file

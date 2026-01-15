@@ -36,14 +36,6 @@
       --border-subtle: rgba(255,255,255,0.08);
       --shadow: 0 10px 30px rgba(0,0,0,0.35);
       --radius: 18px;
-
-      /* ✅ Spacing spec (LOCKED) */
-      --gap-page: 18px;          /* gap between major blocks */
-      --pad-section-head: 14px 16px;
-      --pad-section-body: 16px;
-      --gap-internal: 14px;      /* gap between grids/cards inside a section */
-      --pad-card: 14px 14px;
-      --radius-card: 16px;
     }
 
     .page-shell {
@@ -51,7 +43,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: var(--gap-page);
+      gap: 18px;
     }
 
     .shell-inner {
@@ -60,7 +52,7 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: var(--gap-page);
+      gap: 18px;
     }
 
     /* Top header card */
@@ -159,6 +151,55 @@
       .meta-strip { grid-template-columns: 1fr; }
     }
 
+    /* Overall summary strip */
+    .overall-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      background: rgba(0,0,0,0.14);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+    }
+
+    .overall-strip-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .overall-strip-title {
+      margin: 0;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .overall-strip-score {
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+    }
+
+    .overall-strip .bar { margin-top: 2px; }
+
+    .overall-strip-note {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    body.light .overall-strip {
+      background: rgba(15,23,42,0.03);
+      border-color: rgba(15,23,42,0.10);
+    }
+    body.light .overall-strip-note { color: rgba(15,23,42,0.78); }
+
     /* Sections */
     .section {
       width: 100%;
@@ -169,7 +210,7 @@
       overflow: hidden;
     }
     .section-head {
-      padding: var(--pad-section-head);
+      padding: 14px 16px;
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(255,255,255,0.03);
       display: flex;
@@ -184,14 +225,14 @@
       text-transform: uppercase;
       color: var(--ink-soft);
     }
-    .section-body { padding: var(--pad-section-body); }
+    .section-body { padding: 16px; }
 
     /* Cards */
     .card {
       background: rgba(0,0,0,0.18);
       border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-card);
-      padding: var(--pad-card);
+      border-radius: 16px;
+      padding: 14px 14px;
     }
     .card-top {
       display: flex;
@@ -239,110 +280,21 @@
     }
     .muted { color: var(--muted); }
 
-    /* ✅ 9-card grid (3x3 on desktop, 2-col on mid, 1-col on mobile) */
-    .grid-9 {
+    /* 3x2 grid */
+    .grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: var(--gap-internal);
-    }
-    @media (min-width: 680px) {
-      .grid-9 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
     }
     @media (min-width: 980px) {
-      .grid-9 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
-    /* Slim Overall Summary Strip (inside Delivery Signals) */
-    .overall-strip {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
-      background: rgba(0,0,0,0.14);
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-    }
-    .overall-strip-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .overall-strip-title {
-      margin: 0;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
-    .overall-strip-score {
-      font-weight: 900;
-      font-size: 16px;
-      letter-spacing: 0.02em;
-      color: var(--ink);
-    }
-    .overall-strip .bar { margin-top: 2px; }
-    .overall-strip-note {
-      margin: 0;
-      color: var(--ink-soft);
-      line-height: 1.55;
-      font-size: 13px;
-    }
-
-    /* ✅ Fix First block (report-visible, tight + specific) */
-    .fixfirst {
-      background: rgba(0,0,0,0.14);
-      border: 1px solid var(--border-subtle);
-      border-radius: 16px;
-      padding: 14px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    @media (min-width: 900px) {
-      .fixfirst { grid-template-columns: 1.1fr 0.9fr; }
-    }
-    .fixfirst h3 {
-      margin: 0 0 6px 0;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
-    .fixfirst .big {
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.45;
-      color: var(--ink);
-      margin: 0;
-    }
-    .fixfirst ul {
-      margin: 0;
-      padding-left: 18px;
-      color: var(--ink-soft);
-    }
-    .fixfirst li { margin: 6px 0; line-height: 1.45; }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border-subtle);
-      background: rgba(255,255,255,0.03);
-      color: rgba(229,240,255,0.78);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      width: fit-content;
-    }
-
-    /* Evidence layout */
+    /* Signal Evidence layout */
     #signalEvidenceRoot {
       display: grid;
       grid-template-columns: 1fr;
-      gap: var(--gap-internal);
+      gap: 14px;
       align-items: start;
     }
     @media (min-width: 900px) {
@@ -350,6 +302,7 @@
     }
     #signalEvidenceRoot > .evidence-block { align-self: start; }
 
+    /* Prevent issue text overflow */
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
     .issue-title {
@@ -358,10 +311,12 @@
       overflow-wrap: anywhere;
       word-break: break-word;
       line-height: 1.35;
+      white-space: normal;
     }
     .issue-label {
       flex: 0 0 auto;
       margin-left: 10px;
+      white-space: nowrap;
     }
     .issue-why {
       white-space: normal;
@@ -374,15 +329,19 @@
       border: 1px solid var(--border-subtle);
       border-radius: 16px;
       padding: 14px;
-      margin-bottom: 0;
+      margin-bottom: 12px;
     }
-    .evidence-title {
+
+    .evidence-title,
+    .acc-title {
       margin: 0 0 10px 0;
       font-size: 12px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
       color: var(--ink-soft);
+      font-weight: 700;
     }
+
     .evidence-list {
       display: grid;
       grid-template-columns: 1fr;
@@ -412,6 +371,7 @@
       min-width: 44px;
       flex: 0 0 auto;
     }
+
     .impact-text {
       white-space: normal;
       overflow-wrap: anywhere;
@@ -439,13 +399,6 @@
       border-bottom-right-radius: 0;
       border-bottom: 0;
     }
-    .acc-title {
-      font-size: 12px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-      font-weight: 700;
-    }
     .acc-score {
       font-weight: 800;
       color: var(--ink);
@@ -461,7 +414,7 @@
       background: rgba(0,0,0,0.14);
     }
 
-    /* Key Insight Metrics must never behave like evidence accordions */
+    /* Key metrics must not behave like accordions */
     #keyMetricsRoot details,
     #keyMetricsRoot summary {
       all: unset;
@@ -470,7 +423,6 @@
     #keyMetricsRoot details { margin: 0; }
     #keyMetricsRoot summary { cursor: default; }
 
-    /* Insight list UI */
     .insight-list {
       display: grid;
       grid-template-columns: 1fr;
@@ -504,7 +456,6 @@
       line-height: 1.45;
     }
 
-    /* Issue list */
     .issue-list { display: flex; flex-direction: column; gap: 10px; }
     .issue {
       border-radius: 14px;
@@ -598,7 +549,11 @@
       justify-content: center;
     }
 
-    .pulse { display: flex; align-items: center; justify-content: center; }
+    .pulse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .pulse::after {
       content: "Λ i Q";
       font-family: "Montserrat", system-ui, sans-serif;
@@ -631,11 +586,8 @@
       padding-top: 10px;
     }
 
-    /* Light theme */
-    body.light {
-      background: #e5edf4;
-      color: #0f172a;
-    }
+    /* Light theme support */
+    body.light { background: #e5edf4; color: #0f172a; }
     body.light .top-card,
     body.light .section,
     body.light .loader-wrap {
@@ -645,7 +597,7 @@
     }
     body.light .section-head { background: rgba(15,23,42,0.03); }
     body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv,
-    body.light .insight, body.light .issue, body.light .phase, body.light .fixfirst, body.light .overall-strip {
+    body.light .insight, body.light .issue, body.light .phase {
       background: rgba(15,23,42,0.03);
       border-color: rgba(15,23,42,0.10);
     }
@@ -654,9 +606,7 @@
     body.light .muted { color: rgba(15,23,42,0.55); }
     body.light .brand .tag { color: rgba(15,23,42,0.55); }
 
-    /* ===============================
-       PRINT / PDF MODE (auto-white)
-       =============================== */
+    /* PRINT / PDF MODE */
     @media print {
       :root { color-scheme: light; }
       html, body {
@@ -668,14 +618,14 @@
         text-shadow: none !important;
         filter: none !important;
       }
-      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv, .fixfirst, .overall-strip {
+      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
       }
       .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
         color: #0f172a !important;
       }
-      .summary, .issue-why, .insight .text, .kv .k, .kv .v, .final-notes p {
+      .summary, .issue-why, .insight .text, .kv .k, .kv .v {
         color: #111827 !important;
       }
       .bar { background: #e5e7eb !important; }
@@ -692,15 +642,20 @@
       details { page-break-inside: avoid; }
       .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
 
-      /* expand all evidence accordions */
+      /* Expand all evidence accordions */
       details.evidence-block { display: block !important; }
       details.evidence-block > summary { display: none !important; }
-      details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
+      details.evidence-block .acc-body {
+        display: block !important;
+        border-top: 1px solid #e5e7eb !important;
+      }
 
       a, a:visited { color: #111827 !important; text-decoration: underline !important; }
 
-      /* ✅ hard page breaks between major report blocks */
-      .page-break-before { break-before: page; page-break-before: always; }
+      #reportRoot {
+        max-width: none !important;
+        width: 100% !important;
+      }
     }
 
     @media (hover: hover) and (pointer: fine) {
@@ -713,10 +668,6 @@
         transform: none;
       }
     }
-
-    @media print {
-      #reportRoot { max-width: none !important; width: 100% !important; }
-    }
   </style>
 </head>
 
@@ -725,6 +676,8 @@
     <div class="shell-inner">
 
       <div class="top-card">
+
+        <!-- Brand Bar -->
         <div class="top-row">
           <div class="brand">
             <div class="logo">iQWEB</div>
@@ -734,10 +687,14 @@
           </div>
 
           <div class="top-actions">
-            <button id="downloadPdfBtn" class="btn">Download PDF</button>
+            <button id="backToDashboard" class="btn">Back to dashboard</button>
+            <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+            <button id="refreshBtn" class="btn">Refresh</button>
           </div>
+
         </div>
 
+        <!-- Meta Strip -->
         <div class="meta-strip">
           <div class="meta-cell">
             <div class="k">Website</div>
@@ -754,6 +711,7 @@
             <div class="v" id="reportDate">—</div>
           </div>
         </div>
+
       </div>
 
       <!-- Loader -->
@@ -768,18 +726,7 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- ✅ BLOCK ORDER (LOCKED)
-          1) Executive Narrative
-          2) Fix First (site-specific)
-          3) Delivery Signals (9 cards)
-          4) Signal Evidence
-          5) Key Insight Metrics
-          6) Top Issues Detected
-          7) Recommended Fix Sequence
-          8) Final Notes
-        -->
-
-        <!-- 1. Executive Narrative -->
+        <!-- Executive Narrative -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Executive Narrative</h2>
@@ -791,36 +738,11 @@
           </div>
         </section>
 
-        <!-- 2. Fix First (drives specificity + prevents generic feel) -->
-        <section class="section" id="fixFirstSection">
-          <div class="section-head">
-            <h2 class="section-title">Fix First</h2>
-          </div>
-          <div class="section-body">
-            <div class="fixfirst">
-              <div>
-                <div class="pill" id="fixFirstPill">PRIMARY CONSTRAINT</div>
-                <h3 style="margin-top:10px;">What to fix first</h3>
-                <p class="big" id="fixFirstTitle">—</p>
-                <div class="summary" id="fixFirstWhy" style="margin-top:10px;">
-                  <div class="muted" style="font-size:12px;">Waiting for narrative…</div>
-                </div>
-              </div>
-              <div>
-                <h3>Deprioritise (for now)</h3>
-                <ul id="fixFirstDeprioritise">
-                  <li class="muted">—</li>
-                </ul>
-                <h3 style="margin-top:12px;">Expected outcome</h3>
-                <ul id="fixFirstOutcome">
-                  <li class="muted">—</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
+        <!-- What to Fix First (and Why) -->
+<div id="fixFirstBlock"></div>
 
-        <!-- 3. Delivery Signals (9 cards) -->
+
+        <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
@@ -833,99 +755,15 @@
                 <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
                 <div class="overall-strip-score" id="overallPill">—</div>
               </div>
+
               <div class="bar">
                 <div id="overallBar"></div>
               </div>
+
               <p class="overall-strip-note" id="overallNote"></p>
             </div>
 
-            <!-- ✅ 9-card grid root -->
-            <div id="signalsGrid9" class="grid-9">
-
-              <!-- (A) Three “site-specific anchors” from data -->
-              <div class="card" id="card-psi-mobile">
-                <div class="card-top">
-                  <h3>PSI — Mobile</h3>
-                  <div class="score-right" id="psiMobilePill">—</div>
-                </div>
-                <div class="bar"><div id="psiMobileBar"></div></div>
-                <div class="summary" id="psiMobileSummary">Not available yet.</div>
-              </div>
-
-              <div class="card" id="card-psi-desktop">
-                <div class="card-top">
-                  <h3>PSI — Desktop</h3>
-                  <div class="score-right" id="psiDesktopPill">—</div>
-                </div>
-                <div class="bar"><div id="psiDesktopBar"></div></div>
-                <div class="summary" id="psiDesktopSummary">Not available yet.</div>
-              </div>
-
-              <div class="card" id="card-html-delivery">
-                <div class="card-top">
-                  <h3>HTML / Delivery</h3>
-                  <div class="score-right" id="htmlPill">—</div>
-                </div>
-                <div class="bar"><div id="htmlBar"></div></div>
-                <div class="summary" id="htmlSummary">Not available yet.</div>
-              </div>
-
-              <!-- (B) The six narrative signals (existing model) -->
-              <div class="card" data-signal="performance">
-                <div class="card-top">
-                  <h3>Performance</h3>
-                  <div class="score-right" id="score-performance">—</div>
-                </div>
-                <div class="bar"><div id="bar-performance"></div></div>
-                <div class="summary" id="summary-performance">—</div>
-              </div>
-
-              <div class="card" data-signal="mobile">
-                <div class="card-top">
-                  <h3>Mobile</h3>
-                  <div class="score-right" id="score-mobile">—</div>
-                </div>
-                <div class="bar"><div id="bar-mobile"></div></div>
-                <div class="summary" id="summary-mobile">—</div>
-              </div>
-
-              <div class="card" data-signal="seo">
-                <div class="card-top">
-                  <h3>SEO</h3>
-                  <div class="score-right" id="score-seo">—</div>
-                </div>
-                <div class="bar"><div id="bar-seo"></div></div>
-                <div class="summary" id="summary-seo">—</div>
-              </div>
-
-              <div class="card" data-signal="structure">
-                <div class="card-top">
-                  <h3>Structure</h3>
-                  <div class="score-right" id="score-structure">—</div>
-                </div>
-                <div class="bar"><div id="bar-structure"></div></div>
-                <div class="summary" id="summary-structure">—</div>
-              </div>
-
-              <div class="card" data-signal="security">
-                <div class="card-top">
-                  <h3>Security</h3>
-                  <div class="score-right" id="score-security">—</div>
-                </div>
-                <div class="bar"><div id="bar-security"></div></div>
-                <div class="summary" id="summary-security">—</div>
-              </div>
-
-              <div class="card" data-signal="accessibility">
-                <div class="card-top">
-                  <h3>Accessibility</h3>
-                  <div class="score-right" id="score-accessibility">—</div>
-                </div>
-                <div class="bar"><div id="bar-accessibility"></div></div>
-                <div class="summary" id="summary-accessibility">—</div>
-              </div>
-
-            </div>
+            <div id="signalsGrid" class="grid"></div>
 
             <div class="summary muted" style="font-size:12px;">
               Each signal is presented as a short diagnostic narrative, backed by evidence below.
@@ -934,15 +772,13 @@
           </div>
         </section>
 
-        <!-- 4. Signal Evidence -->
-        <section class="section page-break-before" id="signalEvidenceSection">
+        <section class="section" id="signalEvidenceSection">
           <div class="section-head">
             <h2 class="section-title">Signal Evidence</h2>
           </div>
           <div class="section-body" id="signalEvidenceRoot"></div>
         </section>
 
-        <!-- 5. Key Insight Metrics -->
         <section class="section" id="keyInsightsSection">
           <div class="section-head">
             <h2 class="section-title">Key Insight Metrics</h2>
@@ -959,7 +795,6 @@
           </div>
         </section>
 
-        <!-- 6. Top Issues -->
         <section class="section" id="topIssuesSection">
           <div class="section-head">
             <h2 class="section-title">Top Issues Detected</h2>
@@ -984,8 +819,7 @@
           </div>
         </section>
 
-        <!-- 7. Fix Sequence -->
-        <section class="section page-break-before" id="fixSequenceSection">
+        <section class="section" id="fixSequenceSection">
           <div class="section-head">
             <h2 class="section-title">Recommended Fix Sequence</h2>
           </div>
@@ -1038,7 +872,6 @@
           </div>
         </section>
 
-        <!-- 8. Final Notes -->
         <section class="section" id="finalNotesSection">
           <div class="section-head">
             <h2 class="section-title">Final Notes</h2>
@@ -1070,68 +903,154 @@
     </div>
   </div>
 
+  <!-- Renders the report from scan_results -->
+  <script src="/assets/js/report-data.js"></script>
+
+  <!-- UI buttons (Back/Refresh) -->
 <script>
-  window.IQWEB_USE_POLLING = true;
-</script>
+(function () {
+  const refreshBtn = document.getElementById("refreshBtn");
+  const backBtn = document.getElementById("backToDashboard");
+  const pdfBtn = document.getElementById("downloadPdfBtn");
 
-<script src="/assets/js/report-data.js"></script>
-<script src="/assets/js/report-polling.js"></script>
+  const params = new URLSearchParams(window.location.search);
+  const from = (params.get("from") || "").toLowerCase();
+  const reportId = params.get("report_id") || "";
 
+  const isHistory = from === "history";
+  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
 
+  // Default: keep evidence accordions CLOSED on web
+  try {
+    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+  } catch (_) {}
 
+  // History view: hide Back + Refresh, show PDF
+  if (isHistory) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
 
-  <script>
-    (function () {
-      const dlBtn = document.getElementById("downloadPdfBtn");
-      const qs = new URLSearchParams(location.search);
-      const reportId = qs.get("report_id");
-
-      async function downloadPdf() {
-        if (!reportId) {
-          alert("Missing report_id in URL.");
-          return;
-        }
-
-        // Expand accordions so evidence is included in the PDF
-        document.querySelectorAll("details").forEach((d) => (d.open = true));
-
-        // Snapshot the fully-rendered HTML
-        const html = "<!doctype html>\n" + document.documentElement.outerHTML;
-
-        if (dlBtn) {
-          dlBtn.disabled = true;
-          dlBtn.textContent = "Generating…";
-        }
-
+    if (pdfBtn) {
+      pdfBtn.style.display = "inline-block";
+      pdfBtn.onclick = async () => {
+        pdfBtn.disabled = true;
+        pdfBtn.textContent = "Generating PDF…";
         try {
           const res = await fetch("/.netlify/functions/generate-report-pdf", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ report_id: reportId, html }),
+            body: JSON.stringify({ report_id: reportId })
           });
+          if (!res.ok) throw new Error("PDF generation failed");
 
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.pdf_url) {
-            console.error("PDF failed:", res.status, data);
-            alert("PDF generation failed. Check Netlify function logs.");
-            return;
-          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
 
-          window.open(data.pdf_url, "_blank", "noopener");
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${reportId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
         } catch (e) {
-          console.error("PDF error:", e);
-          alert("PDF generation failed. Check console + Netlify logs.");
+          alert("Unable to generate PDF. Please try again.");
         } finally {
-          if (dlBtn) {
-            dlBtn.disabled = false;
-            dlBtn.textContent = "Download PDF";
-          }
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = "Download PDF";
         }
-      }
+      };
+    }
+    return; // done
+  }
 
-      dlBtn && dlBtn.addEventListener("click", downloadPdf);
-    })();
-  </script>
+  // Preview report: remove Back + Refresh (open in new tab from homepage)
+  if (isPreview) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
+    if (pdfBtn) pdfBtn.style.display = "none";
+    return; // done
+  }
+
+  // Normal (real) report view: keep Back + Refresh
+  if (pdfBtn) pdfBtn.style.display = "none";
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+  if (backBtn) {
+    backBtn.textContent = "Back to dashboard";
+    backBtn.onclick = () => (window.location.href = "/dashboard.html");
+  }
+})();
+</script>
+
+
+
+<script>
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
+
+  // Detect "PDF render mode"
+  const __IQWEB_PDF_MODE = (() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("pdf") === "1") return true;
+
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    try {
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+    } catch (_) {}
+  }
+
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
+
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
+    return window.__IQWEB_REPORT_READY === true;
+  };
+
+  (function waitForReportReady() {
+    const reportRoot = document.getElementById("reportRoot");
+    const loader = document.getElementById("loaderSection");
+    const signals = document.getElementById("signalsGrid");
+
+    const loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    const reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    const hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
+    }
+
+    setTimeout(waitForReportReady, 150);
+  })();
+
+  // Hard safety (prevents infinite hang)
+  setTimeout(() => {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
+</script>
+
 
 </body>
 </html>

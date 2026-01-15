@@ -1421,10 +1421,18 @@ console.log("[run-scan] PSI state", {
 });
 
 // ---------------------------------------------
-// PSI: return pending immediately, run PSI in background to avoid Netlify 504 timeouts
-// (FULL REPLACEMENT BLOCK — paste exactly)
+// Auth FIRST (required for safe PSI worker updates + credit gates)
 // ---------------------------------------------
+const auth = await requireUser(event);
+if (!auth.ok) {
+  return json(auth.status, { success: false, error: auth.error });
+}
 
+const user_id = auth.user.id;
+
+// ---------------------------------------------
+// PSI: create pending container and trigger background worker
+// ---------------------------------------------
 const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
 const generate_narrative = body.generate_narrative !== false;
 
@@ -1432,20 +1440,37 @@ if (!url || !report_id) {
   return json(400, { success: false, error: "Missing url or report_id" });
 }
 
-
-
-// Create PSI container (results will be filled by background worker later)
-// IMPORTANT: run-scan must NOT write psi.pending (worker owns pending)
+// Create PSI container (results filled asynchronously by worker)
 const psi = {
   enabled: psiEnabled,
+  pending: psiEnabled && psiStrategies.length > 0,
   desktop: null,
   mobile: null,
   errors: [],
 };
 
+// Fire-and-forget background PSI (do NOT await)
+if (psi.pending) {
+  const baseUrl =
+    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
 
-
-
+  if (baseUrl) {
+    fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ report_id, url, strategies: psiStrategies, user_id }),
+    }).catch(() => {});
+  } else {
+    // Can't self-call worker (rare). Don't leave the scan looking stuck.
+    psi.pending = false;
+    psi.errors.push({
+      strategy: "all",
+      error: "psi_worker_baseurl_missing",
+      status: null,
+      details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
+    });
+  }
+}
 
 console.log("[run-scan] PSI (background) state", {
   enabled: psi.enabled,
@@ -1454,17 +1479,6 @@ console.log("[run-scan] PSI (background) state", {
   include_lighthouse: body.include_lighthouse,
   timeout_ms: PSI_TIMEOUT_MS,
 });
-
-// ---------------------------------------------
-// Auth continues as normal
-// ---------------------------------------------
-
-const auth = await requireUser(event);
-if (!auth.ok) {
-  return json(auth.status, { success: false, error: auth.error });
-}
-
-const user_id = auth.user.id;
 
 
     // --------------------
@@ -1761,36 +1775,6 @@ const metrics = {
         detail: saveErr.message || saveErr,
       });
     }
-
-// Fire-and-forget background PSI (do NOT await)
-// IMPORTANT: do NOT touch psi.pending here (worker owns it)
-if (psiEnabled && psiStrategies.length > 0) {
-  const baseUrl =
-    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
-
-  if (baseUrl) {
-    fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        report_id: saved.report_id || report_id,
-        url,
-        strategies: psiStrategies,
-        user_id,
-      }),
-    }).catch(() => {});
-  } else {
-    // Don't set pending here — just record the reason
-    psi.errors.push({
-      strategy: "all",
-      error: "psi_worker_baseurl_missing",
-      status: null,
-      details:
-        "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
-    });
-  }
-}
-
 
     // ---------------------------------------------
     // STEP 1: Ensure reports row exists + set narrative pending
