@@ -165,7 +165,59 @@ function buildFactsFromScanRow(row) {
   const psi = safeObj(metrics.psi);
   const psiMobileFacts = safeObj(psi.mobile && psi.mobile.facts);
   const psiDesktopFacts = safeObj(psi.desktop && psi.desktop.facts);
+  const auditsM = safeObj(psi.mobile && psi.mobile.audits);
+  const auditsD = safeObj(psi.desktop && psi.desktop.audits);
 
+  function fmtMs(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "";
+    return `${Math.round(n)}ms`;
+  }
+  function fmtDec(v, dp) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "";
+    return n.toFixed(dp);
+  }
+
+  // ---- PSI evidence lines (strong narrative anchors) ----
+  function psiLines() {
+    const out = [];
+    const enabled = psi.enabled === true;
+    const pending = psi.pending === true;
+
+    out.push(`PSI enabled: ${enabled}`);
+    out.push(`PSI pending: ${pending}`);
+
+    const addFacts = (tag, f) => {
+      if (!f) return;
+      if (f.LCP_ms != null) out.push(`${tag} LCP: ${fmtMs(f.LCP_ms)}`);
+      if (f.CLS != null) out.push(`${tag} CLS: ${fmtDec(f.CLS, 3)}`);
+      if (f.TBT_ms != null) out.push(`${tag} TBT: ${fmtMs(f.TBT_ms)}`);
+      if (f.FCP_ms != null) out.push(`${tag} FCP: ${fmtMs(f.FCP_ms)}`);
+      if (f.TTFB_ms != null) out.push(`${tag} TTFB: ${fmtMs(f.TTFB_ms)}`);
+      if (f.speedIndex_ms != null) out.push(`${tag} SpeedIndex: ${fmtMs(f.speedIndex_ms)}`);
+    };
+
+    addFacts("Mobile", psiMobileFacts);
+    addFacts("Desktop", psiDesktopFacts);
+
+    // A few audits that explain “time to usable”
+    function auditLine(tag, audits, id) {
+      const a = audits && audits[id];
+      if (!a) return;
+      if (a.score === null || a.score === undefined) return;
+      const dv = a.displayValue ? ` (${cleanLine(a.displayValue)})` : "";
+      out.push(`${tag} audit ${id}: score=${a.score}${dv}`);
+    }
+    ["long-tasks", "bootup-time", "unused-javascript", "unused-css-rules"].forEach((id) => {
+      auditLine("Mobile", auditsM, id);
+      auditLine("Desktop", auditsD, id);
+    });
+
+    return out;
+  }
+
+  // ---- Evidence buckets (what the model can QUOTE) ----
   const signalEvidence = {
     performance: [],
     mobile: [],
@@ -175,11 +227,10 @@ function buildFactsFromScanRow(row) {
     accessibility: [],
   };
 
-  // 1) Evidence from delivery_signals issues (if present)
+  // 1) Evidence from delivery_signals issues + observations + deductions
   for (let i = 0; i < delivery.length; i++) {
     const sig = safeObj(delivery[i]);
     const id = String(sig.id || sig.label || "").toLowerCase();
-    const issues = asArray(sig.issues);
 
     let key = "";
     if (id.indexOf("perf") !== -1) key = "performance";
@@ -191,25 +242,41 @@ function buildFactsFromScanRow(row) {
 
     if (!key) continue;
 
+    // Issues titles
+    const issues = asArray(sig.issues);
     for (let j = 0; j < issues.length; j++) {
       const it = safeObj(issues[j]);
       const title = cleanLine(it.title || "");
       if (title) signalEvidence[key].push(title);
     }
+
+    // Observations (compact, quotable)
+    const obs = asArray(sig.observations).slice(0, 8);
+    for (const o of obs) {
+      const ol = safeObj(o);
+      const line = `${cleanLine(sig.label || key)} observation: ${cleanLine(ol.label || "")}=${cleanLine(String(ol.value ?? ""))}`;
+      if (line.indexOf("==") === -1 && line.indexOf("=)") === -1) signalEvidence[key].push(line);
+    }
+
+    // Deductions (why score moved)
+    const ded = asArray(sig.deductions).slice(0, 8);
+    for (const d of ded) {
+      const dd = safeObj(d);
+      const r = cleanLine(dd.reason || "");
+      const p = dd.points;
+      if (r && p != null) signalEvidence[key].push(`${cleanLine(sig.label || key)} deduction: ${r} (-${p})`);
+    }
   }
 
-  // 2) Evidence from FLAGS (this is what drives real PSI-first behavior)
-  // Map flags to domains with simple, stable rules.
+  // 2) Evidence from FLAGS (PSI-first behaviour drivers)
   for (let i = 0; i < flags.length; i++) {
     const f = safeObj(flags[i]);
     const code = String(f.code || "");
     const sev = String(f.severity || "");
     const ev = safeObj(f.evidence);
     const device = cleanLine(ev.device || "");
-
     const lowCode = code.toLowerCase();
 
-    // Performance-delivery flags
     const isPerf =
       lowCode.indexOf("lcp") !== -1 ||
       lowCode.indexOf("cls") !== -1 ||
@@ -218,39 +285,34 @@ function buildFactsFromScanRow(row) {
       lowCode.indexOf("tbt") !== -1 ||
       lowCode.indexOf("delivery") !== -1;
 
-    if (isPerf) {
-      // Try to carry the key measured value, if present
-      let detail = "";
-      if (ev.LCP_ms != null) detail = "LCP " + fmtMs(ev.LCP_ms);
-      else if (ev.mobile_LCP_ms != null || ev.desktop_LCP_ms != null) {
-        const a = ev.mobile_LCP_ms != null ? "mobile LCP " + fmtMs(ev.mobile_LCP_ms) : "";
-        const b = ev.desktop_LCP_ms != null ? "desktop LCP " + fmtMs(ev.desktop_LCP_ms) : "";
-        detail = (a && b) ? a + ", " + b : (a || b);
-      } else if (ev.CLS != null) detail = "CLS " + fmtDecimal(ev.CLS, 2);
-      else if (ev.TBT_ms != null) detail = "TBT " + fmtMs(ev.TBT_ms);
+    const isSeo =
+      lowCode.indexOf("h1") !== -1 ||
+      lowCode.indexOf("canonical") !== -1 ||
+      lowCode.indexOf("robots") !== -1;
 
-      const label = "Flag: " + code + (device ? " (" + device + ")" : "") + (detail ? " — " + detail : "");
-      signalEvidence.performance.push(label);
-      continue;
+    const isSec =
+      lowCode.indexOf("trust") !== -1 ||
+      lowCode.indexOf("hsts") !== -1 ||
+      lowCode.indexOf("header") !== -1;
+
+    let detail = "";
+    if (ev.LCP_ms != null) detail = "LCP " + fmtMs(ev.LCP_ms);
+    else if (ev.CLS != null) detail = "CLS " + fmtDec(ev.CLS, 3);
+    else if (ev.TBT_ms != null) detail = "TBT " + fmtMs(ev.TBT_ms);
+    else if (ev.mobile_LCP_ms != null || ev.desktop_LCP_ms != null) {
+      const a = ev.mobile_LCP_ms != null ? "mobile LCP " + fmtMs(ev.mobile_LCP_ms) : "";
+      const b = ev.desktop_LCP_ms != null ? "desktop LCP " + fmtMs(ev.desktop_LCP_ms) : "";
+      detail = (a && b) ? a + ", " + b : (a || b);
     }
 
-    // SEO flags (if you add them later)
-    const isSeo = lowCode.indexOf("h1") !== -1 || lowCode.indexOf("canonical") !== -1 || lowCode.indexOf("robots") !== -1;
-    if (isSeo) {
-      const label = "Flag: " + code + (device ? " (" + device + ")" : "");
-      signalEvidence.seo.push(label);
-      continue;
-    }
+    const label = "Flag: " + code + (sev ? " (" + sev + ")" : "") + (device ? " [" + device + "]" : "") + (detail ? " — " + detail : "");
 
-    // Security flags (if you add later)
-    const isSec = lowCode.indexOf("trust") !== -1 || lowCode.indexOf("hsts") !== -1 || lowCode.indexOf("header") !== -1;
-    if (isSec) {
-      const label = "Flag: " + code + (device ? " (" + device + ")" : "");
-      signalEvidence.security.push(label);
-      continue;
-    }
+    if (isPerf) signalEvidence.performance.push(label);
+    else if (isSeo) signalEvidence.seo.push(label);
+    else if (isSec) signalEvidence.security.push(label);
   }
 
+  // Keep your previous evidence blocks (backward compatible)
   const evidenceBlocks = {
     security_headers: safeObj(metrics.security_headers),
     basic_checks: safeObj(metrics.basic_checks),
@@ -265,13 +327,18 @@ function buildFactsFromScanRow(row) {
     report_id: row.report_id || "",
     url: row.url || "",
     created_at: row.created_at || "",
+
+    // keep existing psi shape
     psi: {
       enabled: psi.enabled === true,
       pending: psi.pending === true,
-      // expose only the facts subtrees (safe + useful)
       mobile: psiMobileFacts,
       desktop: psiDesktopFacts,
     },
+
+    // NEW: extra “quotable” PSI evidence for the model
+    psi_lines: psiLines(),
+
     flags: flags.map((x) => {
       const f = safeObj(x);
       return {
@@ -280,6 +347,7 @@ function buildFactsFromScanRow(row) {
         evidence: safeObj(f.evidence),
       };
     }),
+
     scores: {
       overall: scores.overall,
       performance: scores.performance,
@@ -289,6 +357,7 @@ function buildFactsFromScanRow(row) {
       structure: scores.structure,
       accessibility: scores.accessibility,
     },
+
     issues_list: issuesList.map((x) => {
       const it = safeObj(x);
       return {
@@ -297,19 +366,22 @@ function buildFactsFromScanRow(row) {
         severity: cleanLine(it.severity || it.impact || ""),
       };
     }),
+
     signal_evidence: {
-      performance: uniq(signalEvidence.performance).slice(0, 14),
-      mobile: uniq(signalEvidence.mobile).slice(0, 12),
-      seo: uniq(signalEvidence.seo).slice(0, 12),
-      security: uniq(signalEvidence.security).slice(0, 12),
-      structure: uniq(signalEvidence.structure).slice(0, 12),
-      accessibility: uniq(signalEvidence.accessibility).slice(0, 12),
+      performance: uniq(signalEvidence.performance).slice(0, 18),
+      mobile: uniq(signalEvidence.mobile).slice(0, 14),
+      seo: uniq(signalEvidence.seo).slice(0, 14),
+      security: uniq(signalEvidence.security).slice(0, 14),
+      structure: uniq(signalEvidence.structure).slice(0, 14),
+      accessibility: uniq(signalEvidence.accessibility).slice(0, 14),
     },
+
     evidence_blocks: evidenceBlocks,
   };
 
   return facts;
 }
+
 
 /* ============================================================
    DETERMINE PRIMARY / SECONDARY CONSTRAINTS (DETERMINISTIC)
