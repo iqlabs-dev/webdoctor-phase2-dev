@@ -1272,6 +1272,37 @@ function getSiteOrigin(event) {
   );
 }
 
+// ---------------------------------------------
+// PSI readiness gate (short, safe wait)
+// ---------------------------------------------
+async function waitForPsiReady(report_id, maxWaitMs = 45000, pollMs = 1500) {
+  const start = Date.now();
+
+  while (Date.now() - start < maxWaitMs) {
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select("metrics")
+      .eq("report_id", report_id)
+      .single();
+
+    if (!error && data?.metrics?.psi) {
+      const psi = data.metrics.psi;
+
+      if (
+        psi.enabled === false ||
+        (psi.pending === false &&
+          (psi.mobile?.facts || psi.desktop?.facts))
+      ) {
+        return { ready: true, waited_ms: Date.now() - start };
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+
+  return { ready: false, waited_ms: Date.now() - start };
+}
+
 async function tryGenerateNarrative(origin, report_id, user_id) {
   try {
     const resp = await fetch(`${origin}/.netlify/functions/generate-narrative`, {
@@ -1796,13 +1827,28 @@ const metrics = {
       console.warn("[run-scan] reports upsert warning:", reportsUpsert.error);
     }
 
-    // Trigger narrative generation (non-blocking to report rendering)
-    let narrative_ok = null;
-    if (generate_narrative) {
-      const origin = getSiteOrigin(event);
-      const result = await tryGenerateNarrative(origin, saved.report_id || report_id, user_id);
-      narrative_ok = result.ok;
-    }
+  // ---------------------------------------------
+// PSI readiness gate BEFORE narrative
+// ---------------------------------------------
+let narrative_ok = null;
+
+if (generate_narrative) {
+  const finalReportId = saved.report_id || report_id;
+
+  const gate = await waitForPsiReady(finalReportId);
+
+  if (gate.ready) {
+    const origin = getSiteOrigin(event);
+    const result = await tryGenerateNarrative(origin, finalReportId, user_id);
+    narrative_ok = result.ok;
+  } else {
+    console.log("[run-scan] PSI not ready yet, narrative deferred", {
+      report_id: finalReportId,
+      waited_ms: gate.waited_ms,
+    });
+  }
+}
+
 
     const origin = getSiteOrigin(event);
     const finalReportId = saved.report_id || report_id;
