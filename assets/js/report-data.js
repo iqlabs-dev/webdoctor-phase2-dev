@@ -548,7 +548,7 @@
         body += "</div>";
       }
 
-      // Evidence object (key/value)
+      // Evidence objet (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";

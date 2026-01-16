@@ -5,9 +5,9 @@ const { createClient } = require("@supabase/supabase-js");
 /**
  * iQWEB Narrative Generator (Value Mode)
  * - Generates narrative JSON for a scan (stored back into scan_results.narrative)
- * - Executive narrative is GPT-authored but schema-constrained + validated
- * - Constraint hierarchy + fix_first are deterministic
- * - PSI (when present) is treated as first-class evidence via flags + key facts
+ * - Executive narrative is deterministic, paragraph-cadence, evidence-led
+ * - Signals narratives come from OpenAI but are constrained + scrubbed
+ * - Adds fix_first block as a separate section for the UI
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -81,10 +81,10 @@ function scrubLine(s) {
   if (!s) return "";
 
   const bannedWords = [
-    // keep "score" scrubbed from SIGNAL lines (but exec narrative rules already forbid score wording)
     "deterministic",
     "measured",
     "measured at",
+    "score",
     "scoring",
     "percent",
     "percentage",
@@ -127,97 +127,14 @@ function flattenText(n) {
 }
 
 /* ============================================================
-   FACTS PACK (TRUTH SOURCE)
-   - Promotes PSI + flags into evidence so hierarchy can be real
+   BUILD FACTS PACK (TRUTH SOURCE)
    ============================================================ */
-
-function severityRank(sev) {
-  const s = String(sev || "").toLowerCase();
-  if (s === "critical") return 4;
-  if (s === "high") return 3;
-  if (s === "med" || s === "medium") return 2;
-  if (s === "low") return 1;
-  return 0;
-}
-
-function fmtMs(ms) {
-  const n = Number(ms);
-  if (!isFinite(n) || n <= 0) return null;
-  // keep readable; do NOT over-format
-  if (n >= 1000) return Math.round(n) + "ms";
-  return Math.round(n) + "ms";
-}
-
-function fmtDecimal(x, digits) {
-  const n = Number(x);
-  if (!isFinite(n)) return null;
-  const d = typeof digits === "number" ? digits : 2;
-  return n.toFixed(d);
-}
-
 function buildFactsFromScanRow(row) {
   const metrics = safeObj(row.metrics);
   const scores = safeObj(metrics.scores || {});
   const delivery = asArray(metrics.delivery_signals);
   const issuesList = asArray(metrics.issues_list || metrics.issues || []);
-  const flags = asArray(metrics.flags);
 
-  const psi = safeObj(metrics.psi);
-  const psiMobileFacts = safeObj(psi.mobile && psi.mobile.facts);
-  const psiDesktopFacts = safeObj(psi.desktop && psi.desktop.facts);
-  const auditsM = safeObj(psi.mobile && psi.mobile.audits);
-  const auditsD = safeObj(psi.desktop && psi.desktop.audits);
-
-  function fmtMs(v) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return "";
-    return `${Math.round(n)}ms`;
-  }
-  function fmtDec(v, dp) {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return "";
-    return n.toFixed(dp);
-  }
-
-  // ---- PSI evidence lines (strong narrative anchors) ----
-  function psiLines() {
-    const out = [];
-    const enabled = psi.enabled === true;
-    const pending = psi.pending === true;
-
-    out.push(`PSI enabled: ${enabled}`);
-    out.push(`PSI pending: ${pending}`);
-
-    const addFacts = (tag, f) => {
-      if (!f) return;
-      if (f.LCP_ms != null) out.push(`${tag} LCP: ${fmtMs(f.LCP_ms)}`);
-      if (f.CLS != null) out.push(`${tag} CLS: ${fmtDec(f.CLS, 3)}`);
-      if (f.TBT_ms != null) out.push(`${tag} TBT: ${fmtMs(f.TBT_ms)}`);
-      if (f.FCP_ms != null) out.push(`${tag} FCP: ${fmtMs(f.FCP_ms)}`);
-      if (f.TTFB_ms != null) out.push(`${tag} TTFB: ${fmtMs(f.TTFB_ms)}`);
-      if (f.speedIndex_ms != null) out.push(`${tag} SpeedIndex: ${fmtMs(f.speedIndex_ms)}`);
-    };
-
-    addFacts("Mobile", psiMobileFacts);
-    addFacts("Desktop", psiDesktopFacts);
-
-    // A few audits that explain “time to usable”
-    function auditLine(tag, audits, id) {
-      const a = audits && audits[id];
-      if (!a) return;
-      if (a.score === null || a.score === undefined) return;
-      const dv = a.displayValue ? ` (${cleanLine(a.displayValue)})` : "";
-      out.push(`${tag} audit ${id}: score=${a.score}${dv}`);
-    }
-    ["long-tasks", "bootup-time", "unused-javascript", "unused-css-rules"].forEach((id) => {
-      auditLine("Mobile", auditsM, id);
-      auditLine("Desktop", auditsD, id);
-    });
-
-    return out;
-  }
-
-  // ---- Evidence buckets (what the model can QUOTE) ----
   const signalEvidence = {
     performance: [],
     mobile: [],
@@ -227,10 +144,10 @@ function buildFactsFromScanRow(row) {
     accessibility: [],
   };
 
-  // 1) Evidence from delivery_signals issues + observations + deductions
   for (let i = 0; i < delivery.length; i++) {
     const sig = safeObj(delivery[i]);
     const id = String(sig.id || sig.label || "").toLowerCase();
+    const issues = asArray(sig.issues);
 
     let key = "";
     if (id.indexOf("perf") !== -1) key = "performance";
@@ -242,77 +159,13 @@ function buildFactsFromScanRow(row) {
 
     if (!key) continue;
 
-    // Issues titles
-    const issues = asArray(sig.issues);
     for (let j = 0; j < issues.length; j++) {
       const it = safeObj(issues[j]);
       const title = cleanLine(it.title || "");
       if (title) signalEvidence[key].push(title);
     }
-
-    // Observations (compact, quotable)
-    const obs = asArray(sig.observations).slice(0, 8);
-    for (const o of obs) {
-      const ol = safeObj(o);
-      const line = `${cleanLine(sig.label || key)} observation: ${cleanLine(ol.label || "")}=${cleanLine(String(ol.value ?? ""))}`;
-      if (line.indexOf("==") === -1 && line.indexOf("=)") === -1) signalEvidence[key].push(line);
-    }
-
-    // Deductions (why score moved)
-    const ded = asArray(sig.deductions).slice(0, 8);
-    for (const d of ded) {
-      const dd = safeObj(d);
-      const r = cleanLine(dd.reason || "");
-      const p = dd.points;
-      if (r && p != null) signalEvidence[key].push(`${cleanLine(sig.label || key)} deduction: ${r} (-${p})`);
-    }
   }
 
-  // 2) Evidence from FLAGS (PSI-first behaviour drivers)
-  for (let i = 0; i < flags.length; i++) {
-    const f = safeObj(flags[i]);
-    const code = String(f.code || "");
-    const sev = String(f.severity || "");
-    const ev = safeObj(f.evidence);
-    const device = cleanLine(ev.device || "");
-    const lowCode = code.toLowerCase();
-
-    const isPerf =
-      lowCode.indexOf("lcp") !== -1 ||
-      lowCode.indexOf("cls") !== -1 ||
-      lowCode.indexOf("layout_") !== -1 ||
-      lowCode.indexOf("main_thread") !== -1 ||
-      lowCode.indexOf("tbt") !== -1 ||
-      lowCode.indexOf("delivery") !== -1;
-
-    const isSeo =
-      lowCode.indexOf("h1") !== -1 ||
-      lowCode.indexOf("canonical") !== -1 ||
-      lowCode.indexOf("robots") !== -1;
-
-    const isSec =
-      lowCode.indexOf("trust") !== -1 ||
-      lowCode.indexOf("hsts") !== -1 ||
-      lowCode.indexOf("header") !== -1;
-
-    let detail = "";
-    if (ev.LCP_ms != null) detail = "LCP " + fmtMs(ev.LCP_ms);
-    else if (ev.CLS != null) detail = "CLS " + fmtDec(ev.CLS, 3);
-    else if (ev.TBT_ms != null) detail = "TBT " + fmtMs(ev.TBT_ms);
-    else if (ev.mobile_LCP_ms != null || ev.desktop_LCP_ms != null) {
-      const a = ev.mobile_LCP_ms != null ? "mobile LCP " + fmtMs(ev.mobile_LCP_ms) : "";
-      const b = ev.desktop_LCP_ms != null ? "desktop LCP " + fmtMs(ev.desktop_LCP_ms) : "";
-      detail = (a && b) ? a + ", " + b : (a || b);
-    }
-
-    const label = "Flag: " + code + (sev ? " (" + sev + ")" : "") + (device ? " [" + device + "]" : "") + (detail ? " — " + detail : "");
-
-    if (isPerf) signalEvidence.performance.push(label);
-    else if (isSeo) signalEvidence.seo.push(label);
-    else if (isSec) signalEvidence.security.push(label);
-  }
-
-  // Keep your previous evidence blocks (backward compatible)
   const evidenceBlocks = {
     security_headers: safeObj(metrics.security_headers),
     basic_checks: safeObj(metrics.basic_checks),
@@ -320,34 +173,12 @@ function buildFactsFromScanRow(row) {
     performance: safeObj(metrics.performance),
     seo: safeObj(metrics.seo),
     accessibility: safeObj(metrics.accessibility),
-    psi: safeObj(metrics.psi),
   };
 
   const facts = {
     report_id: row.report_id || "",
     url: row.url || "",
     created_at: row.created_at || "",
-
-    // keep existing psi shape
-    psi: {
-      enabled: psi.enabled === true,
-      pending: psi.pending === true,
-      mobile: psiMobileFacts,
-      desktop: psiDesktopFacts,
-    },
-
-    // NEW: extra “quotable” PSI evidence for the model
-    psi_lines: psiLines(),
-
-    flags: flags.map((x) => {
-      const f = safeObj(x);
-      return {
-        code: cleanLine(f.code || ""),
-        severity: cleanLine(f.severity || ""),
-        evidence: safeObj(f.evidence),
-      };
-    }),
-
     scores: {
       overall: scores.overall,
       performance: scores.performance,
@@ -357,7 +188,6 @@ function buildFactsFromScanRow(row) {
       structure: scores.structure,
       accessibility: scores.accessibility,
     },
-
     issues_list: issuesList.map((x) => {
       const it = safeObj(x);
       return {
@@ -366,109 +196,55 @@ function buildFactsFromScanRow(row) {
         severity: cleanLine(it.severity || it.impact || ""),
       };
     }),
-
     signal_evidence: {
-      performance: uniq(signalEvidence.performance).slice(0, 18),
-      mobile: uniq(signalEvidence.mobile).slice(0, 14),
-      seo: uniq(signalEvidence.seo).slice(0, 14),
-      security: uniq(signalEvidence.security).slice(0, 14),
-      structure: uniq(signalEvidence.structure).slice(0, 14),
-      accessibility: uniq(signalEvidence.accessibility).slice(0, 14),
+      performance: uniq(signalEvidence.performance).slice(0, 12),
+      mobile: uniq(signalEvidence.mobile).slice(0, 12),
+      seo: uniq(signalEvidence.seo).slice(0, 12),
+      security: uniq(signalEvidence.security).slice(0, 12),
+      structure: uniq(signalEvidence.structure).slice(0, 12),
+      accessibility: uniq(signalEvidence.accessibility).slice(0, 12),
     },
-
     evidence_blocks: evidenceBlocks,
   };
 
   return facts;
 }
 
-
 /* ============================================================
    DETERMINE PRIMARY / SECONDARY CONSTRAINTS (DETERMINISTIC)
-   - Now uses FLAGS severity first when present
    ============================================================ */
-
 function chooseHierarchy(facts) {
   const se = safeObj(facts.signal_evidence);
-  const flags = asArray(facts.flags);
 
-  // Domain severity scoring from flags
-  const domainSev = {
-    performance: 0,
-    mobile: 0,
-    seo: 0,
-    security: 0,
-    structure: 0,
-    accessibility: 0,
-  };
-
-  for (let i = 0; i < flags.length; i++) {
-    const f = safeObj(flags[i]);
-    const code = String(f.code || "").toLowerCase();
-    const sev = severityRank(f.severity);
-
-    const isPerf =
-      code.indexOf("lcp") !== -1 ||
-      code.indexOf("cls") !== -1 ||
-      code.indexOf("layout_") !== -1 ||
-      code.indexOf("main_thread") !== -1 ||
-      code.indexOf("tbt") !== -1 ||
-      code.indexOf("delivery") !== -1;
-
-    if (isPerf) domainSev.performance = Math.max(domainSev.performance, sev);
-
-    const isSeo = code.indexOf("h1") !== -1 || code.indexOf("canonical") !== -1 || code.indexOf("robots") !== -1;
-    if (isSeo) domainSev.seo = Math.max(domainSev.seo, sev);
-
-    const isSec = code.indexOf("trust") !== -1 || code.indexOf("hsts") !== -1 || code.indexOf("header") !== -1;
-    if (isSec) domainSev.security = Math.max(domainSev.security, sev);
-  }
-
-  const order = ["performance", "seo", "security", "structure", "accessibility", "mobile"];
-
-  // If any domain has CRITICAL/HIGH via flags, let that win.
-  let primary = "performance";
-  let bestSev = -1;
+  const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
+  const counts = {};
   for (let i = 0; i < order.length; i++) {
     const k = order[i];
-    const s = domainSev[k] || 0;
-    if (s > bestSev) {
-      bestSev = s;
+    counts[k] = asArray(se[k]).length;
+  }
+
+  let primary = order[0];
+  let best = -1;
+  for (let i = 0; i < order.length; i++) {
+    const k = order[i];
+    const c = counts[k] || 0;
+    if (c > best) {
+      best = c;
       primary = k;
     }
   }
 
-  // If no strong flag signals, fall back to evidence counts (your old approach)
-  if (bestSev <= 0) {
-    const counts = {};
-    for (let i = 0; i < order.length; i++) counts[order[i]] = asArray(se[order[i]]).length;
-
-    let best = -1;
-    for (let i = 0; i < order.length; i++) {
-      const k = order[i];
-      const c = counts[k] || 0;
-      if (c > best) {
-        best = c;
-        primary = k;
-      }
-    }
-  }
-
-  // Secondary: pick top 2 by evidence count (stable)
-  const counts2 = {};
-  for (let i = 0; i < order.length; i++) counts2[order[i]] = asArray(se[order[i]]).length;
-
-  const sorted = order.slice().sort((a, b) => (counts2[b] || 0) - (counts2[a] || 0));
+  const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
   const secondary = [];
   for (let i = 0; i < sorted.length; i++) {
     const k = sorted[i];
     if (k === primary) continue;
-    if ((counts2[k] || 0) <= 0) continue;
+    if ((counts[k] || 0) <= 0) continue;
     secondary.push(k);
     if (secondary.length >= 2) break;
   }
 
-  const primary_evidence = asArray(se[primary]).slice(0, 6);
+  const primary_evidence = asArray(se[primary]).slice(0, 5);
   const secondary_evidence = {};
   for (let i = 0; i < secondary.length; i++) {
     const k = secondary[i];
@@ -485,95 +261,163 @@ function chooseHierarchy(facts) {
 
 /* ============================================================
    OVERRIDE LAYER (REALITY CHECKS)
-   - Now checks FLAGS directly (critical CLS/LCP/TBT => performance)
    ============================================================ */
+
+function allEvidenceText(facts) {
+  const out = [];
+  const se = safeObj(facts && facts.signal_evidence);
+  const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"]; // fixed set
+
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const arr = asArray(se[k]);
+    for (let j = 0; j < arr.length; j++) {
+      const s = cleanLine(arr[j]);
+      if (s) out.push(s);
+    }
+  }
+
+  const issues = asArray(facts && facts.issues_list);
+  for (let i = 0; i < issues.length; i++) {
+    const it = safeObj(issues[i]);
+    const t = cleanLine(it.title || "");
+    const d = cleanLine(it.detail || "");
+    if (t) out.push(t);
+    if (d) out.push(d);
+  }
+
+  return uniq(out);
+}
+
+function textHasAny(hay, needles) {
+  const h = String(hay || "").toLowerCase();
+  for (let i = 0; i < needles.length; i++) {
+    if (h.indexOf(String(needles[i]).toLowerCase()) !== -1) return true;
+  }
+  return false;
+}
+
+function findMatches(texts, matchers, max) {
+  const out = [];
+  const list = asArray(texts);
+  for (let i = 0; i < list.length; i++) {
+    const s = String(list[i] || "");
+    const low = s.toLowerCase();
+    let hit = false;
+    for (let j = 0; j < matchers.length; j++) {
+      const m = matchers[j];
+      if (typeof m === "string") {
+        if (low.indexOf(m.toLowerCase()) !== -1) { hit = true; break; }
+      } else if (m && m.test && m.test(low)) {
+        hit = true; break;
+      }
+    }
+    if (hit) {
+      out.push(cleanLine(s));
+      if (out.length >= (max || 5)) break;
+    }
+  }
+  return uniq(out);
+}
 
 function applyOverrides(facts, base) {
   const constraints = safeObj(base);
-  const flags = asArray(facts && facts.flags);
+  const texts = allEvidenceText(facts);
 
-  let perfCritical = false;
-  let perfEvidence = [];
+  // ---- Override 1: SEO discovery blockers (force SEO primary)
+  const seoMatchers = [
+    /missing\s*h1/, "h1 missing", "no h1",
+    "canonical mismatch", "canonical missing", "missing canonical", "no canonical",
+    "noindex", "robots", "blocked by robots", "x-robots-tag",
+    "sitemap", "meta description missing", "missing meta description",
+  ];
+  const seoHits = findMatches(texts, seoMatchers, 5);
 
-  for (let i = 0; i < flags.length; i++) {
-    const f = safeObj(flags[i]);
-    const code = String(f.code || "");
-    const sev = String(f.severity || "").toLowerCase();
-    const ev = safeObj(f.evidence);
-    const lowCode = code.toLowerCase();
+  // ---- Override 2: Layout volatility / CLS (force PERFORMANCE primary, but tag it)
+  const clsMatchers = [
+    "layout shift",
+    "cumulative layout shift",
+    "cls",
+    "visual stability",
+  ];
+  const clsHits = findMatches(texts, clsMatchers, 5);
 
-    const isPerf =
-      lowCode.indexOf("lcp") !== -1 ||
-      lowCode.indexOf("cls") !== -1 ||
-      lowCode.indexOf("layout_") !== -1 ||
-      lowCode.indexOf("main_thread") !== -1 ||
-      lowCode.indexOf("tbt") !== -1 ||
-      lowCode.indexOf("delivery") !== -1;
+  // ---- Override 3: Structural invalidity / modern web non-compliance (force STRUCTURE primary)
+  const structureMatchers = [
+    "doctype",
+    "charset",
+    "lang attribute",
+    "missing title",
+    "missing <title>",
+    "invalid html",
+    "broken html",
+    "no semantic",
+    "missing landmark",
+    "no heading structure",
+  ];
+  const structureHits = findMatches(texts, structureMatchers, 5);
 
-    if (!isPerf) continue;
-
-    const detailBits = [];
-    if (ev.device) detailBits.push(String(ev.device));
-    if (ev.LCP_ms != null) detailBits.push("LCP " + fmtMs(ev.LCP_ms));
-    if (ev.TBT_ms != null) detailBits.push("TBT " + fmtMs(ev.TBT_ms));
-    if (ev.CLS != null) detailBits.push("CLS " + fmtDecimal(ev.CLS, 2));
-    if (ev.mobile_LCP_ms != null) detailBits.push("mobile LCP " + fmtMs(ev.mobile_LCP_ms));
-    if (ev.desktop_LCP_ms != null) detailBits.push("desktop LCP " + fmtMs(ev.desktop_LCP_ms));
-
-    const line =
-      "Flag: " +
-      code +
-      (detailBits.length ? " (" + detailBits.join(", ") + ")" : "") +
-      (sev ? " — " + sev.toUpperCase() : "");
-
-    perfEvidence.push(line);
-
-    if (sev === "critical" || sev === "high") perfCritical = true;
-  }
-
-  // If performance critical flags exist, force performance primary.
-  if (perfCritical) {
-    const se = safeObj(facts && facts.signal_evidence);
-    const order = ["performance", "seo", "security", "structure", "accessibility", "mobile"];
-    const counts = {};
-    for (let i = 0; i < order.length; i++) counts[order[i]] = asArray(se[order[i]]).length;
-
-    const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
-    const secondary = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const k = sorted[i];
-      if (k === "performance") continue;
-      if ((counts[k] || 0) <= 0) continue;
-      secondary.push(k);
-      if (secondary.length >= 2) break;
-    }
-
-    const secondary_evidence = {};
-    for (let i = 0; i < secondary.length; i++) {
-      const k = secondary[i];
-      secondary_evidence[k] = asArray(se[k]).slice(0, 4);
-    }
-
-    return {
+  // priority: structural invalidity > SEO blockers > CLS/layout volatility
+  let override = null;
+  if (structureHits.length) {
+    override = {
+      primary: "structure",
+      tag: "structural_invalidity",
+      evidence: structureHits,
+    };
+  } else if (seoHits.length) {
+    override = {
+      primary: "seo",
+      tag: "seo_blocker",
+      evidence: seoHits,
+    };
+  } else if (clsHits.length) {
+    override = {
       primary: "performance",
-      primary_evidence: perfEvidence.slice(0, 6),
-      secondary,
-      secondary_evidence,
-      _override: {
-        tag: "psi_critical_delivery",
-        evidence: perfEvidence.slice(0, 6),
-      },
+      tag: "layout_volatility",
+      evidence: clsHits,
     };
   }
 
-  return constraints;
+  if (!override) return constraints;
+
+  // Rebuild secondary using the original ordering preference, but respecting override primary.
+  const order = ["performance", "mobile", "seo", "structure", "security", "accessibility"];
+  const se = safeObj(facts && facts.signal_evidence);
+  const counts = {};
+  for (let i = 0; i < order.length; i++) counts[order[i]] = asArray(se[order[i]]).length;
+
+  const sorted = order.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const secondary = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const k = sorted[i];
+    if (k === override.primary) continue;
+    if ((counts[k] || 0) <= 0) continue;
+    secondary.push(k);
+    if (secondary.length >= 2) break;
+  }
+
+  const secondary_evidence = {};
+  for (let i = 0; i < secondary.length; i++) {
+    const k = secondary[i];
+    secondary_evidence[k] = asArray(se[k]).slice(0, 4);
+  }
+
+  return {
+    primary: override.primary,
+    primary_evidence: override.evidence.slice(0, 5),
+    secondary,
+    secondary_evidence,
+    _override: {
+      tag: override.tag,
+      evidence: override.evidence.slice(0, 5),
+    },
+  };
 }
 
 /* ============================================================
-   OPENAI CALL (EXEC + SIGNALS)
-   - Executive Narrative now follows S1–S5 mapping (5 sentences)
+   OPENAI CALL (SIGNAL ONLY)
    ============================================================ */
-
 async function callOpenAI({ facts, constraints }) {
   if (!isNonEmptyString(OPENAI_API_KEY)) {
     throw new Error("Missing OPENAI_API_KEY in Netlify environment variables.");
@@ -582,10 +426,10 @@ async function callOpenAI({ facts, constraints }) {
   const label = (k) =>
     ({
       security: "security and trust",
-      performance: "delivery stability and load behaviour",
-      seo: "search visibility and indexing hygiene",
-      structure: "structure and interpretability",
-      accessibility: "accessibility and usability",
+      performance: "performance delivery",
+      seo: "search visibility",
+      structure: "structure clarity",
+      accessibility: "accessibility",
       mobile: "mobile experience",
     }[k] || k);
 
@@ -614,36 +458,27 @@ async function callOpenAI({ facts, constraints }) {
     "You are Λ i Q™, an evidence-based diagnostic narrator for iQWEB reports.",
     "",
     "Non-negotiable rules:",
-    "1) Use ONLY the provided facts/evidence. Do not invent causes, systems, traffic, user intent, or instrumentation.",
-    "2) Do not mention numeric scores, percentages, or the word 'score'. (Performance timings like LCP/CLS/TBT are allowed if present in facts.)",
+    "1) Use ONLY the provided facts/evidence. Do not invent causes, systems, traffic, or measurements.",
+    "2) Do not mention numeric scores, percentages, or the word 'score'.",
     "3) Do not mention 'deterministic', 'measured', or 'use the evidence below'.",
     "4) No sales language, no hype, no blame, no fear-mongering.",
     "5) Avoid command language. Do not use: must, urgent, immediately, essential, required.",
-    "6) Avoid rigid templates in SIGNALS sections. Vary sentence structure.",
+    "6) Avoid rigid templates. Vary sentence structure.",
     "7) Avoid these exact phrases (or close variants):",
     `   - ${bannedPhrases.join("\n   - ")}`,
     "",
-    "Critical style requirement:",
+    "Style requirement (critical):",
     "- Write like a senior reviewer explaining tradeoffs calmly to an agency.",
-    "- Be specific: refer to concrete facts (e.g., PSI LCP/CLS/TBT, HTML bytes, script counts, H1/canonical/robots, headers).",
-    "- If something is missing (e.g., PSI pending), say it is missing; do not guess.",
+    "- Be specific: if evidence says 'HSTS missing' or 'Robots meta tag missing', say that plainly.",
+    "- Keep it tight. Two lines is ideal, max three per signal.",
     "",
-    "EXECUTIVE NARRATIVE (overall.lines) rules (critical):",
-    "- Provide exactly 5 sentences.",
-    "- Map sentences to this structure EXACTLY:",
-    "  S1 — Page delivery reality (what is being shipped / observed delivery behaviour)",
-    "  S2 — Primary constraint (what is broken or missing)",
-    "  S3 — Consequence (what that causes on THIS page)",
-    "  S4 — Counterbalance (what is NOT the problem here)",
-    "  S5 — Fix order (explicit priority)",
-    "- Every sentence must reference at least one concrete fact from the Facts JSON.",
-    "- Do not repeat the same issue twice.",
-    "",
-    "SIGNAL LINES (signals.*.lines) rules:",
-    "- PRIMARY signal: up to 4 lines max.",
-    "- Others: 2 lines ideal, max 3.",
-    "- Each signal MUST reference at least one evidence item if any exist for that signal.",
-    "- If there is no evidence for a signal, keep it short and neutral.",
+    "Output constraints:",
+    "- overall.lines: provide 1–2 neutral lines only (we will override overall deterministically).",
+    "- signals.*.lines:",
+    "  * PRIMARY signal: up to 4 lines max.",
+    "  * Others: 2 lines ideal, max 3.",
+    "  * Each signal MUST reference at least one evidence item if any exist for that signal.",
+    "  * If there is no evidence for a signal, keep it short and neutral.",
     "",
     "The PRIMARY focus is:",
     `- ${primaryLabel}`,
@@ -676,11 +511,11 @@ async function callOpenAI({ facts, constraints }) {
         { role: "system", content: instructions },
         { role: "user", content: user },
       ],
-      max_output_tokens: 950,
+      max_output_tokens: 900,
       text: {
         format: {
           type: "json_schema",
-          name: "iqweb_narrative_v54_exec_and_signals",
+          name: "iqweb_narrative_v52_signals_only",
           strict: true,
           schema: {
             type: "object",
@@ -793,21 +628,20 @@ async function callOpenAI({ facts, constraints }) {
 }
 
 /* ============================================================
-   ENFORCE CONSTRAINTS
-   - Uses GPT overall.lines with validation + fallback
+   ENFORCE CONSTRAINTS (ONE FUNCTION ONLY)
+   - Builds deterministic executive narrative (4 lines)
    - Builds deterministic fix_first block
    - Clips / falls back for signal lines
    ============================================================ */
-
 function enforceConstraints(n, facts, constraints) {
   const primarySignal = String((constraints && constraints.primary) || "").toLowerCase();
 
   const label = (k) =>
     ({
       security: "security and trust",
-      performance: "delivery stability and load behaviour",
-      seo: "search visibility and indexing hygiene",
-      structure: "structure and interpretability",
+      performance: "performance and delivery",
+      seo: "search visibility",
+      structure: "structure and semantics",
       accessibility: "accessibility and usability",
       mobile: "mobile experience",
     }[k] || "delivery");
@@ -831,6 +665,33 @@ function enforceConstraints(n, facts, constraints) {
 
   const primaryEvidence = asArray(constraints && constraints.primary_evidence).filter(Boolean);
 
+  function compactEvidence(list, max) {
+    const a = asArray(list).filter(Boolean).slice(0, max);
+    if (!a.length) return "";
+    if (a.length === 1) return a[0];
+    return a[0] + " and " + a[1];
+  }
+
+  function chooseNotThis(sig) {
+    if (sig === "performance" || sig === "mobile") return "design polish, SEO copy, or campaigns";
+    if (sig === "seo") return "polish or paid traffic";
+    if (sig === "structure") return "cosmetic redesign or new sections";
+    if (sig === "security") return "visual changes alone";
+    if (sig === "accessibility") return "marketing spend or cosmetic changes";
+    return "polish or campaigns";
+  }
+
+  const ev = primaryEvidence.length ? compactEvidence(primaryEvidence, 2) : "";
+
+  // -----------------------------
+  // Executive Narrative — signal-led, stronger language (4 lines max)
+  // -----------------------------
+  // -----------------------------
+  // Executive Narrative — evidence-led (4 lines, NOT generic)
+  // -----------------------------
+  const topEv = (primaryEvidence && primaryEvidence[0]) ? String(primaryEvidence[0]) : "";
+  const evLow = topEv.toLowerCase();
+
   function pick(arr, seed) {
     if (!arr || !arr.length) return "";
     let h = 0;
@@ -839,177 +700,175 @@ function enforceConstraints(n, facts, constraints) {
     return arr[h % arr.length];
   }
 
-  // Deterministic fallback exec narrative (only used if GPT output is empty/weak)
-  function execFallbackS1toS5(factsObj, primarySig, evidenceText) {
-    const bc = safeObj(factsObj && factsObj.evidence_blocks && factsObj.evidence_blocks.basic_checks);
-    const psi = safeObj(factsObj && factsObj.psi);
-    const pm = safeObj(psi && psi.mobile);
-    const pd = safeObj(psi && psi.desktop);
+  function execLinesFromEvidence(primarySig, evidenceText) {
+    const e = String(evidenceText || "").trim();
+    const el = e.toLowerCase();
 
-    const htmlBytes = bc.html_bytes != null ? Number(bc.html_bytes) : null;
-    const inlineScripts = bc.inline_script_count != null ? Number(bc.inline_script_count) : null;
+    // --- SEO: Canonical mismatch ---
+    if (el.includes("canonical") && el.includes("mismatch")) {
+      const L1 = pick([
+        "Search engines are being given conflicting signals about the preferred URL for this site.",
+        "This site’s discovery signals are unstable because the canonical setup conflicts across URLs.",
+        "Indexing consistency is being weakened by an inconsistent canonical configuration."
+      ], e);
 
-    const hasPsi = psi && psi.pending === false && (pm && Object.keys(pm).length || pd && Object.keys(pd).length);
+      const L2 = "The scan flagged: " + e + ".";
 
-    const S1 = (() => {
-      const bits = [];
-      if (htmlBytes != null) bits.push("HTML is about " + Math.round(htmlBytes / 1024) + "KB");
-      if (inlineScripts != null) bits.push(String(inlineScripts) + " inline scripts");
-      if (hasPsi) {
-        if (pm.LCP_ms != null) bits.push("mobile LCP " + fmtMs(pm.LCP_ms));
-        if (pm.CLS != null) bits.push("mobile CLS " + fmtDecimal(pm.CLS, 2));
-      }
-      if (bits.length) return "Page delivery is heavy and script-driven (" + bits.join(", ") + ").";
-      return "Page delivery is resource-heavy and script-driven in the current scan.";
-    })();
+      const L3 = pick([
+        "When canonical signals disagree, Google can index the “wrong” version, split authority, or show inconsistent pages in results.",
+        "Conflicting canonicals can cause ranking signals to fragment and indexing to drift between URL variants.",
+        "This can lead to duplicated indexing and diluted search visibility even if the content itself is fine."
+      ], e);
 
-    const S2 = (() => {
-      if (primarySig === "performance") {
-        const bits = [];
-        if (hasPsi) {
-          if (pm.LCP_ms != null) bits.push("mobile LCP " + fmtMs(pm.LCP_ms));
-          if (pm.TBT_ms != null) bits.push("mobile TBT " + fmtMs(pm.TBT_ms));
-          if (pm.CLS != null) bits.push("mobile CLS " + fmtDecimal(pm.CLS, 2));
-          if (pd.LCP_ms != null) bits.push("desktop LCP " + fmtMs(pd.LCP_ms));
-          if (pd.TBT_ms != null) bits.push("desktop TBT " + fmtMs(pd.TBT_ms));
-        }
-        if (bits.length) return "The primary constraint is delivery stability and main-thread load (" + bits.slice(0, 4).join(", ") + ").";
-        return "The primary constraint is delivery stability and main-thread load rather than page structure or content.";
-      }
-      if (primarySig === "seo") return "The primary constraint is search visibility hygiene (key indexing signals are inconsistent).";
-      if (primarySig === "security") return "The primary constraint is trust hardening (a small set of headers/policies are not observed).";
-      if (primarySig === "accessibility") return "The primary constraint is usability for assistive technologies (friction indicators are present).";
-      if (primarySig === "structure") return "The primary constraint is structural interpretability (baseline semantics are not consistently signaled).";
-      return "The primary constraint is " + primaryLabel + ".";
-    })();
+      const L4 = "Fix the canonical source-of-truth first, then re-scan before spending on SEO copy or campaigns.";
+      return [L1, L2, L3, L4];
+    }
 
-    const S3 = (() => {
-      if (primarySig === "performance") {
-        return "That mix makes the page feel late and unstable: content appears slowly, shifts during load, and interaction can be delayed while scripts execute.";
-      }
-      if (primarySig === "seo") return "That can reduce indexing clarity and cause search engines to infer intent from weaker cues.";
-      if (primarySig === "security") return "That weakens baseline user trust signals without changing any visible design or content.";
-      if (primarySig === "accessibility") return "That creates avoidable friction for keyboard/screen-reader users and increases cognitive load.";
-      if (primarySig === "structure") return "That forces browsers and crawlers to infer intent, reducing consistency across tools.";
-      return "That reduces consistency and increases avoidable friction for users and tooling.";
-    })();
+    // --- SEO: Missing H1 ---
+    if (el.includes("missing") && el.includes("h1")) {
+      const L1 = pick([
+        "Search engines and assistive tools are not being given a clear primary page heading signal.",
+        "Page intent is harder to interpret because the main heading structure is incomplete.",
+        "Discovery and content hierarchy signals are weakened by missing page-level headings."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without a clear H1, relevance cues are diluted and pages can be interpreted less consistently in search results.",
+        "Missing primary headings can reduce clarity for crawlers and make content hierarchy harder to infer.",
+        "This often leads to weaker page intent signals even when the content itself is adequate."
+      ], e);
+      const L4 = "Restore a clear heading hierarchy first, then re-check indexing and snippet behaviour on re-scan.";
+      return [L1, L2, L3, L4];
+    }
 
-    const S4 = (() => {
-      // counterbalance should cite a positive fact when possible
-      const okBits = [];
-      if (bc.h1_present === true) okBits.push("H1 is present");
-      if (bc.viewport_present === true) okBits.push("viewport is present");
-      const sh = safeObj(factsObj && factsObj.evidence_blocks && factsObj.evidence_blocks.security_headers);
-      if (sh.https === true) okBits.push("HTTPS is in place");
-      if (sh.hsts === true) okBits.push("HSTS is observed");
-      if (okBits.length) return "Core foundations are not the limiting factor here (" + okBits.slice(0, 3).join(", ") + ").";
-      return "Core structure and transport security do not appear to be the main blocker in this scan.";
-    })();
+    // --- Performance: Layout volatility / CLS ---
+    if (el.includes("layout shift") || el.includes("cumulative layout shift") || (el.includes("cls") && el.length < 80)) {
+      const L1 = pick([
+        "The page experience is being undermined by unstable layout behaviour while content is loading.",
+        "Users are likely seeing content move as the page renders, which reduces confidence and interaction success.",
+        "Layout stability is currently the limiting factor for a predictable, usable first impression."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "When layout shifts occur, people mis-click, lose their place, and abandon before the site has a chance to persuade.",
+        "Layout volatility increases friction on mobile and makes the site feel unreliable even if pages ultimately load.",
+        "Stabilising above-the-fold layout improves interaction readiness and reduces bounce risk."
+      ], e);
+      const L4 = "Stabilise layout during load first (reserve space, control late-loading assets), then re-scan to confirm the experience has settled.";
+      return [L1, L2, L3, L4];
+    }
 
-    const S5 = (() => {
-      if (primarySig === "performance") {
-        return "Fix order: reduce LCP/CLS/TBT drivers first, then address secondary hygiene (canonical/robots/policies), then re-scan to confirm stability.";
-      }
-      return "Fix order: address the primary constraint first, then resolve the next two hygiene gaps, then re-scan to confirm the change.";
-    })();
+    // --- SEO: Missing canonical tag ---
+    if (el.includes("canonical") && (el.includes("missing") || el.includes("absent") || el.includes("no canonical"))) {
+      const L1 = pick([
+        "Search engines don’t have a clear ‘preferred URL’ signal for this site.",
+        "This site is missing a clean canonical signal, which weakens indexing consistency.",
+        "Discovery signals are incomplete because the canonical preference isn’t declared."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without a canonical, crawlers may treat URL variants as separate pages and split authority between them.",
+        "This increases the chance of duplicate indexing and unpredictable rankings across similar URLs.",
+        "Even small URL variations can create multiple indexed versions, which reduces clarity in search."
+      ], e);
+      const L4 = "Set a canonical standard for key pages first, then verify indexing behaviour on re-scan.";
+      return [L1, L2, L3, L4];
+    }
 
-    return [S1, S2, S3, S4, S5];
+    // --- Accessibility: Empty links ---
+    if (el.includes("empty") && el.includes("<a")) {
+      const L1 = pick([
+        "User interaction clarity is being reduced by broken or empty link elements.",
+        "Some navigation elements are present but not meaningful to users or assistive tech.",
+        "Interaction reliability is being weakened by link elements that don’t resolve to usable targets."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Empty links create dead-ends for keyboard users and screen readers and can break expected navigation paths.",
+        "This increases friction in real user journeys and makes accessibility tooling flag the site repeatedly.",
+        "These gaps can block completion flows and reduce trust in the site’s basic usability."
+      ], e);
+      const L4 = "Fix broken/empty interactive elements first, then re-test navigation and forms.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Security: HSTS missing ---
+    if (el.includes("hsts") && (el.includes("missing") || el.includes("not enabled") || el.includes("absent"))) {
+      const L1 = pick([
+        "Browser-level trust protections are incomplete on this site.",
+        "Security hardening is partially missing, which weakens modern trust expectations.",
+        "Trust signals are being held back by missing baseline browser security headers."
+      ], e);
+      const L2 = "The scan flagged: " + e + ".";
+      const L3 = pick([
+        "Without HSTS, users are more exposed to downgrade and interception risks on hostile networks.",
+        "This doesn’t usually break the site, but it reduces protection and can affect trust posture.",
+        "It’s an avoidable gap that keeps the security baseline below modern expectations."
+      ], e);
+      const L4 = "Enable HSTS safely (with correct preload strategy if needed) and re-scan to confirm the baseline.";
+      return [L1, L2, L3, L4];
+    }
+
+    // --- Default (still not generic-generic) ---
+    const L1 = "The main constraint right now is " + primaryLabel + " consistency, not visual polish.";
+    const L2 = e ? ("The scan flagged: " + e + ".") : "The scan flagged baseline issues that reduce consistency.";
+    const L3 = "Stabilising the top issues first makes downstream work (SEO, UX, campaigns) actually pay off.";
+    const L4 = "Fix the top two flagged items in this area, then re-scan to confirm the constraint is removed.";
+    return [L1, L2, L3, L4];
   }
 
-  // Validate GPT exec narrative: must be 5 lines and anchored to facts
-  function execLooksAnchored(lines, factsObj) {
-    const arr = asArray(lines);
-    if (arr.length !== 5) return false;
+  out.overall.lines = execLinesFromEvidence(primarySignal, topEv);
 
-    const text = cleanLine(arr.join(" ").toLowerCase());
-    if (!text) return false;
-
-    // anchors
-    const anchors = [
-      "lcp",
-      "cls",
-      "tbt",
-      "ttfb",
-      "h1",
-      "canonical",
-      "robots",
-      "hsts",
-      "csp",
-      "referrer",
-      "permissions-policy",
-      "html",
-      "inline script",
-      "images",
-      "alt",
-    ];
-
-    let hits = 0;
-    for (let i = 0; i < anchors.length; i++) if (text.includes(anchors[i])) hits++;
-
-    // require at least 2 anchor hits (keeps it from being generic)
-    if (hits >= 2 && text.length >= 160) return true;
-    return false;
-  }
-
-  // -----------------------------
-  // Executive Narrative (GPT-authored, clipped, validated, fallback)
-  // -----------------------------
-  const modelOverall = asArray(n && n.overall && n.overall.lines);
-  const clippedOverall = clipLines(modelOverall, 5);
-
-  if (clippedOverall.length === 5 && execLooksAnchored(clippedOverall, facts)) {
-    out.overall.lines = clippedOverall;
-  } else {
-    const topEv = primaryEvidence && primaryEvidence[0] ? String(primaryEvidence[0]) : "";
-    out.overall.lines = execFallbackS1toS5(facts, primarySignal, topEv);
-  }
 
   // -----------------------------
   // Fix First block (deterministic)
   // -----------------------------
   function buildFixFirst() {
     const primaryE = asArray(constraints && constraints.primary_evidence).filter(Boolean);
-    const topPrimary = primaryE.slice(0, 3);
+    const topPrimary = primaryE.slice(0, 2);
 
     const overrideTag = String((constraints && constraints._override && constraints._override.tag) || "").toLowerCase();
 
     let fixTitle = "";
     if (primarySignal === "performance" || primarySignal === "mobile") {
-      fixTitle =
-        overrideTag === "psi_critical_delivery"
-          ? "Delivery stability (reduce LCP/CLS/TBT drivers)"
-          : "Rendering and load behaviour (reduce time to usable)";
+      fixTitle = overrideTag === "layout_volatility"
+        ? "Layout stability and interaction readiness (reduce shifts and mis-clicks)"
+        : "Rendering and load behaviour (reduce time to usable)";
     } else if (primarySignal === "security") {
       fixTitle = "Missing trust protections (close the obvious gaps)";
     } else if (primarySignal === "seo") {
-      fixTitle = "Indexing and discovery hygiene (remove the blockers)";
+      fixTitle = "Indexing and discovery signals (remove the blockers)";
     } else if (primarySignal === "structure") {
-      fixTitle = "Structural foundations (make pages easier to interpret)";
+      fixTitle = overrideTag === "structural_invalidity"
+        ? "Structural foundations (make pages interpretable to browsers and crawlers)"
+        : "Structure and crawl clarity (make pages easier to interpret)";
     } else if (primarySignal === "accessibility") {
-      fixTitle = "Usability gaps (remove avoidable friction)";
+      fixTitle = "Accessibility fundamentals (reduce friction for users and devices)";
     } else {
       fixTitle = "The highest-impact baseline issues";
     }
 
     const why = [];
     if (topPrimary.length) {
-      for (let i = 0; i < topPrimary.length; i++) why.push("This scan flags: " + topPrimary[i] + ".");
+      for (let i = 0; i < topPrimary.length; i++) {
+        why.push("This scan flags: " + topPrimary[i] + ".");
+      }
     } else {
       why.push("The scan shows the primary bottleneck in " + primaryLabel + ".");
     }
 
     const deprioritise = [];
     if (primarySignal === "performance" || primarySignal === "mobile") {
-      deprioritise.push("Design polish or copy tweaks before delivery is stable (you won’t see clean lift).");
-      deprioritise.push("Minor hardening tweaks unless a specific trust gap is flagged.");
+      deprioritise.push("Design polish, copy tweaks, or campaign spend until pages become usable faster.");
+      deprioritise.push("Low-impact security tweaks unless a specific risk is explicitly flagged.");
     } else {
       deprioritise.push("Cosmetic design changes that do not address the core constraint.");
-      deprioritise.push("Campaign spend before the baseline issue is stabilised.");
+      deprioritise.push("Marketing spend before the baseline issue is stabilised.");
     }
 
     const expected_outcome = [];
     expected_outcome.push("Cleaner before/after improvements on re-scan.");
-    expected_outcome.push("More predictable results from tooling and crawlers.");
+    expected_outcome.push("More predictable results from crawlers and tooling.");
     expected_outcome.push("Reduced avoidable friction for real users.");
 
     return { fix_first: fixTitle, why, deprioritise, expected_outcome };
@@ -1039,7 +898,7 @@ function enforceConstraints(n, facts, constraints) {
       const a = evidence.slice(0, 2);
       out.signals[k].lines = [
         "Evidence here includes " + (a.length === 2 ? a[0] + " and " + a[1] : a[0]) + ".",
-        "Addressing these items improves consistency and reduces avoidable friction.",
+        "Fixing these items reduces avoidable friction and improves consistency.",
       ];
       return;
     }
@@ -1060,11 +919,10 @@ function enforceConstraints(n, facts, constraints) {
 /* ============================================================
    NARRATIVE VALIDITY CHECK
    ============================================================ */
-
 function isNarrativeComplete(n) {
   const hasOverall =
     Array.isArray(n && n.overall && n.overall.lines) &&
-    n.overall.lines.filter(Boolean).length === 5;
+    n.overall.lines.filter(Boolean).length > 0;
 
   const sig = safeObj(n && n.signals);
   const keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -1083,16 +941,15 @@ function isNarrativeComplete(n) {
 /* ============================================================
    STORE NARRATIVE
    ============================================================ */
-
 async function writeNarrative(report_id, narrative) {
   const { error } = await supabase.from("scan_results").update({ narrative }).eq("report_id", report_id);
+
   if (error) throw new Error("Failed to write narrative: " + (error.message || String(error)));
 }
 
 /* ============================================================
    MAIN HANDLER (CommonJS export for Netlify)
    ============================================================ */
-
 exports.handler = async function handler(event) {
   if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
@@ -1119,31 +976,6 @@ exports.handler = async function handler(event) {
     if (scanErr) throw new Error("Failed to read scan row: " + (scanErr.message || String(scanErr)));
 
     const row = (scanRows && scanRows[0]) || null;
-
-    const metrics = safeObj(row.metrics);
-const psi = safeObj(metrics.psi);
-
-// If PSI is enabled, wait until it is no longer pending AND has at least one device populated.
-// (Allow force=true to override.)
-const psiEnabled = psi.enabled === true;
-const psiPending = psi.pending === true;
-const hasAnyPsi =
-  (psi.mobile && psi.mobile.facts) || (psi.desktop && psi.desktop.facts);
-
-if (!force && psiEnabled && (psiPending || !hasAnyPsi)) {
-  // do NOT write narrative yet
-  return json(202, {
-    success: true,
-    status: "psi_pending",
-    report_id,
-    psi: {
-      enabled: psiEnabled,
-      pending: psiPending,
-      hasAnyPsi: !!hasAnyPsi,
-    },
-  });
-}
-
     if (!row) return json(404, { success: false, error: "Report not found" });
 
     if (!force && row.narrative && isNarrativeComplete(row.narrative)) {
@@ -1158,7 +990,7 @@ if (!force && psiEnabled && (psiPending || !hasAnyPsi)) {
       modelOut = await callOpenAI({ facts, constraints });
     } catch (e) {
       modelOut = {
-        overall: { lines: [] },
+        overall: { lines: [""] },
         signals: {
           performance: { lines: [] },
           mobile: { lines: [] },
@@ -1181,8 +1013,6 @@ if (!force && psiEnabled && (psiPending || !hasAnyPsi)) {
       report_id,
       narrative_status: enforced._status,
       generated_at: enforced._generated_at,
-      primary: constraints.primary,
-      override: constraints._override || null,
     });
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
@@ -1194,7 +1024,6 @@ if (!force && psiEnabled && (psiPending || !hasAnyPsi)) {
 exports._debug = {
   buildFactsFromScanRow,
   chooseHierarchy,
-  applyOverrides,
   enforceConstraints,
   isNarrativeComplete,
   scrubLine,

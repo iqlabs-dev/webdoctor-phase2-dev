@@ -268,7 +268,7 @@ export async function handler(event) {
     return json(400, { ok: false, error: "Missing report_id/url/strategies" });
   }
 
-  // Build psi result object
+  // Build psi result objec
   const psi = { enabled: true, pending: true, desktop: null, mobile: null, errors: [] };
 
   // Run strategies sequentially (safer + less risk of timeouts)

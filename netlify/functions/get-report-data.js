@@ -296,7 +296,7 @@ export async function handler(event) {
     // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
-    // Attach deterministic overall summary so UI + PDF use the same source
+    // Attach deterministc overall summary so UI + PDF use the same source
     if (narrative && typeof narrative === "object") {
       narrative.overall_summary = narrative.overall_summary || overall_summary;
     }
