@@ -327,7 +327,8 @@ function evaluateFlags({ lhMobile, lhDesktop, basic, securityHeaders }) {
 
   return flags;
 }
-import { createClient } from "@supabase/supabase-js";
+const { createClient } = require("@supabase/supabase-js");
+
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -1457,7 +1458,7 @@ function isTrialActive(userFlags) {
 // ---------------------------------------------
 // Handler
 // ---------------------------------------------
-export async function handler(event) {
+exports.handler = async (event) => {
   try {
     // Preflight
     if (event.httpMethod === "OPTIONS") {
@@ -1905,4 +1906,4 @@ const gate = await waitForPsiReadyInScanResults(finalReportId);
       detail: e?.message || String(e),
     });
   }
-}
+};
