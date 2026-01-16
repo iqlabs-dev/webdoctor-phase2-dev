@@ -1833,18 +1833,16 @@ let narrative_ok = null;
 if (generate_narrative) {
   const finalReportId = saved.report_id || report_id;
 
-const gate = await waitForPsiReadyInScanResults(finalReportId);
+const gate = await waitForPsiReadyInScanResults(finalReportId, 6000, 1200);
 
-
-  if (gate.ready) {
-    const origin = getSiteOrigin(event);
-    const result = await tryGenerateNarrative(origin, finalReportId, user_id);
-    narrative_ok = result.ok;
-  } else {
-    console.log("[run-scan] PSI not ready yet, narrative deferred", {
-      report_id: finalReportId,
-      waited_ms: gate.waited_ms,
-    });
+if (gate.ready) {
+  const origin = getSiteOrigin(event);
+  const result = await tryGenerateNarrative(origin, finalReportId, user_id);
+  narrative_ok = result.ok;
+} else {
+  // Don't block the request — report will be ready shortly, UI will poll
+  narrative_ok = null;
+    
   }
 }
 
