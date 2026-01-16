@@ -1839,7 +1839,8 @@ let narrative_ok = null;
 if (generate_narrative) {
   const finalReportId = saved.report_id || report_id;
 
-  const gate = await waitForPsiReady(finalReportId);
+const gate = await waitForPsiReadyInScanResults(finalReportId);
+
 
   if (gate.ready) {
     const origin = getSiteOrigin(event);
