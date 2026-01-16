@@ -1263,14 +1263,40 @@ function buildScores(url, html, res, isHtml) {
   return { basic, headers, scores, human, notes, delivery_signals };
 }
 
-function getSiteOrigin(event) {
-  return (
-    process.env.URL ||
-    process.env.DEPLOY_PRIME_URL ||
-    event.headers?.origin ||
-    `https://${event.headers?.host}`
-  );
+// ---------------------------------------------
+// PSI readiness gate (poll scan_results.metrics jsonb)
+// ---------------------------------------------
+async function waitForPsiReadyInScanResults(report_id, maxWaitMs = 45000, pollMs = 1500) {
+  const start = Date.now();
+
+  while (Date.now() - start < maxWaitMs) {
+    const { data, error } = await supabase
+      .from("scan_results")
+      .select("metrics")
+      .eq("report_id", report_id)
+      .maybeSingle();
+
+    if (!error && data?.metrics?.psi) {
+      const psi = data.metrics.psi;
+
+      // PSI disabled => ready immediately
+      if (psi.enabled === false) {
+        return { ready: true, waited_ms: Date.now() - start, reason: "psi_disabled" };
+      }
+
+      // PSI complete => pending false + at least one facts pack exists
+      const hasFacts = !!(psi.mobile?.facts || psi.desktop?.facts);
+      if (psi.pending === false && hasFacts) {
+        return { ready: true, waited_ms: Date.now() - start, reason: "psi_complete" };
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+
+  return { ready: false, waited_ms: Date.now() - start, reason: "timeout" };
 }
+
 
 // ---------------------------------------------
 // PSI readiness gate (poll scan_results.metrics jsonb)
