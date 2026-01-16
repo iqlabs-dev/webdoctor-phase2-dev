@@ -25,303 +25,124 @@ function json(statusCode, body) {
 function safeObj(v) {
   return v && typeof v === "object" ? v : {};
 }
+
 function asArray(v) {
   return Array.isArray(v) ? v : [];
 }
-function asInt(v, fallback = 0) {
+
+function safeStr(v) {
+  return typeof v === "string" ? v : "";
+}
+
+function safeNum(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(0, Math.min(100, Math.round(n)));
+  return Number.isFinite(n) ? n : null;
 }
 
-function overallSummaryFromScore(score) {
-  const s = Number(score);
-
-  const disclaimer =
-    "This score reflects deterministic checks only and does not measure brand or content effectiveness.";
-
-  if (!Number.isFinite(s)) {
-    return `Overall delivery score unavailable. ${disclaimer}`;
-  }
-
-  let lead =
-    s >= 90 ? "Overall delivery is excellent." :
-    s >= 80 ? "Overall delivery is good." :
-    s >= 70 ? "Overall delivery is fair." :
-    s >= 60 ? "Overall delivery needs improvement." :
-              "Overall delivery is poor.";
-
-  return `${lead} ${disclaimer}`;
+function normUrl(url) {
+  const s = safeStr(url).trim();
+  if (!s) return "";
+  return s.replace(/\/+$/, "");
 }
 
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
-function isNumericString(v) {
-  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
-}
-
-function prettifyKey(k) {
-  return String(k || "")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function evidenceToObservations(evidence) {
-  const ev = safeObj(evidence);
-  const entries = Object.entries(ev);
-  if (!entries.length) return [];
-
-  const priority = [
-    "title_present",
-    "meta_description_present",
-    "canonical_present",
-    "canonical_matches_url",
-    "h1_present",
-    "h1_count",
-    "viewport_present",
-    "device_width_present",
-    "https",
-    "hsts",
-    "content_security_policy",
-    "x_frame_options",
-    "x_content_type_options",
-    "referrer_policy",
-    "permissions_policy",
-    "img_count",
-    "img_alt_count",
-    "alt_ratio",
-    "html_bytes",
-    "inline_script_count",
-    "head_script_block_present",
-  ];
-
-  const ranked = entries.sort((a, b) => {
-    const ai = priority.indexOf(a[0]);
-    const bi = priority.indexOf(b[0]);
-    const ar = ai === -1 ? 999 : ai;
-    const br = bi === -1 ? 999 : bi;
-    if (ar !== br) return ar - br;
-    return String(a[0]).localeCompare(String(b[0]));
-  });
-
-  return ranked.map(([key, value]) => ({
-    label: prettifyKey(key),
-    value: value === undefined ? null : value,
-    source: "evidence",
-  }));
-}
-
-function deductionsToIssues(signal) {
-  const sig = safeObj(signal);
-  const deds = asArray(sig.deductions);
-  if (!deds.length) return [];
-
-  const missing = deds.find(
-    (d) =>
-      isNonEmptyString(d?.reason) &&
-      /missing|required|not found|not observed|not confirmed/i.test(d.reason)
-  );
-
-  if (!missing) return [];
-
-  return [
-    {
-      title: `${sig.label || "Signal"}: required signal missing`,
-      severity: "high",
-      impact:
-        "This scan could not observe required inputs. Missing inputs are treated as a penalty to preserve completeness.",
-      evidence: { missing_reason: missing.reason },
-    },
-  ];
-}
-
-function normaliseSignal(sig) {
-  const s = safeObj(sig);
-
-  const out = {
-    id: s.id || "",
-    label: s.label || s.id || "Signal",
-    score: asInt(s.score, 0),
-    base_score: Number.isFinite(Number(s.base_score)) ? Number(s.base_score) : 100,
-    penalty_points: Number.isFinite(Number(s.penalty_points))
-      ? Math.max(0, Math.round(Number(s.penalty_points)))
-      : null,
-    deductions: asArray(s.deductions).map((d) => ({
-      points: Number.isFinite(Number(d?.points)) ? Math.round(Number(d.points)) : 0,
-      reason: isNonEmptyString(d?.reason) ? String(d.reason).trim() : "Deduction applied.",
-      code: isNonEmptyString(d?.code) ? String(d.code).trim() : "",
-    })),
-    observations: asArray(s.observations).length
-      ? asArray(s.observations)
-      : evidenceToObservations(s.evidence),
-    issues: asArray(s.issues).length ? asArray(s.issues) : deductionsToIssues(s),
-    evidence: safeObj(s.evidence),
-  };
-
-  if (!Number.isFinite(Number(out.penalty_points))) {
-    const dedSum = out.deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
-    out.penalty_points = Math.max(0, dedSum);
-  }
-
-  return out;
-}
-
-// -----------------------------
-// Narrative normaliser (v5.2 -> UI-compatible)
-// - Your UI currently expects narrative.executive_lead (string)
-// - v5.2 generator produces narrative.overall.lines (array)
-// -----------------------------
-function normaliseNarrativeForUI(raw) {
-  // Preserve nulls (don’t convert to {})
-  if (!raw || typeof raw !== "object") return null;
-
-  // If already old-shape, keep as-is
-  if (isNonEmptyString(raw.executive_lead)) return raw;
-
-  // If v5.2 shape, map overall.lines -> executive_lead
-  const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
-  if (overallLines.length) {
-    return {
-      ...raw,
-      executive_lead: overallLines.slice(0, 5).join("\n"), // respects your max line constraints
-    };
-  }
-
-  // Otherwise return as-is (may still be useful for debugging)
-  return raw;
-}
-
-// -----------------------------
-// Handler
-// -----------------------------
 export async function handler(event) {
+  if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
+
+  const report_id = safeStr(event.queryStringParameters?.report_id || "").trim();
+  if (!report_id) return json(400, { success: false, error: "Missing report_id" });
+
   try {
-    if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-
-    const reportParam = String(
-      event.queryStringParameters?.report_id ||
-        event.queryStringParameters?.id ||
-        ""
-    ).trim();
-
-    if (!reportParam) return json(400, { success: false, error: "Missing report_id" });
-
-    const byNumericId = isNumericString(reportParam);
-
-    // IMPORTANT:
-    // - Do NOT use .single() here, because it errors on 0 rows AND on duplicate report_id rows.
-    // - Instead: fetch array, order desc, take first.
-    let q = supabase
+    const { data, error } = await supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
-      .order("created_at", { ascending: false })
+      .select(
+        "report_id,url,created_at,score_overall,metrics,narrative,status,claimed_by,claimed_at"
+      )
+      .eq("report_id", report_id)
       .limit(1);
 
-    q = byNumericId ? q.eq("id", Number(reportParam)) : q.eq("report_id", reportParam);
+    if (error) return json(500, { success: false, error: error.message });
+    if (!data || !data.length) return json(404, { success: false, error: "Report not found" });
 
-    const { data: rows, error: scanErr } = await q;
-
-    if (scanErr) {
-      return json(500, {
-        success: false,
-        error: "Supabase query failed",
-        detail: scanErr.message || String(scanErr),
-        hint:
-          "If this suddenly started after deploy, check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
-      });
-    }
-
-    const scan = rows?.[0] || null;
-    if (!scan) return json(404, { success: false, error: "Report not found" });
-
-    const metrics = safeObj(scan.metrics);
-
-    const rawSignals = asArray(metrics.delivery_signals).length
-      ? metrics.delivery_signals
-      : asArray(metrics?.metrics?.delivery_signals);
-
-    const delivery_signals = asArray(rawSignals).map(normaliseSignal);
-
-    const rawScores = safeObj(metrics.scores);
-    const scores = Object.keys(rawScores).length
-      ? rawScores
-      : {
-          overall: asInt(scan.score_overall, 0),
-          performance: asInt(delivery_signals.find((s) => s.id === "performance")?.score, 0),
-          mobile: asInt(delivery_signals.find((s) => s.id === "mobile")?.score, 0),
-          seo: asInt(delivery_signals.find((s) => s.id === "seo")?.score, 0),
-          security: asInt(delivery_signals.find((s) => s.id === "security")?.score, 0),
-          structure: asInt(delivery_signals.find((s) => s.id === "structure")?.score, 0),
-          accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
-        };
-
-    const overall_summary = overallSummaryFromScore(scores.overall);
-
-    const bc = safeObj(metrics.basic_checks);
-    const sh = safeObj(metrics.security_headers);
-
-    const key_metrics = {
-      http: {
-        status: bc.http_status ?? null,
-        content_type: bc.content_type ?? null,
-        final_url: scan.url ?? null,
-      },
-      page: {
-        title_present: bc.title_present ?? null,
-        canonical_present: bc.canonical_present ?? null,
-        h1_present: bc.h1_present ?? null,
-        viewport_present: bc.viewport_present ?? null,
-      },
-      content: {
-        html_bytes: bc.html_bytes ?? null,
-        img_count: bc.img_count ?? null,
-        img_alt_count: bc.img_alt_count ?? null,
-      },
-      freshness: safeObj(bc.freshness_signals),
-      security: {
-        https: sh.https ?? null,
-        hsts_present: sh.hsts ?? null,
-        csp_present: sh.content_security_policy ?? null,
-        x_frame_options_present: sh.x_frame_options ?? null,
-        x_content_type_options_present: sh.x_content_type_options ?? null,
-        referrer_policy_present: sh.referrer_policy ?? null,
-        permissions_policy_present: sh.permissions_policy ?? null,
-      },
+    const row = data[0];
+    const scan = {
+      report_id: row.report_id,
+      url: row.url,
+      created_at: row.created_at,
+      score_overall: row.score_overall,
+      status: row.status,
+      claimed_by: row.claimed_by,
+      claimed_at: row.claimed_at,
     };
 
-    const findings = asArray(metrics.findings);
-    const fix_plan = asArray(metrics.fix_plan);
+    const url = normUrl(scan.url);
 
-    // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
-    let narrative = normaliseNarrativeForUI(scan.narrative);
+    const metrics = safeObj(row.metrics);
+    const scores = safeObj(metrics.scores);
+    const delivery_signals = asArray(metrics.delivery_signals);
+    const security_headers = safeObj(metrics.security_headers);
+    const basic_checks = safeObj(metrics.basic_checks);
+    const explanations = safeObj(metrics.explanations);
+    const human_signals = safeObj(metrics.human_signals);
 
-    // Attach deterministic overall summary so UI + PDF use the same source
-    if (narrative && typeof narrative === "object") {
-      narrative.overall_summary = narrative.overall_summary || overall_summary;
-    }
+    // IMPORTANT: return PSI + FLAGS so polling can gate properly
+    const psi = safeObj(metrics.psi);
+    const flags = asArray(metrics.flags);
 
+    // Issues list (support both keys)
+    const issues_list = asArray(metrics.issues_list || metrics.issues || []).map((x) => ({
+      title: safeStr(x?.title),
+      detail: safeStr(x?.detail || x?.description),
+      severity: safeStr(x?.severity || x?.impact),
+    }));
+
+    // Convenience header fields for UI
+    const overall_score = Number(scan.score_overall || scores.overall || 0);
+
+    // Keep your existing "header" structure (UI uses it)
     return json(200, {
       success: true,
       header: {
-        website: scan.url,
+        website: url,
         report_id: scan.report_id,
         created_at: scan.created_at,
       },
-      scores,
-      overall_summary,
+
+      // NEW: return psi + flags at top-level for polling
+      psi,
+      flags,
+
+      // existing payload
+      report_id: scan.report_id,
+      url,
+      created_at: scan.created_at,
+      status: scan.status || null,
+      claimed_by: scan.claimed_by || null,
+      claimed_at: scan.claimed_at || null,
+
+      scores: {
+        overall: safeNum(scores.overall ?? overall_score),
+        performance: safeNum(scores.performance),
+        mobile: safeNum(scores.mobile),
+        seo: safeNum(scores.seo),
+        security: safeNum(scores.security),
+        structure: safeNum(scores.structure),
+        accessibility: safeNum(scores.accessibility),
+      },
+
+      basic_checks,
+      security_headers,
       delivery_signals,
-      key_metrics,
-      findings,
-      fix_plan,
-      narrative,
+      issues_list,
+      explanations,
+      human_signals,
+
+      // narrative lives at row-level in your schema
+      narrative: safeObj(row.narrative),
+
+      // keep metrics if you rely on it anywhere else (optional)
+      // metrics,
     });
-  } catch (err) {
-    console.error("[get-report-data]", err);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: err?.message || String(err),
-    });
+  } catch (e) {
+    return json(500, { success: false, error: e?.message || "Server error" });
   }
 }
