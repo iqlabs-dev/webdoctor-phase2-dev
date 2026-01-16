@@ -1275,7 +1275,8 @@ function getSiteOrigin(event) {
 // ---------------------------------------------
 // PSI readiness gate (poll scan_results.metrics jsonb)
 // ---------------------------------------------
-async function waitForPsiReadyInScanResults(report_id, maxWaitMs = 45000, pollMs = 1500) {
+async function waitForPsiReadyInScanResults(report_id, maxWaitMs = 12000, pollMs = 1500) {
+
   const start = Date.now();
 
   while (Date.now() - start < maxWaitMs) {
