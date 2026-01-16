@@ -58,6 +58,23 @@ async function fetchPSI(url, strategy = "desktop") {
   }
 }
 
+function getSiteOrigin(event) {
+  const h = event.headers || {};
+  const proto = h["x-forwarded-proto"] || "https";
+  const host = h["x-forwarded-host"] || h.host;
+
+  if (host) return `${proto}://${host}`;
+
+  // fallback to envs if headers aren't present
+  return (
+    process.env.URL ||
+    process.env.DEPLOY_PRIME_URL ||
+    process.env.SITE_URL ||
+    ""
+  );
+}
+
+
 function lhAudit(lh, id) {
   const a = lh?.audits?.[id];
   if (!a) return null;
