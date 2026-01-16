@@ -177,7 +177,7 @@
 
       if (psiOk && narrativeOkOrGivenUp) {
         setStatus("");
-        // If we gave up, leave a helpful message in the UI
+        // If we gave up, leave a helpful message in the U
         if (narrativeGiveUp && !narrativeOk) {
           const el = document.getElementById("narrativeText");
           if (el) {
