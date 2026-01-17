@@ -171,11 +171,9 @@ export async function handler(event) {
   const body = JSON.parse(event.body || "{}");
   const report_id = String(body.report_id || "").trim();
   const url = String(body.url || "").trim();
+  const user_id = String(body.user_id || "").trim();
 
-  // Strategies may come from caller (run-scan). Make it robust:
-  // - accept strings or arrays
-  // - normalise to ["mobile","desktop"]
-  // - default to BOTH if missing/empty
+  // strategies can be array OR string; default to both if missing
   const rawStrategies = Array.isArray(body.strategies)
     ? body.strategies
     : typeof body.strategies === "string"
@@ -188,14 +186,10 @@ export async function handler(event) {
 
   if (!strategies.length) strategies.push("mobile", "desktop");
 
-  const user_id = String(body.user_id || "").trim();
-
   if (!report_id || !url) {
     return json(400, { ok: false, error: "Missing report_id/url" });
   }
 
-  // We always write a consistent PSI envelope so downstream gates can be deterministic.
-  // pending means: "some required strategies are still missing".
   const psi = {
     enabled: true,
     strategies,
@@ -217,7 +211,6 @@ export async function handler(event) {
 
       const { facts, audits } = lhFactsFromPSI(r.data);
 
-      // HARD GUARD — require at least one real metric (non-null)
       const hasCore =
         facts &&
         (
@@ -292,24 +285,20 @@ export async function handler(event) {
   const mergedPsi = {
     ...prevPsi,
     ...psi,
-    // Ensure both keys exist (even when null)
+    strategies,
+    _updated_at: nowIso(),
     mobile: psi.mobile ?? prevPsi.mobile ?? null,
     desktop: psi.desktop ?? prevPsi.desktop ?? null,
-    // Merge errors
     errors: [
       ...(Array.isArray(prevPsi.errors) ? prevPsi.errors : []),
       ...(Array.isArray(psi.errors) ? psi.errors : []),
     ],
-    // Keep strategies as the source of truth for readiness
-    strategies: strategies,
-    _updated_at: nowIso(),
   };
 
-  // Pending means: missing any required strategy result.
-  const hasMobile = !!(mergedPsi.mobile && mergedPsi.mobile.facts);
-  const hasDesktop = !!(mergedPsi.desktop && mergedPsi.desktop.facts);
   const needMobile = strategies.includes("mobile");
   const needDesktop = strategies.includes("desktop");
+  const hasMobile = !!(mergedPsi.mobile && mergedPsi.mobile.facts);
+  const hasDesktop = !!(mergedPsi.desktop && mergedPsi.desktop.facts);
 
   mergedPsi.pending = (needMobile && !hasMobile) || (needDesktop && !hasDesktop);
   mergedPsi._status = mergedPsi.pending
@@ -331,15 +320,17 @@ export async function handler(event) {
     return json(200, { ok: false, wrote: false, error: "supabase_update_failed" });
   }
 
-  // FINAL HARD CORRECTION (only when PSI exists)
-  if (hasMobile || hasDesktop) {
+  // optional: keep your RPC, but only when BOTH are present
+  if (!mergedPsi.pending) {
     await forcePendingFalse(report_id);
   }
 
-  console.log("[psi-worker-background] PSI complete", {
+  console.log("[psi-worker-background] PSI updated", {
     report_id,
-    has_mobile: hasMobile,
-    has_desktop: hasDesktop,
+    needMobile,
+    needDesktop,
+    hasMobile,
+    hasDesktop,
     pending: mergedPsi.pending,
     errors: mergedPsi.errors.length,
   });

@@ -1,17 +1,8 @@
 /* eslint-disable */
 const { createClient } = require("@supabase/supabase-js");
 
-/**
- * iQWEB Narrative Generator — North Star v1 (Executive Narrative)
- * - Executive narrative is deterministic, site-specific, long-form
- * - AI is used ONLY for signal phrasing
- * - overall.lines is REMOVED permanently
- */
-
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -33,27 +24,24 @@ function json(statusCode, body) {
 
 const safeObj = (v) => (v && typeof v === "object" ? v : {});
 const asArray = (v) => (Array.isArray(v) ? v : []);
-const clean = (s) => String(s || "").trim();
 const nowIso = () => new Date().toISOString();
 
 /* -------------------------------------------------- */
-/* Readiness gate (facts-only)                         */
+/* Readiness gate                                     */
 /* -------------------------------------------------- */
 function getNarrativeReadiness(metrics) {
   const m = safeObj(metrics);
   const psi = safeObj(m.psi);
   const bc = safeObj(m.basic_checks);
 
-  // HTML/basic_checks is your "page reality" bucket.
-  const htmlReady = bc && (bc.html_bytes != null || bc.title != null || bc.h1_present != null);
-
-  // PSI bucket.
   const strategies = asArray(psi.strategies).length ? asArray(psi.strategies) : ["mobile", "desktop"];
   const needMobile = strategies.includes("mobile");
   const needDesktop = strategies.includes("desktop");
 
   const hasMobile = !!(psi.mobile && psi.mobile.facts);
   const hasDesktop = !!(psi.desktop && psi.desktop.facts);
+
+  const htmlReady = bc && (bc.html_bytes != null || bc.title != null || bc.h1_present != null);
 
   const missing = {
     basic_checks: !htmlReady,
@@ -62,7 +50,16 @@ function getNarrativeReadiness(metrics) {
   };
 
   const ready = !missing.basic_checks && !missing.psi_mobile && !missing.psi_desktop;
-  return { ready, missing, strategies, htmlReady, hasMobile, hasDesktop, psiStatus: psi._status || null, psiPending: psi.pending ?? null };
+
+  return {
+    ready,
+    missing,
+    strategies,
+    psi_pending: typeof psi.pending === "boolean" ? psi.pending : null,
+    psi_status: psi._status || null,
+    hasMobile,
+    hasDesktop,
+  };
 }
 
 /* -------------------------------------------------- */
@@ -87,64 +84,46 @@ function buildExecutiveNarrative(metrics, url) {
     root_constraint: { lines: [] },
     structure_seo: { lines: [] },
     trust_security: { lines: [] },
-    fix_order: {
-      label: "What to Fix First (Order Matters)",
-      items: [],
-    },
-    site_specificity: {
-      label: "Why This Is Site-Specific (Not Generic)",
-      lines: [],
-      proof_flags: [],
-    },
+    fix_order: { label: "What to Fix First (Order Matters)", items: [] },
+    site_specificity: { label: "Why This Is Site-Specific (Not Generic)", lines: [], proof_flags: [] },
     _meta: {
       schema_version: "exec_north_star_v1",
       generated_at: nowIso(),
       site_host: url,
-      evidence_snapshot: {
-        desktop: desktop,
-        mobile: mobile,
-        html_bytes: bc.html_bytes,
-        inline_script_count: bc.inline_script_count,
-        h1_present: bc.h1_present,
-        canonical_present: bc.canonical_present,
-      },
     },
   };
 
-  /* ---------- Framing ---------- */
+  // Framing (only when both exist)
   if (desktop.LCP_ms && mobile.LCP_ms && Math.abs(desktop.LCP_ms - mobile.LCP_ms) >= 3000) {
     exec.framing.lines.push(
       "This site is technically capable and fully functional, but its behaviour changes sharply between desktop and mobile, which is where most risk now sits."
     );
-  }
-
-  /* ---------- Behaviour Split ---------- */
-  if (desktop.LCP_ms < 3500) {
-    exec.behaviour_split.desktop.lines.push(
-      "On desktop, pages become usable quickly and core load milestones are reached early."
-    );
-  }
-  if (desktop.CLS >= 0.1) {
-    exec.behaviour_split.desktop.lines.push(
-      "However, layout stability is poor, causing visible movement during load that can disrupt reading and interaction."
+  } else {
+    exec.framing.lines.push(
+      "This site is functional and indexable, but the way it loads and stabilises is the primary limiter of user experience and confidence."
     );
   }
 
-  if (mobile.CLS <= 0.1) {
-    exec.behaviour_split.mobile.lines.push(
-      "On mobile, the layout is stable once it loads."
-    );
+  // Desktop behaviour
+  if (desktop.LCP_ms && desktop.LCP_ms < 3500) {
+    exec.behaviour_split.desktop.lines.push("On desktop, pages reach their main content relatively quickly.");
   }
-  if (mobile.LCP_ms >= 6000) {
-    exec.behaviour_split.mobile.lines.push(
-      "But the page takes an unusually long time to reach its main visual content, making the site feel slow and heavy before users can engage."
-    );
+  if (desktop.CLS != null && desktop.CLS >= 0.1) {
+    exec.behaviour_split.desktop.lines.push("However, layout stability is poor on desktop, causing visible movement during load.");
   }
 
-  /* ---------- Root Constraint ---------- */
+  // Mobile behaviour
+  if (mobile.CLS != null && mobile.CLS <= 0.1) {
+    exec.behaviour_split.mobile.lines.push("On mobile, the layout is stable once it loads.");
+  }
+  if (mobile.LCP_ms && mobile.LCP_ms >= 6000) {
+    exec.behaviour_split.mobile.lines.push("But mobile render time is unusually slow before users can engage.");
+  }
+
+  // Root constraint
   if ((desktop.TTFB_ms && desktop.TTFB_ms < 200) || (mobile.TTFB_ms && mobile.TTFB_ms < 200)) {
     exec.root_constraint.lines.push(
-      "The primary constraint is not hosting or server response, but how much work the browser must do before content becomes usable."
+      "The primary constraint is not server response, but how much work the browser must complete before content becomes usable."
     );
   }
 
@@ -152,36 +131,17 @@ function buildExecutiveNarrative(metrics, url) {
     auditsM["unused-javascript"]?.overallSavingsBytes ||
     auditsD["unused-javascript"]?.overallSavingsBytes;
 
-  if (unusedJs || desktop.TBT_ms > 300 || mobile.TBT_ms > 300) {
+  if (unusedJs || (desktop.TBT_ms && desktop.TBT_ms > 300) || (mobile.TBT_ms && mobile.TBT_ms > 300)) {
     exec.root_constraint.lines.push(
-      "Script execution and unused assets are driving long render delays on mobile and unnecessary layout shifts on desktop."
+      "Script execution and unused assets are contributing to delayed rendering and instability."
     );
   }
 
-  /* ---------- Structure & SEO ---------- */
-  if (bc.h1_present === false || bc.canonical_present === false) {
-    exec.structure_seo.lines.push(
-      "Search engines can index the site, but missing structural signals reduce clarity about page intent."
-    );
-  }
-  if (bc.h1_present === false) {
-    exec.structure_seo.lines.push(
-      "There is no primary page heading (H1), making intent harder to infer for users and crawlers."
-    );
-  }
-  if (bc.canonical_present === false) {
-    exec.structure_seo.lines.push(
-      "There is no canonical URL, allowing authority to fragment across URL variants."
-    );
-  }
+  // Structure/SEO
+  if (bc.h1_present === false) exec.structure_seo.lines.push("There is no primary page heading (H1), reducing clarity of page intent.");
+  if (bc.canonical_present === false) exec.structure_seo.lines.push("There is no canonical URL, which can fragment authority across URL variants.");
 
-  /* ---------- Trust & Security ---------- */
-  if (sh.https && sh.content_security_policy) {
-    exec.trust_security.lines.push(
-      "HTTPS transport is active and a content security policy is present."
-    );
-  }
-
+  // Trust/Security
   const missingHeaders = [];
   if (!sh.hsts) missingHeaders.push("HSTS");
   if (!sh.referrer_policy) missingHeaders.push("Referrer-Policy");
@@ -190,32 +150,26 @@ function buildExecutiveNarrative(metrics, url) {
 
   if (missingHeaders.length >= 2) {
     exec.trust_security.lines.push(
-      `However, several modern trust-hardening headers are missing (${missingHeaders.join(
-        ", "
-      )}), lowering confidence for browsers, auditors, and automated trust systems over time.`
+      `Several modern trust-hardening headers are missing (${missingHeaders.join(", ")}), lowering audit confidence over time.`
     );
+  } else {
+    exec.trust_security.lines.push("Baseline transport security is present and does not appear to be the limiting factor today.");
   }
 
-  /* ---------- Fix Order ---------- */
-  if (unusedJs || desktop.TBT_ms > 300 || mobile.TBT_ms > 300) {
+  // Fix order
+  if (unusedJs || (mobile.TBT_ms && mobile.TBT_ms > 300) || (desktop.TBT_ms && desktop.TBT_ms > 300)) {
     exec.fix_order.items.push({
       id: "reduce_execution_weight",
       title: "Reduce front-end execution weight",
-      lines: [
-        "Remove unused JavaScript and CSS.",
-        "Defer or split scripts that block rendering.",
-      ],
+      lines: ["Remove unused JS/CSS.", "Defer or split render-blocking scripts."],
     });
   }
 
-  if (desktop.CLS >= 0.1) {
+  if (desktop.CLS != null && desktop.CLS >= 0.1) {
     exec.fix_order.items.push({
       id: "stabilise_layout_desktop",
       title: "Stabilise layout on desktop",
-      lines: [
-        "Reserve space for images and dynamic elements.",
-        "Prevent late-loading assets from shifting content.",
-      ],
+      lines: ["Reserve space for images/dynamic blocks.", "Stop late-loading assets shifting content."],
     });
   }
 
@@ -223,10 +177,7 @@ function buildExecutiveNarrative(metrics, url) {
     exec.fix_order.items.push({
       id: "restore_structural_clarity",
       title: "Restore structural clarity",
-      lines: [
-        "Add a clear H1 that reflects actual page intent.",
-        "Add a canonical URL to consolidate signals.",
-      ],
+      lines: ["Add a clear H1.", "Add canonical URL."],
     });
   }
 
@@ -234,54 +185,16 @@ function buildExecutiveNarrative(metrics, url) {
     exec.fix_order.items.push({
       id: "complete_security_hardening",
       title: "Complete security hardening",
-      lines: [
-        "Add missing headers to align with modern trust expectations.",
-      ],
+      lines: ["Add missing headers to align with modern browser/audit expectations."],
     });
   }
 
-  /* ---------- Site Specificity ---------- */
-  if (desktop.LCP_ms < 3500 && desktop.CLS >= 0.1) {
-    exec.site_specificity.lines.push(
-      "The site is fast but unstable on desktop."
-    );
-    exec.site_specificity.proof_flags.push("desktop_fast_but_unstable");
-  }
-
-  if (mobile.LCP_ms >= 6000 && mobile.CLS <= 0.1) {
-    exec.site_specificity.lines.push(
-      "The site is stable but unusually slow to render on mobile."
-    );
-    exec.site_specificity.proof_flags.push("mobile_stable_but_slow");
-  }
-
-  if (metrics.scores?.accessibility >= 95) {
-    exec.site_specificity.lines.push(
-      "Accessibility readiness is unusually strong for a site of this complexity."
-    );
-    exec.site_specificity.proof_flags.push("a11y_strong");
-  }
-
-  if (sh.https && missingHeaders.length >= 2) {
-    exec.site_specificity.lines.push(
-      "Trust signals lag behind the site’s technical capability rather than leading it."
-    );
-    exec.site_specificity.proof_flags.push("trust_lags_technical");
-  }
+  // Site specificity flags
+  if (desktop.LCP_ms && desktop.CLS != null) exec.site_specificity.proof_flags.push("desktop_metrics_present");
+  if (mobile.LCP_ms && mobile.CLS != null) exec.site_specificity.proof_flags.push("mobile_metrics_present");
+  exec.site_specificity.lines.push("This narrative is generated only after both desktop and mobile PSI facts exist, preventing generic placeholders.");
 
   return exec;
-}
-
-/* -------------------------------------------------- */
-/* Completeness Check                                 */
-/* -------------------------------------------------- */
-function isNarrativeComplete(n) {
-  return (
-    n &&
-    n.executive_narrative &&
-    Array.isArray(n.executive_narrative.framing?.lines) &&
-    n.executive_narrative.framing.lines.length > 0
-  );
 }
 
 /* -------------------------------------------------- */
@@ -289,8 +202,7 @@ function isNarrativeComplete(n) {
 /* -------------------------------------------------- */
 exports.handler = async function handler(event) {
   if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-  if (event.httpMethod !== "POST")
-    return json(405, { success: false, error: "Method not allowed" });
+  if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
 
   try {
     const { report_id } = JSON.parse(event.body || "{}");
@@ -298,20 +210,16 @@ exports.handler = async function handler(event) {
 
     const { data, error } = await supabase
       .from("scan_results")
-      .select("report_id, url, metrics, narrative, narrative_attempts")
+      .select("report_id, url, metrics, narrative, narrative_status, narrative_attempts")
       .eq("report_id", report_id)
       .limit(1)
       .single();
 
     if (error || !data) throw new Error("Scan not found");
 
-    // ----------------------------
-    // Readiness gate (no guessing)
-    // ----------------------------
     const readiness = getNarrativeReadiness(data.metrics);
+
     if (!readiness.ready) {
-      // Persist a lightweight status for the dashboard to show truthfully.
-      // IMPORTANT: do NOT write narrative until inputs are complete.
       await supabase
         .from("scan_results")
         .update({
@@ -327,18 +235,15 @@ exports.handler = async function handler(event) {
         missing: readiness.missing,
         psi: {
           strategies: readiness.strategies,
-          pending: readiness.psiPending,
-          _status: readiness.psiStatus,
+          pending: readiness.psi_pending,
+          _status: readiness.psi_status,
           has_mobile: readiness.hasMobile,
           has_desktop: readiness.hasDesktop,
         },
       });
     }
 
-    const executive_narrative = buildExecutiveNarrative(
-      data.metrics,
-      data.url
-    );
+    const executive_narrative = buildExecutiveNarrative(data.metrics, data.url);
 
     const narrative = {
       executive_narrative,
@@ -350,11 +255,7 @@ exports.handler = async function handler(event) {
       .update({ narrative, narrative_status: "generated" })
       .eq("report_id", report_id);
 
-    return json(200, {
-      success: true,
-      status: "generated",
-      report_id,
-    });
+    return json(200, { success: true, status: "generated", report_id });
   } catch (err) {
     return json(500, { success: false, error: err.message });
   }
