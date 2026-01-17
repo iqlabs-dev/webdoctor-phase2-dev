@@ -134,6 +134,20 @@
     return Boolean(hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores);
   }
 
+  function hasHtmlBasics(payload) {
+    const basic = payload?.basic_checks || payload?.metrics?.basic_checks;
+    return !!(
+      basic &&
+      (basic.html_bytes != null ||
+        basic.status_code != null ||
+        basic.inline_script_count != null ||
+        basic.title_present != null ||
+        basic.viewport_present != null ||
+        basic.h1_present != null ||
+        basic.canonical_present != null)
+    );
+  }
+
   // -----------------------------
   // Narrative trigger (optional)
   // -----------------------------
@@ -255,18 +269,12 @@
         setStatus("");
       }
 
-      // Narrative trigger once (optional)
-      // IMPORTANT: Only trigger after PSI is ready when PSI is enabled.
-      // This avoids generating generic text off partial inputs.
-      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered) {
-        if (psi.enabled && psi.pending) {
-          // keep waiting; do not trigger narrative yet
-          // (PSI facts are required for the site-specific narrative)
-          if (!overlayForcedOff) setStatus("PSI: preparing narrative inputs…");
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-          continue;
-        }
+      // Narrative trigger once (only when inputs are ready)
+      // Rule: don't trigger while PSI is pending (if enabled), and require HTML basics.
+      const htmlReady = hasHtmlBasics(res);
+      const psiReadyForNarrative = !psi.enabled || (psi.enabled && !psi.pending);
 
+      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered && htmlReady && psiReadyForNarrative) {
         setStatus("Generating narrative…");
         await triggerNarrative(reportId);
         narrativeTriggered = true;
@@ -287,11 +295,11 @@
         }
       }
 
-      // EXIT CONDITIONS (fixed):
-      // - If PSI is enabled, keep polling until PSI is NOT pending (or timeout)
-      // - If PSI is not enabled, we can stop once narrative is present or we gave up
+      // EXIT CONDITIONS:
+      // - If PSI is enabled: keep polling until PSI is ready AND narrative is present (or we gave up on narrative)
+      // - If PSI is not enabled: stop once narrative is present (or we gave up)
       if (psi.enabled) {
-        if (!psi.pending) {
+        if (!psi.pending && (hasNarrative(res) || narrativeGiveUp)) {
           setStatus("");
           return;
         }
