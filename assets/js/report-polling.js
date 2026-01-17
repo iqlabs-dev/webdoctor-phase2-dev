@@ -5,7 +5,9 @@
   const POLL_INTERVAL_MS = 2000;
   const MAX_POLLS = 300; // ~10 minutes hard cap
   const INITIAL_OVERLAY_HIDE_AFTER_MS = 4000; // don't trap users behind overlay
-  const MAX_NARRATIVE_WAIT_POLLS = 30; // ~60s after trigger, then stop trying for narrative
+
+  // Orchestrator call cadence once ready (idempotent, so safe)
+  const ORCH_RETRY_EVERY_N_POLLS = 3; // call generate-narrative every ~6s once inputs are ready
 
   function getQueryParam(name) {
     try {
@@ -43,8 +45,23 @@
     return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
   }
 
+  function getNarrativeObj(payload) {
+    return payload?.narrative || payload?.metrics?.narrative || null;
+  }
+
+  function getNarrativeStatus(payload) {
+    // canonical: top-level column
+    const s = payload?.narrative_status ?? payload?.metrics?.narrative_status ?? null;
+    return typeof s === "string" ? s : null;
+  }
+
+  function hasExecutiveNarrativeObject(payload) {
+    const n = getNarrativeObj(payload);
+    return !!(n && typeof n === "object" && n.executive_narrative && typeof n.executive_narrative === "object");
+  }
+
   function hasNarrative(payload) {
-    const n = payload?.narrative || payload?.metrics?.narrative;
+    const n = getNarrativeObj(payload);
     if (!n) return false;
 
     // Legacy
@@ -70,6 +87,12 @@
     return false;
   }
 
+  // NEW: readiness by state (backend contract)
+  function narrativeIsReadyByState(payload) {
+    const s = (getNarrativeStatus(payload) || "").toLowerCase();
+    return s === "ok" || s === "generated";
+  }
+
   // -----------------------------
   // Readiness checks (core)
   // -----------------------------
@@ -86,10 +109,7 @@
     const hasDesktopFacts =
       !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
 
-    // IMPORTANT:
-    // Treat PSI as enabled if:
-    // - psi.enabled === true, OR
-    // - psi exists and has mobile/desktop containers (even if flags missing)
+    // PSI enabled if explicitly enabled or containers exist
     const enabled =
       psi?.enabled === true ||
       (!!psi && (typeof psi === "object") && ("mobile" in psi || "desktop" in psi));
@@ -149,7 +169,7 @@
   }
 
   // -----------------------------
-  // Narrative trigger (optional)
+  // Orchestrator trigger (safe to call repeatedly)
   // -----------------------------
   async function triggerNarrative(reportId) {
     try {
@@ -194,10 +214,6 @@
   // -----------------------------
   async function startPolling(reportId) {
     let attempts = 0;
-
-    let narrativeTriggered = false;
-    let narrativeWaitPolls = 0;
-    let narrativeGiveUp = false;
 
     const overlayStart = Date.now();
     let overlayForcedOff = false;
@@ -269,42 +285,37 @@
         setStatus("");
       }
 
-      // Narrative trigger once (only when inputs are ready)
-      // Rule: don't trigger while PSI is pending (if enabled), and require HTML basics.
+      // Inputs readiness for orchestrator
       const htmlReady = hasHtmlBasics(res);
       const psiReadyForNarrative = !psi.enabled || (psi.enabled && !psi.pending);
 
-      if (!narrativeGiveUp && !hasNarrative(res) && !narrativeTriggered && htmlReady && psiReadyForNarrative) {
-        setStatus("Generating narrative…");
-        await triggerNarrative(reportId);
-        narrativeTriggered = true;
-        narrativeWaitPolls = 0;
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        continue;
-      }
+      // NEW: treat backend state as ready even if strings are empty
+      const readyByState = narrativeIsReadyByState(res);
+      const readyByContent = hasNarrative(res);
+      const readyByExecPresence = hasExecutiveNarrativeObject(res);
 
-      if (!narrativeGiveUp && narrativeTriggered && !hasNarrative(res)) {
-        narrativeWaitPolls++;
-        if (narrativeWaitPolls >= MAX_NARRATIVE_WAIT_POLLS) {
-          narrativeGiveUp = true;
-          // keep polling for PSI if PSI is enabled/pending
+      // If not ready, nudge orchestrator periodically once inputs are ready.
+      if (!readyByState && !readyByContent && !readyByExecPresence && htmlReady && psiReadyForNarrative) {
+        if (attempts % ORCH_RETRY_EVERY_N_POLLS === 0) {
+          setStatus("Generating narrative…");
+          await triggerNarrative(reportId);
         } else {
-          setStatus("Finalising narrative…");
-          await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-          continue;
+          setStatus("Finalising report…");
         }
       }
 
       // EXIT CONDITIONS:
-      // - If PSI is enabled: keep polling until PSI is ready AND narrative is present (or we gave up on narrative)
-      // - If PSI is not enabled: stop once narrative is present (or we gave up)
+      // - If PSI enabled: wait for PSI ready AND narrative ready (by state OR content OR exec presence)
+      // - If PSI not enabled: wait for narrative ready
+      const narrativeReady = readyByState || readyByContent || readyByExecPresence;
+
       if (psi.enabled) {
-        if (!psi.pending && (hasNarrative(res) || narrativeGiveUp)) {
+        if (!psi.pending && narrativeReady) {
           setStatus("");
           return;
         }
       } else {
-        if (hasNarrative(res) || narrativeGiveUp) {
+        if (narrativeReady) {
           setStatus("");
           return;
         }
