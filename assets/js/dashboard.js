@@ -19,37 +19,53 @@ window.currentUserEmail = null;
 const $ = (id) => document.getElementById(id);
 
 function looksLikeReportId(v) {
-  return typeof v === "string" && /^WEB-\d{7}-\d{5}$/.test(String(v || "").trim());
+  const s = String(v || "").trim();
+  // Accept legacy/buggy UI values where the trailing random lost leading zeros (e.g. "-7014" vs "-07014").
+  return /^WEB-\d{7}-\d{1,5}$/.test(s);
 }
+
+function normaliseReportId(v) {
+  const s = String(v || "").trim();
+  const m = s.match(/^WEB-(\d{7})-(\d{1,5})$/);
+  if (!m) return null;
+  const ddd = m[1];
+  const tail = String(m[2]).padStart(5, "0"); // restore missing leading zeros
+  return `WEB-${ddd}-${tail}`;
+}
+
 
 /**
  * Latest Scan → View report (same tab)
  */
 function goToReport(reportId) {
-  if (!looksLikeReportId(reportId)) {
+  const rid = normaliseReportId(reportId);
+  if (!rid) {
     console.warn("[NAV] blocked invalid report_id:", reportId);
     alert("Report ID not ready yet. Please refresh in a moment.");
     return;
   }
 
-  const url = `/report.html?report_id=${encodeURIComponent(reportId)}`;
+  const url = `/report.html?report_id=${encodeURIComponent(rid)}`;
   console.log("[NAV] same-tab ->", url);
   window.location.href = url;
 }
+
 
 /**
  * Scan History → View + Download PDF (new tab)
  */
 function goToReportFromHistory(reportId) {
-  if (!looksLikeReportId(reportId)) {
+  const rid = normaliseReportId(reportId);
+  if (!rid) {
     console.warn("[NAV] blocked invalid report_id:", reportId);
     return;
   }
 
-  const url = `/report.html?report_id=${encodeURIComponent(reportId)}&from=history`;
+  const url = `/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
   console.log("[NAV] history new-tab ->", url);
   window.open(url, "_blank", "noopener");
 }
+
 
 function setUserUI(email) {
   const emailEl = $("wd-user-email");
@@ -745,14 +761,19 @@ if (manageLink) {
 
       console.log("[RUN-SCAN] reportId:", reportId);
 
-      if (looksLikeReportId(reportId)) {
-        showViewReportCTA(reportId);
+      // Normalise the report_id (handles legacy values like ...-7014 -> ...-07014)
+      const rid = normaliseReportId(reportId);
 
-        generateNarrative(reportId, accessToken).catch((e) => {
+      if (rid) {
+        showViewReportCTA(rid);
+
+        // Fire-and-forget narrative generation (report page can still load without it)
+        generateNarrative(rid, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", (e && e.message) || e);
         });
       } else {
-        statusEl.textContent = "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
+        statusEl.textContent =
+          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
       }
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
