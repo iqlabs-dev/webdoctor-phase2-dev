@@ -36,23 +36,26 @@
       .replace(/'/g, "&#039;");
   }
 
-  function formatDate(iso) {
-    if (!iso) return "—";
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return String(iso);
-    try {
-      return d.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-    } catch (e) {
-      return d.toString();
-    }
+function formatDate(iso) {
+  if (!iso) return "—";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+
+  try {
+    return d.toLocaleString("en-NZ", {
+      timeZone: "Pacific/Auckland",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return d.toString();
   }
+}
+
 
   function verdict(score) {
     var n = asInt(score, 0);
@@ -236,7 +239,8 @@
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-  var created = header.created_at || header.report_date || header.generated_at || "";
+var created = header && (header.report_date || header.created_at || header.generated_at);
+
 
 
     if (site) {
