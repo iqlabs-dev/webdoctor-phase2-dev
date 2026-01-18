@@ -45,11 +45,15 @@ function overallSummaryFromScore(score) {
   }
 
   let lead =
-    s >= 90 ? "Overall delivery is excellent." :
-    s >= 80 ? "Overall delivery is good." :
-    s >= 70 ? "Overall delivery is fair." :
-    s >= 60 ? "Overall delivery needs improvement." :
-              "Overall delivery is poor.";
+    s >= 90
+      ? "Overall delivery is excellent."
+      : s >= 80
+        ? "Overall delivery is good."
+        : s >= 70
+          ? "Overall delivery is fair."
+          : s >= 60
+            ? "Overall delivery needs improvement."
+            : "Overall delivery is poor.";
 
   return `${lead} ${disclaimer}`;
 }
@@ -169,27 +173,59 @@ function normaliseSignal(sig) {
 
 // -----------------------------
 // Narrative normaliser (v5.2 -> UI-compatible)
-// - Your UI currently expects narrative.executive_lead (string)
-// - v5.2 generator produces narrative.overall.lines (array)
+// Goals:
+// - Guarantee overall.lines exists when executive_narrative exists
+// - Guarantee executive_lead exists (string) for current UI
 // -----------------------------
+function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
+  const en = safeObj(executive_narrative);
+
+  const lines = [];
+  const pushSome = (arr, max) => {
+    const a = Array.isArray(arr) ? arr : [];
+    for (const s of a) {
+      if (typeof s === "string" && s.trim()) lines.push(s.trim());
+      if (lines.length >= max) return;
+    }
+  };
+
+  // Respect your locked constraints: target 3 lines, max 5.
+  pushSome(en.framing?.lines, 2);
+
+  // Add constraint line(s)
+  if (lines.length < 3) pushSome(en.root_constraint?.lines, 3);
+
+  // Fallback to structure/trust if still short
+  if (lines.length < 3) pushSome(en.structure_seo?.lines, 3);
+  if (lines.length < 3) pushSome(en.trust_security?.lines, 3);
+
+  return lines.slice(0, 5);
+}
+
 function normaliseNarrativeForUI(raw) {
   // Preserve nulls (don’t convert to {})
   if (!raw || typeof raw !== "object") return null;
 
-  // If already old-shape, keep as-is
-  if (isNonEmptyString(raw.executive_lead)) return raw;
+  const out = { ...raw };
 
-  // If v5.2 shape, map overall.lines -> executive_lead
-  const overallLines = asArray(raw?.overall?.lines).filter((l) => isNonEmptyString(l));
-  if (overallLines.length) {
-    return {
-      ...raw,
-      executive_lead: overallLines.slice(0, 5).join("\n"), // respects your max line constraints
-    };
+  // 1) If executive_narrative exists but overall.lines missing/empty -> derive it
+  const hasEN = !!out.executive_narrative;
+  const overallLines = asArray(out?.overall?.lines).filter((l) => isNonEmptyString(l));
+
+  if (hasEN && overallLines.length === 0) {
+    const derived = deriveOverallLinesFromExecutiveNarrative(out.executive_narrative);
+    out.overall = { ...(safeObj(out.overall)), lines: derived };
   }
 
-  // Otherwise return as-is (may still be useful for debugging)
-  return raw;
+  // Recompute overallLines after potential derive
+  const finalOverallLines = asArray(out?.overall?.lines).filter((l) => isNonEmptyString(l));
+
+  // 2) Ensure executive_lead exists (UI expects it)
+  if (!isNonEmptyString(out.executive_lead) && finalOverallLines.length) {
+    out.executive_lead = finalOverallLines.slice(0, 5).join("\n");
+  }
+
+  return out;
 }
 
 // -----------------------------
@@ -200,9 +236,7 @@ export async function handler(event) {
     if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
 
     const reportParam = String(
-      event.queryStringParameters?.report_id ||
-        event.queryStringParameters?.id ||
-        ""
+      event.queryStringParameters?.report_id || event.queryStringParameters?.id || ""
     ).trim();
 
     if (!reportParam) return json(400, { success: false, error: "Missing report_id" });
@@ -293,10 +327,10 @@ export async function handler(event) {
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // ✅ Do NOT safeObj() here — preserve null; also map v5.2 -> executive_lead for current UI
+    // ✅ Preserve null; normalise narrative schema for UI
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
-    // Attach deterministc overall summary so UI + PDF use the same source
+    // Attach deterministic overall summary so UI + PDF use the same source
     if (narrative && typeof narrative === "object") {
       narrative.overall_summary = narrative.overall_summary || overall_summary;
     }
