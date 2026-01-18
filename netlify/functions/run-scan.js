@@ -380,13 +380,15 @@ function normaliseUrl(raw) {
 
 function makeReportId() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const diff = now - start;
-  const day = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const ddd = String(day).padStart(3, "0");
+
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+
   const rand = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-  return `WEB-${now.getFullYear()}${ddd}-${rand}`;
+  return `WEB-${yyyy}${mm}${dd}-${rand}`;
 }
+
 
 function clamp(n, min, max) {
   if (!Number.isFinite(n)) return min;
