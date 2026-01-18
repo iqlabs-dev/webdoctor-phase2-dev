@@ -331,5 +331,30 @@ export async function handler(event) {
     errors: mergedPsi.errors.length,
   });
 
+  /* ---------------------------------------------- */
+/* Trigger narrative orchestrator                  */
+/* ---------------------------------------------- */
+
+try {
+  const BASE_URL =
+    process.env.DEPLOY_PRIME_URL ||
+    process.env.URL ||
+    "https://iqweb.ai";
+
+  await fetch(`${BASE_URL}/.netlify/functions/generate-narrative`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ report_id }),
+  });
+
+  console.log("[psi-worker-background] narrative trigger fired", { report_id });
+} catch (e) {
+  // IMPORTANT: never fail PSI because narrative trigger failed
+  console.warn(
+    "[psi-worker-background] narrative trigger failed (safe to ignore):",
+    e?.message || e
+  );
+}
+
   return json(200, { ok: true, wrote: true, pending: mergedPsi.pending });
 }

@@ -62,16 +62,12 @@ function getNarrativeReadiness(metrics) {
   const needDesktop = strategies.includes("desktop");
 
   // IMPORTANT: "facts must exist AND have keys"
-  const hasMobileFacts = !!(
-    psi.mobile &&
-    psi.mobile.facts &&
-    Object.keys(psi.mobile.facts || {}).length > 0
-  );
-  const hasDesktopFacts = !!(
-    psi.desktop &&
-    psi.desktop.facts &&
-    Object.keys(psi.desktop.facts || {}).length > 0
-  );
+ const hasMobileFacts =
+  psi.mobile && typeof psi.mobile.facts === "object";
+
+const hasDesktopFacts =
+  psi.desktop && typeof psi.desktop.facts === "object";
+
 
   // HTML bucket: accept stable indicators that HTML extraction ran
 const htmlReady =
@@ -485,16 +481,19 @@ exports.handler = async function handler(event) {
       const missingPsi = readiness.missing.psi_mobile || readiness.missing.psi_desktop;
       const missingBasics = readiness.missing.basic_checks;
 
-      if (!missingBasics && missingPsi) {
-        const psiUpdatedAt = tryParseIso(readiness.psi_updated_at);
-        const ageMs = psiUpdatedAt != null ? Date.now() - psiUpdatedAt : null;
+  if (!missingBasics && missingPsi) {
+  const psiUpdatedAt = tryParseIso(readiness.psi_updated_at);
+  const ageMs = psiUpdatedAt != null ? Date.now() - psiUpdatedAt : null;
 
-        // If PSI has errors and hasn't updated for a while, allow degraded completion.
-        if (ageMs != null && ageMs >= PSI_STUCK_AFTER_MS && readiness.psi_errors_count > 0) {
-          allowDegraded = true;
-          degradedReason = `PSI incomplete after ${Math.round(ageMs / 1000)}s with ${readiness.psi_errors_count} error(s).`;
-        }
-      }
+  if (
+    readiness.psi_errors_count > 0 ||
+    (ageMs != null && ageMs >= PSI_STUCK_AFTER_MS)
+  ) {
+    allowDegraded = true;
+    degradedReason = "PSI incomplete after timeout or error.";
+  }
+}
+
 
       if (!allowDegraded) {
         await supabase
