@@ -761,19 +761,18 @@ if (manageLink) {
 
       console.log("[RUN-SCAN] reportId:", reportId);
 
-      // Normalise the report_id (handles legacy values like ...-7014 -> ...-07014)
+          // Normalise the report_id (handles legacy values like ...-7014 -> ...-07014)
       const rid = normaliseReportId(reportId);
 
-      if (rid) {
-        showViewReportCTA(rid);
+      // Do NOT rely on run-scan response for report readiness.
+      // loadScanHistory() + updateLatestScanCard() is the source of truth for when report_id appears.
+      showViewReportCTA();
 
-        // Fire-and-forget narrative generation (report page can still load without it)
+      // Fire-and-forget narrative generation ONLY if we already have an ID
+      if (rid) {
         generateNarrative(rid, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", (e && e.message) || e);
         });
-      } else {
-        statusEl.textContent =
-          "Scan completed, but report ID is not ready yet. Please refresh in a moment.";
       }
     } catch (err) {
       console.error("[RUN-SCAN] error:", err);
