@@ -10,7 +10,7 @@ const { createClient } = require("@supabase/supabase-js");
  *
  * Contract:
  * 1) If narrative already exists -> return success (do nothing).
- * 2) If PSI/basic inputs not ready -> return success "waiting" (do nothing).
+ * 2) If PSI/basic input not ready -> return success "waiting" (do nothing).
  * 3) If ready -> write narrative once and mark narrative_status.
  * 4) Optional: if PSI appears stuck beyond a timeout, generate a degraded narrative
  *    (facts-only from HTML/security) so the report completes every time.
