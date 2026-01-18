@@ -28,7 +28,9 @@ function looksLikeReportId(v) {
 function goToReport(reportId) {
   if (!looksLikeReportId(reportId)) {
     console.warn("[NAV] blocked invalid report_id:", reportId);
-    alert("Report ID not ready yet. Please refresh in a moment.");
+    // Instead of alerting, just refresh scan history
+setTimeout(loadScanHistory, 1500);
+
     return;
   }
 
