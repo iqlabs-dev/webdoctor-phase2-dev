@@ -1758,7 +1758,7 @@ if (!profile) {
     // ---------------------------------------------
     // Run scan
     // ---------------------------------------------
-    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 12000);
+    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
     const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
       url,
