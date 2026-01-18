@@ -74,16 +74,11 @@ function getNarrativeReadiness(metrics) {
   );
 
   // HTML bucket: accept stable indicators that HTML extraction ran
-  const htmlReady = !!(
-    bc &&
-    (bc.html_bytes != null ||
-      bc.status_code != null ||
-      bc.inline_script_count != null ||
-      bc.title_present != null ||
-      bc.viewport_present != null ||
-      bc.h1_present != null ||
-      bc.canonical_present != null)
-  );
+const htmlReady =
+  !!bc ||
+  (psi.desktop && psi.desktop.facts && Object.keys(psi.desktop.facts).length > 0) ||
+  (psi.mobile && psi.mobile.facts && Object.keys(psi.mobile.facts).length > 0);
+
 
   const missing = {
     basic_checks: !htmlReady,
