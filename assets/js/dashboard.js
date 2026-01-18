@@ -18,20 +18,35 @@ window.currentUserEmail = null;
 // -----------------------------
 const $ = (id) => document.getElementById(id);
 
+/**
+ * Check whether a value looks like a valid report ID.
+ * Format: WEB-YYYYMMDD-XXXXX
+ * - Date must be 8 digits
+ * - Tail may be 1–5 digits (legacy-safe)
+ */
 function looksLikeReportId(v) {
   const s = String(v || "").trim();
-  // Accept legacy/buggy UI values where the trailing random lost leading zeros (e.g. "-7014" vs "-07014").
-  return /^WEB-\d{7}-\d{1,5}$/.test(s);
+  return /^WEB-\d{8}-\d{1,5}$/.test(s);
 }
 
+/**
+ * Normalise a report ID into canonical form:
+ * WEB-YYYYMMDD-00000
+ *
+ * Handles legacy cases where the numeric tail
+ * lost leading zeros (e.g. -7014 → -07014).
+ */
 function normaliseReportId(v) {
   const s = String(v || "").trim();
-  const m = s.match(/^WEB-(\d{7})-(\d{1,5})$/);
+  const m = s.match(/^WEB-(\d{8})-(\d{1,5})$/);
   if (!m) return null;
-  const ddd = m[1];
-  const tail = String(m[2]).padStart(5, "0"); // restore missing leading zeros
-  return `WEB-${ddd}-${tail}`;
+
+  const datePart = m[1];                 // YYYYMMDD
+  const tail = String(m[2]).padStart(5, "0");
+
+  return `WEB-${datePart}-${tail}`;
 }
+
 
 
 /**
