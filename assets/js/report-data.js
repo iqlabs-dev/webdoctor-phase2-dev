@@ -236,7 +236,8 @@
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-    var created = header.created_at || header.generated_at || "";
+  var created = header.created_at || header.report_date || header.generated_at || "";
+
 
     if (site) {
       site.textContent = website || "—";
