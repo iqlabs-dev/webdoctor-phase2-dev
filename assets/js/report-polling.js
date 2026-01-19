@@ -42,7 +42,10 @@
   // Narrative detection (legacy + new schema)
   // -----------------------------
   function anyNonEmptyStrings(arr) {
-    return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
+    return (
+      Array.isArray(arr) &&
+      arr.some((v) => typeof v === "string" && v.trim().length > 0)
+    );
   }
 
   function getNarrativeObj(payload) {
@@ -50,14 +53,19 @@
   }
 
   function getNarrativeStatus(payload) {
-    // canonical: top-level column
+    // canonical: top-level column (from get-report-data)
     const s = payload?.narrative_status ?? payload?.metrics?.narrative_status ?? null;
     return typeof s === "string" ? s : null;
   }
 
   function hasExecutiveNarrativeObject(payload) {
     const n = getNarrativeObj(payload);
-    return !!(n && typeof n === "object" && n.executive_narrative && typeof n.executive_narrative === "object");
+    return !!(
+      n &&
+      typeof n === "object" &&
+      n.executive_narrative &&
+      typeof n.executive_narrative === "object"
+    );
   }
 
   function hasNarrative(payload) {
@@ -82,7 +90,8 @@
     if (anyNonEmptyStrings(en?.behaviour_split?.desktop?.lines)) return true;
 
     const items = en?.fix_order?.items;
-    if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines))) return true;
+    if (Array.isArray(items) && items.some((it) => anyNonEmptyStrings(it?.lines)))
+      return true;
 
     return false;
   }
@@ -102,35 +111,42 @@
   }
 
   function psiState(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi || null;
+    // Prefer key_metrics.psi if present (new get-report-data), fall back to metrics.psi
+    const psi =
+      payload?.key_metrics?.psi ||
+      payload?.psi ||
+      payload?.metrics?.psi ||
+      null;
+
+    const rawPsi = payload?.metrics?.psi || payload?.psi || null;
 
     const hasMobileFacts =
-      !!psi?.mobile?.facts && Object.keys(psi.mobile.facts || {}).length > 0;
+      !!rawPsi?.mobile?.facts && Object.keys(rawPsi.mobile.facts || {}).length > 0;
     const hasDesktopFacts =
-      !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
+      !!rawPsi?.desktop?.facts && Object.keys(rawPsi.desktop.facts || {}).length > 0;
 
     // PSI enabled if explicitly enabled or containers exist
     const enabled =
-      psi?.enabled === true ||
-      (!!psi && (typeof psi === "object") && ("mobile" in psi || "desktop" in psi));
+      rawPsi?.enabled === true ||
+      (!!rawPsi && typeof rawPsi === "object" && ("mobile" in rawPsi || "desktop" in rawPsi));
 
     // pending rules:
     // - if backend provides pending boolean, trust it
     // - else pending until we have BOTH mobile + desktop facts
     let pending = false;
     if (enabled) {
-      if (typeof psi?.pending === "boolean") {
-        pending = psi.pending;
+      if (typeof rawPsi?.pending === "boolean") {
+        pending = rawPsi.pending;
       } else {
         pending = !(hasMobileFacts && hasDesktopFacts);
       }
     }
 
-    return { enabled, pending, hasMobileFacts, hasDesktopFacts, psi };
+    return { enabled, pending, hasMobileFacts, hasDesktopFacts, psi: rawPsi, psiSummary: psi };
   }
 
   function isReportRenderable(payload) {
-    const psi = payload?.psi || payload?.metrics?.psi;
+    const psi = payload?.metrics?.psi || payload?.psi;
     const basic = payload?.basic_checks || payload?.metrics?.basic_checks;
 
     const hasHtmlBasics = !!(
@@ -148,10 +164,11 @@
       !!psi?.desktop?.facts && Object.keys(psi.desktop.facts || {}).length > 0;
 
     const hasHtmlDeliveryBlock = !!payload?.html_delivery;
-
     const hasScores = scoresPresent(payload);
 
-    return Boolean(hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores);
+    return Boolean(
+      hasHtmlBasics || hasHtmlDeliveryBlock || hasPsiMobile || hasPsiDesktop || hasScores
+    );
   }
 
   function hasHtmlBasics(payload) {
@@ -170,17 +187,18 @@
 
   // -----------------------------
   // Orchestrator trigger (safe to call repeatedly)
+  // IMPORTANT: return the function response so we can re-fetch immediately
   // -----------------------------
   async function triggerNarrative(reportId) {
     try {
-      await fetchJson("/.netlify/functions/generate-narrative", {
+      const out = await fetchJson("/.netlify/functions/generate-narrative", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ report_id: reportId }),
       });
-      return true;
-    } catch (_) {
-      return false;
+      return { ok: true, out };
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e) };
     }
   }
 
@@ -289,26 +307,53 @@
       const htmlReady = hasHtmlBasics(res);
       const psiReadyForNarrative = !psi.enabled || (psi.enabled && !psi.pending);
 
-      // NEW: treat backend state as ready even if strings are empty
+      // Ready flags
       const readyByState = narrativeIsReadyByState(res);
       const readyByContent = hasNarrative(res);
       const readyByExecPresence = hasExecutiveNarrativeObject(res);
+      let narrativeReady = readyByState || readyByContent || readyByExecPresence;
 
       // If not ready, nudge orchestrator periodically once inputs are ready.
-      if (!readyByState && !readyByContent && !readyByExecPresence && htmlReady && psiReadyForNarrative) {
+      // ✅ CHANGE: if orchestrator says "generated/already_done", immediately re-fetch once
+      // so the narrative appears WITHOUT manual refresh.
+      if (!narrativeReady && htmlReady && psiReadyForNarrative) {
         if (attempts % ORCH_RETRY_EVERY_N_POLLS === 0) {
           setStatus("Generating narrative…");
-          await triggerNarrative(reportId);
+
+          const trig = await triggerNarrative(reportId);
+
+          if (trig.ok) {
+            const status = String(trig?.out?.status || "").toLowerCase();
+
+            // If the backend claims it wrote (or already had) narrative, re-fetch immediately.
+            if (
+              status === "generated" ||
+              status === "generated_degraded" ||
+              status === "already_done"
+            ) {
+              try {
+                const fresh = await fetchReport(reportId);
+                if (fresh?.success === true) {
+                  window.IQWEB_handleReportData(reportId, fresh);
+
+                  const rbs = narrativeIsReadyByState(fresh);
+                  const rbc = hasNarrative(fresh);
+                  const rbp = hasExecutiveNarrativeObject(fresh);
+                  narrativeReady = rbs || rbc || rbp;
+                }
+              } catch (e) {
+                // If this fails, next poll will pick it up.
+              }
+            }
+          }
         } else {
           setStatus("Finalising report…");
         }
       }
 
       // EXIT CONDITIONS:
-      // - If PSI enabled: wait for PSI ready AND narrative ready (by state OR content OR exec presence)
+      // - If PSI enabled: wait for PSI ready AND narrative ready
       // - If PSI not enabled: wait for narrative ready
-      const narrativeReady = readyByState || readyByContent || readyByExecPresence;
-
       if (psi.enabled) {
         if (!psi.pending && narrativeReady) {
           setStatus("");

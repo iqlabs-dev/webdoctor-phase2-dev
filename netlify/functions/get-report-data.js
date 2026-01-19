@@ -13,10 +13,17 @@ function json(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
+
+      // CORS
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
+
+      // ✅ CRITICAL: prevent stale/cached report payloads
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
     },
     body: JSON.stringify(body),
   };
@@ -248,7 +255,7 @@ export async function handler(event) {
     // - Instead: fetch array, order desc, take first.
     let q = supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative, narrative_status, narrative_attempts")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -294,6 +301,7 @@ export async function handler(event) {
 
     const bc = safeObj(metrics.basic_checks);
     const sh = safeObj(metrics.security_headers);
+    const psi = safeObj(metrics.psi);
 
     const key_metrics = {
       http: {
@@ -322,6 +330,18 @@ export async function handler(event) {
         referrer_policy_present: sh.referrer_policy ?? null,
         permissions_policy_present: sh.permissions_policy ?? null,
       },
+
+      // ✅ Optional but useful for frontend readiness/debug (won’t break UI)
+      psi: {
+        enabled: typeof psi.enabled === "boolean" ? psi.enabled : null,
+        pending: typeof psi.pending === "boolean" ? psi.pending : null,
+        _status: psi._status ?? null,
+        _updated_at: psi._updated_at ?? null,
+        strategies: asArray(psi.strategies),
+        errors_count: Array.isArray(psi.errors) ? psi.errors.length : 0,
+        has_mobile_facts: !!(psi.mobile && psi.mobile.facts && Object.keys(psi.mobile.facts || {}).length),
+        has_desktop_facts: !!(psi.desktop && psi.desktop.facts && Object.keys(psi.desktop.facts || {}).length),
+      },
     };
 
     const findings = asArray(metrics.findings);
@@ -349,6 +369,10 @@ export async function handler(event) {
       findings,
       fix_plan,
       narrative,
+
+      // ✅ Optional: surfaced for poller logic/debug
+      narrative_status: scan.narrative_status ?? null,
+      narrative_attempts: scan.narrative_attempts ?? null,
     });
   } catch (err) {
     console.error("[get-report-data]", err);
