@@ -310,7 +310,7 @@
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    // Timed out
+    // Timed ou
     showOverlay(false);
     setStatus("");
 

@@ -215,10 +215,10 @@ function normaliseNarrativeForUI(raw) {
 
   const out = { ...raw };
 
-  // 1) If executive_narrative exists but overall.lines missing/empty -> derive it
   const hasEN = !!out.executive_narrative;
   const overallLines = asArray(out?.overall?.lines).filter((l) => isNonEmptyString(l));
 
+  // 1) If executive_narrative exists but overall.lines missing/empty -> derive it
   if (hasEN && overallLines.length === 0) {
     const derived = deriveOverallLinesFromExecutiveNarrative(out.executive_narrative);
     out.overall = { ...(safeObj(out.overall)), lines: derived };
@@ -251,11 +251,14 @@ export async function handler(event) {
     const byNumericId = isNumericString(reportParam);
 
     // IMPORTANT:
-    // - Do NOT use .single() here, because it errors on 0 rows AND on duplicate report_id rows.
-    // - Instead: fetch array, order desc, take first.
+    // - Do NOT use .single() here (errors on 0 rows AND duplicates).
+    // - Instead: order desc, take first.
     let q = supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative, narrative_status, narrative_attempts")
+      .select(
+        "id, report_id, url, created_at, metrics, score_overall, narrative,số",
+      "narrative_status, narrative_attempts"
+      )
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -278,6 +281,11 @@ export async function handler(event) {
 
     const metrics = safeObj(scan.metrics);
 
+    // ✅ Expose these top-level for report-polling.js readiness logic
+    const basic_checks = safeObj(metrics.basic_checks);
+    const security_headers = safeObj(metrics.security_headers);
+    const psi = safeObj(metrics.psi);
+
     const rawSignals = asArray(metrics.delivery_signals).length
       ? metrics.delivery_signals
       : asArray(metrics?.metrics?.delivery_signals);
@@ -299,39 +307,35 @@ export async function handler(event) {
 
     const overall_summary = overallSummaryFromScore(scores.overall);
 
-    const bc = safeObj(metrics.basic_checks);
-    const sh = safeObj(metrics.security_headers);
-    const psi = safeObj(metrics.psi);
-
     const key_metrics = {
       http: {
-        status: bc.http_status ?? null,
-        content_type: bc.content_type ?? null,
+        status: basic_checks.http_status ?? null,
+        content_type: basic_checks.content_type ?? null,
         final_url: scan.url ?? null,
       },
       page: {
-        title_present: bc.title_present ?? null,
-        canonical_present: bc.canonical_present ?? null,
-        h1_present: bc.h1_present ?? null,
-        viewport_present: bc.viewport_present ?? null,
+        title_present: basic_checks.title_present ?? null,
+        canonical_present: basic_checks.canonical_present ?? null,
+        h1_present: basic_checks.h1_present ?? null,
+        viewport_present: basic_checks.viewport_present ?? null,
       },
       content: {
-        html_bytes: bc.html_bytes ?? null,
-        img_count: bc.img_count ?? null,
-        img_alt_count: bc.img_alt_count ?? null,
+        html_bytes: basic_checks.html_bytes ?? null,
+        img_count: basic_checks.img_count ?? null,
+        img_alt_count: basic_checks.img_alt_count ?? null,
       },
-      freshness: safeObj(bc.freshness_signals),
+      freshness: safeObj(basic_checks.freshness_signals),
       security: {
-        https: sh.https ?? null,
-        hsts_present: sh.hsts ?? null,
-        csp_present: sh.content_security_policy ?? null,
-        x_frame_options_present: sh.x_frame_options ?? null,
-        x_content_type_options_present: sh.x_content_type_options ?? null,
-        referrer_policy_present: sh.referrer_policy ?? null,
-        permissions_policy_present: sh.permissions_policy ?? null,
+        https: security_headers.https ?? null,
+        hsts_present: security_headers.hsts ?? null,
+        csp_present: security_headers.content_security_policy ?? null,
+        x_frame_options_present: security_headers.x_frame_options ?? null,
+        x_content_type_options_present: security_headers.x_content_type_options ?? null,
+        referrer_policy_present: security_headers.referrer_policy ?? null,
+        permissions_policy_present: security_headers.permissions_policy ?? null,
       },
 
-      // ✅ Optional but useful for frontend readiness/debug (won’t break UI)
+      // Optional: compact PSI summary for UI/debug (not used by poller)
       psi: {
         enabled: typeof psi.enabled === "boolean" ? psi.enabled : null,
         pending: typeof psi.pending === "boolean" ? psi.pending : null,
@@ -357,11 +361,18 @@ export async function handler(event) {
 
     return json(200, {
       success: true,
+
       header: {
         website: scan.url,
         report_id: scan.report_id,
         created_at: scan.created_at,
       },
+
+      // ✅ these top-level fields are what your poller checks
+      basic_checks,
+      security_headers,
+      psi,
+
       scores,
       overall_summary,
       delivery_signals,
@@ -370,7 +381,7 @@ export async function handler(event) {
       fix_plan,
       narrative,
 
-      // ✅ Optional: surfaced for poller logic/debug
+      // ✅ surfaced for poller/debug
       narrative_status: scan.narrative_status ?? null,
       narrative_attempts: scan.narrative_attempts ?? null,
     });
