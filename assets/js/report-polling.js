@@ -4,9 +4,7 @@
 
   const POLL_INTERVAL_MS = 2000;
   const MAX_POLLS = 300; // ~10 minutes hard cap
-
-  // Orchestrator call cadence once ready (idempotent, so safe)
-  const ORCH_RETRY_EVERY_N_POLLS = 2; // call generate-narrative every ~4s once inputs are ready
+  const ORCH_RETRY_EVERY_N_POLLS = 2; // every ~4s
 
   function getQueryParam(name) {
     try {
@@ -25,9 +23,7 @@
     } catch {
       throw new Error("Invalid JSON response");
     }
-    if (!r.ok) {
-      throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
-    }
+    if (!r.ok) throw new Error(data?.error || data?.detail || `HTTP ${r.status}`);
     return data;
   }
 
@@ -38,7 +34,86 @@
   }
 
   // -----------------------------
-  // Narrative detection (legacy + new schema)
+  // HARD UI HOLD MODE
+  // -----------------------------
+  const HOLD_CLASS = "iqweb-hold-report";
+
+  function injectHoldCssOnce() {
+    if (document.getElementById("iqwebHoldCss")) return;
+
+    const style = document.createElement("style");
+    style.id = "iqwebHoldCss";
+
+    // Hide most of the page while holding, but keep loader elements visible.
+    // We include a wide net of possible loader ids/classes to survive markup changes.
+    style.textContent = `
+      body.${HOLD_CLASS} * {
+        visibility: hidden !important;
+      }
+      body.${HOLD_CLASS} #iqwebLoader,
+      body.${HOLD_CLASS} #iqwebLoaderOverlay,
+      body.${HOLD_CLASS} #loader,
+      body.${HOLD_CLASS} #loaderOverlay,
+      body.${HOLD_CLASS} .iqweb-loader,
+      body.${HOLD_CLASS} .iqweb-loader-overlay,
+      body.${HOLD_CLASS} .loader,
+      body.${HOLD_CLASS} .loader-overlay {
+        visibility: visible !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function enableHoldMode() {
+    injectHoldCssOnce();
+    document.body.classList.add(HOLD_CLASS);
+  }
+
+  function disableHoldMode() {
+    document.body.classList.remove(HOLD_CLASS);
+  }
+
+  function setStatus(text) {
+    window.IQWEB_setLoaderStatus?.(text);
+  }
+
+  // Monkey patch: prevent ANY script from hiding loader until we allow it.
+  function lockLoaderUntilReady() {
+    const orig = window.IQWEB_showLoader;
+    if (typeof orig !== "function") return { unlock: () => {} };
+
+    let ready = false;
+
+    window.IQWEB_showLoader = function (on) {
+      // If not ready yet, ignore attempts to turn loader off
+      if (!ready && on === false) return;
+      return orig(!!on);
+    };
+
+    return {
+      unlock: function () {
+        ready = true;
+        // restore original for normal operation
+        window.IQWEB_showLoader = orig;
+      },
+      setReady: function () {
+        ready = true;
+      },
+      show: function () {
+        try {
+          orig(true);
+        } catch (_) {}
+      },
+      hide: function () {
+        try {
+          orig(false);
+        } catch (_) {}
+      },
+    };
+  }
+
+  // -----------------------------
+  // Narrative detection
   // -----------------------------
   function anyNonEmptyStrings(arr) {
     return Array.isArray(arr) && arr.some((v) => typeof v === "string" && v.trim().length > 0);
@@ -55,12 +130,7 @@
 
   function hasExecutiveNarrativeObject(payload) {
     const n = getNarrativeObj(payload);
-    return !!(
-      n &&
-      typeof n === "object" &&
-      n.executive_narrative &&
-      typeof n.executive_narrative === "object"
-    );
+    return !!(n && typeof n === "object" && n.executive_narrative && typeof n.executive_narrative === "object");
   }
 
   function hasNarrative(payload) {
@@ -96,7 +166,7 @@
   }
 
   // -----------------------------
-  // PSI readiness (core)
+  // PSI readiness
   // -----------------------------
   function psiState(payload) {
     const psi = payload?.psi || payload?.metrics?.psi || null;
@@ -133,9 +203,6 @@
     );
   }
 
-  // -----------------------------
-  // Orchestrator trigger (safe to call repeatedly)
-  // -----------------------------
   async function triggerNarrative(reportId) {
     try {
       await fetchJson("/.netlify/functions/generate-narrative", {
@@ -149,20 +216,14 @@
     }
   }
 
-  // -----------------------------
-  // UI helpers
-  // -----------------------------
-  function setStatus(text) {
-    window.IQWEB_setLoaderStatus?.(text);
-  }
-
-  function showOverlay(on) {
-    window.IQWEB_showLoader?.(!!on);
-  }
-
   function failVisible(msg) {
     console.error("[polling]", msg);
-    showOverlay(false);
+
+    // Best effort: release hold so user isn't stuck with hidden UI on fatal crash
+    disableHoldMode();
+    try {
+      window.IQWEB_showLoader?.(false);
+    } catch (_) {}
 
     const el = document.getElementById("narrativeText") || document.body;
     if (el) {
@@ -178,11 +239,14 @@
   // MAIN
   // -----------------------------
   async function startPolling(reportId) {
-    let attempts = 0;
+    // Hard hold the page until narrative is ready
+    enableHoldMode();
 
-    // IMPORTANT: we KEEP overlay ON until narrative is ready.
-    showOverlay(true);
+    const loaderLock = lockLoaderUntilReady();
+    loaderLock.show();
     setStatus("Building report…");
+
+    let attempts = 0;
 
     while (attempts < MAX_POLLS) {
       attempts++;
@@ -191,7 +255,6 @@
       try {
         res = await fetchReport(reportId);
       } catch (err) {
-        console.warn("[polling] fetch failed:", err.message);
         setStatus("Connecting…");
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
         continue;
@@ -208,7 +271,7 @@
         return;
       }
 
-      // Render what we have into DOM (behind overlay)
+      // Render (behind loader)
       try {
         window.IQWEB_handleReportData(reportId, res);
       } catch (e) {
@@ -220,13 +283,12 @@
       const htmlReady = hasHtmlBasics(res);
       const psiReadyForNarrative = !psi.enabled || (psi.enabled && !psi.pending);
 
-      // Narrative readiness checks
       const readyByState = narrativeIsReadyByState(res);
       const readyByContent = hasNarrative(res);
       const readyByExecPresence = hasExecutiveNarrativeObject(res);
       const narrativeReady = readyByState || readyByContent || readyByExecPresence;
 
-      // Status text (overlay stays on)
+      // Status text
       if (!htmlReady) {
         setStatus("Fetching scan output…");
       } else if (psi.enabled && psi.pending) {
@@ -245,24 +307,30 @@
         setStatus("Finalising…");
       }
 
-      // If inputs are ready but narrative not ready, nudge orchestrator periodically
+      // Nudge orchestrator once inputs are ready
       if (!narrativeReady && htmlReady && psiReadyForNarrative) {
         if (attempts % ORCH_RETRY_EVERY_N_POLLS === 0) {
           await triggerNarrative(reportId);
         }
       }
 
-      // EXIT CONDITIONS: wait for PSI (if enabled) AND narrative
+      // Exit when PSI (if enabled) AND narrative are ready
       if (psi.enabled) {
         if (!psi.pending && narrativeReady) {
           setStatus("");
-          showOverlay(false);
+          loaderLock.setReady?.();
+          loaderLock.unlock?.();
+          disableHoldMode();
+          window.IQWEB_showLoader?.(false);
           return;
         }
       } else {
         if (narrativeReady) {
           setStatus("");
-          showOverlay(false);
+          loaderLock.setReady?.();
+          loaderLock.unlock?.();
+          disableHoldMode();
+          window.IQWEB_showLoader?.(false);
           return;
         }
       }
@@ -270,8 +338,11 @@
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    // Timeout
-    showOverlay(false);
+    // Timeout: release hold but keep message
+    loaderLock.setReady?.();
+    loaderLock.unlock?.();
+    disableHoldMode();
+    window.IQWEB_showLoader?.(false);
     setStatus("");
 
     const el = document.getElementById("narrativeText");
