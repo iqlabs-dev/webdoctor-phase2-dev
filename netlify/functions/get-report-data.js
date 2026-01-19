@@ -20,7 +20,7 @@ function json(statusCode, body) {
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
 
-      // ✅ CRITICAL: prevent stale/cached report payloads
+      // Prevent stale/cached report payloads
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       Pragma: "no-cache",
       Expires: "0",
@@ -40,6 +40,12 @@ function asInt(v, fallback = 0) {
   if (!Number.isFinite(n)) return fallback;
   return Math.max(0, Math.min(100, Math.round(n)));
 }
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+function isNumericString(v) {
+  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
+}
 
 function overallSummaryFromScore(score) {
   const s = Number(score);
@@ -51,7 +57,7 @@ function overallSummaryFromScore(score) {
     return `Overall delivery score unavailable. ${disclaimer}`;
   }
 
-  let lead =
+  const lead =
     s >= 90
       ? "Overall delivery is excellent."
       : s >= 80
@@ -63,13 +69,6 @@ function overallSummaryFromScore(score) {
             : "Overall delivery is poor.";
 
   return `${lead} ${disclaimer}`;
-}
-
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
-}
-function isNumericString(v) {
-  return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
 }
 
 function prettifyKey(k) {
@@ -196,13 +195,10 @@ function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
     }
   };
 
-  // Respect your locked constraints: target 3 lines, max 5.
+  // target 3 lines, max 5
   pushSome(en.framing?.lines, 2);
 
-  // Add constraint line(s)
   if (lines.length < 3) pushSome(en.root_constraint?.lines, 3);
-
-  // Fallback to structure/trust if still short
   if (lines.length < 3) pushSome(en.structure_seo?.lines, 3);
   if (lines.length < 3) pushSome(en.trust_security?.lines, 3);
 
@@ -210,7 +206,6 @@ function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
 }
 
 function normaliseNarrativeForUI(raw) {
-  // Preserve nulls (don’t convert to {})
   if (!raw || typeof raw !== "object") return null;
 
   const out = { ...raw };
@@ -218,16 +213,13 @@ function normaliseNarrativeForUI(raw) {
   const hasEN = !!out.executive_narrative;
   const overallLines = asArray(out?.overall?.lines).filter((l) => isNonEmptyString(l));
 
-  // 1) If executive_narrative exists but overall.lines missing/empty -> derive it
   if (hasEN && overallLines.length === 0) {
     const derived = deriveOverallLinesFromExecutiveNarrative(out.executive_narrative);
     out.overall = { ...(safeObj(out.overall)), lines: derived };
   }
 
-  // Recompute overallLines after potential derive
   const finalOverallLines = asArray(out?.overall?.lines).filter((l) => isNonEmptyString(l));
 
-  // 2) Ensure executive_lead exists (UI expects it)
   if (!isNonEmptyString(out.executive_lead) && finalOverallLines.length) {
     out.executive_lead = finalOverallLines.slice(0, 5).join("\n");
   }
@@ -251,14 +243,11 @@ export async function handler(event) {
     const byNumericId = isNumericString(reportParam);
 
     // IMPORTANT:
-    // - Do NOT use .single() here (errors on 0 rows AND duplicates).
-    // - Instead: order desc, take first.
+    // Do NOT select columns unless you are 100% sure they exist.
+    // Keep this list minimal + stable.
     let q = supabase
       .from("scan_results")
-      .select(
-        "id, report_id, url, created_at, metrics, score_overall, narrative,số",
-      "narrative_status, narrative_attempts"
-      )
+      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -272,7 +261,7 @@ export async function handler(event) {
         error: "Supabase query failed",
         detail: scanErr.message || String(scanErr),
         hint:
-          "If this suddenly started after deploy, check Netlify env vars SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this site/environment.",
+          "If this started after deploy, revert any new column names in select() and confirm your scan_results schema.",
       });
     }
 
@@ -281,7 +270,7 @@ export async function handler(event) {
 
     const metrics = safeObj(scan.metrics);
 
-    // ✅ Expose these top-level for report-polling.js readiness logic
+    // Surface commonly-used blocks at top level (polling script supports both top-level and metrics.*)
     const basic_checks = safeObj(metrics.basic_checks);
     const security_headers = safeObj(metrics.security_headers);
     const psi = safeObj(metrics.psi);
@@ -334,30 +323,24 @@ export async function handler(event) {
         referrer_policy_present: security_headers.referrer_policy ?? null,
         permissions_policy_present: security_headers.permissions_policy ?? null,
       },
-
-      // Optional: compact PSI summary for UI/debug (not used by poller)
-      psi: {
-        enabled: typeof psi.enabled === "boolean" ? psi.enabled : null,
-        pending: typeof psi.pending === "boolean" ? psi.pending : null,
-        _status: psi._status ?? null,
-        _updated_at: psi._updated_at ?? null,
-        strategies: asArray(psi.strategies),
-        errors_count: Array.isArray(psi.errors) ? psi.errors.length : 0,
-        has_mobile_facts: !!(psi.mobile && psi.mobile.facts && Object.keys(psi.mobile.facts || {}).length),
-        has_desktop_facts: !!(psi.desktop && psi.desktop.facts && Object.keys(psi.desktop.facts || {}).length),
-      },
     };
 
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // ✅ Preserve null; normalise narrative schema for UI
+    // Narrative (null-preserving)
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
     // Attach deterministic overall summary so UI + PDF use the same source
     if (narrative && typeof narrative === "object") {
       narrative.overall_summary = narrative.overall_summary || overall_summary;
     }
+
+    // Derive narrative status from JSON (avoids relying on missing DB columns)
+    const narrative_status =
+      (narrative && typeof narrative === "object" && isNonEmptyString(narrative._status)
+        ? narrative._status
+        : null) ?? null;
 
     return json(200, {
       success: true,
@@ -368,7 +351,7 @@ export async function handler(event) {
         created_at: scan.created_at,
       },
 
-      // ✅ these top-level fields are what your poller checks
+      // For polling/readiness logic (your report-polling.js checks these)
       basic_checks,
       security_headers,
       psi,
@@ -381,9 +364,8 @@ export async function handler(event) {
       fix_plan,
       narrative,
 
-      // ✅ surfaced for poller/debug
-      narrative_status: scan.narrative_status ?? null,
-      narrative_attempts: scan.narrative_attempts ?? null,
+      narrative_status,
+      narrative_attempts: null,
     });
   } catch (err) {
     console.error("[get-report-data]", err);
