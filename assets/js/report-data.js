@@ -1,22 +1,14 @@
 /* eslint-disable */
-/* /assets/js/report-data.js
-   iQWEB Report Renderer — v5.2 (ES5, no modules)
+// /assets/js/report-data.js
+// iQWEB Report Renderer — v5.2 (ES5, no modules)
+// IMPORTANT: This file matches IDs in your report.html:
+// loaderSection, reportRoot, siteUrl, reportId, reportDate,
+// overallPill, overallBar, overallNote, signalsGrid,
+// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+// PLUS: fixFirstBlock (new)
 
-   ✅ HARD RULE NOW:
-   - DO NOT show the report until narrative is ready.
-   - Keep loader visible with status updates (up to ~10 mins).
-   - Works with report-polling.js (preferred) OR standalone fallback polling.
-
-   Matches IDs in report.html:
-   loaderSection, reportRoot, siteUrl, reportId, reportDate,
-   overallPill, overallBar, overallNote, signalsGrid,
-   signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
-   fixFirstBlock, loaderStatus
-*/
-
+/* eslint-disable */
 (function () {
-  "use strict";
-
   // -----------------------------
   // Helpers
   // -----------------------------
@@ -44,24 +36,26 @@
       .replace(/'/g, "&#039;");
   }
 
-  function formatDate(iso) {
-    if (!iso) return "—";
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return String(iso);
-    try {
-      return d.toLocaleString("en-NZ", {
-        timeZone: "Pacific/Auckland",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-    } catch (e) {
-      return d.toString();
-    }
+function formatDate(iso) {
+  if (!iso) return "—";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+
+  try {
+    return d.toLocaleString("en-NZ", {
+      timeZone: "Pacific/Auckland",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return d.toString();
   }
+}
+
 
   function verdict(score) {
     var n = asInt(score, 0);
@@ -98,45 +92,12 @@
   }
 
   // -----------------------------
-  // UI control (loader vs report)
-  // -----------------------------
-  function showLoader() {
-    var loader = $("loaderSection");
-    var root = $("reportRoot");
-    if (loader) loader.style.display = "block";
-    if (root) root.style.display = "none";
-  }
-
-  function showReport() {
-    var loader = $("loaderSection");
-    var root = $("reportRoot");
-    if (loader) loader.style.display = "none";
-    if (root) root.style.display = "block";
-  }
-
-  function setLoaderStatus(text) {
-    try {
-      if (typeof window.IQWEB_setLoaderStatus === "function") {
-        window.IQWEB_setLoaderStatus(String(text || ""));
-        return;
-      }
-    } catch (e) {}
-
-    var el = $("loaderStatus");
-    if (el) el.textContent = String(text || "");
-  }
-
-  function failInLoader(msg) {
-    showLoader();
-    setLoaderStatus("Report error: " + String(msg || "Unknown error"));
-  }
-
-  // -----------------------------
   // Transport
   // -----------------------------
   function fetchJson(method, url, bodyObj) {
+    // Prefer fetch if present, fallback to XHR
     if (typeof fetch === "function") {
-      var opts = { method: method, headers: { "Accept": "application/json" }, cache: "no-store" };
+      var opts = { method: method, headers: { "Accept": "application/json" } };
       if (method !== "GET") {
         opts.headers["Content-Type"] = "application/json";
         opts.body = JSON.stringify(bodyObj || {});
@@ -157,6 +118,7 @@
       });
     }
 
+    // XHR fallback
     return new Promise(function (resolve, reject) {
       try {
         var xhr = new XMLHttpRequest();
@@ -206,15 +168,16 @@
   }
 
   // -----------------------------
-  // Data contract bridge
+  // Data contract bridge (new vs legacy)
   // -----------------------------
   function pickHeader(data) {
     data = safeObj(data);
     if (data.header && typeof data.header === "object") return safeObj(data.header);
+    // legacy-ish
     return {
       website: data.url || data.website || "",
       report_id: data.report_id || "",
-      created_at: data.created_at || data.generated_at || data.report_date || ""
+      created_at: data.created_at || data.generated_at || ""
     };
   }
 
@@ -232,6 +195,13 @@
     return asArray(m.delivery_signals);
   }
 
+  function pickKeyMetrics(data) {
+    data = safeObj(data);
+    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
+    var m = safeObj(data.metrics);
+    return safeObj(m);
+  }
+
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
@@ -247,64 +217,19 @@
 
   function pickNarrative(data) {
     data = safeObj(data);
-    return data.narrative || null;
-  }
-
-  function getNarrativeStatus(data) {
-    data = safeObj(data);
-    var s = data.narrative_status || (data.metrics && data.metrics.narrative_status) || null;
-    return (typeof s === "string") ? s : null;
-  }
-
-  function anyNonEmptyStrings(arr) {
-    return Array.isArray(arr) && arr.some(function (v) {
-      return typeof v === "string" && v.trim().length > 0;
-    });
-  }
-
-  function narrativeReadyByContent(narrative) {
-    if (!narrative) return false;
-
-    // legacy: overall.lines / executive_lead
-    if (typeof narrative === "object") {
-      if (anyNonEmptyStrings(narrative.overall && narrative.overall.lines)) return true;
-      if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) return true;
-
-      // new: executive_narrative blocks
-      var en = narrative.executive_narrative;
-      if (en && typeof en === "object") {
-        if (anyNonEmptyStrings(en.framing && en.framing.lines)) return true;
-        if (anyNonEmptyStrings(en.root_constraint && en.root_constraint.lines)) return true;
-        if (anyNonEmptyStrings(en.structure_seo && en.structure_seo.lines)) return true;
-        if (anyNonEmptyStrings(en.trust_security && en.trust_security.lines)) return true;
-        if (anyNonEmptyStrings(en.site_specificity && en.site_specificity.lines)) return true;
-
-        var bs = en.behaviour_split;
-        if (bs && typeof bs === "object") {
-          if (anyNonEmptyStrings(bs.mobile && bs.mobile.lines)) return true;
-          if (anyNonEmptyStrings(bs.desktop && bs.desktop.lines)) return true;
-        }
-
-        var fo = en.fix_order;
-        var items = fo && fo.items;
-        if (Array.isArray(items) && items.some(function (it) { return anyNonEmptyStrings(it && it.lines); })) return true;
-      }
-    }
-
-    if (typeof narrative === "string" && narrative.trim()) return true;
-
-    return false;
-  }
-
-  function narrativeIsReady(payload) {
-    var status = String(getNarrativeStatus(payload) || "").toLowerCase();
-    if (status === "ok" || status === "generated") return true;
-    return narrativeReadyByContent(pickNarrative(payload));
+    return data.narrative || "";
   }
 
   // -----------------------------
-  // DOM population
+  // DOM actions (SHOW report / HIDE loader)
   // -----------------------------
+  function showReport() {
+    var loader = $("loaderSection");
+    var root = $("reportRoot");
+    if (loader) loader.style.display = "none";
+    if (root) root.style.display = "block";
+  }
+
   function setHeaderUI(header) {
     header = safeObj(header);
 
@@ -314,7 +239,9 @@
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-    var created = header && (header.report_date || header.created_at || header.generated_at);
+var created = header && (header.report_date || header.created_at || header.generated_at);
+
+
 
     if (site) {
       site.textContent = website || "—";
@@ -349,10 +276,11 @@
     if (!el) return false;
 
     if (!narrative) {
-      el.innerHTML = "";
+      el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
       return false;
     }
 
+    // object contract
     if (typeof narrative === "object") {
       var overallLines = asArray(narrative.overall && narrative.overall.lines);
       if (overallLines.length) {
@@ -362,10 +290,11 @@
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
-        el.innerHTML = html;
+        el.innerHTML = html || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
         return !!html;
       }
 
+      // fallback: executive_lead
       if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
         var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
         var out = "";
@@ -379,6 +308,7 @@
       }
     }
 
+    // string fallback
     if (typeof narrative === "string" && narrative.trim()) {
       var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
       if (blocks.length < 2) blocks = narrative.split("\n");
@@ -389,21 +319,23 @@
         if (!b) continue;
         html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
       }
-      el.innerHTML = html2;
+      el.innerHTML = html2 || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
       return !!html2;
     }
 
-    el.innerHTML = "";
+    el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
     return false;
   }
 
   // -----------------------------
-  // What to Fix First (and Why)
+  // NEW: What to Fix First (and Why) block
+  // Renders under Executive Narrative in #fixFirstBlock
   // -----------------------------
   function renderFixFirstBlock(narrative) {
     var root = $("fixFirstBlock");
     if (!root) return false;
 
+    // Clear if no narrative yet
     if (!narrative || typeof narrative !== "object") {
       root.innerHTML = "";
       return false;
@@ -415,6 +347,7 @@
     var waitOn = asArray(ff.deprioritise).filter(Boolean);
     var outcome = asArray(ff.expected_outcome).filter(Boolean);
 
+    // If empty, hide silently
     if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
       root.innerHTML = "";
       return false;
@@ -432,6 +365,8 @@
       return html;
     }
 
+    // Use same “card” styling as the rest of the report
+    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
     var htmlOut = "";
     htmlOut += "<div class='card' style='margin-top:14px;'>";
     htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
@@ -439,6 +374,7 @@
     htmlOut += "</div>";
 
     htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
+
     htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
 
     htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
@@ -470,6 +406,7 @@
     signals = asArray(signals);
     grid.innerHTML = "";
 
+    // narrative signals map
     var narrSignals = {};
     if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
       narrSignals = narrative.signals;
@@ -490,11 +427,14 @@
       var score = asInt(sig.score, 0);
       var label = String(sig.label || sig.id || "This signal");
       var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
+
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
+
       if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
       if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
       if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
+
       return s;
     }
 
@@ -508,8 +448,11 @@
       if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
       var summary = "";
-      if (lines.length) summary = String(lines.join("\n"));
-      else summary = fallbackSummary(sig);
+      if (lines.length) {
+        summary = String(lines.join("\n"));
+      } else {
+        summary = fallbackSummary(sig);
+      }
 
       var card = document.createElement("div");
       card.className = "card";
@@ -526,7 +469,7 @@
   }
 
   // -----------------------------
-  // Signal Evidence
+  // Signal Evidence (accordions per signal)
   // -----------------------------
   function renderSignalEvidence(signals) {
     var root = $("signalEvidenceRoot");
@@ -568,6 +511,7 @@
 
       var body = '<div class="acc-body">';
 
+      // Issues
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
         for (var j = 0; j < issues.length; j++) {
@@ -585,6 +529,7 @@
         }
       }
 
+      // Deductions
       if (deds.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
         body += "<div class='evidence-list'>";
@@ -597,6 +542,7 @@
         body += "</div>";
       }
 
+      // Observations
       if (obs.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
         body += "<div class='evidence-list'>";
@@ -607,6 +553,7 @@
         body += "</div>";
       }
 
+      // Evidence objet (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -630,7 +577,7 @@
   }
 
   // -----------------------------
-  // Key Insights
+  // Key Insight Metrics (Strength / Risk / Focus / Next)
   // -----------------------------
   function renderKeyInsights(scores, signals) {
     var root = $("keyMetricsRoot");
@@ -711,6 +658,7 @@
     if (!root) return;
 
     signals = asArray(signals);
+
     var issuesOut = [];
 
     for (var i = 0; i < signals.length; i++) {
@@ -745,8 +693,8 @@
     }
 
     var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
-    var html = "";
 
+    var html = "";
     if (!cap) {
       html =
         '<div class="issue">' +
@@ -776,7 +724,7 @@
   }
 
   // -----------------------------
-  // Fix Sequence (existing DOM blocks)
+  // Fix Sequence
   // -----------------------------
   function renderFixSequence(scores, signals) {
     var root = $("fixSequenceRoot");
@@ -794,15 +742,14 @@
         break;
       }
     }
-
     if (!focus) {
       var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
       var worst = { k: "", v: 999 };
       for (var j = 0; j < domains.length; j++) {
-        var kk = domains[j];
-        if (typeof scores[kk] === "undefined") continue;
-        var v = asInt(scores[kk], 0);
-        if (v < worst.v) worst = { k: kk, v: v };
+        var k = domains[j];
+        if (typeof scores[k] === "undefined") continue;
+        var v = asInt(scores[k], 0);
+        if (v < worst.v) worst = { k: k, v: v };
       }
       if (worst.k) focus = "Stabilise " + worst.k.toUpperCase() + " baseline first.";
     }
@@ -838,175 +785,77 @@
   }
 
   // -----------------------------
-  // RENDER PIPELINE (but DO NOT show report until narrative is ready)
+  // Narrative generation: non-blocking
   // -----------------------------
-  function renderAllIntoDom(payload) {
-    payload = safeObj(payload);
+  function ensureNarrative(reportId, narrative) {
+    // Render whatever we already have
+    var hasExecutive = renderNarrative(narrative);
+    renderFixFirstBlock(narrative);
 
-    var header = pickHeader(payload);
-    var scores = pickScores(payload);
-    var signals = pickSignals(payload);
-    var narrative = pickNarrative(payload);
+    if (hasExecutive) return;
+
+    var key = "iqweb_narrative_requested_" + reportId;
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      }
+    } catch (e) {}
+
+    generateNarrative(reportId)
+      .then(function () { return fetchReportData(reportId); })
+      .then(function (data2) {
+        var n = pickNarrative(data2);
+        renderNarrative(n);
+        renderFixFirstBlock(n);
+      })
+      .catch(function () {
+        // ignore narrative errors
+      });
+  }
+
+  // -----------------------------
+  // Main render
+  // -----------------------------
+  function renderAll(data) {
+    data = safeObj(data);
+
+    var header = pickHeader(data);
+    var scores = pickScores(data);
+    var signals = pickSignals(data);
+    var narrative = pickNarrative(data);
 
     setHeaderUI(header);
 
-    var overallSummary = pickOverallSummary(payload, scores.overall);
+    var overallSummary = pickOverallSummary(data, scores.overall);
     setOverallUI(scores, overallSummary);
 
-    // Full render (hidden behind loader until ready)
-    renderNarrative(narrative);
-    renderFixFirstBlock(narrative);
+    showReport();
+
+    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
 
     renderSignalsGrid(signals, narrative);
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
     renderTopIssues(signals);
     renderFixSequence(scores, signals);
+
+    try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
 
-  // -----------------------------
-  // Orchestrator nudge (idempotent)
-  // -----------------------------
-  var LAST_ORCH_AT = 0;
-  function maybeNudgeNarrative(reportId, payload) {
-    // Don’t spam
-    var now = Date.now();
-    if (now - LAST_ORCH_AT < 6000) return;
-    LAST_ORCH_AT = now;
-
-    // Only if not ready
-    if (narrativeIsReady(payload)) return;
-
-    setLoaderStatus("Generating executive narrative…");
-    generateNarrative(reportId).catch(function () { /* ignore */ });
-  }
-
-  // -----------------------------
-  // PUBLIC ENTRYPOINT for report-polling.js
-  // report-polling.js calls: IQWEB_handleReportData(reportId, payload)
-  // -----------------------------
-  window.IQWEB_handleReportData = function (reportId, payload) {
-    try {
-      reportId = String(reportId || "").trim();
-      payload = safeObj(payload);
-
-      // Always keep loader up until narrative is ready
-      showLoader();
-
-      // Render current best-known payload into DOM (still hidden)
-      renderAllIntoDom(payload);
-
-      if (!narrativeIsReady(payload)) {
-        // Status hints (optional)
-        var ns = String(getNarrativeStatus(payload) || "").toLowerCase();
-        if (ns === "generating") setLoaderStatus("Generating executive narrative…");
-        else if (ns === "pending" || ns === "partial") setLoaderStatus("Finalising report…");
-        else setLoaderStatus("Building report…");
-
-        // Nudge orchestrator occasionally (safe)
-        maybeNudgeNarrative(reportId, payload);
-
-        // Do NOT show report yet
-        return;
-      }
-
-      // ✅ Narrative is ready => unlock report display
-      setLoaderStatus("");
-      showReport();
-      try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
-    } catch (e2) {
-      failInLoader(e2 && e2.message ? e2.message : String(e2));
-    }
-  };
-
-  // -----------------------------
-  // Standalone fallback polling (if report-polling.js not used/loaded)
-  // -----------------------------
-  var POLL_INTERVAL_MS = 2000;
-  var MAX_POLLS = 300; // ~10 mins
-
-  function fallbackPoll(reportId) {
-    var attempts = 0;
-    showLoader();
-    setLoaderStatus("Building report…");
-
-    function tick() {
-      attempts++;
-      fetchReportData(reportId)
-        .then(function (payload) {
-          // Use same handler as poller integration
-          window.IQWEB_handleReportData(reportId, payload);
-
-          if (window.__IQWEB_REPORT_READY === true) return;
-
-          if (attempts >= MAX_POLLS) {
-            failInLoader("Report is taking longer than expected. Please refresh in a moment.");
-            return;
-          }
-          setTimeout(tick, POLL_INTERVAL_MS);
-        })
-        .catch(function (err) {
-          if (attempts >= MAX_POLLS) {
-            failInLoader(err && err.message ? err.message : "Failed to load report data.");
-            return;
-          }
-          setLoaderStatus("Connecting…");
-          setTimeout(tick, POLL_INTERVAL_MS);
-        });
-    }
-
-    tick();
-  }
-
-  // -----------------------------
-  // Boot
-  // -----------------------------
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) return;
 
-    // Always start in loader state
-    showLoader();
-    setLoaderStatus("Building report…");
-
-    // If report-polling.js is present, it will call IQWEB_handleReportData.
-    // To avoid double-fetch, only run fallback poll if polling is not enabled.
-    try {
-      if (window.IQWEB_USE_POLLING === false) {
-        fallbackPoll(reportId);
-        return;
-      }
-    } catch (e) {}
-
-    // If polling is enabled, do a *single* fetch to paint header fast (still hidden),
-    // then let report-polling continue.
     fetchReportData(reportId)
-      .then(function (payload) {
-        try {
-          renderAllIntoDom(payload);
-        } catch (e2) {}
-        // stay in loader until poller says narrative ready
-        if (narrativeIsReady(payload)) {
-          setLoaderStatus("");
-          showReport();
-          try { window.__IQWEB_REPORT_READY = true; } catch (e3) {}
-        } else {
-          setLoaderStatus("Finalising report…");
-          // Safety: if poller isn't actually loaded, fallback.
-          setTimeout(function () {
-            if (window.__IQWEB_REPORT_READY !== true) {
-              // If no one has called handler after a short grace, fallback poll.
-              fallbackPoll(reportId);
-            }
-          }, 2500);
-        }
-      })
-      .catch(function (err) {
-        // If first fetch fails, fallback poll (network may be warming)
-        setLoaderStatus("Connecting…");
-        setTimeout(function () {
-          fallbackPoll(reportId);
-        }, 800);
+      .then(function (data) { renderAll(data); })
+      .catch(function () {
+        showReport();
+        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+        var n = $("narrativeText");
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        var ff = $("fixFirstBlock");
+        if (ff) ff.innerHTML = "";
       });
   }
 
