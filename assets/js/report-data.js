@@ -36,26 +36,25 @@
       .replace(/'/g, "&#039;");
   }
 
-function formatDate(iso) {
-  if (!iso) return "—";
-  var d = new Date(iso);
-  if (isNaN(d.getTime())) return String(iso);
+  function formatDate(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
 
-  try {
-    return d.toLocaleString("en-NZ", {
-      timeZone: "Pacific/Auckland",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-  } catch (e) {
-    return d.toString();
+    try {
+      return d.toLocaleString("en-NZ", {
+        timeZone: "Pacific/Auckland",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+    } catch (e) {
+      return d.toString();
+    }
   }
-}
-
 
   function verdict(score) {
     var n = asInt(score, 0);
@@ -195,13 +194,6 @@ function formatDate(iso) {
     return asArray(m.delivery_signals);
   }
 
-  function pickKeyMetrics(data) {
-    data = safeObj(data);
-    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
-    var m = safeObj(data.metrics);
-    return safeObj(m);
-  }
-
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
@@ -218,6 +210,17 @@ function formatDate(iso) {
   function pickNarrative(data) {
     data = safeObj(data);
     return data.narrative || "";
+  }
+
+  function pickPsiEnvelope(data) {
+    // Supports both:
+    // - data.psi (your example)
+    // - data.metrics.psi (some older paths)
+    data = safeObj(data);
+    if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
+    var m = safeObj(data.metrics);
+    if (m.psi && typeof m.psi === "object") return safeObj(m.psi);
+    return {};
   }
 
   // -----------------------------
@@ -239,9 +242,7 @@ function formatDate(iso) {
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-var created = header && (header.report_date || header.created_at || header.generated_at);
-
-
+    var created = header && (header.report_date || header.created_at || header.generated_at);
 
     if (site) {
       site.textContent = website || "—";
@@ -365,8 +366,6 @@ var created = header && (header.report_date || header.created_at || header.gener
       return html;
     }
 
-    // Use same “card” styling as the rest of the report
-    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
     var htmlOut = "";
     htmlOut += "<div class='card' style='margin-top:14px;'>";
     htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
@@ -553,7 +552,7 @@ var created = header && (header.report_date || header.created_at || header.gener
         body += "</div>";
       }
 
-      // Evidence objet (key/value)
+      // Evidence object (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -783,112 +782,148 @@ var created = header && (header.report_date || header.created_at || header.gener
       }
     } catch (e) {}
   }
-// -----------------------------
-// Narrative readiness
-// -----------------------------
-function narrativeReady(narrative) {
-  if (!narrative || typeof narrative !== "object") return false;
-  var lines = narrative.overall && narrative.overall.lines;
-  return Array.isArray(lines) && lines.length > 0;
-}
 
-// -----------------------------
-// Narrative generation: BLOCKING with poll (passes final narrative to callback)
-// -----------------------------
-function ensureNarrativeBlocking(reportId, narrative, done) {
-  var started = Date.now();
-  var MAX_WAIT = 120000; // 2 minutes
-  var INTERVAL = 4000;   // 4s
-
-  function finish(n) {
-    // Always render whatever we ended with (ready or not)
-    renderNarrative(n);
-    renderFixFirstBlock(n);
-    return done(n);
+  // -----------------------------
+  // Async readiness + non-blocking narrative polling
+  // -----------------------------
+  function narrativeReady(narrative) {
+    if (!narrative || typeof narrative !== "object") return false;
+    var lines = narrative.overall && narrative.overall.lines;
+    return Array.isArray(lines) && lines.length > 0;
   }
 
-  function poll() {
-    fetchReportData(reportId)
-      .then(function (data) {
-        var n = pickNarrative(data);
+  function psiReadyFromData(data) {
+    var psi = pickPsiEnvelope(data);
 
-        if (narrativeReady(n)) return finish(n);
+    // If PSI explicitly disabled, treat as ready
+    if (psi && psi.enabled === false) return true;
 
-        // timeout → show report anyway (with whatever narrative exists)
-        if (Date.now() - started > MAX_WAIT) return finish(n);
+    // If server provides pending=false, trust it
+    if (psi && psi.pending === false) return true;
 
-        setTimeout(poll, INTERVAL);
-      })
-      .catch(function () {
-        // fail open with whatever we had initially
-        return finish(narrative);
-      });
+    // If both exist, treat as ready
+    if (psi && psi.mobile && psi.desktop) return true;
+
+    return false;
   }
 
-  // already ready
-  if (narrativeReady(narrative)) return finish(narrative);
+  // Shows report immediately; polls until narrative appears; triggers narrative only after PSI ready.
+  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
+    if (isPdfMode()) return; // never run background generation in PDF mode
 
-  // trigger generation once (non-blocking)
-  generateNarrative(reportId).catch(function () {});
+    var started = Date.now();
+    var MAX_WAIT = 180000; // 3 minutes
+    var INTERVAL = 4000;   // 4s
 
-  // start polling
-  poll();
-}
+    var triggered = false;
+    var done = false;
 
-// -----------------------------
-// Main render
-// -----------------------------
-function renderAll(data) {
-  data = safeObj(data);
+    function renderFrom(data) {
+      var n = pickNarrative(data);
 
-  var header = pickHeader(data);
-  var scores = pickScores(data);
-  var signals = pickSignals(data);
-  var narrative = pickNarrative(data);
+      // Always keep narrative area sensible
+      renderNarrative(n);
+      renderFixFirstBlock(n);
 
-  setHeaderUI(header);
+      // If narrative is ready, refresh signal cards to use narrative lines
+      if (narrativeReady(n)) {
+        renderSignalsGrid(signals, n);
+      }
+    }
 
-  var overallSummary = pickOverallSummary(data, scores.overall);
-  setOverallUI(scores, overallSummary);
+    // Render immediately from initial payload (usually "not available yet")
+    renderFrom(initialData);
 
-  var rid = String(header.report_id || getReportIdFromUrl() || "");
+    function tick() {
+      if (done) return;
 
-  // BLOCK: wait/poll for narrative (or timeout), then show report and render everything
-  ensureNarrativeBlocking(rid, narrative, function (n2) {
+      // stop after MAX_WAIT (fail-open, leave report visible)
+      if (Date.now() - started > MAX_WAIT) {
+        done = true;
+        return;
+      }
+
+      fetchReportData(reportId)
+        .then(function (data) {
+          // If PSI is now ready and we haven't triggered narrative generation, do it once
+          if (!triggered && psiReadyFromData(data)) {
+            triggered = true;
+            generateNarrative(reportId).catch(function () {});
+          }
+
+          renderFrom(data);
+
+          // Stop polling when narrative is ready
+          var n = pickNarrative(data);
+          if (narrativeReady(n)) {
+            done = true;
+            return;
+          }
+
+          setTimeout(tick, INTERVAL);
+        })
+        .catch(function () {
+          setTimeout(tick, INTERVAL);
+        });
+    }
+
+    tick();
+  }
+
+  // -----------------------------
+  // Main render
+  // -----------------------------
+  function renderAll(data) {
+    data = safeObj(data);
+
+    var header = pickHeader(data);
+    var scores = pickScores(data);
+    var signals = pickSignals(data);
+    var narrative = pickNarrative(data);
+
+    setHeaderUI(header);
+
+    var overallSummary = pickOverallSummary(data, scores.overall);
+    setOverallUI(scores, overallSummary);
+
+    // IMPORTANT: show report immediately (no deadlock on PSI / narrative)
     showReport();
 
-    // Use the final narrative (ready or timed out) for signal narratives too
-    renderSignalsGrid(signals, n2);
+    // Initial render (may have no narrative yet)
+    renderSignalsGrid(signals, narrative);
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
     renderTopIssues(signals);
     renderFixSequence(scores, signals);
 
+    // Start background narrative flow (auto-updates, no refresh)
+    var rid = String(header.report_id || getReportIdFromUrl() || "");
+    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
+
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
-  });
-}
-
-function boot() {
-  var reportId = getReportIdFromUrl();
-  if (!reportId) return;
-
-  fetchReportData(reportId)
-    .then(function (data) { renderAll(data); })
-    .catch(function () {
-      showReport();
-      try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
-      var n = $("narrativeText");
-      if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
-      var ff = $("fixFirstBlock");
-      if (ff) ff.innerHTML = "";
-    });
-}
-
-try {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
   }
-} catch (e) {}
+
+  function boot() {
+    var reportId = getReportIdFromUrl();
+    if (!reportId) return;
+
+    fetchReportData(reportId)
+      .then(function (data) { renderAll(data); })
+      .catch(function () {
+        showReport();
+        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+        var n = $("narrativeText");
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        var ff = $("fixFirstBlock");
+        if (ff) ff.innerHTML = "";
+      });
+  }
+
+  try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  } catch (e) {}
 })();
