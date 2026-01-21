@@ -783,87 +783,112 @@ var created = header && (header.report_date || header.created_at || header.gener
       }
     } catch (e) {}
   }
+// -----------------------------
+// Narrative readiness
+// -----------------------------
+function narrativeReady(narrative) {
+  if (!narrative || typeof narrative !== "object") return false;
+  var lines = narrative.overall && narrative.overall.lines;
+  return Array.isArray(lines) && lines.length > 0;
+}
 
-  // -----------------------------
-  // Narrative generation: non-blocking
-  // -----------------------------
-  function ensureNarrative(reportId, narrative) {
-    // Render whatever we already have
-    var hasExecutive = renderNarrative(narrative);
-    renderFixFirstBlock(narrative);
+// -----------------------------
+// Narrative generation: BLOCKING with poll (passes final narrative to callback)
+// -----------------------------
+function ensureNarrativeBlocking(reportId, narrative, done) {
+  var started = Date.now();
+  var MAX_WAIT = 120000; // 2 minutes
+  var INTERVAL = 4000;   // 4s
 
-    if (hasExecutive) return;
+  function finish(n) {
+    // Always render whatever we ended with (ready or not)
+    renderNarrative(n);
+    renderFixFirstBlock(n);
+    return done(n);
+  }
 
-    var key = "iqweb_narrative_requested_" + reportId;
-    try {
-      if (typeof sessionStorage !== "undefined") {
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, "1");
-      }
-    } catch (e) {}
+  function poll() {
+    fetchReportData(reportId)
+      .then(function (data) {
+        var n = pickNarrative(data);
 
-    generateNarrative(reportId)
-      .then(function () { return fetchReportData(reportId); })
-      .then(function (data2) {
-        var n = pickNarrative(data2);
-        renderNarrative(n);
-        renderFixFirstBlock(n);
+        if (narrativeReady(n)) return finish(n);
+
+        // timeout → show report anyway (with whatever narrative exists)
+        if (Date.now() - started > MAX_WAIT) return finish(n);
+
+        setTimeout(poll, INTERVAL);
       })
       .catch(function () {
-        // ignore narrative errors
+        // fail open with whatever we had initially
+        return finish(narrative);
       });
   }
 
-  // -----------------------------
-  // Main render
-  // -----------------------------
-  function renderAll(data) {
-    data = safeObj(data);
+  // already ready
+  if (narrativeReady(narrative)) return finish(narrative);
 
-    var header = pickHeader(data);
-    var scores = pickScores(data);
-    var signals = pickSignals(data);
-    var narrative = pickNarrative(data);
+  // trigger generation once (non-blocking)
+  generateNarrative(reportId).catch(function () {});
 
-    setHeaderUI(header);
+  // start polling
+  poll();
+}
 
-    var overallSummary = pickOverallSummary(data, scores.overall);
-    setOverallUI(scores, overallSummary);
+// -----------------------------
+// Main render
+// -----------------------------
+function renderAll(data) {
+  data = safeObj(data);
 
+  var header = pickHeader(data);
+  var scores = pickScores(data);
+  var signals = pickSignals(data);
+  var narrative = pickNarrative(data);
+
+  setHeaderUI(header);
+
+  var overallSummary = pickOverallSummary(data, scores.overall);
+  setOverallUI(scores, overallSummary);
+
+  var rid = String(header.report_id || getReportIdFromUrl() || "");
+
+  // BLOCK: wait/poll for narrative (or timeout), then show report and render everything
+  ensureNarrativeBlocking(rid, narrative, function (n2) {
     showReport();
 
-    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
-
-    renderSignalsGrid(signals, narrative);
+    // Use the final narrative (ready or timed out) for signal narratives too
+    renderSignalsGrid(signals, n2);
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
     renderTopIssues(signals);
     renderFixSequence(scores, signals);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+  });
+}
+
+function boot() {
+  var reportId = getReportIdFromUrl();
+  if (!reportId) return;
+
+  fetchReportData(reportId)
+    .then(function (data) { renderAll(data); })
+    .catch(function () {
+      showReport();
+      try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+      var n = $("narrativeText");
+      if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+      var ff = $("fixFirstBlock");
+      if (ff) ff.innerHTML = "";
+    });
+}
+
+try {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
   }
-
-  function boot() {
-    var reportId = getReportIdFromUrl();
-    if (!reportId) return;
-
-    fetchReportData(reportId)
-      .then(function (data) { renderAll(data); })
-      .catch(function () {
-        showReport();
-        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
-        var n = $("narrativeText");
-        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
-        var ff = $("fixFirstBlock");
-        if (ff) ff.innerHTML = "";
-      });
-  }
-
-  try {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", boot);
-    } else {
-      boot();
-    }
-  } catch (e) {}
+} catch (e) {}
 })();
