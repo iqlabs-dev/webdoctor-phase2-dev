@@ -331,7 +331,7 @@
     if (!narrative) {
       el.innerHTML =
         "<div class='muted' style='font-size:12px;'>" +
-          (psiReady ? "Building narrative" : "Waiting for PSI") +
+          (psiReady ? "Building narrative" : "Building Narrative..") +
           dotsHtml() +
         "</div>";
       return false;
@@ -385,7 +385,7 @@
 
     el.innerHTML =
       "<div class='muted' style='font-size:12px;'>" +
-        (psiReady ? "Building narrative" : "Waiting for PSI") +
+        (psiReady ? "Building narrative" : "Building Narrative..") +
         dotsHtml() +
       "</div>";
     return false;
@@ -511,7 +511,7 @@
 
       var summaryHtml = "";
       if (!psiReady) {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Waiting for PSI" + dotsHtml() + "</span>";
+     summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
       } else if (!narrReady && !lines.length) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
       } else {
