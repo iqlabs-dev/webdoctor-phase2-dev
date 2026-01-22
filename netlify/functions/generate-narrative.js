@@ -1,34 +1,25 @@
-/* eslint-disable */
-const { createClient } = require("@supabase/supabase-js");
-
-/**
- * iQWEB Narrative Orchestrator (v2)
- *
- * What this file now is:
- * - An idempotent "advance-one-step" orchestrator.
- * - Safe to call repeatedly (e.g. from report-polling.js every 2s).
- *
- * Contract:
- * 1) If narrative already exists -> return success (do nothing).
- * 2) If PSI/basic input not ready -> return success "waiting" (do nothing).
- * 3) If ready -> write narrative once and mark narrative_status.
- * 4) Optional: if PSI appears stuck beyond a timeout, generate a degraded narrative
- *    (facts-only from HTML/security) so the report completes every time.
- */
+// /.netlify/functions/generate-narrative.js
+import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+const PSI_MAX_WAIT_MS = Number(process.env.PSI_MAX_WAIT_MS || 180000); // 3 minutes default
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /* -------------------------------------------------- */
 /* Helpers                                            */
 /* -------------------------------------------------- */
+
 function json(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -37,549 +28,477 @@ function json(statusCode, body) {
   };
 }
 
-const safeObj = (v) => (v && typeof v === "object" ? v : {});
-const asArray = (v) => (Array.isArray(v) ? v : []);
-const nowIso = () => new Date().toISOString();
+function safeObj(v) {
+  return v && typeof v === "object" ? v : {};
+}
 
-function tryParseIso(s) {
-  const t = Date.parse(String(s || ""));
-  return Number.isFinite(t) ? t : null;
+function asArray(v) {
+  return Array.isArray(v) ? v : [];
+}
+
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function isPsiReady(metrics) {
+  const psi = safeObj(metrics && metrics.psi);
+  if (psi.enabled === false) return true; // treat disabled as ready
+  const pending = !!psi.pending;
+  const status = String(psi._status || "").toLowerCase();
+  const hasMobile = !!(psi.mobile && psi.mobile.facts);
+  const hasDesktop = !!(psi.desktop && psi.desktop.facts);
+
+  // “ready” means pending=false AND we have both fact blocks OR status says ok and facts exist
+  if (pending) return false;
+  if (hasMobile && hasDesktop) return true;
+  if (status === "ok" && (hasMobile || hasDesktop)) return true;
+
+  return false;
+}
+
+function psiTooOldToWait(metrics, maxWaitMs) {
+  const psi = safeObj(metrics && metrics.psi);
+  if (psi.enabled === false) return false;
+
+  const pending = !!psi.pending;
+  if (!pending) return false;
+
+  const updatedAt = psi._updated_at ? Date.parse(psi._updated_at) : NaN;
+  if (!isFinite(updatedAt)) return false;
+
+  const age = Date.now() - updatedAt;
+  return age > maxWaitMs;
 }
 
 /* -------------------------------------------------- */
-/* Readiness gate                                     */
+/* Executive narrative derivation helpers              */
 /* -------------------------------------------------- */
-function getNarrativeReadiness(metrics) {
+
+function pickEvidenceSnapshot(metrics) {
   const m = safeObj(metrics);
   const psi = safeObj(m.psi);
-  const bc = safeObj(m.basic_checks);
+  const mobileFacts = safeObj(psi.mobile && psi.mobile.facts);
+  const desktopFacts = safeObj(psi.desktop && psi.desktop.facts);
 
-  const strategies = asArray(psi.strategies).length
-    ? asArray(psi.strategies)
-    : ["mobile", "desktop"];
-
-  const needMobile = strategies.includes("mobile");
-  const needDesktop = strategies.includes("desktop");
-
-  // IMPORTANT: "facts must exist AND have keys"
- const hasMobileFacts =
-  psi.mobile && typeof psi.mobile.facts === "object";
-
-const hasDesktopFacts =
-  psi.desktop && typeof psi.desktop.facts === "object";
-
-
-  // HTML bucket: accept stable indicators that HTML extraction ran
-const htmlReady =
-  !!bc ||
-  (psi.desktop && psi.desktop.facts && Object.keys(psi.desktop.facts).length > 0) ||
-  (psi.mobile && psi.mobile.facts && Object.keys(psi.mobile.facts).length > 0);
-
-
-  const missing = {
-    basic_checks: !htmlReady,
-    psi_mobile: needMobile && !hasMobileFacts,
-    psi_desktop: needDesktop && !hasDesktopFacts,
-  };
-
-  const ready = !missing.basic_checks && !missing.psi_mobile && !missing.psi_desktop;
-
+  // Keep this small + deterministic
   return {
-    ready,
-    missing,
-    strategies,
-    needMobile,
-    needDesktop,
-    psi_pending: typeof psi.pending === "boolean" ? psi.pending : null,
-    psi_status: psi._status || null,
-    psi_updated_at: psi._updated_at || null,
-    psi_errors_count: Array.isArray(psi.errors) ? psi.errors.length : 0,
-    hasMobileFacts,
-    hasDesktopFacts,
+    mobile: {
+      CLS: mobileFacts.CLS,
+      FCP_ms: mobileFacts.FCP_ms,
+      INP_ms: mobileFacts.INP_ms,
+      LCP_ms: mobileFacts.LCP_ms,
+      TBT_ms: mobileFacts.TBT_ms,
+      TTFB_ms: mobileFacts.TTFB_ms,
+      speedIndex_ms: mobileFacts.speedIndex_ms,
+    },
+    desktop: {
+      CLS: desktopFacts.CLS,
+      FCP_ms: desktopFacts.FCP_ms,
+      INP_ms: desktopFacts.INP_ms,
+      LCP_ms: desktopFacts.LCP_ms,
+      TBT_ms: desktopFacts.TBT_ms,
+      TTFB_ms: desktopFacts.TTFB_ms,
+      speedIndex_ms: desktopFacts.speedIndex_ms,
+    },
+    h1_present: !!(m.basic_checks && m.basic_checks.h1_present),
+    html_bytes: m.basic_checks ? m.basic_checks.html_bytes : undefined,
+    canonical_present: !!(m.basic_checks && m.basic_checks.canonical_present),
+    inline_script_count: m.basic_checks ? m.basic_checks.inline_script_count : undefined,
   };
 }
 
-/* -------------------------------------------------- */
-/* Narrative Builders                                 */
-/* -------------------------------------------------- */
-function buildExecutiveNarrative(metrics, url) {
-  const m = safeObj(metrics);
-  const psi = safeObj(m.psi);
-
-  const desktop = safeObj(psi.desktop && psi.desktop.facts);
-  const mobile = safeObj(psi.mobile && psi.mobile.facts);
-
-  const auditsD = safeObj(psi.desktop && psi.desktop.audits);
-  const auditsM = safeObj(psi.mobile && psi.mobile.audits);
-
-  const bc = safeObj(m.basic_checks);
-  const sh = safeObj(m.security_headers);
-
-  const exec = {
-    title: "Executive Narrative (Site-Specific, Evidence-Led)",
-    framing: { lines: [] },
-    behaviour_split: {
-      desktop: { label: "Desktop", lines: [] },
-      mobile: { label: "Mobile", lines: [] },
-    },
-    root_constraint: { lines: [] },
-    structure_seo: { lines: [] },
-    trust_security: { lines: [] },
-    fix_order: {
-      label: "What to Fix First (Order Matters)",
-      items: [],
-    },
-    site_specificity: {
-      label: "Why This Is Site-Specific (Not Generic)",
-      lines: [],
-      proof_flags: [],
-    },
-    _meta: {
-      schema_version: "exec_north_star_v2",
-      generated_at: nowIso(),
-      site_host: url,
-      evidence_snapshot: {
-        desktop,
-        mobile,
-        html_bytes: bc.html_bytes,
-        inline_script_count: bc.inline_script_count,
-        h1_present: bc.h1_present,
-        canonical_present: bc.canonical_present,
-      },
-    },
-  };
-
-  /* ---------- Framing ---------- */
-  if (desktop.LCP_ms && mobile.LCP_ms && Math.abs(desktop.LCP_ms - mobile.LCP_ms) >= 3000) {
-    exec.framing.lines.push(
-      "This site is functional and capable, but its behaviour diverges sharply between desktop and mobile, which is where the current risk sits."
-    );
-  } else {
-    exec.framing.lines.push(
-      "This site is functional and capable, but a small set of delivery and trust signals are limiting consistency."
-    );
-  }
-
-  /* ---------- Behaviour Split ---------- */
-  if (desktop.LCP_ms != null) {
-    if (desktop.LCP_ms < 3500) {
-      exec.behaviour_split.desktop.lines.push(
-        "On desktop, pages reach their main content quickly enough to feel responsive."
-      );
-    } else if (desktop.LCP_ms >= 6000) {
-      exec.behaviour_split.desktop.lines.push(
-        "On desktop, the main content arrives late, which will feel sluggish on average connections."
-      );
-    }
-  }
-
-  if (desktop.CLS != null && desktop.CLS >= 0.1) {
-    exec.behaviour_split.desktop.lines.push(
-      "Layout stability is weak on desktop, causing visible movement during load that can disrupt reading and interaction."
-    );
-  }
-
-  if (mobile.CLS != null && mobile.CLS <= 0.1) {
-    exec.behaviour_split.mobile.lines.push("On mobile, the layout remains stable once it loads.");
-  }
-
-  if (mobile.LCP_ms != null && mobile.LCP_ms >= 6000) {
-    exec.behaviour_split.mobile.lines.push(
-      "But on mobile the page takes unusually long to reach its main visual content, making it feel slow before users can engage."
-    );
-  } else if (mobile.LCP_ms != null && mobile.LCP_ms < 3500) {
-    exec.behaviour_split.mobile.lines.push(
-      "On mobile, the main content arrives quickly enough to feel responsive."
-    );
-  }
-
-  /* ---------- Root Constraint ---------- */
-  if ((desktop.TTFB_ms != null && desktop.TTFB_ms < 200) || (mobile.TTFB_ms != null && mobile.TTFB_ms < 200)) {
-    exec.root_constraint.lines.push(
-      "Server response is not the primary constraint; most delay comes from browser work before the page becomes usable."
-    );
-  }
-
-  const unusedJs =
-    auditsM["unused-javascript"]?.overallSavingsBytes ||
-    auditsD["unused-javascript"]?.overallSavingsBytes ||
-    null;
-
-  if (unusedJs || (desktop.TBT_ms != null && desktop.TBT_ms > 300) || (mobile.TBT_ms != null && mobile.TBT_ms > 300)) {
-    exec.root_constraint.lines.push(
-      "Script execution and unused assets are increasing render time and delaying interaction readiness."
-    );
-  }
-
-  /* ---------- Structure & SEO ---------- */
-  if (bc.h1_present === false || bc.canonical_present === false) {
-    exec.structure_seo.lines.push(
-      "Search engines can index the site, but missing structural signals reduce clarity about page intent."
-    );
-  }
-  if (bc.h1_present === false) {
-    exec.structure_seo.lines.push("There is no primary page heading (H1), weakening intent clarity for users and crawlers.");
-  }
-  if (bc.canonical_present === false) {
-    exec.structure_seo.lines.push("There is no canonical URL, which can fragment authority across URL variants.");
-  }
-
-  /* ---------- Trust & Security ---------- */
-  if (sh.https && sh.content_security_policy) {
-    exec.trust_security.lines.push("HTTPS transport is active and a content security policy is present.");
-  }
-
-  const missingHeaders = [];
-  if (!sh.hsts) missingHeaders.push("HSTS");
-  if (!sh.referrer_policy) missingHeaders.push("Referrer-Policy");
-  if (!sh.permissions_policy) missingHeaders.push("Permissions-Policy");
-  if (!sh.x_content_type_options) missingHeaders.push("X-Content-Type-Options");
-
-  if (missingHeaders.length >= 2) {
-    exec.trust_security.lines.push(
-      `Several modern trust-hardening headers are missing (${missingHeaders.join(
-        ", "
-      )}), reducing confidence for browsers and automated trust systems over time.`
-    );
-  }
-
-  /* ---------- Fix Order ---------- */
-  if (unusedJs || (desktop.TBT_ms != null && desktop.TBT_ms > 300) || (mobile.TBT_ms != null && mobile.TBT_ms > 300)) {
-    exec.fix_order.items.push({
-      id: "reduce_execution_weight",
-      title: "Reduce front-end execution weight",
-      lines: ["Remove unused JavaScript and CSS.", "Defer or split scripts that block rendering."],
-    });
-  }
-
-  if (desktop.CLS != null && desktop.CLS >= 0.1) {
-    exec.fix_order.items.push({
-      id: "stabilise_layout_desktop",
-      title: "Stabilise layout on desktop",
-      lines: ["Reserve space for images and dynamic elements.", "Prevent late-loading assets from shifting content."],
-    });
-  }
-
-  if (bc.h1_present === false || bc.canonical_present === false) {
-    exec.fix_order.items.push({
-      id: "restore_structural_clarity",
-      title: "Restore structural clarity",
-      lines: ["Add a clear H1 that reflects actual page intent.", "Add a canonical URL to consolidate signals."],
-    });
-  }
-
-  if (missingHeaders.length >= 2) {
-    exec.fix_order.items.push({
-      id: "complete_security_hardening",
-      title: "Complete security hardening",
-      lines: ["Add missing headers to align with modern trust expectations."],
-    });
-  }
-
-  /* ---------- Site Specificity ---------- */
-  if (desktop.LCP_ms != null && desktop.LCP_ms < 3500 && desktop.CLS != null && desktop.CLS >= 0.1) {
-    exec.site_specificity.lines.push("The site is fast but unstable on desktop.");
-    exec.site_specificity.proof_flags.push("desktop_fast_but_unstable");
-  }
-
-  if (mobile.LCP_ms != null && mobile.LCP_ms >= 6000 && mobile.CLS != null && mobile.CLS <= 0.1) {
-    exec.site_specificity.lines.push("The site is stable but unusually slow to render on mobile.");
-    exec.site_specificity.proof_flags.push("mobile_stable_but_slow");
-  }
-
-  if (m.scores?.accessibility != null && Number(m.scores.accessibility) >= 95) {
-    exec.site_specificity.lines.push("Accessibility readiness is unusually strong for a site of this complexity.");
-    exec.site_specificity.proof_flags.push("a11y_strong");
-  }
-
-  if (sh.https && missingHeaders.length >= 2) {
-    exec.site_specificity.lines.push("Trust hardening lags behind the site’s technical capability rather than leading it.");
-    exec.site_specificity.proof_flags.push("trust_lags_technical");
-  }
-
-  return exec;
-}
-
-// Degraded narrative: completes without PSI (facts-only from HTML/security).
-function buildDegradedNarrative(metrics, url, reason) {
-  const m = safeObj(metrics);
-  const bc = safeObj(m.basic_checks);
-  const sh = safeObj(m.security_headers);
-
-  const exec = {
-    title: "Executive Narrative (Degraded Mode — PSI Unavailable)",
-    framing: { lines: [] },
-    behaviour_split: {
-      desktop: { label: "Desktop", lines: [] },
-      mobile: { label: "Mobile", lines: [] },
-    },
-    root_constraint: { lines: [] },
-    structure_seo: { lines: [] },
-    trust_security: { lines: [] },
-    fix_order: {
-      label: "What to Fix First (Order Matters)",
-      items: [],
-    },
-    site_specificity: {
-      label: "Why This Is Site-Specific (Not Generic)",
-      lines: [],
-      proof_flags: ["psi_unavailable_degraded"],
-    },
-    _meta: {
-      schema_version: "exec_degraded_v1",
-      generated_at: nowIso(),
-      site_host: url,
-      degraded: true,
-      degraded_reason: reason || "PSI was not available within the completion window.",
-      evidence_snapshot: {
-        html_bytes: bc.html_bytes,
-        inline_script_count: bc.inline_script_count,
-        h1_present: bc.h1_present,
-        canonical_present: bc.canonical_present,
-        https: sh.https,
-      },
-    },
-  };
-
-  exec.framing.lines.push(
-    "Performance lab metrics were not available for this run; the remaining checks are complete."
-  );
-
-  // Structure & SEO
-  if (bc.h1_present === false) {
-    exec.structure_seo.lines.push("There is no primary page heading (H1), weakening intent clarity for users and crawlers.");
-  }
-  if (bc.canonical_present === false) {
-    exec.structure_seo.lines.push("There is no canonical URL, which can fragment authority across URL variants.");
-  }
-  if (bc.h1_present !== false && bc.canonical_present !== false) {
-    exec.structure_seo.lines.push("Core structure signals were detected, but performance metrics could not be verified in this run.");
-  }
-
-  // Trust & Security
-  if (sh.https) exec.trust_security.lines.push("HTTPS transport is active.");
-  const missingHeaders = [];
-  if (!sh.hsts) missingHeaders.push("HSTS");
-  if (!sh.referrer_policy) missingHeaders.push("Referrer-Policy");
-  if (!sh.permissions_policy) missingHeaders.push("Permissions-Policy");
-  if (!sh.x_content_type_options) missingHeaders.push("X-Content-Type-Options");
-  if (missingHeaders.length) {
-    exec.trust_security.lines.push(
-      `Some trust-hardening headers are missing (${missingHeaders.join(", ")}).`
-    );
-  }
-
-  // Fix order (degraded)
-  if (bc.h1_present === false || bc.canonical_present === false) {
-    exec.fix_order.items.push({
-      id: "restore_structural_clarity",
-      title: "Restore structural clarity",
-      lines: ["Add a clear H1 that reflects actual page intent.", "Add a canonical URL to consolidate signals."],
-    });
-  }
-  if (missingHeaders.length >= 2) {
-    exec.fix_order.items.push({
-      id: "complete_security_hardening",
-      title: "Complete security hardening",
-      lines: ["Add missing headers to align with modern trust expectations."],
-    });
-  }
-
-  exec.site_specificity.lines.push("The narrative above is derived from observed HTML and header evidence for this site.");
-  return exec;
-}
-
-/* -------------------------------------------------- */
-/* UI compatibility fields                            */
-/* - Your front-end supports legacy overall.lines      */
-/* - get-report-data.js maps overall.lines -> executive_lead
- * - report-polling.js also detects executive_narrative schema
- * -------------------------------------------------- */
 function deriveOverallLines(executive_narrative) {
-  const en = safeObj(executive_narrative);
+  const exec = safeObj(executive_narrative);
 
-  const lines = [];
-  const pushSome = (arr, max) => {
-    const a = Array.isArray(arr) ? arr : [];
-    for (const s of a) {
-      if (typeof s === "string" && s.trim()) lines.push(s.trim());
-      if (lines.length >= max) return;
+  const framing = asArray(exec.framing && exec.framing.lines);
+  const root = asArray(exec.root_constraint && exec.root_constraint.lines);
+
+  // Combine: framing + root_constraint, capped to 5 lines
+  let lines = [];
+  for (let i = 0; i < framing.length; i++) lines.push(String(framing[i]));
+  for (let j = 0; j < root.length; j++) lines.push(String(root[j]));
+
+  // Dedupe + trim empties
+  const out = [];
+  const seen = {};
+  for (let k = 0; k < lines.length; k++) {
+    const s = String(lines[k] || "").trim();
+    if (!s) continue;
+    if (seen[s]) continue;
+    seen[s] = true;
+    out.push(s);
+  }
+
+  return out.slice(0, 5);
+}
+
+/* -------------------------------------------------- */
+/* Signal narrative lines (short, evidence-led)        */
+/* -------------------------------------------------- */
+
+function findDeliverySignal(metrics, id) {
+  var arr = (metrics && Array.isArray(metrics.delivery_signals)) ? metrics.delivery_signals : [];
+  for (var i = 0; i < arr.length; i++) {
+    var s = arr[i];
+    if (s && s.id === id) return s;
+  }
+  return null;
+}
+
+function fmtMs(ms) {
+  var n = Number(ms);
+  if (!isFinite(n)) return null;
+  // Use 1 decimal if < 1000ms, else seconds 1dp
+  if (n < 1000) return Math.round(n) + "ms";
+  return (Math.round((n / 1000) * 10) / 10) + "s";
+}
+
+function buildSignalNarratives(metrics, allowDegraded) {
+  var out = {};
+
+  var m = safeObj(metrics);
+  var psi = safeObj(m.psi);
+  var psiEnabled = psi.enabled !== false;
+  var hasMobile = !!(psi.mobile && psi.mobile.facts);
+  var hasDesktop = !!(psi.desktop && psi.desktop.facts);
+
+  // If PSI is enabled but missing and we are NOT allowing degraded,
+  // return empty so UI stays in “building” state.
+  if (psiEnabled && !(hasMobile && hasDesktop) && !allowDegraded) {
+    return out;
+  }
+
+  // PERFORMANCE (use PSI facts if available)
+  (function () {
+    var sig = findDeliverySignal(m, "performance");
+    if (!sig) return;
+
+    var lines = [];
+    if (hasMobile && hasDesktop) {
+      var mf = safeObj(psi.mobile.facts);
+      var df = safeObj(psi.desktop.facts);
+
+      var mLCP = fmtMs(mf.LCP_ms);
+      var dLCP = fmtMs(df.LCP_ms);
+      var mTBT = fmtMs(mf.TBT_ms);
+      var dTBT = fmtMs(df.TBT_ms);
+
+      if (mLCP && dLCP) {
+        lines.push("Mobile LCP is " + mLCP + " vs desktop " + dLCP + ", indicating slower visual readiness on phones.");
+      }
+      if (mTBT && dTBT) {
+        lines.push("Browser main-thread work is significant (TBT " + mTBT + " mobile, " + dTBT + " desktop), which delays interaction.");
+      }
+    } else {
+      // degraded mode: no PSI → keep it generic but factual
+      var ev = safeObj(sig.evidence);
+      if (ev.html_bytes) lines.push("HTML payload is large (" + ev.html_bytes + " bytes), which can slow initial render.");
+      if (ev.inline_script_count != null) lines.push("Inline scripts detected (" + ev.inline_script_count + "), increasing execution overhead.");
     }
+
+    out.performance = { lines: lines.slice(0, 3) };
+  })();
+
+  // MOBILE EXPERIENCE
+  (function () {
+    var sig = findDeliverySignal(m, "mobile");
+    if (!sig) return;
+
+    var lines = [];
+    var issues = asArray(sig.issues);
+    if (issues.length) {
+      lines.push(String(issues[0].title || "Mobile experience has detected issues."));
+    } else if (hasMobile) {
+      var mf = safeObj(psi.mobile.facts);
+      var mLCP = fmtMs(mf.LCP_ms);
+      if (mLCP) lines.push("Mobile visual readiness is constrained (LCP " + mLCP + ").");
+      else lines.push("Mobile configuration signals are present with no major flags in this scan.");
+    } else {
+      lines.push("Mobile configuration signals are present with no major flags in this scan.");
+    }
+
+    out.mobile = { lines: lines.slice(0, 3) };
+  })();
+
+  // SEO FOUNDATIONS
+  (function () {
+    var sig = findDeliverySignal(m, "seo");
+    if (!sig) return;
+
+    var lines = [];
+    var ev = safeObj(sig.evidence);
+    if (ev.title_present && ev.meta_description_present && ev.canonical_present) {
+      lines.push("Core SEO tags are present (title, meta description, canonical).");
+    } else {
+      if (!ev.title_present) lines.push("Title tag is missing.");
+      if (!ev.meta_description_present) lines.push("Meta description is missing.");
+      if (!ev.canonical_present) lines.push("Canonical URL is missing.");
+    }
+    if (ev.h1_count && Number(ev.h1_count) > 1) {
+      lines.push("Multiple H1 headings were detected, which can dilute page intent.");
+    }
+
+    out.seo = { lines: lines.slice(0, 3) };
+  })();
+
+  // SECURITY & TRUST
+  (function () {
+    var sig = findDeliverySignal(m, "security");
+    if (!sig) return;
+
+    var lines = [];
+    var ev = safeObj(sig.evidence);
+    if (ev.https) lines.push("HTTPS is active and baseline security headers are present.");
+    if (ev.permissions_policy_present === false) {
+      lines.push("Permissions-Policy was not observed, leaving some browser capability controls undefined.");
+    }
+
+    out.security = { lines: lines.slice(0, 3) };
+  })();
+
+  // STRUCTURE & SEMANTICS
+  (function () {
+    var sig = findDeliverySignal(m, "structure");
+    if (!sig) return;
+
+    var lines = [];
+    var ev = safeObj(sig.evidence);
+    if (ev.required_inputs_missing === false) {
+      lines.push("Core document structure inputs are present (title/H1/viewport).");
+    } else {
+      lines.push("Some structural inputs are missing, reducing consistency for browsers and crawlers.");
+    }
+
+    out.structure = { lines: lines.slice(0, 3) };
+  })();
+
+  // ACCESSIBILITY
+  (function () {
+    var sig = findDeliverySignal(m, "accessibility");
+    if (!sig) return;
+
+    var lines = [];
+    var issues = asArray(sig.issues);
+    if (issues.length) {
+      lines.push(String(issues[0].title || "Accessibility issues were detected."));
+    } else {
+      var ev = safeObj(sig.evidence);
+      if (ev.alt_ratio === 1 && ev.html_lang_present) {
+        lines.push("Baseline accessibility signals are strong (language set; images have alt text).");
+      } else {
+        lines.push("Accessibility signals are mixed; review labels, language, and interactive elements.");
+      }
+    }
+
+    out.accessibility = { lines: lines.slice(0, 3) };
+  })();
+
+  return out;
+}
+
+function isNarrativeComplete(narrative) {
+  const n = safeObj(narrative);
+  const lines = asArray(n.overall && n.overall.lines);
+  return lines.length > 0;
+}
+
+/* -------------------------------------------------- */
+/* OpenAI call                                        */
+/* -------------------------------------------------- */
+
+async function openaiChat(messages) {
+  const url = "https://api.openai.com/v1/chat/completions";
+  const payload = {
+    model: OPENAI_MODEL,
+    temperature: 0.2,
+    messages,
   };
 
-  // Respect your locked constraint: 3 lines target, max 5.
-  pushSome(en.framing?.lines, 2);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 
-  // Add one strong constraint line if present
-  if (lines.length < 3) pushSome(en.root_constraint?.lines, 3);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`OpenAI error: ${res.status} ${txt}`);
+  }
 
-  // Fallback: add one high-signal line from structure/trust
-  if (lines.length < 3) pushSome(en.structure_seo?.lines, 3);
-  if (lines.length < 3) pushSome(en.trust_security?.lines, 3);
-
-  return lines.slice(0, 5);
-}
-
-function isNarrativeComplete(n) {
-  // We consider it complete if it has either:
-  // - executive_narrative with at least 1 framing line, OR
-  // - legacy overall.lines with at least 1 line
-  if (!n || typeof n !== "object") return false;
-
-  const overall = Array.isArray(n?.overall?.lines) ? n.overall.lines : [];
-  if (overall.some((l) => typeof l === "string" && l.trim())) return true;
-
-  const en = n.executive_narrative;
-  if (!en) return false;
-
-  const framing = Array.isArray(en?.framing?.lines) ? en.framing.lines : [];
-  return framing.some((l) => typeof l === "string" && l.trim());
+  const data = await res.json();
+  const msg = data && data.choices && data.choices[0] && data.choices[0].message;
+  return (msg && msg.content) ? String(msg.content) : "";
 }
 
 /* -------------------------------------------------- */
-/* Handler                                            */
+/* Main handler                                       */
 /* -------------------------------------------------- */
-exports.handler = async function handler(event) {
+
+export async function handler(event) {
   if (event.httpMethod === "OPTIONS") return json(200, { ok: true });
-  if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
 
   try {
-    const body = JSON.parse(event.body || "{}");
+    const body = event.body ? JSON.parse(event.body) : {};
     const report_id = String(body.report_id || "").trim();
+    const force = !!body.force;
+
     if (!report_id) return json(400, { success: false, error: "Missing report_id" });
 
     // Load scan row
-    const { data, error } = await supabase
+    const { data: rows, error: readErr } = await supabase
       .from("scan_results")
-      .select("report_id, url, metrics, narrative, narrative_status, narrative_attempts")
+      .select("id, report_id, url, created_at, metrics, narrative")
       .eq("report_id", report_id)
-      .order("created_at", { ascending: false })
       .limit(1);
 
-    if (error) throw new Error(error.message || "Supabase read failed");
-    const row = Array.isArray(data) ? data[0] : null;
-    if (!row) return json(404, { success: false, error: "Scan not found" });
+    if (readErr) throw readErr;
+    if (!rows || !rows.length) return json(404, { success: false, error: "Report not found" });
 
-    // 1) Already done? -> do nothing
-    if (isNarrativeComplete(row.narrative)) {
-      // If status is missing/old, we can gently normalise it.
-      if (row.narrative_status !== "ok") {
-        await supabase.from("scan_results").update({ narrative_status: "ok" }).eq("report_id", report_id);
-      }
-      return json(200, { success: true, status: "already_done", report_id });
+    const row = rows[0];
+    const metrics = safeObj(row.metrics);
+    const existing = safeObj(row.narrative);
+
+    // If narrative already complete and not forced, do nothing
+    if (!force && isNarrativeComplete(existing)) {
+      return json(200, { success: true, report_id, status: "already_complete" });
     }
 
-    const readiness = getNarrativeReadiness(row.metrics);
+    // Readiness gate: wait for PSI unless degraded allowed
+    const ready = isPsiReady(metrics);
+    const allowDegraded = psiTooOldToWait(metrics, PSI_MAX_WAIT_MS);
 
-    // 2) Not ready? -> do nothing (WAIT) OR degraded mode if PSI seems stuck.
-    const PSI_STUCK_AFTER_MS = 4 * 60 * 1000; // 4 minutes
-    let allowDegraded = false;
-    let degradedReason = null;
+    if (!ready && !allowDegraded) {
+      // Keep narrative status in “generating” if it exists
+      const next = safeObj(existing);
+      next._meta = safeObj(next._meta);
+      next._meta._status = "generating";
+      next._meta._updated_at = nowISO();
 
-    if (!readiness.ready) {
-      // Only consider degraded if missing PSI (not missing basic_checks)
-      const missingPsi = readiness.missing.psi_mobile || readiness.missing.psi_desktop;
-      const missingBasics = readiness.missing.basic_checks;
+      await supabase
+        .from("scan_results")
+        .update({ narrative: next })
+        .eq("id", row.id);
 
-  if (!missingBasics && missingPsi) {
-  const psiUpdatedAt = tryParseIso(readiness.psi_updated_at);
-  const ageMs = psiUpdatedAt != null ? Date.now() - psiUpdatedAt : null;
+      return json(200, { success: true, report_id, status: "waiting_for_inputs" });
+    }
 
-if (
-  readiness.psi_errors_count > 0 ||
-  (readiness.psi_pending === false && ageMs != null && ageMs >= PSI_STUCK_AFTER_MS)
-) {
-  allowDegraded = true;
-  degradedReason = "PSI incomplete after timeout or error.";
-}
+    // Build prompt inputs (strictly evidence-led)
+    const evidence_snapshot = pickEvidenceSnapshot(metrics);
 
-}
+    // NOTE: This prompt is intentionally compact and rule-driven.
+    // You can swap in your locked “Gold Doc” / Exec North Star constraints here if needed.
+    const system = [
+      "You are generating a short, evidence-led executive narrative for a website diagnostic report.",
+      "Rules:",
+      "- Use only provided evidence. Do not speculate.",
+      "- No marketing language.",
+      "- Output MUST be valid JSON ONLY (no code fences).",
+      "- Keep it concise.",
+      "",
+      "Required JSON shape:",
+      "{",
+      '  \"executive_narrative\": {',
+      '    \"framing\": { \"lines\": [\"...\"] },',
+      '    \"root_constraint\": { \"lines\": [\"...\",\"...\"] },',
+      '    \"behaviour_split\": { \"mobile\": {\"lines\":[]}, \"desktop\": {\"lines\":[]} },',
+      '    \"fix_order\": { \"items\": [ {\"title\":\"...\",\"lines\":[\"...\",\"...\"]} ] },',
+      '    \"structure_seo\": { \"lines\": [] },',
+      '    \"trust_security\": { \"lines\": [] },',
+      '    \"site_specificity\": { \"lines\": [] }',
+      "  }",
+      "}",
+    ].join("\n");
 
+    const user = [
+      "Website host:", String(row.url || ""),
+      "Evidence snapshot (JSON):",
+      JSON.stringify(evidence_snapshot),
+      "",
+      "If performance evidence is missing (no PSI), state that performance data was not available in time and proceed using only HTML evidence.",
+    ].join("\n");
 
-      if (!allowDegraded) {
+    let executive_narrative = null;
+
+    if (OPENAI_API_KEY) {
+      const content = await openaiChat([
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ]);
+
+      try {
+        const parsed = JSON.parse(content);
+        executive_narrative = safeObj(parsed.executive_narrative);
+      } catch (e) {
+        // Hard fail → store an error narrative status
+        const next = safeObj(existing);
+        next._meta = safeObj(next._meta);
+        next._meta._status = "error";
+        next._meta._error = "Narrative JSON parse failed";
+        next._meta._updated_at = nowISO();
+
         await supabase
           .from("scan_results")
-          .update({
-            narrative_status: "waiting",
-            narrative_attempts: (row.narrative_attempts || 0) + 1,
-          })
-          .eq("report_id", report_id);
+          .update({ narrative: next })
+          .eq("id", row.id);
 
-        return json(200, {
-          success: true,
-          status: "waiting_for_metrics",
-          report_id,
-          missing: readiness.missing,
-          psi: {
-            strategies: readiness.strategies,
-            pending: readiness.psi_pending,
-            _status: readiness.psi_status,
-            has_mobile_facts: readiness.hasMobileFacts,
-            has_desktop_facts: readiness.hasDesktopFacts,
-            _updated_at: readiness.psi_updated_at,
-            errors_count: readiness.psi_errors_count,
-          },
-        });
+        return json(200, { success: false, report_id, status: "error_parse" });
       }
-      // else: continue into degraded generation
+    } else {
+      // No OpenAI key: create a deterministic fallback narrative (still evidence-led)
+      executive_narrative = {
+        framing: { lines: ["This site is functional and capable, but key delivery signals indicate inconsistent readiness under load."] },
+        root_constraint: { lines: ["Performance data was not available in time for this report.", "Review HTML payload size and script execution as first-order constraints."] },
+        behaviour_split: { mobile: { lines: [] }, desktop: { lines: [] } },
+        fix_order: { items: [{ title: "Reduce front-end execution weight", lines: ["Remove unused JavaScript and CSS.", "Defer or split scripts that block rendering."] }] },
+        structure_seo: { lines: [] },
+        trust_security: { lines: [] },
+        site_specificity: { lines: [] },
+      };
     }
-
-    // 3) Acquire a simple "lock" to avoid concurrent generation thrash
-    // If another request already set "generating", we return and let it finish.
-    if (row.narrative_status === "generating") {
-      return json(200, { success: true, status: "already_generating", report_id });
-    }
-
-    await supabase
-      .from("scan_results")
-      .update({
-        narrative_status: "generating",
-        narrative_attempts: (row.narrative_attempts || 0) + 1,
-      })
-      .eq("report_id", report_id);
-
-    // 4) Generate narrative (ready OR degraded)
-    const executive_narrative = allowDegraded
-      ? buildDegradedNarrative(row.metrics, row.url, degradedReason)
-      : buildExecutiveNarrative(row.metrics, row.url);
 
     const overallLines = deriveOverallLines(executive_narrative);
 
     const nextNarrative = {
-      // New schema (your report UI supports this)
-      executive_narrative,
-
-      // Legacy compatibility (your poller + get-report-data normaliser understand this)
-      overall: { lines: overallLines },
-
-      // Convenience field (some parts of UI look for this)
-      executive_lead: overallLines.join("\n"),
-
-      // Preserve any existing signal bucket if present
-      signals: safeObj(row.narrative && row.narrative.signals),
       _meta: {
-        ...(safeObj(row.narrative && row.narrative._meta)),
-        generated_at: nowIso(),
         degraded: !!allowDegraded,
+        generated_at: nowISO(),
+      },
+      overall: { lines: overallLines },
+      // Signal narratives (used to populate the Delivery Signals card summaries)
+      // NOTE: Deterministic + evidence-led (no marketing, no speculation).
+      signals: buildSignalNarratives(row.metrics, !!allowDegraded),
+      executive_lead: overallLines.join("\n"),
+      executive_narrative: {
+        _meta: {
+          site_host: String(row.url || ""),
+          generated_at: nowISO(),
+          schema_version: "exec_north_star_v2",
+          evidence_snapshot: evidence_snapshot,
+        },
+        title: "Executive Narrative (Site-Specific, Evidence-Led)",
+        framing: safeObj(executive_narrative.framing),
+        fix_order: safeObj(executive_narrative.fix_order),
+        structure_seo: safeObj(executive_narrative.structure_seo),
+        trust_security: safeObj(executive_narrative.trust_security),
+        behaviour_split: safeObj(executive_narrative.behaviour_split),
+        root_constraint: safeObj(executive_narrative.root_constraint),
+        site_specificity: safeObj(executive_narrative.site_specificity),
       },
     };
 
-    // 5) Persist + mark done
-    await supabase
+    // Persist
+    const { error: upErr } = await supabase
       .from("scan_results")
-      .update({
-        narrative: nextNarrative,
-        narrative_status: "ok",
-      })
-      .eq("report_id", report_id);
+      .update({ narrative: nextNarrative })
+      .eq("id", row.id);
 
-    return json(200, {
-      success: true,
-      status: allowDegraded ? "generated_degraded" : "generated",
-      report_id,
-      degraded: !!allowDegraded,
-    });
+    if (upErr) throw upErr;
+
+    return json(200, { success: true, report_id, status: "generated", degraded: !!allowDegraded });
   } catch (err) {
-    return json(500, { success: false, error: String(err?.message || err) });
+    return json(500, { success: false, error: String(err && err.message ? err.message : err) });
   }
-};
+}
