@@ -214,8 +214,8 @@
 
   function pickPsiEnvelope(data) {
     // Supports both:
-    // - data.psi (your example)
-    // - data.metrics.psi (some older paths)
+    // - data.psi
+    // - data.metrics.psi
     data = safeObj(data);
     if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
     var m = safeObj(data.metrics);
@@ -267,6 +267,38 @@
     if (pill) pill.textContent = String(overall);
     if (bar) bar.style.width = overall + "%";
     if (note) note.textContent = overallSummary || "";
+  }
+
+  // -----------------------------
+  // Tiny indicator: "Building narrative…"
+  // (Visible only while polling; disappears when ready)
+  // -----------------------------
+  function getOrCreateNarrativeIndicator() {
+    var id = "narrativeBuildIndicator";
+    var existing = $(id);
+    if (existing) return existing;
+
+    var target = $("narrativeText");
+    if (!target || !target.parentNode) return null;
+
+    var el = document.createElement("div");
+    el.id = id;
+    el.className = "muted";
+    el.style.fontSize = "12px";
+    el.style.margin = "0 0 8px 0";
+    el.style.opacity = "0.85";
+    el.textContent = "Building narrative…";
+    el.style.display = "none";
+
+    // Insert above narrative text so renderNarrative() doesn't overwrite it.
+    target.parentNode.insertBefore(el, target);
+    return el;
+  }
+
+  function setNarrativeIndicator(show) {
+    var el = getOrCreateNarrativeIndicator();
+    if (!el) return;
+    el.style.display = show ? "block" : "none";
   }
 
   // -----------------------------
@@ -329,8 +361,7 @@
   }
 
   // -----------------------------
-  // NEW: What to Fix First (and Why) block
-  // Renders under Executive Narrative in #fixFirstBlock
+  // What to Fix First (and Why) block
   // -----------------------------
   function renderFixFirstBlock(narrative) {
     var root = $("fixFirstBlock");
@@ -821,6 +852,10 @@
     function renderFrom(data) {
       var n = pickNarrative(data);
 
+      // indicator on/off
+      if (narrativeReady(n)) setNarrativeIndicator(false);
+      else setNarrativeIndicator(true);
+
       // Always keep narrative area sensible
       renderNarrative(n);
       renderFixFirstBlock(n);
@@ -831,8 +866,14 @@
       }
     }
 
-    // Render immediately from initial payload (usually "not available yet")
+    // First paint
     renderFrom(initialData);
+
+    // If already ready, stop + hide indicator
+    if (narrativeReady(pickNarrative(initialData))) {
+      setNarrativeIndicator(false);
+      return;
+    }
 
     function tick() {
       if (done) return;
@@ -840,6 +881,7 @@
       // stop after MAX_WAIT (fail-open, leave report visible)
       if (Date.now() - started > MAX_WAIT) {
         done = true;
+        setNarrativeIndicator(false);
         return;
       }
 
@@ -857,6 +899,7 @@
           var n = pickNarrative(data);
           if (narrativeReady(n)) {
             done = true;
+            setNarrativeIndicator(false);
             return;
           }
 
@@ -912,6 +955,7 @@
       .catch(function () {
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+        setNarrativeIndicator(false);
         var n = $("narrativeText");
         if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
         var ff = $("fixFirstBlock");
