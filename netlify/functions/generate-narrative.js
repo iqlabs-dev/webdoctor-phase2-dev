@@ -43,15 +43,19 @@ function nowISO() {
 function isPsiReady(metrics) {
   const psi = safeObj(metrics && metrics.psi);
   if (psi.enabled === false) return true; // treat disabled as ready
+
   const pending = !!psi.pending;
   const status = String(psi._status || "").toLowerCase();
   const hasMobile = !!(psi.mobile && psi.mobile.facts);
   const hasDesktop = !!(psi.desktop && psi.desktop.facts);
 
-  // “ready” means pending=false AND we have both fact blocks OR status says ok and facts exist
+  // “ready” means pending=false AND we have both fact blocks
   if (pending) return false;
   if (hasMobile && hasDesktop) return true;
-  if (status === "ok" && (hasMobile || hasDesktop)) return true;
+
+  // If worker sets status=ok but only one strategy returned, treat as not ready
+  // (we want both for non-degraded mode to avoid generic output)
+  if (status === "ok" && hasMobile && hasDesktop) return true;
 
   return false;
 }
@@ -68,6 +72,47 @@ function psiTooOldToWait(metrics, maxWaitMs) {
 
   const age = Date.now() - updatedAt;
   return age > maxWaitMs;
+}
+
+/* -------------------------------------------------- */
+/* Narrative storage helpers (IMPORTANT)               */
+/* -------------------------------------------------- */
+
+function getExistingNarrativeFromMetrics(metrics) {
+  const m = safeObj(metrics);
+  const n = safeObj(m.narrative);
+  return n;
+}
+
+function setNarrativeOnMetrics(metrics, narrativeObj) {
+  const m = safeObj(metrics);
+  m.narrative = narrativeObj;
+  return m;
+}
+
+async function persistNarrative(rowId, metrics, narrativeObj) {
+  // We write to BOTH:
+  // 1) metrics.narrative (this is what your UI/SQL is checking now)
+  // 2) narrative column (legacy/compat, if still used anywhere)
+  const updatedMetrics = setNarrativeOnMetrics(metrics, narrativeObj);
+
+  const { error } = await supabase
+    .from("scan_results")
+    .update({
+      metrics: updatedMetrics,
+      narrative: narrativeObj, // keep legacy populated too
+    })
+    .eq("id", rowId);
+
+  if (error) throw error;
+
+  return updatedMetrics;
+}
+
+function isNarrativeComplete(narrative) {
+  const n = safeObj(narrative);
+  const lines = asArray(n.overall && n.overall.lines);
+  return lines.length > 0;
 }
 
 /* -------------------------------------------------- */
@@ -148,7 +193,6 @@ function findDeliverySignal(metrics, id) {
 function fmtMs(ms) {
   var n = Number(ms);
   if (!isFinite(n)) return null;
-  // Use 1 decimal if < 1000ms, else seconds 1dp
   if (n < 1000) return Math.round(n) + "ms";
   return (Math.round((n / 1000) * 10) / 10) + "s";
 }
@@ -190,7 +234,7 @@ function buildSignalNarratives(metrics, allowDegraded) {
         lines.push("Browser main-thread work is significant (TBT " + mTBT + " mobile, " + dTBT + " desktop), which delays interaction.");
       }
     } else {
-      // degraded mode: no PSI → keep it generic but factual
+      // degraded mode: no PSI → keep it factual from scan evidence
       var ev = safeObj(sig.evidence);
       if (ev.html_bytes) lines.push("HTML payload is large (" + ev.html_bytes + " bytes), which can slow initial render.");
       if (ev.inline_script_count != null) lines.push("Inline scripts detected (" + ev.inline_script_count + "), increasing execution overhead.");
@@ -296,12 +340,6 @@ function buildSignalNarratives(metrics, allowDegraded) {
   return out;
 }
 
-function isNarrativeComplete(narrative) {
-  const n = safeObj(narrative);
-  const lines = asArray(n.overall && n.overall.lines);
-  return lines.length > 0;
-}
-
 /* -------------------------------------------------- */
 /* OpenAI call                                        */
 /* -------------------------------------------------- */
@@ -359,10 +397,20 @@ export async function handler(event) {
 
     const row = rows[0];
     const metrics = safeObj(row.metrics);
-    const existing = safeObj(row.narrative);
+
+    // Prefer metrics.narrative as source of truth (this is what your SQL checks)
+    const existingFromMetrics = getExistingNarrativeFromMetrics(metrics);
+
+    // Fallback to legacy narrative column if older rows have it
+    const legacy = safeObj(row.narrative);
+    const existing = isNarrativeComplete(existingFromMetrics) ? existingFromMetrics : legacy;
 
     // If narrative already complete and not forced, do nothing
     if (!force && isNarrativeComplete(existing)) {
+      // Ensure metrics.narrative is populated even if only legacy existed
+      if (!isNarrativeComplete(existingFromMetrics) && isNarrativeComplete(existing)) {
+        await persistNarrative(row.id, metrics, existing);
+      }
       return json(200, { success: true, report_id, status: "already_complete" });
     }
 
@@ -371,16 +419,13 @@ export async function handler(event) {
     const allowDegraded = psiTooOldToWait(metrics, PSI_MAX_WAIT_MS);
 
     if (!ready && !allowDegraded) {
-      // Keep narrative status in “generating” if it exists
-      const next = safeObj(existing);
+      // IMPORTANT: write status to metrics.narrative (so UI/SQL sees it)
+      const next = safeObj(existingFromMetrics);
       next._meta = safeObj(next._meta);
       next._meta._status = "generating";
       next._meta._updated_at = nowISO();
 
-      await supabase
-        .from("scan_results")
-        .update({ narrative: next })
-        .eq("id", row.id);
+      await persistNarrative(row.id, metrics, next);
 
       return json(200, { success: true, report_id, status: "waiting_for_inputs" });
     }
@@ -388,8 +433,6 @@ export async function handler(event) {
     // Build prompt inputs (strictly evidence-led)
     const evidence_snapshot = pickEvidenceSnapshot(metrics);
 
-    // NOTE: This prompt is intentionally compact and rule-driven.
-    // You can swap in your locked “Gold Doc” / Exec North Star constraints here if needed.
     const system = [
       "You are generating a short, evidence-led executive narrative for a website diagnostic report.",
       "Rules:",
@@ -400,20 +443,21 @@ export async function handler(event) {
       "",
       "Required JSON shape:",
       "{",
-      '  \"executive_narrative\": {',
-      '    \"framing\": { \"lines\": [\"...\"] },',
-      '    \"root_constraint\": { \"lines\": [\"...\",\"...\"] },',
-      '    \"behaviour_split\": { \"mobile\": {\"lines\":[]}, \"desktop\": {\"lines\":[]} },',
-      '    \"fix_order\": { \"items\": [ {\"title\":\"...\",\"lines\":[\"...\",\"...\"]} ] },',
-      '    \"structure_seo\": { \"lines\": [] },',
-      '    \"trust_security\": { \"lines\": [] },',
-      '    \"site_specificity\": { \"lines\": [] }',
+      '  "executive_narrative": {',
+      '    "framing": { "lines": ["..."] },',
+      '    "root_constraint": { "lines": ["...","..."] },',
+      '    "behaviour_split": { "mobile": {"lines":[]}, "desktop": {"lines":[]} },',
+      '    "fix_order": { "items": [ {"title":"...","lines":["...","..."]} ] },',
+      '    "structure_seo": { "lines": [] },',
+      '    "trust_security": { "lines": [] },',
+      '    "site_specificity": { "lines": [] }',
       "  }",
       "}",
     ].join("\n");
 
     const user = [
-      "Website host:", String(row.url || ""),
+      "Website host:",
+      String(row.url || ""),
       "Evidence snapshot (JSON):",
       JSON.stringify(evidence_snapshot),
       "",
@@ -423,31 +467,40 @@ export async function handler(event) {
     let executive_narrative = null;
 
     if (OPENAI_API_KEY) {
-      const content = await openaiChat([
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ]);
+      let content = "";
+      try {
+        content = await openaiChat([
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ]);
+      } catch (e) {
+        const next = safeObj(existingFromMetrics);
+        next._meta = safeObj(next._meta);
+        next._meta._status = "error";
+        next._meta._error = "OpenAI call failed";
+        next._meta._updated_at = nowISO();
+
+        await persistNarrative(row.id, metrics, next);
+
+        return json(200, { success: false, report_id, status: "error_openai" });
+      }
 
       try {
         const parsed = JSON.parse(content);
         executive_narrative = safeObj(parsed.executive_narrative);
       } catch (e) {
-        // Hard fail → store an error narrative status
-        const next = safeObj(existing);
+        const next = safeObj(existingFromMetrics);
         next._meta = safeObj(next._meta);
         next._meta._status = "error";
         next._meta._error = "Narrative JSON parse failed";
         next._meta._updated_at = nowISO();
 
-        await supabase
-          .from("scan_results")
-          .update({ narrative: next })
-          .eq("id", row.id);
+        await persistNarrative(row.id, metrics, next);
 
         return json(200, { success: false, report_id, status: "error_parse" });
       }
     } else {
-      // No OpenAI key: create a deterministic fallback narrative (still evidence-led)
+      // No OpenAI key: deterministic fallback narrative (still evidence-led)
       executive_narrative = {
         framing: { lines: ["This site is functional and capable, but key delivery signals indicate inconsistent readiness under load."] },
         root_constraint: { lines: ["Performance data was not available in time for this report.", "Review HTML payload size and script execution as first-order constraints."] },
@@ -465,12 +518,16 @@ export async function handler(event) {
       _meta: {
         degraded: !!allowDegraded,
         generated_at: nowISO(),
+        _status: "ok",
       },
       overall: { lines: overallLines },
-      // Signal narratives (used to populate the Delivery Signals card summaries)
-      // NOTE: Deterministic + evidence-led (no marketing, no speculation).
-      signals: buildSignalNarratives(row.metrics, !!allowDegraded),
+
+      // Deterministic + evidence-led summaries for the signal cards
+      // NOTE: uses BOTH PSI + delivery_signals evidence; stays empty only if not ready & not degraded.
+      signals: buildSignalNarratives(metrics, !!allowDegraded),
+
       executive_lead: overallLines.join("\n"),
+
       executive_narrative: {
         _meta: {
           site_host: String(row.url || ""),
@@ -488,6 +545,9 @@ export async function handler(event) {
         site_specificity: safeObj(executive_narrative.site_specificity),
       },
     };
+
+    // Persist to metrics.narrative AND legacy narrative column
+
 
     // Persist
     const { error: upErr } = await supabase
