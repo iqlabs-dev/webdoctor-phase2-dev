@@ -172,7 +172,6 @@
   function pickHeader(data) {
     data = safeObj(data);
     if (data.header && typeof data.header === "object") return safeObj(data.header);
-    // legacy-ish
     return {
       website: data.url || data.website || "",
       report_id: data.report_id || "",
@@ -213,9 +212,6 @@
   }
 
   function pickPsiEnvelope(data) {
-    // Supports both:
-    // - data.psi
-    // - data.metrics.psi
     data = safeObj(data);
     if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
     var m = safeObj(data.metrics);
@@ -271,7 +267,6 @@
 
   // -----------------------------
   // Tiny indicator: "Building narrative…"
-  // (Visible only while polling; disappears when ready)
   // -----------------------------
   function getOrCreateNarrativeIndicator() {
     var id = "narrativeBuildIndicator";
@@ -290,7 +285,6 @@
     el.textContent = "Building narrative…";
     el.style.display = "none";
 
-    // Insert above narrative text so renderNarrative() doesn't overwrite it.
     target.parentNode.insertBefore(el, target);
     return el;
   }
@@ -299,6 +293,60 @@
     var el = getOrCreateNarrativeIndicator();
     if (!el) return;
     el.style.display = show ? "block" : "none";
+  }
+
+  // -----------------------------
+  // NEW: PSI waiting indicator (with dot animation)
+  // Shows while PSI pending; hides when PSI ready.
+  // -----------------------------
+  var __psiDotTimer = null;
+  var __psiDotState = 0;
+
+  function getOrCreatePsiIndicator() {
+    var id = "psiWaitIndicator";
+    var existing = $(id);
+    if (existing) return existing;
+
+    var target = $("signalsGrid");
+    if (!target || !target.parentNode) return null;
+
+    var el = document.createElement("div");
+    el.id = id;
+    el.className = "muted";
+    el.style.fontSize = "12px";
+    el.style.margin = "0 0 10px 0";
+    el.style.opacity = "0.85";
+    el.style.display = "none";
+    el.textContent = "Waiting for PSI";
+
+    target.parentNode.insertBefore(el, target);
+    return el;
+  }
+
+  function setPsiIndicator(show) {
+    var el = getOrCreatePsiIndicator();
+    if (!el) return;
+
+    if (!show) {
+      el.style.display = "none";
+      if (__psiDotTimer) {
+        clearInterval(__psiDotTimer);
+        __psiDotTimer = null;
+      }
+      __psiDotState = 0;
+      el.textContent = "Waiting for PSI";
+      return;
+    }
+
+    el.style.display = "block";
+    if (__psiDotTimer) return; // already running
+
+    __psiDotTimer = setInterval(function () {
+      __psiDotState = (__psiDotState + 1) % 4; // 0..3
+      var dots = "";
+      for (var i = 0; i < __psiDotState; i++) dots += ".";
+      el.textContent = "Waiting for PSI" + dots;
+    }, 450);
   }
 
   // -----------------------------
@@ -313,7 +361,6 @@
       return false;
     }
 
-    // object contract
     if (typeof narrative === "object") {
       var overallLines = asArray(narrative.overall && narrative.overall.lines);
       if (overallLines.length) {
@@ -327,7 +374,6 @@
         return !!html;
       }
 
-      // fallback: executive_lead
       if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
         var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
         var out = "";
@@ -341,7 +387,6 @@
       }
     }
 
-    // string fallback
     if (typeof narrative === "string" && narrative.trim()) {
       var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
       if (blocks.length < 2) blocks = narrative.split("\n");
@@ -367,7 +412,6 @@
     var root = $("fixFirstBlock");
     if (!root) return false;
 
-    // Clear if no narrative yet
     if (!narrative || typeof narrative !== "object") {
       root.innerHTML = "";
       return false;
@@ -379,7 +423,6 @@
     var waitOn = asArray(ff.deprioritise).filter(Boolean);
     var outcome = asArray(ff.expected_outcome).filter(Boolean);
 
-    // If empty, hide silently
     if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
       root.innerHTML = "";
       return false;
@@ -404,7 +447,6 @@
     htmlOut += "</div>";
 
     htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
-
     htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
 
     htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
@@ -428,8 +470,9 @@
 
   // -----------------------------
   // Delivery signal cards
+  // If PSI not ready: show NO summary text (title/score/bar only)
   // -----------------------------
-  function renderSignalsGrid(signals, narrative) {
+  function renderSignalsGrid(signals, narrative, psiReady) {
     var grid = $("signalsGrid");
     if (!grid) return;
 
@@ -473,37 +516,52 @@
       var label = String(sig.label || sig.id || "Signal");
       var score = asInt(sig.score, 0);
 
-      var k = keyFor(sig);
-      var lines = [];
-      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
-
       var summary = "";
-      if (lines.length) {
-        summary = String(lines.join("\n"));
-      } else {
-        summary = fallbackSummary(sig);
+      if (psiReady) {
+        var k = keyFor(sig);
+        var lines = [];
+        if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
+        if (lines.length) summary = String(lines.join("\n"));
+        else summary = fallbackSummary(sig);
       }
 
       var card = document.createElement("div");
       card.className = "card";
-      card.innerHTML =
-        '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
-        "</div>" +
-        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
+
+      // If PSI not ready: omit the .summary block entirely (cleaner)
+      if (!psiReady) {
+        card.innerHTML =
+          '<div class="card-top">' +
+            "<h3>" + escapeHtml(label) + "</h3>" +
+            '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+          "</div>" +
+          '<div class="bar"><div style="width:' + score + '%;"></div></div>';
+      } else {
+        card.innerHTML =
+          '<div class="card-top">' +
+            "<h3>" + escapeHtml(label) + "</h3>" +
+            '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+          "</div>" +
+          '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+          '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
+      }
 
       grid.appendChild(card);
     }
   }
 
   // -----------------------------
-  // Signal Evidence (accordions per signal)
+  // Signal Evidence
+  // If PSI not ready: show a single waiting line
   // -----------------------------
-  function renderSignalEvidence(signals) {
+  function renderSignalEvidence(signals, psiReady) {
     var root = $("signalEvidenceRoot");
     if (!root) return;
+
+    if (!psiReady) {
+      root.innerHTML = "<div class='muted' style='font-size:12px;'>Waiting for PSI… evidence will appear once performance data is ready.</div>";
+      return;
+    }
 
     signals = asArray(signals);
     root.innerHTML = "";
@@ -541,7 +599,6 @@
 
       var body = '<div class="acc-body">';
 
-      // Issues
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
         for (var j = 0; j < issues.length; j++) {
@@ -559,7 +616,6 @@
         }
       }
 
-      // Deductions
       if (deds.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
         body += "<div class='evidence-list'>";
@@ -572,7 +628,6 @@
         body += "</div>";
       }
 
-      // Observations
       if (obs.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
         body += "<div class='evidence-list'>";
@@ -583,7 +638,6 @@
         body += "</div>";
       }
 
-      // Evidence object (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -607,11 +661,17 @@
   }
 
   // -----------------------------
-  // Key Insight Metrics (Strength / Risk / Focus / Next)
+  // Key Insight Metrics
+  // If PSI not ready: show waiting placeholder
   // -----------------------------
-  function renderKeyInsights(scores, signals) {
+  function renderKeyInsights(scores, signals, psiReady) {
     var root = $("keyMetricsRoot");
     if (!root) return;
+
+    if (!psiReady) {
+      root.innerHTML = "<div class='muted' style='font-size:12px;'>Waiting for PSI… key insight metrics will populate when performance data is ready.</div>";
+      return;
+    }
 
     scores = safeObj(scores);
     signals = asArray(signals);
@@ -682,10 +742,16 @@
 
   // -----------------------------
   // Top Issues
+  // If PSI not ready: show waiting placeholder
   // -----------------------------
-  function renderTopIssues(signals) {
+  function renderTopIssues(signals, psiReady) {
     var root = $("topIssuesRoot");
     if (!root) return;
+
+    if (!psiReady) {
+      root.innerHTML = "<div class='muted' style='font-size:12px;'>Waiting for PSI… issues will populate when performance data is ready.</div>";
+      return;
+    }
 
     signals = asArray(signals);
 
@@ -755,23 +821,42 @@
 
   // -----------------------------
   // Fix Sequence
+  // If PSI not ready: show waiting placeholder
   // -----------------------------
-  function renderFixSequence(scores, signals) {
+  function renderFixSequence(scores, signals, psiReady) {
     var root = $("fixSequenceRoot");
     if (!root) return;
+
+    if (!psiReady) {
+      // Try to update existing phase blocks if present, otherwise show a line
+      try {
+        var phases = root.querySelectorAll(".phase");
+        if (phases && phases.length) {
+          for (var i = 0; i < phases.length; i++) {
+            var ul = phases[i].querySelector("ul");
+            if (ul) ul.innerHTML = "<li>Waiting for PSI… fix sequence will populate when performance data is ready.</li>";
+          }
+          return;
+        }
+      } catch (e) {}
+
+      root.innerHTML = "<div class='muted' style='font-size:12px;'>Waiting for PSI… fix sequence will populate when performance data is ready.</div>";
+      return;
+    }
 
     scores = safeObj(scores);
     signals = asArray(signals);
 
     var focus = "";
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
+    for (var a = 0; a < signals.length; a++) {
+      var sig = safeObj(signals[a]);
       var issues = asArray(sig.issues);
       if (issues.length) {
         focus = String(issues[0].title || issues[0].id || "").trim();
         break;
       }
     }
+
     if (!focus) {
       var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
       var worst = { k: "", v: 999 };
@@ -785,9 +870,9 @@
     }
 
     try {
-      var phases = root.querySelectorAll(".phase");
-      if (phases && phases.length >= 3) {
-        var ul1 = phases[0].querySelector("ul");
+      var phases2 = root.querySelectorAll(".phase");
+      if (phases2 && phases2.length >= 3) {
+        var ul1 = phases2[0].querySelector("ul");
         if (ul1) {
           ul1.innerHTML =
             "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
@@ -795,7 +880,7 @@
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
 
-        var ul2 = phases[1].querySelector("ul");
+        var ul2 = phases2[1].querySelector("ul");
         if (ul2) {
           ul2.innerHTML =
             "<li>Address remaining deductions in the weakest domain (SEO/Security/Accessibility depending on scores).</li>" +
@@ -803,7 +888,7 @@
             "<li>Validate with a second re-scan and keep a before/after record.</li>";
         }
 
-        var ul3 = phases[2].querySelector("ul");
+        var ul3 = phases2[2].querySelector("ul");
         if (ul3) {
           ul3.innerHTML =
             "<li>Harden trust posture (headers/policies) only once the baseline is stable.</li>" +
@@ -815,7 +900,7 @@
   }
 
   // -----------------------------
-  // Async readiness + non-blocking narrative polling
+  // Readiness gates
   // -----------------------------
   function narrativeReady(narrative) {
     if (!narrative || typeof narrative !== "object") return false;
@@ -826,79 +911,94 @@
   function psiReadyFromData(data) {
     var psi = pickPsiEnvelope(data);
 
-    // If PSI explicitly disabled, treat as ready
     if (psi && psi.enabled === false) return true;
-
-    // If server provides pending=false, trust it
     if (psi && psi.pending === false) return true;
-
-    // If both exist, treat as ready
     if (psi && psi.mobile && psi.desktop) return true;
 
     return false;
   }
 
-  // Shows report immediately; polls until narrative appears; triggers narrative only after PSI ready.
-  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
-    if (isPdfMode()) return; // never run background generation in PDF mode
+  // -----------------------------
+  // Background polling:
+  // - Shows PSI waiting UX until PSI ready
+  // - Only triggers narrative generation after PSI is ready
+  // - Keeps polling until narrative arrives (or timeout)
+  // -----------------------------
+  function ensureNonBlocking(reportId, initialData) {
+    if (isPdfMode()) return;
 
     var started = Date.now();
     var MAX_WAIT = 180000; // 3 minutes
     var INTERVAL = 4000;   // 4s
 
-    var triggered = false;
+    var triggeredNarrative = false;
     var done = false;
 
-    function renderFrom(data) {
-      var n = pickNarrative(data);
+    // We want to upgrade the whole report once PSI is ready.
+    var upgradedForPsi = false;
 
-      // indicator on/off
-      if (narrativeReady(n)) setNarrativeIndicator(false);
+    function renderFrom(data) {
+      data = safeObj(data);
+
+      var scores = pickScores(data);
+      var signals = pickSignals(data);
+      var narrative = pickNarrative(data);
+
+      var psiReady = psiReadyFromData(data);
+
+      // PSI indicator
+      setPsiIndicator(!psiReady);
+
+      // Narrative indicator
+      if (narrativeReady(narrative)) setNarrativeIndicator(false);
       else setNarrativeIndicator(true);
 
-      // Always keep narrative area sensible
-      renderNarrative(n);
-      renderFixFirstBlock(n);
+      // Sections that depend on PSI
+      renderSignalsGrid(signals, narrative, psiReady);
+      renderSignalEvidence(signals, psiReady);
+      renderKeyInsights(scores, signals, psiReady);
+      renderTopIssues(signals, psiReady);
+      renderFixSequence(scores, signals, psiReady);
 
-      // If narrative is ready, refresh signal cards to use narrative lines
-      if (narrativeReady(n)) {
-        renderSignalsGrid(signals, n);
-      }
+      // Executive narrative is independent (it will still say "not available" until ready)
+      renderNarrative(narrative);
+      renderFixFirstBlock(narrative);
+
+      // Mark upgrade once PSI becomes ready (so we don't keep treating it as pending)
+      if (psiReady) upgradedForPsi = true;
     }
 
-    // First paint
+    // first paint from initial payload
     renderFrom(initialData);
-
-    // If already ready, stop + hide indicator
-    if (narrativeReady(pickNarrative(initialData))) {
-      setNarrativeIndicator(false);
-      return;
-    }
 
     function tick() {
       if (done) return;
 
-      // stop after MAX_WAIT (fail-open, leave report visible)
       if (Date.now() - started > MAX_WAIT) {
         done = true;
+        setPsiIndicator(false);
         setNarrativeIndicator(false);
         return;
       }
 
       fetchReportData(reportId)
         .then(function (data) {
-          // If PSI is now ready and we haven't triggered narrative generation, do it once
-          if (!triggered && psiReadyFromData(data)) {
-            triggered = true;
+          var psiReady = psiReadyFromData(data);
+
+          // Trigger narrative generation once PSI is ready
+          if (!triggeredNarrative && psiReady) {
+            triggeredNarrative = true;
             generateNarrative(reportId).catch(function () {});
           }
 
+          // Re-render (this will auto-populate signals once PSI is ready)
           renderFrom(data);
 
-          // Stop polling when narrative is ready
+          // Stop polling once narrative is ready
           var n = pickNarrative(data);
           if (narrativeReady(n)) {
             done = true;
+            setPsiIndicator(false);
             setNarrativeIndicator(false);
             return;
           }
@@ -921,27 +1021,18 @@
 
     var header = pickHeader(data);
     var scores = pickScores(data);
-    var signals = pickSignals(data);
-    var narrative = pickNarrative(data);
 
     setHeaderUI(header);
 
     var overallSummary = pickOverallSummary(data, scores.overall);
     setOverallUI(scores, overallSummary);
 
-    // IMPORTANT: show report immediately (no deadlock on PSI / narrative)
+    // show report immediately
     showReport();
 
-    // Initial render (may have no narrative yet)
-    renderSignalsGrid(signals, narrative);
-    renderSignalEvidence(signals);
-    renderKeyInsights(scores, signals);
-    renderTopIssues(signals);
-    renderFixSequence(scores, signals);
-
-    // Start background narrative flow (auto-updates, no refresh)
+    // Start background flow (signals wait for PSI; narrative waits for PSI + gen)
     var rid = String(header.report_id || getReportIdFromUrl() || "");
-    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
+    if (rid) ensureNonBlocking(rid, data);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
@@ -955,11 +1046,17 @@
       .catch(function () {
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+
+        setPsiIndicator(false);
         setNarrativeIndicator(false);
+
         var n = $("narrativeText");
         if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
         var ff = $("fixFirstBlock");
         if (ff) ff.innerHTML = "";
+
+        var grid = $("signalsGrid");
+        if (grid) grid.innerHTML = "";
       });
   }
 
