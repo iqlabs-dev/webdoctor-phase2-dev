@@ -342,7 +342,7 @@ function buildDegradedNarrative(metrics, url, reason) {
   };
 
   exec.framing.lines.push(
-    "This report completed without PageSpeed data because the external performance service did not return results in time."
+    "Performance lab metrics were not available for this run; the remaining checks are complete."
   );
 
   // Structure & SEO
@@ -485,13 +485,14 @@ exports.handler = async function handler(event) {
   const psiUpdatedAt = tryParseIso(readiness.psi_updated_at);
   const ageMs = psiUpdatedAt != null ? Date.now() - psiUpdatedAt : null;
 
-  if (
-    readiness.psi_errors_count > 0 ||
-    (ageMs != null && ageMs >= PSI_STUCK_AFTER_MS)
-  ) {
-    allowDegraded = true;
-    degradedReason = "PSI incomplete after timeout or error.";
-  }
+if (
+  readiness.psi_errors_count > 0 ||
+  (readiness.psi_pending === false && ageMs != null && ageMs >= PSI_STUCK_AFTER_MS)
+) {
+  allowDegraded = true;
+  degradedReason = "PSI incomplete after timeout or error.";
+}
+
 }
 
 

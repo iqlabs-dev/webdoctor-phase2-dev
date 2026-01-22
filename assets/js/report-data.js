@@ -331,7 +331,7 @@
     if (!narrative) {
       el.innerHTML =
         "<div class='muted' style='font-size:12px;'>" +
-          (psiReady ? "Building narrative" : "Building Narrative..") +
+          (psiReady ? "Building narrative" : "Building Narrative") +
           dotsHtml() +
         "</div>";
       return false;
@@ -385,7 +385,7 @@
 
     el.innerHTML =
       "<div class='muted' style='font-size:12px;'>" +
-        (psiReady ? "Building narrative" : "Building Narrative..") +
+        (psiReady ? "Building narrative" : "Building Narrative") +
         dotsHtml() +
       "</div>";
     return false;
