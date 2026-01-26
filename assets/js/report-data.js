@@ -251,8 +251,24 @@
     return {};
   }
 
+  // -----------------------------
+  // PATCH: exact frontend polling conditions
+  // - narrative is "ready" when:
+  //   a) overall.lines has content OR
+  //   b) _meta._status === "generated"
+  // - PSI is "ready" when:
+  //   - enabled=false => ready
+  //   - pending=true  => NOT ready
+  //   - BOTH mobile.facts + desktop.facts exist => ready
+  //   - status=ok and at least one facts block exists => ready (degraded-friendly)
+  // -----------------------------
   function narrativeReady(narrative) {
     if (!narrative || typeof narrative !== "object") return false;
+
+    var meta = safeObj(narrative._meta);
+    var st = String(meta._status || "").toLowerCase();
+    if (st === "generated") return true;
+
     var lines = narrative.overall && narrative.overall.lines;
     return Array.isArray(lines) && lines.length > 0;
   }
@@ -263,11 +279,18 @@
     // If PSI explicitly disabled, treat as ready
     if (psi && psi.enabled === false) return true;
 
-    // If server provides pending=false, trust it
-    if (psi && psi.pending === false) return true;
+    // If pending is true, do not proceed
+    if (psi && psi.pending === true) return false;
 
-    // If both exist, treat as ready
-    if (psi && psi.mobile && psi.desktop) return true;
+    // Prefer facts-based readiness (not just presence of objects)
+    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
+    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
+
+    if (hasMobileFacts && hasDesktopFacts) return true;
+
+    // Degraded-friendly: if backend marks ok and at least one facts exists
+    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
+    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
 
     return false;
   }
@@ -511,7 +534,7 @@
 
       var summaryHtml = "";
       if (!psiReady) {
-     summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
       } else if (!narrReady && !lines.length) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
       } else {
@@ -851,7 +874,7 @@
   // - Show report immediately
   // - Keep polling report data
   // - Only trigger narrative generation once PSI is ready
-  // - Update Executive Narrative + Signal summaries as data arrives
+  // - Stop polling once narrative is ready (overall lines OR _status=generated)
   // -----------------------------
   function ensureNarrativeNonBlocking(reportId, initialData, signals) {
     if (isPdfMode()) return; // never run background generation in PDF mode
@@ -860,7 +883,12 @@
     var MAX_WAIT = 180000; // 3 minutes
     var INTERVAL = 4000;   // 4s
 
-    var triggered = false;
+    // PATCH: per-report latch so refresh/new report doesn't spam
+    var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+    try {
+      if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
+    } catch (e) {}
+
     var done = false;
 
     function renderFrom(data) {
@@ -889,17 +917,29 @@
       fetchReportData(reportId)
         .then(function (data) {
           var psiReady = psiReadyFromData(data);
+          var n = pickNarrative(data);
 
-          // Trigger narrative generation once PSI is ready (one time)
-          if (!triggered && psiReady) {
-            triggered = true;
-            generateNarrative(reportId).catch(function () {});
+          // PATCH: stop ASAP if narrative already ready (prevents any further generate calls)
+          if (narrativeReady(n)) {
+            renderFrom(data);
+            done = true;
+            return;
+          }
+
+          // PATCH: Trigger narrative generation ONCE after PSI is truly ready
+          if (psiReady) {
+            var alreadyRequested = false;
+            try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+            if (!alreadyRequested) {
+              try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+              generateNarrative(reportId).catch(function () {});
+            }
           }
 
           renderFrom(data);
 
-          // Stop polling when narrative is ready
-          var n = pickNarrative(data);
+          // Stop polling when narrative becomes ready
           if (narrativeReady(n)) {
             done = true;
             return;
@@ -956,6 +996,12 @@
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) return;
+
+    // PATCH: if user hits refresh, allow a fresh request cycle for THIS report id
+    try {
+      var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+      if (typeof window !== "undefined") window[latchKey] = false;
+    } catch (e) {}
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
