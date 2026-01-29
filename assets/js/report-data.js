@@ -38,6 +38,8 @@
       .replace(/'/g, "&#039;");
   }
 
+  function isStr(v) { return typeof v === "string"; }
+
   // -----------------------------
   // Tiny animated dots (shared)
   // -----------------------------
@@ -249,6 +251,21 @@
   }
 
   // -----------------------------
+  // Narrative status helpers (NEW)
+  // -----------------------------
+  function narrativeMetaStatus(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._status || "").toLowerCase();
+  }
+
+  function narrativeErrorMessage(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._error || meta.error || "").trim();
+  }
+
+  // -----------------------------
   // FIX: narrativeReady MUST match what UI can render
   // -----------------------------
   function narrativeReady(narrative) {
@@ -333,7 +350,7 @@
   }
 
   // -----------------------------
-  // Executive Narrative rendering
+  // Executive Narrative rendering (UPDATED)
   // -----------------------------
   function renderNarrative(narrative, state) {
     var el = $("narrativeText");
@@ -341,6 +358,30 @@
 
     state = safeObj(state);
     var psiReady = !!state.psiReady;
+
+    // Handle explicit statuses (blocked/error) so it doesn't look like "nothing"
+    if (narrative && typeof narrative === "object") {
+      var st = narrativeMetaStatus(narrative);
+      if (st === "blocked_insufficient_specificity") {
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Waiting for a site-specific anchor fact.</strong><br>" +
+            "This scan does not yet contain a reliable uniqueness anchor (e.g., complete mobile+desktop PSI, canonical/H1 evidence, or trust hardening evidence).<br>" +
+            "Leave this page open or refresh once PSI completes." +
+          "</div>";
+        return false;
+      }
+      if (st === "error") {
+        var em = narrativeErrorMessage(narrative);
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Narrative generation error.</strong><br>" +
+            (em ? ("<span>" + escapeHtml(em) + "</span><br>") : "") +
+            "Try refresh, or add <code>?regen=1</code> to force a rebuild." +
+          "</div>";
+        return false;
+      }
+    }
 
     if (!narrative) {
       el.innerHTML =
@@ -513,6 +554,8 @@
       return s;
     }
 
+    var st = narrativeMetaStatus(narrative);
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
       var label = String(sig.label || sig.id || "Signal");
@@ -523,7 +566,11 @@
       if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
       var summaryHtml = "";
-      if (!psiReady) {
+
+      // If narrative is blocked, don't pretend it's "building forever"
+      if (st === "blocked_insufficient_specificity") {
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Awaiting site-specific anchor fact" + dotsHtml() + "</span>";
+      } else if (!psiReady) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
       } else if (!narrReady && !lines.length) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
@@ -861,7 +908,7 @@
   }
 
   // -----------------------------
-  // Non-blocking polling + one-time narrative trigger
+  // Non-blocking polling + narrative trigger (UPDATED)
   // -----------------------------
   function ensureNarrativeNonBlocking(reportId, initialData, signals) {
     if (isPdfMode()) return;
@@ -888,6 +935,13 @@
 
     renderFrom(initialData);
 
+    function shouldAllowReRequest(narrativeObj) {
+      var st = narrativeMetaStatus(narrativeObj);
+      // If we previously blocked due to missing anchor (or hit an error),
+      // allow another request once PSI is ready.
+      return (st === "blocked_insufficient_specificity" || st === "error");
+    }
+
     function tick() {
       if (done) return;
 
@@ -901,7 +955,7 @@
           var psiReady = psiReadyFromData(data);
           var n = pickNarrative(data);
 
-          // STOP polling the moment we have something renderable (string or object)
+          // If renderable, stop polling
           if (narrativeReady(n)) {
             renderFrom(data);
             done = true;
@@ -912,6 +966,14 @@
           if (psiReady) {
             var alreadyRequested = false;
             try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+            // IMPORTANT: if the current narrative status is blocked/error,
+            // re-arm the request latch so we can try again.
+            if (shouldAllowReRequest(n)) {
+              try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
+              alreadyRequested = false;
+            }
+
             if (!alreadyRequested) {
               try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
               generateNarrative(reportId).catch(function () {});
