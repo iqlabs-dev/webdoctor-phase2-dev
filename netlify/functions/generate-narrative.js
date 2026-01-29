@@ -95,6 +95,60 @@ function fmtMs(ms) {
 }
 
 /* -------------------------------------------------- */
+/* Site-specificity gate (prevents generic narratives) */
+/* -------------------------------------------------- */
+
+function deriveSiteSpecificFact(metrics) {
+  var m = safeObj(metrics);
+
+  var psi = safeObj(m && m.psi);
+  var mf = safeObj(psi.mobile && psi.mobile.facts);
+  var df = safeObj(psi.desktop && psi.desktop.facts);
+
+  // 1) Strongest anchor: mobile vs desktop LCP asymmetry (if both exist)
+  if (mf.LCP_ms && df.LCP_ms && Number(mf.LCP_ms) !== Number(df.LCP_ms)) {
+    return {
+      type: "mobile_desktop_lcp_gap",
+      sentence:
+        "Mobile LCP is " + fmtMs(mf.LCP_ms) +
+        " versus " + fmtMs(df.LCP_ms) +
+        " on desktop, creating a materially different first impression by device."
+    };
+  }
+
+  // 2) Next-best anchors: deterministic binary facts
+  var seo = findDeliverySignal(m, "seo");
+  var seoEv = safeObj(seo && seo.evidence);
+  if (seoEv.canonical_present === false) {
+    return {
+      type: "missing_canonical",
+      sentence: "A canonical URL is not defined, leaving page authority ambiguous for search engines."
+    };
+  }
+
+  var structure = findDeliverySignal(m, "structure");
+  var structEv = safeObj(structure && structure.evidence);
+  if (structEv.h1_present === false) {
+    return {
+      type: "missing_h1",
+      sentence: "No H1 heading was detected, weakening semantic clarity for users and crawlers."
+    };
+  }
+
+  // 3) Counted trust hardening gaps (if available)
+  var sec = findDeliverySignal(m, "security");
+  var secEv = safeObj(sec && sec.evidence);
+  if (secEv.missing_count != null && Number(secEv.missing_count) > 0) {
+    return {
+      type: "security_header_gap",
+      sentence: String(secEv.missing_count) + " expected security headers are missing, weakening baseline trust signals."
+    };
+  }
+
+  return null;
+}
+
+/* -------------------------------------------------- */
 /* Executive narrative derivation helpers              */
 /* -------------------------------------------------- */
 
@@ -433,12 +487,36 @@ export async function handler(event) {
     // Build prompt inputs (strictly evidence-led)
     const evidence_snapshot = pickEvidenceSnapshot(metrics);
 
+    const siteFact = deriveSiteSpecificFact(metrics);
+
+    // HARD GATE: do not generate a narrative unless we can anchor it to at least one site-specific fact.
+    // This prevents interchangeable, generic output.
+    if (!siteFact) {
+      const next = safeObj(existing);
+      next._meta = safeObj(next._meta);
+      next._meta._status = "blocked_insufficient_specificity";
+      next._meta._updated_at = nowISO();
+
+      // Provide an honest, renderable message rather than generic filler.
+      next.overall = {
+        lines: [
+          "Executive narrative is waiting for a site-specific anchor fact (e.g., mobile+desktop PSI, canonical/H1 presence, or trust hardening evidence).",
+          "Re-scan or wait for PSI completion, then regenerate."
+        ]
+      };
+
+      await supabase.from("scan_results").update({ narrative: next }).eq("id", row.id);
+
+      return json(200, { success: true, report_id, status: "blocked_no_site_specific_fact" });
+    }
+
     // Tighter, non-generic constraints (matches your “don’t sound like a wrapper” intent)
     const system = [
       "You are generating an evidence-led executive narrative for a website diagnostic report.",
       "",
       "Non-negotiable rules:",
       "- Use ONLY the provided evidence snapshot. If a value is missing, do not guess.",
+      "- You MUST include the provided site-specific fact verbatim (exact text) in framing.lines or root_constraint.lines.",
       "- No 'this report evaluates...' or meta commentary. Start with the site's observed state.",
       "- No marketing language. No hype. No generic filler.",
       "- Output MUST be valid JSON ONLY (no code fences, no extra text).",
@@ -473,6 +551,9 @@ export async function handler(event) {
       "Website host:",
       String(row.url || ""),
       "",
+      "Site-specific fact (MUST be included verbatim):",
+      String(siteFact && siteFact.sentence ? siteFact.sentence : ""),
+      "",
       "Evidence snapshot (JSON):",
       JSON.stringify(evidence_snapshot),
       "",
@@ -503,9 +584,9 @@ export async function handler(event) {
         return json(200, { success: false, report_id, status: "error_parse" });
       }
     } else {
-      // No OpenAI key: deterministic fallback (still factual)
+      // No OpenAI key: deterministic fallback (still factual + anchored)
       executive_narrative = {
-        framing: { lines: ["Key delivery signals indicate inconsistent readiness under load across devices."] },
+        framing: { lines: [String(siteFact && siteFact.sentence ? siteFact.sentence : "Key delivery signals indicate inconsistent readiness under load across devices.")] },
         root_constraint: {
           lines: allowDegraded
             ? ["Performance data was not available in time; this report is based on deterministic checks and HTML evidence only."]
@@ -522,7 +603,7 @@ export async function handler(event) {
         },
         structure_seo: { lines: [] },
         trust_security: { lines: [] },
-        site_specificity: { lines: ["This narrative is anchored to the captured evidence snapshot for this specific site."] },
+        site_specificity: { lines: [String(siteFact && siteFact.sentence ? siteFact.sentence : "")] },
       };
     }
 
@@ -546,6 +627,7 @@ export async function handler(event) {
           generated_at: nowISO(),
           schema_version: "exec_north_star_v2",
           evidence_snapshot: evidence_snapshot,
+          site_specific_fact: safeObj(siteFact),
         },
         title: "Executive Narrative (Site-Specific, Evidence-Led)",
         framing: safeObj(executive_narrative.framing),
