@@ -38,8 +38,6 @@
       .replace(/'/g, "&#039;");
   }
 
-  function isStr(v) { return typeof v === "string"; }
-
   // -----------------------------
   // Tiny animated dots (shared)
   // -----------------------------
@@ -251,7 +249,7 @@
   }
 
   // -----------------------------
-  // Narrative status helpers (NEW)
+  // Narrative status helpers
   // -----------------------------
   function narrativeMetaStatus(narrative) {
     if (!narrative || typeof narrative !== "object") return "";
@@ -264,6 +262,7 @@
     var meta = safeObj(narrative._meta);
     return String(meta._error || meta.error || "").trim();
   }
+
 
   // -----------------------------
   // FIX: narrativeReady MUST match what UI can render
@@ -350,7 +349,7 @@
   }
 
   // -----------------------------
-  // Executive Narrative rendering (UPDATED)
+  // Executive Narrative rendering
   // -----------------------------
   function renderNarrative(narrative, state) {
     var el = $("narrativeText");
@@ -359,7 +358,7 @@
     state = safeObj(state);
     var psiReady = !!state.psiReady;
 
-    // Handle explicit statuses (blocked/error) so it doesn't look like "nothing"
+    // Show blocked/error states (so "nothing" doesn't look like it hangs forever)
     if (narrative && typeof narrative === "object") {
       var st = narrativeMetaStatus(narrative);
       if (st === "blocked_insufficient_specificity") {
@@ -554,8 +553,6 @@
       return s;
     }
 
-    var st = narrativeMetaStatus(narrative);
-
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
       var label = String(sig.label || sig.id || "Signal");
@@ -566,11 +563,7 @@
       if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
       var summaryHtml = "";
-
-      // If narrative is blocked, don't pretend it's "building forever"
-      if (st === "blocked_insufficient_specificity") {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Awaiting site-specific anchor fact" + dotsHtml() + "</span>";
-      } else if (!psiReady) {
+      if (!psiReady) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
       } else if (!narrReady && !lines.length) {
         summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
@@ -908,7 +901,7 @@
   }
 
   // -----------------------------
-  // Non-blocking polling + narrative trigger (UPDATED)
+  // Non-blocking polling + one-time narrative trigger
   // -----------------------------
   function ensureNarrativeNonBlocking(reportId, initialData, signals) {
     if (isPdfMode()) return;
@@ -933,14 +926,36 @@
       renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
     }
 
+    // fire initial render
     renderFrom(initialData);
 
-    function shouldAllowReRequest(narrativeObj) {
+    function shouldReRequest(narrativeObj) {
       var st = narrativeMetaStatus(narrativeObj);
-      // If we previously blocked due to missing anchor (or hit an error),
-      // allow another request once PSI is ready.
       return (st === "blocked_insufficient_specificity" || st === "error");
     }
+
+    function maybeRequestNarrative(data) {
+      var n = pickNarrative(data);
+      var alreadyRequested = false;
+      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+      // If blocked/error, re-arm latch so we can try again later.
+      if (shouldReRequest(n)) {
+        try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
+        alreadyRequested = false;
+      }
+
+      // IMPORTANT CHANGE:
+      // Do NOT wait for psiReady to request narrative.
+      // The backend will return "waiting_for_inputs" safely until PSI arrives.
+      if (!alreadyRequested) {
+        try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+        generateNarrative(reportId).catch(function () {});
+      }
+    }
+
+    // Request narrative immediately (once) so it can enter "generating" / "waiting" state.
+    maybeRequestNarrative(initialData);
 
     function tick() {
       if (done) return;
@@ -952,33 +967,17 @@
 
       fetchReportData(reportId)
         .then(function (data) {
-          var psiReady = psiReadyFromData(data);
           var n = pickNarrative(data);
 
-          // If renderable, stop polling
+          // STOP polling the moment we have something renderable (string or object)
           if (narrativeReady(n)) {
             renderFrom(data);
             done = true;
             return;
           }
 
-          // One-time narrative trigger once PSI is ready
-          if (psiReady) {
-            var alreadyRequested = false;
-            try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-
-            // IMPORTANT: if the current narrative status is blocked/error,
-            // re-arm the request latch so we can try again.
-            if (shouldAllowReRequest(n)) {
-              try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
-              alreadyRequested = false;
-            }
-
-            if (!alreadyRequested) {
-              try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-              generateNarrative(reportId).catch(function () {});
-            }
-          }
+          // If we are blocked/error, allow re-request (backend may now have PSI / evidence)
+          maybeRequestNarrative(data);
 
           renderFrom(data);
           setTimeout(tick, INTERVAL);
