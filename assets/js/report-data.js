@@ -249,22 +249,6 @@
   }
 
   // -----------------------------
-  // Narrative status helpers
-  // -----------------------------
-  function narrativeMetaStatus(narrative) {
-    if (!narrative || typeof narrative !== "object") return "";
-    var meta = safeObj(narrative._meta);
-    return String(meta._status || "").toLowerCase();
-  }
-
-  function narrativeErrorMessage(narrative) {
-    if (!narrative || typeof narrative !== "object") return "";
-    var meta = safeObj(narrative._meta);
-    return String(meta._error || meta.error || "").trim();
-  }
-
-
-  // -----------------------------
   // FIX: narrativeReady MUST match what UI can render
   // -----------------------------
   function narrativeReady(narrative) {
@@ -357,30 +341,6 @@
 
     state = safeObj(state);
     var psiReady = !!state.psiReady;
-
-    // Show blocked/error states (so "nothing" doesn't look like it hangs forever)
-    if (narrative && typeof narrative === "object") {
-      var st = narrativeMetaStatus(narrative);
-      if (st === "blocked_insufficient_specificity") {
-        el.innerHTML =
-          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
-            "<strong>Waiting for a site-specific anchor fact.</strong><br>" +
-            "This scan does not yet contain a reliable uniqueness anchor (e.g., complete mobile+desktop PSI, canonical/H1 evidence, or trust hardening evidence).<br>" +
-            "Leave this page open or refresh once PSI completes." +
-          "</div>";
-        return false;
-      }
-      if (st === "error") {
-        var em = narrativeErrorMessage(narrative);
-        el.innerHTML =
-          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
-            "<strong>Narrative generation error.</strong><br>" +
-            (em ? ("<span>" + escapeHtml(em) + "</span><br>") : "") +
-            "Try refresh, or add <code>?regen=1</code> to force a rebuild." +
-          "</div>";
-        return false;
-      }
-    }
 
     if (!narrative) {
       el.innerHTML =
@@ -926,36 +886,7 @@
       renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
     }
 
-    // fire initial render
     renderFrom(initialData);
-
-    function shouldReRequest(narrativeObj) {
-      var st = narrativeMetaStatus(narrativeObj);
-      return (st === "blocked_insufficient_specificity" || st === "error");
-    }
-
-    function maybeRequestNarrative(data) {
-      var n = pickNarrative(data);
-      var alreadyRequested = false;
-      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-
-      // If blocked/error, re-arm latch so we can try again later.
-      if (shouldReRequest(n)) {
-        try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
-        alreadyRequested = false;
-      }
-
-      // IMPORTANT CHANGE:
-      // Do NOT wait for psiReady to request narrative.
-      // The backend will return "waiting_for_inputs" safely until PSI arrives.
-      if (!alreadyRequested) {
-        try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-        generateNarrative(reportId).catch(function () {});
-      }
-    }
-
-    // Request narrative immediately (once) so it can enter "generating" / "waiting" state.
-    maybeRequestNarrative(initialData);
 
     function tick() {
       if (done) return;
@@ -967,6 +898,7 @@
 
       fetchReportData(reportId)
         .then(function (data) {
+          var psiReady = psiReadyFromData(data);
           var n = pickNarrative(data);
 
           // STOP polling the moment we have something renderable (string or object)
@@ -976,8 +908,15 @@
             return;
           }
 
-          // If we are blocked/error, allow re-request (backend may now have PSI / evidence)
-          maybeRequestNarrative(data);
+          // One-time narrative trigger once PSI is ready
+          if (psiReady) {
+            var alreadyRequested = false;
+            try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+            if (!alreadyRequested) {
+              try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+              generateNarrative(reportId).catch(function () {});
+            }
+          }
 
           renderFrom(data);
           setTimeout(tick, INTERVAL);
