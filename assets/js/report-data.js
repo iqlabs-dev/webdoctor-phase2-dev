@@ -122,11 +122,27 @@
   }
 
   // -----------------------------
+  // Cache buster (FIX)
+  // -----------------------------
+  function withCacheBuster(url) {
+    try {
+      var sep = url.indexOf("?") === -1 ? "?" : "&";
+      return url + sep + "_ts=" + String(Date.now());
+    } catch (e) {
+      return url;
+    }
+  }
+
+  // -----------------------------
   // Transport
   // -----------------------------
   function fetchJson(method, url, bodyObj) {
     if (typeof fetch === "function") {
-      var opts = { method: method, headers: { "Accept": "application/json" } };
+      var opts = {
+        method: method,
+        headers: { "Accept": "application/json" },
+        cache: "no-store" // FIX: avoid stale JSON
+      };
       if (method !== "GET") {
         opts.headers["Content-Type"] = "application/json";
         opts.body = JSON.stringify(bodyObj || {});
@@ -152,6 +168,7 @@
         var xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
         xhr.setRequestHeader("Accept", "application/json");
+        xhr.setRequestHeader("Cache-Control", "no-cache"); // FIX
         if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4) return;
@@ -185,9 +202,12 @@
         encodeURIComponent(reportId) +
         "&pdf_token=" +
         encodeURIComponent(token);
-      return fetchJson("GET", url);
+      return fetchJson("GET", withCacheBuster(url)); // FIX
     }
-    return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
+    return fetchJson(
+      "GET",
+      withCacheBuster("/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)) // FIX
+    );
   }
 
   function generateNarrative(reportId) {
@@ -249,7 +269,7 @@
   }
 
   // -----------------------------
-  // FIX: narrativeReady MUST match what UI can render
+  // narrativeReady MUST match what UI can render
   // -----------------------------
   function narrativeReady(narrative) {
     if (!narrative) return false;
@@ -269,8 +289,20 @@
     return Array.isArray(lines) && lines.length > 0;
   }
 
+  // -----------------------------
+  // PSI readiness (FIXED)
+  // - If PSI is missing entirely, we treat it as "ready enough" so narrative can generate.
+  // - Only block if PSI explicitly says pending / not ready.
+  // -----------------------------
   function psiReadyFromData(data) {
     var psi = pickPsiEnvelope(data);
+
+    // FIX: if PSI envelope is empty/missing, do NOT block narrative generation
+    try {
+      if (!psi || typeof psi !== "object" || Object.keys(psi).length === 0) return true;
+    } catch (e) {
+      return true;
+    }
 
     if (psi && psi.enabled === false) return true;
     if (psi && psi.pending === true) return false;
@@ -282,6 +314,9 @@
 
     var status = String(psi && psi._status ? psi._status : "").toLowerCase();
     if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
+
+    // If PSI exists but has no clear pending flag, don't hard-block forever
+    if (status === "" && !hasMobileFacts && !hasDesktopFacts) return true; // FIX
 
     return false;
   }
@@ -342,25 +377,6 @@
     state = safeObj(state);
     var psiReady = !!state.psiReady;
 
-    // --- NEW: Manifestation line support (Man Layer) ---
-    // We render:
-    // 1) Executive 5-sentence scaffold (narrative.overall.lines)
-    // 2) A single “How this shows up for users” line, sourced from:
-    //    - narrative.manifestation.lines[0] (preferred), OR
-    //    - narrative.executive_narrative.site_specificity.lines[1] (fallback if you stored it there)
-    function pickManifestationLine(n) {
-      if (!n || typeof n !== "object") return "";
-      // Preferred: explicit manifestation bucket
-      var man = asArray(n.manifestation && n.manifestation.lines);
-      if (man.length) return String(man[0] || "").trim();
-
-      // Fallback: if you stuffed manifestation into site_specificity as a second line
-      var ss = asArray(n.executive_narrative && n.executive_narrative.site_specificity && n.executive_narrative.site_specificity.lines);
-      if (ss.length >= 2) return String(ss[1] || "").trim();
-
-      return "";
-    }
-
     if (!narrative) {
       el.innerHTML =
         "<div class='muted' style='font-size:12px;'>" +
@@ -379,15 +395,6 @@
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
-
-        // --- NEW: append Man Layer (if present) ---
-        var manLine = pickManifestationLine(narrative);
-        if (manLine) {
-          html += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
-          html += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
-          html += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine) + "</p>";
-        }
-
         if (html) {
           el.innerHTML = html;
           return true;
@@ -402,15 +409,6 @@
           if (!t) continue;
           out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
         }
-
-        // --- NEW: append Man Layer (if present) ---
-        var manLine2 = pickManifestationLine(narrative);
-        if (manLine2) {
-          out += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
-          out += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
-          out += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine2) + "</p>";
-        }
-
         if (out) {
           el.innerHTML = out;
           return true;
@@ -829,7 +827,7 @@
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
             '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>' +
         "</div>";
     }
 
@@ -907,6 +905,9 @@
     var MAX_WAIT = 180000;
     var INTERVAL = 4000;
 
+    // FIX: if PSI never "becomes ready", still trigger narrative after a short grace period
+    var FORCE_TRIGGER_AFTER = 20000; // 20s
+
     var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
     try {
       if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
@@ -938,21 +939,25 @@
           var psiReady = psiReadyFromData(data);
           var n = pickNarrative(data);
 
-          // STOP polling the moment we have something renderable (string or object)
           if (narrativeReady(n)) {
             renderFrom(data);
             done = true;
             return;
           }
 
-          // One-time narrative trigger once PSI is ready
-          if (psiReady) {
-            var alreadyRequested = false;
-            try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-            if (!alreadyRequested) {
-              try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-              generateNarrative(reportId).catch(function () {});
-            }
+          var alreadyRequested = false;
+          try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+          // Normal trigger: when PSI is ready
+          if (psiReady && !alreadyRequested) {
+            try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+            generateNarrative(reportId).catch(function () {});
+          }
+
+          // FIX: forced trigger after grace period (prevents infinite "Building..." loops)
+          if (!alreadyRequested && (Date.now() - started > FORCE_TRIGGER_AFTER)) {
+            try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+            generateNarrative(reportId).catch(function () {});
           }
 
           renderFrom(data);
