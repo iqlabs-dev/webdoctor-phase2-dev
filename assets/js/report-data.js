@@ -261,40 +261,27 @@
 
     if (typeof narrative !== "object") return false;
 
-    // Accept status in multiple shapes
-    var st = "";
-    try {
-      if (narrative._meta && narrative._meta._status) st = String(narrative._meta._status || "");
-      else if (narrative._status) st = String(narrative._status || "");
-      else if (narrative.status) st = String(narrative.status || "");
-    } catch (e) {}
-    st = String(st || "").toLowerCase();
-    if (st === "generated" || st === "done" || st === "complete" || st === "ok") return true;
+    var meta = safeObj(narrative._meta);
+    var st = String(meta._status || "").toLowerCase();
+    if (st === "generated") return true;
 
     var lines = narrative.overall && narrative.overall.lines;
     return Array.isArray(lines) && lines.length > 0;
   }
 
-  // -----------------------------
-  // PSI readiness (be realistic)
-  // -----------------------------
   function psiReadyFromData(data) {
     var psi = pickPsiEnvelope(data);
 
-    // PSI disabled => treat as ready (narrative can still run without PSI)
     if (psi && psi.enabled === false) return true;
-
-    // Explicit pending
     if (psi && psi.pending === true) return false;
 
-    // If status declares ok/partial/complete, accept it
-    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
-    if (status === "ok" || status === "partial" || status === "complete" || status === "done") return true;
-
-    // Facts present
     var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
     var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
-    if (hasMobileFacts || hasDesktopFacts) return true;
+
+    if (hasMobileFacts && hasDesktopFacts) return true;
+
+    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
+    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
 
     return false;
   }
@@ -355,16 +342,6 @@
     state = safeObj(state);
     var psiReady = !!state.psiReady;
 
-    // Man-layer support (optional)
-    function pickManifestationLine(n) {
-      if (!n || typeof n !== "object") return "";
-      var man = asArray(n.manifestation && n.manifestation.lines);
-      if (man.length) return String(man[0] || "").trim();
-      var ss = asArray(n.executive_narrative && n.executive_narrative.site_specificity && n.executive_narrative.site_specificity.lines);
-      if (ss.length >= 2) return String(ss[1] || "").trim();
-      return "";
-    }
-
     if (!narrative) {
       el.innerHTML =
         "<div class='muted' style='font-size:12px;'>" +
@@ -383,14 +360,6 @@
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
-
-        var manLine = pickManifestationLine(narrative);
-        if (manLine) {
-          html += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
-          html += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
-          html += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine) + "</p>";
-        }
-
         if (html) {
           el.innerHTML = html;
           return true;
@@ -405,14 +374,6 @@
           if (!t) continue;
           out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
         }
-
-        var manLine2 = pickManifestationLine(narrative);
-        if (manLine2) {
-          out += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
-          out += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
-          out += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine2) + "</p>";
-        }
-
         if (out) {
           el.innerHTML = out;
           return true;
@@ -909,9 +870,6 @@
     var MAX_WAIT = 180000;
     var INTERVAL = 4000;
 
-    // NEW: if PSI never becomes "ready", still trigger narrative after grace period
-    var FORCE_TRIGGER_AFTER_MS = 15000; // 15s
-
     var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
     try {
       if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
@@ -930,29 +888,6 @@
 
     renderFrom(initialData);
 
-    function maybeTriggerNarrative(psiReady) {
-      var alreadyRequested = false;
-      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-
-      if (alreadyRequested) return;
-
-      var age = Date.now() - started;
-      var allow = (psiReady || age >= FORCE_TRIGGER_AFTER_MS);
-
-      if (!allow) return;
-
-      try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-
-      // Don’t swallow silently: at least log to console for you
-      generateNarrative(reportId)
-        .then(function () {
-          try { console.log("[iQWEB] generate-narrative triggered"); } catch (e) {}
-        })
-        .catch(function (err) {
-          try { console.warn("[iQWEB] generate-narrative failed:", err && err.message ? err.message : err); } catch (e) {}
-        });
-    }
-
     function tick() {
       if (done) return;
 
@@ -966,15 +901,22 @@
           var psiReady = psiReadyFromData(data);
           var n = pickNarrative(data);
 
-          // stop polling as soon as something renderable exists
+          // STOP polling the moment we have something renderable (string or object)
           if (narrativeReady(n)) {
             renderFrom(data);
             done = true;
             return;
           }
 
-          // NEW: trigger once (either PSI-ready OR grace period passed)
-          maybeTriggerNarrative(psiReady);
+          // One-time narrative trigger once PSI is ready
+          if (psiReady) {
+            var alreadyRequested = false;
+            try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+            if (!alreadyRequested) {
+              try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+              generateNarrative(reportId).catch(function () {});
+            }
+          }
 
           renderFrom(data);
           setTimeout(tick, INTERVAL);
