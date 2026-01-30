@@ -1,15 +1,13 @@
 /* eslint-disable */
-/**
- * /assets/js/report-data.js
- * iQWEB Report Renderer — v5.2 (ES5, no modules)
- *
- * Matches IDs in report.html:
- * loaderSection, reportRoot, siteUrl, reportId, reportDate,
- * overallPill, overallBar, overallNote, signalsGrid,
- * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
- * fixFirstBlock (optional)
- */
+// /assets/js/report-data.js
+// iQWEB Report Renderer — v5.2 (ES5, no modules)
+// IMPORTANT: This file matches IDs in your report.html:
+// loaderSection, reportRoot, siteUrl, reportId, reportDate,
+// overallPill, overallBar, overallNote, signalsGrid,
+// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+// PLUS: fixFirstBlock (new)
 
+/* eslint-disable */
 (function () {
   // -----------------------------
   // Helpers
@@ -38,54 +36,26 @@
       .replace(/'/g, "&#039;");
   }
 
-  // -----------------------------
-  // Tiny animated dots (shared)
-  // -----------------------------
-  var __IQWEB_DOTS_TIMER = null;
+function formatDate(iso) {
+  if (!iso) return "—";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
 
-  function ensureDotsTimer() {
-    if (__IQWEB_DOTS_TIMER) return;
-    __IQWEB_DOTS_TIMER = setInterval(function () {
-      try {
-        var nodes = document.querySelectorAll("[data-iqweb-dots]");
-        if (!nodes || !nodes.length) return;
-        for (var i = 0; i < nodes.length; i++) {
-          var n = nodes[i];
-          var c = Number(n.getAttribute("data-iqweb-dots") || "1");
-          if (!isFinite(c) || c < 1) c = 1;
-          c = c + 1;
-          if (c > 3) c = 1;
-          n.setAttribute("data-iqweb-dots", String(c));
-          n.textContent = (c === 1 ? "." : (c === 2 ? ".." : "..."));
-        }
-      } catch (e) {}
-    }, 450);
+  try {
+    return d.toLocaleString("en-NZ", {
+      timeZone: "Pacific/Auckland",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return d.toString();
   }
+}
 
-  function dotsHtml() {
-    ensureDotsTimer();
-    return '<span data-iqweb-dots="1">.</span>';
-  }
-
-  function formatDate(iso) {
-    if (!iso) return "—";
-    var d = new Date(iso);
-    if (isNaN(d.getTime())) return String(iso);
-
-    try {
-      return d.toLocaleString("en-NZ", {
-        timeZone: "Pacific/Auckland",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-    } catch (e) {
-      return d.toString();
-    }
-  }
 
   function verdict(score) {
     var n = asInt(score, 0);
@@ -122,27 +92,12 @@
   }
 
   // -----------------------------
-  // Cache buster (FIX)
-  // -----------------------------
-  function withCacheBuster(url) {
-    try {
-      var sep = url.indexOf("?") === -1 ? "?" : "&";
-      return url + sep + "_ts=" + String(Date.now());
-    } catch (e) {
-      return url;
-    }
-  }
-
-  // -----------------------------
   // Transport
   // -----------------------------
   function fetchJson(method, url, bodyObj) {
+    // Prefer fetch if present, fallback to XHR
     if (typeof fetch === "function") {
-      var opts = {
-        method: method,
-        headers: { "Accept": "application/json" },
-        cache: "no-store" // FIX: avoid stale JSON
-      };
+      var opts = { method: method, headers: { "Accept": "application/json" } };
       if (method !== "GET") {
         opts.headers["Content-Type"] = "application/json";
         opts.body = JSON.stringify(bodyObj || {});
@@ -163,12 +118,12 @@
       });
     }
 
+    // XHR fallback
     return new Promise(function (resolve, reject) {
       try {
         var xhr = new XMLHttpRequest();
         xhr.open(method, url, true);
         xhr.setRequestHeader("Accept", "application/json");
-        xhr.setRequestHeader("Cache-Control", "no-cache"); // FIX
         if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4) return;
@@ -202,12 +157,9 @@
         encodeURIComponent(reportId) +
         "&pdf_token=" +
         encodeURIComponent(token);
-      return fetchJson("GET", withCacheBuster(url)); // FIX
+      return fetchJson("GET", url);
     }
-    return fetchJson(
-      "GET",
-      withCacheBuster("/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)) // FIX
-    );
+    return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
   }
 
   function generateNarrative(reportId) {
@@ -221,6 +173,7 @@
   function pickHeader(data) {
     data = safeObj(data);
     if (data.header && typeof data.header === "object") return safeObj(data.header);
+    // legacy-ish
     return {
       website: data.url || data.website || "",
       report_id: data.report_id || "",
@@ -242,6 +195,13 @@
     return asArray(m.delivery_signals);
   }
 
+  function pickKeyMetrics(data) {
+    data = safeObj(data);
+    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
+    var m = safeObj(data.metrics);
+    return safeObj(m);
+  }
+
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
@@ -260,69 +220,8 @@
     return data.narrative || "";
   }
 
-  function pickPsiEnvelope(data) {
-    data = safeObj(data);
-    if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
-    var metrics = safeObj(data.metrics);
-    if (metrics.psi && typeof metrics.psi === "object") return safeObj(metrics.psi);
-    return {};
-  }
-
   // -----------------------------
-  // narrativeReady MUST match what UI can render
-  // -----------------------------
-  function narrativeReady(narrative) {
-    if (!narrative) return false;
-
-    // Legacy/plain text narrative => ready
-    if (typeof narrative === "string") {
-      return !!String(narrative || "").trim();
-    }
-
-    if (typeof narrative !== "object") return false;
-
-    var meta = safeObj(narrative._meta);
-    var st = String(meta._status || "").toLowerCase();
-    if (st === "generated") return true;
-
-    var lines = narrative.overall && narrative.overall.lines;
-    return Array.isArray(lines) && lines.length > 0;
-  }
-
-  // -----------------------------
-  // PSI readiness (FIXED)
-  // - If PSI is missing entirely, we treat it as "ready enough" so narrative can generate.
-  // - Only block if PSI explicitly says pending / not ready.
-  // -----------------------------
-  function psiReadyFromData(data) {
-    var psi = pickPsiEnvelope(data);
-
-    // FIX: if PSI envelope is empty/missing, do NOT block narrative generation
-    try {
-      if (!psi || typeof psi !== "object" || Object.keys(psi).length === 0) return true;
-    } catch (e) {
-      return true;
-    }
-
-    if (psi && psi.enabled === false) return true;
-    if (psi && psi.pending === true) return false;
-
-    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
-    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
-
-    if (hasMobileFacts && hasDesktopFacts) return true;
-
-    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
-    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
-
-    // If PSI exists but has no clear pending flag, don't hard-block forever
-    if (status === "" && !hasMobileFacts && !hasDesktopFacts) return true; // FIX
-
-    return false;
-  }
-
-  // -----------------------------
-  // DOM actions
+  // DOM actions (SHOW report / HIDE loader)
   // -----------------------------
   function showReport() {
     var loader = $("loaderSection");
@@ -340,7 +239,9 @@
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-    var created = header && (header.report_date || header.created_at || header.generated_at);
+var created = header && (header.report_date || header.created_at || header.generated_at);
+
+
 
     if (site) {
       site.textContent = website || "—";
@@ -370,22 +271,16 @@
   // -----------------------------
   // Executive Narrative rendering
   // -----------------------------
-  function renderNarrative(narrative, state) {
+  function renderNarrative(narrative) {
     var el = $("narrativeText");
     if (!el) return false;
 
-    state = safeObj(state);
-    var psiReady = !!state.psiReady;
-
     if (!narrative) {
-      el.innerHTML =
-        "<div class='muted' style='font-size:12px;'>" +
-          (psiReady ? "Building narrative" : "Building Narrative") +
-          dotsHtml() +
-        "</div>";
+      el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
       return false;
     }
 
+    // object contract
     if (typeof narrative === "object") {
       var overallLines = asArray(narrative.overall && narrative.overall.lines);
       if (overallLines.length) {
@@ -395,12 +290,11 @@
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
-        if (html) {
-          el.innerHTML = html;
-          return true;
-        }
+        el.innerHTML = html || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+        return !!html;
       }
 
+      // fallback: executive_lead
       if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
         var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
         var out = "";
@@ -409,13 +303,12 @@
           if (!t) continue;
           out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
         }
-        if (out) {
-          el.innerHTML = out;
-          return true;
-        }
+        el.innerHTML = out;
+        return true;
       }
     }
 
+    // string fallback
     if (typeof narrative === "string" && narrative.trim()) {
       var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
       if (blocks.length < 2) blocks = narrative.split("\n");
@@ -426,27 +319,23 @@
         if (!b) continue;
         html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
       }
-      if (html2) {
-        el.innerHTML = html2;
-        return true;
-      }
+      el.innerHTML = html2 || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+      return !!html2;
     }
 
-    el.innerHTML =
-      "<div class='muted' style='font-size:12px;'>" +
-        (psiReady ? "Building narrative" : "Building Narrative") +
-        dotsHtml() +
-      "</div>";
+    el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
     return false;
   }
 
   // -----------------------------
-  // What to Fix First (and Why) block
+  // NEW: What to Fix First (and Why) block
+  // Renders under Executive Narrative in #fixFirstBlock
   // -----------------------------
   function renderFixFirstBlock(narrative) {
     var root = $("fixFirstBlock");
     if (!root) return false;
 
+    // Clear if no narrative yet
     if (!narrative || typeof narrative !== "object") {
       root.innerHTML = "";
       return false;
@@ -458,6 +347,7 @@
     var waitOn = asArray(ff.deprioritise).filter(Boolean);
     var outcome = asArray(ff.expected_outcome).filter(Boolean);
 
+    // If empty, hide silently
     if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
       root.innerHTML = "";
       return false;
@@ -475,6 +365,8 @@
       return html;
     }
 
+    // Use same “card” styling as the rest of the report
+    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
     var htmlOut = "";
     htmlOut += "<div class='card' style='margin-top:14px;'>";
     htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
@@ -482,6 +374,7 @@
     htmlOut += "</div>";
 
     htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
+
     htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
 
     htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
@@ -506,17 +399,14 @@
   // -----------------------------
   // Delivery signal cards
   // -----------------------------
-  function renderSignalsGrid(signals, narrative, opts) {
+  function renderSignalsGrid(signals, narrative) {
     var grid = $("signalsGrid");
     if (!grid) return;
-
-    opts = safeObj(opts);
-    var psiReady = !!opts.psiReady;
-    var narrReady = !!opts.narrativeReady;
 
     signals = asArray(signals);
     grid.innerHTML = "";
 
+    // narrative signals map
     var narrSignals = {};
     if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
       narrSignals = narrative.signals;
@@ -557,16 +447,11 @@
       var lines = [];
       if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
-      var summaryHtml = "";
-      if (!psiReady) {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
-      } else if (!narrReady && !lines.length) {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
+      var summary = "";
+      if (lines.length) {
+        summary = String(lines.join("\n"));
       } else {
-        var summary = "";
-        if (lines.length) summary = String(lines.join("\n"));
-        else summary = fallbackSummary(sig);
-        summaryHtml = escapeHtml(summary).replace(/\n/g, "<br>");
+        summary = fallbackSummary(sig);
       }
 
       var card = document.createElement("div");
@@ -577,7 +462,7 @@
           '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
         "</div>" +
         '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' + summaryHtml + "</div>";
+        '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
 
       grid.appendChild(card);
     }
@@ -626,6 +511,7 @@
 
       var body = '<div class="acc-body">';
 
+      // Issues
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
         for (var j = 0; j < issues.length; j++) {
@@ -643,6 +529,7 @@
         }
       }
 
+      // Deductions
       if (deds.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
         body += "<div class='evidence-list'>";
@@ -655,6 +542,7 @@
         body += "</div>";
       }
 
+      // Observations
       if (obs.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
         body += "<div class='evidence-list'>";
@@ -665,6 +553,7 @@
         body += "</div>";
       }
 
+      // Evidence objet (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -688,7 +577,7 @@
   }
 
   // -----------------------------
-  // Key Insight Metrics
+  // Key Insight Metrics (Strength / Risk / Focus / Next)
   // -----------------------------
   function renderKeyInsights(scores, signals) {
     var root = $("keyMetricsRoot");
@@ -827,7 +716,7 @@
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
             '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>' +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
         "</div>";
     }
 
@@ -896,79 +785,33 @@
   }
 
   // -----------------------------
-  // Non-blocking polling + one-time narrative trigger
+  // Narrative generation: non-blocking
   // -----------------------------
-  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
-    if (isPdfMode()) return;
+  function ensureNarrative(reportId, narrative) {
+    // Render whatever we already have
+    var hasExecutive = renderNarrative(narrative);
+    renderFixFirstBlock(narrative);
 
-    var started = Date.now();
-    var MAX_WAIT = 180000;
-    var INTERVAL = 4000;
+    if (hasExecutive) return;
 
-    // FIX: if PSI never "becomes ready", still trigger narrative after a short grace period
-    var FORCE_TRIGGER_AFTER = 20000; // 20s
-
-    var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+    var key = "iqweb_narrative_requested_" + reportId;
     try {
-      if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
+      if (typeof sessionStorage !== "undefined") {
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, "1");
+      }
     } catch (e) {}
 
-    var done = false;
-
-    function renderFrom(data) {
-      var psiReady = psiReadyFromData(data);
-      var n = pickNarrative(data);
-
-      renderNarrative(n, { psiReady: psiReady });
-      renderFixFirstBlock(n);
-      renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
-    }
-
-    renderFrom(initialData);
-
-    function tick() {
-      if (done) return;
-
-      if (Date.now() - started > MAX_WAIT) {
-        done = true;
-        return;
-      }
-
-      fetchReportData(reportId)
-        .then(function (data) {
-          var psiReady = psiReadyFromData(data);
-          var n = pickNarrative(data);
-
-          if (narrativeReady(n)) {
-            renderFrom(data);
-            done = true;
-            return;
-          }
-
-          var alreadyRequested = false;
-          try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-
-          // Normal trigger: when PSI is ready
-          if (psiReady && !alreadyRequested) {
-            try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-            generateNarrative(reportId).catch(function () {});
-          }
-
-          // FIX: forced trigger after grace period (prevents infinite "Building..." loops)
-          if (!alreadyRequested && (Date.now() - started > FORCE_TRIGGER_AFTER)) {
-            try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-            generateNarrative(reportId).catch(function () {});
-          }
-
-          renderFrom(data);
-          setTimeout(tick, INTERVAL);
-        })
-        .catch(function () {
-          setTimeout(tick, INTERVAL);
-        });
-    }
-
-    tick();
+    generateNarrative(reportId)
+      .then(function () { return fetchReportData(reportId); })
+      .then(function (data2) {
+        var n = pickNarrative(data2);
+        renderNarrative(n);
+        renderFixFirstBlock(n);
+      })
+      .catch(function () {
+        // ignore narrative errors
+      });
   }
 
   // -----------------------------
@@ -989,19 +832,13 @@
 
     showReport();
 
-    var rid = String(header.report_id || getReportIdFromUrl() || "");
-    var psiReady = psiReadyFromData(data);
+    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
 
-    renderNarrative(narrative, { psiReady: psiReady });
-    renderFixFirstBlock(narrative);
-    renderSignalsGrid(signals, narrative, { psiReady: psiReady, narrativeReady: narrativeReady(narrative) });
-
+    renderSignalsGrid(signals, narrative);
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
     renderTopIssues(signals);
     renderFixSequence(scores, signals);
-
-    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
@@ -1009,11 +846,6 @@
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) return;
-
-    try {
-      var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
-      if (typeof window !== "undefined") window[latchKey] = false;
-    } catch (e) {}
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
