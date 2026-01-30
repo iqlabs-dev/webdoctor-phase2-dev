@@ -342,6 +342,25 @@
     state = safeObj(state);
     var psiReady = !!state.psiReady;
 
+    // --- NEW: Manifestation line support (Man Layer) ---
+    // We render:
+    // 1) Executive 5-sentence scaffold (narrative.overall.lines)
+    // 2) A single “How this shows up for users” line, sourced from:
+    //    - narrative.manifestation.lines[0] (preferred), OR
+    //    - narrative.executive_narrative.site_specificity.lines[1] (fallback if you stored it there)
+    function pickManifestationLine(n) {
+      if (!n || typeof n !== "object") return "";
+      // Preferred: explicit manifestation bucket
+      var man = asArray(n.manifestation && n.manifestation.lines);
+      if (man.length) return String(man[0] || "").trim();
+
+      // Fallback: if you stuffed manifestation into site_specificity as a second line
+      var ss = asArray(n.executive_narrative && n.executive_narrative.site_specificity && n.executive_narrative.site_specificity.lines);
+      if (ss.length >= 2) return String(ss[1] || "").trim();
+
+      return "";
+    }
+
     if (!narrative) {
       el.innerHTML =
         "<div class='muted' style='font-size:12px;'>" +
@@ -360,6 +379,15 @@
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
+
+        // --- NEW: append Man Layer (if present) ---
+        var manLine = pickManifestationLine(narrative);
+        if (manLine) {
+          html += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
+          html += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
+          html += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine) + "</p>";
+        }
+
         if (html) {
           el.innerHTML = html;
           return true;
@@ -374,6 +402,15 @@
           if (!t) continue;
           out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
         }
+
+        // --- NEW: append Man Layer (if present) ---
+        var manLine2 = pickManifestationLine(narrative);
+        if (manLine2) {
+          out += "<div style='margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08);'></div>";
+          out += "<p class='muted' style='margin:0 0 6px 0; font-size:12px; letter-spacing:0.02em; text-transform:uppercase;'>How this shows up for users</p>";
+          out += "<p style='margin:0; line-height:1.55;'>" + escapeHtml(manLine2) + "</p>";
+        }
+
         if (out) {
           el.innerHTML = out;
           return true;
