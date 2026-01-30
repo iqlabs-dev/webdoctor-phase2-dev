@@ -292,7 +292,6 @@ function buildSignalNarratives(metrics, allowDegraded) {
 
     if (ev.https_active === true) lines.push("HTTPS is active and baseline security headers are present.");
     if (ev.missing_count != null && Number(ev.missing_count) > 0) {
-      means;
       lines.push("Baseline hardening gaps remain (" + Number(ev.missing_count) + " headers missing).");
     }
     if (ev.permissions_policy_present === false) {
@@ -343,50 +342,52 @@ function buildSignalNarratives(metrics, allowDegraded) {
 /* -------------------------------------------------- */
 
 function choosePrimaryConstraint(e) {
-  // Returns { key, label, valueStr, valueRaw }
-  // Order matters: we choose the most trustable, most impactful constraint first.
-  var mLCP = e.mobile && e.mobile.LCP_ms;
-  var dLCP = e.desktop && e.desktop.LCP_ms;
-  var mCLS = e.mobile && e.mobile.CLS;
-  var dCLS = e.desktop && e.desktop.CLS;
-  var mINP = e.mobile && e.mobile.INP_ms;
-  var mTBT = e.mobile && e.mobile.TBT_ms;
-  var mTTFB = e.mobile && e.mobile.TTFB_ms;
+  if (!e) return null;
 
-  // 1) Mobile LCP (primary)
-  if (isFinite(Number(mLCP)) && Number(mLCP) > 0) {
-    return { key: "mobile_LCP_ms", label: "mobile speed-to-content", valueStr: String(Math.round(Number(mLCP))) + "ms", valueRaw: Number(mLCP) };
+  // Thresholds (Google / industry aligned)
+  var TH = {
+    LCP: 2500,   // ms
+    CLS: 0.10,   // score
+    INP: 200,    // ms
+    TBT: 300,    // ms
+    TTFB: 800    // ms
+  };
+
+  var candidates = [];
+
+  function push(key, label, raw, threshold, unit) {
+    if (!isFinite(Number(raw)) || Number(raw) <= 0) return;
+    var severity = Number(raw) / threshold;
+    candidates.push({
+      key: key,
+      label: label,
+      valueRaw: Number(raw),
+      valueStr: unit === "ms"
+        ? (String(Math.round(Number(raw))) + "ms")
+        : fmtNum(Number(raw), 2),
+      severity: severity
+    });
   }
 
-  // 2) Desktop LCP
-  if (isFinite(Number(dLCP)) && Number(dLCP) > 0) {
-    return { key: "desktop_LCP_ms", label: "desktop speed-to-content", valueStr: String(Math.round(Number(dLCP))) + "ms", valueRaw: Number(dLCP) };
+  // --- Collect candidates ---
+  if (e.mobile) {
+    push("mobile_LCP_ms", "mobile speed-to-content", e.mobile.LCP_ms, TH.LCP, "ms");
+    push("mobile_CLS", "layout stability", e.mobile.CLS, TH.CLS, "score");
+    push("mobile_INP_ms", "interaction responsiveness", e.mobile.INP_ms, TH.INP, "ms");
+    push("mobile_TBT_ms", "main-thread execution", e.mobile.TBT_ms, TH.TBT, "ms");
+    push("mobile_TTFB_ms", "server response time", e.mobile.TTFB_ms, TH.TTFB, "ms");
   }
 
-  // 3) CLS (use the worse of mobile/desktop)
-  var worstCLS = null;
-  if (isFinite(Number(mCLS))) worstCLS = Number(mCLS);
-  if (isFinite(Number(dCLS))) worstCLS = (worstCLS == null ? Number(dCLS) : Math.max(worstCLS, Number(dCLS)));
-  if (worstCLS != null && worstCLS > 0) {
-    return { key: "CLS", label: "layout stability", valueStr: fmtNum(worstCLS, 2), valueRaw: worstCLS };
+  if (e.desktop) {
+    push("desktop_LCP_ms", "desktop speed-to-content", e.desktop.LCP_ms, TH.LCP, "ms");
+    push("desktop_CLS", "layout stability", e.desktop.CLS, TH.CLS, "score");
   }
 
-  // 4) INP
-  if (isFinite(Number(mINP)) && Number(mINP) > 0) {
-    return { key: "mobile_INP_ms", label: "interaction responsiveness", valueStr: String(Math.round(Number(mINP))) + "ms", valueRaw: Number(mINP) };
-  }
+  if (!candidates.length) return null;
 
-  // 5) TBT
-  if (isFinite(Number(mTBT)) && Number(mTBT) > 0) {
-    return { key: "mobile_TBT_ms", label: "main-thread execution", valueStr: String(Math.round(Number(mTBT))) + "ms", valueRaw: Number(mTBT) };
-  }
-
-  // 6) TTFB
-  if (isFinite(Number(mTTFB)) && Number(mTTFB) > 0) {
-    return { key: "mobile_TTFB_ms", label: "server response time", valueStr: String(Math.round(Number(mTTFB))) + "ms", valueRaw: Number(mTTFB) };
-  }
-
-  return null;
+  // --- Pick the worst offender (highest severity) ---
+  candidates.sort(function (a, b) { return b.severity - a.severity; });
+  return candidates[0];
 }
 
 function buildExecNarrative5(metrics, evidence, url) {
@@ -413,7 +414,7 @@ function buildExecNarrative5(metrics, evidence, url) {
   if (primary) {
     if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
       s2 = "The primary constraint is " + primary.label + ": Largest Contentful Paint is ~" + primary.valueStr + ", meaning users wait too long before the main content becomes visually stable.";
-    } else if (primary.key === "CLS") {
+    } else if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
       s2 = "The primary constraint is " + primary.label + ": cumulative layout shift is ~" + primary.valueStr + ", meaning the page moves while users try to read or click.";
     } else if (primary.key.indexOf("INP") !== -1) {
       s2 = "The primary constraint is " + primary.label + ": Interaction to Next Paint is ~" + primary.valueStr + ", so taps and clicks can feel delayed.";
@@ -469,7 +470,7 @@ function buildExecNarrative5(metrics, evidence, url) {
 
   // ---- S5: Fix order (explicit priority list) ----
   var primaryFix = "stabilise the first meaningful render (reduce LCP and eliminate avoidable layout shift)";
-  if (primary && primary.key === "CLS") primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
+  if (primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS")) primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
   if (primary && (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1)) primaryFix = "reduce main-thread execution (trim/defer heavy JS and split long tasks)";
   if (primary && primary.key.indexOf("TTFB") !== -1) primaryFix = "improve server response (reduce TTFB and unblock render pipeline early)";
 
