@@ -342,9 +342,10 @@ function buildSignalNarratives(metrics, allowDegraded) {
 /* -------------------------------------------------- */
 
 function choosePrimaryConstraint(e) {
-  if (!e) return null;
+  // Returns { key, label, valueStr, valueRaw, severity }
+  // Choose the *worst normalised offender* vs recommended thresholds.
+  if (!e || typeof e !== "object") return null;
 
-  // Thresholds (Google / industry aligned)
   var TH = {
     LCP: 2500,   // ms
     CLS: 0.10,   // score
@@ -356,20 +357,19 @@ function choosePrimaryConstraint(e) {
   var candidates = [];
 
   function push(key, label, raw, threshold, unit) {
-    if (!isFinite(Number(raw)) || Number(raw) <= 0) return;
-    var severity = Number(raw) / threshold;
+    var n = Number(raw);
+    if (!isFinite(n) || n <= 0) return;
+    var sev = n / threshold;
     candidates.push({
       key: key,
       label: label,
-      valueRaw: Number(raw),
-      valueStr: unit === "ms"
-        ? (String(Math.round(Number(raw))) + "ms")
-        : fmtNum(Number(raw), 2),
-      severity: severity
+      valueRaw: n,
+      valueStr: (unit === "ms") ? (String(Math.round(n)) + "ms") : fmtNum(n, 2),
+      severity: sev
     });
   }
 
-  // --- Collect candidates ---
+  // Mobile candidates
   if (e.mobile) {
     push("mobile_LCP_ms", "mobile speed-to-content", e.mobile.LCP_ms, TH.LCP, "ms");
     push("mobile_CLS", "layout stability", e.mobile.CLS, TH.CLS, "score");
@@ -378,6 +378,7 @@ function choosePrimaryConstraint(e) {
     push("mobile_TTFB_ms", "server response time", e.mobile.TTFB_ms, TH.TTFB, "ms");
   }
 
+  // Desktop candidates (keep to core metrics)
   if (e.desktop) {
     push("desktop_LCP_ms", "desktop speed-to-content", e.desktop.LCP_ms, TH.LCP, "ms");
     push("desktop_CLS", "layout stability", e.desktop.CLS, TH.CLS, "score");
@@ -385,7 +386,6 @@ function choosePrimaryConstraint(e) {
 
   if (!candidates.length) return null;
 
-  // --- Pick the worst offender (highest severity) ---
   candidates.sort(function (a, b) { return b.severity - a.severity; });
   return candidates[0];
 }
@@ -413,7 +413,7 @@ function buildExecNarrative5(metrics, evidence, url) {
   var s2 = "";
   if (primary) {
     if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
-      s2 = "The primary constraint is " + primary.label + ": Largest Contentful Paint is ~" + primary.valueStr + ", meaning users wait too long before the main content becomes visually stable.";
+      s2 = "The primary constraint is " + primary.label + ": Largest Contentful Paint is ~" + primary.valueStr + ", meaning users wait too long before the main content becomes visually ready.";
     } else if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
       s2 = "The primary constraint is " + primary.label + ": cumulative layout shift is ~" + primary.valueStr + ", meaning the page moves while users try to read or click.";
     } else if (primary.key.indexOf("INP") !== -1) {
@@ -433,15 +433,23 @@ function buildExecNarrative5(metrics, evidence, url) {
   // ---- S3: Consequence (no new facts; translate) ----
   var mCLS = e.mobile && e.mobile.CLS;
   var dCLS = e.desktop && e.desktop.CLS;
+
+  // Only talk about “instability / shifting” if CLS is meaningfully bad.
+  var CLS_BAD_THRESHOLD = 0.10;
+  var clsBad = (isFinite(Number(mCLS)) && Number(mCLS) > CLS_BAD_THRESHOLD) || (isFinite(Number(dCLS)) && Number(dCLS) > CLS_BAD_THRESHOLD);
+
   var clsPart = "";
-  if (isFinite(Number(mCLS)) || isFinite(Number(dCLS))) {
+  if (clsBad) {
     var mStr = isFinite(Number(mCLS)) ? fmtNum(mCLS, 2) : null;
     var dStr = isFinite(Number(dCLS)) ? fmtNum(dCLS, 2) : null;
     if (mStr && dStr) clsPart = " Combined with measurable layout volatility (CLS ~" + mStr + " mobile, ~" + dStr + " desktop),";
     else if (mStr) clsPart = " Combined with measurable layout volatility (CLS ~" + mStr + " on mobile),";
     else if (dStr) clsPart = " Combined with measurable layout volatility (CLS ~" + dStr + " on desktop),";
   }
-  var s3 = (clsPart ? clsPart : "") + " the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence.";
+
+  var s3 = clsBad
+    ? ((clsPart ? clsPart : "") + " the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence.")
+    : "This causes the page to feel slow on initial load, increasing the chance users abandon before meaningful engagement.";
 
   // ---- S4: Counterbalance (what is NOT the problem + secondary) ----
   var counterParts = [];
@@ -469,13 +477,25 @@ function buildExecNarrative5(metrics, evidence, url) {
   }
 
   // ---- S5: Fix order (explicit priority list) ----
-  var primaryFix = "stabilise the first meaningful render (reduce LCP and eliminate avoidable layout shift)";
-  if (primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS")) primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
-  if (primary && (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1)) primaryFix = "reduce main-thread execution (trim/defer heavy JS and split long tasks)";
-  if (primary && primary.key.indexOf("TTFB") !== -1) primaryFix = "improve server response (reduce TTFB and unblock render pipeline early)";
+  // Primary fix should match the primary constraint. Do not prescribe CLS fixes if CLS is not a problem.
+  var primaryFix = "stabilise the first meaningful render (reduce LCP)";
+  if (primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS")) {
+    primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
+  } else if (primary && (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1)) {
+    primaryFix = "reduce main-thread execution (trim/defer heavy JS and split long tasks)";
+  } else if (primary && primary.key.indexOf("TTFB") !== -1) {
+    primaryFix = "improve server response (reduce TTFB and unblock render pipeline early)";
+  } else if (primary && primary.key.indexOf("LCP") !== -1) {
+    primaryFix = "reduce speed-to-content (reduce LCP by optimising the critical render path)";
+  }
 
   var order = [];
   order.push(primaryFix);
+
+  // If CLS is genuinely bad but not the primary constraint, add it as the next fix.
+  if (typeof clsBad !== "undefined" && clsBad && !(primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS"))) {
+    order.push("eliminate avoidable layout shift (CLS)");
+  }
 
   // Secondary ordering: SEO baseline before security hardening (unless security is severe)
   if (e.canonical_present === false || e.h1_present === false) order.push("address SEO baseline (H1 + canonical)");
