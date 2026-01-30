@@ -404,10 +404,33 @@ function buildExecNarrative5(metrics, evidence, url) {
   if (!primary && !hasHtmlAnchors) return null;
 
   // ---- S1: Delivery reality (1–2 anchors) ----
-  var s1Parts = [];
-  if (isFinite(Number(htmlKb))) s1Parts.push("a large initial document (~" + fmtNum(htmlKb, 1) + " KB HTML)");
-  if (isFinite(Number(inlineScripts))) s1Parts.push(String(inlineScripts) + " inline scripts");
-  var s1 = "The page " + host + " ships " + (s1Parts.length ? s1Parts.join(" and ") : "a non-trivial client-side runtime") + ", so delivery complexity is already high before optimisation.";
+  // RULES:
+  // - S1 must set up S2 and never undermine severity.
+  // - Prefer runtime-first framing.
+  // - Only include numeric anchors if they strengthen the story (avoid tiny values like 0.8KB).
+  // - No optimisation language.
+  var s1 = "";
+  var s1NumParts = [];
+
+  // Only call HTML "large" if it is actually large enough to support the claim.
+  // Threshold is conservative to avoid undermining trust.
+  var HTML_LARGE_KB = 150; // only mention size if >= 150KB
+  if (isFinite(Number(htmlKb)) && Number(htmlKb) >= HTML_LARGE_KB) {
+    s1NumParts.push("a large initial document (~" + fmtNum(htmlKb, 0) + " KB HTML)");
+  }
+
+  // Only mention inline scripts if the count is meaningful (supports early execution framing).
+  var INLINE_SCRIPTS_MENTION = 10;
+  if (isFinite(Number(inlineScripts)) && Number(inlineScripts) >= INLINE_SCRIPTS_MENTION) {
+    s1NumParts.push(String(inlineScripts) + " inline scripts");
+  }
+
+  if (s1NumParts.length) {
+    s1 = "The page " + host + " ships " + s1NumParts.join(" and ") + ", increasing early client-side work before meaningful content is visible on mobile.";
+  } else {
+    // Safe default: runtime-first, platform-true, and aligned with LCP/INP/TBT-style constraints.
+    s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, increasing render complexity on mobile devices.";
+  }
 
   // ---- S2: Primary constraint (metric + value) ----
   var s2 = "";
