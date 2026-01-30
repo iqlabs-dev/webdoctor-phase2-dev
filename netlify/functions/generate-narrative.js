@@ -390,6 +390,33 @@ function choosePrimaryConstraint(e) {
   return candidates[0];
 }
 
+/* -------------------------------------------------- */
+/* Manifestation layer (deterministic translation)      */
+/* -------------------------------------------------- */
+
+function buildManifestationLine(primary, host) {
+  if (!primary || !primary.key) return null;
+
+  // One sentence only. No new facts. No advice. No new metrics.
+  if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
+    return "On " + host + ", users wait too long on mobile before the main content appears, so the page feels slow before it can engage.";
+  }
+
+  if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
+    return "On " + host + ", content shifts after load, so reading and tapping can feel unreliable as the page moves under the user.";
+  }
+
+  if (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1) {
+    return "On " + host + ", the page may look visible but can respond late to taps and clicks, making interaction feel sluggish.";
+  }
+
+  if (primary.key.indexOf("TTFB") !== -1) {
+    return "On " + host + ", the page is slow to begin loading, delaying everything that follows and making the site feel unresponsive at first.";
+  }
+
+  return "On " + host + ", users experience delayed or unreliable page readiness during initial load, which reduces confidence and engagement.";
+}
+
 function buildExecNarrative5(metrics, evidence, url) {
   var host = hostFromUrl(url);
   var e = safeObj(evidence);
@@ -605,6 +632,13 @@ export async function handler(event) {
       return json(200, { success: false, report_id, status: "blocked_insufficient_specificity" });
     }
 
+    // -----------------------------
+    // Manifestation layer (NEW)
+    // -----------------------------
+    var host = hostFromUrl(row.url);
+    var primary = choosePrimaryConstraint(evidence_snapshot);
+    var manifestationLine = buildManifestationLine(primary, host);
+
     // Map scaffold into the existing narrative schema (drop-in)
     const nextNarrative = {
       _meta: {
@@ -612,9 +646,16 @@ export async function handler(event) {
         _updated_at: nowISO(),
         degraded: !!allowDegraded,
         generated_at: nowISO(),
-        source: "deterministic_exec_v3",
+        source: "deterministic_exec_v3_plus_manifestation_v1",
       },
       overall: { lines: execLines },
+
+      // Optional: top-level manifestation (safe additive field)
+      manifestation: {
+        title: "How this shows up for users",
+        lines: manifestationLine ? [manifestationLine] : [],
+      },
+
       // Deterministic signal narratives (Delivery Signals card summaries)
       signals: buildSignalNarratives(metrics, !!allowDegraded),
       executive_lead: execLines.join("\n"),
@@ -622,13 +663,21 @@ export async function handler(event) {
         _meta: {
           site_host: String(row.url || ""),
           generated_at: nowISO(),
-          schema_version: "exec_north_star_v3_det",
+          schema_version: "exec_north_star_v3_det_plus_manifestation_v1",
           evidence_snapshot: evidence_snapshot,
         },
         title: "Executive Narrative (Locked 5-Sentence Scaffold)",
         framing: { lines: [execLines[0]] },            // S1
         root_constraint: { lines: [execLines[1]] },    // S2
-        site_specificity: { lines: [execLines[2]] },   // S3
+
+        // Site specificity now includes the manifestation translation line (deterministic).
+        // This does NOT change any facts or metrics; it only translates user experience.
+        site_specificity: {
+          lines: manifestationLine
+            ? [execLines[2], manifestationLine]
+            : [execLines[2]],
+        },
+
         // Keep these in place for future UI expansion
         behaviour_split: { mobile: { lines: [] }, desktop: { lines: [] } },
         structure_seo: { lines: [] },
