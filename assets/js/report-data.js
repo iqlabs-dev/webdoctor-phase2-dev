@@ -1,13 +1,15 @@
 /* eslint-disable */
-// /assets/js/report-data.js
-// iQWEB Report Renderer — v5.2 (ES5, no modules)
-// IMPORTANT: This file matches IDs in your report.html:
-// loaderSection, reportRoot, siteUrl, reportId, reportDate,
-// overallPill, overallBar, overallNote, signalsGrid,
-// signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
-// PLUS: fixFirstBlock (new)
+/**
+ * /assets/js/report-data.js
+ * iQWEB Report Renderer — v5.2 (ES5, no modules)
+ *
+ * Matches IDs in report.html:
+ * loaderSection, reportRoot, siteUrl, reportId, reportDate,
+ * overallPill, overallBar, overallNote, signalsGrid,
+ * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+ * fixFirstBlock (optional)
+ */
 
-/* eslint-disable */
 (function () {
   // -----------------------------
   // Helpers
@@ -36,26 +38,54 @@
       .replace(/'/g, "&#039;");
   }
 
-function formatDate(iso) {
-  if (!iso) return "—";
-  var d = new Date(iso);
-  if (isNaN(d.getTime())) return String(iso);
+  // -----------------------------
+  // Tiny animated dots (shared)
+  // -----------------------------
+  var __IQWEB_DOTS_TIMER = null;
 
-  try {
-    return d.toLocaleString("en-NZ", {
-      timeZone: "Pacific/Auckland",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-  } catch (e) {
-    return d.toString();
+  function ensureDotsTimer() {
+    if (__IQWEB_DOTS_TIMER) return;
+    __IQWEB_DOTS_TIMER = setInterval(function () {
+      try {
+        var nodes = document.querySelectorAll("[data-iqweb-dots]");
+        if (!nodes || !nodes.length) return;
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          var c = Number(n.getAttribute("data-iqweb-dots") || "1");
+          if (!isFinite(c) || c < 1) c = 1;
+          c = c + 1;
+          if (c > 3) c = 1;
+          n.setAttribute("data-iqweb-dots", String(c));
+          n.textContent = (c === 1 ? "." : (c === 2 ? ".." : "..."));
+        }
+      } catch (e) {}
+    }, 450);
   }
-}
 
+  function dotsHtml() {
+    ensureDotsTimer();
+    return '<span data-iqweb-dots="1">.</span>';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+
+    try {
+      return d.toLocaleString("en-NZ", {
+        timeZone: "Pacific/Auckland",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+    } catch (e) {
+      return d.toString();
+    }
+  }
 
   function verdict(score) {
     var n = asInt(score, 0);
@@ -95,7 +125,6 @@ function formatDate(iso) {
   // Transport
   // -----------------------------
   function fetchJson(method, url, bodyObj) {
-    // Prefer fetch if present, fallback to XHR
     if (typeof fetch === "function") {
       var opts = { method: method, headers: { "Accept": "application/json" } };
       if (method !== "GET") {
@@ -118,7 +147,6 @@ function formatDate(iso) {
       });
     }
 
-    // XHR fallback
     return new Promise(function (resolve, reject) {
       try {
         var xhr = new XMLHttpRequest();
@@ -173,7 +201,6 @@ function formatDate(iso) {
   function pickHeader(data) {
     data = safeObj(data);
     if (data.header && typeof data.header === "object") return safeObj(data.header);
-    // legacy-ish
     return {
       website: data.url || data.website || "",
       report_id: data.report_id || "",
@@ -195,13 +222,6 @@ function formatDate(iso) {
     return asArray(m.delivery_signals);
   }
 
-  function pickKeyMetrics(data) {
-    data = safeObj(data);
-    if (data.key_metrics && typeof data.key_metrics === "object") return safeObj(data.key_metrics);
-    var m = safeObj(data.metrics);
-    return safeObj(m);
-  }
-
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
@@ -220,8 +240,70 @@ function formatDate(iso) {
     return data.narrative || "";
   }
 
+  function pickPsiEnvelope(data) {
+    data = safeObj(data);
+    if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
+    var metrics = safeObj(data.metrics);
+    if (metrics.psi && typeof metrics.psi === "object") return safeObj(metrics.psi);
+    return {};
+  }
+
   // -----------------------------
-  // DOM actions (SHOW report / HIDE loader)
+  // Narrative status helpers
+  // -----------------------------
+  function narrativeMetaStatus(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._status || "").toLowerCase();
+  }
+
+  function narrativeErrorMessage(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._error || meta.error || "").trim();
+  }
+
+
+  // -----------------------------
+  // FIX: narrativeReady MUST match what UI can render
+  // -----------------------------
+  function narrativeReady(narrative) {
+    if (!narrative) return false;
+
+    // Legacy/plain text narrative => ready
+    if (typeof narrative === "string") {
+      return !!String(narrative || "").trim();
+    }
+
+    if (typeof narrative !== "object") return false;
+
+    var meta = safeObj(narrative._meta);
+    var st = String(meta._status || "").toLowerCase();
+    if (st === "generated") return true;
+
+    var lines = narrative.overall && narrative.overall.lines;
+    return Array.isArray(lines) && lines.length > 0;
+  }
+
+  function psiReadyFromData(data) {
+    var psi = pickPsiEnvelope(data);
+
+    if (psi && psi.enabled === false) return true;
+    if (psi && psi.pending === true) return false;
+
+    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
+    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
+
+    if (hasMobileFacts && hasDesktopFacts) return true;
+
+    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
+    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
+
+    return false;
+  }
+
+  // -----------------------------
+  // DOM actions
   // -----------------------------
   function showReport() {
     var loader = $("loaderSection");
@@ -239,9 +321,7 @@ function formatDate(iso) {
 
     var website = String(header.website || "").trim();
     var rid = String(header.report_id || "").trim();
-var created = header && (header.report_date || header.created_at || header.generated_at);
-
-
+    var created = header && (header.report_date || header.created_at || header.generated_at);
 
     if (site) {
       site.textContent = website || "—";
@@ -271,16 +351,46 @@ var created = header && (header.report_date || header.created_at || header.gener
   // -----------------------------
   // Executive Narrative rendering
   // -----------------------------
-  function renderNarrative(narrative) {
+  function renderNarrative(narrative, state) {
     var el = $("narrativeText");
     if (!el) return false;
 
+    state = safeObj(state);
+    var psiReady = !!state.psiReady;
+
+    // Show blocked/error states (so "nothing" doesn't look like it hangs forever)
+    if (narrative && typeof narrative === "object") {
+      var st = narrativeMetaStatus(narrative);
+      if (st === "blocked_insufficient_specificity") {
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Waiting for a site-specific anchor fact.</strong><br>" +
+            "This scan does not yet contain a reliable uniqueness anchor (e.g., complete mobile+desktop PSI, canonical/H1 evidence, or trust hardening evidence).<br>" +
+            "Leave this page open or refresh once PSI completes." +
+          "</div>";
+        return false;
+      }
+      if (st === "error") {
+        var em = narrativeErrorMessage(narrative);
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Narrative generation error.</strong><br>" +
+            (em ? ("<span>" + escapeHtml(em) + "</span><br>") : "") +
+            "Try refresh, or add <code>?regen=1</code> to force a rebuild." +
+          "</div>";
+        return false;
+      }
+    }
+
     if (!narrative) {
-      el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+      el.innerHTML =
+        "<div class='muted' style='font-size:12px;'>" +
+          (psiReady ? "Building narrative" : "Building Narrative") +
+          dotsHtml() +
+        "</div>";
       return false;
     }
 
-    // object contract
     if (typeof narrative === "object") {
       var overallLines = asArray(narrative.overall && narrative.overall.lines);
       if (overallLines.length) {
@@ -290,11 +400,12 @@ var created = header && (header.report_date || header.created_at || header.gener
           if (!s) continue;
           html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
         }
-        el.innerHTML = html || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
-        return !!html;
+        if (html) {
+          el.innerHTML = html;
+          return true;
+        }
       }
 
-      // fallback: executive_lead
       if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
         var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
         var out = "";
@@ -303,12 +414,13 @@ var created = header && (header.report_date || header.created_at || header.gener
           if (!t) continue;
           out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
         }
-        el.innerHTML = out;
-        return true;
+        if (out) {
+          el.innerHTML = out;
+          return true;
+        }
       }
     }
 
-    // string fallback
     if (typeof narrative === "string" && narrative.trim()) {
       var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
       if (blocks.length < 2) blocks = narrative.split("\n");
@@ -319,23 +431,27 @@ var created = header && (header.report_date || header.created_at || header.gener
         if (!b) continue;
         html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
       }
-      el.innerHTML = html2 || "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
-      return !!html2;
+      if (html2) {
+        el.innerHTML = html2;
+        return true;
+      }
     }
 
-    el.innerHTML = "<div class='muted' style='font-size:12px;'>Narrative not available yet.</div>";
+    el.innerHTML =
+      "<div class='muted' style='font-size:12px;'>" +
+        (psiReady ? "Building narrative" : "Building Narrative") +
+        dotsHtml() +
+      "</div>";
     return false;
   }
 
   // -----------------------------
-  // NEW: What to Fix First (and Why) block
-  // Renders under Executive Narrative in #fixFirstBlock
+  // What to Fix First (and Why) block
   // -----------------------------
   function renderFixFirstBlock(narrative) {
     var root = $("fixFirstBlock");
     if (!root) return false;
 
-    // Clear if no narrative yet
     if (!narrative || typeof narrative !== "object") {
       root.innerHTML = "";
       return false;
@@ -347,7 +463,6 @@ var created = header && (header.report_date || header.created_at || header.gener
     var waitOn = asArray(ff.deprioritise).filter(Boolean);
     var outcome = asArray(ff.expected_outcome).filter(Boolean);
 
-    // If empty, hide silently
     if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
       root.innerHTML = "";
       return false;
@@ -365,8 +480,6 @@ var created = header && (header.report_date || header.created_at || header.gener
       return html;
     }
 
-    // Use same “card” styling as the rest of the report
-    // (Assumes .card exists in your CSS; if not, it still renders cleanly.)
     var htmlOut = "";
     htmlOut += "<div class='card' style='margin-top:14px;'>";
     htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
@@ -374,7 +487,6 @@ var created = header && (header.report_date || header.created_at || header.gener
     htmlOut += "</div>";
 
     htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
-
     htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
 
     htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
@@ -399,14 +511,17 @@ var created = header && (header.report_date || header.created_at || header.gener
   // -----------------------------
   // Delivery signal cards
   // -----------------------------
-  function renderSignalsGrid(signals, narrative) {
+  function renderSignalsGrid(signals, narrative, opts) {
     var grid = $("signalsGrid");
     if (!grid) return;
+
+    opts = safeObj(opts);
+    var psiReady = !!opts.psiReady;
+    var narrReady = !!opts.narrativeReady;
 
     signals = asArray(signals);
     grid.innerHTML = "";
 
-    // narrative signals map
     var narrSignals = {};
     if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
       narrSignals = narrative.signals;
@@ -447,11 +562,16 @@ var created = header && (header.report_date || header.created_at || header.gener
       var lines = [];
       if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
 
-      var summary = "";
-      if (lines.length) {
-        summary = String(lines.join("\n"));
+      var summaryHtml = "";
+      if (!psiReady) {
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
+      } else if (!narrReady && !lines.length) {
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
       } else {
-        summary = fallbackSummary(sig);
+        var summary = "";
+        if (lines.length) summary = String(lines.join("\n"));
+        else summary = fallbackSummary(sig);
+        summaryHtml = escapeHtml(summary).replace(/\n/g, "<br>");
       }
 
       var card = document.createElement("div");
@@ -462,7 +582,7 @@ var created = header && (header.report_date || header.created_at || header.gener
           '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
         "</div>" +
         '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' + escapeHtml(summary).replace(/\n/g, "<br>") + "</div>";
+        '<div class="summary">' + summaryHtml + "</div>";
 
       grid.appendChild(card);
     }
@@ -511,7 +631,6 @@ var created = header && (header.report_date || header.created_at || header.gener
 
       var body = '<div class="acc-body">';
 
-      // Issues
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
         for (var j = 0; j < issues.length; j++) {
@@ -529,7 +648,6 @@ var created = header && (header.report_date || header.created_at || header.gener
         }
       }
 
-      // Deductions
       if (deds.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
         body += "<div class='evidence-list'>";
@@ -542,7 +660,6 @@ var created = header && (header.report_date || header.created_at || header.gener
         body += "</div>";
       }
 
-      // Observations
       if (obs.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
         body += "<div class='evidence-list'>";
@@ -553,7 +670,6 @@ var created = header && (header.report_date || header.created_at || header.gener
         body += "</div>";
       }
 
-      // Evidence objet (key/value)
       var eKeys = Object.keys(evidence || {});
       if (eKeys.length) {
         body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
@@ -577,7 +693,7 @@ var created = header && (header.report_date || header.created_at || header.gener
   }
 
   // -----------------------------
-  // Key Insight Metrics (Strength / Risk / Focus / Next)
+  // Key Insight Metrics
   // -----------------------------
   function renderKeyInsights(scores, signals) {
     var root = $("keyMetricsRoot");
@@ -785,33 +901,93 @@ var created = header && (header.report_date || header.created_at || header.gener
   }
 
   // -----------------------------
-  // Narrative generation: non-blocking
+  // Non-blocking polling + one-time narrative trigger
   // -----------------------------
-  function ensureNarrative(reportId, narrative) {
-    // Render whatever we already have
-    var hasExecutive = renderNarrative(narrative);
-    renderFixFirstBlock(narrative);
+  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
+    if (isPdfMode()) return;
 
-    if (hasExecutive) return;
+    var started = Date.now();
+    var MAX_WAIT = 180000;
+    var INTERVAL = 4000;
 
-    var key = "iqweb_narrative_requested_" + reportId;
+    var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
     try {
-      if (typeof sessionStorage !== "undefined") {
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, "1");
-      }
+      if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
     } catch (e) {}
 
-    generateNarrative(reportId)
-      .then(function () { return fetchReportData(reportId); })
-      .then(function (data2) {
-        var n = pickNarrative(data2);
-        renderNarrative(n);
-        renderFixFirstBlock(n);
-      })
-      .catch(function () {
-        // ignore narrative errors
-      });
+    var done = false;
+
+    function renderFrom(data) {
+      var psiReady = psiReadyFromData(data);
+      var n = pickNarrative(data);
+
+      renderNarrative(n, { psiReady: psiReady });
+      renderFixFirstBlock(n);
+      renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
+    }
+
+    // fire initial render
+    renderFrom(initialData);
+
+    function shouldReRequest(narrativeObj) {
+      var st = narrativeMetaStatus(narrativeObj);
+      return (st === "blocked_insufficient_specificity" || st === "error");
+    }
+
+    function maybeRequestNarrative(data) {
+      var n = pickNarrative(data);
+      var alreadyRequested = false;
+      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+      // If blocked/error, re-arm latch so we can try again later.
+      if (shouldReRequest(n)) {
+        try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
+        alreadyRequested = false;
+      }
+
+      // IMPORTANT CHANGE:
+      // Do NOT wait for psiReady to request narrative.
+      // The backend will return "waiting_for_inputs" safely until PSI arrives.
+      if (!alreadyRequested) {
+        try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+        generateNarrative(reportId).catch(function () {});
+      }
+    }
+
+    // Request narrative immediately (once) so it can enter "generating" / "waiting" state.
+    maybeRequestNarrative(initialData);
+
+    function tick() {
+      if (done) return;
+
+      if (Date.now() - started > MAX_WAIT) {
+        done = true;
+        return;
+      }
+
+      fetchReportData(reportId)
+        .then(function (data) {
+          var n = pickNarrative(data);
+
+          // STOP polling the moment we have something renderable (string or object)
+          if (narrativeReady(n)) {
+            renderFrom(data);
+            done = true;
+            return;
+          }
+
+          // If we are blocked/error, allow re-request (backend may now have PSI / evidence)
+          maybeRequestNarrative(data);
+
+          renderFrom(data);
+          setTimeout(tick, INTERVAL);
+        })
+        .catch(function () {
+          setTimeout(tick, INTERVAL);
+        });
+    }
+
+    tick();
   }
 
   // -----------------------------
@@ -832,13 +1008,19 @@ var created = header && (header.report_date || header.created_at || header.gener
 
     showReport();
 
-    ensureNarrative(String(header.report_id || getReportIdFromUrl() || ""), narrative);
+    var rid = String(header.report_id || getReportIdFromUrl() || "");
+    var psiReady = psiReadyFromData(data);
 
-    renderSignalsGrid(signals, narrative);
+    renderNarrative(narrative, { psiReady: psiReady });
+    renderFixFirstBlock(narrative);
+    renderSignalsGrid(signals, narrative, { psiReady: psiReady, narrativeReady: narrativeReady(narrative) });
+
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
     renderTopIssues(signals);
     renderFixSequence(scores, signals);
+
+    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
@@ -846,6 +1028,11 @@ var created = header && (header.report_date || header.created_at || header.gener
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) return;
+
+    try {
+      var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+      if (typeof window !== "undefined") window[latchKey] = false;
+    } catch (e) {}
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
