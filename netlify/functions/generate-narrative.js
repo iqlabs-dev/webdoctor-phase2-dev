@@ -446,7 +446,7 @@ function buildExecNarrative5(metrics, evidence, url) {
     s1NumParts.push("a large initial document (~" + fmtNum(htmlKb, 0) + " KB HTML)");
   }
 
-  // Only mention inline scripts if the count is meaningful (supports early execution framing).
+  // Only mention inline scripts if the coun is meaningful (supports early execution framing).
   var INLINE_SCRIPTS_MENTION = 10;
   if (isFinite(Number(inlineScripts)) && Number(inlineScripts) >= INLINE_SCRIPTS_MENTION) {
     s1NumParts.push(String(inlineScripts) + " inline scripts");
@@ -456,7 +456,7 @@ function buildExecNarrative5(metrics, evidence, url) {
     s1 = "The page " + host + " ships " + s1NumParts.join(" and ") + ", increasing early client-side work before meaningful content is visible on mobile.";
   } else {
     // Safe default: runtime-first, platform-true, and aligned with LCP/INP/TBT-style constraints.
-    s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, increasing render complexity on mobile devices.";
+       s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, delaying the appearance of primary homepage content on mobile devices and increasing render complexity.";
   }
 
   // ---- S2: Primary constraint (metric + value) ----
