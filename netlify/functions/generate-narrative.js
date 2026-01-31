@@ -399,9 +399,9 @@ function buildManifestationLine(primary, host) {
 
   // One sentence only. No new facts. No advice. No new metrics.
   if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
-  return "As a result, users see the main content arrive late on mobile, which makes the page feel slow at first interaction and increases early drop-off.";
-}
-
+    // ✅ S3 (LCP) — updated wording, still consequence-only, no new facts/metrics
+    return "As a result, the primary homepage content appears late on mobile, so users wait longer before the page feels visually ready and usable.";
+  }
 
   if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
     return "On " + host + ", content shifts after load, so reading and tapping can feel unreliable as the page moves under the user.";
@@ -457,7 +457,8 @@ function buildExecNarrative5(metrics, evidence, url) {
     s1 = "The page " + host + " ships " + s1NumParts.join(" and ") + ", increasing early client-side work before meaningful content is visible on mobile.";
   } else {
     // Safe default: runtime-first, platform-true, and aligned with LCP/INP/TBT-style constraints.
-       s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, delaying the appearance of primary homepage content on mobile devices and increasing render complexity.";
+    // ✅ UNCHANGED (per your request)
+    s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, delaying the appearance of primary homepage content on mobile devices and increasing render complexity.";
   }
 
   // ---- S2: Primary constraint (metric + value) ----
@@ -506,7 +507,6 @@ function buildExecNarrative5(metrics, evidence, url) {
     : (clsBad
         ? ((clsPart ? clsPart : "") + " the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence.")
         : "This causes the page to feel slow on initial load, increasing the chance users abandon before meaningful engagement.");
-
 
   // ---- S4: Counterbalance (what is NOT the problem + secondary) ----
   var counterParts = [];
@@ -640,11 +640,18 @@ export async function handler(event) {
     }
 
     // -----------------------------
-    // Manifestation layer (NEW)
+    // Manifestation layer
     // -----------------------------
     var host = hostFromUrl(row.url);
     var primary = choosePrimaryConstraint(evidence_snapshot);
     var manifestationLine = buildManifestationLine(primary, host);
+
+    // Avoid duplication: execLines[2] is already S3 (manifestation).
+    // Only add manifestationLine if it exists AND is not identical.
+    var siteSpecificityLines = [execLines[2]];
+    if (manifestationLine && manifestationLine !== execLines[2]) {
+      siteSpecificityLines.push(manifestationLine);
+    }
 
     // Map scaffold into the existing narrative schema (drop-in)
     const nextNarrative = {
@@ -653,7 +660,7 @@ export async function handler(event) {
         _updated_at: nowISO(),
         degraded: !!allowDegraded,
         generated_at: nowISO(),
-        source: "deterministic_exec_v3_plus_manifestation_v1",
+        source: "deterministic_exec_v3_plus_manifestation_v2",
       },
       overall: { lines: execLines },
 
@@ -670,20 +677,15 @@ export async function handler(event) {
         _meta: {
           site_host: String(row.url || ""),
           generated_at: nowISO(),
-          schema_version: "exec_north_star_v3_det_plus_manifestation_v1",
+          schema_version: "exec_north_star_v3_det_plus_manifestation_v2",
           evidence_snapshot: evidence_snapshot,
         },
         title: "Executive Narrative (Locked 5-Sentence Scaffold)",
         framing: { lines: [execLines[0]] },            // S1
         root_constraint: { lines: [execLines[1]] },    // S2
 
-        // Site specificity now includes the manifestation translation line (deterministic).
-        // This does NOT change any facts or metrics; it only translates user experience.
-        site_specificity: {
-          lines: manifestationLine
-            ? [execLines[2], manifestationLine]
-            : [execLines[2]],
-        },
+        // Site specificity: no duplication
+        site_specificity: { lines: siteSpecificityLines },
 
         // Keep these in place for future UI expansion
         behaviour_split: { mobile: { lines: [] }, desktop: { lines: [] } },
