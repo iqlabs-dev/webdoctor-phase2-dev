@@ -78,32 +78,10 @@ function findDeliverySignal(metrics, id) {
 }
 
 function getSignalScore(metrics, id) {
-  // Robustly read a 0–100 score from your delivery_signals objects.
-  var sig = findDeliverySignal(metrics, id);
-  if (!sig) return null;
-
-  // Common field patterns (keep permissive to avoid breakage)
-  var candidates = [
-    sig.score,
-    sig.points,
-    sig.value,
-    sig.overall_score,
-    sig.overallScore,
-    sig.result,
-    sig.rating,
-  ];
-
-  for (var i = 0; i < candidates.length; i++) {
-    var n = Number(candidates[i]);
-    if (isFinite(n)) return n;
-  }
-
-  // Sometimes score is nested
-  var meta = safeObj(sig._meta);
-  var n2 = Number(meta.score);
-  if (isFinite(n2)) return n2;
-
-  return null;
+  var s = findDeliverySignal(metrics, id);
+  if (!s) return null;
+  var n = Number(s.score);
+  return isFinite(n) ? n : null;
 }
 
 function fmtMs(ms) {
@@ -196,6 +174,16 @@ function pickEvidenceSnapshot(metrics) {
   const secEv = safeObj(sec && sec.evidence);
   const missingSecurityHeaders = (secEv.missing_count != null) ? secEv.missing_count : undefined;
 
+  // Scores (if present)
+  const scores = {
+    performance: getSignalScore(m, "performance"),
+    mobile: getSignalScore(m, "mobile"),
+    seo: getSignalScore(m, "seo"),
+    security: getSignalScore(m, "security"),
+    structure: getSignalScore(m, "structure"),
+    accessibility: getSignalScore(m, "accessibility"),
+  };
+
   return {
     mobile: {
       CLS: mobileFacts.CLS,
@@ -225,11 +213,12 @@ function pickEvidenceSnapshot(metrics) {
     images_total: imagesTotal,
     html_lang_missing: htmlLangMissing,
     missing_security_headers: missingSecurityHeaders,
+    scores: scores,
   };
 }
 
 /* -------------------------------------------------- */
-/* Signal narratives (short, evidence-led)             */
+/* Signal narratives (short, evidence-led, quiet-when-good) */
 /* -------------------------------------------------- */
 
 function buildSignalNarratives(metrics, allowDegraded) {
@@ -248,38 +237,71 @@ function buildSignalNarratives(metrics, allowDegraded) {
     return out;
   }
 
+  function quietIfGood(sigId, lines) {
+    var score = getSignalScore(m, sigId);
+    if (lines.length) return lines.slice(0, 3);
+    if (score != null && score >= 95) {
+      return ["No significant issues were flagged for this signal in this scan."];
+    }
+    return [];
+  }
+
   // PERFORMANCE
   (function () {
     var sig = findDeliverySignal(m, "performance");
     if (!sig) return;
 
     var lines = [];
+
     if (hasMobile && hasDesktop) {
       var mf = safeObj(psi.mobile.facts);
       var df = safeObj(psi.desktop.facts);
 
+      var mLCPn = Number(mf.LCP_ms);
+      var dLCPn = Number(df.LCP_ms);
+      var mTBTn = Number(mf.TBT_ms);
+      var dTBTn = Number(df.TBT_ms);
+
       var mLCP = fmtMs(mf.LCP_ms);
       var dLCP = fmtMs(df.LCP_ms);
 
-      var mTBT = fmtMs(mf.TBT_ms);
-      var dTBT = fmtMs(df.TBT_ms);
+      // Only speak when it matters (avoid “scripted” chatter on good scans)
+      var LCP_BAD = 2500;
+      var TBT_BAD = 300;
 
-      if (mLCP && dLCP) {
-        lines.push("Mobile LCP is " + mLCP + " vs desktop " + dLCP + ", indicating slower visual readiness on phones.");
+      if (isFinite(mLCPn) && isFinite(dLCPn)) {
+        if (mLCPn > LCP_BAD || dLCPn > LCP_BAD || Math.abs(mLCPn - dLCPn) >= 600) {
+          if (mLCP && dLCP) {
+            lines.push("Mobile LCP is " + mLCP + " vs desktop " + dLCP + ", indicating slower visual readiness on phones.");
+          }
+        }
       }
-      if (mTBT && dTBT) {
-        lines.push("Browser main-thread work is measurable (TBT " + mTBT + " mobile, " + dTBT + " desktop), which can delay interaction.");
+
+      if (isFinite(mTBTn) || isFinite(dTBTn)) {
+        if ((isFinite(mTBTn) && mTBTn > TBT_BAD) || (isFinite(dTBTn) && dTBTn > TBT_BAD)) {
+          var mTBT = fmtMs(mf.TBT_ms);
+          var dTBT = fmtMs(df.TBT_ms);
+          if (mTBT && dTBT) {
+            lines.push("Browser main-thread work is measurable (TBT " + mTBT + " mobile, " + dTBT + " desktop), which can delay interaction.");
+          }
+        }
       }
     } else {
       // Degraded mode: use HTML signals if present
       var bc = safeObj(m.basic_checks);
       var htmlKb = (bc.html_kb != null) ? bc.html_kb : null;
       var inlineScripts = (bc.inline_script_count != null) ? bc.inline_script_count : null;
-      if (htmlKb != null) lines.push("Initial document size is ~" + fmtNum(htmlKb, 1) + " KB, which can slow first render on mobile networks.");
-      if (inlineScripts != null) lines.push("Inline scripts (" + inlineScripts + ") increase execution work before the page becomes stable.");
+
+      // Only mention if it actually helps (avoid tiny/meaningless anchors)
+      if (htmlKb != null && Number(htmlKb) >= 150) {
+        lines.push("Initial document size is ~" + fmtNum(htmlKb, 0) + " KB, which can slow first render on mobile networks.");
+      }
+      if (inlineScripts != null && Number(inlineScripts) >= 10) {
+        lines.push("Inline scripts (" + inlineScripts + ") increase execution work before the page becomes stable.");
+      }
     }
 
-    out.performance = { lines: lines.slice(0, 3) };
+    out.performance = { lines: quietIfGood("performance", lines) };
   })();
 
   // MOBILE EXPERIENCE (driven by LCP)
@@ -290,10 +312,14 @@ function buildSignalNarratives(metrics, allowDegraded) {
     var lines = [];
     if (hasMobile) {
       var mf = safeObj(psi.mobile.facts);
+      var mLCPn = Number(mf.LCP_ms);
       var mLCP = fmtMs(mf.LCP_ms);
-      if (mLCP) lines.push("Mobile visual readiness is constrained (LCP " + mLCP + ").");
+
+      if (isFinite(mLCPn) && mLCPn > 2500 && mLCP) {
+        lines.push("Mobile visual readiness is constrained (LCP " + mLCP + ").");
+      }
     }
-    out.mobile = { lines: lines.slice(0, 3) };
+    out.mobile = { lines: quietIfGood("mobile", lines) };
   })();
 
   // SEO FOUNDATIONS
@@ -308,7 +334,7 @@ function buildSignalNarratives(metrics, allowDegraded) {
     if (ev.canonical_present === false) lines.push("Canonical URL is missing.");
     if (ev.h1_present === false) lines.push("H1 heading is missing.");
 
-    out.seo = { lines: lines.slice(0, 3) };
+    out.seo = { lines: quietIfGood("seo", lines) };
   })();
 
   // SECURITY & TRUST
@@ -319,15 +345,18 @@ function buildSignalNarratives(metrics, allowDegraded) {
     var ev = safeObj(sig.evidence);
     var lines = [];
 
-    if (ev.https_active === true) lines.push("HTTPS is active and baseline security headers are present.");
     if (ev.missing_count != null && Number(ev.missing_count) > 0) {
       lines.push("Baseline hardening gaps remain (" + Number(ev.missing_count) + " headers missing).");
     }
     if (ev.permissions_policy_present === false) {
       lines.push("Permissions-Policy was not observed, leaving some browser capability controls undefined.");
     }
+    if (!lines.length && ev.https_active === true) {
+      // Only say this if there isn't a problem, and keep it short.
+      lines.push("HTTPS is active and baseline transport security is in place.");
+    }
 
-    out.security = { lines: lines.slice(0, 3) };
+    out.security = { lines: quietIfGood("security", lines) };
   })();
 
   // STRUCTURE & SEMANTICS
@@ -337,12 +366,13 @@ function buildSignalNarratives(metrics, allowDegraded) {
 
     var ev = safeObj(sig.evidence);
     var lines = [];
-    if (ev.title_present === true || ev.viewport_present === true || ev.h1_present === true) {
+
+    if (ev.h1_present === false) lines.push("Primary heading structure is incomplete (H1 missing).");
+    if (!lines.length && (ev.title_present === true || ev.viewport_present === true || ev.h1_present === true)) {
       lines.push("Core document structure inputs are present (title/H1/viewport).");
     }
-    if (ev.h1_present === false) lines.push("Primary heading structure is incomplete (H1 missing).");
 
-    out.structure = { lines: lines.slice(0, 3) };
+    out.structure = { lines: quietIfGood("structure", lines) };
   })();
 
   // ACCESSIBILITY
@@ -354,13 +384,16 @@ function buildSignalNarratives(metrics, allowDegraded) {
     var lines = [];
 
     if (ev.images_with_alt != null && ev.images_total != null) {
-      lines.push("Image alt coverage is " + ev.images_with_alt + "/" + ev.images_total + ".");
+      // Only mention if imperfect; otherwise it reads like template noise.
+      if (Number(ev.images_with_alt) < Number(ev.images_total)) {
+        lines.push("Image alt coverage is " + ev.images_with_alt + "/" + ev.images_total + ".");
+      }
     }
     if (ev.html_lang_missing === true || ev.missing_html_lang === true) {
       lines.push("Missing <html lang> attribute.");
     }
 
-    out.accessibility = { lines: lines.slice(0, 3) };
+    out.accessibility = { lines: quietIfGood("accessibility", lines) };
   })();
 
   return out;
@@ -368,13 +401,15 @@ function buildSignalNarratives(metrics, allowDegraded) {
 
 /* -------------------------------------------------- */
 /* Locked 5-sentence Executive Narrative (deterministic) */
+/* Primary selection: worst offender across PSI + signal scores */
 /* -------------------------------------------------- */
 
-function choosePrimaryConstraint(e, opts) {
-  // Returns { key, label, valueStr, valueRaw, severity }
-  // Choose the *worst normalised offender* vs recommended thresholds.
+function choosePrimaryConstraint(e) {
+  // Returns { key, label, valueStr, valueRaw, severity, kind }
+  // Choose the worst offender:
+  // - PSI metrics (LCP/CLS/INP/TBT/TTFB) by severity vs thresholds
+  // - Signal scores (security/seo/accessibility/structure) by how low they are
   if (!e || typeof e !== "object") return null;
-  opts = safeObj(opts);
 
   var TH = {
     LCP: 2500,   // ms
@@ -386,7 +421,7 @@ function choosePrimaryConstraint(e, opts) {
 
   var candidates = [];
 
-  function push(key, label, raw, threshold, unit) {
+  function pushMetric(key, label, raw, threshold, unit) {
     var n = Number(raw);
     if (!isFinite(n) || n <= 0) return;
     var sev = n / threshold;
@@ -395,148 +430,53 @@ function choosePrimaryConstraint(e, opts) {
       label: label,
       valueRaw: n,
       valueStr: (unit === "ms") ? (String(Math.round(n)) + "ms") : fmtNum(n, 2),
-      severity: sev
+      severity: sev,
+      kind: "metric"
     });
   }
 
-  // Mobile candidates
-  if (e.mobile) {
-    if (!opts.suppress_perf) {
-      push("mobile_LCP_ms", "mobile speed-to-content", e.mobile.LCP_ms, TH.LCP, "ms");
-      push("mobile_INP_ms", "interaction responsiveness", e.mobile.INP_ms, TH.INP, "ms");
-      push("mobile_TBT_ms", "main-thread execution", e.mobile.TBT_ms, TH.TBT, "ms");
-      push("mobile_TTFB_ms", "server response time", e.mobile.TTFB_ms, TH.TTFB, "ms");
-    }
-    // CLS is stability, keep even when perf is suppressed (it’s not “performance-first”; it’s stability)
-    push("mobile_CLS", "layout stability", e.mobile.CLS, TH.CLS, "score");
-  }
+  function pushScore(key, label, scoreRaw) {
+    var s = Number(scoreRaw);
+    if (!isFinite(s)) return;
 
-  // Desktop candidates (keep to core metrics)
-  if (e.desktop) {
-    if (!opts.suppress_perf) {
-      push("desktop_LCP_ms", "desktop speed-to-content", e.desktop.LCP_ms, TH.LCP, "ms");
-    }
-    push("desktop_CLS", "layout stability", e.desktop.CLS, TH.CLS, "score");
-  }
+    // Only consider as "primary" if it's actually low enough to matter,
+    // otherwise performance will always win and it feels generic.
+    var CONCERN_BELOW = 90;
+    if (s >= CONCERN_BELOW) return;
 
-  if (!candidates.length) return null;
+    // severity: 0..1.0 (lower score => higher severity)
+    // multiply by 3 so low trust/seo can beat mild PSI differences (e.g. great LCP)
+    var sev = ((100 - s) / 100) * 3;
 
-  candidates.sort(function (a, b) { return b.severity - a.severity; });
-  return candidates[0];
-}
-
-/* -------------------------------------------------- */
-/* Non-performance primary constraints (deterministic) */
-/* -------------------------------------------------- */
-
-function chooseNonPerfPrimary(metrics, evidence) {
-  // Returns same shape as choosePrimaryConstraint()
-  var m = safeObj(metrics);
-  var e = safeObj(evidence);
-
-  var candidates = [];
-
-  function pushNP(key, label, valueStr, severity) {
-    var sev = Number(severity);
-    if (!isFinite(sev) || sev <= 0) return;
     candidates.push({
       key: key,
       label: label,
-      valueRaw: sev,
-      valueStr: String(valueStr || ""),
-      severity: sev
+      valueRaw: s,
+      valueStr: String(Math.round(s)) + "/100",
+      severity: sev,
+      kind: "score"
     });
   }
 
-  // Use score deficits as dominant signal when available
-  var secScore = getSignalScore(m, "security");
-  var seoScore = getSignalScore(m, "seo");
-  var accScore = getSignalScore(m, "accessibility");
-  var structureScore = getSignalScore(m, "structure");
+  // Score-based candidates (these are what stop everything “starting with performance”)
+  var sc = safeObj(e.scores);
+  pushScore("security_score", "trust hardening", sc.security);
+  pushScore("seo_score", "SEO foundations", sc.seo);
+  pushScore("accessibility_score", "accessibility", sc.accessibility);
+  pushScore("structure_score", "document structure", sc.structure);
 
-  // SECURITY (trust)
-  (function () {
-    var missing = Number(e.missing_security_headers);
-    var https = e.https_active;
-
-    // Base severity from score deficit if score exists
-    if (isFinite(secScore)) {
-      var deficit = (100 - secScore) / 100; // 0..1
-      // Only create a candidate if it’s meaningfully low
-      if (deficit >= 0.10) {
-        var v = "security score " + Math.round(secScore) + "/100";
-        if (isFinite(missing) && missing > 0) v += " (" + missing + " headers missing)";
-        if (https === false) v += " (HTTPS not observed)";
-        pushNP("trust_security", "trust hardening", v, deficit);
-      }
-    } else {
-      // Fall back to concrete evidence
-      if (https === false) pushNP("trust_security", "transport security", "HTTPS not observed", 0.60);
-      if (isFinite(missing) && missing > 0) pushNP("trust_security", "trust hardening", String(missing) + " headers missing", Math.min(0.10 + (missing / 10), 0.70));
-    }
-  })();
-
-  // SEO (discoverability baseline)
-  (function () {
-    var missingCount = 0;
-    if (e.canonical_present === false) missingCount++;
-    if (e.h1_present === false) missingCount++;
-
-    if (isFinite(seoScore)) {
-      var deficit = (100 - seoScore) / 100;
-      if (deficit >= 0.10) {
-        var parts = [];
-        if (e.canonical_present === false) parts.push("canonical missing");
-        if (e.h1_present === false) parts.push("H1 missing");
-        var v = "SEO score " + Math.round(seoScore) + "/100";
-        if (parts.length) v += " (" + parts.join(", ") + ")";
-        pushNP("seo_foundations", "SEO foundations", v, deficit);
-      }
-    } else {
-      if (missingCount > 0) {
-        pushNP("seo_foundations", "SEO foundations", (missingCount === 1 ? "one core SEO input missing" : (missingCount + " core SEO inputs missing")), 0.15 + (missingCount * 0.10));
-      }
-    }
-  })();
-
-  // ACCESSIBILITY (baseline)
-  (function () {
-    if (isFinite(accScore)) {
-      var deficit = (100 - accScore) / 100;
-      if (deficit >= 0.10) {
-        var v = "accessibility score " + Math.round(accScore) + "/100";
-        pushNP("accessibility", "accessibility baseline", v, deficit);
-      }
-    } else {
-      // Concrete flags if present
-      if (e.html_lang_missing === true) pushNP("accessibility", "accessibility baseline", "missing <html lang>", 0.25);
-      if (e.images_with_alt != null && e.images_total != null) {
-        var withAlt = Number(e.images_with_alt);
-        var total = Number(e.images_total);
-        if (isFinite(withAlt) && isFinite(total) && total > 0) {
-          var ratio = withAlt / total;
-          if (ratio < 0.85) {
-            pushNP("accessibility", "accessibility baseline", "image alt coverage " + withAlt + "/" + total, 0.10 + (0.85 - ratio));
-          }
-        }
-      }
-    }
-  })();
-
-  // STRUCTURE (document fundamentals)
-  (function () {
-    if (isFinite(structureScore)) {
-      var deficit = (100 - structureScore) / 100;
-      if (deficit >= 0.10) {
-        var v = "structure score " + Math.round(structureScore) + "/100";
-        pushNP("structure", "document structure", v, deficit);
-      }
-    } else {
-      // Use H1 missing as structure too (but SEO already covers it)
-      // Only add if SEO did not already add a candidate.
-      // (We keep this conservative to avoid noisy flips.)
-    }
-  })();
+  // Metric-based candidates (PSI)
+  if (e.mobile) {
+    pushMetric("mobile_LCP_ms", "mobile speed-to-content", e.mobile.LCP_ms, TH.LCP, "ms");
+    pushMetric("mobile_CLS", "layout stability", e.mobile.CLS, TH.CLS, "score");
+    pushMetric("mobile_INP_ms", "interaction responsiveness", e.mobile.INP_ms, TH.INP, "ms");
+    pushMetric("mobile_TBT_ms", "main-thread execution", e.mobile.TBT_ms, TH.TBT, "ms");
+    pushMetric("mobile_TTFB_ms", "server response time", e.mobile.TTFB_ms, TH.TTFB, "ms");
+  }
+  if (e.desktop) {
+    pushMetric("desktop_LCP_ms", "desktop speed-to-content", e.desktop.LCP_ms, TH.LCP, "ms");
+    pushMetric("desktop_CLS", "layout stability", e.desktop.CLS, TH.CLS, "score");
+  }
 
   if (!candidates.length) return null;
 
@@ -553,7 +493,7 @@ function buildManifestationLine(primary, host) {
 
   // One sentence only. No new facts. No advice. No new metrics.
   if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
-    // ✅ S3 (LCP) — consequence-only, no new facts/metrics
+    // (keep your v2 wording)
     return "As a result, the primary homepage content appears late on mobile, so users wait longer before the page feels visually ready and usable.";
   }
 
@@ -569,129 +509,83 @@ function buildManifestationLine(primary, host) {
     return "On " + host + ", the page is slow to begin loading, delaying everything that follows and making the site feel unresponsive at first.";
   }
 
-  // Non-performance manifestations
-  if (primary.key === "trust_security") {
+  // Score-based manifestations
+  if (primary.key === "security_score") {
     return "On " + host + ", missing trust baselines can reduce browser protection and user confidence, especially before any meaningful engagement begins.";
   }
 
-  if (primary.key === "seo_foundations") {
-    return "On " + host + ", missing SEO foundations reduce clarity for search engines, which can weaken discoverability even if the page works for visitors.";
+  if (primary.key === "seo_score") {
+    return "On " + host + ", missing SEO foundations can weaken how reliably the page is understood, indexed, and ranked for its intended queries.";
   }
 
-  if (primary.key === "accessibility") {
-    return "On " + host + ", accessibility baselines may block or degrade use for some visitors, creating avoidable friction before content can do its job.";
+  if (primary.key === "accessibility_score") {
+    return "On " + host + ", accessibility gaps can prevent some users from completing tasks smoothly, especially when assistive tech relies on correct semantics.";
   }
 
-  if (primary.key === "structure") {
-    return "On " + host + ", document structure gaps reduce clarity for browsers and search engines, which can weaken how the page is interpreted.";
+  if (primary.key === "structure_score") {
+    return "On " + host + ", incomplete document structure reduces clarity for browsers and crawlers, which can weaken consistency across devices and search.";
   }
 
   return "On " + host + ", users experience delayed or unreliable page readiness during initial load, which reduces confidence and engagement.";
 }
 
-/* -------------------------------------------------- */
-/* Dominance gate                                     */
-/* -------------------------------------------------- */
-
-function shouldSuppressPerf(metrics) {
-  // If performance AND mobile are excellent, do not let performance lead the exec narrative.
-  // This prevents the “everything starts with performance” scripted feel.
-  var perf = getSignalScore(metrics, "performance");
-  var mobile = getSignalScore(metrics, "mobile");
-
-  if (!isFinite(perf) || !isFinite(mobile)) return false;
-
-  // Locked rule: both must be >= 95 to suppress perf-led primary selection.
-  return perf >= 95 && mobile >= 95;
-}
-
-/* -------------------------------------------------- */
-/* Executive Narrative builder                         */
-/* -------------------------------------------------- */
-
 function buildExecNarrative5(metrics, evidence, url) {
   var host = hostFromUrl(url);
   var e = safeObj(evidence);
-  var m = safeObj(metrics);
 
-  // Hard requirement: we must have *some* anchor. Prefer PSI, otherwise HTML/script anchors.
+  var primary = choosePrimaryConstraint(e);
+
   var htmlKb = e.html_kb;
   var inlineScripts = e.inline_script_count;
-
   var hasHtmlAnchors = (isFinite(Number(htmlKb)) || isFinite(Number(inlineScripts)));
-
-  // Dominance gate: if perf+mobile are both great, allow non-perf to lead.
-  var suppressPerf = shouldSuppressPerf(m);
-
-  // Primary selection:
-  // A) If perf not suppressed -> use PSI worst-offender
-  // B) If perf suppressed -> pick strongest non-perf constraint (security/seo/a11y/structure) first
-  // C) If no non-perf candidate -> fall back to PSI (but suppress perf metrics) -> then HTML anchors
-  var nonPerfPrimary = suppressPerf ? chooseNonPerfPrimary(m, e) : null;
-
-  var primary = null;
-  if (nonPerfPrimary) {
-    primary = nonPerfPrimary;
-  } else {
-    primary = choosePrimaryConstraint(e, { suppress_perf: !!suppressPerf });
-  }
 
   if (!primary && !hasHtmlAnchors) return null;
 
-  // ---- S1: Delivery reality (1–2 anchors) ----
-  // RULES:
-  // - S1 must set up S2 and never undermine severity.
-  // - Prefer runtime-first framing.
-  // - Only include numeric anchors if they strengthen the story (avoid tiny values like 0.8KB).
-  // - No optimisation language.
+  // ---- S1: Delivery reality / primary framing ----
+  // IMPORTANT: keep your original performance S1 untouched when performance is primary.
   var s1 = "";
-  var s1NumParts = [];
 
-  // If the dominant constraint is non-performance, lead with that (deterministic, not “performance first”).
-  if (primary && (primary.key === "trust_security" || primary.key === "seo_foundations" || primary.key === "accessibility" || primary.key === "structure")) {
-    if (primary.key === "trust_security") {
-      s1 = "The page " + host + " presents trust-baseline gaps that can weaken browser protection and user confidence, independent of how fast it loads.";
-    } else if (primary.key === "seo_foundations") {
-      s1 = "The page " + host + " is missing core search foundations that affect how reliably it is understood and indexed, even if it loads quickly.";
-    } else if (primary.key === "accessibility") {
-      s1 = "The page " + host + " shows accessibility-baseline gaps that can create avoidable friction for some visitors before content can do its job.";
-    } else {
-      s1 = "The page " + host + " shows document-structure gaps that reduce clarity for browsers and search engines, independent of visual design.";
-    }
+  if (primary && primary.key === "security_score") {
+    s1 = "The page " + host + " presents trust-baseline gaps that can weaken browser protection and user confidence, independent of how fast it loads.";
+  } else if (primary && primary.key === "seo_score") {
+    s1 = "The page " + host + " shows SEO foundation gaps that reduce how clearly search engines understand and index the page, even if the content itself is strong.";
+  } else if (primary && primary.key === "accessibility_score") {
+    s1 = "The page " + host + " includes accessibility gaps that can prevent some users from navigating and completing tasks reliably, independent of visual design.";
+  } else if (primary && primary.key === "structure_score") {
+    s1 = "The page " + host + " has document structure gaps that weaken semantic clarity for browsers and crawlers, which can reduce consistency across devices.";
   } else {
-    // Only call HTML "large" if it is actually large enough to support the claim.
-    // Threshold is conservative to avoid undermining trust.
-    var HTML_LARGE_KB = 150; // only mention size if >= 150KB
+    // PERFORMANCE PATH (UNCHANGED as requested)
+    var s1NumParts = [];
+    var HTML_LARGE_KB = 150;
     if (isFinite(Number(htmlKb)) && Number(htmlKb) >= HTML_LARGE_KB) {
       s1NumParts.push("a large initial document (~" + fmtNum(htmlKb, 0) + " KB HTML)");
     }
-
-    // Only mention inline scripts if the count is meaningful (supports early execution framing).
     var INLINE_SCRIPTS_MENTION = 10;
     if (isFinite(Number(inlineScripts)) && Number(inlineScripts) >= INLINE_SCRIPTS_MENTION) {
       s1NumParts.push(String(inlineScripts) + " inline scripts");
     }
-
     if (s1NumParts.length) {
       s1 = "The page " + host + " ships " + s1NumParts.join(" and ") + ", increasing early client-side work before meaningful content is visible on mobile.";
     } else {
-      // ✅ UNCHANGED (per your request)
       s1 = "The page " + host + " relies on early client-side execution before meaningful content is visible, delaying the appearance of primary homepage content on mobile devices and increasing render complexity.";
     }
   }
 
-  // ---- S2: Primary constraint (metric + value) ----
+  // ---- S2: Primary constraint (metric/score + value) ----
   var s2 = "";
   if (primary) {
-    if (primary.key === "trust_security") {
-      s2 = "The primary constraint is " + primary.label + ": " + primary.valueStr + ", which indicates trust protections are not fully in place.";
-    } else if (primary.key === "seo_foundations") {
-      s2 = "The primary constraint is " + primary.label + ": " + primary.valueStr + ", which reduces discoverability and indexing clarity.";
-    } else if (primary.key === "accessibility") {
-      s2 = "The primary constraint is " + primary.label + ": " + primary.valueStr + ", which can block or degrade use for some visitors.";
-    } else if (primary.key === "structure") {
-      s2 = "The primary constraint is " + primary.label + ": " + primary.valueStr + ", which reduces how clearly the page is interpreted.";
-    } else if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
+    // Score-based S2
+    if (primary.key === "security_score") {
+      s2 = "The primary constraint is " + primary.label + ": security score is " + primary.valueStr + ", which indicates trust protections are not fully in place.";
+    } else if (primary.key === "seo_score") {
+      s2 = "The primary constraint is " + primary.label + ": SEO score is " + primary.valueStr + ", indicating missing fundamentals that weaken indexing clarity.";
+    } else if (primary.key === "accessibility_score") {
+      s2 = "The primary constraint is " + primary.label + ": accessibility score is " + primary.valueStr + ", indicating barriers for some users and assistive workflows.";
+    } else if (primary.key === "structure_score") {
+      s2 = "The primary constraint is " + primary.label + ": structure score is " + primary.valueStr + ", indicating incomplete semantic and document signals.";
+    }
+    // Metric-based S2
+    else if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
       s2 = "The primary constraint is " + primary.label + ": Largest Contentful Paint is ~" + primary.valueStr + ", meaning users wait too long before the main content becomes visually ready.";
     } else if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
       s2 = "The primary constraint is " + primary.label + ": cumulative layout shift is ~" + primary.valueStr + ", meaning the page moves while users try to read or click.";
@@ -705,29 +599,18 @@ function buildExecNarrative5(metrics, evidence, url) {
       s2 = "The primary constraint is delivery behaviour under load, with the strongest measured signal at ~" + primary.valueStr + ".";
     }
   } else {
-    // No PSI available: fall back to deterministic HTML/script anchors only
     s2 = "Performance metrics were not available in time; the primary constraint is delivery complexity driven by initial HTML size and early script execution.";
   }
 
-  // ---- S3: Consequence (no new facts; translate) ----
-  var mCLS = e.mobile && e.mobile.CLS;
-  var dCLS = e.desktop && e.desktop.CLS;
-
-  // Only talk about “instability / shifting” if CLS is meaningfully bad.
-  var CLS_BAD_THRESHOLD = 0.10;
-  var clsBad = (isFinite(Number(mCLS)) && Number(mCLS) > CLS_BAD_THRESHOLD) || (isFinite(Number(dCLS)) && Number(dCLS) > CLS_BAD_THRESHOLD);
-
-  // Prefer deterministic manifestation line for S3 (translation only; no new facts/metrics)
+  // ---- S3: Consequence (translation only) ----
   var manifestation = buildManifestationLine(primary, host);
-
   var s3 = manifestation
     ? manifestation
-    : (clsBad
-        ? "Combined with measurable layout volatility, the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence."
-        : "This causes the page to feel slow on initial load, increasing the chance users abandon before meaningful engagement.");
+    : "This reduces confidence and completion rates by making the page feel slower or less reliable during real use.";
 
-  // ---- S4: Counterbalance (what is NOT the problem + secondary) ----
+  // ---- S4: Counterbalance + secondaries (no praise, just “not the main issue”) ----
   var counterParts = [];
+
   if (e.images_with_alt != null && e.images_total != null) {
     counterParts.push("This is not an accessibility-basics failure (" + e.images_with_alt + "/" + e.images_total + " images include alt text)");
   } else if (e.https_active === true) {
@@ -742,46 +625,51 @@ function buildExecNarrative5(metrics, evidence, url) {
 
   var s4 = "";
   if (counterParts.length && secondaryParts.length) {
-    s4 = counterParts[0] + ", but " + secondaryParts.slice(0, 2).join(" and ") + " remain secondary risks once the primary constraint is improved.";
+    s4 = counterParts[0] + ", but " + secondaryParts.slice(0, 2).join(" and ") + " remain secondary risks once the primary constraint is resolved.";
   } else if (counterParts.length) {
-    s4 = counterParts[0] + ", so the limiting factor here is not baseline compliance but the primary constraint identified above.";
+    s4 = counterParts[0] + ", so the limiting factor here is the primary constraint rather than baseline compliance.";
   } else if (secondaryParts.length) {
-    s4 = "This is primarily a " + (primary && primary.label ? primary.label : "delivery/runtime") + " issue; " + secondaryParts.slice(0, 2).join(" and ") + " are secondary risks once the page is stable.";
+    s4 = "Secondary risks remain (" + secondaryParts.slice(0, 2).join(" and ") + "), but they are not the main limiter in this scan.";
   } else {
-    s4 = "This is primarily a " + (primary && primary.label ? primary.label : "delivery/runtime") + " issue rather than a structural or trust-baseline failure.";
+    s4 = "This is a targeted constraint rather than a broad across-the-board failure.";
   }
 
-  // ---- S5: Fix order (explicit priority list) ----
-  var primaryFix = "stabilise the first meaningful render (reduce LCP)";
-
-  if (primary && primary.key === "trust_security") {
-    primaryFix = "close trust hardening gaps first (missing security headers / policy baselines)";
-  } else if (primary && primary.key === "seo_foundations") {
-    primaryFix = "restore SEO foundations first (canonical + primary heading / meta baseline)";
-  } else if (primary && primary.key === "accessibility") {
-    primaryFix = "address accessibility baselines first (semantics and missing required attributes)";
-  } else if (primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS")) {
-    primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
-  } else if (primary && (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1)) {
-    primaryFix = "reduce main-thread execution (trim/defer heavy JS and split long tasks)";
-  } else if (primary && primary.key.indexOf("TTFB") !== -1) {
-    primaryFix = "improve server response (reduce TTFB and unblock render pipeline early)";
-  } else if (primary && primary.key.indexOf("LCP") !== -1) {
-    primaryFix = "reduce speed-to-content (reduce LCP by optimising the critical render path)";
-  }
-
+  // ---- S5: Fix order (must match primary) ----
   var order = [];
-  order.push(primaryFix);
 
-  // If CLS is genuinely bad but not the primary constraint, add it as the next fix.
-  if (clsBad && !(primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS"))) {
-    order.push("eliminate avoidable layout shift (CLS)");
+  if (primary && primary.key === "security_score") {
+    order.push("close trust hardening gaps first (missing security headers/policy baselines)");
+  } else if (primary && primary.key === "seo_score") {
+    order.push("address SEO baseline first (H1 + canonical + metadata fundamentals)");
+  } else if (primary && primary.key === "accessibility_score") {
+    order.push("resolve accessibility blockers first (semantics, labels, and missing essentials)");
+  } else if (primary && primary.key === "structure_score") {
+    order.push("fix document structure first (headings + key semantic signals)");
+  } else {
+    // performance/metric-driven ordering
+    var primaryFix = "stabilise the first meaningful render (reduce LCP)";
+    if (primary && (primary.key === "mobile_CLS" || primary.key === "desktop_CLS")) {
+      primaryFix = "stabilise layout first (eliminate avoidable layout shift and late-loading jumps)";
+    } else if (primary && (primary.key.indexOf("INP") !== -1 || primary.key.indexOf("TBT") !== -1)) {
+      primaryFix = "reduce main-thread execution (trim/defer heavy JS and split long tasks)";
+    } else if (primary && primary.key.indexOf("TTFB") !== -1) {
+      primaryFix = "improve server response (reduce TTFB and unblock render pipeline early)";
+    } else if (primary && primary.key.indexOf("LCP") !== -1) {
+      primaryFix = "reduce speed-to-content (reduce LCP by optimising the critical render path)";
+    }
+    order.push(primaryFix);
   }
 
-  // Secondary ordering: SEO baseline before security hardening (unless security is severe)
-  if (e.canonical_present === false || e.h1_present === false) order.push("address SEO baseline (H1 + canonical)");
-  if (e.missing_security_headers != null && Number(e.missing_security_headers) > 0) order.push("close trust hardening gaps (" + Number(e.missing_security_headers) + " headers)");
-  if (e.html_lang_missing === true) order.push("add missing <html lang>");
+  // Add sensible secondaries (only if evidenced)
+  if (e.missing_security_headers != null && Number(e.missing_security_headers) > 0 && (!primary || primary.key !== "security_score")) {
+    order.push("close trust hardening gaps (" + Number(e.missing_security_headers) + " headers)");
+  }
+  if ((e.canonical_present === false || e.h1_present === false) && (!primary || primary.key !== "seo_score")) {
+    order.push("address SEO baseline (H1 + canonical)");
+  }
+  if (e.html_lang_missing === true && (!primary || primary.key !== "accessibility_score")) {
+    order.push("add missing <html lang>");
+  }
 
   var s5 = "Fix order: " + order.slice(0, 4).join(", then ") + ", then re-scan to confirm.";
 
@@ -866,12 +754,7 @@ export async function handler(event) {
     // Manifestation layer
     // -----------------------------
     var host = hostFromUrl(row.url);
-
-    // IMPORTANT: Use the SAME primary selection logic as buildExecNarrative5()
-    // so manifestation aligns with S2/S3.
-    var suppressPerf = shouldSuppressPerf(metrics);
-    var primary = suppressPerf ? (chooseNonPerfPrimary(metrics, evidence_snapshot) || choosePrimaryConstraint(evidence_snapshot, { suppress_perf: true })) : choosePrimaryConstraint(evidence_snapshot, { suppress_perf: false });
-
+    var primary = choosePrimaryConstraint(evidence_snapshot);
     var manifestationLine = buildManifestationLine(primary, host);
 
     // Avoid duplication: execLines[2] is already S3 (manifestation).
@@ -888,7 +771,7 @@ export async function handler(event) {
         _updated_at: nowISO(),
         degraded: !!allowDegraded,
         generated_at: nowISO(),
-        source: "deterministic_exec_v3_dominance_gate_v1",
+        source: "deterministic_exec_v4_primary_across_scores_plus_quiet_signals_v1",
       },
       overall: { lines: execLines },
 
@@ -898,33 +781,27 @@ export async function handler(event) {
         lines: manifestationLine ? [manifestationLine] : [],
       },
 
-      // Deterministic signal narratives (Delivery Signals card summaries)
+      // Deterministic signal narratives (quiet when good)
       signals: buildSignalNarratives(metrics, !!allowDegraded),
+
       executive_lead: execLines.join("\n"),
       executive_narrative: {
         _meta: {
           site_host: String(row.url || ""),
           generated_at: nowISO(),
-          schema_version: "exec_north_star_v3_det_dominance_gate_v1",
+          schema_version: "exec_north_star_v4_primary_across_scores_plus_quiet_signals_v1",
           evidence_snapshot: evidence_snapshot,
         },
         title: "Executive Narrative (Locked 5-Sentence Scaffold)",
         framing: { lines: [execLines[0]] },            // S1
         root_constraint: { lines: [execLines[1]] },    // S2
-
-        // Site specificity: no duplication
-        site_specificity: { lines: siteSpecificityLines },
-
-        // Keep these in place for future UI expansion
+        site_specificity: { lines: siteSpecificityLines }, // S3 (no duplication)
         behaviour_split: { mobile: { lines: [] }, desktop: { lines: [] } },
         structure_seo: { lines: [] },
         trust_security: { lines: [execLines[3]] },     // S4
         fix_order: {
           items: [
-            {
-              title: "Fix Order (Explicit Priority)",
-              lines: [execLines[4]],
-            },
+            { title: "Fix Order (Explicit Priority)", lines: [execLines[4]] },
           ],
         },
       },
