@@ -399,8 +399,9 @@ function buildManifestationLine(primary, host) {
 
   // One sentence only. No new facts. No advice. No new metrics.
   if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
-    return "On " + host + ", users wait too long on mobile before the main content appears, so the page feels slow before it can engage.";
-  }
+  return "As a result, users see the main content arrive late on mobile, which makes the page feel slow at first interaction and increases early drop-off.";
+}
+
 
   if (primary.key === "mobile_CLS" || primary.key === "desktop_CLS") {
     return "On " + host + ", content shifts after load, so reading and tapping can feel unreliable as the page moves under the user.";
@@ -497,9 +498,15 @@ function buildExecNarrative5(metrics, evidence, url) {
     else if (dStr) clsPart = " Combined with measurable layout volatility (CLS ~" + dStr + " on desktop),";
   }
 
-  var s3 = clsBad
-    ? ((clsPart ? clsPart : "") + " the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence.")
-    : "This causes the page to feel slow on initial load, increasing the chance users abandon before meaningful engagement.";
+  // Prefer deterministic manifestation line for S3 (translation only; no new facts/metrics)
+  var manifestation = buildManifestationLine(primary, host);
+
+  var s3 = manifestation
+    ? manifestation
+    : (clsBad
+        ? ((clsPart ? clsPart : "") + " the page can feel late and unstable while people try to read, scroll, or act, which reduces engagement and conversion confidence.")
+        : "This causes the page to feel slow on initial load, increasing the chance users abandon before meaningful engagement.");
+
 
   // ---- S4: Counterbalance (what is NOT the problem + secondary) ----
   var counterParts = [];
