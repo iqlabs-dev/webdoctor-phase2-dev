@@ -401,14 +401,11 @@ function buildSignalNarratives(metrics, allowDegraded) {
 
 /* -------------------------------------------------- */
 /* Locked 5-sentence Executive Narrative (deterministic) */
-/* Primary selection: worst offender across PSI + signal scores */
+/* Primary selection: decision hierarchy, then worst offender */
 /* -------------------------------------------------- */
 
 function choosePrimaryConstraint(e) {
-  // Returns { key, label, valueStr, valueRaw, severity, kind }
-  // Choose the worst offender:
-  // - PSI metrics (LCP/CLS/INP/TBT/TTFB) by severity vs thresholds
-  // - Signal scores (security/seo/accessibility/structure) by how low they are
+  // Returns { key, label, valueStr, valueRaw, severity, kind, reason }
   if (!e || typeof e !== "object") return null;
 
   var TH = {
@@ -418,6 +415,107 @@ function choosePrimaryConstraint(e) {
     TBT: 300,    // ms
     TTFB: 800    // ms
   };
+
+  // --------------------------------------------------
+  // Decision hierarchy overrides (v1)
+  // --------------------------------------------------
+
+  var m = safeObj(e.mobile);
+  var d = safeObj(e.desktop);
+  var sc = safeObj(e.scores);
+
+  var mCLS = Number(m.CLS);
+  var dCLS = Number(d.CLS);
+  var mINP = Number(m.INP_ms);
+  var mTBT = Number(m.TBT_ms);
+
+  // (A) Layout instability override
+  // If CLS is meaningfully bad, lead with layout stability.
+  var CLS_OVERRIDE = 0.25;
+  if (isFinite(mCLS) && mCLS >= CLS_OVERRIDE) {
+    return {
+      key: "mobile_CLS",
+      label: "layout stability",
+      valueRaw: mCLS,
+      valueStr: fmtNum(mCLS, 2),
+      severity: (mCLS / TH.CLS),
+      kind: "metric",
+      reason: "cls_override_mobile"
+    };
+  }
+  if (isFinite(dCLS) && dCLS >= CLS_OVERRIDE) {
+    return {
+      key: "desktop_CLS",
+      label: "layout stability",
+      valueRaw: dCLS,
+      valueStr: fmtNum(dCLS, 2),
+      severity: (dCLS / TH.CLS),
+      kind: "metric",
+      reason: "cls_override_desktop"
+    };
+  }
+
+  // (B) Interaction override
+  // If interaction is slow, that is the pain even if LCP is also bad.
+  var INP_OVERRIDE = 500;   // ms
+  var TBT_OVERRIDE = 1200;  // ms
+  if (isFinite(mINP) && mINP >= INP_OVERRIDE) {
+    return {
+      key: "mobile_INP_ms",
+      label: "interaction responsiveness",
+      valueRaw: mINP,
+      valueStr: String(Math.round(mINP)) + "ms",
+      severity: (mINP / TH.INP),
+      kind: "metric",
+      reason: "inp_override_mobile"
+    };
+  }
+  if (isFinite(mTBT) && mTBT >= TBT_OVERRIDE) {
+    return {
+      key: "mobile_TBT_ms",
+      label: "main-thread execution",
+      valueRaw: mTBT,
+      valueStr: String(Math.round(mTBT)) + "ms",
+      severity: (mTBT / TH.TBT),
+      kind: "metric",
+      reason: "tbt_override_mobile"
+    };
+  }
+
+  // (C) Trust override — ONLY when severe
+  // Don’t let mild header gaps hijack the narrative, but do surface severe trust gaps.
+  var missingHeaders = Number(e.missing_security_headers);
+  var secScore = Number(sc.security);
+  var TRUST_HEADERS_SEVERE = 4;
+  var TRUST_SCORE_SEVERE = 40;
+
+  if ((isFinite(missingHeaders) && missingHeaders >= TRUST_HEADERS_SEVERE) ||
+      (isFinite(secScore) && secScore <= TRUST_SCORE_SEVERE)) {
+    if (isFinite(secScore)) {
+      return {
+        key: "security_score",
+        label: "trust hardening",
+        valueRaw: secScore,
+        valueStr: String(Math.round(secScore)) + "/100",
+        severity: ((100 - secScore) / 100) * 3,
+        kind: "score",
+        reason: "trust_override_score"
+      };
+    }
+    return {
+      key: "security_score",
+      label: "trust hardening",
+      valueRaw: missingHeaders,
+      valueStr: String(missingHeaders) + " missing headers",
+      severity: 3,
+      kind: "score",
+      reason: "trust_override_headers"
+    };
+  }
+
+  // --------------------------------------------------
+  // Default scoring (your existing approach)
+  // --------------------------------------------------
 
   var candidates = [];
 
@@ -431,7 +529,8 @@ function choosePrimaryConstraint(e) {
       valueRaw: n,
       valueStr: (unit === "ms") ? (String(Math.round(n)) + "ms") : fmtNum(n, 2),
       severity: sev,
-      kind: "metric"
+      kind: "metric",
+      reason: "default_metric"
     });
   }
 
@@ -439,13 +538,12 @@ function choosePrimaryConstraint(e) {
     var s = Number(scoreRaw);
     if (!isFinite(s)) return;
 
-    // Only consider as "primary" if it's actually low enough to matter,
-    // otherwise performance will always win and it feels generic.
+    // Only consider as "primary" if it’s low enough to matter.
     var CONCERN_BELOW = 90;
     if (s >= CONCERN_BELOW) return;
 
-    // severity: 0..1.0 (lower score => higher severity)
-    // multiply by 3 so low trust/seo can beat mild PSI differences (e.g. great LCP)
+    // severity: lower score => higher severity
+    // multiplier allows low trust/seo to beat mild PSI differences
     var sev = ((100 - s) / 100) * 3;
 
     candidates.push({
@@ -454,12 +552,12 @@ function choosePrimaryConstraint(e) {
       valueRaw: s,
       valueStr: String(Math.round(s)) + "/100",
       severity: sev,
-      kind: "score"
+      kind: "score",
+      reason: "default_score"
     });
   }
 
-  // Score-based candidates (these are what stop everything “starting with performance”)
-  var sc = safeObj(e.scores);
+  // Score-based candidates
   pushScore("security_score", "trust hardening", sc.security);
   pushScore("seo_score", "SEO foundations", sc.seo);
   pushScore("accessibility_score", "accessibility", sc.accessibility);
@@ -493,7 +591,6 @@ function buildManifestationLine(primary, host) {
 
   // One sentence only. No new facts. No advice. No new metrics.
   if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
-    // (keep your v2 wording)
     return "As a result, the primary homepage content appears late on mobile, so users wait longer before the page feels visually ready and usable.";
   }
 
@@ -772,6 +869,12 @@ export async function handler(event) {
         degraded: !!allowDegraded,
         generated_at: nowISO(),
         source: "deterministic_exec_v4_primary_across_scores_plus_quiet_signals_v1",
+        primary_constraint: primary ? {
+          key: primary.key,
+          label: primary.label,
+          value: primary.valueStr,
+          reason: primary.reason || null
+        } : null,
       },
       overall: { lines: execLines },
 
