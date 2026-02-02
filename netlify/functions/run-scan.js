@@ -489,12 +489,16 @@ function countMatches(re, s) {
 // ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
   const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  const descMatch = html.match(
-    /<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i
-  );
-  const canonicalMatch = html.match(
-    /<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["'][^>]*>/i
-  );
+  // Order-insensitive META description extraction (content/name attribute order varies)
+  const metaDescTagMatch = html.match(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i);
+  const metaDescTag = metaDescTagMatch ? metaDescTagMatch[0] : "";
+  const descMatch = metaDescTag ? metaDescTag.match(/\bcontent\s*=\s*["']([^"']*)["']/i) : null;
+
+  // Order-insensitive canonical extraction (href/rel attribute order varies)
+  const canonicalTagMatch = html.match(/<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/i);
+  const canonicalTag = canonicalTagMatch ? canonicalTagMatch[0] : "";
+  const canonicalMatch = canonicalTag ? canonicalTag.match(/\bhref\s*=\s*["']([^"']+)["']/i) : null;
+
   const viewportMatch = html.match(
     /<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
@@ -827,7 +831,7 @@ function scoreSecurityFromHeaders(headers) {
     x_frame_options: 15,
     x_content_type_options: 10,
     referrer_policy: 10,
-    permissions_policy: 10,
+    permissions_policy: 5,
   };
 
   const deductions = [];
@@ -876,71 +880,119 @@ function scoreSecurityFromHeaders(headers) {
 // ---------------------------------------------
 // Mobile + Accessibility scoring
 // ---------------------------------------------
-function scoreMobileFromBasic(basic, isHtml) {
-  const base_score = 100;
-  const deductions = [];
-  const issues = [];
+function scorePerformanceFromBasic(basic, isHtml, psi) {
+  // PSI-aware when available; fallback to deterministic HTML heuristics.
+  // Aligns the Performance card with the same hard facts used elsewhere (LCP/TBT).
+  let score = 100;
+  const reasons = [];
 
-  const add = (points, reason, code, severity, evidence) => {
-    deductions.push({ points, reason, code });
-    issues.push({
-      id: code,
-      title: `Mobile Experience: ${reason}`,
-      severity,
-      impact:
-        "Mobile foundations affect readability and layout on phones. These checks validate baseline viewport configuration.",
-      evidence: evidence || {},
-    });
-  };
+  const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
+  const df = psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
 
-  if (!isHtml || basic.viewport_present !== true) {
-    add(
-      75,
-      "Required mobile inputs missing (viewport not observable).",
-      "mob_required_inputs_missing",
-      "high",
-      { viewport_present: basic.viewport_present ?? null, is_html: !!isHtml }
-    );
-    return { score: 25, base_score, deductions, issues };
-  }
+  if (mf && df) {
+    const mLCP = Number(mf.LCP_ms);
+    const dLCP = Number(df.LCP_ms);
+    const mTBT = Number(mf.TBT_ms);
+    const dTBT = Number(df.TBT_ms);
 
-  if (!basic.device_width_present) {
-    add(25, "Viewport missing width=device-width.", "mob_device_width_missing", "high", {
-      viewport_content: basic.viewport_content ?? null,
-    });
-  }
-
-  if (basic.viewport_initial_scale === null || basic.viewport_initial_scale === undefined) {
-    add(8, "Viewport missing initial-scale.", "mob_initial_scale_missing", "low", {
-      viewport_content: basic.viewport_content ?? null,
-    });
-  } else if (Number(basic.viewport_initial_scale) < 1) {
-    add(6, "Viewport initial-scale < 1.", "mob_initial_scale_low", "low", {
-      viewport_initial_scale: basic.viewport_initial_scale,
-      viewport_content: basic.viewport_content ?? null,
-    });
-  }
-
-  if (basic.viewport_user_scalable_disabled) {
-    add(10, "User zoom is disabled (user-scalable=0/no).", "mob_user_scalable_disabled", "med", {
-      viewport_content: basic.viewport_content ?? null,
-    });
-  }
-
-  if (basic.viewport_maximum_scale !== null && basic.viewport_maximum_scale !== undefined) {
-    if (Number(basic.viewport_maximum_scale) <= 1) {
-      add(6, "maximum-scale is restrictive (<= 1).", "mob_maximum_scale_restrictive", "low", {
-        viewport_maximum_scale: basic.viewport_maximum_scale,
-        viewport_content: basic.viewport_content ?? null,
-      });
+    function lcpPenalty(ms) {
+      if (!Number.isFinite(ms) || ms <= 0) return 0;
+      if (ms <= 2500) return 0;
+      if (ms <= 4000) return 12;
+      if (ms <= 6000) return 25;
+      if (ms <= 10000) return 40;
+      return 55;
     }
+
+    function tbtPenalty(ms) {
+      if (!Number.isFinite(ms) || ms < 0) return 0;
+      if (ms <= 200) return 0;
+      if (ms <= 400) return 6;
+      if (ms <= 800) return 14;
+      if (ms <= 1500) return 24;
+      return 34;
+    }
+
+    let p = 0;
+    p += lcpPenalty(mLCP);
+    p += Math.round(lcpPenalty(dLCP) * 0.6);
+    p += tbtPenalty(mTBT);
+    p += Math.round(tbtPenalty(dTBT) * 0.5);
+
+    score -= p;
+
+    if (Number.isFinite(mLCP) && mLCP > 2500) reasons.push("slow mobile LCP");
+    if (Number.isFinite(dLCP) && dLCP > 2500) reasons.push("slow desktop LCP");
+    if (Number.isFinite(mTBT) && mTBT > 300) reasons.push("high mobile main-thread work (TBT)");
+    if (Number.isFinite(dTBT) && dTBT > 300) reasons.push("high desktop main-thread work (TBT)");
+
+    return { score: clamp(score, 0, 100), reasons };
   }
 
-  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
-  const score = clamp(base_score - penalty_points, 0, 100);
+  // Fallback: HTML/basic only
+  if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
 
-  return { score, base_score, deductions, issues };
+  if (basic.html_bytes > 250_000) { score -= 20; reasons.push("large HTML document"); }
+  if (basic.html_bytes > 500_000) { score -= 20; reasons.push("very large HTML document"); }
+  if (basic.inline_script_count >= 6) { score -= 10; reasons.push("many inline scripts"); }
+  if (basic.head_script_block_present) { score -= 10; reasons.push("inline scripts in <head>"); }
+
+  return { score: clamp(score, 0, 100), reasons };
 }
+
+function scoreMobileFromBasic(basic, isHtml, psi) {
+  // PSI-aware when available; fallback to basic checks.
+  let score = 100;
+  const reasons = [];
+
+  const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
+
+  if (mf) {
+    const mLCP = Number(mf.LCP_ms);
+    const mCLS = Number(mf.CLS);
+    const mINP = Number(mf.INP_ms);
+
+    // LCP: perceived readiness
+    if (Number.isFinite(mLCP) && mLCP > 2500) {
+      if (mLCP <= 4000) score -= 20;
+      else if (mLCP <= 6000) score -= 35;
+      else if (mLCP <= 10000) score -= 50;
+      else score -= 65;
+      reasons.push("slow mobile LCP");
+    }
+
+    // CLS: layout stability
+    if (Number.isFinite(mCLS) && mCLS > 0.10) {
+      if (mCLS <= 0.25) score -= 10;
+      else if (mCLS <= 0.40) score -= 18;
+      else score -= 28;
+      reasons.push("layout instability (CLS)");
+    }
+
+    // INP: interaction responsiveness (can be null)
+    if (Number.isFinite(mINP) && mINP > 200) {
+      if (mINP <= 500) score -= 8;
+      else if (mINP <= 800) score -= 14;
+      else score -= 22;
+      reasons.push("slow interaction responsiveness (INP)");
+    }
+
+    // Keep basic semantics relevant
+    if (isHtml && !basic.viewport_present) { score -= 6; reasons.push("missing viewport"); }
+
+    return { score: clamp(score, 0, 100), reasons };
+  }
+
+  // Fallback (no PSI)
+  if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
+
+  if (!basic.viewport_present) { score -= 20; reasons.push("missing viewport"); }
+  if (basic.html_bytes > 500_000) { score -= 15; reasons.push("very large HTML document"); }
+  if (basic.inline_script_count >= 10) { score -= 10; reasons.push("many inline scripts"); }
+
+  return { score: clamp(score, 0, 100), reasons };
+}
+
 
 function scoreAccessibilityFromBasic(basic, isHtml) {
   const base_score = 100;
@@ -1035,7 +1087,7 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 // ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
-function buildScores(url, html, res, isHtml) {
+function buildScores(url, html, res, isHtml, psi) {
   const basic = isHtml
     ? basicHtmlSignals(html, url)
     : {
@@ -1078,16 +1130,8 @@ function buildScores(url, html, res, isHtml) {
 
   const headers = headerSignals(res, url);
 
-  let perf = 100;
-  if (!isHtml) {
-    perf = 25;
-  } else {
-    if (basic.html_bytes > 250_000) perf -= 20;
-    if (basic.html_bytes > 500_000) perf -= 20;
-    if (basic.inline_script_count >= 6) perf -= 10;
-    if (basic.head_script_block_present) perf -= 10;
-    perf = clamp(perf, 0, 100);
-  }
+  const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
+  const perf = perfPack.score;
 
   let structure = 25;
   if (isHtml) {
@@ -1095,7 +1139,7 @@ function buildScores(url, html, res, isHtml) {
     structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
   }
 
-  const mobilePack = scoreMobileFromBasic(basic, isHtml);
+  const mobilePack = scoreMobileFromBasic(basic, isHtml, psi);
   const mobile = mobilePack.score;
 
   const secPack = scoreSecurityFromHeaders(headers);
@@ -1205,6 +1249,9 @@ function buildScores(url, html, res, isHtml) {
       score: mobile,
       evidence: {
         viewport_present: basic.viewport_present,
+        psi_mobile_LCP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.LCP_ms : null,
+        psi_mobile_CLS: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.CLS : null,
+        psi_mobile_INP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.INP_ms : null,
         viewport_content: basic.viewport_content,
         device_width_present: basic.device_width_present,
         viewport_user_scalable_disabled: basic.viewport_user_scalable_disabled,
@@ -1242,6 +1289,9 @@ function buildScores(url, html, res, isHtml) {
         title_present: basic.title_present,
         h1_present: basic.h1_present,
         viewport_present: basic.viewport_present,
+        psi_mobile_LCP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.LCP_ms : null,
+        psi_mobile_CLS: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.CLS : null,
+        psi_mobile_INP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.INP_ms : null,
         required_inputs_missing: !isHtml,
       },
       deductions: !isHtml
