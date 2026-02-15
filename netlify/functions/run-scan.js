@@ -26,7 +26,7 @@ async function fetchPSI(url, strategy = "desktop") {
     key: PSI_API_KEY,
   });
 
-  // Ask for the categories we map into iQWEB signals
+  // Ask for the categories we map into iQWEB signals.
   // Note: PSI supports multiple category params.
   ["performance", "accessibility", "seo", "best-practices"].forEach((c) =>
     qs.append("category", c)
@@ -1775,7 +1775,50 @@ if (!profile) {
     // ---------------------------------------------
     // Run scan
     // ---------------------------------------------
-    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
+    let res, html, contentType, isHtml;
+    try {
+      ({ res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000));
+    } catch (e) {
+      // Netlify/undici wraps DNS errors as TypeError('fetch failed') with a cause.
+      const cause = (e && typeof e === "object") ? (e.cause || null) : null;
+      const code = cause && cause.code ? String(cause.code) : (e && e.code ? String(e.code) : null);
+      const hostname = cause && cause.hostname ? String(cause.hostname) : null;
+
+      if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+        return json(400, {
+          success: false,
+          code: "dns_not_found",
+          error: "Domain not found",
+          detail: hostname ? `DNS lookup failed for ${hostname}` : "DNS lookup failed",
+        });
+      }
+
+      if (code === "ECONNREFUSED" || code === "ETIMEDOUT" || code === "ECONNRESET") {
+        return json(502, {
+          success: false,
+          code: "origin_unreachable",
+          error: "Website unreachable",
+          detail: "Could not connect to the target website.",
+        });
+      }
+
+      if (e && e.name === "AbortError") {
+        return json(504, {
+          success: false,
+          code: "origin_timeout",
+          error: "Website timed out",
+          detail: "Timed out fetching the target website.",
+        });
+      }
+
+      console.error("[run-scan] origin fetch failed:", e);
+      return json(502, {
+        success: false,
+        code: "origin_fetch_failed",
+        error: "Unable to fetch website",
+        detail: "Fetch failed while retrieving the website HTML.",
+      });
+    }
 
 // ---------------------------------------------
 // PSI (inline) — fetch Lighthouse facts *before* scoring
