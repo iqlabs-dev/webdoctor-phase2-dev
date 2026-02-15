@@ -1529,7 +1529,8 @@ if (!auth.ok) {
 const user_id = auth.user.id;
 
 // ---------------------------------------------
-// PSI: create pending container and trigger background worker
+// PSI: create pending container AND create scan_results row FIRST
+// (so the background worker always has something to update)
 // ---------------------------------------------
 const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
 const generate_narrative = body.generate_narrative !== false;
@@ -1538,7 +1539,7 @@ if (!url || !report_id) {
   return json(400, { success: false, error: "Missing url or report_id" });
 }
 
-// Create PSI container (results filled asynchronously by worker)
+// PSI container (worker will populate later)
 const psi = {
   enabled: psiEnabled,
   pending: psiEnabled && psiStrategies.length > 0,
@@ -1546,6 +1547,37 @@ const psi = {
   mobile: null,
   errors: [],
 };
+
+// Create a stub scan_results row BEFORE starting PSI worker
+// Use status="running" while we fetch HTML + wait briefly for PSI.
+const stubMetrics = {
+  psi,
+  scores: null,
+  flags: [],
+  delivery_signals: [],
+  basic_checks: null,
+  security_headers: null,
+  human_signals: null,
+  explanations: null,
+};
+
+const { data: stubRow, error: stubErr } = await supabase
+  .from("scan_results")
+  .insert({
+    user_id,
+    url,
+    status: "running",
+    report_id,
+    score_overall: 0,
+    metrics: stubMetrics,
+  })
+  .select("id, report_id")
+  .single();
+
+if (stubErr) {
+  console.error("[run-scan] stub insert error:", stubErr);
+  return json(500, { success: false, error: "Failed to initialise scan", detail: stubErr.message || stubErr });
+}
 
 // Fire-and-forget background PSI (do NOT await)
 if (psi.pending) {
@@ -1569,6 +1601,7 @@ if (psi.pending) {
     });
   }
 }
+
 
 console.log("[run-scan] PSI (background) state", {
   enabled: psi.enabled,
@@ -1810,12 +1843,33 @@ if (!profile) {
     // ---------------------------------------------
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
-    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
-      url,
-      html,
-      res,
-      isHtml
-    );
+// ---------------------------------------------
+// Pull latest PSI (if the worker has already written it) BEFORE scoring
+// ---------------------------------------------
+let psiForScoring = psi; // fallback to our container
+
+try {
+  const { data: latest, error: latestErr } = await supabase
+    .from("scan_results")
+    .select("metrics")
+    .eq("report_id", report_id)
+    .eq("user_id", user_id)
+    .maybeSingle();
+
+  if (!latestErr && latest?.metrics?.psi) {
+    psiForScoring = latest.metrics.psi;
+  }
+} catch (_) {
+  // ignore: use container fallback
+}
+
+const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+  url,
+  html,
+  res,
+  isHtml,
+  psiForScoring
+);
 
     // ---------------------------------------------
 // Lighthouse + flag engine (Stage 1–2)
@@ -1849,21 +1903,19 @@ const metrics = {
 };
 
 
-    // IMPORTANT: no narrative written here.
-    const insertRow = {
-      user_id,
-      url,
-      status: "complete",
-      report_id,
-      score_overall: scores.overall,
-      metrics,
-    };
+// IMPORTANT: no narrative written here.
+// We UPDATE the stub row created earlier.
+const { data: saved, error: saveErr } = await supabase
+  .from("scan_results")
+  .update({
+    status: "complete",
+    score_overall: scores.overall,
+    metrics,
+  })
+  .eq("id", stubRow.id)
+  .select("id, report_id")
+  .single();
 
-    const { data: saved, error: saveErr } = await supabase
-      .from("scan_results")
-      .insert(insertRow)
-      .select("id, report_id")
-      .single();
 
     if (saveErr) {
       console.error("[run-scan] insert error:", saveErr);
@@ -1939,4 +1991,4 @@ if (gate.ready) {
       detail: e?.message || String(e),
     });
   }
-};
+};j
