@@ -1991,4 +1991,4 @@ if (gate.ready) {
       detail: e?.message || String(e),
     });
   }
-};j
+};
