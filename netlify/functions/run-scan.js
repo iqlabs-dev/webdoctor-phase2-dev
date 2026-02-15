@@ -1874,16 +1874,17 @@ const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
     // ---------------------------------------------
 // Lighthouse + flag engine (Stage 1–2)
 // ---------------------------------------------
-    const derivedFlags = evaluateFlags({
-      lhMobile: psi.mobile,
-      lhDesktop: psi.desktop,
-      basic,
-      securityHeaders: headers,
-    });
+const derivedFlags = evaluateFlags({
+  lhMobile: psiForScoring?.mobile || null,
+  lhDesktop: psiForScoring?.desktop || null,
+  basic,
+  securityHeaders: headers,
+});
+
 
 const metrics = {
   scores,
-  psi,                 // ✅ keep the real PSI results
+  psi: psiForScoring,       // ✅ always persist the latest PSI we scored against
   flags: derivedFlags,
   delivery_signals,
   basic_checks: {
@@ -1901,6 +1902,7 @@ const metrics = {
   },
   explanations: notes,
 };
+
 
 
 // IMPORTANT: no narrative written here.
