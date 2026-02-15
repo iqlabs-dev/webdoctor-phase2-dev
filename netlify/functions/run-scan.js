@@ -877,7 +877,7 @@ function scoreSecurityFromHeaders(headers) {
 // Mobile + Accessibility scoring
 // ---------------------------------------------
 
-// ✅ NEW: Normalise PSI metric units (handles seconds vs ms safely)
+// ✅ Normalise PSI metric units (handles seconds vs ms safely)
 function toMs(v) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -890,10 +890,10 @@ function toMs(v) {
 }
 
 function scorePerformanceFromBasic(basic, isHtml, psi) {
-  // PSI-aware when available; fallback to deterministic HTML heuristics.
-  // Aligns the Performance card with the same hard facts used elsewhere (LCP/TBT).
   let score = 100;
   const reasons = [];
+  const deductions = [];
+  const issues = [];
 
   const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
   const df = psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
@@ -935,24 +935,35 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
     if (Number.isFinite(mTBT) && mTBT > 300) reasons.push("high mobile main-thread work (TBT)");
     if (Number.isFinite(dTBT) && dTBT > 300) reasons.push("high desktop main-thread work (TBT)");
 
-    return { score: clamp(score, 0, 100), reasons };
+    return { score: clamp(score, 0, 100), reasons, deductions, issues };
   }
 
   // Fallback: HTML/basic only
-  if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
+  if (!isHtml) {
+    deductions.push({ points: 75, reason: "Required inputs missing (HTML not observable).", code: "perf_required_inputs_missing" });
+    issues.push({
+      id: "perf_required_inputs_missing",
+      title: "Performance: required signal missing",
+      severity: "high",
+      impact: "This scan could not observe HTML inputs required for performance build signals. Missing inputs are penalised to preserve integrity.",
+      evidence: { is_html: false },
+    });
+    return { score: 25, reasons: ["non-HTML response"], deductions, issues };
+  }
 
   if (basic.html_bytes > 250_000) { score -= 20; reasons.push("large HTML document"); }
   if (basic.html_bytes > 500_000) { score -= 20; reasons.push("very large HTML document"); }
   if (basic.inline_script_count >= 6) { score -= 10; reasons.push("many inline scripts"); }
   if (basic.head_script_block_present) { score -= 10; reasons.push("inline scripts in <head>"); }
 
-  return { score: clamp(score, 0, 100), reasons };
+  return { score: clamp(score, 0, 100), reasons, deductions, issues };
 }
 
 function scoreMobileFromBasic(basic, isHtml, psi) {
-  // PSI-aware when available; fallback to basic checks.
   let score = 100;
   const reasons = [];
+  const deductions = [];
+  const issues = [];
 
   const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
 
@@ -978,7 +989,7 @@ function scoreMobileFromBasic(basic, isHtml, psi) {
       reasons.push("layout instability (CLS)");
     }
 
-    // INP: interaction responsiveness (can be null)
+    // INP: interaction responsiveness
     if (Number.isFinite(mINP) && mINP > 200) {
       if (mINP <= 500) score -= 8;
       else if (mINP <= 800) score -= 14;
@@ -986,20 +997,29 @@ function scoreMobileFromBasic(basic, isHtml, psi) {
       reasons.push("slow interaction responsiveness (INP)");
     }
 
-    // Keep basic semantics relevant
     if (isHtml && !basic.viewport_present) { score -= 6; reasons.push("missing viewport"); }
 
-    return { score: clamp(score, 0, 100), reasons };
+    return { score: clamp(score, 0, 100), reasons, deductions, issues };
   }
 
   // Fallback (no PSI)
-  if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
+  if (!isHtml) {
+    deductions.push({ points: 75, reason: "Required inputs missing (HTML not observable).", code: "mobile_required_inputs_missing" });
+    issues.push({
+      id: "mobile_required_inputs_missing",
+      title: "Mobile Experience: required signal missing",
+      severity: "high",
+      impact: "This scan could not observe HTML inputs required for mobile checks. Missing inputs are penalised to preserve integrity.",
+      evidence: { is_html: false },
+    });
+    return { score: 25, reasons: ["non-HTML response"], deductions, issues };
+  }
 
   if (!basic.viewport_present) { score -= 20; reasons.push("missing viewport"); }
   if (basic.html_bytes > 500_000) { score -= 15; reasons.push("very large HTML document"); }
   if (basic.inline_script_count >= 10) { score -= 10; reasons.push("many inline scripts"); }
 
-  return { score: clamp(score, 0, 100), reasons };
+  return { score: clamp(score, 0, 100), reasons, deductions, issues };
 }
 
 function scoreAccessibilityFromBasic(basic, isHtml) {
@@ -1237,18 +1257,8 @@ function buildScores(url, html, res, isHtml, psi) {
         head_script_block_present: basic.head_script_block_present,
         required_inputs_missing: !isHtml,
       },
-      deductions: !isHtml
-        ? [{ points: 75, reason: "Required inputs missing (HTML not observable).", code: "perf_required_inputs_missing" }]
-        : [],
-      issues: !isHtml
-        ? [{
-            id: "perf_required_inputs_missing",
-            title: "Performance: required signal missing",
-            severity: "high",
-            impact: "This scan could not observe HTML inputs required for performance build signals. Missing inputs are penalised to preserve integrity.",
-            evidence: { is_html: false },
-          }]
-        : [],
+      deductions: perfPack.deductions || [],
+      issues: perfPack.issues || [],
     }),
 
     buildSimpleSignal({
@@ -1266,8 +1276,8 @@ function buildScores(url, html, res, isHtml, psi) {
         viewport_maximum_scale: basic.viewport_maximum_scale,
         viewport_initial_scale: basic.viewport_initial_scale,
       },
-      deductions: mobilePack.deductions,
-      issues: mobilePack.issues,
+      deductions: mobilePack.deductions || [],
+      issues: mobilePack.issues || [],
     }),
 
     seoSignal,
@@ -1297,9 +1307,6 @@ function buildScores(url, html, res, isHtml, psi) {
         title_present: basic.title_present,
         h1_present: basic.h1_present,
         viewport_present: basic.viewport_present,
-        psi_mobile_LCP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.LCP_ms : null,
-        psi_mobile_CLS: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.CLS : null,
-        psi_mobile_INP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.INP_ms : null,
         required_inputs_missing: !isHtml,
       },
       deductions: !isHtml
@@ -1513,7 +1520,6 @@ exports.handler = async (event) => {
     const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
 
-    // ✅ SAFE LOG — psiStrategies EXISTS HERE
     console.log("[run-scan] PSI state", {
       enabled: psiEnabled,
       strategies: psiStrategies,
@@ -1522,7 +1528,7 @@ exports.handler = async (event) => {
     });
 
     // ---------------------------------------------
-    // Auth FIRST (required for safe PSI worker updates + credit gates)
+    // Auth FIRST
     // ---------------------------------------------
     const auth = await requireUser(event);
     if (!auth.ok) {
@@ -1533,7 +1539,6 @@ exports.handler = async (event) => {
 
     // ---------------------------------------------
     // PSI: create pending container AND create scan_results row FIRST
-    // (so the background worker always has something to update)
     // ---------------------------------------------
     const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
     const generate_narrative = body.generate_narrative !== false;
@@ -1542,7 +1547,6 @@ exports.handler = async (event) => {
       return json(400, { success: false, error: "Missing url or report_id" });
     }
 
-    // PSI container (worker will populate later)
     const psi = {
       enabled: psiEnabled,
       pending: psiEnabled && psiStrategies.length > 0,
@@ -1551,8 +1555,6 @@ exports.handler = async (event) => {
       errors: [],
     };
 
-    // Create a stub scan_results row BEFORE starting PSI worker
-    // Use status="running" while we fetch HTML + wait briefly for PSI.
     const stubMetrics = {
       psi,
       scores: null,
@@ -1582,7 +1584,7 @@ exports.handler = async (event) => {
       return json(500, { success: false, error: "Failed to initialise scan", detail: stubErr.message || stubErr });
     }
 
-    // Fire-and-forget background PSI (do NOT await)
+    // Fire-and-forget background PSI
     if (psi.pending) {
       const baseUrl =
         process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
@@ -1594,7 +1596,6 @@ exports.handler = async (event) => {
           body: JSON.stringify({ report_id, url, strategies: psiStrategies, user_id }),
         }).catch(() => {});
       } else {
-        // Can't self-call worker (rare). Don't leave the scan looking stuck.
         psi.pending = false;
         psi.errors.push({
           strategy: "all",
@@ -1605,80 +1606,39 @@ exports.handler = async (event) => {
       }
     }
 
-    console.log("[run-scan] PSI (background) state", {
-      enabled: psi.enabled,
-      pending: psi.pending,
-      strategies: psiStrategies,
-      include_lighthouse: body.include_lighthouse,
-      timeout_ms: PSI_TIMEOUT_MS,
-    });
-
     // --------------------
     // Admin + Access Gate
     // --------------------
     const email = (auth.user?.email || "").toLowerCase();
-    const isFounder = email === "david.esther@iqlabs.co.nz"; // founder bypass
+    const isFounder = email === "david.esther@iqlabs.co.nz";
 
     const adminFlags = await getAdminFlags();
-
-    // Global freezes
     if (adminFlags.freeze_all || adminFlags.freeze_scans) {
-      return json(503, {
-        success: false,
-        code: "scans_frozen",
-        error: adminFlags.maintenance_message || "Scanning is temporarily disabled.",
-      });
+      return json(503, { success: false, code: "scans_frozen", error: adminFlags.maintenance_message || "Scanning is temporarily disabled." });
     }
 
     const uf = await getUserFlags(user_id);
     if (!uf) {
-      return json(500, {
-        success: false,
-        code: "flags_unavailable",
-        error: "Unable to verify access. Please try again.",
-      });
+      return json(500, { success: false, code: "flags_unavailable", error: "Unable to verify access. Please try again." });
     }
 
-    // One-off credit lookup (user_credits table)
-    const { data: oneOffRow, error: oneOffErr } = await supabase
+    const { data: oneOffRow } = await supabase
       .from("user_credits")
       .select("credits")
       .eq("id", user_id)
       .maybeSingle();
 
-    if (oneOffErr) {
-      console.error("[one-off] lookup error:", oneOffErr);
-    }
-
     const oneOffCredits = Number(oneOffRow?.credits || 0);
     const oneOffActive = oneOffCredits > 0;
 
-    // Per-user bans/freeze
-    if (!isFounder && uf.is_banned) {
-      return json(403, {
-        success: false,
-        code: "user_banned",
-        error: "Account access disabled. Contact support.",
-      });
-    }
-    if (!isFounder && uf.is_frozen) {
-      return json(403, {
-        success: false,
-        code: "user_frozen",
-        error: "Account temporarily frozen. Contact support.",
-      });
-    }
+    if (!isFounder && uf.is_banned) return json(403, { success: false, code: "user_banned", error: "Account access disabled. Contact support." });
+    if (!isFounder && uf.is_frozen) return json(403, { success: false, code: "user_frozen", error: "Account temporarily frozen. Contact support." });
 
-    // Access policy: Founder OR Paid OR Trial OR One-off credits
     const paidActive = isPaidActive(uf);
     const trialActive = isTrialActive(uf);
 
     if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
-      return json(402, {
-        success: false,
-        code: "access_required",
-        error: "This account does not have scanning access. Please subscribe or request an invite trial.",
-      });
+      return json(402, { success: false, code: "access_required", error: "This account does not have scanning access. Please subscribe or request an invite trial." });
     }
 
     // --------------------------------------------------
@@ -1686,103 +1646,35 @@ exports.handler = async (event) => {
     // --------------------------------------------------
     let consumedFrom = null;
 
-    // 1) TRIAL / FREE scans (user_flags)
     if (!isFounder && trialActive) {
-      const { data: consume, error: consumeErr } = await supabase.rpc(
-        "consume_trial_scan",
-        { p_user_id: user_id }
-      );
-
-      if (consumeErr) {
-        console.error("[trial] consume error:", consumeErr);
-        return json(500, {
-          success: false,
-          code: "trial_error",
-          error: "Unable to apply trial usage. Please try again.",
-        });
-      }
-
+      const { data: consume, error: consumeErr } = await supabase.rpc("consume_trial_scan", { p_user_id: user_id });
+      if (consumeErr) return json(500, { success: false, code: "trial_error", error: "Unable to apply trial usage. Please try again." });
       const row = Array.isArray(consume) ? consume[0] : consume;
-      if (row?.allowed) {
-        consumedFrom = "trial";
-      } else {
-        return json(402, {
-          success: false,
-          code: "trial_expired",
-          error: "Trial limit reached or trial expired. Please subscribe to continue.",
-        });
-      }
+      if (row?.allowed) consumedFrom = "trial";
+      else return json(402, { success: false, code: "trial_expired", error: "Trial limit reached or trial expired. Please subscribe to continue." });
     }
 
-    // 2) PAID subscription scans (profiles.credits) — supports profiles.user_id OR profiles.id
     if (!isFounder && !consumedFrom && paidActive) {
       let profile = null;
       let keyField = null;
 
-      // Attempt A: profiles.user_id
       {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("credits")
-          .eq("user_id", user_id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("[paid] read error (by user_id):", error);
-          return json(500, {
-            success: false,
-            code: "paid_read_error",
-            error: "Unable to verify subscription credits.",
-          });
-        }
-        if (data) {
-          profile = data;
-          keyField = "user_id";
-        }
+        const { data, error } = await supabase.from("profiles").select("credits").eq("user_id", user_id).maybeSingle();
+        if (error) return json(500, { success: false, code: "paid_read_error", error: "Unable to verify subscription credits." });
+        if (data) { profile = data; keyField = "user_id"; }
       }
 
-      // Attempt B: profiles.id (fallback)
       if (!profile) {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("credits")
-          .eq("id", user_id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("[paid] read error (by id):", error);
-          return json(500, {
-            success: false,
-            code: "paid_read_error",
-            error: "Unable to verify subscription credits.",
-          });
-        }
-
-        if (data) {
-          profile = data;
-          keyField = "id";
-        }
+        const { data, error } = await supabase.from("profiles").select("credits").eq("id", user_id).maybeSingle();
+        if (error) return json(500, { success: false, code: "paid_read_error", error: "Unable to verify subscription credits." });
+        if (data) { profile = data; keyField = "id"; }
       }
 
-      if (!profile || !keyField) {
-        console.error("[paid] no profiles row found for user:", user_id);
-        return json(500, {
-          success: false,
-          code: "paid_profile_missing",
-          error: "Billing profile not found for this account. Please contact support.",
-        });
-      }
+      if (!profile || !keyField) return json(500, { success: false, code: "paid_profile_missing", error: "Billing profile not found for this account. Please contact support." });
 
       const credits = Number(profile.credits || 0);
-      if (credits <= 0) {
-        return json(402, {
-          success: false,
-          code: "paid_exhausted",
-          error: "No subscription credits remaining.",
-        });
-      }
+      if (credits <= 0) return json(402, { success: false, code: "paid_exhausted", error: "No subscription credits remaining." });
 
-      // atomic-ish decrement: only update if credits > 0 and match key
       const { data: updated, error: updateErr } = await supabase
         .from("profiles")
         .update({ credits: credits - 1 })
@@ -1791,19 +1683,11 @@ exports.handler = async (event) => {
         .select("credits")
         .maybeSingle();
 
-      if (updateErr || !updated) {
-        console.error("[paid] decrement error:", updateErr, { keyField, user_id });
-        return json(500, {
-          success: false,
-          code: "paid_consume_error",
-          error: "Unable to apply subscription usage.",
-        });
-      }
+      if (updateErr || !updated) return json(500, { success: false, code: "paid_consume_error", error: "Unable to apply subscription usage." });
 
       consumedFrom = "paid";
     }
 
-    // 3) ONE-OFF scans (user_credits)
     if (!isFounder && !consumedFrom && oneOffActive) {
       const { data: updatedRow, error: oneOffUpdErr } = await supabase
         .from("user_credits")
@@ -1813,36 +1697,30 @@ exports.handler = async (event) => {
         .select("credits")
         .maybeSingle();
 
-      if (oneOffUpdErr || !updatedRow) {
-        console.error("[one-off] consume error:", oneOffUpdErr);
-        return json(500, {
-          success: false,
-          code: "oneoff_consume_error",
-          error: "Unable to apply one-off scan credit.",
-        });
-      }
+      if (oneOffUpdErr || !updatedRow) return json(500, { success: false, code: "oneoff_consume_error", error: "Unable to apply one-off scan credit." });
 
       consumedFrom = "one-off";
     }
 
-    // Safety net (should never happen if access gate is correct)
     if (!isFounder && !consumedFrom) {
-      return json(402, {
-        success: false,
-        code: "no_credits",
-        error: "No scan credits available.",
-      });
+      return json(402, { success: false, code: "no_credits", error: "No scan credits available." });
     }
 
     // ---------------------------------------------
-    // Run scan
+    // Run scan (HTML fetch)
     // ---------------------------------------------
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
     // ---------------------------------------------
-    // Pull latest PSI (if the worker has already written it) BEFORE scoring
+    // ✅ FIX: PSI readiness gate BEFORE scoring
     // ---------------------------------------------
-    let psiForScoring = psi; // fallback to our container
+    if (psiEnabled && psiStrategies.length > 0) {
+      const gate = await waitForPsiReadyInScanResults(report_id, 15000, 1500);
+      console.log("[run-scan] PSI gate before scoring", { report_id, ...gate });
+    }
+
+    // Pull latest PSI AFTER the gate
+    let psiForScoring = psi;
 
     try {
       const { data: latest, error: latestErr } = await supabase
@@ -1855,9 +1733,7 @@ exports.handler = async (event) => {
       if (!latestErr && latest?.metrics?.psi) {
         psiForScoring = latest.metrics.psi;
       }
-    } catch (_) {
-      // ignore: use container fallback
-    }
+    } catch (_) {}
 
     const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
       url,
@@ -1867,9 +1743,6 @@ exports.handler = async (event) => {
       psiForScoring
     );
 
-    // ---------------------------------------------
-    // Lighthouse + flag engine (Stage 1–2)
-    // ---------------------------------------------
     const derivedFlags = evaluateFlags({
       lhMobile: psiForScoring?.mobile || null,
       lhDesktop: psiForScoring?.desktop || null,
@@ -1879,7 +1752,7 @@ exports.handler = async (event) => {
 
     const metrics = {
       scores,
-      psi: psiForScoring,       // ✅ always persist the latest PSI we scored against
+      psi: psiForScoring,
       flags: derivedFlags,
       delivery_signals,
       basic_checks: {
@@ -1898,8 +1771,6 @@ exports.handler = async (event) => {
       explanations: notes,
     };
 
-    // IMPORTANT: no narrative written here.
-    // We UPDATE the stub row created earlier.
     const { data: saved, error: saveErr } = await supabase
       .from("scan_results")
       .update({
@@ -1912,17 +1783,10 @@ exports.handler = async (event) => {
       .single();
 
     if (saveErr) {
-      console.error("[run-scan] insert error:", saveErr);
-      return json(500, {
-        success: false,
-        error: "Failed to save scan result",
-        detail: saveErr.message || saveErr,
-      });
+      console.error("[run-scan] save error:", saveErr);
+      return json(500, { success: false, error: "Failed to save scan result", detail: saveErr.message || saveErr });
     }
 
-    // ---------------------------------------------
-    // STEP 1: Ensure reports row exists + set narrative pending
-    // ---------------------------------------------
     const reportsUpsert = await supabase
       .from("reports")
       .upsert(
@@ -1941,13 +1805,12 @@ exports.handler = async (event) => {
     }
 
     // ---------------------------------------------
-    // PSI readiness gate BEFORE narrative
+    // Narrative gate (unchanged)
     // ---------------------------------------------
     let narrative_ok = null;
 
     if (generate_narrative) {
       const finalReportId = saved.report_id || report_id;
-
       const gate = await waitForPsiReadyInScanResults(finalReportId, 6000, 1200);
 
       if (gate.ready) {
@@ -1955,7 +1818,6 @@ exports.handler = async (event) => {
         const result = await tryGenerateNarrative(origin, finalReportId, user_id);
         narrative_ok = result.ok;
       } else {
-        // Don't block the request — report will be ready shortly, UI will poll
         narrative_ok = null;
       }
     }
@@ -1972,15 +1834,11 @@ exports.handler = async (event) => {
       scores,
       narrative_requested: !!generate_narrative,
       narrative_ok,
-      consumed_from: consumedFrom, // handy for debugging
+      consumed_from: consumedFrom,
       report_url: `${origin}/report.html?report_id=${encodeURIComponent(finalReportId)}`,
     });
   } catch (e) {
     console.error("[run-scan] fatal:", e);
-    return json(500, {
-      success: false,
-      error: "Server error",
-      detail: e?.message || String(e),
-    });
+    return json(500, { success: false, error: "Server error", detail: e?.message || String(e) });
   }
 };
