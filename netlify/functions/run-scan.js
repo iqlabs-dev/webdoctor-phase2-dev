@@ -26,7 +26,7 @@ async function fetchPSI(url, strategy = "desktop") {
     key: PSI_API_KEY,
   });
 
-  // Ask for the categories we map into iQWEB signals.
+  // Ask for the categories we map into iQWEB signals
   // Note: PSI supports multiple category params.
   ["performance", "accessibility", "seo", "best-practices"].forEach((c) =>
     qs.append("category", c)
