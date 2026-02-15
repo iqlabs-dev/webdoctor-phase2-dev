@@ -12,8 +12,6 @@ const PSI_STRATEGIES = String(process.env.PSI_STRATEGIES || "mobile,desktop")
 // PSI fetch timeout (ms)
 const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || "120000");
 
-
- 
 // ---------------------------------------------
 // PageSpeed Insights (Lighthouse) helpers
 // ---------------------------------------------
@@ -73,7 +71,6 @@ function getSiteOrigin(event) {
     ""
   );
 }
-
 
 function lhAudit(lh, id) {
   const a = lh?.audits?.[id];
@@ -344,8 +341,8 @@ function evaluateFlags({ lhMobile, lhDesktop, basic, securityHeaders }) {
 
   return flags;
 }
-const { createClient } = require("@supabase/supabase-js");
 
+const { createClient } = require("@supabase/supabase-js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -388,7 +385,6 @@ function makeReportId() {
   const rand = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
   return `WEB-${yyyy}${mm}${dd}-${rand}`;
 }
-
 
 function clamp(n, min, max) {
   if (!Number.isFinite(n)) return min;
@@ -880,6 +876,19 @@ function scoreSecurityFromHeaders(headers) {
 // ---------------------------------------------
 // Mobile + Accessibility scoring
 // ---------------------------------------------
+
+// ✅ NEW: Normalise PSI metric units (handles seconds vs ms safely)
+function toMs(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  // If it looks like seconds (e.g., 12.1), convert to ms.
+  // LCP/INP/TBT in ms are typically >100. In seconds they're <60.
+  if (n > 0 && n < 60) return Math.round(n * 1000);
+
+  return n; // already ms
+}
+
 function scorePerformanceFromBasic(basic, isHtml, psi) {
   // PSI-aware when available; fallback to deterministic HTML heuristics.
   // Aligns the Performance card with the same hard facts used elsewhere (LCP/TBT).
@@ -890,10 +899,10 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
   const df = psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
 
   if (mf && df) {
-    const mLCP = Number(mf.LCP_ms);
-    const dLCP = Number(df.LCP_ms);
-    const mTBT = Number(mf.TBT_ms);
-    const dTBT = Number(df.TBT_ms);
+    const mLCP = toMs(mf.LCP_ms);
+    const dLCP = toMs(df.LCP_ms);
+    const mTBT = toMs(mf.TBT_ms);
+    const dTBT = toMs(df.TBT_ms);
 
     function lcpPenalty(ms) {
       if (!Number.isFinite(ms) || ms <= 0) return 0;
@@ -948,9 +957,9 @@ function scoreMobileFromBasic(basic, isHtml, psi) {
   const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
 
   if (mf) {
-    const mLCP = Number(mf.LCP_ms);
+    const mLCP = toMs(mf.LCP_ms);
     const mCLS = Number(mf.CLS);
-    const mINP = Number(mf.INP_ms);
+    const mINP = toMs(mf.INP_ms);
 
     // LCP: perceived readiness
     if (Number.isFinite(mLCP) && mLCP > 2500) {
@@ -992,7 +1001,6 @@ function scoreMobileFromBasic(basic, isHtml, psi) {
 
   return { score: clamp(score, 0, 100), reasons };
 }
-
 
 function scoreAccessibilityFromBasic(basic, isHtml) {
   const base_score = 100;
@@ -1367,9 +1375,6 @@ async function waitForPsiReadyInScanResults(report_id, maxWaitMs = 45000, pollMs
   return { ready: false, waited_ms: Date.now() - start, reason: "timeout" };
 }
 
-
-
-
 async function tryGenerateNarrative(origin, report_id, user_id) {
   try {
     const resp = await fetch(`${origin}/.netlify/functions/generate-narrative`, {
@@ -1390,14 +1395,14 @@ async function tryGenerateNarrative(origin, report_id, user_id) {
     return { ok: false, status: 0 };
   }
 }
+
 async function requireUser(event) {
   try {
-  const headers = event.headers || {};
-const authHeader =
-  headers.authorization ||
-  headers.Authorization ||
-  "";
-
+    const headers = event.headers || {};
+    const authHeader =
+      headers.authorization ||
+      headers.Authorization ||
+      "";
 
     if (!authHeader.startsWith("Bearer ")) {
       return {
@@ -1432,6 +1437,7 @@ const authHeader =
     };
   }
 }
+
 async function getAdminFlags() {
   const { data, error } = await supabase
     .from("admin_flags")
@@ -1452,8 +1458,7 @@ async function getUserFlags(user_id) {
   const { data: existing, error: readErr } = await supabase
     .from("user_flags")
     .select("user_id, is_frozen, is_banned, trial_expires_at, trial_scans_remaining, paid_until, paid_plan")
-  .eq("user_id", user_id)
-
+    .eq("user_id", user_id)
     .maybeSingle();
 
   if (readErr) {
@@ -1488,8 +1493,6 @@ function isTrialActive(userFlags) {
   return !!exp && exp.getTime() > Date.now() && remaining > 0;
 }
 
-
-
 // ---------------------------------------------
 // Handler
 // ---------------------------------------------
@@ -1511,106 +1514,104 @@ exports.handler = async (event) => {
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
 
     // ✅ SAFE LOG — psiStrategies EXISTS HERE
-console.log("[run-scan] PSI state", {
-  enabled: psiEnabled,
-  strategies: psiStrategies,
-  include_lighthouse: body.include_lighthouse,
-  timeout_ms: PSI_TIMEOUT_MS,
-});
-
-// ---------------------------------------------
-// Auth FIRST (required for safe PSI worker updates + credit gates)
-// ---------------------------------------------
-const auth = await requireUser(event);
-if (!auth.ok) {
-  return json(auth.status, { success: false, error: auth.error });
-}
-
-const user_id = auth.user.id;
-
-// ---------------------------------------------
-// PSI: create pending container AND create scan_results row FIRST
-// (so the background worker always has something to update)
-// ---------------------------------------------
-const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
-const generate_narrative = body.generate_narrative !== false;
-
-if (!url || !report_id) {
-  return json(400, { success: false, error: "Missing url or report_id" });
-}
-
-// PSI container (worker will populate later)
-const psi = {
-  enabled: psiEnabled,
-  pending: psiEnabled && psiStrategies.length > 0,
-  desktop: null,
-  mobile: null,
-  errors: [],
-};
-
-// Create a stub scan_results row BEFORE starting PSI worker
-// Use status="running" while we fetch HTML + wait briefly for PSI.
-const stubMetrics = {
-  psi,
-  scores: null,
-  flags: [],
-  delivery_signals: [],
-  basic_checks: null,
-  security_headers: null,
-  human_signals: null,
-  explanations: null,
-};
-
-const { data: stubRow, error: stubErr } = await supabase
-  .from("scan_results")
-  .insert({
-    user_id,
-    url,
-    status: "running",
-    report_id,
-    score_overall: 0,
-    metrics: stubMetrics,
-  })
-  .select("id, report_id")
-  .single();
-
-if (stubErr) {
-  console.error("[run-scan] stub insert error:", stubErr);
-  return json(500, { success: false, error: "Failed to initialise scan", detail: stubErr.message || stubErr });
-}
-
-// Fire-and-forget background PSI (do NOT await)
-if (psi.pending) {
-  const baseUrl =
-    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
-
-  if (baseUrl) {
-    fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id, url, strategies: psiStrategies, user_id }),
-    }).catch(() => {});
-  } else {
-    // Can't self-call worker (rare). Don't leave the scan looking stuck.
-    psi.pending = false;
-    psi.errors.push({
-      strategy: "all",
-      error: "psi_worker_baseurl_missing",
-      status: null,
-      details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
+    console.log("[run-scan] PSI state", {
+      enabled: psiEnabled,
+      strategies: psiStrategies,
+      include_lighthouse: body.include_lighthouse,
+      timeout_ms: PSI_TIMEOUT_MS,
     });
-  }
-}
 
+    // ---------------------------------------------
+    // Auth FIRST (required for safe PSI worker updates + credit gates)
+    // ---------------------------------------------
+    const auth = await requireUser(event);
+    if (!auth.ok) {
+      return json(auth.status, { success: false, error: auth.error });
+    }
 
-console.log("[run-scan] PSI (background) state", {
-  enabled: psi.enabled,
-  pending: psi.pending,
-  strategies: psiStrategies,
-  include_lighthouse: body.include_lighthouse,
-  timeout_ms: PSI_TIMEOUT_MS,
-});
+    const user_id = auth.user.id;
 
+    // ---------------------------------------------
+    // PSI: create pending container AND create scan_results row FIRST
+    // (so the background worker always has something to update)
+    // ---------------------------------------------
+    const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
+    const generate_narrative = body.generate_narrative !== false;
+
+    if (!url || !report_id) {
+      return json(400, { success: false, error: "Missing url or report_id" });
+    }
+
+    // PSI container (worker will populate later)
+    const psi = {
+      enabled: psiEnabled,
+      pending: psiEnabled && psiStrategies.length > 0,
+      desktop: null,
+      mobile: null,
+      errors: [],
+    };
+
+    // Create a stub scan_results row BEFORE starting PSI worker
+    // Use status="running" while we fetch HTML + wait briefly for PSI.
+    const stubMetrics = {
+      psi,
+      scores: null,
+      flags: [],
+      delivery_signals: [],
+      basic_checks: null,
+      security_headers: null,
+      human_signals: null,
+      explanations: null,
+    };
+
+    const { data: stubRow, error: stubErr } = await supabase
+      .from("scan_results")
+      .insert({
+        user_id,
+        url,
+        status: "running",
+        report_id,
+        score_overall: 0,
+        metrics: stubMetrics,
+      })
+      .select("id, report_id")
+      .single();
+
+    if (stubErr) {
+      console.error("[run-scan] stub insert error:", stubErr);
+      return json(500, { success: false, error: "Failed to initialise scan", detail: stubErr.message || stubErr });
+    }
+
+    // Fire-and-forget background PSI (do NOT await)
+    if (psi.pending) {
+      const baseUrl =
+        process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
+
+      if (baseUrl) {
+        fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report_id, url, strategies: psiStrategies, user_id }),
+        }).catch(() => {});
+      } else {
+        // Can't self-call worker (rare). Don't leave the scan looking stuck.
+        psi.pending = false;
+        psi.errors.push({
+          strategy: "all",
+          error: "psi_worker_baseurl_missing",
+          status: null,
+          details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
+        });
+      }
+    }
+
+    console.log("[run-scan] PSI (background) state", {
+      enabled: psi.enabled,
+      pending: psi.pending,
+      strategies: psiStrategies,
+      include_lighthouse: body.include_lighthouse,
+      timeout_ms: PSI_TIMEOUT_MS,
+    });
 
     // --------------------
     // Admin + Access Gate
@@ -1642,9 +1643,7 @@ console.log("[run-scan] PSI (background) state", {
     const { data: oneOffRow, error: oneOffErr } = await supabase
       .from("user_credits")
       .select("credits")
-    .eq("id", user_id)
-
-
+      .eq("id", user_id)
       .maybeSingle();
 
     if (oneOffErr) {
@@ -1742,29 +1741,28 @@ console.log("[run-scan] PSI (background) state", {
         }
       }
 
-  // Attempt B: profiles.id (fallback)
-if (!profile) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("credits")
-    .eq("id", user_id) // ✅ actually query by id this time
-    .maybeSingle();
+      // Attempt B: profiles.id (fallback)
+      if (!profile) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("credits")
+          .eq("id", user_id)
+          .maybeSingle();
 
-  if (error) {
-    console.error("[paid] read error (by id):", error);
-    return json(500, {
-      success: false,
-      code: "paid_read_error",
-      error: "Unable to verify subscription credits.",
-    });
-  }
+        if (error) {
+          console.error("[paid] read error (by id):", error);
+          return json(500, {
+            success: false,
+            code: "paid_read_error",
+            error: "Unable to verify subscription credits.",
+          });
+        }
 
-  if (data) {
-    profile = data;
-    keyField = "id";
-  }
-}
-
+        if (data) {
+          profile = data;
+          keyField = "id";
+        }
+      }
 
       if (!profile || !keyField) {
         console.error("[paid] no profiles row found for user:", user_id);
@@ -1810,9 +1808,7 @@ if (!profile) {
       const { data: updatedRow, error: oneOffUpdErr } = await supabase
         .from("user_credits")
         .update({ credits: oneOffCredits - 1, updated_at: new Date().toISOString() })
-    .eq("id", user_id)
-
-
+        .eq("id", user_id)
         .gt("credits", 0)
         .select("credits")
         .maybeSingle();
@@ -1843,81 +1839,77 @@ if (!profile) {
     // ---------------------------------------------
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
-// ---------------------------------------------
-// Pull latest PSI (if the worker has already written it) BEFORE scoring
-// ---------------------------------------------
-let psiForScoring = psi; // fallback to our container
+    // ---------------------------------------------
+    // Pull latest PSI (if the worker has already written it) BEFORE scoring
+    // ---------------------------------------------
+    let psiForScoring = psi; // fallback to our container
 
-try {
-  const { data: latest, error: latestErr } = await supabase
-    .from("scan_results")
-    .select("metrics")
-    .eq("report_id", report_id)
-    .eq("user_id", user_id)
-    .maybeSingle();
+    try {
+      const { data: latest, error: latestErr } = await supabase
+        .from("scan_results")
+        .select("metrics")
+        .eq("report_id", report_id)
+        .eq("user_id", user_id)
+        .maybeSingle();
 
-  if (!latestErr && latest?.metrics?.psi) {
-    psiForScoring = latest.metrics.psi;
-  }
-} catch (_) {
-  // ignore: use container fallback
-}
+      if (!latestErr && latest?.metrics?.psi) {
+        psiForScoring = latest.metrics.psi;
+      }
+    } catch (_) {
+      // ignore: use container fallback
+    }
 
-const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
-  url,
-  html,
-  res,
-  isHtml,
-  psiForScoring
-);
+    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+      url,
+      html,
+      res,
+      isHtml,
+      psiForScoring
+    );
 
     // ---------------------------------------------
-// Lighthouse + flag engine (Stage 1–2)
-// ---------------------------------------------
-const derivedFlags = evaluateFlags({
-  lhMobile: psiForScoring?.mobile || null,
-  lhDesktop: psiForScoring?.desktop || null,
-  basic,
-  securityHeaders: headers,
-});
+    // Lighthouse + flag engine (Stage 1–2)
+    // ---------------------------------------------
+    const derivedFlags = evaluateFlags({
+      lhMobile: psiForScoring?.mobile || null,
+      lhDesktop: psiForScoring?.desktop || null,
+      basic,
+      securityHeaders: headers,
+    });
 
+    const metrics = {
+      scores,
+      psi: psiForScoring,       // ✅ always persist the latest PSI we scored against
+      flags: derivedFlags,
+      delivery_signals,
+      basic_checks: {
+        ...basic,
+        http_status: res.status,
+        content_type: contentType || null,
+      },
+      security_headers: headers,
+      human_signals: {
+        clarity_cognitive_load: human.clarity,
+        trust_credibility: human.trust,
+        intent_conversion_readiness: human.intent,
+        maintenance_hygiene: human.maintenance,
+        freshness_signals: human.freshness,
+      },
+      explanations: notes,
+    };
 
-const metrics = {
-  scores,
-  psi: psiForScoring,       // ✅ always persist the latest PSI we scored against
-  flags: derivedFlags,
-  delivery_signals,
-  basic_checks: {
-    ...basic,
-    http_status: res.status,
-    content_type: contentType || null,
-  },
-  security_headers: headers,
-  human_signals: {
-    clarity_cognitive_load: human.clarity,
-    trust_credibility: human.trust,
-    intent_conversion_readiness: human.intent,
-    maintenance_hygiene: human.maintenance,
-    freshness_signals: human.freshness,
-  },
-  explanations: notes,
-};
-
-
-
-// IMPORTANT: no narrative written here.
-// We UPDATE the stub row created earlier.
-const { data: saved, error: saveErr } = await supabase
-  .from("scan_results")
-  .update({
-    status: "complete",
-    score_overall: scores.overall,
-    metrics,
-  })
-  .eq("id", stubRow.id)
-  .select("id, report_id")
-  .single();
-
+    // IMPORTANT: no narrative written here.
+    // We UPDATE the stub row created earlier.
+    const { data: saved, error: saveErr } = await supabase
+      .from("scan_results")
+      .update({
+        status: "complete",
+        score_overall: scores.overall,
+        metrics,
+      })
+      .eq("id", stubRow.id)
+      .select("id, report_id")
+      .single();
 
     if (saveErr) {
       console.error("[run-scan] insert error:", saveErr);
@@ -1948,27 +1940,25 @@ const { data: saved, error: saveErr } = await supabase
       console.warn("[run-scan] reports upsert warning:", reportsUpsert.error);
     }
 
-  // ---------------------------------------------
-// PSI readiness gate BEFORE narrative
-// ---------------------------------------------
-let narrative_ok = null;
+    // ---------------------------------------------
+    // PSI readiness gate BEFORE narrative
+    // ---------------------------------------------
+    let narrative_ok = null;
 
-if (generate_narrative) {
-  const finalReportId = saved.report_id || report_id;
+    if (generate_narrative) {
+      const finalReportId = saved.report_id || report_id;
 
-const gate = await waitForPsiReadyInScanResults(finalReportId, 6000, 1200);
+      const gate = await waitForPsiReadyInScanResults(finalReportId, 6000, 1200);
 
-if (gate.ready) {
-  const origin = getSiteOrigin(event);
-  const result = await tryGenerateNarrative(origin, finalReportId, user_id);
-  narrative_ok = result.ok;
-} else {
-  // Don't block the request — report will be ready shortly, UI will poll
-  narrative_ok = null;
-    
-  }
-}
-
+      if (gate.ready) {
+        const origin = getSiteOrigin(event);
+        const result = await tryGenerateNarrative(origin, finalReportId, user_id);
+        narrative_ok = result.ok;
+      } else {
+        // Don't block the request — report will be ready shortly, UI will poll
+        narrative_ok = null;
+      }
+    }
 
     const origin = getSiteOrigin(event);
     const finalReportId = saved.report_id || report_id;
