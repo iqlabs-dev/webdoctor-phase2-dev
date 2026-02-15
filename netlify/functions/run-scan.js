@@ -881,19 +881,17 @@ function scoreSecurityFromHeaders(headers) {
 // Mobile + Accessibility scoring
 // ---------------------------------------------
 function scorePerformanceFromBasic(basic, isHtml, psi) {
-  // PSI-aware when available; fallback to deterministic HTML heuristics.
-  // Aligns the Performance card with the same hard facts used elsewhere (LCP/TBT).
+  // Performance is a *build-quality* score anchored to desktop Lighthouse facts when available.
+  // Mobile CWV belongs in the Mobile Experience score to avoid double-penalising the same issues.
   let score = 100;
   const reasons = [];
 
-  const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
   const df = psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
 
-  if (mf && df) {
-    const mLCP = Number(mf.LCP_ms);
+  if (df) {
     const dLCP = Number(df.LCP_ms);
-    const mTBT = Number(mf.TBT_ms);
     const dTBT = Number(df.TBT_ms);
+    const dTTFB = Number(df.TTFB_ms);
 
     function lcpPenalty(ms) {
       if (!Number.isFinite(ms) || ms <= 0) return 0;
@@ -913,23 +911,29 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
       return 34;
     }
 
+    function ttfbPenalty(ms) {
+      if (!Number.isFinite(ms) || ms <= 0) return 0;
+      if (ms <= 800) return 0;
+      if (ms <= 1800) return 6;
+      if (ms <= 3000) return 14;
+      return 22;
+    }
+
     let p = 0;
-    p += lcpPenalty(mLCP);
-    p += Math.round(lcpPenalty(dLCP) * 0.6);
-    p += tbtPenalty(mTBT);
-    p += Math.round(tbtPenalty(dTBT) * 0.5);
+    p += lcpPenalty(dLCP);
+    p += tbtPenalty(dTBT);
+    p += ttfbPenalty(dTTFB);
 
     score -= p;
 
-    if (Number.isFinite(mLCP) && mLCP > 2500) reasons.push("slow mobile LCP");
     if (Number.isFinite(dLCP) && dLCP > 2500) reasons.push("slow desktop LCP");
-    if (Number.isFinite(mTBT) && mTBT > 300) reasons.push("high mobile main-thread work (TBT)");
     if (Number.isFinite(dTBT) && dTBT > 300) reasons.push("high desktop main-thread work (TBT)");
+    if (Number.isFinite(dTTFB) && dTTFB > 800) reasons.push("slow server response (TTFB)");
 
     return { score: clamp(score, 0, 100), reasons };
   }
 
-  // Fallback: HTML/basic only
+  // Fallback: HTML/basic only (PSI unavailable)
   if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
 
   if (basic.html_bytes > 250_000) { score -= 20; reasons.push("large HTML document"); }
@@ -939,6 +943,7 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
 
   return { score: clamp(score, 0, 100), reasons };
 }
+
 
 function scoreMobileFromBasic(basic, isHtml, psi) {
   // PSI-aware when available; fallback to basic checks.
@@ -1289,9 +1294,6 @@ function buildScores(url, html, res, isHtml, psi) {
         title_present: basic.title_present,
         h1_present: basic.h1_present,
         viewport_present: basic.viewport_present,
-        psi_mobile_LCP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.LCP_ms : null,
-        psi_mobile_CLS: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.CLS : null,
-        psi_mobile_INP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.INP_ms : null,
         required_inputs_missing: !isHtml,
       },
       deductions: !isHtml
@@ -1529,7 +1531,8 @@ if (!auth.ok) {
 const user_id = auth.user.id;
 
 // ---------------------------------------------
-// PSI: create pending container and trigger background worker
+// ---------------------------------------------
+// Report identity
 // ---------------------------------------------
 const report_id = (body.report_id && String(body.report_id).trim()) || makeReportId();
 const generate_narrative = body.generate_narrative !== false;
@@ -1538,45 +1541,9 @@ if (!url || !report_id) {
   return json(400, { success: false, error: "Missing url or report_id" });
 }
 
-// Create PSI container (results filled asynchronously by worker)
-const psi = {
-  enabled: psiEnabled,
-  pending: psiEnabled && psiStrategies.length > 0,
-  desktop: null,
-  mobile: null,
-  errors: [],
-};
+// NOTE: PSI is fetched inline later (after access/credit gates) so we don't burn quota
+// for blocked users, and so scoring is always anchored to real Lighthouse facts.
 
-// Fire-and-forget background PSI (do NOT await)
-if (psi.pending) {
-  const baseUrl =
-    process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.SITE_URL || "";
-
-  if (baseUrl) {
-    fetch(`${baseUrl}/.netlify/functions/psi-worker-background`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ report_id, url, strategies: psiStrategies, user_id }),
-    }).catch(() => {});
-  } else {
-    // Can't self-call worker (rare). Don't leave the scan looking stuck.
-    psi.pending = false;
-    psi.errors.push({
-      strategy: "all",
-      error: "psi_worker_baseurl_missing",
-      status: null,
-      details: "Missing URL/DEPLOY_PRIME_URL/SITE_URL env; cannot invoke background PSI worker.",
-    });
-  }
-}
-
-console.log("[run-scan] PSI (background) state", {
-  enabled: psi.enabled,
-  pending: psi.pending,
-  strategies: psiStrategies,
-  include_lighthouse: body.include_lighthouse,
-  timeout_ms: PSI_TIMEOUT_MS,
-});
 
 
     // --------------------
@@ -1810,12 +1777,58 @@ if (!profile) {
     // ---------------------------------------------
     const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
-    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
-      url,
-      html,
-      res,
-      isHtml
-    );
+// ---------------------------------------------
+// PSI (inline) — fetch Lighthouse facts *before* scoring
+// ---------------------------------------------
+const psi = {
+  enabled: psiEnabled,
+  pending: false,
+  desktop: null,
+  mobile: null,
+  errors: [],
+};
+
+if (psiEnabled && psiStrategies.length > 0) {
+  // Fetch in parallel. If one fails, still keep the other.
+  const settled = await Promise.allSettled(
+    psiStrategies.map(async (strategy) => {
+      const r = await fetchPSI(url, strategy);
+      if (!r.ok) {
+        psi.errors.push({
+          strategy,
+          error: r.error || "psi_error",
+          status: r.status || null,
+          details: r.details || null,
+        });
+        return { strategy, ok: false };
+      }
+      const { lh, facts, audits } = lhFactsFromPSI(r.data);
+      return { strategy, ok: true, pack: { lh, facts, audits } };
+    })
+  );
+
+  for (const s of settled) {
+    if (!s || s.status !== "fulfilled") continue;
+    const v = s.value;
+    if (!v || !v.ok || !v.pack) continue;
+    if (v.strategy === "mobile") psi.mobile = v.pack;
+    if (v.strategy === "desktop") psi.desktop = v.pack;
+  }
+
+  // If nothing came back, record a generic error for visibility.
+  if (!psi.mobile && !psi.desktop && psi.errors.length === 0) {
+    psi.errors.push({ strategy: "all", error: "psi_no_results", status: null, details: null });
+  }
+}
+
+const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+  url,
+  html,
+  res,
+  isHtml,
+  psi
+);
+
 
     // ---------------------------------------------
 // Lighthouse + flag engine (Stage 1–2)
