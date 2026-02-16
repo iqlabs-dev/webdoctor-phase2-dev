@@ -588,44 +588,47 @@
       justify-content: center;
     }
 
-    /* Loader container — neutral, no layout tricks */
-    .pulse {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+/* Loader container — neutral, no layout tricks */
+.pulse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-    /* Λ i Q mark — platinum / ice white */
-    .pulse::after {
-      content: "Λ i Q";
-      font-family: "Montserrat", system-ui, sans-serif;
-      font-weight: 500;
-      font-size: 20px;
-      letter-spacing: 0.22em;
+/* Λ i Q mark — platinum / ice white */
+.pulse::after {
+  content: "Λ i Q";
+  font-family: "Montserrat", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 20px;
+  letter-spacing: 0.22em;
 
-      /* Soft platinum / ice white */
-      color: rgba(235, 240, 245, 0.92);
+  /* Soft platinum / ice white */
+  color: rgba(235, 240, 245, 0.92);
 
-      /* Minimal premium glow (not neon) */
-      text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
+  /* Minimal premium glow (not neon) */
+  text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
 
-      /* Subtle opacity pulse only */
-      animation: iqPulse 1.8s ease-in-out infinite;
-    }
+  /* Subtle opacity pulse only */
+  animation: iqPulse 1.8s ease-in-out infinite;
+}
 
-    /* No movement, no colour shift */
-    @keyframes iqPulse {
-      0%   { opacity: 0.55; }
-      50%  { opacity: 1; }
-      100% { opacity: 0.55; }
-    }
+/* No movement, no colour shift */
+@keyframes iqPulse {
+  0%   { opacity: 0.55; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+
+
 
     .final-notes p {
-      color: var(--ink-soft);
-      font-size: 13px;
-      line-height: 1.5;
-      margin: 0 0 10px 0;
-    }
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+}
 
     .footer {
       width: 100%;
@@ -804,19 +807,6 @@
 
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
-
-        <!-- ✅ NEW: Priority Fix Order (Injected by report-data.js) -->
-        <section class="section" id="priorityFixOrderSection">
-          <div class="section-head">
-            <h2 class="section-title">Priority Fix Order</h2>
-          </div>
-          <div class="section-body">
-            <!-- report-data.js will inject the priority list here -->
-            <div id="fixFirstBlock" class="summary muted" style="font-size:12px;">
-              Priority order will render once scan data is available.
-            </div>
-          </div>
-        </section>
 
         <!-- 3. Executive Narrative (Lead) -->
         <section class="section" id="executiveNarrativeSection">

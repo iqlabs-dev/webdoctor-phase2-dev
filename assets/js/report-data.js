@@ -3,14 +3,11 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * This file is designed to match the CURRENT report.html you pasted:
- * - Uses existing CSS classes: .card, .bar, .summary, .score-right, .grid, .issue, .phase, etc.
- * - Sets overallBar WIDTH (overallBar is the inner fill div in your HTML)
- * - Does not use non-existent classes (pill, signal-card, bar-fill, etc.)
- *
- * Goal:
- * - Agency-ready: credible, calm, measurable, priority-driven.
- * - No "PSI clone" feel: we present constraints + fix sequence, not a dump of PSI.
+ * Matches IDs in report.html:
+ * loaderSection, reportRoot, siteUrl, reportId, reportDate,
+ * overallPill, overallBar, overallNote, signalsGrid,
+ * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
+ * fixFirstBlock (optional)
  */
 
 (function () {
@@ -20,6 +17,16 @@
   function $(id) { return document.getElementById(id); }
   function safeObj(v) { return v && typeof v === "object" ? v : {}; }
   function asArray(v) { return Array.isArray(v) ? v : []; }
+
+  function asInt(v, fallback) {
+    if (typeof fallback === "undefined") fallback = 0;
+    var n = Number(v);
+    if (!isFinite(n)) return fallback;
+    n = Math.round(n);
+    if (n < 0) n = 0;
+    if (n > 100) n = 100;
+    return n;
+  }
 
   function escapeHtml(str) {
     str = String(str == null ? "" : str);
@@ -31,54 +38,40 @@
       .replace(/'/g, "&#039;");
   }
 
-  function isNonEmptyString(s) {
-    return typeof s === "string" && s.trim().length > 0;
+  // -----------------------------
+  // Tiny animated dots (shared)
+  // -----------------------------
+  var __IQWEB_DOTS_TIMER = null;
+
+  function ensureDotsTimer() {
+    if (__IQWEB_DOTS_TIMER) return;
+    __IQWEB_DOTS_TIMER = setInterval(function () {
+      try {
+        var nodes = document.querySelectorAll("[data-iqweb-dots]");
+        if (!nodes || !nodes.length) return;
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          var c = Number(n.getAttribute("data-iqweb-dots") || "1");
+          if (!isFinite(c) || c < 1) c = 1;
+          c = c + 1;
+          if (c > 3) c = 1;
+          n.setAttribute("data-iqweb-dots", String(c));
+          n.textContent = (c === 1 ? "." : (c === 2 ? ".." : "..."));
+        }
+      } catch (e) {}
+    }, 450);
   }
 
-  function clamp(n, lo, hi) {
-    n = Number(n);
-    if (!isFinite(n)) n = lo;
-    if (n < lo) return lo;
-    if (n > hi) return hi;
-    return n;
-  }
-
-  function asInt01or100(v, fallback) {
-    if (typeof fallback === "undefined") fallback = null;
-    if (v == null) return fallback;
-    var n = Number(v);
-    if (!isFinite(n)) return fallback;
-    // accept 0..1 or 0..100
-    if (n >= 0 && n <= 1) n = n * 100;
-    n = Math.round(n);
-    return clamp(n, 0, 100);
-  }
-
-  function pick(obj, keys, fallback) {
-    obj = safeObj(obj);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (obj[k] != null) return obj[k];
-    }
-    return fallback;
-  }
-
-  function truthy(v) {
-    if (v === true) return true;
-    if (v === false) return false;
-    if (typeof v === "number") return v > 0;
-    if (typeof v === "string") {
-      var s = v.toLowerCase().trim();
-      if (s === "true" || s === "yes" || s === "ok" || s === "pass" || s === "enabled") return true;
-      if (s === "false" || s === "no" || s === "fail" || s === "disabled") return false;
-    }
-    return null;
+  function dotsHtml() {
+    ensureDotsTimer();
+    return '<span data-iqweb-dots="1">.</span>';
   }
 
   function formatDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
+
     try {
       return d.toLocaleString("en-NZ", {
         timeZone: "Pacific/Auckland",
@@ -95,16 +88,14 @@
   }
 
   function verdict(score) {
-    var n = clamp(score, 0, 100);
+    var n = asInt(score, 0);
     if (n >= 90) return "Strong";
     if (n >= 75) return "Good";
-    if (n >= 55) return "Fair";
-    return "Needs work";
+    if (n >= 55) return "Needs work";
+    return "Needs attention";
   }
 
-  // -----------------------------
-  // Query params (ES5)
-  // -----------------------------
+  // Query param (ES5)
   function getQueryParam(name) {
     try {
       var q = window.location.search || "";
@@ -134,24 +125,54 @@
   // Transport
   // -----------------------------
   function fetchJson(method, url, bodyObj) {
-    var opts = { method: method, headers: { "Accept": "application/json" } };
-    if (method !== "GET") {
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(bodyObj || {});
-    }
-    return fetch(url, opts).then(function (res) {
-      return res.text().then(function (t) {
-        var data = null;
-        try { data = JSON.parse(t); } catch (e) {}
-        if (!res.ok) {
-          var msg = (data && (data.detail || data.error)) || t || ("HTTP " + res.status);
-          throw new Error(msg);
-        }
-        if (data && data.success === false) {
-          throw new Error(data.detail || data.error || "Unknown error");
-        }
-        return data;
+    if (typeof fetch === "function") {
+      var opts = { method: method, headers: { "Accept": "application/json" } };
+      if (method !== "GET") {
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(bodyObj || {});
+      }
+      return fetch(url, opts).then(function (res) {
+        return res.text().then(function (t) {
+          var data = null;
+          try { data = JSON.parse(t); } catch (e) {}
+          if (!res.ok) {
+            var msg = (data && (data.detail || data.error)) || t || ("HTTP " + res.status);
+            throw new Error(msg);
+          }
+          if (data && data.success === false) {
+            throw new Error(data.detail || data.error || "Unknown error");
+          }
+          return data;
+        });
       });
+    }
+
+    return new Promise(function (resolve, reject) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.setRequestHeader("Accept", "application/json");
+        if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          var text = xhr.responseText || "";
+          var data = null;
+          try { data = JSON.parse(text); } catch (e) {}
+          if (xhr.status < 200 || xhr.status >= 300) {
+            reject(new Error((data && (data.detail || data.error)) || text || ("HTTP " + xhr.status)));
+            return;
+          }
+          if (data && data.success === false) {
+            reject(new Error(data.detail || data.error || "Unknown error"));
+            return;
+          }
+          resolve(data);
+        };
+        xhr.onerror = function () { reject(new Error("Network error")); };
+        xhr.send(method === "GET" ? null : JSON.stringify(bodyObj || {}));
+      } catch (e) {
+        reject(e);
+      }
     });
   }
 
@@ -175,972 +196,861 @@
   }
 
   // -----------------------------
-  // Normalize payload (supports multiple shapes)
+  // Data contract bridge (new vs legacy)
   // -----------------------------
-  function normalize(payload) {
-    payload = safeObj(payload);
-
-    // common wrappers
-    var data = safeObj(payload.data || payload.report || payload);
-
-    // meta
-    var meta = safeObj(data.meta || data.report_meta || data.report || data);
-
-    // canonical IDs
-    var report_id = pick(meta, ["report_id", "id", "reportId"], pick(data, ["report_id", "id"], ""));
-    var site_url = pick(meta, ["site_url", "url", "siteUrl", "website"], pick(data, ["site_url", "url"], ""));
-    var created_at = pick(meta, ["created_at", "createdAt", "report_date", "date"], pick(data, ["created_at", "createdAt"], ""));
-
-    // scores (may be 0..1 or 0..100)
-    var scores = safeObj(data.scores || data.score || meta.scores || meta.score || data.delivery_scores || {});
-    // signals / evidence
-    var signals = safeObj(data.delivery_signals || data.signals || meta.delivery_signals || meta.signals || {});
-    var evidence = safeObj(data.evidence || meta.evidence || signals.evidence || {});
-
-    // narrative
-    var narrative = data.narrative || meta.narrative || data.exec_narrative || meta.exec_narrative || null;
-
+  function pickHeader(data) {
+    data = safeObj(data);
+    if (data.header && typeof data.header === "object") return safeObj(data.header);
     return {
-      meta: {
-        report_id: report_id,
-        site_url: site_url,
-        created_at: created_at
-      },
-      scores: scores,
-      signals: signals,
-      evidence: evidence,
-      narrative: narrative,
-      raw: data
+      website: data.url || data.website || "",
+      report_id: data.report_id || "",
+      created_at: data.created_at || data.generated_at || ""
     };
   }
 
-  // -----------------------------
-  // Extract CWV / key metrics if available
-  // -----------------------------
-  function extractMetric(obj, keys) {
-    obj = safeObj(obj);
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      if (obj[k] != null) return obj[k];
-      // one level deep scan
-      for (var kk in obj) {
-        if (!obj.hasOwnProperty(kk)) continue;
-        var child = obj[kk];
-        if (child && typeof child === "object" && child[k] != null) return child[k];
-      }
-    }
-    return null;
+  function pickScores(data) {
+    data = safeObj(data);
+    if (data.scores && typeof data.scores === "object") return safeObj(data.scores);
+    var m = safeObj(data.metrics);
+    return safeObj(m.scores);
   }
 
-  function normalizeLcpSeconds(v) {
-    var n = Number(v);
-    if (!isFinite(n)) return null;
-    // PSI often gives ms
-    if (n > 20) n = n / 1000;
-    return n;
+  function pickSignals(data) {
+    data = safeObj(data);
+    if (Array.isArray(data.delivery_signals)) return data.delivery_signals;
+    var m = safeObj(data.metrics);
+    return asArray(m.delivery_signals);
   }
 
-  function normalizeInpMs(v) {
-    var n = Number(v);
-    if (!isFinite(n)) return null;
-    // if <5, assume seconds
-    if (n > 0 && n < 5) n = n * 1000;
-    return n;
+  function pickOverallSummary(data, overallScore) {
+    data = safeObj(data);
+    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
+    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
+      return data.narrative.overall_summary;
+    }
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
+    );
   }
 
-  // -----------------------------
-  // Scoring model (credible + conservative, but NO fake penalties for missing data)
-  // -----------------------------
-  function computeCategoryScores(scores, signals) {
-    scores = safeObj(scores);
-    signals = safeObj(signals);
-
-    // prefer provided scores first
-    var perf = asInt01or100(pick(scores, ["performance", "performance_score", "perf", "psi_performance"], null), null);
-    var mob = asInt01or100(pick(scores, ["mobile_experience", "mobile", "mobile_score"], null), null);
-    var seo = asInt01or100(pick(scores, ["seo", "seo_score"], null), null);
-    var sec = asInt01or100(pick(scores, ["security", "security_score", "best_practices", "best_practices_score"], null), null);
-    var structure = asInt01or100(pick(scores, ["structure", "structure_score", "semantics", "semantics_score"], null), null);
-    var a11y = asInt01or100(pick(scores, ["accessibility", "accessibility_score", "a11y"], null), null);
-
-    // sensible fallback: if mobile missing, use performance (NOT a penalty)
-    if (mob == null && perf != null) mob = perf;
-
-    // last-resort fallbacks: if any are missing, set to null (excluded from overall)
-    return {
-      performance: perf,
-      mobile: mob,
-      seo: seo,
-      security: sec,
-      structure: structure,
-      accessibility: a11y
-    };
+  function pickNarrative(data) {
+    data = safeObj(data);
+    return data.narrative || "";
   }
 
-  function computeOverallScore(cat, signals) {
-    cat = safeObj(cat);
-    signals = safeObj(signals);
-
-    // Weights (must sum to 1 across included categories)
-    var weights = {
-      performance: 0.30,
-      mobile: 0.20,
-      security: 0.20,
-      seo: 0.15,
-      accessibility: 0.10,
-      structure: 0.05
-    };
-
-    var sumW = 0;
-    var sum = 0;
-
-    function add(k) {
-      var v = cat[k];
-      if (v == null) return;
-      var w = weights[k];
-      sumW += w;
-      sum += (clamp(v, 0, 100) * w);
-    }
-
-    add("performance");
-    add("mobile");
-    add("security");
-    add("seo");
-    add("accessibility");
-    add("structure");
-
-    // If everything is missing, return 0 with clear messaging
-    if (sumW <= 0) return 0;
-
-    var total = Math.round(sum / sumW);
-
-    // Credibility caps based on hard facts (only if those facts exist)
-    var httpsOk = truthy(pick(signals, ["https_ok", "https", "ssl", "tls", "is_https"], null));
-    var mixed = truthy(pick(signals, ["mixed_content", "has_mixed_content"], null));
-
-    if (httpsOk === false) total = Math.min(total, 45);
-    if (mixed === true) total = Math.min(total, 60);
-
-    // CWV caps if present
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP", "largest_contentful_paint", "largestContentfulPaint"]));
-    var inp = normalizeInpMs(extractMetric(signals, ["inp", "INP", "interaction_to_next_paint", "interactionToNextPaint"]));
-    var cls = Number(extractMetric(signals, ["cls", "CLS", "cumulative_layout_shift", "cumulativeLayoutShift"]));
-
-    if (isFinite(lcp)) {
-      if (lcp > 6) total = Math.min(total, 60);
-      else if (lcp > 4) total = Math.min(total, 72);
-    }
-    if (isFinite(inp)) {
-      if (inp > 800) total = Math.min(total, 60);
-      else if (inp > 500) total = Math.min(total, 72);
-    }
-    if (isFinite(cls)) {
-      if (cls > 0.35) total = Math.min(total, 70);
-      else if (cls > 0.25) total = Math.min(total, 75);
-    }
-
-    return clamp(total, 0, 100);
+  function pickPsiEnvelope(data) {
+    data = safeObj(data);
+    if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
+    var metrics = safeObj(data.metrics);
+    if (metrics.psi && typeof metrics.psi === "object") return safeObj(metrics.psi);
+    return {};
   }
 
   // -----------------------------
-  // Priority engine (P0..P3) — only uses evidence we actually have
+  // Narrative status helpers
   // -----------------------------
-  function buildPriorities(cat, signals) {
-    cat = safeObj(cat);
-    signals = safeObj(signals);
+  function narrativeMetaStatus(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._status || "").toLowerCase();
+  }
 
-    var priorities = [];
+  function narrativeErrorMessage(narrative) {
+    if (!narrative || typeof narrative !== "object") return "";
+    var meta = safeObj(narrative._meta);
+    return String(meta._error || meta.error || "").trim();
+  }
 
-    var httpsOk = truthy(pick(signals, ["https_ok", "https", "ssl", "tls", "is_https"], null));
-    var mixed = truthy(pick(signals, ["mixed_content", "has_mixed_content"], null));
 
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP", "largest_contentful_paint", "largestContentfulPaint"]));
-    var inp = normalizeInpMs(extractMetric(signals, ["inp", "INP", "interaction_to_next_paint", "interactionToNextPaint"]));
-    var clsRaw = extractMetric(signals, ["cls", "CLS", "cumulative_layout_shift", "cumulativeLayoutShift"]);
-    var cls = Number(clsRaw);
+  // -----------------------------
+  // FIX: narrativeReady MUST match what UI can render
+  // -----------------------------
+  function narrativeReady(narrative) {
+    if (!narrative) return false;
 
-    // P0: HTTPS / mixed
-    if (httpsOk === false) {
-      priorities.push({
-        p: "P0",
-        title: "HTTPS not enforced",
-        impact: "Trust / Risk",
-        confidence: "High",
-        evidence: "Site is not consistently served over HTTPS.",
-        fix: "Force HTTPS redirects, validate TLS, and ensure all assets load securely."
-      });
+    // Legacy/plain text narrative => ready
+    if (typeof narrative === "string") {
+      return !!String(narrative || "").trim();
     }
 
-    if (mixed === true) {
-      priorities.push({
-        p: "P0",
-        title: "Mixed content detected",
-        impact: "Trust / Security",
-        confidence: "High",
-        evidence: "Secure page loads insecure resources.",
-        fix: "Update asset URLs to HTTPS and replace any insecure third-party resources."
-      });
-    }
+    if (typeof narrative !== "object") return false;
 
-    // P1: Performance constraint
-    if (cat.performance != null && cat.performance < 55) {
-      var ev = [];
-      if (isFinite(lcp)) ev.push("LCP " + (Math.round(lcp * 10) / 10) + "s");
-      if (isFinite(inp)) ev.push("INP " + Math.round(inp) + "ms");
-      if (isFinite(cls)) ev.push("CLS " + (Math.round(cls * 100) / 100));
-      priorities.push({
-        p: "P1",
-        title: "Mobile performance constraint",
-        impact: "Revenue / UX",
-        confidence: "High",
-        evidence: ev.length ? ev.join(" • ") : "Performance score below baseline.",
-        fix: "Reduce main-thread work (defer heavy JS), optimise hero media, and retest CWV."
-      });
-    }
+    var meta = safeObj(narrative._meta);
+    var st = String(meta._status || "").toLowerCase();
+    if (st === "generated") return true;
 
-    // P2: Security hardening (only if we have a security score)
-    if (cat.security != null && cat.security < 60) {
-      priorities.push({
-        p: "P2",
-        title: "Security hardening required",
-        impact: "Trust / Risk",
-        confidence: "Medium",
-        evidence: "Security posture scored below baseline.",
-        fix: "Add baseline headers (HSTS where safe, X-Frame-Options, Referrer-Policy, CSP) and verify no breakage."
-      });
-    }
+    var lines = narrative.overall && narrative.overall.lines;
+    return Array.isArray(lines) && lines.length > 0;
+  }
 
-    // P2: SEO (only if score exists)
-    if (cat.seo != null && cat.seo < 80) {
-      priorities.push({
-        p: "P2",
-        title: "SEO foundations need attention",
-        impact: "Traffic / Visibility",
-        confidence: "Medium",
-        evidence: "SEO score below strong baseline.",
-        fix: "Verify title/meta description, canonical, robots meta, and indexability signals."
-      });
-    }
+  function psiReadyFromData(data) {
+    var psi = pickPsiEnvelope(data);
 
-    if (!priorities.length) {
-      priorities.push({
-        p: "P3",
-        title: "No critical blockers detected",
-        impact: "Monitoring",
-        confidence: "Medium",
-        evidence: "No high-severity constraints were observed in this scan output.",
-        fix: "Continue incremental improvements and rescan after major changes."
-      });
-    }
+    if (psi && psi.enabled === false) return true;
+    if (psi && psi.pending === true) return false;
 
-    if (priorities.length > 5) priorities = priorities.slice(0, 5);
-    return priorities;
+    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
+    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
+
+    if (hasMobileFacts && hasDesktopFacts) return true;
+
+    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
+    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
+
+    return false;
   }
 
   // -----------------------------
-  // Renderers (match your report.html structure)
+  // DOM actions
   // -----------------------------
-  function renderTopMeta(meta, urlReportIdFallback) {
-    meta = safeObj(meta);
-
-    var site = pick(meta, ["site_url", "url", "siteUrl", "website"], "");
-    var rid = pick(meta, ["report_id", "id", "reportId"], urlReportIdFallback || "");
-    var created = pick(meta, ["created_at", "createdAt", "report_date", "date"], "");
-
-    var siteEl = $("siteUrl");
-    if (siteEl) {
-      siteEl.textContent = site || "—";
-      if (site) {
-        siteEl.setAttribute("href", site);
-      } else {
-        siteEl.setAttribute("href", "#");
-      }
-    }
-
-    if ($("reportId")) $("reportId").textContent = rid || "—";
-    if ($("reportDate")) $("reportDate").textContent = created ? formatDate(created) : "—";
-  }
-
-  function setOverallUI(score, note) {
-    var pill = $("overallPill");
-    var bar = $("overallBar");
-    var noteEl = $("overallNote");
-
-    var s = clamp(score, 0, 100);
-
-    // overallPill is plain text in your template (not a pill class)
-    if (pill) pill.textContent = s + "";
-
-    // overallBar is the INNER fill div in your template. Set width only.
-    if (bar) bar.style.width = s + "%";
-
-    if (noteEl) noteEl.textContent = note || "";
-  }
-
-  function renderSignalsGrid(scores, signals) {
-    var grid = $("signalsGrid");
-    if (!grid) return;
-
-    scores = safeObj(scores);
-    signals = safeObj(signals);
-
-    var cat = computeCategoryScores(scores, signals);
-
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP", "largest_contentful_paint", "largestContentfulPaint"]));
-    var inp = normalizeInpMs(extractMetric(signals, ["inp", "INP", "interaction_to_next_paint", "interactionToNextPaint"]));
-    var clsRaw = extractMetric(signals, ["cls", "CLS", "cumulative_layout_shift", "cumulativeLayoutShift"]);
-    var cls = Number(clsRaw);
-
-    function metricValue(v, kind) {
-      if (v == null) return "—";
-      var n = Number(v);
-      if (!isFinite(n)) return "—";
-      if (kind === "s") return (Math.round(n * 10) / 10) + "s";
-      if (kind === "ms") return Math.round(n) + "ms";
-      if (kind === "cls") return String(Math.round(n * 100) / 100);
-      return String(v);
-    }
-
-    // Use YOUR existing .card layout
-    var cards = [
-      {
-        title: "Performance",
-        score: cat.performance,
-        summary: buildPerformanceSummary(cat.performance, lcp, inp),
-        metrics: [
-          { k: "LCP", v: metricValue(lcp, "s") },
-          { k: "INP", v: metricValue(inp, "ms") },
-          { k: "CLS", v: metricValue(cls, "cls") }
-        ]
-      },
-      {
-        title: "Mobile Experience",
-        score: cat.mobile,
-        summary: buildMobileSummary(cat.mobile, lcp),
-        metrics: [
-          { k: "Viewport", v: String(pick(signals, ["viewport"], "—")) },
-          { k: "Tap targets", v: String(pick(signals, ["tap_targets"], "—")) }
-        ]
-      },
-      {
-        title: "SEO Foundations",
-        score: cat.seo,
-        summary: buildSeoSummary(cat.seo),
-        metrics: [
-          { k: "Title", v: String(pick(signals, ["title_present", "has_title"], "—")) },
-          { k: "Meta desc", v: String(pick(signals, ["meta_description_present", "has_meta_description"], "—")) }
-        ]
-      },
-      {
-        title: "Security & Trust",
-        score: cat.security,
-        summary: buildSecuritySummary(cat.security, signals),
-        metrics: [
-          { k: "HTTPS", v: String(pick(signals, ["https_ok", "https", "ssl", "tls"], "—")) },
-          { k: "Mixed content", v: String(pick(signals, ["mixed_content", "has_mixed_content"], "—")) }
-        ]
-      },
-      {
-        title: "Structure & Semantics",
-        score: cat.structure,
-        summary: buildStructureSummary(cat.structure),
-        metrics: [
-          { k: "Core inputs", v: buildCoreInputsPresent(signals) },
-          { k: "Document", v: buildDocSummary(signals) }
-        ]
-      },
-      {
-        title: "Accessibility",
-        score: cat.accessibility,
-        summary: buildA11ySummary(cat.accessibility),
-        metrics: [
-          { k: "Lang", v: String(pick(signals, ["lang_attr", "has_lang"], "—")) },
-          { k: "Alt text", v: String(pick(signals, ["img_alt_coverage", "alt_text"], "—")) }
-        ]
-      }
-    ];
-
-    var html = "";
-    for (var i = 0; i < cards.length; i++) {
-      var c = cards[i];
-      var s = (c.score == null ? null : clamp(c.score, 0, 100));
-
-      html += '<div class="card">';
-      html += '  <div class="card-top">';
-      html += '    <h3>' + escapeHtml(c.title) + '</h3>';
-      html += '    <div class="score-right">' + (s == null ? "—" : String(s)) + '</div>';
-      html += "  </div>";
-
-      // bar uses your existing .bar > div fill pattern
-      html += '  <div class="bar"><div style="width:' + (s == null ? 0 : s) + '%;"></div></div>';
-
-      html += '  <div class="summary">' + escapeHtml(c.summary || "") + "</div>";
-
-      // metrics list uses your existing .kv
-      html += '  <div class="evidence-list" style="margin-top:10px;">';
-      for (var j = 0; j < c.metrics.length; j++) {
-        html += '    <div class="kv"><div class="k">' + escapeHtml(c.metrics[j].k) + '</div><div class="v">' + escapeHtml(String(c.metrics[j].v)) + "</div></div>";
-      }
-      html += "  </div>";
-
-      html += "</div>";
-    }
-
-    grid.innerHTML = html;
-  }
-
-  function renderNarrative(narrative, priorities, cat, signals) {
-    var el = $("narrativeText");
-    if (!el) return;
-
-    // If narrative exists and has lines, show it exactly (your tone rules)
-    // Else: generate a deterministic fallback narrative (3–5 lines max)
-    var lines = [];
-
-    if (typeof narrative === "string" && narrative.trim()) {
-      el.innerHTML = escapeHtml(narrative);
-      return;
-    }
-
-    var nobj = (narrative && typeof narrative === "object") ? narrative : null;
-    if (nobj && nobj.overall && nobj.overall.lines && asArray(nobj.overall.lines).length) {
-      lines = asArray(nobj.overall.lines);
-    } else if (nobj && nobj.lines && asArray(nobj.lines).length) {
-      lines = asArray(nobj.lines);
-    }
-
-    if (lines.length) {
-      var out = "";
-      for (var i = 0; i < lines.length; i++) {
-        out += escapeHtml(String(lines[i])) + (i < lines.length - 1 ? "\n" : "");
-      }
-      el.textContent = out; // keep your CSS white-space: pre-line
-      return;
-    }
-
-    // Deterministic fallback narrative (credible, not AI-y)
-    cat = safeObj(cat);
-    signals = safeObj(signals);
-    priorities = asArray(priorities);
-
-    var site = $("siteUrl") ? $("siteUrl").textContent : "";
-    var perf = cat.performance;
-
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP", "largest_contentful_paint", "largestContentfulPaint"]));
-    var inp = normalizeInpMs(extractMetric(signals, ["inp", "INP", "interaction_to_next_paint", "interactionToNextPaint"]));
-
-    if (isNonEmptyString(site) && site !== "—") {
-      lines.push("This scan summarises measurable delivery signals for " + site + " to support an evidence-based fix order.");
-    } else {
-      lines.push("This scan summarises measurable delivery signals to support an evidence-based fix order.");
-    }
-
-    if (perf != null && perf < 55) {
-      var bits = [];
-      if (isFinite(lcp)) bits.push("LCP " + (Math.round(lcp * 10) / 10) + "s");
-      if (isFinite(inp)) bits.push("INP " + Math.round(inp) + "ms");
-      lines.push("Primary constraint is performance on mobile (" + perf + "/100" + (bits.length ? "; " + bits.join(", ") : "") + "), which can delay interaction and perceived readiness.");
-    } else if (perf != null) {
-      lines.push("Performance baseline is " + perf + "/100; remaining work is likely incremental optimisation rather than a single blocker.");
-    }
-
-    if (priorities.length) {
-      lines.push("Fix order: start with " + priorities[0].p + " — " + priorities[0].title + ", then rescan to confirm movement before tackling lower-impact items.");
-    }
-
-    lines.push("This report avoids guesswork: if a signal isn’t observable in the scan output, it’s shown as not available.");
-
-    // enforce your locked constraints: 3–5 lines max
-    if (lines.length > 5) lines = lines.slice(0, 5);
-
-    el.textContent = lines.join("\n");
-  }
-
-  function renderKeyInsights(priorities, cat) {
-    var root = $("keyMetricsRoot");
-    if (!root) return;
-
-    priorities = asArray(priorities);
-    cat = safeObj(cat);
-
-    var strength = strongestDomain(cat);
-    var risk = weakestDomain(cat);
-
-    var focus = priorities.length ? (priorities[0].p + ": " + priorities[0].title) : "Not available from this scan output.";
-    var next = priorities.length ? ("Address: " + priorities[0].title + " (then re-scan to confirm).") : "Re-scan after changes to confirm improvement.";
-
-    root.innerHTML =
-      '<div class="insight-list">' +
-      '  <div class="insight"><div class="tag">Strength</div><div class="text">' + escapeHtml(strength) + "</div></div>" +
-      '  <div class="insight"><div class="tag">Risk</div><div class="text">' + escapeHtml(risk) + "</div></div>" +
-      '  <div class="insight"><div class="tag">Focus</div><div class="text">' + escapeHtml(focus) + "</div></div>" +
-      '  <div class="insight"><div class="tag">Next</div><div class="text">' + escapeHtml(next) + "</div></div>" +
-      "</div>";
-  }
-
-  function renderTopIssues(priorities) {
-    var root = $("topIssuesRoot");
-    if (!root) return;
-
-    priorities = asArray(priorities);
-
-    var html = "";
-    if (!priorities.length) {
-      html =
-        '<div class="issue">' +
-        '  <div class="issue-top"><p class="issue-title">No high severity issues detected</p><span class="issue-label">Monitor</span></div>' +
-        '  <div class="issue-why">This scan did not surface constraints that require urgent action.</div>' +
-        "</div>";
-      root.innerHTML = html;
-      return;
-    }
-
-    for (var i = 0; i < priorities.length; i++) {
-      var it = priorities[i];
-      var sev = it.p || "P2";
-      var badge = (sev === "P0" || sev === "P1") ? "HIGH" : "HIGH"; // keep your existing badge style
-      var why = (it.evidence ? it.evidence : "Evidence captured in scan output.") + " " +
-                (it.fix ? ("Fix direction: " + it.fix) : "");
-
-      html +=
-        '<div class="issue">' +
-        '  <div class="issue-top"><p class="issue-title">' + escapeHtml(it.title) + '</p><span class="issue-label">' + escapeHtml(badge) + "</span></div>" +
-        '  <div class="issue-why">' + escapeHtml(why) + "</div>" +
-        "</div>";
-    }
-
-    root.innerHTML = html;
-  }
-
-  function renderFixSequence(priorities) {
-    var root = $("fixSequenceRoot");
-    if (!root) return;
-
-    priorities = asArray(priorities);
-
-    // Build an agency-ready phased sequence from priorities
-    var phase1 = [];
-    var phase2 = [];
-    var phase3 = [];
-
-    for (var i = 0; i < priorities.length; i++) {
-      var p = priorities[i].p;
-      if (p === "P0" || p === "P1") phase1.push(priorities[i]);
-      else if (p === "P2") phase2.push(priorities[i]);
-      else phase3.push(priorities[i]);
-    }
-
-    function itemsToLis(list) {
-      if (!list.length) return "<li>No items flagged in this phase from the current scan output.</li>";
-      var out = "";
-      for (var j = 0; j < list.length; j++) {
-        out += "<li><b>" + escapeHtml(list[j].title) + ":</b> " + escapeHtml(list[j].fix || "Apply targeted improvements, then re-scan.") + "</li>";
-      }
-      return out;
-    }
-
-    var html = "";
-
-    html +=
-      '<div class="phase">' +
-      '  <div class="phase-head"><p class="phase-title">Phase 1 — Fast wins</p><div class="phase-time">Today / This week</div></div>' +
-      '  <div class="phase-body"><ul>' + itemsToLis(phase1) + "</ul></div>" +
-      "</div>";
-
-    html +=
-      '<div class="phase">' +
-      '  <div class="phase-head"><p class="phase-title">Phase 2 — Structural improvements</p><div class="phase-time">1–3 weeks</div></div>' +
-      '  <div class="phase-body"><ul>' + itemsToLis(phase2) + "</ul></div>" +
-      "</div>";
-
-    html +=
-      '<div class="phase">' +
-      '  <div class="phase-head"><p class="phase-title">Phase 3 — Hardening & trust</p><div class="phase-time">Ongoing</div></div>' +
-      '  <div class="phase-body"><ul>' + itemsToLis(phase3) + "</ul></div>" +
-      "</div>";
-
-    root.innerHTML = html + '<div class="summary muted" style="font-size:12px;">This sequence is designed to be practical: measurable wins first, structural improvements second, long-term hardening last.</div>';
-  }
-
-  function renderSignalEvidence(signals, cat) {
-    var root = $("signalEvidenceRoot");
-    if (!root) return;
-
-    signals = safeObj(signals);
-    cat = safeObj(cat);
-
-    // Build 6 accordion blocks that match your print behavior (details.evidence-block)
-    var blocks = [
-      { key: "Performance", score: cat.performance, rows: buildEvidencePerf(signals) },
-      { key: "Mobile Experience", score: cat.mobile, rows: buildEvidenceMobile(signals) },
-      { key: "SEO Foundations", score: cat.seo, rows: buildEvidenceSEO(signals) },
-      { key: "Security & Trust", score: cat.security, rows: buildEvidenceSec(signals) },
-      { key: "Structure & Semantics", score: cat.structure, rows: buildEvidenceStructure(signals) },
-      { key: "Accessibility", score: cat.accessibility, rows: buildEvidenceA11y(signals) }
-    ];
-
-    var html = "";
-    for (var i = 0; i < blocks.length; i++) {
-      var b = blocks[i];
-      html += '<details class="evidence-block" open>';
-      html += '  <summary><span class="acc-title">' + escapeHtml(b.key) + '</span><span class="acc-score">' + (b.score == null ? "—/100" : (clamp(b.score,0,100) + "/100")) + "</span></summary>";
-      html += '  <div class="acc-body">';
-      html += '    <div class="evidence-list">';
-
-      var rows = asArray(b.rows);
-      if (!rows.length) {
-        html += '      <div class="kv"><div class="k">Observed</div><div class="v">Not available</div></div>';
-      } else {
-        for (var j = 0; j < rows.length; j++) {
-          html += '      <div class="kv"><div class="k">' + escapeHtml(rows[j].k) + '</div><div class="v">' + escapeHtml(String(rows[j].v)) + "</div></div>";
-        }
-      }
-
-      html += "    </div>";
-      html += "  </div>";
-      html += "</details>";
-    }
-
-    root.innerHTML = html;
-  }
-
-  // -----------------------------
-  // Evidence builders (safe + observable)
-  // -----------------------------
-  function buildEvidencePerf(signals) {
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP", "largest_contentful_paint", "largestContentfulPaint"]));
-    var inp = normalizeInpMs(extractMetric(signals, ["inp", "INP", "interaction_to_next_paint", "interactionToNextPaint"]));
-    var clsRaw = extractMetric(signals, ["cls", "CLS", "cumulative_layout_shift", "cumulativeLayoutShift"]);
-    var cls = Number(clsRaw);
-
-    var rows = [];
-    if (isFinite(lcp)) rows.push({ k: "LCP", v: (Math.round(lcp * 10) / 10) + "s" });
-    if (isFinite(inp)) rows.push({ k: "INP", v: Math.round(inp) + "ms" });
-    if (isFinite(cls)) rows.push({ k: "CLS", v: (Math.round(cls * 100) / 100) });
-
-    var tbt = extractMetric(signals, ["tbt", "TBT", "total_blocking_time"]);
-    var tbtN = Number(tbt);
-    if (isFinite(tbtN)) rows.push({ k: "Total Blocking Time", v: Math.round(tbtN) + "ms" });
-
-    var htmlKb = extractMetric(signals, ["html_kb", "document_kb", "html_size_kb"]);
-    if (htmlKb != null) rows.push({ k: "HTML size", v: String(htmlKb) });
-
-    var inlineScripts = extractMetric(signals, ["inline_scripts", "inline_script_count"]);
-    if (inlineScripts != null) rows.push({ k: "Inline scripts", v: String(inlineScripts) });
-
-    return rows;
-  }
-
-  function buildEvidenceMobile(signals) {
-    var rows = [];
-    var viewport = pick(signals, ["viewport"], null);
-    if (viewport != null) rows.push({ k: "Viewport meta", v: String(viewport) });
-
-    var tap = pick(signals, ["tap_targets"], null);
-    if (tap != null) rows.push({ k: "Tap targets", v: String(tap) });
-
-    var lcp = normalizeLcpSeconds(extractMetric(signals, ["lcp", "LCP"]));
-    if (isFinite(lcp)) rows.push({ k: "Mobile readiness (LCP)", v: (Math.round(lcp * 10) / 10) + "s" });
-
-    return rows;
-  }
-
-  function buildEvidenceSEO(signals) {
-    var rows = [];
-    var title = pick(signals, ["title_present", "has_title"], null);
-    if (title != null) rows.push({ k: "Title present", v: String(title) });
-
-    var meta = pick(signals, ["meta_description_present", "has_meta_description"], null);
-    if (meta != null) rows.push({ k: "Meta description", v: String(meta) });
-
-    var canonical = pick(signals, ["canonical_present", "has_canonical"], null);
-    if (canonical != null) rows.push({ k: "Canonical", v: String(canonical) });
-
-    var robots = pick(signals, ["robots_meta", "robots"], null);
-    if (robots != null) rows.push({ k: "Robots meta", v: String(robots) });
-
-    return rows;
-  }
-
-  function buildEvidenceSec(signals) {
-    var rows = [];
-    var httpsOk = pick(signals, ["https_ok", "https", "ssl", "tls"], null);
-    if (httpsOk != null) rows.push({ k: "HTTPS", v: String(httpsOk) });
-
-    var mixed = pick(signals, ["mixed_content", "has_mixed_content"], null);
-    if (mixed != null) rows.push({ k: "Mixed content", v: String(mixed) });
-
-    // Common security header checks if your scan captures them
-    var hsts = pick(signals, ["hsts"], null);
-    if (hsts != null) rows.push({ k: "HSTS", v: String(hsts) });
-
-    var csp = pick(signals, ["csp"], null);
-    if (csp != null) rows.push({ k: "CSP", v: String(csp) });
-
-    var xfo = pick(signals, ["x_frame_options", "xfo"], null);
-    if (xfo != null) rows.push({ k: "X-Frame-Options", v: String(xfo) });
-
-    var refpol = pick(signals, ["referrer_policy", "referrerPolicy"], null);
-    if (refpol != null) rows.push({ k: "Referrer-Policy", v: String(refpol) });
-
-    return rows;
-  }
-
-  function buildEvidenceStructure(signals) {
-    var rows = [];
-    var h1 = pick(signals, ["h1_count"], null);
-    if (h1 != null) rows.push({ k: "H1 count", v: String(h1) });
-
-    var lang = pick(signals, ["lang_attr", "has_lang"], null);
-    if (lang != null) rows.push({ k: "Lang attribute", v: String(lang) });
-
-    var viewport = pick(signals, ["viewport"], null);
-    if (viewport != null) rows.push({ k: "Viewport meta", v: String(viewport) });
-
-    var canonical = pick(signals, ["canonical_present", "has_canonical"], null);
-    if (canonical != null) rows.push({ k: "Canonical", v: String(canonical) });
-
-    return rows;
-  }
-
-  function buildEvidenceA11y(signals) {
-    var rows = [];
-    var lang = pick(signals, ["lang_attr", "has_lang"], null);
-    if (lang != null) rows.push({ k: "Lang attribute", v: String(lang) });
-
-    var alt = pick(signals, ["img_alt_coverage", "alt_text"], null);
-    if (alt != null) rows.push({ k: "Alt coverage", v: String(alt) });
-
-    var labels = pick(signals, ["form_labels", "labels_present"], null);
-    if (labels != null) rows.push({ k: "Form labels", v: String(labels) });
-
-    return rows;
-  }
-
-  // -----------------------------
-  // Summary builders (short, credible)
-  // -----------------------------
-  function buildPerformanceSummary(score, lcp, inp) {
-    if (score == null) return "Performance score is not available from this scan output.";
-    var parts = [];
-    if (isFinite(lcp)) parts.push("LCP " + (Math.round(lcp * 10) / 10) + "s");
-    if (isFinite(inp)) parts.push("INP " + Math.round(inp) + "ms");
-    if (score < 55) {
-      return "Mobile performance is below baseline (" + score + "/100)" + (parts.length ? " (" + parts.join(", ") + ")." : ".") + " This can delay interaction and perceived readiness.";
-    }
-    return "Performance baseline is " + score + "/100" + (parts.length ? " (" + parts.join(", ") + ")." : ".") + " Remaining work is likely incremental optimisation.";
-  }
-
-  function buildMobileSummary(score, lcp) {
-    if (score == null) return "Mobile experience score is not available from this scan output.";
-    if (isFinite(lcp)) return "Mobile visual readiness is constrained (LCP " + (Math.round(lcp * 10) / 10) + "s).";
-    return "Mobile experience score is " + score + "/100 from observable mobile-first checks.";
-  }
-
-  function buildSeoSummary(score) {
-    if (score == null) return "SEO foundations score is not available from this scan output.";
-    if (score >= 90) return "SEO foundations are strong (" + score + "/100) based on deterministic checks in this scan.";
-    return "SEO foundations are " + score + "/100 from deterministic checks. Issues detected may be worth prioritising.";
-  }
-
-  function buildSecuritySummary(score, signals) {
-    if (score == null) return "Security posture score is not available from this scan output.";
-    var httpsOk = truthy(pick(signals, ["https_ok", "https", "ssl", "tls"], null));
-    var mixed = truthy(pick(signals, ["mixed_content", "has_mixed_content"], null));
-    if (httpsOk === false) return "HTTPS is not consistently enforced, which is a trust risk.";
-    if (mixed === true) return "Mixed content reduces security posture and can break modern browser protections.";
-    if (score < 60) return "Security posture is below baseline (" + score + "/100). Hardening headers is recommended after verifying compatibility.";
-    return "Security posture is " + score + "/100 from observable TLS and header signals.";
-  }
-
-  function buildStructureSummary(score) {
-    if (score == null) return "Core document structure inputs are not available from this scan output.";
-    if (score >= 90) return "Core document structure inputs are present (title/H1/viewport).";
-    return "Structure score is " + score + "/100. Improving document-level fundamentals can support SEO and accessibility together.";
-  }
-
-  function buildA11ySummary(score) {
-    if (score == null) return "Accessibility score is not available from this scan output.";
-    if (score >= 90) return "No significant issues were flagged for this signal in this scan.";
-    return "Accessibility score is " + score + "/100. Automated checks suggest improvements may be worth scheduling.";
-  }
-
-  function buildCoreInputsPresent(signals) {
-    var hasTitle = truthy(pick(signals, ["title_present", "has_title"], null));
-    var h1 = pick(signals, ["h1_count"], null);
-    var hasViewport = isNonEmptyString(pick(signals, ["viewport"], "")) ? true : null;
-    var bits = [];
-    if (hasTitle != null) bits.push("Title " + (hasTitle ? "ok" : "missing"));
-    if (h1 != null) bits.push("H1 " + String(h1));
-    if (hasViewport != null) bits.push("Viewport " + (hasViewport ? "ok" : "missing"));
-    return bits.length ? bits.join(" • ") : "—";
-  }
-
-  function buildDocSummary(signals) {
-    var canonical = truthy(pick(signals, ["canonical_present", "has_canonical"], null));
-    var lang = truthy(pick(signals, ["lang_attr", "has_lang"], null));
-    var bits = [];
-    if (canonical != null) bits.push("Canonical " + (canonical ? "ok" : "missing"));
-    if (lang != null) bits.push("Lang " + (lang ? "ok" : "missing"));
-    return bits.length ? bits.join(" • ") : "—";
-  }
-
-  // -----------------------------
-  // Domain strength/risk helpers
-  // -----------------------------
-  function strongestDomain(cat) {
-    var bestK = null;
-    var bestV = -1;
-
-    for (var k in cat) {
-      if (!cat.hasOwnProperty(k)) continue;
-      var v = cat[k];
-      if (v == null) continue;
-      if (v > bestV) { bestV = v; bestK = k; }
-    }
-    if (bestK == null) return "Not available from this scan output.";
-
-    return labelDomain(bestK) + " is strongest (" + bestV + "/100).";
-  }
-
-  function weakestDomain(cat) {
-    var worstK = null;
-    var worstV = 999;
-
-    for (var k in cat) {
-      if (!cat.hasOwnProperty(k)) continue;
-      var v = cat[k];
-      if (v == null) continue;
-      if (v < worstV) { worstV = v; worstK = k; }
-    }
-    if (worstK == null) return "Not available from this scan output.";
-
-    return labelDomain(worstK) + " is the main risk (" + worstV + "/100).";
-  }
-
-  function labelDomain(k) {
-    if (k === "performance") return "Performance";
-    if (k === "mobile") return "Mobile Experience";
-    if (k === "seo") return "SEO Foundations";
-    if (k === "security") return "Security & Trust";
-    if (k === "structure") return "Structure & Semantics";
-    if (k === "accessibility") return "Accessibility";
-    return k;
-  }
-
-  // -----------------------------
-  // Loader
-  // -----------------------------
-  function showLoader(msg) {
-    var loader = $("loaderSection");
-    var root = $("reportRoot");
-    if (loader) loader.style.display = "flex";
-    if (root) root.style.display = "none";
-    if ($("loaderStatus") && msg) $("loaderStatus").textContent = msg;
-  }
-
-  function hideLoader() {
+  function showReport() {
     var loader = $("loaderSection");
     var root = $("reportRoot");
     if (loader) loader.style.display = "none";
     if (root) root.style.display = "block";
   }
 
-  // -----------------------------
-  // Main render
-  // -----------------------------
-  function renderAll(norm, urlReportId) {
-    var meta = safeObj(norm.meta);
-    var scores = safeObj(norm.scores);
-    var signals = safeObj(norm.signals);
-    var narrative = norm.narrative;
+  function setHeaderUI(header) {
+    header = safeObj(header);
 
-    renderTopMeta(meta, urlReportId);
+    var site = $("siteUrl");
+    var reportId = $("reportId");
+    var reportDate = $("reportDate");
 
-    var cat = computeCategoryScores(scores, signals);
-    var overall = computeOverallScore(cat, signals);
-    var priorities = buildPriorities(cat, signals);
+    var website = String(header.website || "").trim();
+    var rid = String(header.report_id || "").trim();
+    var created = header && (header.report_date || header.created_at || header.generated_at);
 
-    setOverallUI(overall, "Overall delivery is " + verdict(overall).toLowerCase() + ". This score reflects deterministic checks only and does not measure brand or content effectiveness.");
-    renderSignalsGrid(scores, signals);
+    if (site) {
+      site.textContent = website || "—";
+      if (website) {
+        site.href = website.indexOf("http") === 0 ? website : ("https://" + website);
+      } else {
+        site.removeAttribute("href");
+      }
+    }
+    if (reportId) reportId.textContent = rid || "—";
+    if (reportDate) reportDate.textContent = formatDate(created);
+  }
 
-    renderSignalEvidence(signals, cat);
-    renderKeyInsights(priorities, cat);
-    renderTopIssues(priorities);
-    renderFixSequence(priorities);
-    renderNarrative(narrative, priorities, cat, signals);
+  function setOverallUI(scores, overallSummary) {
+    scores = safeObj(scores);
+    var overall = asInt(scores.overall, 0);
+
+    var pill = $("overallPill");
+    var bar = $("overallBar");
+    var note = $("overallNote");
+
+    if (pill) pill.textContent = String(overall);
+    if (bar) bar.style.width = overall + "%";
+    if (note) note.textContent = overallSummary || "";
   }
 
   // -----------------------------
-  // Boot
+  // Executive Narrative rendering
   // -----------------------------
-  function boot() {
-    var reportId = getReportIdFromUrl();
-    if (!reportId) {
-      var root = $("reportRoot");
-      if (root) root.innerHTML = '<div class="card"><div class="summary">Missing report_id in URL.</div></div>';
+  function renderNarrative(narrative, state) {
+    var el = $("narrativeText");
+    if (!el) return false;
+
+    state = safeObj(state);
+    var psiReady = !!state.psiReady;
+
+    // Show blocked/error states (so "nothing" doesn't look like it hangs forever)
+    if (narrative && typeof narrative === "object") {
+      var st = narrativeMetaStatus(narrative);
+      if (st === "blocked_insufficient_specificity") {
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Waiting for a site-specific anchor fact.</strong><br>" +
+            "This scan does not yet contain a reliable uniqueness anchor (e.g., complete mobile+desktop PSI, canonical/H1 evidence, or trust hardening evidence).<br>" +
+            "Leave this page open or refresh once PSI completes." +
+          "</div>";
+        return false;
+      }
+      if (st === "error") {
+        var em = narrativeErrorMessage(narrative);
+        el.innerHTML =
+          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
+            "<strong>Narrative generation error.</strong><br>" +
+            (em ? ("<span>" + escapeHtml(em) + "</span><br>") : "") +
+            "Try refresh, or add <code>?regen=1</code> to force a rebuild." +
+          "</div>";
+        return false;
+      }
+    }
+
+    if (!narrative) {
+      el.innerHTML =
+        "<div class='muted' style='font-size:12px;'>" +
+          (psiReady ? "Building narrative" : "Building Narrative") +
+          dotsHtml() +
+        "</div>";
+      return false;
+    }
+
+    if (typeof narrative === "object") {
+      var overallLines = asArray(narrative.overall && narrative.overall.lines);
+      if (overallLines.length) {
+        var html = "";
+        for (var i = 0; i < overallLines.length; i++) {
+          var s = String(overallLines[i] || "").trim();
+          if (!s) continue;
+          html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
+        }
+        if (html) {
+          el.innerHTML = html;
+          return true;
+        }
+      }
+
+      if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
+        var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
+        var out = "";
+        for (var j = 0; j < parts.length; j++) {
+          var t = String(parts[j] || "").trim();
+          if (!t) continue;
+          out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
+        }
+        if (out) {
+          el.innerHTML = out;
+          return true;
+        }
+      }
+    }
+
+    if (typeof narrative === "string" && narrative.trim()) {
+      var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
+      if (blocks.length < 2) blocks = narrative.split("\n");
+
+      var html2 = "";
+      for (var k = 0; k < blocks.length; k++) {
+        var b = String(blocks[k] || "").trim();
+        if (!b) continue;
+        html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
+      }
+      if (html2) {
+        el.innerHTML = html2;
+        return true;
+      }
+    }
+
+    el.innerHTML =
+      "<div class='muted' style='font-size:12px;'>" +
+        (psiReady ? "Building narrative" : "Building Narrative") +
+        dotsHtml() +
+      "</div>";
+    return false;
+  }
+
+  // -----------------------------
+  // What to Fix First (and Why) block
+  // -----------------------------
+  function renderFixFirstBlock(narrative) {
+    var root = $("fixFirstBlock");
+    if (!root) return false;
+
+    if (!narrative || typeof narrative !== "object") {
+      root.innerHTML = "";
+      return false;
+    }
+
+    var ff = safeObj(narrative.fix_first);
+    var fixFirst = String(ff.fix_first || "").trim();
+    var why = asArray(ff.why).filter(Boolean);
+    var waitOn = asArray(ff.deprioritise).filter(Boolean);
+    var outcome = asArray(ff.expected_outcome).filter(Boolean);
+
+    if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
+      root.innerHTML = "";
+      return false;
+    }
+
+    function list(items) {
+      if (!items || !items.length) return "<div class='muted' style='font-size:12px;'>—</div>";
+      var html = "<ul style='margin:8px 0 0 18px; padding:0;'>";
+      for (var i = 0; i < items.length; i++) {
+        var s = String(items[i] || "").trim();
+        if (!s) continue;
+        html += "<li style='margin:0 0 6px 0; line-height:1.5;'>" + escapeHtml(s) + "</li>";
+      }
+      html += "</ul>";
+      return html;
+    }
+
+    var htmlOut = "";
+    htmlOut += "<div class='card' style='margin-top:14px;'>";
+    htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
+    htmlOut += "<h3 style='margin:0;'>What to Fix First (and Why)</h3>";
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
+    htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
+    htmlOut += list(why);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>";
+    htmlOut += list(waitOn);
+    htmlOut += "</div>";
+
+    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>";
+    htmlOut += list(outcome);
+    htmlOut += "</div>";
+
+    htmlOut += "</div>";
+    htmlOut += "</div>";
+
+    root.innerHTML = htmlOut;
+    return true;
+  }
+
+  // -----------------------------
+  // Delivery signal cards
+  // -----------------------------
+  function renderSignalsGrid(signals, narrative, opts) {
+    var grid = $("signalsGrid");
+    if (!grid) return;
+
+    opts = safeObj(opts);
+    var psiReady = !!opts.psiReady;
+    var narrReady = !!opts.narrativeReady;
+
+    signals = asArray(signals);
+    grid.innerHTML = "";
+
+    var narrSignals = {};
+    if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
+      narrSignals = narrative.signals;
+    }
+
+    function keyFor(sig) {
+      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
+      if (id.indexOf("perf") !== -1) return "performance";
+      if (id.indexOf("mobile") !== -1) return "mobile";
+      if (id.indexOf("seo") !== -1) return "seo";
+      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
+      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
+      if (id.indexOf("access") !== -1) return "accessibility";
+      return (sig && sig.id) ? String(sig.id) : "";
+    }
+
+    function fallbackSummary(sig) {
+      var score = asInt(sig.score, 0);
+      var label = String(sig.label || sig.id || "This signal");
+      var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
+
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+
+      if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
+      if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
+      if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
+
+      return s;
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var score = asInt(sig.score, 0);
+
+      var k = keyFor(sig);
+      var lines = [];
+      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
+
+      var summaryHtml = "";
+      if (!psiReady) {
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
+      } else if (!narrReady && !lines.length) {
+        summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
+      } else {
+        var summary = "";
+        if (lines.length) summary = String(lines.join("\n"));
+        else summary = fallbackSummary(sig);
+        summaryHtml = escapeHtml(summary).replace(/\n/g, "<br>");
+      }
+
+      var card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML =
+        '<div class="card-top">' +
+          "<h3>" + escapeHtml(label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+        "</div>" +
+        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+        '<div class="summary">' + summaryHtml + "</div>";
+
+      grid.appendChild(card);
+    }
+  }
+
+  // -----------------------------
+  // Signal Evidence (accordions per signal)
+  // -----------------------------
+  function renderSignalEvidence(signals) {
+    var root = $("signalEvidenceRoot");
+    if (!root) return;
+
+    signals = asArray(signals);
+    root.innerHTML = "";
+
+    function kvHtml(k, v) {
+      var val = v;
+      if (val === null || typeof val === "undefined") val = "—";
+      if (typeof val === "boolean") val = val ? "true" : "false";
+      return (
+        '<div class="kv">' +
+          '<div class="k">' + escapeHtml(String(k)) + "</div>" +
+          '<div class="v">' + escapeHtml(String(val)) + "</div>" +
+        "</div>"
+      );
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var score = asInt(sig.score, 0);
+      var issues = asArray(sig.issues);
+      var obs = asArray(sig.observations);
+      var deds = asArray(sig.deductions);
+      var evidence = safeObj(sig.evidence);
+
+      var det = document.createElement("details");
+      det.className = "evidence-block";
+      det.open = false;
+
+      var summary =
+        '<summary>' +
+          '<div class="acc-title">' + escapeHtml(label) + "</div>" +
+          '<div class="acc-score">' + escapeHtml(String(score)) + "/100</div>" +
+        "</summary>";
+
+      var body = '<div class="acc-body">';
+
+      if (issues.length) {
+        body += "<div class='evidence-title'>Issues</div>";
+        for (var j = 0; j < issues.length; j++) {
+          var it = safeObj(issues[j]);
+          var t = String(it.title || it.id || "Issue");
+          var sev = String(it.severity || "").toUpperCase();
+          var impact = String(it.impact || it.detail || it.description || "");
+          body += "<div class='issue' style='margin-bottom:10px;'>";
+          body += "<div class='issue-top'>";
+          body += "<p class='issue-title'>" + escapeHtml(t) + "</p>";
+          body += "<span class='issue-label'>" + escapeHtml(sev || "Monitor") + "</span>";
+          body += "</div>";
+          if (impact) body += "<div class='issue-why impact-text'>" + escapeHtml(impact) + "</div>";
+          body += "</div>";
+        }
+      }
+
+      if (deds.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
+        body += "<div class='evidence-list'>";
+        for (var k = 0; k < deds.length; k++) {
+          var dd = safeObj(deds[k]);
+          var pts = dd.points;
+          var reason = dd.reason || dd.code || "";
+          body += kvHtml((pts != null ? ("-" + pts + " pts") : "Deduction"), reason);
+        }
+        body += "</div>";
+      }
+
+      if (obs.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
+        body += "<div class='evidence-list'>";
+        for (var m = 0; m < obs.length; m++) {
+          var o = safeObj(obs[m]);
+          body += kvHtml(o.label || ("Observation " + (m + 1)), o.value);
+        }
+        body += "</div>";
+      }
+
+      var eKeys = Object.keys(evidence || {});
+      if (eKeys.length) {
+        body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
+        body += "<div class='evidence-list'>";
+        for (var n = 0; n < eKeys.length; n++) {
+          var ek = eKeys[n];
+          body += kvHtml(ek, evidence[ek]);
+        }
+        body += "</div>";
+      }
+
+      body += "</div>";
+
+      det.innerHTML = summary + body;
+      root.appendChild(det);
+    }
+
+    if (!signals.length) {
+      root.innerHTML = "<div class='muted'>No evidence blocks returned.</div>";
+    }
+  }
+
+  // -----------------------------
+  // Key Insight Metrics
+  // -----------------------------
+  function renderKeyInsights(scores, signals) {
+    var root = $("keyMetricsRoot");
+    if (!root) return;
+
+    scores = safeObj(scores);
+    signals = asArray(signals);
+
+    var items = [
+      { key: "Strength", text: "Not available from this scan output yet." },
+      { key: "Risk",     text: "Not available from this scan output yet." },
+      { key: "Focus",    text: "Not available from this scan output yet." },
+      { key: "Next",     text: "Not available from this scan output yet." }
+    ];
+
+    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var best = { k: "", v: -1 };
+    var worst = { k: "", v: 999 };
+
+    for (var i = 0; i < domains.length; i++) {
+      var k = domains[i];
+      if (typeof scores[k] === "undefined") continue;
+      var v = asInt(scores[k], 0);
+      if (v > best.v) best = { k: k, v: v };
+      if (v < worst.v) worst = { k: k, v: v };
+    }
+
+    if (best.k) items[0].text = best.k.toUpperCase() + " is strongest (" + best.v + "/100).";
+    if (worst.k) items[1].text = worst.k.toUpperCase() + " is the main risk (" + worst.v + "/100).";
+
+    var focus = "";
+    var next = "";
+
+    for (var s = 0; s < signals.length; s++) {
+      var sig = safeObj(signals[s]);
+      var issues = asArray(sig.issues);
+      if (issues.length) {
+        var it = safeObj(issues[0]);
+        focus = String(it.title || it.id || "").trim();
+        next = "Address: " + focus + " (then re-scan to confirm).";
+        break;
+      }
+    }
+
+    if (!focus) {
+      for (var d = 0; d < signals.length; d++) {
+        var sd = safeObj(signals[d]);
+        var deds = asArray(sd.deductions);
+        if (deds.length) {
+          focus = String(deds[0].reason || deds[0].code || "").trim();
+          next = "Fix: " + focus + " (then re-scan).";
+          break;
+        }
+      }
+    }
+
+    if (focus) items[2].text = focus;
+    if (next) items[3].text = next;
+
+    var html = '<div class="insight-list">';
+    for (var j = 0; j < items.length; j++) {
+      html +=
+        '<div class="insight">' +
+          '<div class="tag">' + escapeHtml(items[j].key) + "</div>" +
+          '<div class="text">' + escapeHtml(items[j].text) + "</div>" +
+        "</div>";
+    }
+    html += "</div>";
+
+    root.innerHTML = html;
+  }
+
+  // -----------------------------
+  // Top Issues
+  // -----------------------------
+  function renderTopIssues(signals) {
+    var root = $("topIssuesRoot");
+    if (!root) return;
+
+    signals = asArray(signals);
+
+    var issuesOut = [];
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
+      var issues = asArray(sig.issues);
+
+      for (var j = 0; j < issues.length; j++) {
+        var it = safeObj(issues[j]);
+        issuesOut.push({
+          title: String(it.title || it.id || (label + ": issue")).trim(),
+          sev: String(it.severity || "monitor").toUpperCase(),
+          why: String(it.impact || it.detail || it.description || "").trim()
+        });
+      }
+    }
+
+    if (!issuesOut.length) {
+      for (var k = 0; k < signals.length; k++) {
+        var sd = safeObj(signals[k]);
+        var lab = String(sd.label || sd.id || "Signal");
+        var deds = asArray(sd.deductions);
+        for (var m = 0; m < deds.length; m++) {
+          var dd = safeObj(deds[m]);
+          issuesOut.push({
+            title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
+            sev: "MONITOR",
+            why: "Penalty applied from deterministic evidence."
+          });
+        }
+      }
+    }
+
+    var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
+
+    var html = "";
+    if (!cap) {
+      html =
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">No issues detected</p>' +
+            '<span class="issue-label">OK</span>' +
+          "</div>" +
+          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
+        "</div>";
+      root.innerHTML = html;
       return;
     }
 
-    showLoader("Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.");
+    for (var x = 0; x < cap; x++) {
+      var it2 = issuesOut[x];
+      html +=
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+          "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+        "</div>";
+    }
+
+    root.innerHTML = html;
+  }
+
+  // -----------------------------
+  // Fix Sequence
+  // -----------------------------
+  function renderFixSequence(scores, signals) {
+    var root = $("fixSequenceRoot");
+    if (!root) return;
+
+    scores = safeObj(scores);
+    signals = asArray(signals);
+
+    var focus = "";
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var issues = asArray(sig.issues);
+      if (issues.length) {
+        focus = String(issues[0].title || issues[0].id || "").trim();
+        break;
+      }
+    }
+    if (!focus) {
+      var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
+      var worst = { k: "", v: 999 };
+      for (var j = 0; j < domains.length; j++) {
+        var k = domains[j];
+        if (typeof scores[k] === "undefined") continue;
+        var v = asInt(scores[k], 0);
+        if (v < worst.v) worst = { k: k, v: v };
+      }
+      if (worst.k) focus = "Stabilise " + worst.k.toUpperCase() + " baseline first.";
+    }
+
+    try {
+      var phases = root.querySelectorAll(".phase");
+      if (phases && phases.length >= 3) {
+        var ul1 = phases[0].querySelector("ul");
+        if (ul1) {
+          ul1.innerHTML =
+            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
+            "<li>Re-run the scan immediately to confirm the signal moves (before touching design/copy).</li>" +
+            "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
+        }
+
+        var ul2 = phases[1].querySelector("ul");
+        if (ul2) {
+          ul2.innerHTML =
+            "<li>Address remaining deductions in the weakest domain (SEO/Security/Accessibility depending on scores).</li>" +
+            "<li>Remove repeated sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
+            "<li>Validate with a second re-scan and keep a before/after record.</li>";
+        }
+
+        var ul3 = phases[2].querySelector("ul");
+        if (ul3) {
+          ul3.innerHTML =
+            "<li>Harden trust posture (headers/policies) only once the baseline is stable.</li>" +
+            "<li>Schedule periodic scans to prevent regressions.</li>" +
+            "<li>Build a lightweight change log tied to scan IDs for auditability.</li>";
+        }
+      }
+    } catch (e) {}
+  }
+
+  // -----------------------------
+  // Non-blocking polling + one-time narrative trigger
+  // -----------------------------
+  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
+    if (isPdfMode()) return;
+
+    var started = Date.now();
+    var MAX_WAIT = 180000;
+    var INTERVAL = 4000;
+
+    var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+    try {
+      if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
+    } catch (e) {}
+
+    var done = false;
+
+    function renderFrom(data) {
+      var psiReady = psiReadyFromData(data);
+      var n = pickNarrative(data);
+
+      renderNarrative(n, { psiReady: psiReady });
+      renderFixFirstBlock(n);
+      renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
+    }
+
+    // fire initial render
+    renderFrom(initialData);
+
+    function shouldReRequest(narrativeObj) {
+      var st = narrativeMetaStatus(narrativeObj);
+      return (st === "blocked_insufficient_specificity" || st === "error");
+    }
+
+    function maybeRequestNarrative(data) {
+      var n = pickNarrative(data);
+      var alreadyRequested = false;
+      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
+
+      // If blocked/error, re-arm latch so we can try again later.
+      if (shouldReRequest(n)) {
+        try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
+        alreadyRequested = false;
+      }
+
+      // IMPORTANT CHANGE:
+      // Do NOT wait for psiReady to request narrative.
+      // The backend will return "waiting_for_inputs" safely until PSI arrives.
+      if (!alreadyRequested) {
+        try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
+        generateNarrative(reportId).catch(function () {});
+      }
+    }
+
+    // Request narrative immediately (once) so it can enter "generating" / "waiting" state.
+    maybeRequestNarrative(initialData);
+
+    function tick() {
+      if (done) return;
+
+      if (Date.now() - started > MAX_WAIT) {
+        done = true;
+        return;
+      }
+
+      fetchReportData(reportId)
+        .then(function (data) {
+          var n = pickNarrative(data);
+
+          // STOP polling the moment we have something renderable (string or object)
+          if (narrativeReady(n)) {
+            renderFrom(data);
+            done = true;
+            return;
+          }
+
+          // If we are blocked/error, allow re-request (backend may now have PSI / evidence)
+          maybeRequestNarrative(data);
+
+          renderFrom(data);
+          setTimeout(tick, INTERVAL);
+        })
+        .catch(function () {
+          setTimeout(tick, INTERVAL);
+        });
+    }
+
+    tick();
+  }
+
+  // -----------------------------
+  // Main render
+  // -----------------------------
+  function renderAll(data) {
+    data = safeObj(data);
+
+    var header = pickHeader(data);
+    var scores = pickScores(data);
+    var signals = pickSignals(data);
+    var narrative = pickNarrative(data);
+
+    setHeaderUI(header);
+
+    var overallSummary = pickOverallSummary(data, scores.overall);
+    setOverallUI(scores, overallSummary);
+
+    showReport();
+
+    var rid = String(header.report_id || getReportIdFromUrl() || "");
+    var psiReady = psiReadyFromData(data);
+
+    renderNarrative(narrative, { psiReady: psiReady });
+    renderFixFirstBlock(narrative);
+    renderSignalsGrid(signals, narrative, { psiReady: psiReady, narrativeReady: narrativeReady(narrative) });
+
+    renderSignalEvidence(signals);
+    renderKeyInsights(scores, signals);
+    renderTopIssues(signals);
+    renderFixSequence(scores, signals);
+
+    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
+
+    try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+  }
+
+  function boot() {
+    var reportId = getReportIdFromUrl();
+    if (!reportId) return;
+
+    try {
+      var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
+      if (typeof window !== "undefined") window[latchKey] = false;
+    } catch (e) {}
 
     fetchReportData(reportId)
-      .then(function (payload) {
-        var norm = normalize(payload);
-
-        // if narrative missing/empty, attempt generation (but never block report)
-        var n = norm.narrative;
-        var need = false;
-
-        if (!n) need = true;
-        if (typeof n === "string" && !n.trim()) need = true;
-
-        if (n && typeof n === "object") {
-          var st = pick(n, ["_status", "status"], "");
-          if (st === "error") need = true;
-          if (st === "generating") need = false;
-          var lines = [];
-          if (n.overall && n.overall.lines) lines = asArray(n.overall.lines);
-          else if (n.lines) lines = asArray(n.lines);
-          if (!lines.length) need = true;
-        }
-
-        // Always render immediately from what we have
-        renderAll(norm, reportId);
-        hideLoader();
-
-        // Then optionally generate narrative in background and re-render
-        if (!need) return null;
-
-        // Update loaderStatus line without hiding report
-        if ($("loaderStatus")) $("loaderStatus").textContent = "Generating narrative (optional) …";
-
-        return generateNarrative(reportId)
-          .then(function () { return fetchReportData(reportId); })
-          .then(function (payload2) {
-            if (!payload2) return;
-            var norm2 = normalize(payload2);
-            renderAll(norm2, reportId);
-          })
-          .catch(function () {
-            // ignore narrative failures
-          });
-      })
-      .catch(function (err) {
-        hideLoader();
-        var root = $("reportRoot");
-        if (root) {
-          root.innerHTML =
-            '<div class="card">' +
-            '  <div class="summary">Report load failed: ' + escapeHtml(String(err && err.message ? err.message : err)) + "</div>" +
-            "</div>";
-        }
+      .then(function (data) { renderAll(data); })
+      .catch(function () {
+        showReport();
+        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+        var n = $("narrativeText");
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        var ff = $("fixFirstBlock");
+        if (ff) ff.innerHTML = "";
       });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", boot);
-  } else {
-    boot();
-  }
+  try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", boot);
+    } else {
+      boot();
+    }
+  } catch (e) {}
 })();

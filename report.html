@@ -549,7 +549,11 @@
       justify-content: center;
     }
 
-    .pulse { display: flex; align-items: center; justify-content: center; }
+    .pulse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     .pulse::after {
       content: "Λ i Q";
       font-family: "Montserrat", system-ui, sans-serif;
@@ -580,57 +584,6 @@
       font-size: 11px;
       text-align: center;
       padding-top: 10px;
-    }
-
-    /* -------------------------------
-       NEW: Priority Fix Order styles
-       (safe wrappers for injected HTML)
-       ------------------------------- */
-    .priority-wrap { display: flex; flex-direction: column; gap: 10px; }
-
-    /* If JS injects plain divs, make them look like native cards */
-    #fixFirstBlock > div {
-      border-radius: 16px;
-      border: 1px solid var(--border-subtle);
-      background: rgba(0,0,0,0.16);
-      padding: 12px 14px;
-    }
-
-    /* If JS injects headings, keep consistent */
-    #fixFirstBlock h3,
-    #fixFirstBlock h4 {
-      margin: 0 0 6px 0;
-      font-size: 12px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
-
-    /* If JS injects P1/P2 badges or labels */
-    #fixFirstBlock .pill,
-    #fixFirstBlock .badge,
-    #fixFirstBlock .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border: 1px solid var(--border-subtle);
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: rgba(229,240,255,0.65);
-      background: rgba(255,255,255,0.03);
-      white-space: nowrap;
-    }
-
-    #fixFirstBlock p {
-      margin: 6px 0 0 0;
-      color: var(--ink-soft);
-      font-size: 13px;
-      line-height: 1.45;
-      overflow-wrap: anywhere;
-      word-break: break-word;
     }
 
     /* Light theme support */
@@ -665,15 +618,14 @@
         text-shadow: none !important;
         filter: none !important;
       }
-      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv,
-      #fixFirstBlock > div {
+      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
       }
-      .section-title, h1, h2, h3, h4, .issue-title, .evidence-title, .acc-title {
+      .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
         color: #0f172a !important;
       }
-      .summary, .issue-why, .insight .text, .kv .k, .kv .v, #fixFirstBlock p {
+      .summary, .issue-why, .insight .text, .kv .k, .kv .v {
         color: #111827 !important;
       }
       .bar { background: #e5e7eb !important; }
@@ -786,20 +738,9 @@
           </div>
         </section>
 
-        <!-- Priority Fix Order (agency-facing) -->
-        <section class="section" id="priorityFixOrderSection">
-          <div class="section-head">
-            <h2 class="section-title">Priority Fix Order</h2>
-          </div>
-          <div class="section-body">
-            <div class="summary muted" style="margin-top:0; font-size:12px;">
-              Agency-ready sequence based on measurable impact and confidence.
-            </div>
+        <!-- What to Fix First (and Why) -->
+<div id="fixFirstBlock"></div>
 
-            <!-- JS injects content here. Do NOT rename this ID. -->
-            <div id="fixFirstBlock" class="priority-wrap"></div>
-          </div>
-        </section>
 
         <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
@@ -962,151 +903,154 @@
     </div>
   </div>
 
-  <!-- Renders the report from scan_results -->
+  <!-- Renders the reprt from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
   <!-- UI buttons (Back/Refresh) -->
-  <script>
-  (function () {
-    const refreshBtn = document.getElementById("refreshBtn");
-    const backBtn = document.getElementById("backToDashboard");
-    const pdfBtn = document.getElementById("downloadPdfBtn");
+<script>
+(function () {
+  const refreshBtn = document.getElementById("refreshBtn");
+  const backBtn = document.getElementById("backToDashboard");
+  const pdfBtn = document.getElementById("downloadPdfBtn");
 
-    const params = new URLSearchParams(window.location.search);
-    const from = (params.get("from") || "").toLowerCase();
-    const reportId = params.get("report_id") || "";
+  const params = new URLSearchParams(window.location.search);
+  const from = (params.get("from") || "").toLowerCase();
+  const reportId = params.get("report_id") || "";
 
-    const isHistory = from === "history";
-    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+  const isHistory = from === "history";
+  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
 
-    // Default: keep evidence accordions CLOSED on web
-    try {
-      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-    } catch (_) {}
+  // Default: keep evidence accordions CLOSED on web
+  try {
+    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+  } catch (_) {}
 
-    // History view: hide Back + Refresh, show PDF
-    if (isHistory) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
+  // History view: hide Back + Refresh, show PDF
+  if (isHistory) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
 
-      if (pdfBtn) {
-        pdfBtn.style.display = "inline-block";
-        pdfBtn.onclick = async () => {
-          pdfBtn.disabled = true;
-          pdfBtn.textContent = "Generating PDF…";
-          try {
-            const res = await fetch("/.netlify/functions/generate-report-pdf", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ report_id: reportId })
-            });
-            if (!res.ok) throw new Error("PDF generation failed");
+    if (pdfBtn) {
+      pdfBtn.style.display = "inline-block";
+      pdfBtn.onclick = async () => {
+        pdfBtn.disabled = true;
+        pdfBtn.textContent = "Generating PDF…";
+        try {
+          const res = await fetch("/.netlify/functions/generate-report-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ report_id: reportId })
+          });
+          if (!res.ok) throw new Error("PDF generation failed");
 
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
 
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${reportId}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-          } catch (e) {
-            alert("Unable to generate PDF. Please try again.");
-          } finally {
-            pdfBtn.disabled = false;
-            pdfBtn.textContent = "Download PDF";
-          }
-        };
-      }
-      return; // done
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${reportId}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          alert("Unable to generate PDF. Please try again.");
+        } finally {
+          pdfBtn.disabled = false;
+          pdfBtn.textContent = "Download PDF";
+        }
+      };
     }
+    return; // done
+  }
 
-    // Preview report: remove Back + Refresh (open in new tab from homepage)
-    if (isPreview) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
-      if (pdfBtn) pdfBtn.style.display = "none";
-      return; // done
-    }
-
-    // Normal (real) report view: keep Back + Refresh
+  // Preview report: remove Back + Refresh (open in new tab from homepage)
+  if (isPreview) {
+    if (refreshBtn) refreshBtn.style.display = "none";
+    if (backBtn) backBtn.style.display = "none";
     if (pdfBtn) pdfBtn.style.display = "none";
-    if (refreshBtn) refreshBtn.onclick = () => location.reload();
+    return; // done
+  }
 
-    if (backBtn) {
-      backBtn.textContent = "Back to dashboard";
-      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+  // Normal (real) report view: keep Back + Refresh
+  if (pdfBtn) pdfBtn.style.display = "none";
+  if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+  if (backBtn) {
+    backBtn.textContent = "Back to dashboard";
+    backBtn.onclick = () => (window.location.href = "/dashboard.html");
+  }
+})();
+</script>
+
+
+
+<script>
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
+
+  // Detect "PDF render mode"
+  const __IQWEB_PDF_MODE = (() => {
+    const p = new URLSearchParams(location.search);
+    if (p.get("pdf") === "1") return true;
+
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    try {
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
     }
   })();
-  </script>
 
-  <script>
-    // ===== DocRaptor render gate (single source of truth) =====
-    window.__IQWEB_REPORT_READY = false;
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+    } catch (_) {}
+  }
 
-    // Detect "PDF render mode"
-    const __IQWEB_PDF_MODE = (() => {
-      const p = new URLSearchParams(location.search);
-      if (p.get("pdf") === "1") return true;
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
 
-      // Backup: DocRaptor user-agent often includes "DocRaptor"
-      try {
-        return /DocRaptor/i.test(navigator.userAgent);
-      } catch (_) {
-        return false;
-      }
-    })();
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
+    return window.__IQWEB_REPORT_READY === true;
+  };
 
-    // helper
-    function setEvidenceOpen(open) {
-      try {
-        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
-      } catch (_) {}
+  (function waitForReportReady() {
+    const reportRoot = document.getElementById("reportRoot");
+    const loader = document.getElementById("loaderSection");
+    const signals = document.getElementById("signalsGrid");
+
+    const loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    const reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    const hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
     }
 
-    // Always CLOSED for any normal page view (OSD + Preview)
-    setEvidenceOpen(false);
+    setTimeout(waitForReportReady, 150);
+  })();
 
-    // MUST be global and named EXACTLY this for DocRaptor
-    window.docraptorJavaScriptFinished = function () {
-      return window.__IQWEB_REPORT_READY === true;
-    };
+  // Hard safety (prevents infinite hang)
+  setTimeout(() => {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
+</script>
 
-    (function waitForReportReady() {
-      const reportRoot = document.getElementById("reportRoot");
-      const loader = document.getElementById("loaderSection");
-      const signals = document.getElementById("signalsGrid");
-
-      const loaderHidden =
-        loader &&
-        (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-      const reportVisible =
-        reportRoot &&
-        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-      const hasSignals =
-        signals && signals.children && signals.children.length > 0;
-
-      if (loaderHidden && reportVisible && hasSignals) {
-        // ✅ Only open evidence when rendering PDF
-        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-        else setEvidenceOpen(false);
-
-        window.__IQWEB_REPORT_READY = true;
-        return;
-      }
-
-      setTimeout(waitForReportReady, 150);
-    })();
-
-    // Hard safety (prevents infinite hang)
-    setTimeout(() => {
-      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-    }, 30000);
-  </script>
 
 </body>
 </html>
