@@ -13,7 +13,7 @@
  * - Removes AI narrative engine, polling, regen, and all narrative dependencies.
  * - Replaces "Executive Narrative" content with deterministic "Executive Delivery Summary"
  *   using only stored scan facts (scores + PSI + basic_checks).
- * - Keeps 95% of renderer intact: layout, signal cards, evidence, issues, fix sequence.
+ * - Keeps renderer intact: layout, signal cards, evidence, issues, fix sequence.
  */
 
 (function () {
@@ -217,7 +217,6 @@
 
   function pickBasicChecks(data) {
     data = safeObj(data);
-    // based on your console: { success:true, header:{}, basic_checks:{}, security_headers:{}, psi:{}, ... }
     if (data.basic_checks && typeof data.basic_checks === "object") return safeObj(data.basic_checks);
     var m = safeObj(data.metrics);
     if (m.basic_checks && typeof m.basic_checks === "object") return safeObj(m.basic_checks);
@@ -225,7 +224,7 @@
   }
 
   // -----------------------------
-  // PSI readiness (kept - used for display discipline, not narrative)
+  // PSI readiness (kept - for display discipline)
   // -----------------------------
   function psiReadyFromData(data) {
     var psi = pickPsiEnvelope(data);
@@ -288,7 +287,6 @@
     if (pill) pill.textContent = String(overall);
     if (bar) bar.style.width = overall + "%";
 
-    // Keep your existing overallSummary, but add model stamp (credibility)
     var base = overallSummary || "";
     var stamp = "Scoring Model v1.0 — Deterministic weighted signals.";
     if (base) {
@@ -313,7 +311,6 @@
 
     var overall = asInt(scores.overall, 0);
 
-    // Locked weights (v1.0)
     var WEIGHTS = {
       performance: 0.30,
       mobile: 0.20,
@@ -337,7 +334,6 @@
       return asInt(scores[k], 0);
     }
 
-    // Primary = highest weighted deficit
     var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var primary = { k: "", deficit: -1, score: 0, w: 0 };
 
@@ -350,14 +346,12 @@
       if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
     }
 
-    // Metric extractors (robust to key drift)
     function num(v) {
       var n = Number(v);
       return isFinite(n) ? n : null;
     }
 
     function lcpSecondsFromPsi() {
-      // try a bunch of likely paths
       var m = safeObj(psi.mobile);
       var f = safeObj(m.facts);
       var v =
@@ -368,19 +362,16 @@
       var n = num(v);
       if (n === null) return null;
 
-      // if already seconds-ish
       if (n > 0 && n < 100) return Math.round(n * 10) / 10;
       return Math.round((n / 1000) * 10) / 10;
     }
 
     function htmlBytesFromBasic() {
-      // common candidates
       var v =
         basic.html_bytes || basic.htmlBytes || basic.html_size_bytes || basic.initial_html_bytes ||
         basic.document_bytes || basic.documentBytes ||
         null;
-      var n = num(v);
-      return n;
+      return num(v);
     }
 
     function inlineScriptsFromBasic() {
@@ -392,7 +383,6 @@
       return Math.round(n);
     }
 
-    // Build lines (max 6)
     var lines = [];
     lines.push("Overall Delivery: " + overall + "/100");
 
@@ -402,13 +392,11 @@
         ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
       );
 
-      // Metric line only when we have a real number
       if (primary.k === "performance" || primary.k === "mobile") {
         var lcp = lcpSecondsFromPsi();
         if (lcp !== null) lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
       }
 
-      // Primary fix (NO how-to)
       if (primary.k === "performance" || primary.k === "mobile") {
         lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
       } else if (primary.k === "security") {
@@ -423,7 +411,6 @@
         lines.push("Primary Fix: Improve the weakest baseline signal.");
       }
 
-      // Secondary payload line only if we have numbers
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
@@ -441,11 +428,10 @@
       out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(lines[j]) + "</p>";
     }
     el.innerHTML = out;
-    return true;
   }
 
   // -----------------------------
-  // Delivery signal cards (narrative removed; deterministic fallback only)
+  // Delivery signal cards (deterministic summaries only)
   // -----------------------------
   function renderSignalsGrid(signals) {
     var grid = $("signalsGrid");
@@ -492,7 +478,7 @@
   }
 
   // -----------------------------
-  // Signal Evidence (accordions per signal)
+  // Signal Evidence
   // -----------------------------
   function renderSignalEvidence(signals) {
     var root = $("signalEvidenceRoot");
@@ -733,7 +719,7 @@
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>' +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
           '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
         "</div>";
@@ -823,7 +809,7 @@
     // Executive block is now deterministic
     renderExecutiveSummary(data);
 
-    // Signals are deterministic summaries only (no narrative dependency)
+    // Signals are deterministic summaries only
     renderSignalsGrid(signals);
 
     renderSignalEvidence(signals);
