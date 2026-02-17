@@ -354,70 +354,80 @@
       return Math.round(n);
     }
 
-    // Find primary constraint = highest weighted deficit
-    var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-    var primary = { k: "", deficit: -1, score: 0, w: 0 };
+// Find primary constraint = highest weighted deficit
+var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+var primary = { k: "", deficit: -1, score: 0, w: 0 };
 
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var s = scoreFor(k);
-      if (s === null) continue;
-      var w = WEIGHTS[k] || 0;
-      var def = (100 - s) * w;
-      if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
+for (var i = 0; i < keys.length; i++) {
+  var k = keys[i];
+  var s = scoreFor(k);
+  if (s === null) continue;
+  var w = WEIGHTS[k] || 0;
+  var def = (100 - s) * w;
+  if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
+}
+
+var lines = [];
+lines.push("Overall Delivery: " + overall + "/100");
+
+if (primary.k) {
+  var label = LABELS[primary.k] || primary.k;
+
+  // Weighted points impact (integer, deterministic)
+  var weightedPts = Math.round((100 - primary.score) * primary.w);
+
+  // Only show if it’s material (avoid noise)
+  if (weightedPts >= 5) {
+    lines.push(label + " is currently suppressing Overall Delivery by " + weightedPts + " weighted points in the scoring model.");
+  } else {
+    lines.push(label + " is currently the primary constraint in the scoring model.");
+  }
+
+  // Optional metric line (only if real)
+  if (primary.k === "performance" || primary.k === "mobile") {
+    var lcp = lcpSecondsFromPsi();
+    if (lcp !== null && lcp > 0) {
+      lines.push("Mobile LCP: " + lcp + "s (target <2.5s).");
     }
+  }
 
-    var lines = [];
-    lines.push("Overall Delivery: " + overall + "/100");
-
-    if (primary.k) {
-      var label = LABELS[primary.k] || primary.k;
-      var weightedDeficit = Math.round((100 - primary.score) * primary.w);
-
-      lines.push(
-        label + " is currently suppressing Overall Delivery by ~" +
-        weightedDeficit + " weighted points in the scoring model."
-      );
-
-      // Optional metric line (only if real)
-      if (primary.k === "performance" || primary.k === "mobile") {
-        var lcp = lcpSecondsFromPsi();
-        if (lcp !== null && lcp > 0) {
-          lines.push("Mobile LCP: " + lcp + "s (target <2.5s).");
-        }
-      }
-
-      // Primary fix (no "how", just constraint direction)
-      if (primary.k === "performance" || primary.k === "mobile") {
-        lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
-      } else if (primary.k === "security") {
-        lines.push("Primary Fix: Close the highest-impact Security & Trust gaps.");
-      } else if (primary.k === "seo") {
-        lines.push("Primary Fix: Stabilise SEO Foundations baseline signals.");
-      } else if (primary.k === "structure") {
-        lines.push("Primary Fix: Correct core Structure & Semantics issues.");
-      } else if (primary.k === "accessibility") {
-        lines.push("Primary Fix: Resolve top Accessibility blockers.");
-      } else {
-        lines.push("Primary Fix: Improve the weakest baseline signal.");
-      }
-
-      // Secondary (only if we have facts)
-      var hb = htmlBytesFromBasic();
-      var is = inlineScriptsFromBasic();
-      if (hb !== null || is !== null) {
-        var parts = [];
-        if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
-        if (is !== null) parts.push(is + " inline scripts");
-        if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
-      }
-
-      // Optional reinforcement line (will be trimmed by cap)
-      lines.push("Improving this domain would produce the largest measurable lift in the current model.");
+  // Primary fix (choose LCP only if we actually have an LCP fact; otherwise generic performance direction)
+  if (primary.k === "performance" || primary.k === "mobile") {
+    var lcp2 = lcpSecondsFromPsi();
+    if (lcp2 !== null && lcp2 > 0) {
+      lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
+    } else {
+      lines.push("Primary Fix: Improve performance baseline (reduce render-blocking cost and main-thread time).");
     }
+  } else if (primary.k === "security") {
+    lines.push("Primary Fix: Close the highest-impact Security & Trust gaps.");
+  } else if (primary.k === "seo") {
+    lines.push("Primary Fix: Stabilise SEO Foundations baseline signals.");
+  } else if (primary.k === "structure") {
+    lines.push("Primary Fix: Correct core Structure & Semantics issues.");
+  } else if (primary.k === "accessibility") {
+    lines.push("Primary Fix: Resolve top Accessibility blockers.");
+  } else {
+    lines.push("Primary Fix: Improve the weakest baseline signal.");
+  }
 
-    // Cap at 6 lines
-    if (lines.length > 6) lines = lines.slice(0, 6);
+  // Secondary (only if we have facts)
+  var hb = htmlBytesFromBasic();
+  var is = inlineScriptsFromBasic();
+  if (hb !== null || is !== null) {
+    var parts = [];
+    if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
+    if (is !== null) parts.push(is + " inline scripts");
+    if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
+  }
+
+  // Only include this if we have room (gets trimmed by cap anyway)
+  lines.push("Improving this domain would produce the largest measurable lift in the current model.");
+}
+
+// Cap at 6 lines
+if (lines.length > 6) lines = lines.slice(0, 6);
+
 
     var out = "";
     for (var j = 0; j < lines.length; j++) {
