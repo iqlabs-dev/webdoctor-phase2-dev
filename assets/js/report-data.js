@@ -492,6 +492,7 @@
     el.innerHTML = out;
   }
 
+
   // -----------------------------
   // Delivery signal cards (constraint-aware + deterministic “because/evidence/lever”)
   // -----------------------------
@@ -518,7 +519,54 @@
       return "";
     }
 
-    function topIssueOrDeductionTitle(sig) {
+    // Human label mapping (keeps UI from looking like raw telemetry)
+    function prettyEvidenceKey(k) {
+      k = String(k || "");
+      var MAP = {
+        // SEO
+        "title_present": "Title tag present",
+        "meta_description_present": "Meta description present",
+        "canonical_present": "Canonical tag present",
+        "robots_meta_present": "Robots meta present",
+        "og_tags_present": "Open Graph tags present",
+        "twitter_tags_present": "Twitter tags present",
+        "h1_count": "H1 count",
+
+        // Security
+        "https": "HTTPS enabled",
+        "hsts": "HSTS enabled",
+        "csp": "Content-Security-Policy set",
+        "x_frame_options": "X-Frame-Options set",
+        "x_content_type_options": "X-Content-Type-Options set",
+        "referrer_policy": "Referrer-Policy set",
+        "mixed_content": "Mixed content detected",
+
+        // Structure
+        "doctype_present": "DOCTYPE present",
+        "lang_present": "HTML lang set",
+        "meta_charset_present": "Charset meta present",
+        "viewport_present": "Viewport meta present",
+        "heading_order_ok": "Heading order",
+        "semantic_tags_present": "Semantic tags present",
+
+        // Accessibility
+        "alt_ratio": "Image alt coverage",
+        "label_coverage": "Form label coverage",
+        "aria_required_missing": "Missing required ARIA",
+        "contrast_ok": "Contrast baseline",
+
+        // Generic / internal (we usually suppress these)
+        "required_inputs_missing": "Required baseline input missing"
+      };
+
+      return MAP[k] || k.replace(/_/g, " ");
+    }
+
+    function lcpSeconds() {
+      return lcpSecondsFromPsiEnvelope(psi);
+    }
+
+    function firstIssueOrDeductionText(sig) {
       var issues = asArray(sig.issues);
       if (issues.length) {
         var it = safeObj(issues[0]);
@@ -532,20 +580,34 @@
       return "";
     }
 
-    function evidenceAnchorLine(sig) {
-      // Prefer a real evidence key/value if present (this is what stops it feeling like a wrapper)
-      var ev = firstMeaningfulEvidenceKV(sig.evidence);
-      if (ev) {
-        var vv = ev.v;
-        if (typeof vv === "boolean") vv = vv ? "true" : "false";
-        return "Top evidence: " + String(ev.k) + "=" + String(vv);
+    // Pick *only meaningful* evidence items:
+    // - Prefer “missing/false” signals over “true”
+    // - Prefer numeric ratios/counts (h1_count, alt_ratio, etc.)
+    function pickMeaningfulEvidence(sig) {
+      var evidence = safeObj(sig.evidence);
+      var keys = Object.keys(evidence || {});
+      if (!keys.length) return null;
+
+      // 1) Prefer boolean false / missing states
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = evidence[k];
+        if (typeof v === "boolean" && v === false) return { k: k, v: v };
       }
 
-      // Otherwise fall back to first issue/deduction title
-      var t = topIssueOrDeductionTitle(sig);
-      if (t) return "Top evidence: " + t;
+      // 2) Prefer numeric / ratios
+      for (var j = 0; j < keys.length; j++) {
+        var k2 = keys[j];
+        var v2 = evidence[k2];
+        if (typeof v2 === "number") return { k: k2, v: v2 };
+        if (typeof v2 === "string" && v2 && v2.length <= 24) return { k: k2, v: v2 };
+      }
 
-      return "";
+      // 3) Last resort: first key (but avoid noisy “present=true”)
+      var k3 = keys[0];
+      var v3 = evidence[k3];
+      if (typeof v3 === "boolean" && v3 === true) return null;
+      return { k: k3, v: v3 };
     }
 
     function countsLine(sig) {
@@ -560,21 +622,26 @@
     function leverLine(domainKey) {
       if (domainKey === "performance") return "Fix lever: LCP + main-thread cost.";
       if (domainKey === "mobile") return "Fix lever: Mobile LCP + layout stability.";
-      if (domainKey === "seo") return "Fix lever: missing metadata + indexability baseline.";
+      if (domainKey === "seo") return "Fix lever: metadata + indexability baseline.";
       if (domainKey === "security") return "Fix lever: headers/policy baseline + mixed content.";
       if (domainKey === "structure") return "Fix lever: semantic structure + required tags.";
       if (domainKey === "accessibility") return "Fix lever: labels/controls + contrast fundamentals.";
       return "";
     }
 
+    // Tight, domain-correct “Because:” lines (no cross-domain leakage)
     function becauseLine(domainKey, sig) {
-      // Performance/mobile: prefer PSI + payload facts
-      if (domainKey === "performance" || domainKey === "mobile") {
-        var lcp = lcpSecondsFromPsiEnvelope(psi);
-        if (lcp !== null && lcp > 0) {
-          // Only call it out if it's actually above target; otherwise don't invent drama.
-          if (lcp > 2.5) return "Because: Mobile LCP is " + lcp + "s (target <2.5s).";
-        }
+      // Mobile: ONLY LCP
+      if (domainKey === "mobile") {
+        var l = lcpSeconds();
+        if (l !== null && l > 2.5) return "Because: Mobile LCP is " + l + "s (target <2.5s).";
+        return "";
+      }
+
+      // Performance: LCP first, then payload (if heavy)
+      if (domainKey === "performance") {
+        var lcp = lcpSeconds();
+        if (lcp !== null && lcp > 2.5) return "Because: Mobile LCP is " + lcp + "s (target <2.5s).";
 
         var hb = htmlBytesFromBasic(basic);
         var is = inlineScriptsFromBasic(basic);
@@ -585,22 +652,14 @@
           if (parts.length) return "Because: initial payload is heavy (" + parts.join(", ") + ").";
         }
 
-        // Fall back to an issue/deduction title only if needed
-        var t = topIssueOrDeductionTitle(sig);
+        var t = firstIssueOrDeductionText(sig);
         if (t) return "Because: " + t + ".";
         return "";
       }
 
-      // Other domains: pull a concrete issue/deduction title (short)
-      var title = topIssueOrDeductionTitle(sig);
+      // Other domains: use first issue/deduction if present
+      var title = firstIssueOrDeductionText(sig);
       if (title) return "Because: " + title + ".";
-
-      // Or if we have a boolean evidence anchor, translate it lightly
-      var ev = firstMeaningfulEvidenceKV(sig.evidence);
-      if (ev && typeof ev.v === "boolean" && ev.v === false) {
-        return "Because: required baseline check is missing (" + ev.k + "=false).";
-      }
-
       return "";
     }
 
@@ -619,34 +678,35 @@
 
       var lines = [];
 
-      // Header line: tier + weight
-      if (w) {
-        lines.push(tier + " • " + weightPct + " WEIGHT");
-      } else {
-        lines.push("DETERMINISTIC");
-      }
+      // Tier line
+      if (w) lines.push(tier + " • " + weightPct + " WEIGHT");
+      else lines.push("DETERMINISTIC");
 
-      // Suppression line: HIDE if < 3 weighted points (your request)
+      // Suppression line: show only if >= 3 (your rule)
       if (w && defPts >= 3) {
         lines.push("Suppressing delivery by " + defPts + " weighted points.");
       }
 
-      // Because (site-specific, deterministic)
+      // Because (domain-correct)
       var because = becauseLine(key, sig);
       if (because) lines.push(because);
 
-      // Evidence anchor (prefer real evidence key/value)
-      var evLine = evidenceAnchorLine(sig);
-      if (evLine) lines.push(evLine);
+      // Top evidence (human)
+      var ev = pickMeaningfulEvidence(sig);
+      if (ev) {
+        var v = ev.v;
+        if (typeof v === "boolean") v = v ? "true" : "false";
+        lines.push("Top evidence: " + prettyEvidenceKey(ev.k) + " = " + String(v));
+      }
 
-      // Fix lever (short, deterministic)
+      // Fix lever
       var lev = leverLine(key);
       if (lev) lines.push(lev);
 
-      // Flags count (last)
+      // Counts last
       lines.push(countsLine(sig));
 
-      // Keep cards tight (avoid walls of text)
+      // Keep tight
       if (lines.length > 5) lines = lines.slice(0, 5);
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
@@ -664,6 +724,7 @@
       grid.appendChild(card);
     }
   }
+
 
   // -----------------------------
   // Signal Evidence
