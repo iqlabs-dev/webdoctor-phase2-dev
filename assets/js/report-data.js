@@ -197,9 +197,6 @@
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
-    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
-      return data.narrative.overall_summary;
-    }
     return (
       "Overall delivery is " +
       verdict(asInt(overallScore, 0)).toLowerCase() +
@@ -221,26 +218,6 @@
     var m = safeObj(data.metrics);
     if (m.basic_checks && typeof m.basic_checks === "object") return safeObj(m.basic_checks);
     return {};
-  }
-
-  // -----------------------------
-  // PSI readiness (kept - for display discipline)
-  // -----------------------------
-  function psiReadyFromData(data) {
-    var psi = pickPsiEnvelope(data);
-
-    if (psi && psi.enabled === false) return true;
-    if (psi && psi.pending === true) return false;
-
-    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
-    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
-
-    if (hasMobileFacts && hasDesktopFacts) return true;
-
-    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
-    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
-
-    return false;
   }
 
   // -----------------------------
@@ -334,26 +311,16 @@
       return asInt(scores[k], 0);
     }
 
-    var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-    var primary = { k: "", deficit: -1, score: 0, w: 0 };
-
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var s = scoreFor(k);
-      if (s === null) continue;
-      var w = WEIGHTS[k] || 0;
-      var def = (100 - s) * w;
-      if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
-    }
-
     function num(v) {
       var n = Number(v);
       return isFinite(n) ? n : null;
     }
 
     function lcpSecondsFromPsi() {
+      // prefer psi.mobile.facts.* if present; fall back to common alternates
       var m = safeObj(psi.mobile);
       var f = safeObj(m.facts);
+
       var v =
         f.lcp_ms || f.lcpMs || f.lcp ||
         m.lcp_ms || m.lcpMs || m.lcp ||
@@ -362,7 +329,10 @@
       var n = num(v);
       if (n === null) return null;
 
+      // If it looks like seconds already (<100), keep as-is; else treat as ms
       if (n > 0 && n < 100) return Math.round(n * 10) / 10;
+      if (n <= 0) return null;
+
       return Math.round((n / 1000) * 10) / 10;
     }
 
@@ -383,6 +353,19 @@
       return Math.round(n);
     }
 
+    // Find primary constraint = highest weighted deficit
+    var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var primary = { k: "", deficit: -1, score: 0, w: 0 };
+
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var s = scoreFor(k);
+      if (s === null) continue;
+      var w = WEIGHTS[k] || 0;
+      var def = (100 - s) * w;
+      if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
+    }
+
     var lines = [];
     lines.push("Overall Delivery: " + overall + "/100");
 
@@ -392,13 +375,15 @@
         ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
       );
 
+      // Optional metric line (only if real)
       if (primary.k === "performance" || primary.k === "mobile") {
-   var lcp = lcpSecondsFromPsi();
-if (lcp !== null && lcp > 0) {
-  lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
-}
+        var lcp = lcpSecondsFromPsi();
+        if (lcp !== null && lcp > 0) {
+          lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
+        }
+      }
 
-
+      // Primary fix (no "how", just constraint direction)
       if (primary.k === "performance" || primary.k === "mobile") {
         lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
       } else if (primary.k === "security") {
@@ -413,6 +398,7 @@ if (lcp !== null && lcp > 0) {
         lines.push("Primary Fix: Improve the weakest baseline signal.");
       }
 
+      // Secondary fix: payload facts (only if present)
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
@@ -423,6 +409,7 @@ if (lcp !== null && lcp > 0) {
       }
     }
 
+    // Cap at 6 lines
     if (lines.length > 6) lines = lines.slice(0, 6);
 
     var out = "";
@@ -717,14 +704,15 @@ if (lcp !== null && lcp > 0) {
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
-      html +=
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-          "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
-        "</div>";
+html +=
+  '<div class="issue">' +
+    '<div class="issue-top">' +
+      '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+      '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+    "</div>" +
+    '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+  "</div>";
+
     }
 
     root.innerHTML = html;
@@ -808,7 +796,7 @@ if (lcp !== null && lcp > 0) {
 
     showReport();
 
-    // Executive block is now deterministic
+    // Executive block is deterministic now
     renderExecutiveSummary(data);
 
     // Signals are deterministic summaries only
