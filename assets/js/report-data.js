@@ -1,16 +1,14 @@
 /* eslint-disable */
 /**
  * /assets/js/report-data.js
- * iQWEB Report Renderer — v5.2 (ES5, no modules)
+ * iQWEB Report Renderer — v6.0 (Deterministic, No Narrative Engine)
  *
- * Matches IDs in report.html:
- * loaderSection, reportRoot, siteUrl, reportId, reportDate,
- * overallPill, overallBar, overallNote, signalsGrid,
- * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
- * fixFirstBlock (optional)
+ * Narrative layer removed.
+ * Executive section now deterministic.
  */
 
 (function () {
+
   // -----------------------------
   // Helpers
   // -----------------------------
@@ -38,53 +36,19 @@
       .replace(/'/g, "&#039;");
   }
 
-  // -----------------------------
-  // Tiny animated dots (shared)
-  // -----------------------------
-  var __IQWEB_DOTS_TIMER = null;
-
-  function ensureDotsTimer() {
-    if (__IQWEB_DOTS_TIMER) return;
-    __IQWEB_DOTS_TIMER = setInterval(function () {
-      try {
-        var nodes = document.querySelectorAll("[data-iqweb-dots]");
-        if (!nodes || !nodes.length) return;
-        for (var i = 0; i < nodes.length; i++) {
-          var n = nodes[i];
-          var c = Number(n.getAttribute("data-iqweb-dots") || "1");
-          if (!isFinite(c) || c < 1) c = 1;
-          c = c + 1;
-          if (c > 3) c = 1;
-          n.setAttribute("data-iqweb-dots", String(c));
-          n.textContent = (c === 1 ? "." : (c === 2 ? ".." : "..."));
-        }
-      } catch (e) {}
-    }, 450);
-  }
-
-  function dotsHtml() {
-    ensureDotsTimer();
-    return '<span data-iqweb-dots="1">.</span>';
-  }
-
   function formatDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
-
-    try {
-      return d.toLocaleString("en-NZ", {
-        timeZone: "Pacific/Auckland",
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false
-      });
-    } catch (e) {
-      return d.toString();
-    }
+    return d.toLocaleString("en-NZ", {
+      timeZone: "Pacific/Auckland",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
   }
 
   function verdict(score) {
@@ -95,22 +59,17 @@
     return "Needs attention";
   }
 
-  // Query param (ES5)
   function getQueryParam(name) {
-    try {
-      var q = window.location.search || "";
-      if (q.charAt(0) === "?") q = q.slice(1);
-      if (!q) return "";
-      var parts = q.split("&");
-      for (var i = 0; i < parts.length; i++) {
-        var kv = parts[i].split("=");
-        var k = decodeURIComponent(kv[0] || "");
-        if (k === name) return decodeURIComponent(kv.slice(1).join("=") || "");
+    var q = window.location.search || "";
+    if (q.charAt(0) === "?") q = q.slice(1);
+    var parts = q.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var kv = parts[i].split("=");
+      if (decodeURIComponent(kv[0] || "") === name) {
+        return decodeURIComponent(kv.slice(1).join("=") || "");
       }
-      return "";
-    } catch (e) {
-      return "";
     }
+    return "";
   }
 
   function getReportIdFromUrl() {
@@ -124,62 +83,16 @@
   // -----------------------------
   // Transport
   // -----------------------------
-  function fetchJson(method, url, bodyObj) {
-    if (typeof fetch === "function") {
-      var opts = { method: method, headers: { "Accept": "application/json" } };
-      if (method !== "GET") {
-        opts.headers["Content-Type"] = "application/json";
-        opts.body = JSON.stringify(bodyObj || {});
-      }
-      return fetch(url, opts).then(function (res) {
-        return res.text().then(function (t) {
-          var data = null;
-          try { data = JSON.parse(t); } catch (e) {}
-          if (!res.ok) {
-            var msg = (data && (data.detail || data.error)) || t || ("HTTP " + res.status);
-            throw new Error(msg);
-          }
-          if (data && data.success === false) {
-            throw new Error(data.detail || data.error || "Unknown error");
-          }
-          return data;
-        });
+  function fetchJson(method, url) {
+    return fetch(url, { method: method, headers: { "Accept": "application/json" } })
+      .then(function (res) {
+        return res.json();
       });
-    }
-
-    return new Promise(function (resolve, reject) {
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open(method, url, true);
-        xhr.setRequestHeader("Accept", "application/json");
-        if (method !== "GET") xhr.setRequestHeader("Content-Type", "application/json");
-        xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4) return;
-          var text = xhr.responseText || "";
-          var data = null;
-          try { data = JSON.parse(text); } catch (e) {}
-          if (xhr.status < 200 || xhr.status >= 300) {
-            reject(new Error((data && (data.detail || data.error)) || text || ("HTTP " + xhr.status)));
-            return;
-          }
-          if (data && data.success === false) {
-            reject(new Error(data.detail || data.error || "Unknown error"));
-            return;
-          }
-          resolve(data);
-        };
-        xhr.onerror = function () { reject(new Error("Network error")); };
-        xhr.send(method === "GET" ? null : JSON.stringify(bodyObj || {}));
-      } catch (e) {
-        reject(e);
-      }
-    });
   }
 
   function fetchReportData(reportId) {
     if (isPdfMode()) {
       var token = getQueryParam("pdf_token") || "";
-      if (!token) return Promise.reject(new Error("Missing pdf_token (PDF mode)."));
       var url =
         "/.netlify/functions/get-report-data-pdf?report_id=" +
         encodeURIComponent(reportId) +
@@ -190,121 +103,117 @@
     return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
   }
 
-  function generateNarrative(reportId) {
-    var force = getQueryParam("regen") === "1";
-    return fetchJson("POST", "/.netlify/functions/generate-narrative", { report_id: reportId, force: force });
-  }
+  // -----------------------------
+  // Deterministic Executive Summary
+  // -----------------------------
+  function renderExecutiveSummary(data) {
 
-  // -----------------------------
-  // Data contract bridge (new vs legacy)
-  // -----------------------------
-  function pickHeader(data) {
-    data = safeObj(data);
-    if (data.header && typeof data.header === "object") return safeObj(data.header);
-    return {
-      website: data.url || data.website || "",
-      report_id: data.report_id || "",
-      created_at: data.created_at || data.generated_at || ""
+    var el = $("narrativeText");
+    if (!el) return;
+
+    var scores = safeObj(data.scores);
+    var psi = safeObj(data.psi);
+    var htmlFacts = safeObj(data.html);
+
+    var overall = asInt(scores.overall, 0);
+
+    var weights = {
+      performance: 0.30,
+      mobile: 0.20,
+      seo: 0.20,
+      security: 0.15,
+      structure: 0.10,
+      accessibility: 0.05
     };
-  }
 
-  function pickScores(data) {
-    data = safeObj(data);
-    if (data.scores && typeof data.scores === "object") return safeObj(data.scores);
-    var m = safeObj(data.metrics);
-    return safeObj(m.scores);
-  }
+    var categories = [
+      "performance",
+      "mobile",
+      "seo",
+      "security",
+      "structure",
+      "accessibility"
+    ];
 
-  function pickSignals(data) {
-    data = safeObj(data);
-    if (Array.isArray(data.delivery_signals)) return data.delivery_signals;
-    var m = safeObj(data.metrics);
-    return asArray(m.delivery_signals);
-  }
+    var worst = { key: "", deficit: -1, score: 100 };
 
-  function pickOverallSummary(data, overallScore) {
-    data = safeObj(data);
-    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
-    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
-      return data.narrative.overall_summary;
+    for (var i = 0; i < categories.length; i++) {
+      var k = categories[i];
+      var s = asInt(scores[k], 100);
+      var deficit = (100 - s) * (weights[k] || 0);
+      if (deficit > worst.deficit) {
+        worst = { key: k, deficit: deficit, score: s };
+      }
     }
-    return (
-      "Overall delivery is " +
-      verdict(asInt(overallScore, 0)).toLowerCase() +
-      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
+
+    var lines = [];
+
+    lines.push("Overall Delivery: " + overall + "/100");
+    lines.push(
+      worst.key.charAt(0).toUpperCase() + worst.key.slice(1) +
+      ": " + worst.score + "/100 (" + Math.round((weights[worst.key] || 0) * 100) + "% weight)"
     );
-  }
 
-  function pickNarrative(data) {
-    data = safeObj(data);
-    return data.narrative || "";
-  }
-
-  function pickPsiEnvelope(data) {
-    data = safeObj(data);
-    if (data.psi && typeof data.psi === "object") return safeObj(data.psi);
-    var metrics = safeObj(data.metrics);
-    if (metrics.psi && typeof metrics.psi === "object") return safeObj(metrics.psi);
-    return {};
-  }
-
-  // -----------------------------
-  // Narrative status helpers
-  // -----------------------------
-  function narrativeMetaStatus(narrative) {
-    if (!narrative || typeof narrative !== "object") return "";
-    var meta = safeObj(narrative._meta);
-    return String(meta._status || "").toLowerCase();
-  }
-
-  function narrativeErrorMessage(narrative) {
-    if (!narrative || typeof narrative !== "object") return "";
-    var meta = safeObj(narrative._meta);
-    return String(meta._error || meta.error || "").trim();
-  }
-
-
-  // -----------------------------
-  // FIX: narrativeReady MUST match what UI can render
-  // -----------------------------
-  function narrativeReady(narrative) {
-    if (!narrative) return false;
-
-    // Legacy/plain text narrative => ready
-    if (typeof narrative === "string") {
-      return !!String(narrative || "").trim();
+    // Metric line
+    if (worst.key === "performance" || worst.key === "mobile") {
+      if (psi.mobile && psi.mobile.lcpMs) {
+        var lcp = Math.round((psi.mobile.lcpMs / 1000) * 10) / 10;
+        lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
+      }
     }
 
-    if (typeof narrative !== "object") return false;
+    // Primary Fix
+    lines.push("Primary Fix: Improve " + worst.key + " baseline.");
 
-    var meta = safeObj(narrative._meta);
-    var st = String(meta._status || "").toLowerCase();
-    if (st === "generated") return true;
+    // Secondary Fix (payload based)
+    if (htmlFacts.htmlBytes || htmlFacts.inlineScripts) {
+      var parts = [];
+      if (htmlFacts.htmlBytes) {
+        parts.push(Math.round(htmlFacts.htmlBytes / 1024) + "KB HTML");
+      }
+      if (htmlFacts.inlineScripts) {
+        parts.push(htmlFacts.inlineScripts + " inline scripts");
+      }
+      if (parts.length) {
+        lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
+      }
+    }
 
-    var lines = narrative.overall && narrative.overall.lines;
-    return Array.isArray(lines) && lines.length > 0;
-  }
+    var htmlOut = "";
+    for (var j = 0; j < lines.length; j++) {
+      htmlOut += "<p style='margin:0 0 8px 0; line-height:1.5;'>" +
+        escapeHtml(lines[j]) +
+        "</p>";
+    }
 
-  function psiReadyFromData(data) {
-    var psi = pickPsiEnvelope(data);
-
-    if (psi && psi.enabled === false) return true;
-    if (psi && psi.pending === true) return false;
-
-    var hasMobileFacts = !!(psi && psi.mobile && psi.mobile.facts);
-    var hasDesktopFacts = !!(psi && psi.desktop && psi.desktop.facts);
-
-    if (hasMobileFacts && hasDesktopFacts) return true;
-
-    var status = String(psi && psi._status ? psi._status : "").toLowerCase();
-    if (status === "ok" && (hasMobileFacts || hasDesktopFacts)) return true;
-
-    return false;
+    el.innerHTML = htmlOut;
   }
 
   // -----------------------------
-  // DOM actions
+  // Header + Score
   // -----------------------------
+  function setHeaderUI(header) {
+    var site = $("siteUrl");
+    var reportId = $("reportId");
+    var reportDate = $("reportDate");
+
+    if (site) site.textContent = header.website || "—";
+    if (reportId) reportId.textContent = header.report_id || "—";
+    if (reportDate) reportDate.textContent = formatDate(header.created_at);
+  }
+
+  function setOverallUI(scores) {
+    var overall = asInt(scores.overall, 0);
+    var pill = $("overallPill");
+    var bar = $("overallBar");
+    var note = $("overallNote");
+
+    if (pill) pill.textContent = overall;
+    if (bar) bar.style.width = overall + "%";
+    if (note) note.textContent =
+      "Scoring Model v1.0 — Deterministic weighted signals.";
+  }
+
   function showReport() {
     var loader = $("loaderSection");
     var root = $("reportRoot");
@@ -312,745 +221,45 @@
     if (root) root.style.display = "block";
   }
 
-  function setHeaderUI(header) {
-    header = safeObj(header);
-
-    var site = $("siteUrl");
-    var reportId = $("reportId");
-    var reportDate = $("reportDate");
-
-    var website = String(header.website || "").trim();
-    var rid = String(header.report_id || "").trim();
-    var created = header && (header.report_date || header.created_at || header.generated_at);
-
-    if (site) {
-      site.textContent = website || "—";
-      if (website) {
-        site.href = website.indexOf("http") === 0 ? website : ("https://" + website);
-      } else {
-        site.removeAttribute("href");
-      }
-    }
-    if (reportId) reportId.textContent = rid || "—";
-    if (reportDate) reportDate.textContent = formatDate(created);
-  }
-
-  function setOverallUI(scores, overallSummary) {
-    scores = safeObj(scores);
-    var overall = asInt(scores.overall, 0);
-
-    var pill = $("overallPill");
-    var bar = $("overallBar");
-    var note = $("overallNote");
-
-    if (pill) pill.textContent = String(overall);
-    if (bar) bar.style.width = overall + "%";
-    if (note) note.textContent = overallSummary || "";
-  }
-
   // -----------------------------
-  // Executive Narrative rendering
-  // -----------------------------
-  function renderNarrative(narrative, state) {
-    var el = $("narrativeText");
-    if (!el) return false;
-
-    state = safeObj(state);
-    var psiReady = !!state.psiReady;
-
-    // Show blocked/error states (so "nothing" doesn't look like it hangs forever)
-    if (narrative && typeof narrative === "object") {
-      var st = narrativeMetaStatus(narrative);
-      if (st === "blocked_insufficient_specificity") {
-        el.innerHTML =
-          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
-            "<strong>Waiting for a site-specific anchor fact.</strong><br>" +
-            "This scan does not yet contain a reliable uniqueness anchor (e.g., complete mobile+desktop PSI, canonical/H1 evidence, or trust hardening evidence).<br>" +
-            "Leave this page open or refresh once PSI completes." +
-          "</div>";
-        return false;
-      }
-      if (st === "error") {
-        var em = narrativeErrorMessage(narrative);
-        el.innerHTML =
-          "<div class='muted' style='font-size:12px; line-height:1.55;'>" +
-            "<strong>Narrative generation error.</strong><br>" +
-            (em ? ("<span>" + escapeHtml(em) + "</span><br>") : "") +
-            "Try refresh, or add <code>?regen=1</code> to force a rebuild." +
-          "</div>";
-        return false;
-      }
-    }
-
-    if (!narrative) {
-      el.innerHTML =
-        "<div class='muted' style='font-size:12px;'>" +
-          (psiReady ? "Building narrative" : "Building Narrative") +
-          dotsHtml() +
-        "</div>";
-      return false;
-    }
-
-    if (typeof narrative === "object") {
-      var overallLines = asArray(narrative.overall && narrative.overall.lines);
-      if (overallLines.length) {
-        var html = "";
-        for (var i = 0; i < overallLines.length; i++) {
-          var s = String(overallLines[i] || "").trim();
-          if (!s) continue;
-          html += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(s) + "</p>";
-        }
-        if (html) {
-          el.innerHTML = html;
-          return true;
-        }
-      }
-
-      if (typeof narrative.executive_lead === "string" && narrative.executive_lead.trim()) {
-        var parts = narrative.executive_lead.replace(/\r\n/g, "\n").split("\n");
-        var out = "";
-        for (var j = 0; j < parts.length; j++) {
-          var t = String(parts[j] || "").trim();
-          if (!t) continue;
-          out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(t) + "</p>";
-        }
-        if (out) {
-          el.innerHTML = out;
-          return true;
-        }
-      }
-    }
-
-    if (typeof narrative === "string" && narrative.trim()) {
-      var blocks = narrative.replace(/\r\n/g, "\n").split(/\n\s*\n+/);
-      if (blocks.length < 2) blocks = narrative.split("\n");
-
-      var html2 = "";
-      for (var k = 0; k < blocks.length; k++) {
-        var b = String(blocks[k] || "").trim();
-        if (!b) continue;
-        html2 += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(b) + "</p>";
-      }
-      if (html2) {
-        el.innerHTML = html2;
-        return true;
-      }
-    }
-
-    el.innerHTML =
-      "<div class='muted' style='font-size:12px;'>" +
-        (psiReady ? "Building narrative" : "Building Narrative") +
-        dotsHtml() +
-      "</div>";
-    return false;
-  }
-
-  // -----------------------------
-  // What to Fix First (and Why) block
-  // -----------------------------
-  function renderFixFirstBlock(narrative) {
-    var root = $("fixFirstBlock");
-    if (!root) return false;
-
-    if (!narrative || typeof narrative !== "object") {
-      root.innerHTML = "";
-      return false;
-    }
-
-    var ff = safeObj(narrative.fix_first);
-    var fixFirst = String(ff.fix_first || "").trim();
-    var why = asArray(ff.why).filter(Boolean);
-    var waitOn = asArray(ff.deprioritise).filter(Boolean);
-    var outcome = asArray(ff.expected_outcome).filter(Boolean);
-
-    if (!fixFirst && !why.length && !waitOn.length && !outcome.length) {
-      root.innerHTML = "";
-      return false;
-    }
-
-    function list(items) {
-      if (!items || !items.length) return "<div class='muted' style='font-size:12px;'>—</div>";
-      var html = "<ul style='margin:8px 0 0 18px; padding:0;'>";
-      for (var i = 0; i < items.length; i++) {
-        var s = String(items[i] || "").trim();
-        if (!s) continue;
-        html += "<li style='margin:0 0 6px 0; line-height:1.5;'>" + escapeHtml(s) + "</li>";
-      }
-      html += "</ul>";
-      return html;
-    }
-
-    var htmlOut = "";
-    htmlOut += "<div class='card' style='margin-top:14px;'>";
-    htmlOut += "<div class='card-top' style='align-items:flex-start;'>";
-    htmlOut += "<h3 style='margin:0;'>What to Fix First (and Why)</h3>";
-    htmlOut += "</div>";
-
-    htmlOut += "<div style='margin-top:10px; line-height:1.55;'>";
-    htmlOut += "<div style='margin-bottom:10px;'><strong>Fix first:</strong> " + escapeHtml(fixFirst || "—") + "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Why:</strong>";
-    htmlOut += list(why);
-    htmlOut += "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Wait on:</strong>";
-    htmlOut += list(waitOn);
-    htmlOut += "</div>";
-
-    htmlOut += "<div style='margin:10px 0;'><strong>Expected outcome:</strong>";
-    htmlOut += list(outcome);
-    htmlOut += "</div>";
-
-    htmlOut += "</div>";
-    htmlOut += "</div>";
-
-    root.innerHTML = htmlOut;
-    return true;
-  }
-
-  // -----------------------------
-  // Delivery signal cards
-  // -----------------------------
-  function renderSignalsGrid(signals, narrative, opts) {
-    var grid = $("signalsGrid");
-    if (!grid) return;
-
-    opts = safeObj(opts);
-    var psiReady = !!opts.psiReady;
-    var narrReady = !!opts.narrativeReady;
-
-    signals = asArray(signals);
-    grid.innerHTML = "";
-
-    var narrSignals = {};
-    if (narrative && typeof narrative === "object" && narrative.signals && typeof narrative.signals === "object") {
-      narrSignals = narrative.signals;
-    }
-
-    function keyFor(sig) {
-      var id = String((sig && (sig.id || sig.label)) || "").toLowerCase();
-      if (id.indexOf("perf") !== -1) return "performance";
-      if (id.indexOf("mobile") !== -1) return "mobile";
-      if (id.indexOf("seo") !== -1) return "seo";
-      if (id.indexOf("structure") !== -1 || id.indexOf("semantic") !== -1) return "structure";
-      if (id.indexOf("sec") !== -1 || id.indexOf("trust") !== -1) return "security";
-      if (id.indexOf("access") !== -1) return "accessibility";
-      return (sig && sig.id) ? String(sig.id) : "";
-    }
-
-    function fallbackSummary(sig) {
-      var score = asInt(sig.score, 0);
-      var label = String(sig.label || sig.id || "This signal");
-      var s = label + " is measured at " + score + "/100 from deterministic checks in this scan.";
-
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-
-      if (issues.length) s += "\nIssues were detected that may be worth prioritising.";
-      if (!issues.length && deds.length) s += "\nDeductions were applied based on observed evidence.";
-      if (!issues.length && !deds.length) s += "\nNo clear issues were flagged for this signal in the current scan.";
-
-      return s;
-    }
-
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
-
-      var k = keyFor(sig);
-      var lines = [];
-      if (k && narrSignals[k] && narrSignals[k].lines) lines = asArray(narrSignals[k].lines);
-
-      var summaryHtml = "";
-      if (!psiReady) {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Building narrative" + dotsHtml() + "</span>";
-      } else if (!narrReady && !lines.length) {
-        summaryHtml = "<span class='muted' style='font-size:12px;'>Building signal narrative" + dotsHtml() + "</span>";
-      } else {
-        var summary = "";
-        if (lines.length) summary = String(lines.join("\n"));
-        else summary = fallbackSummary(sig);
-        summaryHtml = escapeHtml(summary).replace(/\n/g, "<br>");
-      }
-
-      var card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML =
-        '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
-        "</div>" +
-        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' + summaryHtml + "</div>";
-
-      grid.appendChild(card);
-    }
-  }
-
-  // -----------------------------
-  // Signal Evidence (accordions per signal)
-  // -----------------------------
-  function renderSignalEvidence(signals) {
-    var root = $("signalEvidenceRoot");
-    if (!root) return;
-
-    signals = asArray(signals);
-    root.innerHTML = "";
-
-    function kvHtml(k, v) {
-      var val = v;
-      if (val === null || typeof val === "undefined") val = "—";
-      if (typeof val === "boolean") val = val ? "true" : "false";
-      return (
-        '<div class="kv">' +
-          '<div class="k">' + escapeHtml(String(k)) + "</div>" +
-          '<div class="v">' + escapeHtml(String(val)) + "</div>" +
-        "</div>"
-      );
-    }
-
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
-      var issues = asArray(sig.issues);
-      var obs = asArray(sig.observations);
-      var deds = asArray(sig.deductions);
-      var evidence = safeObj(sig.evidence);
-
-      var det = document.createElement("details");
-      det.className = "evidence-block";
-      det.open = false;
-
-      var summary =
-        '<summary>' +
-          '<div class="acc-title">' + escapeHtml(label) + "</div>" +
-          '<div class="acc-score">' + escapeHtml(String(score)) + "/100</div>" +
-        "</summary>";
-
-      var body = '<div class="acc-body">';
-
-      if (issues.length) {
-        body += "<div class='evidence-title'>Issues</div>";
-        for (var j = 0; j < issues.length; j++) {
-          var it = safeObj(issues[j]);
-          var t = String(it.title || it.id || "Issue");
-          var sev = String(it.severity || "").toUpperCase();
-          var impact = String(it.impact || it.detail || it.description || "");
-          body += "<div class='issue' style='margin-bottom:10px;'>";
-          body += "<div class='issue-top'>";
-          body += "<p class='issue-title'>" + escapeHtml(t) + "</p>";
-          body += "<span class='issue-label'>" + escapeHtml(sev || "Monitor") + "</span>";
-          body += "</div>";
-          if (impact) body += "<div class='issue-why impact-text'>" + escapeHtml(impact) + "</div>";
-          body += "</div>";
-        }
-      }
-
-      if (deds.length) {
-        body += "<div class='evidence-title' style='margin-top:14px;'>Deductions Applied</div>";
-        body += "<div class='evidence-list'>";
-        for (var k = 0; k < deds.length; k++) {
-          var dd = safeObj(deds[k]);
-          var pts = dd.points;
-          var reason = dd.reason || dd.code || "";
-          body += kvHtml((pts != null ? ("-" + pts + " pts") : "Deduction"), reason);
-        }
-        body += "</div>";
-      }
-
-      if (obs.length) {
-        body += "<div class='evidence-title' style='margin-top:14px;'>Observations</div>";
-        body += "<div class='evidence-list'>";
-        for (var m = 0; m < obs.length; m++) {
-          var o = safeObj(obs[m]);
-          body += kvHtml(o.label || ("Observation " + (m + 1)), o.value);
-        }
-        body += "</div>";
-      }
-
-      var eKeys = Object.keys(evidence || {});
-      if (eKeys.length) {
-        body += "<div class='evidence-title' style='margin-top:14px;'>Evidence</div>";
-        body += "<div class='evidence-list'>";
-        for (var n = 0; n < eKeys.length; n++) {
-          var ek = eKeys[n];
-          body += kvHtml(ek, evidence[ek]);
-        }
-        body += "</div>";
-      }
-
-      body += "</div>";
-
-      det.innerHTML = summary + body;
-      root.appendChild(det);
-    }
-
-    if (!signals.length) {
-      root.innerHTML = "<div class='muted'>No evidence blocks returned.</div>";
-    }
-  }
-
-  // -----------------------------
-  // Key Insight Metrics
-  // -----------------------------
-  function renderKeyInsights(scores, signals) {
-    var root = $("keyMetricsRoot");
-    if (!root) return;
-
-    scores = safeObj(scores);
-    signals = asArray(signals);
-
-    var items = [
-      { key: "Strength", text: "Not available from this scan output yet." },
-      { key: "Risk",     text: "Not available from this scan output yet." },
-      { key: "Focus",    text: "Not available from this scan output yet." },
-      { key: "Next",     text: "Not available from this scan output yet." }
-    ];
-
-    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-    var best = { k: "", v: -1 };
-    var worst = { k: "", v: 999 };
-
-    for (var i = 0; i < domains.length; i++) {
-      var k = domains[i];
-      if (typeof scores[k] === "undefined") continue;
-      var v = asInt(scores[k], 0);
-      if (v > best.v) best = { k: k, v: v };
-      if (v < worst.v) worst = { k: k, v: v };
-    }
-
-    if (best.k) items[0].text = best.k.toUpperCase() + " is strongest (" + best.v + "/100).";
-    if (worst.k) items[1].text = worst.k.toUpperCase() + " is the main risk (" + worst.v + "/100).";
-
-    var focus = "";
-    var next = "";
-
-    for (var s = 0; s < signals.length; s++) {
-      var sig = safeObj(signals[s]);
-      var issues = asArray(sig.issues);
-      if (issues.length) {
-        var it = safeObj(issues[0]);
-        focus = String(it.title || it.id || "").trim();
-        next = "Address: " + focus + " (then re-scan to confirm).";
-        break;
-      }
-    }
-
-    if (!focus) {
-      for (var d = 0; d < signals.length; d++) {
-        var sd = safeObj(signals[d]);
-        var deds = asArray(sd.deductions);
-        if (deds.length) {
-          focus = String(deds[0].reason || deds[0].code || "").trim();
-          next = "Fix: " + focus + " (then re-scan).";
-          break;
-        }
-      }
-    }
-
-    if (focus) items[2].text = focus;
-    if (next) items[3].text = next;
-
-    var html = '<div class="insight-list">';
-    for (var j = 0; j < items.length; j++) {
-      html +=
-        '<div class="insight">' +
-          '<div class="tag">' + escapeHtml(items[j].key) + "</div>" +
-          '<div class="text">' + escapeHtml(items[j].text) + "</div>" +
-        "</div>";
-    }
-    html += "</div>";
-
-    root.innerHTML = html;
-  }
-
-  // -----------------------------
-  // Top Issues
-  // -----------------------------
-  function renderTopIssues(signals) {
-    var root = $("topIssuesRoot");
-    if (!root) return;
-
-    signals = asArray(signals);
-
-    var issuesOut = [];
-
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
-      var issues = asArray(sig.issues);
-
-      for (var j = 0; j < issues.length; j++) {
-        var it = safeObj(issues[j]);
-        issuesOut.push({
-          title: String(it.title || it.id || (label + ": issue")).trim(),
-          sev: String(it.severity || "monitor").toUpperCase(),
-          why: String(it.impact || it.detail || it.description || "").trim()
-        });
-      }
-    }
-
-    if (!issuesOut.length) {
-      for (var k = 0; k < signals.length; k++) {
-        var sd = safeObj(signals[k]);
-        var lab = String(sd.label || sd.id || "Signal");
-        var deds = asArray(sd.deductions);
-        for (var m = 0; m < deds.length; m++) {
-          var dd = safeObj(deds[m]);
-          issuesOut.push({
-            title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
-            sev: "MONITOR",
-            why: "Penalty applied from deterministic evidence."
-          });
-        }
-      }
-    }
-
-    var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
-
-    var html = "";
-    if (!cap) {
-      html =
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">No issues detected</p>' +
-            '<span class="issue-label">OK</span>' +
-          "</div>" +
-          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
-        "</div>";
-      root.innerHTML = html;
-      return;
-    }
-
-    for (var x = 0; x < cap; x++) {
-      var it2 = issuesOut[x];
-      html +=
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-          "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
-        "</div>";
-    }
-
-    root.innerHTML = html;
-  }
-
-  // -----------------------------
-  // Fix Sequence
-  // -----------------------------
-  function renderFixSequence(scores, signals) {
-    var root = $("fixSequenceRoot");
-    if (!root) return;
-
-    scores = safeObj(scores);
-    signals = asArray(signals);
-
-    var focus = "";
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var issues = asArray(sig.issues);
-      if (issues.length) {
-        focus = String(issues[0].title || issues[0].id || "").trim();
-        break;
-      }
-    }
-    if (!focus) {
-      var domains = ["security", "seo", "accessibility", "performance", "structure", "mobile"];
-      var worst = { k: "", v: 999 };
-      for (var j = 0; j < domains.length; j++) {
-        var k = domains[j];
-        if (typeof scores[k] === "undefined") continue;
-        var v = asInt(scores[k], 0);
-        if (v < worst.v) worst = { k: k, v: v };
-      }
-      if (worst.k) focus = "Stabilise " + worst.k.toUpperCase() + " baseline first.";
-    }
-
-    try {
-      var phases = root.querySelectorAll(".phase");
-      if (phases && phases.length >= 3) {
-        var ul1 = phases[0].querySelector("ul");
-        if (ul1) {
-          ul1.innerHTML =
-            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
-            "<li>Re-run the scan immediately to confirm the signal moves (before touching design/copy).</li>" +
-            "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
-        }
-
-        var ul2 = phases[1].querySelector("ul");
-        if (ul2) {
-          ul2.innerHTML =
-            "<li>Address remaining deductions in the weakest domain (SEO/Security/Accessibility depending on scores).</li>" +
-            "<li>Remove repeated sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
-            "<li>Validate with a second re-scan and keep a before/after record.</li>";
-        }
-
-        var ul3 = phases[2].querySelector("ul");
-        if (ul3) {
-          ul3.innerHTML =
-            "<li>Harden trust posture (headers/policies) only once the baseline is stable.</li>" +
-            "<li>Schedule periodic scans to prevent regressions.</li>" +
-            "<li>Build a lightweight change log tied to scan IDs for auditability.</li>";
-        }
-      }
-    } catch (e) {}
-  }
-
-  // -----------------------------
-  // Non-blocking polling + one-time narrative trigger
-  // -----------------------------
-  function ensureNarrativeNonBlocking(reportId, initialData, signals) {
-    if (isPdfMode()) return;
-
-    var started = Date.now();
-    var MAX_WAIT = 180000;
-    var INTERVAL = 4000;
-
-    var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
-    try {
-      if (typeof window !== "undefined" && window[latchKey] == null) window[latchKey] = false;
-    } catch (e) {}
-
-    var done = false;
-
-    function renderFrom(data) {
-      var psiReady = psiReadyFromData(data);
-      var n = pickNarrative(data);
-
-      renderNarrative(n, { psiReady: psiReady });
-      renderFixFirstBlock(n);
-      renderSignalsGrid(signals, n, { psiReady: psiReady, narrativeReady: narrativeReady(n) });
-    }
-
-    // fire initial render
-    renderFrom(initialData);
-
-    function shouldReRequest(narrativeObj) {
-      var st = narrativeMetaStatus(narrativeObj);
-      return (st === "blocked_insufficient_specificity" || st === "error");
-    }
-
-    function maybeRequestNarrative(data) {
-      var n = pickNarrative(data);
-      var alreadyRequested = false;
-      try { alreadyRequested = !!(typeof window !== "undefined" && window[latchKey]); } catch (e) {}
-
-      // If blocked/error, re-arm latch so we can try again later.
-      if (shouldReRequest(n)) {
-        try { if (typeof window !== "undefined") window[latchKey] = false; } catch (e) {}
-        alreadyRequested = false;
-      }
-
-      // IMPORTANT CHANGE:
-      // Do NOT wait for psiReady to request narrative.
-      // The backend will return "waiting_for_inputs" safely until PSI arrives.
-      if (!alreadyRequested) {
-        try { if (typeof window !== "undefined") window[latchKey] = true; } catch (e) {}
-        generateNarrative(reportId).catch(function () {});
-      }
-    }
-
-    // Request narrative immediately (once) so it can enter "generating" / "waiting" state.
-    maybeRequestNarrative(initialData);
-
-    function tick() {
-      if (done) return;
-
-      if (Date.now() - started > MAX_WAIT) {
-        done = true;
-        return;
-      }
-
-      fetchReportData(reportId)
-        .then(function (data) {
-          var n = pickNarrative(data);
-
-          // STOP polling the moment we have something renderable (string or object)
-          if (narrativeReady(n)) {
-            renderFrom(data);
-            done = true;
-            return;
-          }
-
-          // If we are blocked/error, allow re-request (backend may now have PSI / evidence)
-          maybeRequestNarrative(data);
-
-          renderFrom(data);
-          setTimeout(tick, INTERVAL);
-        })
-        .catch(function () {
-          setTimeout(tick, INTERVAL);
-        });
-    }
-
-    tick();
-  }
-
-  // -----------------------------
-  // Main render
-  // -----------------------------
+  // Main Render
+  // ----------------------------
   function renderAll(data) {
     data = safeObj(data);
 
-    var header = pickHeader(data);
-    var scores = pickScores(data);
-    var signals = pickSignals(data);
-    var narrative = pickNarrative(data);
+    setHeaderUI({
+      website: data.url,
+      report_id: data.report_id,
+      created_at: data.created_at
+    });
 
-    setHeaderUI(header);
+    setOverallUI(data.scores);
 
-    var overallSummary = pickOverallSummary(data, scores.overall);
-    setOverallUI(scores, overallSummary);
+    renderExecutiveSummary(data);
 
     showReport();
-
-    var rid = String(header.report_id || getReportIdFromUrl() || "");
-    var psiReady = psiReadyFromData(data);
-
-    renderNarrative(narrative, { psiReady: psiReady });
-    renderFixFirstBlock(narrative);
-    renderSignalsGrid(signals, narrative, { psiReady: psiReady, narrativeReady: narrativeReady(narrative) });
-
-    renderSignalEvidence(signals);
-    renderKeyInsights(scores, signals);
-    renderTopIssues(signals);
-    renderFixSequence(scores, signals);
-
-    if (rid) ensureNarrativeNonBlocking(rid, data, signals);
-
-    try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
 
   function boot() {
     var reportId = getReportIdFromUrl();
     if (!reportId) return;
 
-    try {
-      var latchKey = "__IQWEB_NARR_REQ__" + String(reportId || "");
-      if (typeof window !== "undefined") window[latchKey] = false;
-    } catch (e) {}
-
     fetchReportData(reportId)
-      .then(function (data) { renderAll(data); })
+      .then(function (data) {
+        renderAll(data);
+      })
       .catch(function () {
         showReport();
-        try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
         var n = $("narrativeText");
-        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
-        var ff = $("fixFirstBlock");
-        if (ff) ff.innerHTML = "";
+        if (n) n.innerHTML =
+          "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
       });
   }
 
-  try {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", boot);
-    } else {
-      boot();
-    }
-  } catch (e) {}
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+
 })();
