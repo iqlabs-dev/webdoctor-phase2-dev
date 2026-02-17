@@ -455,97 +455,92 @@
     el.innerHTML = out;
   }
 
-  // -----------------------------
-  // Delivery signal cards (developer + client explainability, no debug output)
-  // -----------------------------
-  function renderSignalsGrid(signals, scores) {
-    var grid = $("signalsGrid");
-    if (!grid) return;
+// -----------------------------
+// Delivery signal cards (developer + client explainability, no debug output)
+// -----------------------------
+function renderSignalsGrid(signals, scores) {
+  var grid = $("signalsGrid");
+  if (!grid) return;
 
-    signals = asArray(signals);
-    scores = safeObj(scores);
-    grid.innerHTML = "";
+  signals = asArray(signals);
+  scores = safeObj(scores);
+  grid.innerHTML = "";
 
-    function domainKeyFromSignal(sig) {
-      var k = String(sig.key || sig.domain || sig.id || sig.label || "").toLowerCase();
+  function domainKeyFromSignal(sig) {
+    var k = String(sig.key || sig.domain || sig.id || sig.label || "").toLowerCase();
 
-      if (k.indexOf("perform") !== -1) return "performance";
-      if (k.indexOf("mobile") !== -1) return "mobile";
-      if (k.indexOf("seo") !== -1) return "seo";
-      if (k.indexOf("security") !== -1 || k.indexOf("trust") !== -1) return "security";
-      if (k.indexOf("structure") !== -1 || k.indexOf("semantic") !== -1) return "structure";
-      if (k.indexOf("access") !== -1) return "accessibility";
-      return "";
+    if (k.indexOf("perform") !== -1) return "performance";
+    if (k.indexOf("mobile") !== -1) return "mobile";
+    if (k.indexOf("seo") !== -1) return "seo";
+    if (k.indexOf("security") !== -1 || k.indexOf("trust") !== -1) return "security";
+    if (k.indexOf("structure") !== -1 || k.indexOf("semantic") !== -1) return "structure";
+    if (k.indexOf("access") !== -1) return "accessibility";
+    return "";
+  }
+
+  // Only surface evidence that reads like a real “fail”
+  function isMeaningfulFail(key, value) {
+    var k = String(key || "").toLowerCase();
+
+    if (typeof value === "boolean") {
+      if (k.indexOf("missing") !== -1) return value === true;
+      if (
+        k.indexOf("present") !== -1 ||
+        k.indexOf("enabled") !== -1 ||
+        k.indexOf("https") !== -1 ||
+        k.indexOf("hsts") !== -1 ||
+        k.indexOf("viewport") !== -1 ||
+        k.indexOf("indexable") !== -1
+      ) return value === false;
+
+      return value === false;
     }
 
-    // Only surface evidence that reads like a real “fail” (not “...=true” or “...missing=false”)
-    function isMeaningfulFail(key, value) {
-      var k = String(key || "").toLowerCase();
-
-      // If it's explicitly an issue title/deduction, we don’t come here.
-      // Heuristic for evidence booleans:
-      if (typeof value === "boolean") {
-        // "...missing" is a fail when TRUE
-        if (k.indexOf("missing") !== -1) return value === true;
-        // "...present/enabled/https/hsts/viewport" is a fail when FALSE
-        if (
-          k.indexOf("present") !== -1 ||
-          k.indexOf("enabled") !== -1 ||
-          k.indexOf("https") !== -1 ||
-          k.indexOf("hsts") !== -1 ||
-          k.indexOf("viewport") !== -1 ||
-          k.indexOf("indexable") !== -1
-        ) return value === false;
-
-        // default: only show false (conservative)
-        return value === false;
-      }
-
-      // Numeric ratios/counters: 0 is typically a fail
-      var nv = num(value);
-      if (nv !== null) {
-        if (k.indexOf("ratio") !== -1) return nv < 1;
-        if (k.indexOf("count") !== -1) return nv <= 0;
-        if (k.indexOf("coverage") !== -1) return nv < 1;
-      }
-
-      return false;
+    var nv = num(value);
+    if (nv !== null) {
+      if (k.indexOf("ratio") !== -1) return nv < 1;
+      if (k.indexOf("count") !== -1) return nv <= 0;
+      if (k.indexOf("coverage") !== -1) return nv < 1;
     }
 
-    function prettyEvidenceText(key, value) {
-      // Make it readable without leaking raw telemetry
-      var k = String(key || "");
-      // Best-effort: replace underscores with spaces, keep it short
-      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!label) label = "Requirement";
-      if (typeof value === "boolean") {
-        // If we're showing it, it’s a fail. Phrase it as missing/disabled.
-        if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
-        if (value === false) return label + " is not satisfied.";
-      }
-      var nv = num(value);
-      if (nv !== null) return label + " is below baseline (" + nv + ").";
-      return label + " needs attention.";
+    return false;
+  }
+
+  function prettyEvidenceText(key, value) {
+    var k = String(key || "");
+    var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!label) label = "Requirement";
+
+    if (typeof value === "boolean") {
+      if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
+      if (value === false) return label + " is not satisfied.";
     }
 
-    function pickExplainLine(sig) {
-      // 1) Issues (best)
-      var issues = asArray(sig.issues);
-      if (issues.length) {
-        var it = safeObj(issues[0]);
-        var t = String(it.title || it.id || "").trim();
-        if (t) return t;
-      }
+    var nv = num(value);
+    if (nv !== null) return label + " is below baseline (" + nv + ").";
+    return label + " needs attention.";
+  }
 
-      // 2) Deductions (next best)
-      var deds = asArray(sig.deductions);
-      if (deds.length) {
-        var dd = safeObj(deds[0]);
-        var r = String(dd.reason || dd.code || "").trim();
-        if (r) return r;
-      }
+  // NOTE: caller decides whether it is allowed to run evidence heuristics.
+  function pickExplainLine(sig, allowEvidence) {
+    // 1) Issues
+    var issues = asArray(sig.issues);
+    if (issues.length) {
+      var it = safeObj(issues[0]);
+      var t = String(it.title || it.id || "").trim();
+      if (t) return t;
+    }
 
-      // 3) Evidence heuristics (only clear fails)
+    // 2) Deductions
+    var deds = asArray(sig.deductions);
+    if (deds.length) {
+      var dd = safeObj(deds[0]);
+      var r = String(dd.reason || dd.code || "").trim();
+      if (r) return r;
+    }
+
+    // 3) Evidence heuristics (ONLY if allowed)
+    if (allowEvidence) {
       var ev = safeObj(sig.evidence);
       var keys = Object.keys(ev || {});
       for (var i = 0; i < keys.length; i++) {
@@ -553,100 +548,134 @@
         var v = ev[k];
         if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
       }
-
-      // Otherwise: calm
-      return "";
     }
 
-    function flagsLine(sig) {
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-      var a = [];
-      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
-      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? ("Flags: " + a.join(" • ")) : "Flags: none";
-    }
-
-    // First pass: find primary constraint among mapped signals (>=3 pts)
-    var maxDef = -1;
-    var primaryIdx = -1;
-
-    for (var p = 0; p < signals.length; p++) {
-      var ps = safeObj(signals[p]);
-      var pKey = domainKeyFromSignal(ps);
-      if (!pKey) continue;
-      var pw = WEIGHTS[pKey] || 0;
-      if (!pw) continue;
-      var pScore = asInt(ps.score, 0);
-      var pPts = deficitWeightedPoints(pScore, pw);
-      if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; primaryIdx = p; }
-    }
-
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-
-      var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
-
-      var key = domainKeyFromSignal(sig);
-      var w = key ? (WEIGHTS[key] || 0) : 0;
-      var weightPct = w ? (Math.round(w * 100) + "%") : "";
-
-      var defPts = w ? deficitWeightedPoints(score, w) : 0;
-
-      // Headline line: what to tell the client (constraint/drag/stable)
-      var headline = "STABLE";
-      if (w && defPts >= 3) {
-        if (i === primaryIdx) headline = "PRIMARY CONSTRAINT";
-        else headline = "SECONDARY DRAG";
-      } else if (w) {
-        headline = "STABLE";
-      } else {
-        headline = "DETERMINISTIC";
-      }
-
-      var lines = [];
-
-      // Always show the weight (client framing)
-      if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
-      else lines.push(headline);
-
-      // Weighted points line: ONLY if >= 3 (your rule)
-      if (w && defPts >= 3) {
-        lines.push("Impact in model: " + defPts + " weighted points.");
-      }
-
-      // Explain (human)
-      var because = pickExplainLine(sig);
-      if (because) lines.push("Why: " + because);
-
-      // Fix lever (short, developer-facing but client-safe)
-      if (key) {
-        if (key === "performance") lines.push("Fix lever: LCP + main-thread cost.");
-        else if (key === "mobile") lines.push("Fix lever: Mobile LCP + layout stability.");
-        else if (key === "seo") lines.push("Fix lever: indexability + metadata baseline.");
-        else if (key === "security") lines.push("Fix lever: headers/policy baseline + mixed content.");
-        else if (key === "structure") lines.push("Fix lever: semantic structure + required tags.");
-        else if (key === "accessibility") lines.push("Fix lever: labels/controls + contrast fundamentals.");
-      }
-
-      lines.push(flagsLine(sig));
-
-      var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-
-      var card = document.createElement("div");
-      card.className = "card";
-      card.innerHTML =
-        '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
-        "</div>" +
-        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' + summaryHtml + "</div>";
-
-      grid.appendChild(card);
-    }
+    return "";
   }
+
+  function flagsLine(sig) {
+    var issues = asArray(sig.issues);
+    var deds = asArray(sig.deductions);
+    var a = [];
+    if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
+    if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
+    return a.length ? ("Flags: " + a.join(" • ")) : "Flags: none";
+  }
+
+  function hasFlags(sig) {
+    var issues = asArray(sig.issues);
+    var deds = asArray(sig.deductions);
+    return (issues.length > 0 || deds.length > 0);
+  }
+
+  function isStrong(score) {
+    return asInt(score, 0) >= 90;
+  }
+
+  function fixLeverForKey(key) {
+    if (!key) return "";
+    if (key === "performance") return "Fix lever: LCP + main-thread cost.";
+    if (key === "mobile") return "Fix lever: Mobile LCP + layout stability.";
+    if (key === "seo") return "Fix lever: indexability + metadata baseline.";
+    if (key === "security") return "Fix lever: headers/policy baseline + mixed content.";
+    if (key === "structure") return "Fix lever: semantic structure + required tags.";
+    if (key === "accessibility") return "Fix lever: labels/controls + contrast fundamentals.";
+    return "";
+  }
+
+  // First pass: find primary constraint among mapped signals (>=3 pts)
+  var maxDef = -1;
+  var primaryIdx = -1;
+
+  for (var p = 0; p < signals.length; p++) {
+    var ps = safeObj(signals[p]);
+    var pKey = domainKeyFromSignal(ps);
+    if (!pKey) continue;
+    var pw = WEIGHTS[pKey] || 0;
+    if (!pw) continue;
+    var pScore = asInt(ps.score, 0);
+    var pPts = deficitWeightedPoints(pScore, pw);
+    if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; primaryIdx = p; }
+  }
+
+  for (var i = 0; i < signals.length; i++) {
+    var sig = safeObj(signals[i]);
+
+    var label = String(sig.label || sig.id || "Signal");
+    var score = asInt(sig.score, 0);
+
+    var key = domainKeyFromSignal(sig);
+    var w = key ? (WEIGHTS[key] || 0) : 0;
+    var weightPct = w ? (Math.round(w * 100) + "%") : "";
+
+    var defPts = w ? deficitWeightedPoints(score, w) : 0;
+
+    // Headline line: client-safe
+    var headline = "STABLE";
+    if (w && defPts >= 3) {
+      headline = (i === primaryIdx) ? "PRIMARY CONSTRAINT" : "SECONDARY DRAG";
+    } else if (!w) {
+      headline = "DETERMINISTIC";
+    }
+
+    var lines = [];
+
+    // Always show the weight (client framing)
+    if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
+    else lines.push(headline);
+
+    // Impact in model: ONLY for PRIMARY constraint, ONLY if >=3
+    if (w && defPts >= 3 && i === primaryIdx) {
+      lines.push("Impact in model: " + defPts + " weighted points.");
+    }
+
+    var flagged = hasFlags(sig);
+
+    // WHY rules:
+    // - If flagged: always show why (issues/deductions first; evidence allowed)
+    // - If not flagged AND strong (>=90): DO NOT show why at all (prevents “100 but not satisfied”)
+    // - If not flagged AND not strong (<90): allow evidence heuristics, otherwise calm fallback.
+    var allowEvidence = flagged || (!isStrong(score) && score < 90);
+    var because = pickExplainLine(sig, allowEvidence);
+
+    if (flagged) {
+      if (because) lines.push("Why: " + because);
+    } else {
+      // Not flagged
+      if (isStrong(score)) {
+        lines.push("Baseline OK — no measurable blockers detected in this scan.");
+      } else {
+        if (because) {
+          lines.push("Why: " + because);
+        } else {
+          lines.push("Score-driven drag (no explicit blockers returned by this scan).");
+        }
+      }
+    }
+
+    // Fix lever (always helpful, but only when mapped)
+    var lever = fixLeverForKey(key);
+    if (lever) lines.push(lever);
+
+    // Flags last
+    lines.push(flagsLine(sig));
+
+    var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML =
+      '<div class="card-top">' +
+        "<h3>" + escapeHtml(label) + "</h3>" +
+        '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+      "</div>" +
+      '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+      '<div class="summary">' + summaryHtml + "</div>";
+
+    grid.appendChild(card);
+  }
+}
+
 
   // -----------------------------
   // Signal Evidence
