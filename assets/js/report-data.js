@@ -9,12 +9,8 @@
  * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
  * fixFirstBlock (optional)
  *
- * V1 (Deterministic Executive Summary):
- * - Removes AI narrative engine, polling, regen, and all narrative dependencies.
- * - Replaces "Executive Narrative" content with deterministic "Executive Delivery Summary"
- *   using only stored scan facts (scores + PSI + basic_checks).
- * - Signal cards are constraint-based (weighted impact), not generic summaries.
- * - Keeps renderer intact: layout, evidence, issues, fix sequence.
+ * Deterministic Executive Summary + Constraint-aware signal cards (no AI narrative).
+ * Change: hide “Suppressing delivery by … weighted points” if < 3 points.
  */
 
 (function () {
@@ -33,6 +29,15 @@
     if (n < 0) n = 0;
     if (n > 100) n = 100;
     return n;
+  }
+
+  function num(v) {
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+
+  function round1(n) {
+    return Math.round(n * 10) / 10;
   }
 
   function escapeHtml(str) {
@@ -299,6 +304,48 @@
   }
 
   // -----------------------------
+  // Deterministic model constants
+  // -----------------------------
+  var WEIGHTS = {
+    performance: 0.30,
+    mobile: 0.20,
+    seo: 0.20,
+    security: 0.15,
+    structure: 0.10,
+    accessibility: 0.05
+  };
+
+  var LABELS = {
+    performance: "Performance",
+    mobile: "Mobile Experience",
+    seo: "SEO Foundations",
+    security: "Security & Trust",
+    structure: "Structure & Semantics",
+    accessibility: "Accessibility"
+  };
+
+  function scoreFor(scores, k) {
+    if (!scores) return null;
+    if (typeof scores[k] === "undefined") return null;
+    return asInt(scores[k], 0);
+  }
+
+  function deficitWeightedPoints(score, weight) {
+    var s = asInt(score, 0);
+    var w = Number(weight || 0);
+    if (!isFinite(w) || w <= 0) return 0;
+    return round1((100 - s) * w);
+  }
+
+  function tierForDeficit(defPts) {
+    // Matches your screenshot feel:
+    // 12 -> CONSTRAINT, 3 -> DRAG, <3 -> STRONG
+    if (defPts >= 8) return "CONSTRAINT";
+    if (defPts >= 3) return "DRAG";
+    return "STRONG";
+  }
+
+  // -----------------------------
   // Deterministic Executive Delivery Summary (replaces narrative)
   // -----------------------------
   function renderExecutiveSummary(data) {
@@ -312,46 +359,17 @@
 
     var overall = asInt(scores.overall, 0);
 
-    // Locked weights (match scoring model)
-    var WEIGHTS = {
-      performance: 0.30,
-      mobile: 0.20,
-      seo: 0.20,
-      security: 0.15,
-      structure: 0.10,
-      accessibility: 0.05
-    };
-
-    var LABELS = {
-      performance: "Performance",
-      mobile: "Mobile Experience",
-      seo: "SEO Foundations",
-      security: "Security & Trust",
-      structure: "Structure & Semantics",
-      accessibility: "Accessibility"
-    };
-
-    function scoreFor(k) {
-      if (typeof scores[k] === "undefined") return null;
-      return asInt(scores[k], 0);
-    }
-
     // Find primary constraint = highest weighted deficit
     var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var primary = { k: "", deficit: -1, score: 0, w: 0 };
 
     for (var i = 0; i < keys.length; i++) {
       var k = keys[i];
-      var s = scoreFor(k);
+      var s = scoreFor(scores, k);
       if (s === null) continue;
       var w = WEIGHTS[k] || 0;
       var def = (100 - s) * w;
       if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
-    }
-
-    function num(v) {
-      var n = Number(v);
-      return isFinite(n) ? n : null;
     }
 
     function lcpSecondsFromPsi() {
@@ -365,10 +383,9 @@
       var n = num(v);
       if (n === null) return null;
 
-      // If already in seconds
-      if (n > 0 && n < 100) return Math.round(n * 10) / 10;
-      // Assume ms
-      return Math.round((n / 1000) * 10) / 10;
+      // If already in seconds (tiny), keep it; otherwise assume ms.
+      if (n > 0 && n < 100) return round1(n);
+      return round1(n / 1000);
     }
 
     function htmlBytesFromBasic() {
@@ -388,26 +405,23 @@
       return Math.round(n);
     }
 
-    function weightedPoints(deficit) {
-      // deficit is already (100-score)*weight
-      var n = Number(deficit);
-      if (!isFinite(n)) return 0;
-      if (n < 0.5) return 0;
-      return Math.round(n);
-    }
-
     var lines = [];
     lines.push("Overall Delivery: " + overall + "/100");
 
     if (primary.k) {
-      var wPct = Math.round(primary.w * 100);
-      lines.push((LABELS[primary.k] || primary.k) + ": " + primary.score + "/100 (" + wPct + "% weight)");
+      lines.push(
+        (LABELS[primary.k] || primary.k) +
+        ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
+      );
 
-      var suppress = weightedPoints(primary.deficit);
-      if (suppress > 0) {
+      // Explicit constraint pressure line (only meaningful if >= 3 weighted points)
+      var primaryPts = deficitWeightedPoints(primary.score, primary.w);
+      if (primaryPts >= 3) {
         lines.push(
           (LABELS[primary.k] || primary.k) +
-          " is currently suppressing Overall Delivery by " + suppress + " weighted points in the scoring model."
+          " is currently suppressing Overall Delivery by " +
+          primaryPts +
+          " weighted points in the scoring model."
         );
       }
 
@@ -419,7 +433,7 @@
         }
       }
 
-      // Primary fix (constraint direction; keep tight)
+      // Primary fix (no “how”, just constraint direction)
       if (primary.k === "performance" || primary.k === "mobile") {
         lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
       } else if (primary.k === "security") {
@@ -434,7 +448,7 @@
         lines.push("Primary Fix: Improve the weakest baseline signal.");
       }
 
-      // Secondary fix (payload facts only)
+      // Secondary payload line (facts only)
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
@@ -444,11 +458,11 @@
         if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
       }
 
-      // Close (model statement)
+      // Model note
       lines.push("Improving this domain would produce the largest measurable lift in the current model.");
     }
 
-    // Cap at 6 lines (your v5.2 narrative constraint target)
+    // Cap at 6 lines max
     if (lines.length > 6) lines = lines.slice(0, 6);
 
     var out = "";
@@ -459,7 +473,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (constraint-based, deterministic)
+  // Delivery signal cards (constraint-aware, deterministic)
   // -----------------------------
   function renderSignalsGrid(signals) {
     var grid = $("signalsGrid");
@@ -468,110 +482,82 @@
     signals = asArray(signals);
     grid.innerHTML = "";
 
-    // Must match scoring model weights
-    var WEIGHTS = {
-      performance: 0.30,
-      mobile: 0.20,
-      seo: 0.20,
-      security: 0.15,
-      structure: 0.10,
-      accessibility: 0.05
-    };
+    function domainKeyFromSignal(sig) {
+      // Prefer explicit keys if you have them
+      var k = String(sig.key || sig.domain || sig.id || "").toLowerCase();
 
-    function weightKey(sig) {
-      sig = safeObj(sig);
-      var id = String(sig.id || "").toLowerCase();
-      var label = String(sig.label || "").toLowerCase();
-
-      if (WEIGHTS[id] != null) return id;
-
-      if (label.indexOf("performance") !== -1) return "performance";
-      if (label.indexOf("mobile") !== -1) return "mobile";
-      if (label.indexOf("seo") !== -1) return "seo";
-      if (label.indexOf("security") !== -1) return "security";
-      if (label.indexOf("trust") !== -1) return "security";
-      if (label.indexOf("structure") !== -1) return "structure";
-      if (label.indexOf("semantic") !== -1) return "structure";
-      if (label.indexOf("access") !== -1) return "accessibility";
-
+      // Map common ids/labels -> our score keys
+      if (k.indexOf("perform") !== -1) return "performance";
+      if (k.indexOf("mobile") !== -1) return "mobile";
+      if (k.indexOf("seo") !== -1) return "seo";
+      if (k.indexOf("security") !== -1 || k.indexOf("trust") !== -1) return "security";
+      if (k.indexOf("structure") !== -1 || k.indexOf("semantic") !== -1) return "structure";
+      if (k.indexOf("access") !== -1) return "accessibility";
       return "";
     }
 
-    function weightedImpact(score, w) {
-      score = asInt(score, 0);
-      var n = (100 - score) * (w || 0);
-      if (!isFinite(n) || n < 0.5) return 0;
-      return Math.round(n);
-    }
-
-    function topEvidence(sig) {
-      sig = safeObj(sig);
+    function topEvidenceLine(sig, label) {
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
       if (issues.length) {
         var it = safeObj(issues[0]);
-        return String(it.title || it.id || "").trim();
+        var t = String(it.title || it.id || "").trim();
+        if (t) return "Top evidence: " + label + ": " + t;
       }
       if (deds.length) {
         var dd = safeObj(deds[0]);
-        return String(dd.reason || dd.code || "").trim();
+        var r = String(dd.reason || dd.code || "").trim();
+        if (r) return "Top evidence: " + label + ": " + r;
       }
       return "";
     }
 
-    function statusTag(score, impactPts) {
-      score = asInt(score, 0);
-      if (impactPts >= 8) return "CONSTRAINT";
-      if (impactPts >= 3) return "DRAG";
-      if (score >= 90) return "STRONG";
-      return "OK";
+    function countsLine(sig) {
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+      var a = [];
+      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
+      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
+      return a.length ? a.join(" • ") : "No flags";
     }
 
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
+
       var label = String(sig.label || sig.id || "Signal");
       var score = asInt(sig.score, 0);
 
-      var k = weightKey(sig);
-      var w = WEIGHTS[k] || 0;
-      var impactPts = weightedImpact(score, w);
-      var tag = statusTag(score, impactPts);
+      var key = domainKeyFromSignal(sig);
+      var w = key ? (WEIGHTS[key] || 0) : 0;
 
-      var ev = topEvidence(sig);
-      var issuesCount = asArray(sig.issues).length;
-      var dedsCount = asArray(sig.deductions).length;
+      var defPts = deficitWeightedPoints(score, w);
+      var tier = w ? tierForDeficit(defPts) : "SIGNAL";
+      var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
-      var line1 = "";
-      if (impactPts > 0) {
-        line1 = "Suppressing delivery by " + impactPts + " weighted points.";
-      } else if (w > 0) {
-        line1 = "No material suppression in the current model.";
+      var lines = [];
+
+      // Header line: tier + weight
+      if (w) {
+        lines.push(tier + " • " + weightPct + " WEIGHT");
       } else {
-        line1 = "Not currently weighted in the scoring model.";
+        // Unknown mapping, keep it calm and deterministic
+        lines.push("DETERMINISTIC");
       }
 
-      var line2 = "";
-      if (ev) {
-        line2 = "Top evidence: " + ev;
-      } else if (issuesCount || dedsCount) {
-        line2 = "Evidence present, but no top item available.";
-      } else {
-        line2 = "No issues or deductions detected in this scan.";
+      // Suppression line: HIDE if < 3 weighted points (your request)
+      if (w && defPts >= 3) {
+        lines.push("Suppressing delivery by " + defPts + " weighted points.");
+      } else if (w && defPts < 3) {
+        // No line at all (intentionally silent)
       }
 
-      var meta = "";
-      if (issuesCount || dedsCount) {
-        meta =
-          (issuesCount ? (issuesCount + " issue" + (issuesCount === 1 ? "" : "s")) : "") +
-          ((issuesCount && dedsCount) ? " • " : "") +
-          (dedsCount ? (dedsCount + " deduction" + (dedsCount === 1 ? "" : "s")) : "");
-      } else {
-        meta = "No flags";
-      }
+      // Evidence + counts
+      var ev = topEvidenceLine(sig, label);
+      if (ev) lines.push(ev);
+      lines.push(countsLine(sig));
 
-      var summary = line1 + "\n" + line2 + "\n" + meta;
-      var summaryHtml = escapeHtml(summary).replace(/\n/g, "<br>");
+      var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
       var card = document.createElement("div");
       card.className = "card";
@@ -581,19 +567,9 @@
           '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
         "</div>" +
         '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
-        '<div class="summary">' +
-          "<div style='margin-bottom:6px; font-size:11px; letter-spacing:0.08em; opacity:0.85;'>" +
-            escapeHtml(tag) +
-            (w > 0 ? (" • " + escapeHtml(String(Math.round(w * 100))) + "% WEIGHT") : "") +
-          "</div>" +
-          summaryHtml +
-        "</div>";
+        '<div class="summary">' + summaryHtml + "</div>";
 
       grid.appendChild(card);
-    }
-
-    if (!signals.length) {
-      grid.innerHTML = "<div class='muted'>No signals returned.</div>";
     }
   }
 
@@ -929,7 +905,7 @@
     // Executive block is deterministic
     renderExecutiveSummary(data);
 
-    // Signal cards are constraint-based
+    // Signal cards are constraint-aware, deterministic
     renderSignalsGrid(signals);
 
     renderSignalEvidence(signals);
