@@ -9,9 +9,9 @@
  * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
  * fixFirstBlock (optional)
  *
- * Deterministic Executive Summary + Constraint-aware signal cards (no AI narrative).
- * Change: hide “Suppressing delivery by … weighted points” if < 3 points.
- * Change: signal cards include deterministic “because / evidence / lever” lines (no generic filler).
+ * Deterministic Executive Summary + Client-ready, constraint-aware signal cards (no AI narrative).
+ * Change: hide any “weighted points” messaging if < 3 points.
+ * Change: cards avoid debug-like evidence (no “...=true/false” unless it is a clear fail).
  */
 
 (function () {
@@ -338,69 +338,17 @@
     return round1((100 - s) * w);
   }
 
-  function tierForDeficit(defPts) {
-    // 12 -> CONSTRAINT, 3 -> DRAG, <3 -> STRONG
-    if (defPts >= 8) return "CONSTRAINT";
-    if (defPts >= 3) return "DRAG";
-    return "STRONG";
+  function primaryFixLineForKey(key) {
+    if (key === "performance" || key === "mobile") return "Primary Fix: Reduce Mobile LCP below 2.5s.";
+    if (key === "security") return "Primary Fix: Close the top Security & Trust gaps.";
+    if (key === "seo") return "Primary Fix: Stabilise SEO Foundations baseline signals.";
+    if (key === "structure") return "Primary Fix: Correct core Structure & Semantics issues.";
+    if (key === "accessibility") return "Primary Fix: Resolve top Accessibility blockers.";
+    return "Primary Fix: Improve the weakest baseline signal.";
   }
 
   // -----------------------------
-  // Deterministic fact extractors (for “because” lines)
-  // -----------------------------
-  function lcpSecondsFromPsiEnvelope(psi) {
-    psi = safeObj(psi);
-    var m = safeObj(psi.mobile);
-    var f = safeObj(m.facts);
-    var v =
-      f.lcp_ms || f.lcpMs || f.lcp ||
-      m.lcp_ms || m.lcpMs || m.lcp ||
-      null;
-
-    var n = num(v);
-    if (n === null) return null;
-
-    if (n > 0 && n < 100) return round1(n);     // already seconds-ish
-    return round1(n / 1000);                    // ms -> seconds
-  }
-
-  function htmlBytesFromBasic(basic) {
-    basic = safeObj(basic);
-    var v =
-      basic.html_bytes || basic.htmlBytes || basic.html_size_bytes || basic.initial_html_bytes ||
-      basic.document_bytes || basic.documentBytes ||
-      null;
-    return num(v);
-  }
-
-  function inlineScriptsFromBasic(basic) {
-    basic = safeObj(basic);
-    var v =
-      basic.inline_scripts || basic.inlineScripts || basic.inline_script_count || basic.inlineScriptCount ||
-      null;
-    var n = num(v);
-    if (n === null) return null;
-    return Math.round(n);
-  }
-
-  function firstMeaningfulEvidenceKV(evidence) {
-    evidence = safeObj(evidence);
-    var keys = Object.keys(evidence);
-    if (!keys.length) return null;
-
-    // Prefer boolean-ish compliance keys first (common “missing” indicators)
-    for (var i = 0; i < keys.length; i++) {
-      var k = keys[i];
-      var v = evidence[k];
-      if (typeof v === "boolean") return { k: k, v: v };
-      if (v === 0 || v === 1) return { k: k, v: v };
-    }
-    // Otherwise just first key
-    return { k: keys[0], v: evidence[keys[0]] };
-  }
-
-  // -----------------------------
-  // Deterministic Executive Delivery Summary (replaces narrative)
+  // Deterministic Executive Delivery Summary (client-ready, no debug tone)
   // -----------------------------
   function renderExecutiveSummary(data) {
     var el = $("narrativeText");
@@ -426,6 +374,39 @@
       if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
     }
 
+    function lcpSecondsFromPsi() {
+      var m = safeObj(psi.mobile);
+      var f = safeObj(m.facts);
+      var v =
+        f.lcp_ms || f.lcpMs || f.lcp ||
+        m.lcp_ms || m.lcpMs || m.lcp ||
+        null;
+
+      var n = num(v);
+      if (n === null) return null;
+
+      // If already in seconds (tiny), keep it; otherwise assume ms.
+      if (n > 0 && n < 100) return round1(n);
+      return round1(n / 1000);
+    }
+
+    function htmlBytesFromBasic() {
+      var v =
+        basic.html_bytes || basic.htmlBytes || basic.html_size_bytes || basic.initial_html_bytes ||
+        basic.document_bytes || basic.documentBytes ||
+        null;
+      return num(v);
+    }
+
+    function inlineScriptsFromBasic() {
+      var v =
+        basic.inline_scripts || basic.inlineScripts || basic.inline_script_count || basic.inlineScriptCount ||
+        null;
+      var n = num(v);
+      if (n === null) return null;
+      return Math.round(n);
+    }
+
     var lines = [];
     lines.push("Overall Delivery: " + overall + "/100");
 
@@ -435,43 +416,25 @@
         ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
       );
 
-      // Explicit model pressure line (hide if < 3 weighted points)
+      // Only mention model pressure if meaningful (>= 3 pts)
       var primaryPts = deficitWeightedPoints(primary.score, primary.w);
       if (primaryPts >= 3) {
-        lines.push(
-          (LABELS[primary.k] || primary.k) +
-          " is currently the main constraint in this model (" +
-          primaryPts +
-          " weighted points)."
-        );
+        lines.push((LABELS[primary.k] || primary.k) + " is the main constraint in this model (" + primaryPts + " weighted points).");
       }
 
-      // Optional metric line (only if real)
+      // Optional metric line (facts only)
       if (primary.k === "performance" || primary.k === "mobile") {
-        var lcp = lcpSecondsFromPsiEnvelope(psi);
+        var lcp = lcpSecondsFromPsi();
         if (lcp !== null && lcp > 0) {
           lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
         }
       }
 
-      // Primary fix (constraint direction)
-      if (primary.k === "performance" || primary.k === "mobile") {
-        lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
-      } else if (primary.k === "security") {
-        lines.push("Primary Fix: Close the top Security & Trust gaps.");
-      } else if (primary.k === "seo") {
-        lines.push("Primary Fix: Stabilise SEO Foundations baseline signals.");
-      } else if (primary.k === "structure") {
-        lines.push("Primary Fix: Correct core Structure & Semantics issues.");
-      } else if (primary.k === "accessibility") {
-        lines.push("Primary Fix: Resolve top Accessibility blockers.");
-      } else {
-        lines.push("Primary Fix: Improve the weakest baseline signal.");
-      }
+      lines.push(primaryFixLineForKey(primary.k));
 
       // Secondary payload line (facts only)
-      var hb = htmlBytesFromBasic(basic);
-      var is = inlineScriptsFromBasic(basic);
+      var hb = htmlBytesFromBasic();
+      var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
         var parts = [];
         if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
@@ -492,20 +455,16 @@
     el.innerHTML = out;
   }
 
-
   // -----------------------------
-  // Delivery signal cards (constraint-aware + deterministic “because/evidence/lever”)
+  // Delivery signal cards (developer + client explainability, no debug output)
   // -----------------------------
-  function renderSignalsGrid(signals, data) {
+  function renderSignalsGrid(signals, scores) {
     var grid = $("signalsGrid");
     if (!grid) return;
 
     signals = asArray(signals);
+    scores = safeObj(scores);
     grid.innerHTML = "";
-
-    data = safeObj(data);
-    var psi = pickPsiEnvelope(data);
-    var basic = pickBasicChecks(data);
 
     function domainKeyFromSignal(sig) {
       var k = String(sig.key || sig.domain || sig.id || sig.label || "").toLowerCase();
@@ -519,148 +478,108 @@
       return "";
     }
 
-    // Human label mapping (keeps UI from looking like raw telemetry)
-    function prettyEvidenceKey(k) {
-      k = String(k || "");
-      var MAP = {
-        // SEO
-        "title_present": "Title tag present",
-        "meta_description_present": "Meta description present",
-        "canonical_present": "Canonical tag present",
-        "robots_meta_present": "Robots meta present",
-        "og_tags_present": "Open Graph tags present",
-        "twitter_tags_present": "Twitter tags present",
-        "h1_count": "H1 count",
+    // Only surface evidence that reads like a real “fail” (not “...=true” or “...missing=false”)
+    function isMeaningfulFail(key, value) {
+      var k = String(key || "").toLowerCase();
 
-        // Security
-        "https": "HTTPS enabled",
-        "hsts": "HSTS enabled",
-        "csp": "Content-Security-Policy set",
-        "x_frame_options": "X-Frame-Options set",
-        "x_content_type_options": "X-Content-Type-Options set",
-        "referrer_policy": "Referrer-Policy set",
-        "mixed_content": "Mixed content detected",
+      // If it's explicitly an issue title/deduction, we don’t come here.
+      // Heuristic for evidence booleans:
+      if (typeof value === "boolean") {
+        // "...missing" is a fail when TRUE
+        if (k.indexOf("missing") !== -1) return value === true;
+        // "...present/enabled/https/hsts/viewport" is a fail when FALSE
+        if (
+          k.indexOf("present") !== -1 ||
+          k.indexOf("enabled") !== -1 ||
+          k.indexOf("https") !== -1 ||
+          k.indexOf("hsts") !== -1 ||
+          k.indexOf("viewport") !== -1 ||
+          k.indexOf("indexable") !== -1
+        ) return value === false;
 
-        // Structure
-        "doctype_present": "DOCTYPE present",
-        "lang_present": "HTML lang set",
-        "meta_charset_present": "Charset meta present",
-        "viewport_present": "Viewport meta present",
-        "heading_order_ok": "Heading order",
-        "semantic_tags_present": "Semantic tags present",
+        // default: only show false (conservative)
+        return value === false;
+      }
 
-        // Accessibility
-        "alt_ratio": "Image alt coverage",
-        "label_coverage": "Form label coverage",
-        "aria_required_missing": "Missing required ARIA",
-        "contrast_ok": "Contrast baseline",
+      // Numeric ratios/counters: 0 is typically a fail
+      var nv = num(value);
+      if (nv !== null) {
+        if (k.indexOf("ratio") !== -1) return nv < 1;
+        if (k.indexOf("count") !== -1) return nv <= 0;
+        if (k.indexOf("coverage") !== -1) return nv < 1;
+      }
 
-        // Generic / internal (we usually suppress these)
-        "required_inputs_missing": "Required baseline input missing"
-      };
-
-      return MAP[k] || k.replace(/_/g, " ");
+      return false;
     }
 
-    function lcpSeconds() {
-      return lcpSecondsFromPsiEnvelope(psi);
+    function prettyEvidenceText(key, value) {
+      // Make it readable without leaking raw telemetry
+      var k = String(key || "");
+      // Best-effort: replace underscores with spaces, keep it short
+      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!label) label = "Requirement";
+      if (typeof value === "boolean") {
+        // If we're showing it, it’s a fail. Phrase it as missing/disabled.
+        if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
+        if (value === false) return label + " is not satisfied.";
+      }
+      var nv = num(value);
+      if (nv !== null) return label + " is below baseline (" + nv + ").";
+      return label + " needs attention.";
     }
 
-    function firstIssueOrDeductionText(sig) {
+    function pickExplainLine(sig) {
+      // 1) Issues (best)
       var issues = asArray(sig.issues);
       if (issues.length) {
         var it = safeObj(issues[0]);
-        return String(it.title || it.id || "").trim();
+        var t = String(it.title || it.id || "").trim();
+        if (t) return t;
       }
+
+      // 2) Deductions (next best)
       var deds = asArray(sig.deductions);
       if (deds.length) {
         var dd = safeObj(deds[0]);
-        return String(dd.reason || dd.code || "").trim();
+        var r = String(dd.reason || dd.code || "").trim();
+        if (r) return r;
       }
+
+      // 3) Evidence heuristics (only clear fails)
+      var ev = safeObj(sig.evidence);
+      var keys = Object.keys(ev || {});
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = ev[k];
+        if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
+      }
+
+      // Otherwise: calm
       return "";
     }
 
-    // Pick *only meaningful* evidence items:
-    // - Prefer “missing/false” signals over “true”
-    // - Prefer numeric ratios/counts (h1_count, alt_ratio, etc.)
-    function pickMeaningfulEvidence(sig) {
-      var evidence = safeObj(sig.evidence);
-      var keys = Object.keys(evidence || {});
-      if (!keys.length) return null;
-
-      // 1) Prefer boolean false / missing states
-      for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        var v = evidence[k];
-        if (typeof v === "boolean" && v === false) return { k: k, v: v };
-      }
-
-      // 2) Prefer numeric / ratios
-      for (var j = 0; j < keys.length; j++) {
-        var k2 = keys[j];
-        var v2 = evidence[k2];
-        if (typeof v2 === "number") return { k: k2, v: v2 };
-        if (typeof v2 === "string" && v2 && v2.length <= 24) return { k: k2, v: v2 };
-      }
-
-      // 3) Last resort: first key (but avoid noisy “present=true”)
-      var k3 = keys[0];
-      var v3 = evidence[k3];
-      if (typeof v3 === "boolean" && v3 === true) return null;
-      return { k: k3, v: v3 };
-    }
-
-    function countsLine(sig) {
+    function flagsLine(sig) {
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
       var a = [];
       if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
       if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? a.join(" • ") : "No flags";
+      return a.length ? ("Flags: " + a.join(" • ")) : "Flags: none";
     }
 
-    function leverLine(domainKey) {
-      if (domainKey === "performance") return "Fix lever: LCP + main-thread cost.";
-      if (domainKey === "mobile") return "Fix lever: Mobile LCP + layout stability.";
-      if (domainKey === "seo") return "Fix lever: metadata + indexability baseline.";
-      if (domainKey === "security") return "Fix lever: headers/policy baseline + mixed content.";
-      if (domainKey === "structure") return "Fix lever: semantic structure + required tags.";
-      if (domainKey === "accessibility") return "Fix lever: labels/controls + contrast fundamentals.";
-      return "";
-    }
+    // First pass: find primary constraint among mapped signals (>=3 pts)
+    var maxDef = -1;
+    var primaryIdx = -1;
 
-    // Tight, domain-correct “Because:” lines (no cross-domain leakage)
-    function becauseLine(domainKey, sig) {
-      // Mobile: ONLY LCP
-      if (domainKey === "mobile") {
-        var l = lcpSeconds();
-        if (l !== null && l > 2.5) return "Because: Mobile LCP is " + l + "s (target <2.5s).";
-        return "";
-      }
-
-      // Performance: LCP first, then payload (if heavy)
-      if (domainKey === "performance") {
-        var lcp = lcpSeconds();
-        if (lcp !== null && lcp > 2.5) return "Because: Mobile LCP is " + lcp + "s (target <2.5s).";
-
-        var hb = htmlBytesFromBasic(basic);
-        var is = inlineScriptsFromBasic(basic);
-        if (hb !== null || is !== null) {
-          var parts = [];
-          if (hb !== null && hb >= 200 * 1024) parts.push(Math.round(hb / 1024) + "KB HTML");
-          if (is !== null && is >= 10) parts.push(is + " inline scripts");
-          if (parts.length) return "Because: initial payload is heavy (" + parts.join(", ") + ").";
-        }
-
-        var t = firstIssueOrDeductionText(sig);
-        if (t) return "Because: " + t + ".";
-        return "";
-      }
-
-      // Other domains: use first issue/deduction if present
-      var title = firstIssueOrDeductionText(sig);
-      if (title) return "Because: " + title + ".";
-      return "";
+    for (var p = 0; p < signals.length; p++) {
+      var ps = safeObj(signals[p]);
+      var pKey = domainKeyFromSignal(ps);
+      if (!pKey) continue;
+      var pw = WEIGHTS[pKey] || 0;
+      if (!pw) continue;
+      var pScore = asInt(ps.score, 0);
+      var pPts = deficitWeightedPoints(pScore, pw);
+      if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; primaryIdx = p; }
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -671,43 +590,47 @@
 
       var key = domainKeyFromSignal(sig);
       var w = key ? (WEIGHTS[key] || 0) : 0;
-
-      var defPts = deficitWeightedPoints(score, w);
-      var tier = w ? tierForDeficit(defPts) : "SIGNAL";
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
+
+      var defPts = w ? deficitWeightedPoints(score, w) : 0;
+
+      // Headline line: what to tell the client (constraint/drag/stable)
+      var headline = "STABLE";
+      if (w && defPts >= 3) {
+        if (i === primaryIdx) headline = "PRIMARY CONSTRAINT";
+        else headline = "SECONDARY DRAG";
+      } else if (w) {
+        headline = "STABLE";
+      } else {
+        headline = "DETERMINISTIC";
+      }
 
       var lines = [];
 
-      // Tier line
-      if (w) lines.push(tier + " • " + weightPct + " WEIGHT");
-      else lines.push("DETERMINISTIC");
+      // Always show the weight (client framing)
+      if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
+      else lines.push(headline);
 
-      // Suppression line: show only if >= 3 (your rule)
+      // Weighted points line: ONLY if >= 3 (your rule)
       if (w && defPts >= 3) {
-        lines.push("Suppressing delivery by " + defPts + " weighted points.");
+        lines.push("Impact in model: " + defPts + " weighted points.");
       }
 
-      // Because (domain-correct)
-      var because = becauseLine(key, sig);
-      if (because) lines.push(because);
+      // Explain (human)
+      var because = pickExplainLine(sig);
+      if (because) lines.push("Why: " + because);
 
-      // Top evidence (human)
-      var ev = pickMeaningfulEvidence(sig);
-      if (ev) {
-        var v = ev.v;
-        if (typeof v === "boolean") v = v ? "true" : "false";
-        lines.push("Top evidence: " + prettyEvidenceKey(ev.k) + " = " + String(v));
+      // Fix lever (short, developer-facing but client-safe)
+      if (key) {
+        if (key === "performance") lines.push("Fix lever: LCP + main-thread cost.");
+        else if (key === "mobile") lines.push("Fix lever: Mobile LCP + layout stability.");
+        else if (key === "seo") lines.push("Fix lever: indexability + metadata baseline.");
+        else if (key === "security") lines.push("Fix lever: headers/policy baseline + mixed content.");
+        else if (key === "structure") lines.push("Fix lever: semantic structure + required tags.");
+        else if (key === "accessibility") lines.push("Fix lever: labels/controls + contrast fundamentals.");
       }
 
-      // Fix lever
-      var lev = leverLine(key);
-      if (lev) lines.push(lev);
-
-      // Counts last
-      lines.push(countsLine(sig));
-
-      // Keep tight
-      if (lines.length > 5) lines = lines.slice(0, 5);
+      lines.push(flagsLine(sig));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
@@ -724,7 +647,6 @@
       grid.appendChild(card);
     }
   }
-
 
   // -----------------------------
   // Signal Evidence
@@ -1055,11 +977,11 @@
 
     showReport();
 
-    // Executive block is deterministic
+    // Executive block is deterministic (client-ready)
     renderExecutiveSummary(data);
 
-    // Signal cards: constraint + “because/evidence/lever”
-    renderSignalsGrid(signals, data);
+    // Signal cards are deterministic + client-explainable
+    renderSignalsGrid(signals, scores);
 
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals);
