@@ -72,7 +72,9 @@
     return "Needs attention";
   }
 
-  // Query param (ES5)
+  // -----------------------------
+  // Query params (ES5)
+  // -----------------------------
   function getQueryParam(name) {
     try {
       var q = window.location.search || "";
@@ -197,6 +199,9 @@
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
     if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
+    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
+      return data.narrative.overall_summary;
+    }
     return (
       "Overall delivery is " +
       verdict(asInt(overallScore, 0)).toLowerCase() +
@@ -275,7 +280,7 @@
   }
 
   // -----------------------------
-  // Deterministic Executive Delivery Summary (replaces narrative)
+  // Deterministic Executive Delivery Summary
   // -----------------------------
   function renderExecutiveSummary(data) {
     var el = $("narrativeText");
@@ -317,7 +322,6 @@
     }
 
     function lcpSecondsFromPsi() {
-      // prefer psi.mobile.facts.* if present; fall back to common alternates
       var m = safeObj(psi.mobile);
       var f = safeObj(m.facts);
 
@@ -329,10 +333,7 @@
       var n = num(v);
       if (n === null) return null;
 
-      // If it looks like seconds already (<100), keep as-is; else treat as ms
       if (n > 0 && n < 100) return Math.round(n * 10) / 10;
-      if (n <= 0) return null;
-
       return Math.round((n / 1000) * 10) / 10;
     }
 
@@ -370,16 +371,19 @@
     lines.push("Overall Delivery: " + overall + "/100");
 
     if (primary.k) {
+      var label = LABELS[primary.k] || primary.k;
+      var weightedDeficit = Math.round((100 - primary.score) * primary.w);
+
       lines.push(
-        (LABELS[primary.k] || primary.k) +
-        ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
+        label + " is currently suppressing Overall Delivery by ~" +
+        weightedDeficit + " weighted points in the scoring model."
       );
 
       // Optional metric line (only if real)
       if (primary.k === "performance" || primary.k === "mobile") {
         var lcp = lcpSecondsFromPsi();
         if (lcp !== null && lcp > 0) {
-          lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
+          lines.push("Mobile LCP: " + lcp + "s (target <2.5s).");
         }
       }
 
@@ -387,7 +391,7 @@
       if (primary.k === "performance" || primary.k === "mobile") {
         lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
       } else if (primary.k === "security") {
-        lines.push("Primary Fix: Close the top Security & Trust gaps.");
+        lines.push("Primary Fix: Close the highest-impact Security & Trust gaps.");
       } else if (primary.k === "seo") {
         lines.push("Primary Fix: Stabilise SEO Foundations baseline signals.");
       } else if (primary.k === "structure") {
@@ -398,7 +402,7 @@
         lines.push("Primary Fix: Improve the weakest baseline signal.");
       }
 
-      // Secondary fix: payload facts (only if present)
+      // Secondary (only if we have facts)
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
@@ -407,6 +411,9 @@
         if (is !== null) parts.push(is + " inline scripts");
         if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
       }
+
+      // Optional reinforcement line (will be trimmed by cap)
+      lines.push("Improving this domain would produce the largest measurable lift in the current model.");
     }
 
     // Cap at 6 lines
@@ -467,7 +474,7 @@
   }
 
   // -----------------------------
-  // Signal Evidence
+  // Signal Evidence (accordions per signal)
   // -----------------------------
   function renderSignalEvidence(signals) {
     var root = $("signalEvidenceRoot");
@@ -704,15 +711,14 @@
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
-html +=
-  '<div class="issue">' +
-    '<div class="issue-top">' +
-      '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-      '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-    "</div>" +
-    '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
-  "</div>";
-
+      html +=
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+          "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+        "</div>";
     }
 
     root.innerHTML = html;
@@ -796,7 +802,11 @@ html +=
 
     showReport();
 
-    // Executive block is deterministic now
+    // Optional: clear legacy fix-first block if present (not used in deterministic mode)
+    var ff = $("fixFirstBlock");
+    if (ff) ff.innerHTML = "";
+
+    // Executive block is now deterministic
     renderExecutiveSummary(data);
 
     // Signals are deterministic summaries only
