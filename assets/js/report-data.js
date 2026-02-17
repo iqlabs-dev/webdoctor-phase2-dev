@@ -393,9 +393,11 @@
       );
 
       if (primary.k === "performance" || primary.k === "mobile") {
-        var lcp = lcpSecondsFromPsi();
-        if (lcp !== null) lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
-      }
+   var lcp = lcpSecondsFromPsi();
+if (lcp !== null && lcp > 0) {
+  lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
+}
+
 
       if (primary.k === "performance" || primary.k === "mobile") {
         lines.push("Primary Fix: Reduce Mobile LCP below 2.5s.");
