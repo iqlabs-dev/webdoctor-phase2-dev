@@ -633,10 +633,11 @@
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
 
-      // Impact in model: ONLY for Priority Fix, ONLY if >=3
-      if (w && defPts >= 3 && i === primaryIdx) {
-        lines.push("Impact in model: " + defPts + " weighted points.");
-      }
+     // Client-facing priority explanation (no weighted math shown)
+if (w && defPts >= 3 && i === primaryIdx) {
+  lines.push("Why this is priority: biggest measurable drag in this scan.");
+}
+
 
       var flagged = hasFlags(sig);
 
