@@ -106,6 +106,7 @@
       font-weight: 600;
       cursor: pointer;
       user-select: none;
+      font-family: "Montserrat", system-ui, sans-serif;
     }
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
@@ -350,6 +351,10 @@
     @media (min-width: 800px) {
       .evidence-list { grid-template-columns: 1fr 1fr; }
     }
+
+    /* KEY FIX #1:
+       Let values wrap INSIDE the kv row so nothing can spill out of the card.
+       Keep the label fixed-ish, allow the value to take remaining space and wrap. */
     .kv {
       display: flex;
       align-items: flex-start;
@@ -360,25 +365,31 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.06);
     }
-    .kv .k { color: var(--muted); font-size: 12px; }
-  .kv .v{
-  color: var(--ink);
-  font-weight: 600;
-  font-size: 12px;
+    .kv .k {
+      color: var(--muted);
+      font-size: 12px;
+      flex: 0 0 auto;
+      max-width: 55%;
+      overflow-wrap: anywhere;
+    }
+    .kv .v{
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 12px;
+      text-align: right;
+      white-space: normal;          /* was nowrap */
+      overflow-wrap: anywhere;      /* allow wrap */
+      word-break: break-word;       /* hard wrap long strings */
+      min-width: 0;                 /* allow flex shrink */
+      flex: 1 1 auto;               /* take remaining space */
+      max-width: 45%;
+    }
 
-  /* ✅ allow long values (viewport_content etc) to wrap inside the card */
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-
-  /* ✅ let it shrink/wrap instead of forcing overflow */
-  min-width: 0;
-  flex: 1 1 auto;
-
-  /* optional: looks better for long strings */
-  text-align: left;
-}
-
+    .impact-text {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     /* Evidence accordions */
     details.evidence-block { padding: 0; }
@@ -517,8 +528,11 @@
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(255,255,255,0.03);
     }
+    /* KEY FIX #2:
+       Hard-force the Phase title/time font + sizing so nothing can “inherit weirdly” */
     .phase-title {
       margin: 0;
+      font-family: "Montserrat", system-ui, sans-serif;
       font-size: 12px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
@@ -526,20 +540,27 @@
       color: var(--ink);
     }
     .phase-time {
+      font-family: "Montserrat", system-ui, sans-serif;
       font-size: 11px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
       color: rgba(229,240,255,0.65);
     }
     .phase-body { padding: 12px 14px; }
-    .phase-body ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
-    .phase-body li { margin: 6px 0; line-height: 1.45; }
-
-    /* ✅ FIX: Force Fix Sequence typography to match report */
-    #fixSequenceRoot,
-    #fixSequenceRoot * {
-      font-family: inherit;
-      letter-spacing: inherit;
+    .phase-body ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--ink-soft);
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .phase-body li {
+      margin: 6px 0;
+      line-height: 1.45;
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
     }
 
     /* Loader */
@@ -742,14 +763,13 @@
           </div>
           <div class="section-body">
             <div id="narrativeText" class="summary">
-              <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
+              <div class="muted" style="font-size:12px;">Summary will load after scan data is available.</div>
             </div>
           </div>
         </section>
 
         <!-- What to Fix First (and Why) -->
-<div id="fixFirstBlock"></div>
-
+        <div id="fixFirstBlock"></div>
 
         <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
@@ -912,154 +932,151 @@
     </div>
   </div>
 
-  <!-- Renders the reprt from scan_results -->
+  <!-- Renders the report from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
   <!-- UI buttons (Back/Refresh) -->
-<script>
-(function () {
-  const refreshBtn = document.getElementById("refreshBtn");
-  const backBtn = document.getElementById("backToDashboard");
-  const pdfBtn = document.getElementById("downloadPdfBtn");
+  <script>
+  (function () {
+    const refreshBtn = document.getElementById("refreshBtn");
+    const backBtn = document.getElementById("backToDashboard");
+    const pdfBtn = document.getElementById("downloadPdfBtn");
 
-  const params = new URLSearchParams(window.location.search);
-  const from = (params.get("from") || "").toLowerCase();
-  const reportId = params.get("report_id") || "";
+    const params = new URLSearchParams(window.location.search);
+    const from = (params.get("from") || "").toLowerCase();
+    const reportId = params.get("report_id") || "";
 
-  const isHistory = from === "history";
-  const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+    const isHistory = from === "history";
+    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
 
-  // Default: keep evidence accordions CLOSED on web
-  try {
-    document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-  } catch (_) {}
-
-  // History view: hide Back + Refresh, show PDF
-  if (isHistory) {
-    if (refreshBtn) refreshBtn.style.display = "none";
-    if (backBtn) backBtn.style.display = "none";
-
-    if (pdfBtn) {
-      pdfBtn.style.display = "inline-block";
-      pdfBtn.onclick = async () => {
-        pdfBtn.disabled = true;
-        pdfBtn.textContent = "Generating PDF…";
-        try {
-          const res = await fetch("/.netlify/functions/generate-report-pdf", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ report_id: reportId })
-          });
-          if (!res.ok) throw new Error("PDF generation failed");
-
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `${reportId}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          alert("Unable to generate PDF. Please try again.");
-        } finally {
-          pdfBtn.disabled = false;
-          pdfBtn.textContent = "Download PDF";
-        }
-      };
-    }
-    return; // done
-  }
-
-  // Preview report: remove Back + Refresh (open in new tab from homepage)
-  if (isPreview) {
-    if (refreshBtn) refreshBtn.style.display = "none";
-    if (backBtn) backBtn.style.display = "none";
-    if (pdfBtn) pdfBtn.style.display = "none";
-    return; // done
-  }
-
-  // Normal (real) report view: keep Back + Refresh
-  if (pdfBtn) pdfBtn.style.display = "none";
-  if (refreshBtn) refreshBtn.onclick = () => location.reload();
-
-  if (backBtn) {
-    backBtn.textContent = "Back to dashboard";
-    backBtn.onclick = () => (window.location.href = "/dashboard.html");
-  }
-})();
-</script>
-
-
-
-<script>
-  // ===== DocRaptor render gate (single source of truth) =====
-  window.__IQWEB_REPORT_READY = false;
-
-  // Detect "PDF render mode"
-  const __IQWEB_PDF_MODE = (() => {
-    const p = new URLSearchParams(location.search);
-    if (p.get("pdf") === "1") return true;
-
-    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    // Default: keep evidence accordions CLOSED on web
     try {
-      return /DocRaptor/i.test(navigator.userAgent);
-    } catch (_) {
-      return false;
-    }
-  })();
-
-  // helper
-  function setEvidenceOpen(open) {
-    try {
-      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
     } catch (_) {}
-  }
 
-  // Always CLOSED for any normal page view (OSD + Preview)
-  setEvidenceOpen(false);
+    // History view: hide Back + Refresh, show PDF
+    if (isHistory) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
 
-  // MUST be global and named EXACTLY this for DocRaptor
-  window.docraptorJavaScriptFinished = function () {
-    return window.__IQWEB_REPORT_READY === true;
-  };
+      if (pdfBtn) {
+        pdfBtn.style.display = "inline-block";
+        pdfBtn.onclick = async () => {
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = "Generating PDF…";
+          try {
+            const res = await fetch("/.netlify/functions/generate-report-pdf", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ report_id: reportId })
+            });
+            if (!res.ok) throw new Error("PDF generation failed");
 
-  (function waitForReportReady() {
-    const reportRoot = document.getElementById("reportRoot");
-    const loader = document.getElementById("loaderSection");
-    const signals = document.getElementById("signalsGrid");
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
 
-    const loaderHidden =
-      loader &&
-      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-    const reportVisible =
-      reportRoot &&
-      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-    const hasSignals =
-      signals && signals.children && signals.children.length > 0;
-
-    if (loaderHidden && reportVisible && hasSignals) {
-      // ✅ Only open evidence when rendering PDF
-      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-      else setEvidenceOpen(false);
-
-      window.__IQWEB_REPORT_READY = true;
-      return;
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${reportId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            alert("Unable to generate PDF. Please try again.");
+          } finally {
+            pdfBtn.disabled = false;
+            pdfBtn.textContent = "Download PDF";
+          }
+        };
+      }
+      return; // done
     }
 
-    setTimeout(waitForReportReady, 150);
+    // Preview report: remove Back + Refresh (open in new tab from homepage)
+    if (isPreview) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
+      if (pdfBtn) pdfBtn.style.display = "none";
+      return; // done
+    }
+
+    // Normal (real) report view: keep Back + Refresh
+    if (pdfBtn) pdfBtn.style.display = "none";
+    if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+    if (backBtn) {
+      backBtn.textContent = "Back to dashboard";
+      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+    }
   })();
+  </script>
 
-  // Hard safety (prevents infinite hang)
-  setTimeout(() => {
-    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-  }, 30000);
-</script>
+  <script>
+    // ===== DocRaptor render gate (single source of truth) =====
+    window.__IQWEB_REPORT_READY = false;
 
+    // Detect "PDF render mode"
+    const __IQWEB_PDF_MODE = (() => {
+      const p = new URLSearchParams(location.search);
+      if (p.get("pdf") === "1") return true;
+
+      // Backup: DocRaptor user-agent often includes "DocRaptor"
+      try {
+        return /DocRaptor/i.test(navigator.userAgent);
+      } catch (_) {
+        return false;
+      }
+    })();
+
+    // helper
+    function setEvidenceOpen(open) {
+      try {
+        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
+      } catch (_) {}
+    }
+
+    // Always CLOSED for any normal page view (OSD + Preview)
+    setEvidenceOpen(false);
+
+    // MUST be global and named EXACTLY this for DocRaptor
+    window.docraptorJavaScriptFinished = function () {
+      return window.__IQWEB_REPORT_READY === true;
+    };
+
+    (function waitForReportReady() {
+      const reportRoot = document.getElementById("reportRoot");
+      const loader graphical = document.getElementById("loaderSection");
+      const signals = document.getElementById("signalsGrid");
+
+      const loaderHidden =
+        loader graphical &&
+        (loader graphical.style.display === "none" || getComputedStyle(loader graphical).display === "none");
+
+      const reportVisible =
+        reportRoot &&
+        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+      const hasSignals =
+        signals && signals.children && signals.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) {
+        // ✅ Only open evidence when rendering PDF
+        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+        else setEvidenceOpen(false);
+
+        window.__IQWEB_REPORT_READY = true;
+        return;
+      }
+
+      setTimeout(waitForReportReady, 150);
+    })();
+
+    // Hard safety (prevents infinite hang)
+    setTimeout(() => {
+      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+    }, 30000);
+  </script>
 
 </body>
 </html>
