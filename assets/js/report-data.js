@@ -12,9 +12,8 @@
  * Deterministic Executive Summary + Client-ready, constraint-aware signal cards (no AI narrative).
  * Change: hide any “weighted points” messaging if < 3 points.
  * Change: cards avoid debug-like evidence (no “...=true/false” unless it is a clear fail).
- * Change: client labels: Priority Fix / Secondary Fix / Stable / Strong.
- * Change: remove “Impact in model …” lines from cards (keep model pressure only in Executive Narrative).
- * Change: evidence wording soft-maps common keys (h1/viewport/hsts/https) into client-safe English.
+ * Change: client-friendly framing labels:
+ *   Priority Fix / Secondary Fix / Stable / Strong
  */
 
 (function () {
@@ -510,20 +509,12 @@
     }
 
     function prettyEvidenceText(key, value) {
-      // Soft-map common keys into client-safe English
-      var lk = String(key || "").toLowerCase();
-      if (lk.indexOf("h1") !== -1) return "Missing a clear H1 page headline.";
-      if (lk.indexOf("viewport") !== -1) return "Mobile viewport configuration is not compliant.";
-      if (lk.indexOf("hsts") !== -1) return "HSTS is not enabled.";
-      if (lk.indexOf("https") !== -1) return "HTTPS is not enforced.";
-
-      // Fallback: make it readable without leaking raw telemetry
       var k = String(key || "");
       var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
       if (!label) label = "Requirement";
 
       if (typeof value === "boolean") {
-        if (lk.indexOf("missing") !== -1 && value === true) return label + " is missing.";
+        if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
         if (value === false) return label + " is not satisfied.";
       }
 
@@ -594,9 +585,9 @@
       return "";
     }
 
-    // First pass: find priority fix among mapped signals (>=3 weighted points)
+    // First pass: find primary constraint among mapped signals (>=3 pts)
     var maxDef = -1;
-    var priorityIdx = -1;
+    var primaryIdx = -1;
 
     for (var p = 0; p < signals.length; p++) {
       var ps = safeObj(signals[p]);
@@ -606,7 +597,7 @@
       if (!pw) continue;
       var pScore = asInt(ps.score, 0);
       var pPts = deficitWeightedPoints(pScore, pw);
-      if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; priorityIdx = p; }
+      if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; primaryIdx = p; }
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -621,10 +612,15 @@
 
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
 
-      // Client-friendly headline (Priority Fix / Secondary Fix / Stable / Strong)
+      // Headline line: client-friendly framing
+      // - Priority Fix: primary constraint (>=3 pts)
+      // - Secondary Fix: other meaningful drags (>=3 pts)
+      // - Strong: high score and no flags
+      // - Stable: default for weighted domains
+      // - Deterministic: unmapped
       var headline = "Stable";
       if (w && defPts >= 3) {
-        headline = (i === priorityIdx) ? "Priority Fix" : "Secondary Fix";
+        headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
       } else if (w) {
         headline = isStrong(score) ? "Strong" : "Stable";
       } else {
@@ -633,16 +629,21 @@
 
       var lines = [];
 
-      // Always show weight when mapped (client framing)
+      // Always show the weight (client framing)
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
+
+      // Impact in model: ONLY for Priority Fix, ONLY if >=3
+      if (w && defPts >= 3 && i === primaryIdx) {
+        lines.push("Impact in model: " + defPts + " weighted points.");
+      }
 
       var flagged = hasFlags(sig);
 
       // WHY rules:
       // - If flagged: always show why (issues/deductions first; evidence allowed)
-      // - If not flagged AND strong (>=90): DO NOT show evidence-based “why”
-      // - If not flagged AND not strong (<90): allow evidence heuristics, otherwise calm fallback.
+      // - If not flagged AND strong (>=90): do not show “Why:” — use a calm baseline line
+      // - If not flagged AND not strong (<90): allow evidence heuristics, else calm fallback.
       var allowEvidence = flagged || (!isStrong(score) && score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
