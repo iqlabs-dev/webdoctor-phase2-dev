@@ -12,7 +12,9 @@
  * Deterministic Executive Summary + Client-ready, constraint-aware signal cards (no AI narrative).
  * Change: hide any “weighted points” messaging if < 3 points.
  * Change: cards avoid debug-like evidence (no “...=true/false” unless it is a clear fail).
- * Change: rename card framing to “Priority Fix / Secondary Fix / Stable / Strong”.
+ * Change: client labels: Priority Fix / Secondary Fix / Stable / Strong.
+ * Change: remove “Impact in model …” lines from cards (keep model pressure only in Executive Narrative).
+ * Change: evidence wording soft-maps common keys (h1/viewport/hsts/https) into client-safe English.
  */
 
 (function () {
@@ -508,12 +510,20 @@
     }
 
     function prettyEvidenceText(key, value) {
+      // Soft-map common keys into client-safe English
+      var lk = String(key || "").toLowerCase();
+      if (lk.indexOf("h1") !== -1) return "Missing a clear H1 page headline.";
+      if (lk.indexOf("viewport") !== -1) return "Mobile viewport configuration is not compliant.";
+      if (lk.indexOf("hsts") !== -1) return "HSTS is not enabled.";
+      if (lk.indexOf("https") !== -1) return "HTTPS is not enforced.";
+
+      // Fallback: make it readable without leaking raw telemetry
       var k = String(key || "");
       var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
       if (!label) label = "Requirement";
 
       if (typeof value === "boolean") {
-        if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
+        if (lk.indexOf("missing") !== -1 && value === true) return label + " is missing.";
         if (value === false) return label + " is not satisfied.";
       }
 
@@ -522,6 +532,7 @@
       return label + " needs attention.";
     }
 
+    // NOTE: caller decides whether it is allowed to run evidence heuristics.
     function pickExplainLine(sig, allowEvidence) {
       // 1) Issues
       var issues = asArray(sig.issues);
@@ -610,29 +621,28 @@
 
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
 
-      // Headline line: client-friendly framing
+      // Client-friendly headline (Priority Fix / Secondary Fix / Stable / Strong)
       var headline = "Stable";
       if (w && defPts >= 3) {
         headline = (i === priorityIdx) ? "Priority Fix" : "Secondary Fix";
       } else if (w) {
         headline = isStrong(score) ? "Strong" : "Stable";
       } else {
-        headline = "Stable";
+        headline = "Deterministic";
       }
 
       var lines = [];
 
-      // Always show the weight when mapped
+      // Always show weight when mapped (client framing)
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
 
-      // Impact in model: ONLY for Priority Fix, ONLY if >=3
-      if (w && defPts >= 3 && i === priorityIdx) {
-        lines.push("Impact in model: " + defPts + " weighted points.");
-      }
-
       var flagged = hasFlags(sig);
 
+      // WHY rules:
+      // - If flagged: always show why (issues/deductions first; evidence allowed)
+      // - If not flagged AND strong (>=90): DO NOT show evidence-based “why”
+      // - If not flagged AND not strong (<90): allow evidence heuristics, otherwise calm fallback.
       var allowEvidence = flagged || (!isStrong(score) && score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
@@ -642,14 +652,19 @@
         if (isStrong(score)) {
           lines.push("Baseline OK — no measurable blockers detected in this scan.");
         } else {
-          if (because) lines.push("Why: " + because);
-          else lines.push("Score-driven drag (no explicit blockers returned by this scan).");
+          if (because) {
+            lines.push("Why: " + because);
+          } else {
+            lines.push("Score-driven drag (no explicit blockers returned by this scan).");
+          }
         }
       }
 
+      // Fix lever (always helpful, but only when mapped)
       var lever = fixLeverForKey(key);
       if (lever) lines.push(lever);
 
+      // Flags last
       lines.push(flagsLine(sig));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
@@ -997,7 +1012,10 @@
 
     showReport();
 
+    // Executive block is deterministic (client-ready)
     renderExecutiveSummary(data);
+
+    // Signal cards are deterministic + client-explainable
     renderSignalsGrid(signals, scores);
 
     renderSignalEvidence(signals);
