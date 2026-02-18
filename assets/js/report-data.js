@@ -9,12 +9,8 @@
  * signalEvidenceRoot, keyMetricsRoot, topIssuesRoot, fixSequenceRoot, narrativeText,
  * fixFirstBlock (optional)
  *
- * Deterministic Executive Summary + Client-ready, constraint-aware signal cards (no AI narrative).
- * Change: hide any “weighted points” messaging if < 3 points.
- * Change: cards avoid debug-like evidence (no “...=true/false” unless it is a clear fail).
- * Change: client-friendly framing labels:
- *   Priority Fix / Secondary Fix / Stable / Strong
- * Change: micro v1.0 tone polish across the report (client conversation friendly).
+ * Deterministic Executive Summary + client-ready, constraint-aware signal cards (no AI narrative).
+ * Tone polish pass (v1.0): clearer, calmer, “web-dev conversation” language across the whole report.
  */
 
 (function () {
@@ -351,7 +347,7 @@
   }
 
   // -----------------------------
-  // Deterministic Executive Delivery Summary (client-ready, no debug tone)
+  // Deterministic Executive Delivery Summary (client-ready)
   // -----------------------------
   function renderExecutiveSummary(data) {
     var el = $("narrativeText");
@@ -422,7 +418,6 @@
       // Only mention model pressure if meaningful (>= 3 pts)
       var primaryPts = deficitWeightedPoints(primary.score, primary.w);
       if (primaryPts >= 3) {
-        // Tone polish: drop “weighted points” framing in the sentence
         lines.push((LABELS[primary.k] || primary.k) + " is the primary measurable constraint in this scan.");
       }
 
@@ -446,7 +441,6 @@
         if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
       }
 
-      // Tone polish
       lines.push("Re-scan after changes to confirm measurable improvement.");
     }
 
@@ -461,7 +455,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (developer + client explainability, no debug output)
+  // Delivery signal cards (client-friendly, no debug output)
   // -----------------------------
   function renderSignalsGrid(signals, scores) {
     var grid = $("signalsGrid");
@@ -614,18 +608,20 @@
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
+      var flagged = hasFlags(sig);
 
       // Headline line: client-friendly framing
       // - Priority Fix: primary constraint (>=3 pts)
       // - Secondary Fix: other meaningful drags (>=3 pts)
-      // - Strong: high score and no flags
+      // - Strong: high score AND no flags
       // - Stable: default for weighted domains
       // - Deterministic: unmapped
       var headline = "Stable";
       if (w && defPts >= 3) {
         headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
       } else if (w) {
-        headline = isStrong(score) ? "Strong" : "Stable";
+        // If anything is flagged, don’t label it “Strong” even if the score is high.
+        headline = (!flagged && isStrong(score)) ? "Strong" : "Stable";
       } else {
         headline = "Deterministic";
       }
@@ -636,32 +632,29 @@
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
 
-      // Client-facing priority explanation (no weighted math shown)
+      // Primary priority explanation (short, client-safe)
       if (w && defPts >= 3 && i === primaryIdx) {
-        lines.push("Why this is priority: largest measurable impact on overall delivery.");
+        lines.push("Why it’s priority: biggest measurable lift available in this scan.");
       }
 
-      var flagged = hasFlags(sig);
-
       // WHY rules:
-      // - If flagged: always show why (issues/deductions first; evidence allowed)
-      // - If not flagged AND strong (>=90): do not show “Why:” — use a calm baseline line
-      // - If not flagged AND not strong (<90): allow evidence heuristics, else calm fallback.
+      // - If flagged: show why (issues/deductions first; evidence allowed)
+      // - If not flagged AND strong (>=90): calm baseline line
+      // - If not flagged AND not strong (<90): allow evidence heuristics, else calm fallback
       var allowEvidence = flagged || (!isStrong(score) && score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
       if (flagged) {
         if (because) lines.push("Why: " + because);
+        else lines.push("Why: Review the items flagged below.");
       } else {
         if (isStrong(score)) {
-          // Tone polish: OK -> stable
-          lines.push("Baseline stable — no measurable blockers detected.");
+          lines.push("Baseline stable — no measurable blockers detected in this scan.");
         } else {
           if (because) {
             lines.push("Why: " + because);
           } else {
-            // Tone polish: less “debuggy”
-            lines.push("Score indicates measurable drag in this domain.");
+            lines.push("Measured drag with no single blocker surfaced in this scan.");
           }
         }
       }
@@ -804,10 +797,10 @@
     signals = asArray(signals);
 
     var items = [
-      { key: "Strength", text: "Not available from this scan output yet." },
-      { key: "Risk",     text: "Not available from this scan output yet." },
-      { key: "Focus",    text: "Not available from this scan output yet." },
-      { key: "Next",     text: "Not available from this scan output yet." }
+      { key: "Strength", text: "Not available in this scan output." },
+      { key: "Risk",     text: "Not available in this scan output." },
+      { key: "Focus",    text: "Not available in this scan output." },
+      { key: "Next",     text: "Not available in this scan output." }
     ];
 
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -834,12 +827,7 @@
       if (issues.length) {
         var it = safeObj(issues[0]);
         focus = String(it.title || it.id || "").trim();
-        // Tone polish
-        next = "Address missing trust signals, then re-scan to confirm measurable change.";
-        // If focus isn't trust-related, keep a generic, clean next line
-        if (focus && focus.toLowerCase().indexOf("trust") === -1 && focus.toLowerCase().indexOf("security") === -1) {
-          next = "Address: " + focus + " (then re-scan to confirm measurable change).";
-        }
+        if (focus) next = "Address this first, then re-scan to confirm measurable change.";
         break;
       }
     }
@@ -850,15 +838,10 @@
         var deds = asArray(sd.deductions);
         if (deds.length) {
           focus = String(deds[0].reason || deds[0].code || "").trim();
-          next = "Resolve: " + focus + " (then re-scan to confirm measurable change).";
+          if (focus) next = "Resolve this item, then re-scan to confirm.";
           break;
         }
       }
-    }
-
-    // Tone polish: “required signal missing” -> “not detected in this scan”
-    if (focus && focus.toLowerCase().indexOf("required signal missing") !== -1) {
-      focus = "Required trust signals not detected in this scan.";
     }
 
     if (focus) items[2].text = focus;
@@ -913,8 +896,7 @@
           issuesOut.push({
             title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
             sev: "MONITOR",
-            // Tone polish
-            why: "Penalty applied from deterministic evidence."
+            why: "A measured deduction was applied from scan evidence."
           });
         }
       }
@@ -938,23 +920,13 @@
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
-
-      // Tone polish for common “missing inputs” style explanations
-      var whyTxt = it2.why || "Worth reviewing based on scan evidence.";
-      if (whyTxt && typeof whyTxt === "string") {
-        var low = whyTxt.toLowerCase();
-        if (low.indexOf("missing inputs") !== -1 || low.indexOf("preserve completeness") !== -1) {
-          whyTxt = "Missing required signals reduce delivery confidence and are treated as measurable constraints.";
-        }
-      }
-
       html +=
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
             '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(whyTxt) + "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan output.") + "</div>' +
         "</div>";
     }
 
@@ -998,8 +970,7 @@
         var ul1 = phases[0].querySelector("ul");
         if (ul1) {
           ul1.innerHTML =
-            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
-            // Tone polish
+            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong>.</li>" +
             "<li>Re-run the scan immediately to confirm measurable improvement before expanding scope.</li>" +
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
@@ -1007,17 +978,17 @@
         var ul2 = phases[1].querySelector("ul");
         if (ul2) {
           ul2.innerHTML =
-            "<li>Address remaining deductions in the weakest domain (SEO/Security/Accessibility depending on scores).</li>" +
-            "<li>Remove repeated sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
-            "<li>Validate with a second re-scan and keep a before/after record.</li>";
+            "<li>Address remaining deductions in the weakest domain (varies by site and scores).</li>" +
+            "<li>Remove repeat sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
+            "<li>Validate with a second re-scan and keep a simple before/after record.</li>";
         }
 
         var ul3 = phases[2].querySelector("ul");
         if (ul3) {
           ul3.innerHTML =
-            "<li>Harden trust posture (headers/policies) only once the baseline is stable.</li>" +
+            "<li>Harden trust posture (headers/policies) once the baseline is stable.</li>" +
             "<li>Schedule periodic scans to prevent regressions.</li>" +
-            "<li>Build a lightweight change log tied to scan IDs for auditability.</li>";
+            "<li>Keep a lightweight change log tied to scan IDs for auditability.</li>";
         }
       }
     } catch (e) {}
@@ -1064,7 +1035,7 @@
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
         var n = $("narrativeText");
-        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Failed to load report data.</div>";
+        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Report data could not be loaded for this scan.</div>";
         var ff = $("fixFirstBlock");
         if (ff) ff.innerHTML = "";
       });
