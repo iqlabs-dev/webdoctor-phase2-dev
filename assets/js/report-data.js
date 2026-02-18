@@ -920,14 +920,17 @@
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
-      html +=
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-          "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan output.") + "</div>' +
-        "</div>";
+html +=
+  '<div class="issue">' +
+    '<div class="issue-top">' +
+      '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+      '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+    "</div>" +
+    '<div class="issue-why impact-text">' +
+      escapeHtml(it2.why || "Worth reviewing based on scan output.") +
+    "</div>" +
+  "</div>";
+
     }
 
     root.innerHTML = html;
