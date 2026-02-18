@@ -522,7 +522,6 @@
       return label + " needs attention.";
     }
 
-    // NOTE: caller decides whether it is allowed to run evidence heuristics.
     function pickExplainLine(sig, allowEvidence) {
       // 1) Issues
       var issues = asArray(sig.issues);
@@ -634,10 +633,6 @@
 
       var flagged = hasFlags(sig);
 
-      // WHY rules:
-      // - If flagged: show why (issues/deductions first; evidence allowed)
-      // - If not flagged AND Strong: do not show raw “why”, just baseline OK
-      // - If not flagged AND not strong: allow evidence heuristics, else calm fallback
       var allowEvidence = flagged || (!isStrong(score) && score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
@@ -917,7 +912,7 @@
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
             '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>' +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
         "</div>";
     }
 
@@ -1002,10 +997,7 @@
 
     showReport();
 
-    // Executive block is deterministic (client-ready)
     renderExecutiveSummary(data);
-
-    // Signal cards are deterministic + client-explainable
     renderSignalsGrid(signals, scores);
 
     renderSignalEvidence(signals);
