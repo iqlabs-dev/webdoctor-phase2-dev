@@ -533,6 +533,13 @@
     .phase-body ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
     .phase-body li { margin: 6px 0; line-height: 1.45; }
 
+    /* ✅ FIX: Force Fix Sequence typography to match report */
+    #fixSequenceRoot,
+    #fixSequenceRoot * {
+      font-family: inherit;
+      letter-spacing: inherit;
+    }
+
     /* Loader */
     .loader-wrap {
       width: 100%;
@@ -726,10 +733,10 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- Executive Narrative -->
+        <!-- Deterministic Summary -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Executive Narrative</h2>
+            <h2 class="section-title">Deterministic Summary</h2>
           </div>
           <div class="section-body">
             <div id="narrativeText" class="summary">
