@@ -635,8 +635,9 @@
 
      // Client-facing priority explanation (no weighted math shown)
 if (w && defPts >= 3 && i === primaryIdx) {
-  lines.push("Why this is priority: biggest measurable drag in this scan.");
+  lines.push("Why this is priority: largest measurable impact on overall delivery.");
 }
+
 
 
       var flagged = hasFlags(sig);
