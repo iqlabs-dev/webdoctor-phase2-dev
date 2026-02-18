@@ -361,22 +361,24 @@
       border: 1px solid rgba(255,255,255,0.06);
     }
     .kv .k { color: var(--muted); font-size: 12px; }
-    .kv .v{
-      color: var(--ink);
-      font-weight: 600;
-      font-size: 12px;
-      text-align: right;
-      white-space: nowrap;
-      overflow: visible;
-      min-width: 44px;
-      flex: 0 0 auto;
-    }
+  .kv .v{
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
 
-    .impact-text {
-      white-space: normal;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
+  /* ✅ allow long values (viewport_content etc) to wrap inside the card */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+
+  /* ✅ let it shrink/wrap instead of forcing overflow */
+  min-width: 0;
+  flex: 1 1 auto;
+
+  /* optional: looks better for long strings */
+  text-align: left;
+}
+
 
     /* Evidence accordions */
     details.evidence-block { padding: 0; }
