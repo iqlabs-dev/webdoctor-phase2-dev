@@ -616,15 +616,22 @@
       // - Strong: high score AND no flags
       // - Stable: default for weighted domains
       // - Deterministic: unmapped
-      var headline = "Stable";
-      if (w && defPts >= 3) {
-        headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
-      } else if (w) {
-        // If anything is flagged, don’t label it “Strong” even if the score is high.
-        headline = (!flagged && isStrong(score)) ? "Strong" : "Stable";
-      } else {
-        headline = "Deterministic";
-      }
+var headline = "Stable";
+
+if (w && defPts >= 3) {
+  headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
+}
+else if (w) {
+  if (flagged) {
+    headline = "Secondary Fix";
+  } else {
+    headline = isStrong(score) ? "Strong" : "Stable";
+  }
+}
+else {
+  headline = "Deterministic";
+}
+
 
       var lines = [];
 
@@ -654,7 +661,8 @@
           if (because) {
             lines.push("Why: " + because);
           } else {
-            lines.push("Measured drag with no single blocker surfaced in this scan.");
+            lines.push("Score indicates measurable drag in this domain.");
+
           }
         }
       }
