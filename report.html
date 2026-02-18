@@ -1012,71 +1012,75 @@
   })();
   </script>
 
-  <script>
-    // ===== DocRaptor render gate (single source of truth) =====
-    window.__IQWEB_REPORT_READY = false;
+<script>
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
 
-    // Detect "PDF render mode"
-    const __IQWEB_PDF_MODE = (() => {
-      const p = new URLSearchParams(location.search);
+  // Detect "PDF render mode"
+  var __IQWEB_PDF_MODE = (function () {
+    try {
+      var p = new URLSearchParams(location.search);
       if (p.get("pdf") === "1") return true;
+    } catch (_) {}
 
-      // Backup: DocRaptor user-agent often includes "DocRaptor"
-      try {
-        return /DocRaptor/i.test(navigator.userAgent);
-      } catch (_) {
-        return false;
-      }
-    })();
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    try {
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
+    }
+  })();
 
-    // helper
-    function setEvidenceOpen(open) {
-      try {
-        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = !!open));
-      } catch (_) {}
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      var list = document.querySelectorAll("details.evidence-block");
+      for (var i = 0; i < list.length; i++) list[i].open = !!open;
+    } catch (_) {}
+  }
+
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
+
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
+    return window.__IQWEB_REPORT_READY === true;
+  };
+
+  (function waitForReportReady() {
+    var reportRoot = document.getElementById("reportRoot");
+    var loader = document.getElementById("loaderSection");
+    var signals = document.getElementById("signalsGrid");
+
+    var loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    var reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    var hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
     }
 
-    // Always CLOSED for any normal page view (OSD + Preview)
-    setEvidenceOpen(false);
+    setTimeout(waitForReportReady, 150);
+  })();
 
-    // MUST be global and named EXACTLY this for DocRaptor
-    window.docraptorJavaScriptFinished = function () {
-      return window.__IQWEB_REPORT_READY === true;
-    };
+  // Hard safety (prevents infinite hang)
+  setTimeout(function () {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
+</script>
 
-    (function waitForReportReady() {
-      const reportRoot = document.getElementById("reportRoot");
-      const loader graphical = document.getElementById("loaderSection");
-      const signals = document.getElementById("signalsGrid");
-
-      const loaderHidden =
-        loader graphical &&
-        (loader graphical.style.display === "none" || getComputedStyle(loader graphical).display === "none");
-
-      const reportVisible =
-        reportRoot &&
-        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-      const hasSignals =
-        signals && signals.children && signals.children.length > 0;
-
-      if (loaderHidden && reportVisible && hasSignals) {
-        // ✅ Only open evidence when rendering PDF
-        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-        else setEvidenceOpen(false);
-
-        window.__IQWEB_REPORT_READY = true;
-        return;
-      }
-
-      setTimeout(waitForReportReady, 150);
-    })();
-
-    // Hard safety (prevents infinite hang)
-    setTimeout(() => {
-      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-    }, 30000);
-  </script>
 
 </body>
 </html>
