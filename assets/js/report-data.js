@@ -14,6 +14,7 @@
  * Change: cards avoid debug-like evidence (no “...=true/false” unless it is a clear fail).
  * Change: client-friendly framing labels:
  *   Priority Fix / Secondary Fix / Stable / Strong
+ * Change: micro v1.0 tone polish across the report (client conversation friendly).
  */
 
 (function () {
@@ -421,7 +422,8 @@
       // Only mention model pressure if meaningful (>= 3 pts)
       var primaryPts = deficitWeightedPoints(primary.score, primary.w);
       if (primaryPts >= 3) {
-        lines.push((LABELS[primary.k] || primary.k) + " is the main constraint in this model (" + primaryPts + " weighted points).");
+        // Tone polish: drop “weighted points” framing in the sentence
+        lines.push((LABELS[primary.k] || primary.k) + " is the primary measurable constraint in this scan.");
       }
 
       // Optional metric line (facts only)
@@ -444,7 +446,8 @@
         if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
       }
 
-      lines.push("Re-scan after changes to confirm measurable movement.");
+      // Tone polish
+      lines.push("Re-scan after changes to confirm measurable improvement.");
     }
 
     // Cap at 6 lines max
@@ -633,12 +636,10 @@
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
 
-     // Client-facing priority explanation (no weighted math shown)
-if (w && defPts >= 3 && i === primaryIdx) {
-  lines.push("Why this is priority: largest measurable impact on overall delivery.");
-}
-
-
+      // Client-facing priority explanation (no weighted math shown)
+      if (w && defPts >= 3 && i === primaryIdx) {
+        lines.push("Why this is priority: largest measurable impact on overall delivery.");
+      }
 
       var flagged = hasFlags(sig);
 
@@ -653,12 +654,14 @@ if (w && defPts >= 3 && i === primaryIdx) {
         if (because) lines.push("Why: " + because);
       } else {
         if (isStrong(score)) {
-          lines.push("Baseline OK — no measurable blockers detected in this scan.");
+          // Tone polish: OK -> stable
+          lines.push("Baseline stable — no measurable blockers detected.");
         } else {
           if (because) {
             lines.push("Why: " + because);
           } else {
-            lines.push("Score-driven drag (no explicit blockers returned by this scan).");
+            // Tone polish: less “debuggy”
+            lines.push("Score indicates measurable drag in this domain.");
           }
         }
       }
@@ -831,7 +834,12 @@ if (w && defPts >= 3 && i === primaryIdx) {
       if (issues.length) {
         var it = safeObj(issues[0]);
         focus = String(it.title || it.id || "").trim();
-        next = "Address: " + focus + " (then re-scan to confirm).";
+        // Tone polish
+        next = "Address missing trust signals, then re-scan to confirm measurable change.";
+        // If focus isn't trust-related, keep a generic, clean next line
+        if (focus && focus.toLowerCase().indexOf("trust") === -1 && focus.toLowerCase().indexOf("security") === -1) {
+          next = "Address: " + focus + " (then re-scan to confirm measurable change).";
+        }
         break;
       }
     }
@@ -842,10 +850,15 @@ if (w && defPts >= 3 && i === primaryIdx) {
         var deds = asArray(sd.deductions);
         if (deds.length) {
           focus = String(deds[0].reason || deds[0].code || "").trim();
-          next = "Fix: " + focus + " (then re-scan).";
+          next = "Resolve: " + focus + " (then re-scan to confirm measurable change).";
           break;
         }
       }
+    }
+
+    // Tone polish: “required signal missing” -> “not detected in this scan”
+    if (focus && focus.toLowerCase().indexOf("required signal missing") !== -1) {
+      focus = "Required trust signals not detected in this scan.";
     }
 
     if (focus) items[2].text = focus;
@@ -900,6 +913,7 @@ if (w && defPts >= 3 && i === primaryIdx) {
           issuesOut.push({
             title: lab + ": " + String(dd.reason || dd.code || "Deduction"),
             sev: "MONITOR",
+            // Tone polish
             why: "Penalty applied from deterministic evidence."
           });
         }
@@ -924,13 +938,23 @@ if (w && defPts >= 3 && i === primaryIdx) {
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
+
+      // Tone polish for common “missing inputs” style explanations
+      var whyTxt = it2.why || "Worth reviewing based on scan evidence.";
+      if (whyTxt && typeof whyTxt === "string") {
+        var low = whyTxt.toLowerCase();
+        if (low.indexOf("missing inputs") !== -1 || low.indexOf("preserve completeness") !== -1) {
+          whyTxt = "Missing required signals reduce delivery confidence and are treated as measurable constraints.";
+        }
+      }
+
       html +=
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
             '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why || "Worth reviewing based on scan evidence.") + "</div>" +
+          '<div class="issue-why impact-text">' + escapeHtml(whyTxt) + "</div>" +
         "</div>";
     }
 
@@ -975,7 +999,8 @@ if (w && defPts >= 3 && i === primaryIdx) {
         if (ul1) {
           ul1.innerHTML =
             "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed issue") + "</strong>.</li>" +
-            "<li>Re-run the scan immediately to confirm the signal moves (before touching design/copy).</li>" +
+            // Tone polish
+            "<li>Re-run the scan immediately to confirm measurable improvement before expanding scope.</li>" +
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
 
