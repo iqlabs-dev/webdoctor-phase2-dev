@@ -106,11 +106,12 @@
       font-weight: 600;
       cursor: pointer;
       user-select: none;
+      font-family: "Montserrat", system-ui, sans-serif;
     }
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
 
-    /* Meta strip for white-label ready header */
+    /* Meta strip */
     .meta-strip {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -141,28 +142,23 @@
       text-decoration: none;
     }
 
-    /* Website hover affordance */
-    .meta-cell .linkish {
-      cursor: pointer;
-    }
+    .meta-cell .linkish { cursor: pointer; }
     .meta-cell .linkish:hover {
       text-decoration: underline;
       color: var(--accent);
     }
 
-    /* Mobile stacking */
     @media (max-width: 700px) {
       .meta-strip { grid-template-columns: 1fr; }
     }
 
-    /* Slim Overall Summary Strip (inside Delivery Signals) */
+    /* Overall summary strip */
     .overall-strip {
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding: 12px 14px;
       margin-bottom: 14px;
-
       background: rgba(0,0,0,0.14);
       border: 1px solid var(--border-subtle);
       border-radius: 16px;
@@ -199,14 +195,11 @@
       font-size: 13px;
     }
 
-    /* Light theme support */
     body.light .overall-strip {
       background: rgba(15,23,42,0.03);
       border-color: rgba(15,23,42,0.10);
     }
-    body.light .overall-strip-note {
-      color: rgba(15,23,42,0.78);
-    }
+    body.light .overall-strip-note { color: rgba(15,23,42,0.78); }
 
     /* Sections */
     .section {
@@ -298,53 +291,39 @@
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
-    /* Evidence */
-    /* ===============================
-   Signal Evidence layout
-   =============================== */
+    /* Signal Evidence layout */
+    #signalEvidenceRoot {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      #signalEvidenceRoot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    #signalEvidenceRoot > .evidence-block { align-self: start; }
 
-#signalEvidenceRoot {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-/* Desktop: 2 columns (3 rows for 6 signals) */
-@media (min-width: 900px) {
-  #signalEvidenceRoot {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-#signalEvidenceRoot { align-items: start; }
-#signalEvidenceRoot > .evidence-block { align-self: start; }
-
-/* --- FIX: prevent issue text overflowing card --- */
-.issue { overflow: hidden; } /* hard safety net */
-
-.issue-top {
-  align-items: flex-start;      /* better for multi-line titles */
-}
-
-.issue-title {
-  flex: 1 1 auto;               /* allow it to shrink */
-  min-width: 0;                 /* CRITICAL for flex wrapping */
-  overflow-wrap: anywhere;      /* wrap long chunks safely */
-  word-break: break-word;
-  line-height: 1.35;
-}
-
-.issue-label {
-  flex: 0 0 auto;               /* keep the severity badge fixed */
-  margin-left: 10px;
-}
-
-.issue-why {
-  white-space: normal;          /* ensure wrapping is allowed */
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-
+    /* Prevent issue text overflow */
+    .issue { overflow: hidden; }
+    .issue-top { align-items: flex-start; }
+    .issue-title {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      line-height: 1.35;
+      white-space: normal;
+    }
+    .issue-label {
+      flex: 0 0 auto;
+      margin-left: 10px;
+      white-space: nowrap;
+    }
+    .issue-why {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
     .evidence-block {
       background: rgba(0,0,0,0.16);
@@ -353,13 +332,17 @@
       padding: 14px;
       margin-bottom: 12px;
     }
-    .evidence-title {
+
+    .evidence-title,
+    .acc-title {
       margin: 0 0 10px 0;
       font-size: 12px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
       color: var(--ink-soft);
+      font-weight: 700;
     }
+
     .evidence-list {
       display: grid;
       grid-template-columns: 1fr;
@@ -368,6 +351,10 @@
     @media (min-width: 800px) {
       .evidence-list { grid-template-columns: 1fr 1fr; }
     }
+
+    /* KEY FIX #1:
+       Let values wrap INSIDE the kv row so nothing can spill out of the card.
+       Keep the label fixed-ish, allow the value to take remaining space and wrap. */
     .kv {
       display: flex;
       align-items: flex-start;
@@ -378,30 +365,33 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.06);
     }
-    .kv .k { color: var(--muted); font-size: 12px; }
-.kv .v{
-  color: var(--ink);
-  font-weight: 600;
-  font-size: 12px;
-  text-align: right;
-  white-space: nowrap;
-  overflow: visible;         /* important */
-  min-width: 44px;           /* enough for "false" */
-  flex: 0 0 auto;            /* don’t shrink */
-}
+    .kv .k {
+      color: var(--muted);
+      font-size: 12px;
+      flex: 0 0 auto;
+      max-width: 55%;
+      overflow-wrap: anywhere;
+    }
+    .kv .v{
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 12px;
+      text-align: right;
+      white-space: normal;          /* was nowrap */
+      overflow-wrap: anywhere;      /* allow wrap */
+      word-break: break-word;       /* hard wrap long strings */
+      min-width: 0;                 /* allow flex shrink */
+      flex: 1 1 auto;               /* take remaining space */
+      max-width: 45%;
+    }
 
+    .impact-text {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
 
-/* ✅ Impact text inside Issues must wrap (it was wrongly inheriting .v pill rules) */
-.impact-text {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-
-
-
-    /* ✅ Evidence accordions */
+    /* Evidence accordions */
     details.evidence-block { padding: 0; }
     details.evidence-block > summary {
       list-style: none;
@@ -422,13 +412,6 @@
       border-bottom-right-radius: 0;
       border-bottom: 0;
     }
-    .acc-title {
-      font-size: 12px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-      font-weight: 700;
-    }
     .acc-score {
       font-weight: 800;
       color: var(--ink);
@@ -444,7 +427,7 @@
       background: rgba(0,0,0,0.14);
     }
 
-    /* ✅ Key Insight Metrics must never behave like evidence accordions */
+    /* Key metrics must not behave like accordions */
     #keyMetricsRoot details,
     #keyMetricsRoot summary {
       all: unset;
@@ -453,7 +436,6 @@
     #keyMetricsRoot details { margin: 0; }
     #keyMetricsRoot summary { cursor: default; }
 
-    /* Insight list UI */
     .insight-list {
       display: grid;
       grid-template-columns: 1fr;
@@ -487,7 +469,6 @@
       line-height: 1.45;
     }
 
-    /* Issue list */
     .issue-list { display: flex; flex-direction: column; gap: 10px; }
     .issue {
       border-radius: 14px;
@@ -495,46 +476,39 @@
       background: rgba(0,0,0,0.16);
       border: 1px solid var(--border-subtle);
     }
-.issue-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-  margin-bottom: 6px;
-
-  flex-wrap: wrap; /* ← critical */
-}
-
-.issue-title {
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  color: var(--ink-soft);
-  line-height: 1.4;
-
-  /* overflow safety (NEW) */
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-
-.issue-label {
-  font-size: 11px;
-  letter-spacing: 0.06em;   /* ↓ from 0.08em */
-  text-transform: uppercase;
-  color: rgba(229,240,255,0.65);  /* ↓ slightly softer */
-  border: 1px solid var(--border-subtle);
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: rgba(255,255,255,0.03);
-  white-space: nowrap;
-}
-
+    .issue-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: baseline;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+    .issue-title {
+      margin: 0;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--ink-soft);
+      line-height: 1.4;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .issue-label {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(229,240,255,0.65);
+      border: 1px solid var(--border-subtle);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      white-space: nowrap;
+    }
     .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
 
     /* Fix sequence */
@@ -554,8 +528,11 @@
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(255,255,255,0.03);
     }
+    /* KEY FIX #2:
+       Hard-force the Phase title/time font + sizing so nothing can “inherit weirdly” */
     .phase-title {
       margin: 0;
+      font-family: "Montserrat", system-ui, sans-serif;
       font-size: 12px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
@@ -563,14 +540,28 @@
       color: var(--ink);
     }
     .phase-time {
+      font-family: "Montserrat", system-ui, sans-serif;
       font-size: 11px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
       color: rgba(229,240,255,0.65);
     }
     .phase-body { padding: 12px 14px; }
-    .phase-body ul { margin: 0; padding-left: 18px; color: var(--ink-soft); }
-    .phase-body li { margin: 6px 0; line-height: 1.45; }
+    .phase-body ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--ink-soft);
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .phase-body li {
+      margin: 6px 0;
+      line-height: 1.45;
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+    }
 
     /* Loader */
     .loader-wrap {
@@ -588,47 +579,33 @@
       justify-content: center;
     }
 
-/* Loader container — neutral, no layout tricks */
-.pulse {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Λ i Q mark — platinum / ice white */
-.pulse::after {
-  content: "Λ i Q";
-  font-family: "Montserrat", system-ui, sans-serif;
-  font-weight: 500;
-  font-size: 20px;
-  letter-spacing: 0.22em;
-
-  /* Soft platinum / ice white */
-  color: rgba(235, 240, 245, 0.92);
-
-  /* Minimal premium glow (not neon) */
-  text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
-
-  /* Subtle opacity pulse only */
-  animation: iqPulse 1.8s ease-in-out infinite;
-}
-
-/* No movement, no colour shift */
-@keyframes iqPulse {
-  0%   { opacity: 0.55; }
-  50%  { opacity: 1; }
-  100% { opacity: 0.55; }
-}
-
-
-
+    .pulse {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse::after {
+      content: "Λ i Q";
+      font-family: "Montserrat", system-ui, sans-serif;
+      font-weight: 500;
+      font-size: 20px;
+      letter-spacing: 0.22em;
+      color: rgba(235, 240, 245, 0.92);
+      text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
+      animation: iqPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes iqPulse {
+      0%   { opacity: 0.55; }
+      50%  { opacity: 1; }
+      100% { opacity: 0.55; }
+    }
 
     .final-notes p {
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0 0 10px 0;
-}
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0 0 10px 0;
+    }
 
     .footer {
       width: 100%;
@@ -639,11 +616,8 @@
       padding-top: 10px;
     }
 
-    /* Theme support */
-    body.light {
-      background: #e5edf4;
-      color: #0f172a;
-    }
+    /* Light theme support */
+    body.light { background: #e5edf4; color: #0f172a; }
     body.light .top-card,
     body.light .section,
     body.light .loader-wrap {
@@ -662,97 +636,68 @@
     body.light .muted { color: rgba(15,23,42,0.55); }
     body.light .brand .tag { color: rgba(15,23,42,0.55); }
 
-    /* ===============================
-   PRINT / PDF MODE (auto-white)
-   Keeps UI dark on screen, but prints clean
-   =============================== */
-@media print {
-  /* force white page */
-  :root { color-scheme: light; }
-  html, body {
-    background: #ffffff !important;
-    color: #0f172a !important;
-  }
+    /* PRINT / PDF MODE */
+    @media print {
+      :root { color-scheme: light; }
+      html, body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+      * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        filter: none !important;
+      }
+      .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
+        background: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+      }
+      .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
+        color: #0f172a !important;
+      }
+      .summary, .issue-why, .insight .text, .kv .k, .kv .v {
+        color: #111827 !important;
+      }
+      .bar { background: #e5e7eb !important; }
+      .bar > div { background: #111827 !important; }
 
-  /* remove fancy backgrounds/shadows that print badly */
-  * {
-    box-shadow: none !important;
-    text-shadow: none !important;
-    filter: none !important;
-  }
+      #backToDashboard,
+      .btn,
+      .toggle,
+      .nav,
+      .no-print {
+        display: none !important;
+      }
 
-  /* turn your “dark glass” panels into clean cards */
-  .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
-    background: #ffffff !important;
-    border: 1px solid #e5e7eb !important;
-  }
+      details { page-break-inside: avoid; }
+      .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
 
-  /* make headings readable */
-  .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
-    color: #0f172a !important;
-  }
+      /* Expand all evidence accordions */
+      details.evidence-block { display: block !important; }
+      details.evidence-block > summary { display: none !important; }
+      details.evidence-block .acc-body {
+        display: block !important;
+        border-top: 1px solid #e5e7eb !important;
+      }
 
-  /* body copy */
-  .summary, .issue-why, .insight .text, .kv .k, .kv .v {
-    color: #111827 !important;
-  }
+      a, a:visited { color: #111827 !important; text-decoration: underline !important; }
 
-  /* bars: keep visible but printer friendly */
-  .bar {
-    background: #e5e7eb !important;
-  }
-  .bar > div {
-    background: #111827 !important;
-  }
+      #reportRoot {
+        max-width: none !important;
+        width: 100% !important;
+      }
+    }
 
-  /* hide UI-only controls */
-  #backToDashboard,
-  .btn,
-  .toggle,
-  .nav,
-  .no-print {
-    display: none !important;
-  }
-
-  /* avoid weird breaks inside accordions/cards */
-  details { page-break-inside: avoid; }
-  .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
-
-  /* expand all evidence accordions automatically */
-  details.evidence-block { display: block !important; }
-  details.evidence-block > summary { display: none !important; }
-  details.evidence-block .acc-body { display: block !important; border-top: 1px solid #e5e7eb !important; }
-
-  /* ensure links print nicely */
-  a, a:visited { color: #111827 !important; text-decoration: underline !important; }
-}
-
-/* Signal Evidence — subtle hover affordance */
-@media (hover: hover) and (pointer: fine) {
-  .evidence-block {
-    transition:
-      border-color 140ms ease-out,
-      box-shadow 140ms ease-out,
-      transform 140ms ease-out;
-  }
-
-  .evidence-block:hover {
-  border-color: rgba(64, 220, 180, 0.28);
-  box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
-  transform: none;
-}
-
-}
-
-
-@media print {
-  #reportRoot {
-    max-width: none !important;
-    width: 100% !important;
-  }
-}
-
-
+    @media (hover: hover) and (pointer: fine) {
+      .evidence-block {
+        transition: border-color 140ms ease-out, box-shadow 140ms ease-out, transform 140ms ease-out;
+      }
+      .evidence-block:hover {
+        border-color: rgba(64, 220, 180, 0.28);
+        box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
+        transform: none;
+      }
+    }
   </style>
 </head>
 
@@ -771,10 +716,13 @@
             </div>
           </div>
 
-<div class="top-actions">
-  <button id="downloadPdfBtn" class="btn">Download PDF</button>
-</div>
+          <div class="top-actions">
+            <button id="backToDashboard" class="btn">Back to dashboard</button>
+            <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+            <button id="refreshBtn" class="btn">Refresh</button>
+          </div>
 
+        </div>
 
         <!-- Meta Strip -->
         <div class="meta-strip">
@@ -797,30 +745,33 @@
       </div>
 
       <!-- Loader -->
-  <section id="loaderSection" class="loader-wrap">
-  <div class="pulse" aria-hidden="true"></div>
-  <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
-  <div id="loaderStatus" class="muted" style="font-size:12px;">
-    Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
-  </div>
-</section>
+      <section id="loaderSection" class="loader-wrap">
+        <div class="pulse" aria-hidden="true"></div>
+        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+        <div id="loaderStatus" class="muted" style="font-size:12px;">
+          Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
+        </div>
+      </section>
 
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- 3. Executive Narrative (Lead) -->
+        <!-- Deterministic Summary -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Executive Narrative</h2>
+            <h2 class="section-title">Deterministic Summary</h2>
           </div>
           <div class="section-body">
             <div id="narrativeText" class="summary">
-              <div class="muted" style="font-size:12px;">Narrative will load after scan data is available.</div>
+              <div class="muted" style="font-size:12px;">Summary will load after scan data is available.</div>
             </div>
           </div>
         </section>
 
-        <!-- 4. Delivery Signals -->
+        <!-- What to Fix First (and Why) -->
+        <div id="fixFirstBlock"></div>
+
+        <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
@@ -828,7 +779,6 @@
 
           <div class="section-body">
 
-            <!-- Slim Overall Summary Strip (moved from Score Context) -->
             <div class="overall-strip">
               <div class="overall-strip-top">
                 <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
@@ -951,92 +901,186 @@
           </div>
         </section>
 
-<section class="section" id="finalNotesSection">
-  <div class="section-head">
-    <h2 class="section-title">Final Notes</h2>
-  </div>
+        <section class="section" id="finalNotesSection">
+          <div class="section-head">
+            <h2 class="section-title">Final Notes</h2>
+          </div>
 
-  <div class="section-body" id="finalNotesRoot">
-    <div class="final-notes">
-      <p>
-        iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
-      </p>
+          <div class="section-body" id="finalNotesRoot">
+            <div class="final-notes">
+              <p>
+                iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
+              </p>
 
-      <p>
-        This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
-      </p>
+              <p>
+                This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
+              </p>
 
-      <p>
-        Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
-      </p>
-    </div>
-  </div>
-</section>
-
+              <p>
+                Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
+              </p>
+            </div>
+          </div>
+        </section>
 
       </main>
 
-<div class="footer">
-  © 2025 iQWEB – All rights reserved.
-</div>
+      <div class="footer">
+        © 2025 iQWEB – All rights reserved.
+      </div>
 
+    </div>
   </div>
 
+  <!-- Renders the report from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
-<script>
+  <!-- UI buttons (Back/Refresh) -->
+  <script>
   (function () {
-    const dlBtn = document.getElementById("downloadPdfBtn");
-    const qs = new URLSearchParams(location.search);
-    const reportId = qs.get("report_id");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const backBtn = document.getElementById("backToDashboard");
+    const pdfBtn = document.getElementById("downloadPdfBtn");
 
-    async function downloadPdf() {
-      if (!reportId) {
-        alert("Missing report_id in URL.");
-        return;
+    const params = new URLSearchParams(window.location.search);
+    const from = (params.get("from") || "").toLowerCase();
+    const reportId = params.get("report_id") || "";
+
+    const isHistory = from === "history";
+    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+
+    // Default: keep evidence accordions CLOSED on web
+    try {
+      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+    } catch (_) {}
+
+    // History view: hide Back + Refresh, show PDF
+    if (isHistory) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
+
+      if (pdfBtn) {
+        pdfBtn.style.display = "inline-block";
+        pdfBtn.onclick = async () => {
+          pdfBtn.disabled = true;
+          pdfBtn.textContent = "Generating PDF…";
+          try {
+            const res = await fetch("/.netlify/functions/generate-report-pdf", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ report_id: reportId })
+            });
+            if (!res.ok) throw new Error("PDF generation failed");
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${reportId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            alert("Unable to generate PDF. Please try again.");
+          } finally {
+            pdfBtn.disabled = false;
+            pdfBtn.textContent = "Download PDF";
+          }
+        };
       }
-
-      // Expand accordions so evidece is included in the PDF
-      document.querySelectorAll("details").forEach((d) => (d.open = true));
-
-      // Snapshot the fully-rendered HTML
-      const html = "<!doctype html>\n" + document.documentElement.outerHTML;
-
-      if (dlBtn) {
-        dlBtn.disabled = true;
-        dlBtn.textContent = "Generating…";
-      }
-
-      try {
-        const res = await fetch("/.netlify/functions/generate-report-pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ report_id: reportId, html }),
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.pdf_url) {
-          console.error("PDF failed:", res.status, data);
-          alert("PDF generation failed. Check Netlify function logs.");
-          return;
-        }
-
-        // Open PDF in a new tab
-        window.open(data.pdf_url, "_blank", "noopener");
-      } catch (e) {
-        console.error("PDF error:", e);
-        alert("PDF generation failed. Check console + Netlify logs.");
-      } finally {
-        if (dlBtn) {
-          dlBtn.disabled = false;
-          dlBtn.textContent = "Download PDF";
-        }
-      }
+      return; // done
     }
 
-    dlBtn && dlBtn.addEventListener("click", downloadPdf);
+    // Preview report: remove Back + Refresh (open in new tab from homepage)
+    if (isPreview) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
+      if (pdfBtn) pdfBtn.style.display = "none";
+      return; // done
+    }
+
+    // Normal (real) report view: keep Back + Refresh
+    if (pdfBtn) pdfBtn.style.display = "none";
+    if (refreshBtn) refreshBtn.onclick = () => location.reload();
+
+    if (backBtn) {
+      backBtn.textContent = "Back to dashboard";
+      backBtn.onclick = () => (window.location.href = "/dashboard.html");
+    }
   })();
+  </script>
+
+<script>
+  // ===== DocRaptor render gate (single source of truth) =====
+  window.__IQWEB_REPORT_READY = false;
+
+  // Detect "PDF render mode"
+  var __IQWEB_PDF_MODE = (function () {
+    try {
+      var p = new URLSearchParams(location.search);
+      if (p.get("pdf") === "1") return true;
+    } catch (_) {}
+
+    // Backup: DocRaptor user-agent often includes "DocRaptor"
+    try {
+      return /DocRaptor/i.test(navigator.userAgent);
+    } catch (_) {
+      return false;
+    }
+  })();
+
+  // helper
+  function setEvidenceOpen(open) {
+    try {
+      var list = document.querySelectorAll("details.evidence-block");
+      for (var i = 0; i < list.length; i++) list[i].open = !!open;
+    } catch (_) {}
+  }
+
+  // Always CLOSED for any normal page view (OSD + Preview)
+  setEvidenceOpen(false);
+
+  // MUST be global and named EXACTLY this for DocRaptor
+  window.docraptorJavaScriptFinished = function () {
+    return window.__IQWEB_REPORT_READY === true;
+  };
+
+  (function waitForReportReady() {
+    var reportRoot = document.getElementById("reportRoot");
+    var loader = document.getElementById("loaderSection");
+    var signals = document.getElementById("signalsGrid");
+
+    var loaderHidden =
+      loader &&
+      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+    var reportVisible =
+      reportRoot &&
+      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+    var hasSignals =
+      signals && signals.children && signals.children.length > 0;
+
+    if (loaderHidden && reportVisible && hasSignals) {
+      // ✅ Only open evidence when rendering PDF
+      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+      else setEvidenceOpen(false);
+
+      window.__IQWEB_REPORT_READY = true;
+      return;
+    }
+
+    setTimeout(waitForReportReady, 150);
+  })();
+
+  // Hard safety (prevents infinite hang)
+  setTimeout(function () {
+    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+  }, 30000);
 </script>
+
 
 </body>
 </html>
