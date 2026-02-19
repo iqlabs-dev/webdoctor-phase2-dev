@@ -2,94 +2,190 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report (PDF)</title>
+  <title>iQWEB Report (PDF Render)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    /* TEXT-FIRST / PRINT-FIRST (no fancy cards yet) */
-    @page { size: A4; margin: 14mm; }
-    * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
-    .muted { color: #666; }
-    .small { font-size: 10px; }
-    h1 { font-size: 18px; margin: 0 0 6px; }
-    h2 { font-size: 13px; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
-    h3 { font-size: 12px; margin: 14px 0 6px; }
-    p, li { font-size: 10.5px; line-height: 1.35; margin: 6px 0; }
-    ul { margin: 6px 0 6px 18px; padding: 0; }
-    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-    .brand { font-weight: 700; font-size: 14px; }
-    .meta { text-align: right; font-size: 10px; line-height: 1.35; }
-    hr { border: 0; border-top: 1px solid #ddd; margin: 12px 0; }
-    .section-note { margin-top: 2px; }
-    .page-break { page-break-before: always; }
-    .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #eee; display: flex; justify-content: space-between; font-size: 9px; color: #666; }
-    /* Make long words/URLs wrap */
-    .wrap { word-break: break-word; overflow-wrap: anywhere; }
-  </style>
-</head>
 
+  <!-- Minimal base style (your report-data.js likely injects/uses existing DOM + CSS already in report.html)
+       If you want the PDF to match EXACT OSD styling, copy your report.html CSS into this file. -->
+  <style>
+    body { margin: 0; padding: 0; }
+    #loaderSection { padding: 28px 16px; font-family: Arial, sans-serif; text-align: center; }
+  </style>
+
+  <script>
+  // ============================
+  // DocRaptor/Prince Polyfills
+  // ============================
+  // Prince in DocRaptor can lack Promise/fetch. Your report-data.js uses them.
+  (function () {
+    // Promise (minimal)
+    if (typeof Promise !== "function") {
+      function PolyPromise(fn) {
+        var state = "pending";
+        var value;
+        var handlers = [];
+
+        function fulfill(result) {
+          state = "fulfilled"; value = result;
+          handlers.slice().forEach(handle); handlers = [];
+        }
+        function reject(err) {
+          state = "rejected"; value = err;
+          handlers.slice().forEach(handle); handlers = [];
+        }
+        function resolve(result) {
+          try {
+            if (result === this) throw new TypeError("Promise self-resolution");
+            if (result && (typeof result === "object" || typeof result === "function")) {
+              var then = result.then;
+              if (typeof then === "function") return then.call(result, resolve, reject);
+            }
+            fulfill(result);
+          } catch (e) { reject(e); }
+        }
+        function handle(handler) {
+          if (state === "pending") { handlers.push(handler); return; }
+          var cb = state === "fulfilled" ? handler.onFulfilled : handler.onRejected;
+          if (!cb) { (state === "fulfilled" ? handler.resolve : handler.reject)(value); return; }
+          try { handler.resolve(cb(value)); } catch (e) { handler.reject(e); }
+        }
+
+        this.then = function (onFulfilled, onRejected) {
+          return new PolyPromise(function (resolveNext, rejectNext) {
+            handle({
+              onFulfilled: typeof onFulfilled === "function" ? onFulfilled : null,
+              onRejected: typeof onRejected === "function" ? onRejected : null,
+              resolve: resolveNext,
+              reject: rejectNext,
+            });
+          });
+        };
+        this.catch = function (onRejected) { return this.then(null, onRejected); };
+
+        try { fn(resolve, reject); } catch (e) { reject(e); }
+      }
+      PolyPromise.resolve = function (v) { return new PolyPromise(function (res) { res(v); }); };
+      PolyPromise.reject  = function (e) { return new PolyPromise(function (_, rej) { rej(e); }); };
+      PolyPromise.all = function (arr) {
+        return new PolyPromise(function (resolve, reject) {
+          if (!arr || !arr.length) return resolve([]);
+          var out = new Array(arr.length);
+          var remaining = arr.length;
+          for (var i = 0; i < arr.length; i++) (function (i) {
+            PolyPromise.resolve(arr[i]).then(function (v) {
+              out[i] = v; remaining--; if (remaining === 0) resolve(out);
+            }, reject);
+          })(i);
+        });
+      };
+      window.Promise = PolyPromise;
+    }
+
+    // fetch (minimal, via XHR)
+    if (typeof window.fetch !== "function") {
+      function Response(bodyText, opts) {
+        opts = opts || {};
+        this._bodyText = bodyText || "";
+        this.status = opts.status || 200;
+        this.ok = this.status >= 200 && this.status < 300;
+        this.statusText = opts.statusText || "";
+      }
+      Response.prototype.text = function () { return Promise.resolve(this._bodyText); };
+      Response.prototype.json = function () {
+        try { return Promise.resolve(JSON.parse(this._bodyText || "{}")); }
+        catch (e) { return Promise.reject(e); }
+      };
+
+      window.fetch = function (url, opts) {
+        opts = opts || {};
+        return new Promise(function (resolve, reject) {
+          try {
+            var xhr = new XMLHttpRequest();
+            xhr.open(opts.method || "GET", url, true);
+
+            var headers = opts.headers || {};
+            for (var k in headers) if (Object.prototype.hasOwnProperty.call(headers, k)) {
+              xhr.setRequestHeader(k, headers[k]);
+            }
+
+            xhr.onload = function () {
+              resolve(new Response(xhr.responseText, { status: xhr.status, statusText: xhr.statusText }));
+            };
+            xhr.onerror = function () { reject(new TypeError("Network request failed")); };
+            xhr.send(opts.body || null);
+          } catch (e) { reject(e); }
+        });
+      };
+    }
+  })();
+  </script>
+</head>
 <body>
 
-  <!-- HEADER -->
-  <div class="topbar">
-    <div>
-      <div class="brand">iQWEB</div>
-      <div class="muted small">Powered by Λ i Q™</div>
-    </div>
-    <div class="meta">
-      <div><strong>Website:</strong> <span class="wrap">{{website_url}}</span></div>
-      <div><strong>Report ID:</strong> {{report_id}}</div>
-      <div><strong>Report Date:</strong> {{report_date}}</div>
-    </div>
-  </div>
+  <section id="loaderSection">
+    <div style="font-weight:700;">Building Report</div>
+    <div style="opacity:.7;margin-top:6px;">Rendering full on-screen report for PDF…</div>
+  </section>
 
-  <hr />
+  <!-- Your report-data.js expects these anchors -->
+  <main id="reportRoot" style="display:none;">
+    <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
+    <div id="reportId">—</div>
+    <div id="reportDate">—</div>
 
-  <!-- EXECUTIVE NARRATIVE -->
-  <h2>Executive Narrative</h2>
-  {{executive_narrative}}
+    <div id="narrativeText"></div>
+    <div id="fixFirstBlock"></div>
 
-  <!-- DELIVERY SIGNALS -->
-  <h2>Delivery Signals</h2>
-  <p class="muted section-note small">{{overall_delivery_note}}</p>
-  <p><strong>Overall Delivery Score:</strong> {{overall_score}} / 100</p>
+    <div id="overallPill"></div>
+    <div id="overallBar"></div>
+    <div id="overallNote"></div>
 
-  <!-- This block is server-rendered HTML (per-signal name, score, and narrative lines) -->
-  {{delivery_signals}}
+    <div id="signalsGrid"></div>
 
-  <!-- SIGNAL EVIDENCE (NEW PAGE) -->
-  <div class="page-break"></div>
-  <h2>Signal Evidence</h2>
-  <p class="muted small">Evidence below shows measurable observations captured during this scan (values are not guessed).</p>
+    <div id="signalEvidenceRoot"></div>
+    <div id="keyMetricsRoot"></div>
+    <div id="topIssuesRoot"></div>
+    <div id="fixSequenceRoot"></div>
+    <div id="finalNotesRoot"></div>
+  </main>
 
-  <!-- This block is server-rendered HTML (observations tables + issues list per signal) -->
-  {{signal_evidence}}
+  <!-- Your real renderer -->
+  <script src="/assets/js/report-data.js"></script>
 
-  <!-- INSIGHT METRICS -->
-  <div class="page-break"></div>
-  <h2>Key Insight Metrics</h2>
-  <p><strong>Strength:</strong> {{insight_strength}}</p>
-  <p><strong>Risk:</strong> {{insight_risk}}</p>
-  <p><strong>Focus:</strong> {{insight_focus}}</p>
-  <p><strong>Next:</strong> {{insight_next}}</p>
+  <!-- DocRaptor gate -->
+  <script>
+    window.__IQWEB_REPORT_READY = false;
 
-  <!-- TOP ISSUES -->
-  <h2>Top Issues Detected</h2>
-  {{top_issues}}
+    // Required by DocRaptor when wait_for_javascript=true
+    window.docraptorJavaScriptFinished = function () {
+      return window.__IQWEB_REPORT_READY === true;
+    };
 
-  <!-- FIX SEQUENCE -->
-  <h2>Recommended Fix Sequence</h2>
-  <p>{{fix_sequence_summary}}</p>
-  {{fix_sequence_list}}
+    (function waitReady() {
+      var reportRoot = document.getElementById("reportRoot");
+      var loader = document.getElementById("loaderSection");
+      var signals = document.getElementById("signalsGrid");
 
-  <!-- FINAL NOTES -->
-  <h2>Final Notes</h2>
-  {{final_notes}}
+      var loaderHidden =
+        loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
 
-  <div class="footer">
-    <div>© 2025 iQWEB — All rights reserved.</div>
-    <div>{{report_id}}</div>
-  </div>
+      var reportVisible =
+        reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
 
+      var hasSignals =
+        signals && signals.children && signals.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) {
+        window.__IQWEB_REPORT_READY = true;
+        return;
+      }
+      setTimeout(waitReady, 150);
+    })();
+
+    // Hard safety
+    setTimeout(function () {
+      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+    }, 30000);
+  </script>
 </body>
 </html>
