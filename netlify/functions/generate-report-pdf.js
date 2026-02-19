@@ -1,13 +1,12 @@
 // netlify/functions/generate-report-pdf.js
 //
-// Generates the PDF via DocRaptor by rendering a dedicated HTML page (report_pdf.html)
-// which uses the same on-screen renderer (assets/js/report-data.js) + styling, but includes
-// DocRaptor/Prince-safe polyfills in <head>.
+// Generates PDF via DocRaptor by rendering a web page URL.
+// It will try report_pdf.html first, then fall back to report_template.html, then report.html.
 //
-// Env vars supported (to avoid breaking existing Netlify configs):
-// - DOC_RAPTOR_API_KEY   (preferred)
-// - DOCRAPTOR_API_KEY    (also accepted)
-// - DOC_RAPTOR_API_KY    (legacy typo still accepted)
+// Env vars supported:
+// - DOC_RAPTOR_API_KEY (preferred)
+// - DOCRAPTOR_API_KEY
+// - DOC_RAPTOR_API_KY (legacy typo)
 
 function json(statusCode, obj) {
   return {
@@ -43,6 +42,12 @@ function getBaseUrl(event) {
   return `${proto}://${host}`;
 }
 
+async function probeOk(url) {
+  const res = await fetch(url, { method: "GET" });
+  const text = await res.text().catch(() => "");
+  return { ok: res.ok, status: res.status, text };
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return corsPreflight();
   if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
@@ -61,34 +66,53 @@ exports.handler = async (event) => {
     const apiKey =
       process.env.DOC_RAPTOR_API_KEY ||
       process.env.DOCRAPTOR_API_KEY ||
-      process.env.DOC_RAPTOR_API_KY; // legacy typo
+      process.env.DOC_RAPTOR_API_KY;
 
     if (!apiKey) {
       return json(500, {
         success: false,
         error: "DocRaptor API key missing",
-        hint: "Set DOC_RAPTOR_API_KEY (preferred). Legacy DOC_RAPTOR_API_KY also supported.",
+        hint: "Set DOC_RAPTOR_API_KEY (preferred).",
       });
     }
 
     const baseUrl = getBaseUrl(event);
 
-    // Dedicated PDF render page (must exist in site root)
-    const reportPageUrl =
-      `${baseUrl}/report_pdf.html` +
-      `?report_id=${encodeURIComponent(reportId)}` +
-      `&from=history&pdf=1`;
+    // Candidate pages to render (first that exists wins)
+    const candidates = [
+      "/report_pdf.html",
+      "/report_template.html",
+      "/report.html",
+    ];
 
-    // Probe page so failures are obvious (404, auth, etc.)
-    const probe = await fetch(reportPageUrl, { method: "GET" });
-    const probeText = await probe.text().catch(() => "");
-    if (!probe.ok) {
+    const tried = [];
+    let reportPageUrl = null;
+    let lastProbe = null;
+
+    for (const path of candidates) {
+      const url =
+        `${baseUrl}${path}` +
+        `?report_id=${encodeURIComponent(reportId)}` +
+        `&from=history&pdf=1`;
+
+      const probe = await probeOk(url);
+      tried.push({ url, status: probe.status });
+
+      if (probe.ok) {
+        reportPageUrl = url;
+        lastProbe = probe;
+        break;
+      }
+      lastProbe = probe;
+    }
+
+    if (!reportPageUrl) {
       return json(500, {
         success: false,
-        error: "PDF render page not reachable",
-        status: probe.status,
-        reportPageUrl,
-        details: probeText.slice(0, 1200),
+        error: "No renderable report page found (all candidates 404/failed)",
+        tried,
+        lastStatus: lastProbe?.status,
+        lastDetails: (lastProbe?.text || "").slice(0, 1500),
       });
     }
 
@@ -116,6 +140,7 @@ exports.handler = async (event) => {
         error: "DocRaptor error",
         status: drResp.status,
         reportPageUrl,
+        tried,
         details: errText.slice(0, 3000),
       });
     }
