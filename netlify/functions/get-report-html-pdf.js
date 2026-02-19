@@ -1,18 +1,12 @@
 // netlify/functions/get-report-html-pdf.js
 // Produces printable HTML for DocRaptor.
-// Fetches a stable payload from get-report-data-pdf and renders a PDF-friendly report.
-// CRITICAL: PDF must use payload.executive (single source of truth) and NOT legacy narrative derivation.
+// Deterministic-only PDF (NO narrative, NO legacy narrative placeholders).
 
 const FETCH_TIMEOUT_MS = 20000;
 
 exports.handler = async (event) => {
-  // CORS preflight
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 204,
-      headers: corsHeaders(),
-      body: "",
-    };
+    return { statusCode: 204, headers: corsHeaders(), body: "" };
   }
 
   if (event.httpMethod !== "GET") {
@@ -49,7 +43,7 @@ exports.handler = async (event) => {
     let payload;
     try {
       payload = JSON.parse(payloadText || "{}");
-    } catch (e) {
+    } catch {
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
@@ -65,7 +59,6 @@ exports.handler = async (event) => {
       };
     }
 
-    // Helpers
     const h = (s) => escapeHtml(String(s || ""));
     const header = payload.header || {};
     const scores = payload.scores || {};
@@ -77,21 +70,15 @@ exports.handler = async (event) => {
     const deliverySignals = Array.isArray(payload.delivery_signals) ? payload.delivery_signals : [];
     const topIssues = Array.isArray(payload.top_issues) ? payload.top_issues : [];
 
-    // ✅ Single source of truth for summary lines
-    const execLines = Array.isArray(payload.executive?.lines) ? payload.executive.lines : [];
-
     const overallScore = safeNumber(scores.overall);
 
-    // Build Delivery Cards (compact)
-    const deliveryCardsHtml = buildDeliveryCardsHtml(deliverySignals);
+    // Deterministic executive lines ONLY
+    const execLines = buildDeterministicExecutiveLines(scores, deliverySignals, topIssues);
 
-    // Basic Key Insight Metrics (deterministic)
+    const deliveryCardsHtml = buildDeliveryCardsHtmlDeterministic(deliverySignals);
+
     const insight = buildInsights(scores);
-
-    // Recommended Fix Sequence (simple deterministic ordering)
     const fixSequence = buildFixSequence(scores);
-
-    // Evidence tables
     const evidenceTablesHtml = buildEvidenceTables(deliverySignals);
 
     const html = `<!doctype html>
@@ -137,7 +124,7 @@ exports.handler = async (event) => {
     .card .desc { font-size: 12px; color:#374151; }
     .card .score { font-weight: 800; font-size: 12px; color:#111; min-width: 56px; text-align:right; }
     table { width:100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { text-align:left; border-top: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; vertical-align: top; }
+    th, td { text-align:left; border-top: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; }
     th { font-weight: 700; background: #fafafa; }
     .footer { margin-top: 18px; font-size: 11px; color:#6b7280; display:flex; justify-content:space-between; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
@@ -160,12 +147,12 @@ exports.handler = async (event) => {
     ${
       execLines.length
         ? `<ul class="bullets">${execLines.map((l) => `<li>${h(l)}</li>`).join("")}</ul>`
-        : `<div class="small">No deterministic summary was available for this report.</div>`
+        : `<div class="small">Summary unavailable.</div>`
     }
 
     <h2>Delivery Signals</h2>
     <div class="cards">
-      ${renderDeliveryCard("Overall Delivery Score", overallScore, pickOverallExecLine(execLines))}
+      ${renderDeliveryCard("Overall Delivery Score", overallScore, buildOverallDeterministicLine(scores))}
       ${deliveryCardsHtml}
     </div>
 
@@ -183,7 +170,7 @@ exports.handler = async (event) => {
     <h2>Top Issues Detected</h2>
     ${
       topIssues.length
-        ? `<ul class="bullets">${topIssues.map((t) => `<li>${h(t)}</li>`).join("")}</ul>`
+        ? `<ul class="bullets">${topIssues.slice(0, 12).map((t) => `<li>${h(t)}</li>`).join("")}</ul>`
         : `<div class="small">No issues were surfaced from this scan output.</div>`
     }
 
@@ -244,48 +231,95 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function pickOverallExecLine(execLines) {
-  // overall card supports a single line narrative; prefer first exec line
-  if (Array.isArray(execLines) && execLines.length) return String(execLines[0] || "");
-  return "Deterministic summary not available.";
-}
-
 function renderDeliveryCard(title, score, desc) {
   return `
   <div class="card">
     <div class="left">
       <div class="title">${escapeHtml(title)}</div>
-      <div class="desc">${escapeHtml(desc || "Not available.")}</div>
+      <div class="desc">${escapeHtml(desc || "")}</div>
     </div>
     <div class="score">${score === null ? "—" : escapeHtml(String(score))}</div>
   </div>`;
 }
 
-function buildDeliveryCardsHtml(deliverySignals) {
-  // Use per-signal lines if present; otherwise neutral placeholder.
+function buildOverallDeterministicLine(scores) {
+  const parts = [];
+  const overall = safeNumber(scores.overall);
+  if (overall !== null) parts.push(`Overall Delivery: ${Math.round(overall)}/100.`);
+  const perf = safeNumber(scores.performance);
+  if (perf !== null) parts.push(`Performance: ${Math.round(perf)}/100.`);
+  const mobile = safeNumber(scores.mobile);
+  if (mobile !== null) parts.push(`Mobile: ${Math.round(mobile)}/100.`);
+  return parts.join(" ");
+}
+
+function buildDeterministicExecutiveLines(scores, deliverySignals, topIssues) {
+  const lines = [];
+
+  const overall = safeNumber(scores.overall);
+  if (overall !== null) lines.push(`Overall Delivery: ${Math.round(overall)}/100.`);
+
+  // Best + worst domain
+  const domains = [
+    { label: "Performance", score: safeNumber(scores.performance) },
+    { label: "Mobile Experience", score: safeNumber(scores.mobile) },
+    { label: "SEO Foundations", score: safeNumber(scores.seo) },
+    { label: "Security & Trust", score: safeNumber(scores.security) },
+    { label: "Structure & Semantics", score: safeNumber(scores.structure) },
+    { label: "Accessibility", score: safeNumber(scores.accessibility) },
+  ].filter((d) => d.score !== null);
+
+  if (domains.length) {
+    const sorted = [...domains].sort((a, b) => b.score - a.score);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    lines.push(`Strongest domain: ${best.label} (${Math.round(best.score)}/100).`);
+    lines.push(`Weakest domain: ${worst.label} (${Math.round(worst.score)}/100).`);
+  }
+
+  // Primary + secondary fix from worst domains (deterministic)
+  const fix = buildFixSequence(scores);
+  if (fix[0]) lines.push(`Primary Fix: ${fix[0]}`);
+  if (fix[1]) lines.push(`Secondary Fix: ${fix[1]}`);
+
+  // If issues exist, surface the first one deterministically
+  if (Array.isArray(topIssues) && topIssues.length) {
+    lines.push(`Top Issue: ${String(topIssues[0] || "").trim()}`);
+  }
+
+  // Keep it tidy
+  return lines.filter(Boolean).slice(0, 6);
+}
+
+function buildDeliveryCardsHtmlDeterministic(deliverySignals) {
   const cards = [];
   for (const sig of deliverySignals) {
     const label = String(sig?.label || sig?.id || "Signal");
     const score = safeNumber(sig?.score);
 
-    // Prefer a short deterministic line if available
-    const line =
-      (Array.isArray(sig?.lines) && sig.lines.length && String(sig.lines[0] || "")) ||
-      String(sig?.summary || sig?.note || "Not available.");
+    // Deterministic desc: first evidence item if available
+    const obs = Array.isArray(sig?.observations) ? sig.observations : [];
+    let desc = "Evidence available in Signal Evidence section.";
+    if (obs.length) {
+      const first = obs[0];
+      const k = String(first?.label || first?.key || "").trim();
+      const v = first?.value;
+      if (k) desc = `${k}: ${String(v)}`;
+    }
 
-    cards.push(renderDeliveryCard(label, score, line));
+    cards.push(renderDeliveryCard(label, score, desc));
   }
   return cards.join("");
 }
 
 function buildInsights(scores) {
   const domains = [
-    { key: "performance", label: "Performance", score: safeNumber(scores.performance) },
-    { key: "mobile", label: "Mobile Experience", score: safeNumber(scores.mobile) },
-    { key: "seo", label: "SEO Foundations", score: safeNumber(scores.seo) },
-    { key: "security", label: "Security & Trust", score: safeNumber(scores.security) },
-    { key: "structure", label: "Structure & Semantics", score: safeNumber(scores.structure) },
-    { key: "accessibility", label: "Accessibility", score: safeNumber(scores.accessibility) },
+    { label: "Performance", score: safeNumber(scores.performance) },
+    { label: "Mobile Experience", score: safeNumber(scores.mobile) },
+    { label: "SEO Foundations", score: safeNumber(scores.seo) },
+    { label: "Security & Trust", score: safeNumber(scores.security) },
+    { label: "Structure & Semantics", score: safeNumber(scores.structure) },
+    { label: "Accessibility", score: safeNumber(scores.accessibility) },
   ].filter((d) => d.score !== null);
 
   domains.sort((a, b) => b.score - a.score);
@@ -293,11 +327,11 @@ function buildInsights(scores) {
   domains.sort((a, b) => a.score - b.score);
   const weakest = domains[0];
 
-  const strength = strongest ? `${strongest.label} appears strongest in this scan.` : "Not available.";
-  const focus = weakest ? `Focus: ${weakest.label} is the lowest scoring area in this scan.` : "Not available.";
+  const strength = strongest ? `${strongest.label} is strongest in this scan.` : "Not available.";
+  const focus = weakest ? `Focus: ${weakest.label} is the lowest scoring area.` : "Not available.";
   const risk = weakest ? `Risk: ${weakest.label} is below baseline expectation.` : "Not available.";
   const next = weakest
-    ? `Next: start with ${weakest.label}, then re-run the scan to confirm measurable improvement.`
+    ? `Next: start with ${weakest.label}, then re-run the scan to confirm improvement.`
     : "Re-run the scan after changes to confirm improvements.";
 
   return { strength, risk, focus, next };
@@ -313,7 +347,6 @@ function buildFixSequence(scores) {
     { label: "Mobile experience validation (re-test after changes).", score: safeNumber(scores.mobile) },
   ].filter((d) => d.score !== null);
 
-  // sort weakest to strongest, but keep mobile validation last if possible
   const mobile = domains.find((d) => /Mobile experience/i.test(d.label));
   const rest = domains.filter((d) => d !== mobile).sort((a, b) => a.score - b.score);
 
@@ -323,7 +356,6 @@ function buildFixSequence(scores) {
 }
 
 function buildEvidenceTables(deliverySignals) {
-  // each signal: a simple 2-col table of observations
   const blocks = [];
 
   for (const sig of deliverySignals) {
@@ -359,11 +391,7 @@ async function fetchTextWithTimeout(url, ms) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
+    const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
     const txt = await resp.text().catch(() => "");
     if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
     if (!txt || txt.length < 2) throw new Error("Empty response from get-report-data-pdf");
