@@ -5,34 +5,33 @@
   <title>iQWEB Website Report — PDF</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- PDF polyfills for DocRaptor/Prince (Promise/fetch) -->
+  <!-- Polyfills for DocRaptor/Prince -->
   <script>
   (function () {
-    // Promise polyfill (minimal)
     if (typeof Promise !== "function") {
       function PolyPromise(fn) {
-        var state = "pending", value, handlers = [];
+        var state="pending", value, handlers=[];
         function fulfill(r){ state="fulfilled"; value=r; handlers.slice().forEach(handle); handlers=[]; }
         function reject(e){ state="rejected"; value=e; handlers.slice().forEach(handle); handlers=[]; }
         function resolve(r){
           try{
             if (r===this) throw new TypeError("Promise self-resolution");
             if (r && (typeof r==="object" || typeof r==="function")) {
-              var then = r.then;
+              var then=r.then;
               if (typeof then==="function") return then.call(r, resolve, reject);
             }
             fulfill(r);
-          }catch(e){ reject(e); }
+          } catch(e){ reject(e); }
         }
         function handle(h){
           if(state==="pending"){ handlers.push(h); return; }
           var cb = state==="fulfilled" ? h.onFulfilled : h.onRejected;
           if(!cb){ (state==="fulfilled"?h.resolve:h.reject)(value); return; }
-          try{ h.resolve(cb(value)); }catch(e){ h.reject(e); }
+          try{ h.resolve(cb(value)); } catch(e){ h.reject(e); }
         }
         this.then=function(a,b){ return new PolyPromise(function(res,rej){ handle({onFulfilled: typeof a==="function"?a:null, onRejected: typeof b==="function"?b:null, resolve:res, reject:rej}); }); };
         this.catch=function(b){ return this.then(null,b); };
-        try{ fn(resolve,reject); }catch(e){ reject(e); }
+        try{ fn(resolve,reject); } catch(e){ reject(e); }
       }
       PolyPromise.resolve=function(v){ return new PolyPromise(function(res){ res(v); }); };
       PolyPromise.reject=function(e){ return new PolyPromise(function(_,rej){ rej(e); }); };
@@ -48,7 +47,6 @@
       window.Promise = PolyPromise;
     }
 
-    // fetch polyfill (minimal)
     if (typeof window.fetch !== "function") {
       function Response(text, opts){
         opts=opts||{};
@@ -71,16 +69,14 @@
             xhr.onload=function(){ resolve(new Response(xhr.responseText, {status:xhr.status, statusText:xhr.statusText})); };
             xhr.onerror=function(){ reject(new TypeError("Network request failed")); };
             xhr.send(opts.body||null);
-          }catch(e){ reject(e); }
+          } catch(e){ reject(e); }
         });
       };
     }
   })();
   </script>
 
-  <!-- IMPORTANT:
-       If you want the PDF to match your exact OSD styling, copy your report.html CSS into this file.
-       If your renderer relies on existing CSS in report-data.js, this can stay minimal. -->
+  <!-- OPTIONAL: If you want exact styling parity, copy the SAME CSS from report.html into here. -->
   <style>
     body { margin: 0; padding: 0; }
     #loaderSection { padding: 28px 16px; font-family: system-ui, sans-serif; text-align: center; }
@@ -93,7 +89,7 @@
     <div style="opacity:.7; margin-top:6px;">Rendering full report for PDF…</div>
   </section>
 
-  <!-- Minimum anchors your report-data.js expects -->
+  <!-- anchors expected by /assets/js/report-data.js -->
   <main id="reportRoot" style="display:none;">
     <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
     <div id="reportId">—</div>
@@ -115,41 +111,27 @@
     <div id="finalNotesRoot"></div>
   </main>
 
-  <!-- Your real renderer -->
   <script src="/assets/js/report-data.js"></script>
 
   <!-- DocRaptor gate -->
   <script>
     window.__IQWEB_REPORT_READY = false;
-
-    window.docraptorJavaScriptFinished = function () {
-      return window.__IQWEB_REPORT_READY === true;
-    };
+    window.docraptorJavaScriptFinished = function () { return window.__IQWEB_REPORT_READY === true; };
 
     (function waitReady() {
       var reportRoot = document.getElementById("reportRoot");
       var loader = document.getElementById("loaderSection");
       var signals = document.getElementById("signalsGrid");
 
-      var loaderHidden =
-        loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+      var loaderHidden = loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+      var reportVisible = reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+      var hasSignals = signals && signals.children && signals.children.length > 0;
 
-      var reportVisible =
-        reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-      var hasSignals =
-        signals && signals.children && signals.children.length > 0;
-
-      if (loaderHidden && reportVisible && hasSignals) {
-        window.__IQWEB_REPORT_READY = true;
-        return;
-      }
+      if (loaderHidden && reportVisible && hasSignals) { window.__IQWEB_REPORT_READY = true; return; }
       setTimeout(waitReady, 150);
     })();
 
-    setTimeout(function () {
-      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-    }, 30000);
+    setTimeout(function () { if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true; }, 30000);
   </script>
 </body>
 </html>

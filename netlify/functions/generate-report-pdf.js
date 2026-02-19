@@ -1,7 +1,7 @@
 // netlify/functions/generate-report-pdf.js
 //
-// Generates PDF via DocRaptor by rendering a web page URL.
-// It will try report_pdf.html first, then fall back to report_template.html, then report.html.
+// Always render /report_pdf.html for PDF generation.
+// This avoids modifying report.html (OSD) and lets us include PDF-only polyfills safely.
 //
 // Env vars supported:
 // - DOC_RAPTOR_API_KEY (preferred)
@@ -42,12 +42,6 @@ function getBaseUrl(event) {
   return `${proto}://${host}`;
 }
 
-async function probeOk(url) {
-  const res = await fetch(url, { method: "GET" });
-  const text = await res.text().catch(() => "");
-  return { ok: res.ok, status: res.status, text };
-}
-
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return corsPreflight();
   if (event.httpMethod !== "POST") return json(405, { success: false, error: "Method not allowed" });
@@ -78,41 +72,22 @@ exports.handler = async (event) => {
 
     const baseUrl = getBaseUrl(event);
 
-    // Candidate pages to render (first that exists wins)
-    const candidates = [
-      "/report_pdf.html",
-      "/report_template.html",
-      "/report.html",
-    ];
+    const reportPageUrl =
+      `${baseUrl}/report_pdf.html` +
+      `?report_id=${encodeURIComponent(reportId)}` +
+      `&from=history&pdf=1`;
 
-    const tried = [];
-    let reportPageUrl = null;
-    let lastProbe = null;
-
-    for (const path of candidates) {
-      const url =
-        `${baseUrl}${path}` +
-        `?report_id=${encodeURIComponent(reportId)}` +
-        `&from=history&pdf=1`;
-
-      const probe = await probeOk(url);
-      tried.push({ url, status: probe.status });
-
-      if (probe.ok) {
-        reportPageUrl = url;
-        lastProbe = probe;
-        break;
-      }
-      lastProbe = probe;
-    }
-
-    if (!reportPageUrl) {
+    // Probe first so we fail fast with a clear 404 reason
+    const probe = await fetch(reportPageUrl, { method: "GET" });
+    const probeText = await probe.text().catch(() => "");
+    if (!probe.ok) {
       return json(500, {
         success: false,
-        error: "No renderable report page found (all candidates 404/failed)",
-        tried,
-        lastStatus: lastProbe?.status,
-        lastDetails: (lastProbe?.text || "").slice(0, 1500),
+        error: "PDF render page not reachable",
+        status: probe.status,
+        reportPageUrl,
+        details: probeText.slice(0, 1500),
+        fix: "Deploy report_pdf.html to your Netlify publish directory root so https://iqweb.ai/report_pdf.html returns 200.",
       });
     }
 
@@ -140,7 +115,6 @@ exports.handler = async (event) => {
         error: "DocRaptor error",
         status: drResp.status,
         reportPageUrl,
-        tried,
         details: errText.slice(0, 3000),
       });
     }
