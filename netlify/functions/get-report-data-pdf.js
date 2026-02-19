@@ -1,7 +1,9 @@
 // netlify/functions/get-report-data-pdf.js
-// Purpose: return a stable, PDF-ready payload for get-report-html-pdf.
+//
+// Purpose: Return a stable, PDF-ready payload for get-report-html-pdf.
 // It fetches your existing report JSON (from get-report-data) and normalizes it
-// so the PDF HTML renderer never breaks when fields are missing.
+// WITHOUT re-generating or "deriving" legacy narrative. The PDF must render the
+// SAME deterministic executive summary your on-screen UI uses.
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -65,9 +67,13 @@ exports.handler = async (event) => {
     const header = raw.header || {};
     const scores = raw.scores || {};
 
-    // Some builds used narrative, some used findings; we support both.
-    const narrative = (raw.narrative && typeof raw.narrative === "object") ? raw.narrative : {};
-    const findings = (raw.findings && typeof raw.findings === "object") ? raw.findings : (raw.finding && typeof raw.finding === "object" ? raw.finding : {});
+    // Executive summary MUST be pass-through from your real report payload.
+    // Support a few likely keys (no regeneration).
+    // Expected formats supported:
+    //   executive_summary: { lines: [...] }
+    //   executive: { lines: [...] }
+    //   executive_summary: { overall_score, primary_fix, secondary_fix, ... } (we will convert to lines safely)
+    const exec = normalizeExecutive(raw.executive_summary || raw.executive || raw.executiveSummary || null, scores, raw);
 
     // Signals list comes in different names depending on earlier versions
     const deliverySignals =
@@ -105,16 +111,14 @@ exports.handler = async (event) => {
       // Normalize deductions list (used to derive Top Issues if needed)
       if (!Array.isArray(out.deductions)) out.deductions = [];
 
-      // ✅ IMPORTANT: Provide deterministic "lines" so PDF doesn't say "No narrative available"
-      // The PDF HTML renderer checks (in order):
-      //  1) sig.lines
-      //  2) narrative.signals[key].lines
-      //  3) findings[key].lines
-      // So we populate sig.lines from common possible fields.
+      // IMPORTANT:
+      // We DO NOT create "narrative" anymore.
+      // But we do support per-signal short lines if your on-screen report provides them.
+      // We map a few common places into out.lines as an array (pass-through).
       const candidate =
         out.lines ||
         out.narrative_lines ||
-        out.narrative ||
+        out.summary_lines ||
         out.summary ||
         out.text ||
         out.description ||
@@ -127,43 +131,13 @@ exports.handler = async (event) => {
       return out;
     });
 
-    // top issues: use explicit field if present, otherwise derive from deductions (deterministic)
+    // top issues: use explicit field if present, otherwise derive from deductions (deterministic from scan output)
     const topIssues =
       (Array.isArray(raw.top_issues) && raw.top_issues) ||
       (Array.isArray(raw.topIssues) && raw.topIssues) ||
       deriveTopIssuesFromSignals(normalizedSignals);
 
-    // ✅ Backfill Executive/Overall narrative if missing
-    // - Prefer narrative.overall.lines
-    // - else use findings.overall.lines
-    // - else derive minimal deterministic summary
-    const narrativeOut = { ...narrative };
-    narrativeOut.overall = (narrativeOut.overall && typeof narrativeOut.overall === "object") ? { ...narrativeOut.overall } : {};
-
-    const existingOverall = toLines(narrativeOut?.overall?.lines);
-    if (existingOverall.length === 0) {
-      const fromFindingsOverall = toLines(findings?.overall?.lines || findings?.executive?.lines || null);
-      if (fromFindingsOverall.length) {
-        narrativeOut.overall.lines = fromFindingsOverall;
-      } else {
-        narrativeOut.overall.lines = deriveOverallLines(scores, normalizedSignals);
-      }
-    }
-
-    // ✅ Also: if findings lacks per-signal lines but signals have them, mirror into findings
-    // This helps older PDF renderers / future adjustments without breaking.
-    const findingsOut = { ...findings };
-    for (const sig of normalizedSignals) {
-      const key = normalizeKeyForSignal(sig?.label || sig?.id || "");
-      if (!key) continue;
-
-      const existing = toLines(findingsOut?.[key]?.lines || findingsOut?.[key] || null);
-      if (existing.length === 0 && Array.isArray(sig.lines) && sig.lines.length) {
-        findingsOut[key] = { lines: sig.lines };
-      }
-    }
-
-    // Final PDF payload (stable)
+    // Final PDF payload (stable, no legacy derivation)
     const pdfPayload = {
       success: true,
       header: {
@@ -180,9 +154,14 @@ exports.handler = async (event) => {
         structure: scores.structure,
         accessibility: scores.accessibility,
       },
-      narrative: narrativeOut,
-      findings: findingsOut,
+
+      // ✅ The single source of truth for the PDF summary
+      executive: exec, // { lines: [...] }
+
+      // ✅ Signal content (do not invent narrative)
       delivery_signals: normalizedSignals,
+
+      // ✅ Deterministic issues derived only from evidence/deductions if not provided
       top_issues: topIssues,
     };
 
@@ -224,28 +203,16 @@ function toLines(value) {
     return value.map((x) => String(x || "").trim()).filter(Boolean);
   }
   if (typeof value === "string") {
-    // Accept bullet style or newline style
     return value
       .split(/\r?\n|•/g)
       .map((s) => String(s || "").trim())
       .filter(Boolean);
   }
   if (typeof value === "object") {
-    // Sometimes line arrays are nested in objects
     const maybe = value.lines || value.line || null;
     return toLines(maybe);
   }
   return [String(value).trim()].filter(Boolean);
-}
-
-function normalizeKeyForSignal(label) {
-  const s = String(label || "").trim().toLowerCase();
-  if (!s) return "";
-  // approximate same behavior as PDF renderer normalizeKey()
-  return s
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
 }
 
 function deriveTopIssuesFromSignals(signals) {
@@ -270,58 +237,61 @@ function deriveTopIssuesFromSignals(signals) {
   return out;
 }
 
-function deriveOverallLines(scores, signals) {
-  const lines = [];
+/**
+ * Normalize executive summary into { lines: [...] } WITHOUT inventing anything.
+ * Priority:
+ * 1) explicit .lines array if present
+ * 2) explicit .lines string if present
+ * 3) known structured keys (overall_score / primary_fix / secondary_fix / metrics) converted into lines (still pass-through)
+ * 4) fallback to legacy narrative fields ONLY if they already exist (no derivation):
+ *    - raw.narrative.overall.lines
+ *    - raw.findings.overall.lines
+ */
+function normalizeExecutive(executiveCandidate, scores, raw) {
+  // 1) If we already have lines
+  const direct = toLines(executiveCandidate);
+  if (direct.length) return { lines: direct.slice(0, 8) };
 
-  const overall = numberOrNull(scores?.overall);
-  if (overall !== null) lines.push(`Overall Delivery: ${overall}/100.`);
+  // 2) If it's an object with meaningful fields (pass-through, formatted)
+  if (executiveCandidate && typeof executiveCandidate === "object") {
+    const lines = [];
 
-  // Pick primary = lowest score among core domains if present
-  const domains = [
-    { key: "performance", label: "Performance" },
-    { key: "mobile", label: "Mobile Experience" },
-    { key: "seo", label: "SEO Foundations" },
-    { key: "security", label: "Security & Trust" },
-    { key: "structure", label: "Structure & Semantics" },
-    { key: "accessibility", label: "Accessibility" },
-  ];
+    const overallScore = numberOrNull(
+      executiveCandidate.overall_score ??
+        executiveCandidate.overallScore ??
+        scores?.overall ??
+        null
+    );
+    if (overallScore !== null) lines.push(`Overall Delivery: ${overallScore}/100.`);
 
-  let lowest = null;
-  for (const d of domains) {
-    const v = numberOrNull(scores?.[d.key]);
-    if (v === null) continue;
-    if (!lowest || v < lowest.v) lowest = { ...d, v };
+    // Optional metrics (if present in your real payload)
+    const perf = numberOrNull(executiveCandidate.performance_score ?? executiveCandidate.performanceScore ?? scores?.performance ?? null);
+    if (perf !== null) lines.push(`Performance: ${perf}/100.`);
+
+    // If your executive includes specific metric strings, include them as-is
+    const metricLine = toLines(executiveCandidate.metric_line || executiveCandidate.metricLine || executiveCandidate.highlight || null);
+    for (const l of metricLine) lines.push(l);
+
+    const primaryFix = String(executiveCandidate.primary_fix || executiveCandidate.primaryFix || "").trim();
+    if (primaryFix) lines.push(`Primary Fix: ${primaryFix}`);
+
+    const secondaryFix = String(executiveCandidate.secondary_fix || executiveCandidate.secondaryFix || "").trim();
+    if (secondaryFix) lines.push(`Secondary Fix: ${secondaryFix}`);
+
+    const extra = toLines(executiveCandidate.lines || null);
+    for (const l of extra) lines.push(l);
+
+    if (lines.length) return { lines: lines.filter(Boolean).slice(0, 8) };
   }
 
-  if (lowest) {
-    lines.push(`Primary Fix: ${lowest.label} (${lowest.v}/100).`);
-  }
+  // 3) LAST RESORT: use existing legacy lines ONLY if they already exist (still no derivation)
+  const legacyA = toLines(raw?.narrative?.overall?.lines || null);
+  if (legacyA.length) return { lines: legacyA.slice(0, 8) };
 
-  // Secondary = second-lowest
-  let second = null;
-  for (const d of domains) {
-    const v = numberOrNull(scores?.[d.key]);
-    if (v === null) continue;
-    if (lowest && d.key === lowest.key) continue;
-    if (!second || v < second.v) second = { ...d, v };
-  }
-  if (second) {
-    lines.push(`Secondary Fix: ${second.label} (${second.v}/100).`);
-  }
+  const legacyB = toLines(raw?.findings?.overall?.lines || raw?.findings?.executive?.lines || null);
+  if (legacyB.length) return { lines: legacyB.slice(0, 8) };
 
-  // If we have a strong hint from signal lines, add one action line
-  const firstSignalWithLines = (signals || []).find((s) => Array.isArray(s?.lines) && s.lines.length);
-  if (firstSignalWithLines) {
-    // Keep it short: take the first line that looks like "Fix..." or "Primary Fix..."
-    const pick =
-      firstSignalWithLines.lines.find((l) => /^fix\b/i.test(l)) ||
-      firstSignalWithLines.lines.find((l) => /^primary fix\b/i.test(l)) ||
-      null;
-    if (pick) lines.push(pick.replace(/\s+/g, " ").trim());
-  }
-
-  lines.push("Re-scan after changes to confirm measurable improvement.");
-  return lines.slice(0, 6);
+  return { lines: [] };
 }
 
 function numberOrNull(x) {

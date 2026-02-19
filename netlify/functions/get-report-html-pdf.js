@@ -1,6 +1,7 @@
 // netlify/functions/get-report-html-pdf.js
 // Produces printable HTML for DocRaptor.
 // Fetches a stable payload from get-report-data-pdf and renders a PDF-friendly report.
+// CRITICAL: PDF must use payload.executive (single source of truth) and NOT legacy narrative derivation.
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -44,6 +45,7 @@ exports.handler = async (event) => {
       encodeURIComponent(reportId);
 
     const payloadText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
+
     let payload;
     try {
       payload = JSON.parse(payloadText || "{}");
@@ -75,21 +77,10 @@ exports.handler = async (event) => {
     const deliverySignals = Array.isArray(payload.delivery_signals) ? payload.delivery_signals : [];
     const topIssues = Array.isArray(payload.top_issues) ? payload.top_issues : [];
 
-    // ✅ Accept narrative OR findings for executive lines
-    const narrativeObj = payload.narrative || {};
-    const findingsObj = payload.findings || {};
-    const execLines = pickExecutiveLines(narrativeObj, findingsObj);
+    // ✅ Single source of truth for summary lines
+    const execLines = Array.isArray(payload.executive?.lines) ? payload.executive.lines : [];
 
     const overallScore = safeNumber(scores.overall);
-
-    const domainRows = [
-      { label: "Performance", score: safeNumber(scores.performance) },
-      { label: "Mobile Experience", score: safeNumber(scores.mobile) },
-      { label: "SEO Foundations", score: safeNumber(scores.seo) },
-      { label: "Security & Trust", score: safeNumber(scores.security) },
-      { label: "Structure & Semantics", score: safeNumber(scores.structure) },
-      { label: "Accessibility", score: safeNumber(scores.accessibility) },
-    ];
 
     // Build Delivery Cards (compact)
     const deliveryCardsHtml = buildDeliveryCardsHtml(deliverySignals);
@@ -146,7 +137,7 @@ exports.handler = async (event) => {
     .card .desc { font-size: 12px; color:#374151; }
     .card .score { font-weight: 800; font-size: 12px; color:#111; min-width: 56px; text-align:right; }
     table { width:100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { text-align:left; border-top: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; }
+    th, td { text-align:left; border-top: 1px solid #e5e7eb; padding: 6px 8px; font-size: 12px; vertical-align: top; }
     th { font-weight: 700; background: #fafafa; }
     .footer { margin-top: 18px; font-size: 11px; color:#6b7280; display:flex; justify-content:space-between; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
@@ -174,7 +165,7 @@ exports.handler = async (event) => {
 
     <h2>Delivery Signals</h2>
     <div class="cards">
-      ${renderDeliveryCard("Overall Delivery Score", overallScore, pickOverallNarrativeLine(payload))}
+      ${renderDeliveryCard("Overall Delivery Score", overallScore, pickOverallExecLine(execLines))}
       ${deliveryCardsHtml}
     </div>
 
@@ -253,36 +244,10 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function pickExecutiveLines(narrativeObj, findingsObj) {
-  const candidates = [
-    narrativeObj?.overall?.lines,
-    narrativeObj?.executive?.lines,
-    findingsObj?.overall?.lines,
-    findingsObj?.executive?.lines,
-  ];
-
-  for (const c of candidates) {
-    if (Array.isArray(c) && c.length) {
-      return c.map((x) => String(x || "")).filter(Boolean).slice(0, 6);
-    }
-  }
-  return [];
-}
-
-function pickOverallNarrativeLine(payload) {
-  // tiny helper: the overall card supports a single line narrative
-  const n = payload?.narrative || {};
-  const f = payload?.findings || {};
-  const candidates = [
-    n?.overall?.lines,
-    n?.executive?.lines,
-    f?.overall?.lines,
-    f?.executive?.lines,
-  ];
-  for (const c of candidates) {
-    if (Array.isArray(c) && c.length) return String(c[0] || "");
-  }
-  return "No narrative available for this section.";
+function pickOverallExecLine(execLines) {
+  // overall card supports a single line narrative; prefer first exec line
+  if (Array.isArray(execLines) && execLines.length) return String(execLines[0] || "");
+  return "Deterministic summary not available.";
 }
 
 function renderDeliveryCard(title, score, desc) {
@@ -290,21 +255,25 @@ function renderDeliveryCard(title, score, desc) {
   <div class="card">
     <div class="left">
       <div class="title">${escapeHtml(title)}</div>
-      <div class="desc">${escapeHtml(desc || "No narrative available for this section.")}</div>
+      <div class="desc">${escapeHtml(desc || "Not available.")}</div>
     </div>
     <div class="score">${score === null ? "—" : escapeHtml(String(score))}</div>
   </div>`;
 }
 
 function buildDeliveryCardsHtml(deliverySignals) {
-  // If your PDF payload contains per-signal narrative text, we use it.
-  // Otherwise it prints a neutral placeholder.
+  // Use per-signal lines if present; otherwise neutral placeholder.
   const cards = [];
   for (const sig of deliverySignals) {
     const label = String(sig?.label || sig?.id || "Signal");
     const score = safeNumber(sig?.score);
-    const desc = String(sig?.summary || sig?.narrative || sig?.note || "No narrative available for this section.");
-    cards.push(renderDeliveryCard(label, score, desc));
+
+    // Prefer a short deterministic line if available
+    const line =
+      (Array.isArray(sig?.lines) && sig.lines.length && String(sig.lines[0] || "")) ||
+      String(sig?.summary || sig?.note || "Not available.");
+
+    cards.push(renderDeliveryCard(label, score, line));
   }
   return cards.join("");
 }
@@ -390,7 +359,11 @@ async function fetchTextWithTimeout(url, ms) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), ms);
   try {
-    const resp = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
     const txt = await resp.text().catch(() => "");
     if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
     if (!txt || txt.length < 2) throw new Error("Empty response from get-report-data-pdf");
