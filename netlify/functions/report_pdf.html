@@ -2,132 +2,98 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Report (PDF Render)</title>
+  <title>iQWEB Website Report — PDF</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Minimal base style (your report-data.js likely injects/uses existing DOM + CSS already in report.html)
-       If you want the PDF to match EXACT OSD styling, copy your report.html CSS into this file. -->
-  <style>
-    body { margin: 0; padding: 0; }
-    #loaderSection { padding: 28px 16px; font-family: Arial, sans-serif; text-align: center; }
-  </style>
-
+  <!-- PDF polyfills for DocRaptor/Prince (Promise/fetch) -->
   <script>
-  // ============================
-  // DocRaptor/Prince Polyfills
-  // ============================
-  // Prince in DocRaptor can lack Promise/fetch. Your report-data.js uses them.
   (function () {
-    // Promise (minimal)
+    // Promise polyfill (minimal)
     if (typeof Promise !== "function") {
       function PolyPromise(fn) {
-        var state = "pending";
-        var value;
-        var handlers = [];
-
-        function fulfill(result) {
-          state = "fulfilled"; value = result;
-          handlers.slice().forEach(handle); handlers = [];
-        }
-        function reject(err) {
-          state = "rejected"; value = err;
-          handlers.slice().forEach(handle); handlers = [];
-        }
-        function resolve(result) {
-          try {
-            if (result === this) throw new TypeError("Promise self-resolution");
-            if (result && (typeof result === "object" || typeof result === "function")) {
-              var then = result.then;
-              if (typeof then === "function") return then.call(result, resolve, reject);
+        var state = "pending", value, handlers = [];
+        function fulfill(r){ state="fulfilled"; value=r; handlers.slice().forEach(handle); handlers=[]; }
+        function reject(e){ state="rejected"; value=e; handlers.slice().forEach(handle); handlers=[]; }
+        function resolve(r){
+          try{
+            if (r===this) throw new TypeError("Promise self-resolution");
+            if (r && (typeof r==="object" || typeof r==="function")) {
+              var then = r.then;
+              if (typeof then==="function") return then.call(r, resolve, reject);
             }
-            fulfill(result);
-          } catch (e) { reject(e); }
+            fulfill(r);
+          }catch(e){ reject(e); }
         }
-        function handle(handler) {
-          if (state === "pending") { handlers.push(handler); return; }
-          var cb = state === "fulfilled" ? handler.onFulfilled : handler.onRejected;
-          if (!cb) { (state === "fulfilled" ? handler.resolve : handler.reject)(value); return; }
-          try { handler.resolve(cb(value)); } catch (e) { handler.reject(e); }
+        function handle(h){
+          if(state==="pending"){ handlers.push(h); return; }
+          var cb = state==="fulfilled" ? h.onFulfilled : h.onRejected;
+          if(!cb){ (state==="fulfilled"?h.resolve:h.reject)(value); return; }
+          try{ h.resolve(cb(value)); }catch(e){ h.reject(e); }
         }
-
-        this.then = function (onFulfilled, onRejected) {
-          return new PolyPromise(function (resolveNext, rejectNext) {
-            handle({
-              onFulfilled: typeof onFulfilled === "function" ? onFulfilled : null,
-              onRejected: typeof onRejected === "function" ? onRejected : null,
-              resolve: resolveNext,
-              reject: rejectNext,
-            });
-          });
-        };
-        this.catch = function (onRejected) { return this.then(null, onRejected); };
-
-        try { fn(resolve, reject); } catch (e) { reject(e); }
+        this.then=function(a,b){ return new PolyPromise(function(res,rej){ handle({onFulfilled: typeof a==="function"?a:null, onRejected: typeof b==="function"?b:null, resolve:res, reject:rej}); }); };
+        this.catch=function(b){ return this.then(null,b); };
+        try{ fn(resolve,reject); }catch(e){ reject(e); }
       }
-      PolyPromise.resolve = function (v) { return new PolyPromise(function (res) { res(v); }); };
-      PolyPromise.reject  = function (e) { return new PolyPromise(function (_, rej) { rej(e); }); };
-      PolyPromise.all = function (arr) {
-        return new PolyPromise(function (resolve, reject) {
-          if (!arr || !arr.length) return resolve([]);
-          var out = new Array(arr.length);
-          var remaining = arr.length;
-          for (var i = 0; i < arr.length; i++) (function (i) {
-            PolyPromise.resolve(arr[i]).then(function (v) {
-              out[i] = v; remaining--; if (remaining === 0) resolve(out);
-            }, reject);
+      PolyPromise.resolve=function(v){ return new PolyPromise(function(res){ res(v); }); };
+      PolyPromise.reject=function(e){ return new PolyPromise(function(_,rej){ rej(e); }); };
+      PolyPromise.all=function(arr){
+        return new PolyPromise(function(resolve,reject){
+          if(!arr||!arr.length) return resolve([]);
+          var out=new Array(arr.length), remaining=arr.length;
+          for(var i=0;i<arr.length;i++)(function(i){
+            PolyPromise.resolve(arr[i]).then(function(v){ out[i]=v; remaining--; if(remaining===0) resolve(out); }, reject);
           })(i);
         });
       };
       window.Promise = PolyPromise;
     }
 
-    // fetch (minimal, via XHR)
+    // fetch polyfill (minimal)
     if (typeof window.fetch !== "function") {
-      function Response(bodyText, opts) {
-        opts = opts || {};
-        this._bodyText = bodyText || "";
-        this.status = opts.status || 200;
-        this.ok = this.status >= 200 && this.status < 300;
-        this.statusText = opts.statusText || "";
+      function Response(text, opts){
+        opts=opts||{};
+        this._text=text||"";
+        this.status=opts.status||200;
+        this.ok=this.status>=200 && this.status<300;
+        this.statusText=opts.statusText||"";
       }
-      Response.prototype.text = function () { return Promise.resolve(this._bodyText); };
-      Response.prototype.json = function () {
-        try { return Promise.resolve(JSON.parse(this._bodyText || "{}")); }
-        catch (e) { return Promise.reject(e); }
-      };
+      Response.prototype.text=function(){ return Promise.resolve(this._text); };
+      Response.prototype.json=function(){ try{ return Promise.resolve(JSON.parse(this._text||"{}")); }catch(e){ return Promise.reject(e);} };
 
-      window.fetch = function (url, opts) {
-        opts = opts || {};
-        return new Promise(function (resolve, reject) {
-          try {
-            var xhr = new XMLHttpRequest();
-            xhr.open(opts.method || "GET", url, true);
-
-            var headers = opts.headers || {};
-            for (var k in headers) if (Object.prototype.hasOwnProperty.call(headers, k)) {
-              xhr.setRequestHeader(k, headers[k]);
-            }
-
-            xhr.onload = function () {
-              resolve(new Response(xhr.responseText, { status: xhr.status, statusText: xhr.statusText }));
-            };
-            xhr.onerror = function () { reject(new TypeError("Network request failed")); };
-            xhr.send(opts.body || null);
-          } catch (e) { reject(e); }
+      window.fetch=function(url, opts){
+        opts=opts||{};
+        return new Promise(function(resolve, reject){
+          try{
+            var xhr=new XMLHttpRequest();
+            xhr.open(opts.method||"GET", url, true);
+            var headers=opts.headers||{};
+            for(var k in headers) if(Object.prototype.hasOwnProperty.call(headers,k)) xhr.setRequestHeader(k, headers[k]);
+            xhr.onload=function(){ resolve(new Response(xhr.responseText, {status:xhr.status, statusText:xhr.statusText})); };
+            xhr.onerror=function(){ reject(new TypeError("Network request failed")); };
+            xhr.send(opts.body||null);
+          }catch(e){ reject(e); }
         });
       };
     }
   })();
   </script>
-</head>
-<body>
 
+  <!-- IMPORTANT:
+       If you want the PDF to match your exact OSD styling, copy your report.html CSS into this file.
+       If your renderer relies on existing CSS in report-data.js, this can stay minimal. -->
+  <style>
+    body { margin: 0; padding: 0; }
+    #loaderSection { padding: 28px 16px; font-family: system-ui, sans-serif; text-align: center; }
+  </style>
+</head>
+
+<body>
   <section id="loaderSection">
-    <div style="font-weight:700;">Building Report</div>
-    <div style="opacity:.7;margin-top:6px;">Rendering full on-screen report for PDF…</div>
+    <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+    <div style="opacity:.7; margin-top:6px;">Rendering full report for PDF…</div>
   </section>
 
-  <!-- Your report-data.js expects these anchors -->
+  <!-- Minimum anchors your report-data.js expects -->
   <main id="reportRoot" style="display:none;">
     <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
     <div id="reportId">—</div>
@@ -156,7 +122,6 @@
   <script>
     window.__IQWEB_REPORT_READY = false;
 
-    // Required by DocRaptor when wait_for_javascript=true
     window.docraptorJavaScriptFinished = function () {
       return window.__IQWEB_REPORT_READY === true;
     };
@@ -182,7 +147,6 @@
       setTimeout(waitReady, 150);
     })();
 
-    // Hard safety
     setTimeout(function () {
       if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
     }, 30000);

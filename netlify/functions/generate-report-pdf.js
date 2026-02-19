@@ -1,10 +1,13 @@
 // netlify/functions/generate-report-pdf.js
 //
-// Render a dedicated PDF page (report_pdf.html) via DocRaptor with JS enabled.
-// This avoids modifying OSD report.html and lets us include PDF-only polyfills safely.
+// Generates the PDF via DocRaptor by rendering a dedicated HTML page (report_pdf.html)
+// which uses the same on-screen renderer (assets/js/report-data.js) + styling, but includes
+// DocRaptor/Prince-safe polyfills in <head>.
 //
-// Env:
-// - DOC_RAPTOR_API_KEY (preferred) or DOCRAPTOR_API_KEY
+// Env vars supported (to avoid breaking existing Netlify configs):
+// - DOC_RAPTOR_API_KEY   (preferred)
+// - DOCRAPTOR_API_KEY    (also accepted)
+// - DOC_RAPTOR_API_KY    (legacy typo still accepted)
 
 function json(statusCode, obj) {
   return {
@@ -13,6 +16,8 @@ function json(statusCode, obj) {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Accept",
     },
     body: JSON.stringify(obj),
   };
@@ -31,7 +36,7 @@ function corsPreflight() {
   };
 }
 
-function getSiteUrl(event) {
+function getBaseUrl(event) {
   if (process.env.URL) return process.env.URL;
   const proto = event.headers["x-forwarded-proto"] || "https";
   const host = event.headers.host;
@@ -51,30 +56,39 @@ exports.handler = async (event) => {
     }
 
     const reportId = String(body.reportId || body.report_id || "").trim();
-    if (!reportId) return json(400, { success: false, error: "Missing reportId" });
+    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    const apiKey = process.env.DOC_RAPTOR_API_KEY || process.env.DOCRAPTOR_API_KEY;
-    if (!apiKey) return json(500, { success: false, error: "DocRaptor API key is not set" });
+    const apiKey =
+      process.env.DOC_RAPTOR_API_KEY ||
+      process.env.DOCRAPTOR_API_KEY ||
+      process.env.DOC_RAPTOR_API_KY; // legacy typo
 
-    const siteUrl = getSiteUrl(event);
+    if (!apiKey) {
+      return json(500, {
+        success: false,
+        error: "DocRaptor API key missing",
+        hint: "Set DOC_RAPTOR_API_KEY (preferred). Legacy DOC_RAPTOR_API_KY also supported.",
+      });
+    }
 
-    // ✅ Dedicated PDF page (do NOT use report.html)
+    const baseUrl = getBaseUrl(event);
+
+    // Dedicated PDF render page (must exist in site root)
     const reportPageUrl =
-      `${siteUrl}/report_pdf.html` +
+      `${baseUrl}/report_pdf.html` +
       `?report_id=${encodeURIComponent(reportId)}` +
-      `&from=history` +
-      `&pdf=1`;
+      `&from=history&pdf=1`;
 
-    // Probe first so we get a useful error if the page isn't deployed
+    // Probe page so failures are obvious (404, auth, etc.)
     const probe = await fetch(reportPageUrl, { method: "GET" });
     const probeText = await probe.text().catch(() => "");
     if (!probe.ok) {
       return json(500, {
         success: false,
-        error: "report_pdf.html not reachable (DocRaptor would fail too)",
+        error: "PDF render page not reachable",
         status: probe.status,
-        url: reportPageUrl,
-        details: probeText.slice(0, 1500),
+        reportPageUrl,
+        details: probeText.slice(0, 1200),
       });
     }
 
@@ -88,13 +102,8 @@ exports.handler = async (event) => {
           test: false,
           document_type: "pdf",
           document_url: reportPageUrl,
-
-          // Must be true so report-data.js renders the page
           javascript: true,
-
-          // Wait for docraptorJavaScriptFinished() gate
           wait_for_javascript: true,
-
           prince_options: { media: "print" },
         },
       }),
@@ -106,27 +115,26 @@ exports.handler = async (event) => {
         success: false,
         error: "DocRaptor error",
         status: drResp.status,
-        details: errText.slice(0, 3000),
         reportPageUrl,
+        details: errText.slice(0, 3000),
       });
     }
 
-    const arrayBuffer = await drResp.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const pdfBuffer = Buffer.from(await drResp.arrayBuffer());
 
     return {
       statusCode: 200,
-      isBase64Encoded: true,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
         "Cache-Control": "no-store",
         "Access-Control-Allow-Origin": "*",
       },
-      body: buffer.toString("base64"),
+      body: pdfBuffer.toString("base64"),
+      isBase64Encoded: true,
     };
   } catch (err) {
-    console.error("[generate-report-pdf] crash:", err);
-    return json(500, { success: false, error: err?.message || "Unknown error" });
+    console.error("[generate-report-pdf] error:", err);
+    return json(500, { success: false, error: err?.message || "Unexpected server error" });
   }
 };
