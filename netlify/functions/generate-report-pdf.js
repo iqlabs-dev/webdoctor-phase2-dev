@@ -1,10 +1,6 @@
 // netlify/functions/generate-report-pdf.js
-// Generates PDF via DocRaptor from server-rendered HTML (NO JS).
-//
-// Env vars supported:
-// - DOC_RAPTOR_API_KEY (preferred)
-// - DOCRAPTOR_API_KEY
-// - DOC_RAPTOR_API_KY (legacy typo)
+// Generates a PDF via DocRaptor by rendering the full OSD template page (via a function URL).
+// Fixes DocRaptor "Promise" issue by using report-pdf-page which injects a Promise polyfill.
 
 exports.handler = async (event) => {
   // Preflight
@@ -27,6 +23,7 @@ exports.handler = async (event) => {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store",
+        Allow: "POST, OPTIONS",
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({ success: false, error: "Method not allowed" }),
@@ -58,10 +55,11 @@ exports.handler = async (event) => {
           "Cache-Control": "no-store",
           "Access-Control-Allow-Origin": "*",
         },
-        body: JSON.stringify({ success: false, error: "Missing report_id" }),
+        body: JSON.stringify({ success: false, error: "Missing reportId/report_id" }),
       };
     }
 
+    // Support multiple env names (you've had variants)
     const apiKey =
       process.env.DOC_RAPTOR_API_KEY ||
       process.env.DOCRAPTOR_API_KEY ||
@@ -85,13 +83,14 @@ exports.handler = async (event) => {
 
     const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    // DocRaptor fetches this HTML via GET
-    const pdfHtmlUrl =
-      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=` +
-      encodeURIComponent(reportId);
+    // ✅ This page returns the full OSD template and injects Promise polyfill
+    const reportPageUrl =
+      `${siteUrl}/.netlify/functions/report-pdf-page` +
+      `?report_id=${encodeURIComponent(reportId)}` +
+      `&pdf=1`;
 
-    // Probe first (clear errors if your HTML endpoint breaks)
-    const probe = await fetch(pdfHtmlUrl, { method: "GET" });
+    // Probe page first so you get a clean error if it isn't reachable
+    const probe = await fetch(reportPageUrl, { method: "GET" });
     const probeText = await probe.text().catch(() => "");
     if (!probe.ok) {
       return {
@@ -103,14 +102,15 @@ exports.handler = async (event) => {
         },
         body: JSON.stringify({
           success: false,
-          error: "PDF HTML endpoint failed",
+          error: "PDF render page not reachable",
           status: probe.status,
-          url: pdfHtmlUrl,
-          details: probeText.slice(0, 1500),
+          reportPageUrl,
+          details: probeText.slice(0, 2000),
         }),
       };
     }
 
+    // DocRaptor render
     const drResp = await fetch("https://docraptor.com/docs", {
       method: "POST",
       headers: {
@@ -123,12 +123,15 @@ exports.handler = async (event) => {
           name: `${reportId}.pdf`,
           test: false,
           document_type: "pdf",
-          document_url: pdfHtmlUrl,
 
-          // ✅ CRITICAL: no JS (prevents Promise / window errors)
-          javascript: false,
-          wait_for_javascript: false,
+          // Print the full OSD report (server-served template + JS renderer)
+          document_url: reportPageUrl,
 
+          // ✅ Must execute JS to populate the template
+          javascript: true,
+          wait_for_javascript: true,
+
+          // Keep it sane for layouts
           prince_options: { media: "print" },
         },
       }),
@@ -147,8 +150,8 @@ exports.handler = async (event) => {
           success: false,
           error: "DocRaptor error",
           status: drResp.status,
+          reportPageUrl,
           details: errText.slice(0, 3000),
-          pdfHtmlUrl,
         }),
       };
     }
