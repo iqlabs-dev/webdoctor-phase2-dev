@@ -1,15 +1,9 @@
 // netlify/functions/get-report-html-pdf.js
-// Produces printable HTML for DocRaptor (NO client-side JS).
-// It fetches a stable payload from get-report-data-pdf and renders a document-style PDF.
-//
-// Key goals:
-//  - PDF uses the SAME data as the on-screen report (OSD)
-//  - No dependency on browser JS features (DocRaptor JS engine is limited)
+// Printable PDF HTML (NO client JS). Fetches from get-report-data-pdf.
 
 const FETCH_TIMEOUT_MS = 20000;
 
 exports.handler = async (event) => {
-  // CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders(), body: "" };
   }
@@ -30,42 +24,26 @@ exports.handler = async (event) => {
     ).trim();
 
     if (!reportId) {
-      return {
-        statusCode: 400,
-        headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-        body: "Missing report_id",
-      };
+      return { statusCode: 400, headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" }, body: "Missing report_id" };
     }
 
     const baseUrl = getBaseUrl(event);
-    const dataUrl = `${baseUrl}/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(
-      reportId
-    )}`;
+    const dataUrl = `${baseUrl}/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}`;
 
     const payload = await fetchJson(dataUrl);
 
     if (!payload || payload.success !== true) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-        body: "Report data could not be loaded for this scan.",
-      };
+      return { statusCode: 500, headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" }, body: "Report data could not be loaded for this scan." };
     }
-
-    const html = renderPdfHtml(payload);
 
     return {
       statusCode: 200,
       headers: { ...corsHeaders(), "Content-Type": "text/html; charset=utf-8" },
-      body: html,
+      body: renderPdfHtml(payload),
     };
   } catch (err) {
     console.error("[get-report-html-pdf] error:", err);
-    return {
-      statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-      body: err?.message || "Server error",
-    };
+    return { statusCode: 500, headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" }, body: err?.message || "Server error" };
   }
 };
 
@@ -79,38 +57,18 @@ function renderPdfHtml(payload) {
   const narrative = payload.narrative || {};
   const delivery = Array.isArray(payload.delivery_signals) ? payload.delivery_signals : [];
   const topIssues = Array.isArray(payload.top_issues) ? payload.top_issues : [];
+  const fixSequence = Array.isArray(payload.fix_sequence) ? payload.fix_sequence : [];
 
   const website = header.website || "";
   const reportId = header.report_id || "";
   const createdAt = header.created_at || "";
 
-  const overallLines = toLines(narrative?.overall?.lines);
+  const overallLines = toLines(narrative?.overall?.lines) || deriveOverallLines(scores);
 
-  // Deterministic summary list (fallback if narrative missing)
-  const deterministicSummary = overallLines.length
-    ? overallLines
-    : deriveOverallLines(scores, delivery);
-
-  // Key insight metrics (strength/risk/focus/next)
   const insights = deriveInsights(scores);
 
-  // Fix sequence (prefer structured fix_plan if present)
-  const fixSequence = deriveFixSequence(payload);
-
   const deliveryCards = delivery.map((sig) => renderSignalCard(sig)).join("");
-
-  const evidenceBlocks = delivery
-    .map((sig) => renderEvidenceBlock(sig))
-    .filter(Boolean)
-    .join("");
-
-  const topIssuesHtml = topIssues.length
-    ? `<ul class="bullets">${topIssues.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ul>`
-    : `<div class="muted">None detected.</div>`;
-
-  const fixSequenceHtml = fixSequence.length
-    ? `<ol class="ol">${fixSequence.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ol>`
-    : `<div class="muted">No fix sequence available.</div>`;
+  const evidenceBlocks = delivery.map((sig) => renderEvidenceBlock(sig)).filter(Boolean).join("");
 
   return `<!doctype html>
 <html lang="en">
@@ -119,126 +77,34 @@ function renderPdfHtml(payload) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iQWEB Website Report — ${escapeHtml(reportId || "")}</title>
   <style>
-    /* Document-first styling (print-safe) */
-    :root {
-      --ink: #0b1220;
-      --muted: #4b5563;
-      --rule: #e5e7eb;
-      --panel: #ffffff;
-      --panel2: #f9fafb;
-      --accent: #0ea5e9;
-    }
+    :root { --ink:#0b1220; --muted:#4b5563; --rule:#e5e7eb; --panel:#fff; --panel2:#f9fafb; }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 24px 0;
-      background: #ffffff;
-      color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      font-size: 12.5px;
-      line-height: 1.45;
-    }
-    .page {
-      width: 820px;
-      margin: 0 auto;
-      padding: 0 26px 40px;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      border-bottom: 1px solid var(--rule);
-      padding-bottom: 12px;
-      margin-bottom: 18px;
-    }
-    .brand h1 {
-      font-size: 18px;
-      margin: 0 0 4px 0;
-      letter-spacing: 0.2px;
-    }
-    .brand .sub {
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .meta {
-      text-align: right;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .meta b { color: var(--ink); }
-    h2 {
-      margin: 18px 0 10px 0;
-      font-size: 13px;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-    }
-    h3 {
-      margin: 14px 0 8px 0;
-      font-size: 12.5px;
-    }
-    .divider { border-top: 1px solid var(--rule); margin: 14px 0; }
-    .bullets { margin: 6px 0 0 18px; padding: 0; }
-    .bullets li { margin: 4px 0; }
-    .ol { margin: 6px 0 0 18px; padding: 0; }
-    .muted { color: var(--muted); }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .card {
-      border: 1px solid var(--rule);
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: var(--panel);
-    }
-    .cardTop {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-    .cardTitle { font-weight: 700; }
-    .scorePill {
-      min-width: 42px;
-      text-align: center;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--rule);
-      background: var(--panel2);
-      font-weight: 700;
-      color: var(--ink);
-    }
-    .lines { margin: 0; padding-left: 16px; }
-    .lines li { margin: 3px 0; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      border: 1px solid var(--rule);
-    }
-    th, td {
-      border-top: 1px solid var(--rule);
-      padding: 6px 8px;
-      text-align: left;
-      vertical-align: top;
-      font-size: 12px;
-    }
-    th {
-      background: var(--panel2);
-      font-weight: 700;
-    }
-    .footer {
-      margin-top: 18px;
-      padding-top: 10px;
-      border-top: 1px solid var(--rule);
-      color: var(--muted);
-      font-size: 11px;
-      display: flex;
-      justify-content: space-between;
-    }
-    /* Page breaks */
+    body { margin:0; padding:24px 0; background:#fff; color:var(--ink);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+      font-size:12.5px; line-height:1.45; }
+    .page { width:820px; margin:0 auto; padding:0 26px 40px; }
+    .header { display:flex; justify-content:space-between; gap:16px; border-bottom:1px solid var(--rule); padding-bottom:12px; margin-bottom:18px; }
+    .brand h1 { font-size:18px; margin:0 0 4px 0; letter-spacing:.2px; }
+    .brand .sub { color:var(--muted); font-size:12px; }
+    .meta { text-align:right; font-size:12px; color:var(--muted); }
+    .meta b { color:var(--ink); }
+    h2 { margin:18px 0 10px 0; font-size:13px; letter-spacing:.4px; text-transform:uppercase; }
+    h3 { margin:14px 0 8px 0; font-size:12.5px; }
+    .bullets { margin:6px 0 0 18px; padding:0; }
+    .bullets li { margin:4px 0; }
+    .ol { margin:6px 0 0 18px; padding:0; }
+    .muted { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .card { border:1px solid var(--rule); border-radius:10px; padding:10px 12px; background:var(--panel); }
+    .cardTop { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px; }
+    .cardTitle { font-weight:700; }
+    .scorePill { min-width:42px; text-align:center; padding:2px 8px; border-radius:999px; border:1px solid var(--rule); background:var(--panel2); font-weight:700; }
+    .lines { margin:0; padding-left:16px; }
+    .lines li { margin:3px 0; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; border:1px solid var(--rule); }
+    th,td { border-top:1px solid var(--rule); padding:6px 8px; text-align:left; vertical-align:top; font-size:12px; }
+    th { background:var(--panel2); font-weight:700; }
+    .footer { margin-top:18px; padding-top:10px; border-top:1px solid var(--rule); color:var(--muted); font-size:11px; display:flex; justify-content:space-between; }
     .pb { page-break-before: always; }
   </style>
 </head>
@@ -256,25 +122,31 @@ function renderPdfHtml(payload) {
     </div>
 
     <h2>Deterministic Summary</h2>
-    ${deterministicSummary.length ? `<ul class="bullets">${deterministicSummary.map((l)=>`<li>${escapeHtml(l)}</li>`).join("")}</ul>` : `<div class="muted">No summary available.</div>`}
+    ${overallLines.length ? `<ul class="bullets">${overallLines.map((l)=>`<li>${escapeHtml(l)}</li>`).join("")}</ul>` : `<div class="muted">No summary available.</div>`}
 
     <h2>Delivery Signals</h2>
-    <div class="grid">
-      ${deliveryCards}
-    </div>
+    ${delivery.length ? `<div class="grid">${deliveryCards}</div>` : `<div class="muted">No delivery signals available.</div>`}
 
     <h2>Key Insight Metrics</h2>
     ${renderKeyInsightsTable(insights)}
 
     <h2>Top Issues Detected</h2>
-    ${topIssuesHtml}
+    ${
+      topIssues.length
+        ? `<ul class="bullets">${topIssues.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ul>`
+        : `<div class="muted">None detected.</div>`
+    }
 
     <h2>Recommended Fix Sequence</h2>
-    ${fixSequenceHtml}
+    ${
+      fixSequence.length
+        ? `<ol class="ol">${fixSequence.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ol>`
+        : `<div class="muted">No fix sequence available.</div>`
+    }
 
     <div class="pb"></div>
     <h2>Signal Evidence</h2>
-    ${evidenceBlocks}
+    ${evidenceBlocks || `<div class="muted">No evidence available.</div>`}
 
     <h2>Final Notes</h2>
     <div class="card">
@@ -297,18 +169,18 @@ function renderPdfHtml(payload) {
 function renderSignalCard(sig) {
   const label = String(sig?.label || sig?.id || "Signal");
   const score = safeNumber(sig?.score);
-  const lines = toLines(sig?.lines || sig?.narrative || sig?.summary || sig?.note || null);
-
-  const linesHtml = lines.length
-    ? `<ul class="lines">${lines.slice(0, 4).map((l)=>`<li>${escapeHtml(l)}</li>`).join("")}</ul>`
-    : `<div class="muted">No narrative available for this section.</div>`;
+  const lines = toLines(sig?.lines) || [];
 
   return `<div class="card">
     <div class="cardTop">
       <div class="cardTitle">${escapeHtml(label)}</div>
       <div class="scorePill">${score === null ? "—" : escapeHtml(String(score))}</div>
     </div>
-    ${linesHtml}
+    ${
+      lines.length
+        ? `<ul class="lines">${lines.slice(0, 4).map((l)=>`<li>${escapeHtml(l)}</li>`).join("")}</ul>`
+        : `<div class="muted">No narrative available for this section.</div>`
+    }
   </div>`;
 }
 
@@ -322,27 +194,18 @@ function renderEvidenceBlock(sig) {
   if (!observations.length && !deductions.length && !issues.length) return "";
 
   const obsRows = observations
-    .map((o) => {
-      const k = escapeHtml(String(o?.label ?? ""));
-      const v = escapeHtml(formatValue(o?.value));
-      return `<tr><td>${k}</td><td>${v}</td></tr>`;
-    })
+    .map((o) => `<tr><td>${escapeHtml(String(o?.label ?? ""))}</td><td>${escapeHtml(formatValue(o?.value))}</td></tr>`)
     .join("");
 
   const dedsHtml = deductions.length
     ? `<h3>Deductions</h3>
        <table><thead><tr><th>Reason</th><th>Points</th></tr></thead><tbody>
-       ${deductions
-         .map((d) => `<tr><td>${escapeHtml(String(d?.reason || d?.label || ""))}</td><td>${escapeHtml(String(d?.points ?? ""))}</td></tr>`)
-         .join("")}
+       ${deductions.map((d) => `<tr><td>${escapeHtml(String(d?.reason || ""))}</td><td>${escapeHtml(String(d?.points ?? ""))}</td></tr>`).join("")}
        </tbody></table>`
     : "";
 
   const issuesHtml = issues.length
-    ? `<h3>Issues</h3>
-       <ul class="bullets">
-         ${issues.map((it) => `<li>${escapeHtml(String(it?.reason || it?.message || it?.text || it))}</li>`).join("")}
-       </ul>`
+    ? `<h3>Issues</h3><ul class="bullets">${issues.map((it) => `<li>${escapeHtml(String(it?.reason || it))}</li>`).join("")}</ul>`
     : "";
 
   return `<div class="card" style="margin-top: 10px;">
@@ -350,7 +213,6 @@ function renderEvidenceBlock(sig) {
       <div class="cardTitle">${escapeHtml(label)}</div>
       <div class="scorePill">${score === null ? "—" : escapeHtml(String(score))}</div>
     </div>
-
     ${observations.length ? `<table><thead><tr><th>Metric</th><th>Value</th></tr></thead><tbody>${obsRows}</tbody></table>` : `<div class="muted">No evidence available.</div>`}
     ${dedsHtml}
     ${issuesHtml}
@@ -363,9 +225,7 @@ function renderKeyInsightsTable(insights) {
     ["Risk", insights.risk || ""],
     ["Focus", insights.focus || ""],
     ["Next", insights.next || ""],
-  ]
-    .map(([k, v]) => `<tr><th style="width:140px">${escapeHtml(k)}</th><td>${escapeHtml(String(v || ""))}</td></tr>`)
-    .join("");
+  ].map(([k,v]) => `<tr><th style="width:140px">${escapeHtml(k)}</th><td>${escapeHtml(String(v||""))}</td></tr>`).join("");
 
   return `<table>
     <thead><tr><th>Insight</th><th>Detail</th></tr></thead>
@@ -374,30 +234,8 @@ function renderKeyInsightsTable(insights) {
 }
 
 // -------------------------
-// Data helpers
+// Helpers
 // -------------------------
-
-async function fetchJson(url) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Failed to fetch PDF data (${res.status}): ${txt.slice(0, 400)}`);
-    }
-
-    return await res.json();
-  } finally {
-    clearTimeout(t);
-  }
-}
 
 function corsHeaders() {
   return {
@@ -415,6 +253,21 @@ function getBaseUrl(event) {
   return `${proto}://${host}`;
 }
 
+async function fetchJson(url) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Failed to fetch PDF data (${res.status}): ${txt.slice(0, 400)}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 function escapeHtml(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -425,16 +278,17 @@ function escapeHtml(s) {
 }
 
 function toLines(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.map((x) => String(x || "").trim()).filter(Boolean);
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    const a = value.map((x) => String(x || "").trim()).filter(Boolean);
+    return a.length ? a : null;
+  }
   if (typeof value === "string") {
-    return value
-      .split(/\r?\n|•/g)
-      .map((s) => String(s || "").trim())
-      .filter(Boolean);
+    const a = value.split(/\r?\n|•/g).map((s) => String(s || "").trim()).filter(Boolean);
+    return a.length ? a : null;
   }
   if (typeof value === "object") return toLines(value.lines || value.line || null);
-  return [];
+  return null;
 }
 
 function safeNumber(v) {
@@ -448,11 +302,7 @@ function formatValue(v) {
   if (typeof v === "boolean") return v ? "true" : "false";
   if (typeof v === "number") return String(v);
   if (typeof v === "string") return v;
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
+  try { return JSON.stringify(v); } catch { return String(v); }
 }
 
 function formatDate(iso) {
@@ -461,9 +311,7 @@ function formatDate(iso) {
     const d = new Date(iso);
     if (!isFinite(d.getTime())) return String(iso);
     const pad = (x) => String(x).padStart(2, "0");
-    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(
-      d.getUTCHours()
-    )}:${pad(d.getUTCMinutes())} UTC`;
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
   } catch {
     return String(iso);
   }
@@ -471,7 +319,6 @@ function formatDate(iso) {
 
 function deriveOverallLines(scores) {
   const overall = safeNumber(scores?.overall);
-
   const domains = [
     { label: "Performance", score: safeNumber(scores?.performance) },
     { label: "Mobile Experience", score: safeNumber(scores?.mobile) },
@@ -481,9 +328,7 @@ function deriveOverallLines(scores) {
     { label: "Accessibility", score: safeNumber(scores?.accessibility) },
   ].filter((d) => d.score !== null);
 
-  let strongest = null;
-  let weakest = null;
-
+  let strongest = null, weakest = null;
   for (const d of domains) {
     if (!strongest || d.score > strongest.score) strongest = d;
     if (!weakest || d.score < weakest.score) weakest = d;
@@ -493,15 +338,7 @@ function deriveOverallLines(scores) {
   if (overall !== null) out.push(`Overall Delivery: ${overall}/100.`);
   if (strongest) out.push(`Strongest domain: ${strongest.label} (${strongest.score}/100).`);
   if (weakest) out.push(`Weakest domain: ${weakest.label} (${weakest.score}/100).`);
-
-  const sorted = [...domains].sort((a, b) => a.score - b.score);
-  const primary = sorted[0];
-  const secondary = sorted[1];
-
-  if (primary) out.push(`Primary Fix: Improve ${primary.label}.`);
-  if (secondary) out.push(`Secondary Fix: Improve ${secondary.label}.`);
-
-  return out.filter(Boolean).slice(0, 8);
+  return out;
 }
 
 function deriveInsights(scores) {
@@ -514,59 +351,16 @@ function deriveInsights(scores) {
     { label: "Accessibility", score: safeNumber(scores?.accessibility) },
   ].filter((d) => d.score !== null);
 
-  let strongest = null;
-  let weakest = null;
+  let strongest = null, weakest = null;
   for (const d of domains) {
     if (!strongest || d.score > strongest.score) strongest = d;
     if (!weakest || d.score < weakest.score) weakest = d;
   }
 
-  const strength = strongest ? `${strongest.label} is strongest (${strongest.score}/100).` : "";
-  const risk = weakest ? `Risk: ${weakest.label} is below baseline expectation.` : "";
-  const focus = weakest ? `Focus: ${weakest.label} is the lowest scoring area.` : "";
-  const next = weakest
-    ? `Next: start with ${weakest.label}, then re-run the scan to confirm improvement.`
-    : "";
-
-  return { strength, risk, focus, next };
-}
-
-function deriveFixSequence(payload) {
-  const findings = payload.findings || {};
-  const candidates = [];
-
-  const fp = findings.fix_plan || payload.fix_plan || null;
-
-  if (Array.isArray(fp)) {
-    for (const x of fp) candidates.push(String(x || "").trim());
-  } else if (fp && typeof fp === "object") {
-    const arr = fp.items || fp.steps || fp.sequence || fp.recommendations || null;
-    if (Array.isArray(arr)) {
-      for (const it of arr) {
-        const t =
-          it && typeof it === "object"
-            ? it.text || it.title || it.label || it.reason || ""
-            : String(it || "");
-        if (t) candidates.push(String(t).trim());
-      }
-    }
-  }
-
-  if (candidates.length === 0) {
-    const n = payload.narrative || {};
-    const primary = n?.primary_constraint?.value || n?.primary_constraint?.text || "";
-    if (primary) candidates.push(String(primary).trim());
-
-    const overallLines = toLines(n?.overall?.lines);
-    for (const line of overallLines) {
-      if (/^primary\s+fix\s*:/i.test(line) || /^secondary\s+fix\s*:/i.test(line)) {
-        candidates.push(line.replace(/^\s*/, ""));
-      }
-    }
-  }
-
-  return candidates
-    .map((s) => String(s || "").trim())
-    .filter(Boolean)
-    .slice(0, 12);
+  return {
+    strength: strongest ? `${strongest.label} is strongest (${strongest.score}/100).` : "",
+    risk: weakest ? `Risk: ${weakest.label} is below baseline expectation.` : "",
+    focus: weakest ? `Focus: ${weakest.label} is the lowest scoring area.` : "",
+    next: weakest ? `Next: start with ${weakest.label}, then re-run the scan to confirm improvement.` : "",
+  };
 }
