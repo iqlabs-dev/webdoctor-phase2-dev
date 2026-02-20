@@ -1,126 +1,129 @@
 // netlify/functions/generate-report-pdf.js
-// Generates a PDF using DocRaptor by pointing it at our server-rendered HTML endpoint.
-// IMPORTANT: We do NOT render report.html (OSD) inside DocRaptor, because DocRaptor's
-// JS engine is limited and will choke on modern features like Promise.
+import fetch from "node-fetch";
 
-exports.handler = async (event) => {
-  // CORS
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders(), body: "" };
-  }
+function json(statusCode, obj, extraHeaders = {}) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...extraHeaders,
+    },
+    body: JSON.stringify(obj),
+  };
+}
 
-  if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ success: false, error: "Method not allowed" }),
-    };
-  }
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Cache-Control": "no-store",
+  };
+}
 
+function getBaseUrl(event) {
+  if (process.env.URL) return process.env.URL; // Netlify sets this
+  const proto = event.headers["x-forwarded-proto"] || "https";
+  const host = event.headers.host;
+  return `${proto}://${host}`;
+}
+
+export const handler = async (event) => {
   try {
-    const reportId = String(
-      (event.queryStringParameters &&
-        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
-        ""
-    ).trim();
-
-    if (!reportId) {
-      return {
-        statusCode: 400,
-        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ success: false, error: "Missing report_id" }),
-      };
+    // Preflight
+    if (event.httpMethod === "OPTIONS") {
+      return { statusCode: 204, headers: corsHeaders(), body: "" };
     }
 
-    const apiKey = process.env.DOCRAPTOR_API_KEY || process.env.DOCRAPTOR_KEY || "";
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ success: false, error: "Missing DocRaptor API key" }),
-      };
+    if (event.httpMethod !== "POST" && event.httpMethod !== "GET") {
+      return json(
+        405,
+        { success: false, error: "Method not allowed" },
+        corsHeaders()
+      );
+    }
+
+    let reportId = "";
+
+    if (event.httpMethod === "GET") {
+      reportId = event.queryStringParameters?.report_id || "";
+    } else {
+      const body = event.body ? JSON.parse(event.body) : {};
+      reportId = body?.report_id || "";
+    }
+
+    if (!reportId) {
+      return json(400, { success: false, error: "Missing report_id" }, corsHeaders());
+    }
+
+    const DOCRAPTOR_API_KEY = process.env.DOCRAPTOR_API_KEY || "";
+    if (!DOCRAPTOR_API_KEY) {
+      return json(500, { success: false, error: "DOCRAPTOR_API_KEY missing" }, corsHeaders());
     }
 
     const baseUrl = getBaseUrl(event);
 
-    // This is the ONLY HTML DocRaptor should render.
-    // It contains NO client-side JS; everything is server-rendered.
-    const pdfHtmlUrl = `${baseUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
+    // IMPORTANT: render the server-built HTML doc (no JS)
+    const documentUrl = `${baseUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
       reportId
-    )}&pdf=1`;
+    )}`;
 
-    const drPayload = {
-      test: false,
-      document_type: "pdf",
-      document_url: pdfHtmlUrl,
+    // DocRaptor Create Doc endpoint (PDF)
+    const apiUrl = "https://docraptor.com/docs";
 
-      // Make render predictable (avoid DocRaptor JS runtime completely)
-      javascript: false,
-
-      // Optional: harmless if ignored
-      prince_options: {
-        link_to_original_source: false,
+    const payload = {
+      doc: {
+        document_type: "pdf",
+        name: `${reportId}.pdf`,
+        document_url: documentUrl,
+        // critical: don’t run JS (avoids Promise error entirely)
+        javascript: false,
+        // give it time if needed
+        // (DocRaptor will still fetch quickly because our HTML is server-rendered)
+        test: process.env.DOCRAPTOR_TEST === "true",
       },
     };
 
-    const drResp = await fetch("https://docraptor.com/docs", {
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization: "Basic " + Buffer.from(apiKey + ":").toString("base64"),
+        Authorization:
+          "Basic " + Buffer.from(`${DOCRAPTOR_API_KEY}:`).toString("base64"),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(drPayload),
+      body: JSON.stringify(payload),
     });
 
-    if (!drResp.ok) {
-      const details = await drResp.text().catch(() => "");
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.error("[generate-report-pdf] DocRaptor error:", res.status, txt);
+      return json(
+        422,
+        {
           success: false,
           error: "DocRaptor error",
-          status: drResp.status,
-          reportPageUrl: pdfHtmlUrl,
-          details,
-        }),
-      };
+          status: res.status,
+          reportPageUrl: documentUrl,
+          details: txt,
+        },
+        corsHeaders()
+      );
     }
 
-    const pdfBuffer = Buffer.from(await drResp.arrayBuffer());
+    const pdfBuffer = Buffer.from(await res.arrayBuffer());
 
     return {
       statusCode: 200,
       headers: {
         ...corsHeaders(),
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="iQWEB-${reportId}.pdf"`,
-        "Cache-Control": "no-store",
+        "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
       },
-      isBase64Encoded: true,
       body: pdfBuffer.toString("base64"),
+      isBase64Encoded: true,
     };
   } catch (err) {
-    console.error("[generate-report-pdf] crash:", err);
-    return {
-      statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ success: false, error: err?.message || "Unknown error" }),
-    };
+    console.error("[generate-report-pdf] error:", err);
+    return json(500, { success: false, error: "Unexpected server error" }, corsHeaders());
   }
 };
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-  };
-}
-
-function getBaseUrl(event) {
-  if (process.env.URL) return process.env.URL;
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
-}

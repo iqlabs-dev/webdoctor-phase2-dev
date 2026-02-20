@@ -1,443 +1,155 @@
 // netlify/functions/get-report-html-pdf.js
-// Printable PDF HTML (NO client JS). Uses get-report-data-pdf payload.
+import fetch from "node-fetch";
 
-const FETCH_TIMEOUT_MS = 20000;
-
-exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders(), body: "" };
-  }
-
-  if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 405,
-      headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-      body: "Method not allowed",
-    };
-  }
-
-  try {
-    const reportId = String(
-      (event.queryStringParameters &&
-        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
-        ""
-    ).trim();
-
-    if (!reportId) {
-      return {
-        statusCode: 400,
-        headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-        body: "Missing report_id",
-      };
-    }
-
-    const baseUrl = getBaseUrl(event);
-    const dataUrl = `${baseUrl}/.netlify/functions/get-report-data-pdf?report_id=${encodeURIComponent(reportId)}`;
-
-    const payload = await fetchJson(dataUrl);
-
-    if (!payload || payload.success !== true) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-        body: "Report data could not be loaded for this scan.",
-      };
-    }
-
-    return {
-      statusCode: 200,
-      headers: { ...corsHeaders(), "Content-Type": "text/html; charset=utf-8" },
-      body: renderPdfHtml(payload),
-    };
-  } catch (err) {
-    console.error("[get-report-html-pdf] error:", err);
-    return {
-      statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "text/plain; charset=utf-8" },
-      body: err?.message || "Server error",
-    };
-  }
-};
-
-// -------------------------
-// Rendering
-// -------------------------
-
-function renderPdfHtml(payload) {
-  const header = payload.header || {};
-  const scores = payload.scores || {};
-  const narrative = payload.narrative || {};
-  const delivery = Array.isArray(payload.delivery_signals) ? payload.delivery_signals : [];
-  const topIssues = Array.isArray(payload.top_issues) ? payload.top_issues : [];
-  const fixSequence = Array.isArray(payload.fix_sequence) ? payload.fix_sequence : [];
-
-  const website = header.website || "";
-  const reportId = header.report_id || "";
-  const createdAt = header.created_at || "";
-
-  // Summary lines: use narrative.overall.lines (your best copy)
-  const summaryLines = toLines(narrative?.overall?.lines) || [];
-
-  // Key Insight Metrics derived from scores
-  const insights = deriveInsights(scores);
-
-  // Signals (exclude the "overall" card from evidence tables, but show it in signal list)
-  const signalCards = delivery.map(renderSignalCard).join("");
-  const evidenceBlocks = delivery
-    .filter((s) => s && s.id !== "overall")
-    .map(renderEvidenceBlock)
-    .filter(Boolean)
-    .join("");
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>iQWEB Website Report — ${escapeHtml(reportId)}</title>
-
-  <style>
-    :root {
-      --ink: #0b1220;
-      --muted: #4b5563;
-      --rule: #e5e7eb;
-      --panel: #ffffff;
-      --panel2: #f9fafb;
-      --accent: #0f766e;
-    }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 22px 0;
-      background: #fff;
-      color: var(--ink);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      font-size: 12.5px;
-      line-height: 1.5;
-    }
-
-    .page {
-      width: 820px;
-      margin: 0 auto;
-      padding: 0 28px 44px;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      padding-bottom: 14px;
-      margin-bottom: 18px;
-      border-bottom: 1px solid var(--rule);
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: 18px;
-      letter-spacing: 0.2px;
-    }
-    .brand .sub {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .meta {
-      text-align: right;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .meta b { color: var(--ink); }
-
-    h2 {
-      margin: 18px 0 10px;
-      font-size: 12.8px;
-      letter-spacing: 0.45px;
-      text-transform: uppercase;
-      color: var(--ink);
-    }
-
-    .bullets {
-      margin: 6px 0 0 18px;
-      padding: 0;
-    }
-    .bullets li { margin: 4px 0; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .card {
-      border: 1px solid var(--rule);
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: var(--panel);
-    }
-
-    .cardTop {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-
-    .cardTitle { font-weight: 700; }
-
-    .pill {
-      min-width: 44px;
-      text-align: center;
-      padding: 2px 9px;
-      border-radius: 999px;
-      border: 1px solid var(--rule);
-      background: var(--panel2);
-      font-weight: 700;
-    }
-
-    .muted { color: var(--muted); }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-      border: 1px solid var(--rule);
-    }
-    th, td {
-      border-top: 1px solid var(--rule);
-      padding: 6px 8px;
-      text-align: left;
-      vertical-align: top;
-      font-size: 12px;
-    }
-    th {
-      background: var(--panel2);
-      font-weight: 700;
-    }
-
-    .sectionNote {
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 11.5px;
-    }
-
-    .pb { page-break-before: always; }
-
-    .footer {
-      margin-top: 18px;
-      padding-top: 10px;
-      border-top: 1px solid var(--rule);
-      color: var(--muted);
-      font-size: 11px;
-      display: flex;
-      justify-content: space-between;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="page">
-
-    <div class="topbar">
-      <div class="brand">
-        <h1>iQWEB Website Report</h1>
-        <div class="sub">Website: ${escapeHtml(website)}</div>
-      </div>
-      <div class="meta">
-        <div><b>Report ID:</b> ${escapeHtml(reportId)}</div>
-        <div><b>Report Date:</b> ${escapeHtml(formatDate(createdAt))}</div>
-      </div>
-    </div>
-
-    <h2>Deterministic Summary</h2>
-    ${
-      summaryLines.length
-        ? `<ul class="bullets">${summaryLines.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
-        : `<div class="muted">No summary available.</div>`
-    }
-
-    <h2>Key Insight Metrics</h2>
-    ${renderInsightsTable(insights)}
-
-    <h2>Delivery Signals</h2>
-    <div class="sectionNote">Short, scan-specific signal narratives + scores (deterministic).</div>
-    ${
-      delivery.length
-        ? `<div class="grid" style="margin-top:10px;">${signalCards}</div>`
-        : `<div class="muted">No delivery signals available.</div>`
-    }
-
-    <h2>Top Issues Detected</h2>
-    ${
-      topIssues.length
-        ? `<ul class="bullets">${topIssues.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ul>`
-        : `<div class="muted">None detected.</div>`
-    }
-
-    <h2>Recommended Fix Sequence</h2>
-    ${
-      fixSequence.length
-        ? `<ol class="bullets">${fixSequence.map((x) => `<li>${escapeHtml(String(x))}</li>`).join("")}</ol>`
-        : `<div class="muted">No fix sequence available.</div>`
-    }
-
-    <div class="pb"></div>
-    <h2>Signal Evidence</h2>
-    <div class="sectionNote">Evidence shows the measurable inputs captured for each signal (and any deductions/issues).</div>
-    ${evidenceBlocks || `<div class="muted" style="margin-top:10px;">No evidence available.</div>`}
-
-    <h2>Final Notes</h2>
-    <div class="card">
-      <div class="muted">
-        iQWEB analyses observable build, structure, security, and semantic signals from a site's delivered HTML and response headers to help teams prioritise what to review and improve next.
-        <br/><br/>
-        This report is a diagnostic snapshot based on measurable signals captured during this scan. Where a signal cannot be reliably measured, it is shown as “Not available” rather than inferred or guessed.
-      </div>
-    </div>
-
-    <div class="footer">
-      <div>© 2025 iQWEB — All rights reserved.</div>
-      <div>${escapeHtml(reportId)}</div>
-    </div>
-
-  </div>
-</body>
-</html>`;
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-function renderSignalCard(sig) {
-  const label = String(sig?.label || sig?.id || "Signal");
-  const score = safeNumber(sig?.score);
-
-  // Lines should come from delivery_signals[].lines (already correct)
-  const lines = toLines(sig?.lines) || [];
-
-  return `<div class="card">
-    <div class="cardTop">
-      <div class="cardTitle">${escapeHtml(label)}</div>
-      <div class="pill">${score === null ? "—" : escapeHtml(String(score))}</div>
-    </div>
-    ${
-      lines.length
-        ? `<ul class="bullets" style="margin-left:16px;">${lines.slice(0, 4).map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>`
-        : `<div class="muted">No signal narrative for this section.</div>`
-    }
-  </div>`;
-}
-
-function renderEvidenceBlock(sig) {
-  const label = String(sig?.label || sig?.id || "Signal");
-  const score = safeNumber(sig?.score);
-
-  const observations = Array.isArray(sig?.observations) ? sig.observations : [];
-  const deductions = Array.isArray(sig?.deductions) ? sig.deductions : [];
-  const issues = Array.isArray(sig?.issues) ? sig.issues : [];
-
-  if (!observations.length && !deductions.length && !issues.length) return "";
-
-  const obsRows = observations
-    .map((o) => `<tr><td>${escapeHtml(String(o?.label ?? ""))}</td><td>${escapeHtml(formatValue(o?.value))}</td><td>${escapeHtml(String(o?.source ?? ""))}</td></tr>`)
-    .join("");
-
-  const dedsRows = deductions
-    .map((d) => `<tr><td>${escapeHtml(String(d?.reason || ""))}</td><td>${escapeHtml(String(d?.points ?? ""))}</td><td>${escapeHtml(String(d?.code || ""))}</td></tr>`)
-    .join("");
-
-  const issuesList = issues
-    .map((it) => {
-      if (typeof it === "string") return `<li>${escapeHtml(it)}</li>`;
-      return `<li>${escapeHtml(String(it?.reason || ""))}${it?.severity ? ` <span class="muted">(${escapeHtml(String(it.severity))})</span>` : ""}</li>`;
-    })
-    .join("");
-
-  return `<div class="card" style="margin-top: 12px;">
-    <div class="cardTop">
-      <div class="cardTitle">${escapeHtml(label)}</div>
-      <div class="pill">${score === null ? "—" : escapeHtml(String(score))}</div>
-    </div>
-
-    ${
-      observations.length
-        ? `<table>
-            <thead><tr><th style="width:40%;">Metric</th><th style="width:40%;">Value</th><th style="width:20%;">Source</th></tr></thead>
-            <tbody>${obsRows}</tbody>
-          </table>`
-        : `<div class="muted">No evidence captured.</div>`
-    }
-
-    ${
-      deductions.length
-        ? `<h2 style="font-size:12px; text-transform:none; margin:14px 0 8px;">Deductions</h2>
-           <table>
-             <thead><tr><th>Reason</th><th style="width:90px;">Points</th><th style="width:240px;">Code</th></tr></thead>
-             <tbody>${dedsRows}</tbody>
-           </table>`
-        : ``
-    }
-
-    ${
-      issues.length
-        ? `<h2 style="font-size:12px; text-transform:none; margin:14px 0 8px;">Issues</h2>
-           <ul class="bullets">${issuesList}</ul>`
-        : ``
-    }
-  </div>`;
-}
-
-function renderInsightsTable(insights) {
-  const rows = [
-    ["Strength", insights.strength],
-    ["Risk", insights.risk],
-    ["Focus", insights.focus],
-    ["Next", insights.next],
-  ]
-    .map(([k, v]) => `<tr><th style="width:140px;">${escapeHtml(k)}</th><td>${escapeHtml(v || "")}</td></tr>`)
-    .join("");
-
-  return `<table>
-    <thead><tr><th>Insight</th><th>Detail</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
-}
-
-function deriveInsights(scores) {
-  const domains = [
-    { k: "performance", label: "Performance", v: safeNumber(scores.performance) },
-    { k: "mobile", label: "Mobile Experience", v: safeNumber(scores.mobile) },
-    { k: "seo", label: "SEO Foundations", v: safeNumber(scores.seo) },
-    { k: "security", label: "Security & Trust", v: safeNumber(scores.security) },
-    { k: "structure", label: "Structure & Semantics", v: safeNumber(scores.structure) },
-    { k: "accessibility", label: "Accessibility", v: safeNumber(scores.accessibility) },
-  ].filter((d) => d.v !== null);
-
-  let strongest = null;
-  let weakest = null;
-
-  for (const d of domains) {
-    if (!strongest || d.v > strongest.v) strongest = d;
-    if (!weakest || d.v < weakest.v) weakest = d;
+function asText(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  // handle {reason, title, label, ...}
+  if (typeof v === "object") {
+    return (
+      v.reason ||
+      v.title ||
+      v.label ||
+      v.code ||
+      v.message ||
+      JSON.stringify(v)
+    );
   }
+  return String(v);
+}
+
+function bulletList(lines) {
+  const arr = Array.isArray(lines) ? lines : [];
+  if (!arr.length) return "";
+  return `<ul class="bullets">
+    ${arr
+      .map((l) => `<li>${escapeHtml(asText(l))}</li>`)
+      .join("")}
+  </ul>`;
+}
+
+function safeNum(n) {
+  const x = Number(n);
+  return Number.isFinite(x) ? x : null;
+}
+
+function fmtScore(n) {
+  const x = safeNum(n);
+  return x == null ? "—" : String(Math.round(x));
+}
+
+function pickStrongWeak(scores) {
+  const entries = [
+    ["Performance", scores?.performance],
+    ["Mobile Experience", scores?.mobile],
+    ["SEO Foundations", scores?.seo],
+    ["Security & Trust", scores?.security],
+    ["Structure & Semantics", scores?.structure],
+    ["Accessibility", scores?.accessibility],
+  ].map(([k, v]) => [k, safeNum(v)]);
+
+  const valid = entries.filter(([, v]) => v != null);
+  if (!valid.length) return { strong: "", weak: "" };
+
+  valid.sort((a, b) => b[1] - a[1]);
+  const strong = `${valid[0][0]} (${Math.round(valid[0][1])}/100)`;
+  const weak = `${valid[valid.length - 1][0]} (${Math.round(
+    valid[valid.length - 1][1]
+  )}/100)`;
+
+  return { strong, weak };
+}
+
+function buildKeyInsights(payload) {
+  const scores = payload?.scores || {};
+  const { strong, weak } = pickStrongWeak(scores);
+
+  // Prefer narrative primary constraint if present
+  const primaryConstraint =
+    payload?.narrative?._meta?.primary_constraint?.label ||
+    payload?.narrative?._meta?.primary_constraint?.key ||
+    "";
+
+  const next =
+    (payload?.fix_sequence && payload.fix_sequence[0]) ||
+    payload?.narrative?.executive_narrative?.fix_order?.items?.[0]?.lines?.[0] ||
+    "Start with the weakest measurable domain, then re-scan to confirm change.";
 
   return {
-    strength: strongest ? `${strongest.label} is strongest (${strongest.v}/100).` : "",
-    risk: weakest ? `${weakest.label} is the main risk (${weakest.v}/100).` : "",
-    focus: weakest ? `Focus on ${weakest.label} first to lift the measurable baseline.` : "",
-    next: weakest ? `Start with ${weakest.label}, then re-scan to confirm measurable improvement.` : "",
+    strength: strong || "—",
+    risk: weak ? `Main risk: ${weak}` : "—",
+    focus: primaryConstraint ? `Primary constraint: ${primaryConstraint}` : "—",
+    next: asText(next) || "—",
   };
 }
 
-// -------------------------
-// Helpers
-// -------------------------
+function normalizeTopIssues(payload) {
+  // payload.top_issues can be string[] or objects; also derive from delivery_signals issues
+  const out = [];
 
-function corsHeaders() {
+  const ti = payload?.top_issues;
+  if (Array.isArray(ti)) {
+    for (const item of ti) {
+      const txt = asText(item).trim();
+      if (txt) out.push(txt);
+    }
+  }
+
+  const ds = payload?.delivery_signals;
+  if (Array.isArray(ds)) {
+    for (const sig of ds) {
+      const issues = sig?.issues;
+      if (Array.isArray(issues)) {
+        for (const iss of issues) {
+          const txt = asText(iss?.reason || iss?.label || iss).trim();
+          if (txt) out.push(`${sig?.label || sig?.id}: ${txt}`);
+        }
+      }
+    }
+  }
+
+  // de-dupe
+  return [...new Set(out)];
+}
+
+function normalizeSignals(payload) {
+  const ds = payload?.delivery_signals;
+  if (!Array.isArray(ds)) return [];
+  // keep order overall first, then the rest
+  const overall = ds.find((x) => x?.id === "overall") || null;
+  const rest = ds.filter((x) => x?.id !== "overall");
+  return overall ? [overall, ...rest] : rest;
+}
+
+function tableRowsFromObservations(observations) {
+  const obs = Array.isArray(observations) ? observations : [];
+  if (!obs.length) return `<tr><td colspan="3" class="muted">No evidence rows.</td></tr>`;
+
+  return obs
+    .map((o) => {
+      const label = escapeHtml(asText(o?.label));
+      const value = escapeHtml(asText(o?.value));
+      const source = escapeHtml(asText(o?.source));
+      return `<tr><td>${label}</td><td class="mono">${value}</td><td class="muted">${source}</td></tr>`;
+    })
+    .join("");
+}
+
+function json(statusCode, obj) {
   return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Cache-Control": "no-store",
+    statusCode,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(obj),
   };
 }
 
@@ -448,67 +160,318 @@ function getBaseUrl(event) {
   return `${proto}://${host}`;
 }
 
-async function fetchJson(url) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+export const handler = async (event) => {
   try {
-    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Failed to fetch PDF data (${res.status}): ${txt.slice(0, 400)}`);
+    if (event.httpMethod !== "GET") {
+      return json(405, { success: false, error: "Method not allowed" });
     }
-    return await res.json();
-  } finally {
-    clearTimeout(t);
+
+    const reportId = event.queryStringParameters?.report_id || "";
+    if (!reportId) {
+      return json(400, { success: false, error: "Missing report_id" });
+    }
+
+    const baseUrl = getBaseUrl(event);
+
+    // Pull the same data your app uses
+    const dataRes = await fetch(
+      `${baseUrl}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(
+        reportId
+      )}`,
+      { method: "GET" }
+    );
+
+    if (!dataRes.ok) {
+      const txt = await dataRes.text().catch(() => "");
+      console.error("[get-report-html-pdf] get-report-data failed:", dataRes.status, txt);
+      return json(502, { success: false, error: "Failed to load report data" });
+    }
+
+    const payload = await dataRes.json();
+
+    const header = payload?.header || {};
+    const scores = payload?.scores || {};
+    const narrative = payload?.narrative || {};
+    const overallLines = narrative?.overall?.lines || [];
+    const manifestation = narrative?.manifestation || {};
+    const manifestationTitle = manifestation?.title || "How this shows up for users";
+    const manifestationLines = manifestation?.lines || [];
+
+    const insights = buildKeyInsights(payload);
+    const topIssues = normalizeTopIssues(payload);
+    const fixSequence = Array.isArray(payload?.fix_sequence) ? payload.fix_sequence : [];
+    const signals = normalizeSignals(payload);
+
+    const website = header?.website || "";
+    const reportDate = header?.created_at || "";
+
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>iQWEB Website Report</title>
+  <style>
+    :root {
+      --ink:#0b1220;
+      --muted:#5b6474;
+      --rule:#e6e8ee;
+      --panel:#f7f8fb;
+      --panel2:#ffffff;
+      --accent:#127e7a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--ink);
+      margin: 0;
+      padding: 28px 34px;
+      background: #fff;
+      line-height: 1.35;
+      font-size: 12px;
+    }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    h2 { font-size: 13px; margin: 18px 0 8px; letter-spacing: .04em; text-transform: uppercase; }
+    h3 { font-size: 12px; margin: 14px 0 6px; }
+    .muted { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .brand { display:flex; flex-direction:column; gap:2px; }
+    .brand .logo { font-weight: 800; letter-spacing: .02em; }
+    .meta { text-align:right; }
+    .meta div { margin: 2px 0; }
+    .pill {
+      display:inline-block; padding:2px 8px; border-radius:999px;
+      background: var(--panel); border:1px solid var(--rule);
+      font-weight:600;
+    }
+
+    .grid {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .card {
+      border: 1px solid var(--rule);
+      background: var(--panel2);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .cardHeader {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom: 6px;
+      font-weight:700;
+    }
+    .scoreBox {
+      min-width: 36px;
+      text-align:center;
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 2px 8px;
+      background: var(--panel);
+      font-weight: 800;
+    }
+    ul.bullets { margin: 6px 0 0 16px; padding: 0; }
+    ul.bullets li { margin: 4px 0; }
+    .sectionRule { border-top: 1px solid var(--rule); margin: 12px 0; }
+
+    table { width:100%; border-collapse: collapse; }
+    th, td { border:1px solid var(--rule); padding: 6px 8px; vertical-align: top; }
+    th { background: var(--panel); text-align:left; font-weight: 700; }
+    .tight td { padding: 5px 8px; }
+
+    .footer {
+      margin-top: 18px;
+      padding-top: 10px;
+      border-top: 1px solid var(--rule);
+      display:flex; justify-content:space-between; align-items:center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top">
+    <div class="brand">
+      <div class="logo">iQWEB Website Report</div>
+      <div class="muted">Website: ${escapeHtml(website)}</div>
+    </div>
+    <div class="meta">
+      <div><strong>Report ID:</strong> <span class="mono">${escapeHtml(reportId)}</span></div>
+      <div><strong>Report Date:</strong> <span class="mono">${escapeHtml(reportDate)}</span></div>
+    </div>
+  </div>
+
+  <h2>Deterministic Summary</h2>
+  ${
+    Array.isArray(overallLines) && overallLines.length
+      ? bulletList(overallLines)
+      : `<div class="muted">No executive narrative available for this scan.</div>`
   }
-}
 
-function escapeHtml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function toLines(value) {
-  if (!value) return null;
-  if (Array.isArray(value)) {
-    const a = value.map((x) => String(x || "").trim()).filter(Boolean);
-    return a.length ? a : null;
+  ${
+    Array.isArray(manifestationLines) && manifestationLines.length
+      ? `
+      <h3>${escapeHtml(manifestationTitle)}</h3>
+      ${bulletList(manifestationLines)}
+    `
+      : ""
   }
-  if (typeof value === "string") {
-    const a = value
-      .split(/\r?\n|•/g)
-      .map((s) => String(s || "").trim())
-      .filter(Boolean);
-    return a.length ? a : null;
+
+  <h2>Key Insight Metrics</h2>
+  <table class="tight">
+    <tr><th style="width:160px">Insight</th><th>Detail</th></tr>
+    <tr><td><strong>Strength</strong></td><td>${escapeHtml(insights.strength)}</td></tr>
+    <tr><td><strong>Risk</strong></td><td>${escapeHtml(insights.risk)}</td></tr>
+    <tr><td><strong>Focus</strong></td><td>${escapeHtml(insights.focus)}</td></tr>
+    <tr><td><strong>Next</strong></td><td>${escapeHtml(insights.next)}</td></tr>
+  </table>
+
+  <h2>Delivery Signals</h2>
+  <div class="grid">
+    ${signals
+      .map((sig) => {
+        const label = sig?.label || sig?.id || "Signal";
+        const score = fmtScore(sig?.score ?? sig?.displayValue ?? sig?.value);
+        const lines = Array.isArray(sig?.lines) ? sig.lines : [];
+        const hasLines = lines.length > 0;
+
+        return `
+          <div class="card">
+            <div class="cardHeader">
+              <div>${escapeHtml(label)}</div>
+              <div class="scoreBox">${escapeHtml(score)}</div>
+            </div>
+            ${
+              hasLines
+                ? bulletList(lines)
+                : `<div class="muted">No notable issues flagged for this signal.</div>`
+            }
+          </div>
+        `;
+      })
+      .join("")}
+  </div>
+
+  <h2>Scores</h2>
+  <table class="tight">
+    <tr>
+      <th style="width:220px">Domain</th>
+      <th style="width:140px">Score</th>
+      <th>Notes</th>
+    </tr>
+    <tr><td><strong>Overall Delivery</strong></td><td><span class="pill">${escapeHtml(fmtScore(scores.overall))}/100</span></td><td class="muted">Deterministic weighted signals.</td></tr>
+    <tr><td>Performance</td><td>${escapeHtml(fmtScore(scores.performance))}/100</td><td class="muted">Speed + main-thread constraints.</td></tr>
+    <tr><td>Mobile Experience</td><td>${escapeHtml(fmtScore(scores.mobile))}/100</td><td class="muted">Viewport + mobile readiness.</td></tr>
+    <tr><td>SEO Foundations</td><td>${escapeHtml(fmtScore(scores.seo))}/100</td><td class="muted">Title, meta, canonical, robots baseline.</td></tr>
+    <tr><td>Security & Trust</td><td>${escapeHtml(fmtScore(scores.security))}/100</td><td class="muted">Headers/policy baseline.</td></tr>
+    <tr><td>Structure & Semantics</td><td>${escapeHtml(fmtScore(scores.structure))}/100</td><td class="muted">H1 + document structure inputs.</td></tr>
+    <tr><td>Accessibility</td><td>${escapeHtml(fmtScore(scores.accessibility))}/100</td><td class="muted">Alt, labels, empty controls.</td></tr>
+  </table>
+
+  <h2>Top Issues Detected</h2>
+  ${
+    topIssues.length
+      ? `<ul class="bullets">${topIssues.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`
+      : `<div class="muted">None detected.</div>`
   }
-  return null;
-}
 
-function safeNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n) : null;
-}
-
-function formatValue(v) {
-  if (v === null || typeof v === "undefined") return "—";
-  if (typeof v === "boolean") return v ? "true" : "false";
-  if (typeof v === "number") return String(v);
-  if (typeof v === "string") return v;
-  try { return JSON.stringify(v); } catch { return String(v); }
-}
-
-function formatDate(iso) {
-  if (!iso) return "";
-  try {
-    const d = new Date(iso);
-    if (!isFinite(d.getTime())) return String(iso);
-    const pad = (x) => String(x).padStart(2, "0");
-    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-  } catch {
-    return String(iso);
+  <h2>Recommended Fix Sequence</h2>
+  ${
+    fixSequence.length
+      ? `<ol>${fixSequence
+          .map((x) => `<li>${escapeHtml(asText(x))}</li>`)
+          .join("")}</ol>`
+      : `<div class="muted">No fix sequence available.</div>`
   }
-}
+
+  <h2>Signal Evidence</h2>
+  <div class="muted" style="margin-bottom:8px;">
+    Evidence shows the measurable inputs captured for each signal (and any deductions/issues).
+  </div>
+
+  ${signals
+    .filter((sig) => sig?.id !== "overall")
+    .map((sig) => {
+      const label = sig?.label || sig?.id || "Signal";
+      const obsRows = tableRowsFromObservations(sig?.observations);
+      const deductions = Array.isArray(sig?.deductions) ? sig.deductions : [];
+      const issues = Array.isArray(sig?.issues) ? sig.issues : [];
+
+      return `
+        <div class="sectionRule"></div>
+        <h3>${escapeHtml(label)} <span class="pill">${escapeHtml(
+        fmtScore(sig?.score)
+      )}/100</span></h3>
+
+        <table class="tight">
+          <tr><th style="width:220px">Metric</th><th>Value</th><th style="width:120px">Source</th></tr>
+          ${obsRows}
+        </table>
+
+        ${
+          deductions.length
+            ? `
+            <h3>Deductions</h3>
+            <table class="tight">
+              <tr><th>Reason</th><th style="width:90px">Points</th><th style="width:220px">Code</th></tr>
+              ${deductions
+                .map((d) => {
+                  const reason = escapeHtml(asText(d?.reason));
+                  const points = escapeHtml(asText(d?.points));
+                  const code = escapeHtml(asText(d?.code));
+                  return `<tr><td>${reason}</td><td class="mono">${points}</td><td class="mono">${code}</td></tr>`;
+                })
+                .join("")}
+            </table>
+          `
+            : ""
+        }
+
+        ${
+          issues.length
+            ? `
+            <h3>Issues</h3>
+            <ul class="bullets">
+              ${issues
+                .map((i) => {
+                  const reason = escapeHtml(asText(i?.reason || i));
+                  const sev = escapeHtml(asText(i?.severity || ""));
+                  return `<li>${reason}${sev ? ` <span class="muted">(${sev})</span>` : ""}</li>`;
+                })
+                .join("")}
+            </ul>
+          `
+            : ""
+        }
+      `;
+    })
+    .join("")}
+
+  <div class="footer">
+    <div>© 2025 iQWEB — All rights reserved.</div>
+    <div class="mono">${escapeHtml(reportId)}</div>
+  </div>
+
+</body>
+</html>`;
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+      body: html,
+    };
+  } catch (err) {
+    console.error("[get-report-html-pdf] error:", err);
+    return json(500, { success: false, error: "Unexpected server error" });
+  }
+};
