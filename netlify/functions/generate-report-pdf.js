@@ -1,16 +1,5 @@
 // netlify/functions/generate-report-pdf.js
-import fetch from "node-fetch";
-
-function json(statusCode, obj, extraHeaders = {}) {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      ...extraHeaders,
-    },
-    body: JSON.stringify(obj),
-  };
-}
+// CommonJS Netlify Function (no ESM imports)
 
 function corsHeaders() {
   return {
@@ -21,14 +10,24 @@ function corsHeaders() {
   };
 }
 
+function json(statusCode, obj) {
+  return {
+    statusCode,
+    headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(obj),
+  };
+}
+
 function getBaseUrl(event) {
-  if (process.env.URL) return process.env.URL; // Netlify sets this
+  // Netlify provides URL in production
+  if (process.env.URL) return process.env.URL;
+
   const proto = event.headers["x-forwarded-proto"] || "https";
   const host = event.headers.host;
   return `${proto}://${host}`;
 }
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   try {
     // Preflight
     if (event.httpMethod === "OPTIONS") {
@@ -36,59 +35,53 @@ export const handler = async (event) => {
     }
 
     if (event.httpMethod !== "POST" && event.httpMethod !== "GET") {
-      return json(
-        405,
-        { success: false, error: "Method not allowed" },
-        corsHeaders()
-      );
+      return json(405, { success: false, error: "Method not allowed" });
     }
 
+    // Read report_id
     let reportId = "";
-
     if (event.httpMethod === "GET") {
-      reportId = event.queryStringParameters?.report_id || "";
+      reportId = (event.queryStringParameters && event.queryStringParameters.report_id) || "";
     } else {
       const body = event.body ? JSON.parse(event.body) : {};
-      reportId = body?.report_id || "";
+      reportId = body.report_id || "";
     }
 
     if (!reportId) {
-      return json(400, { success: false, error: "Missing report_id" }, corsHeaders());
+      return json(400, { success: false, error: "Missing report_id" });
     }
 
-    const DOCRAPTOR_API_KEY = process.env.DOCRAPTOR_API_KEY || "";
-    if (!DOCRAPTOR_API_KEY) {
-      return json(500, { success: false, error: "DOCRAPTOR_API_KEY missing" }, corsHeaders());
+    const apiKey = process.env.DOCRAPTOR_API_KEY || "";
+    if (!apiKey) {
+      return json(500, { success: false, error: "DOCRAPTOR_API_KEY missing in Netlify env" });
     }
 
     const baseUrl = getBaseUrl(event);
 
-    // IMPORTANT: render the server-built HTML doc (no JS)
+    // Render SERVER HTML (no JS), so DocRaptor never touches your SPA/OSD
     const documentUrl = `${baseUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
       reportId
     )}`;
 
-    // DocRaptor Create Doc endpoint (PDF)
-    const apiUrl = "https://docraptor.com/docs";
+    // ✅ Correct DocRaptor API endpoint
+    const apiUrl = "https://api.docraptor.com/docs";
 
     const payload = {
       doc: {
         document_type: "pdf",
         name: `${reportId}.pdf`,
         document_url: documentUrl,
-        // critical: don’t run JS (avoids Promise error entirely)
         javascript: false,
-        // give it time if needed
-        // (DocRaptor will still fetch quickly because our HTML is server-rendered)
-        test: process.env.DOCRAPTOR_TEST === "true",
+        test: String(process.env.DOCRAPTOR_TEST || "false") === "true",
       },
     };
+
+    const auth = Buffer.from(`${apiKey}:`).toString("base64");
 
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization:
-          "Basic " + Buffer.from(`${DOCRAPTOR_API_KEY}:`).toString("base64"),
+        Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -96,21 +89,18 @@ export const handler = async (event) => {
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
-      console.error("[generate-report-pdf] DocRaptor error:", res.status, txt);
-      return json(
-        422,
-        {
-          success: false,
-          error: "DocRaptor error",
-          status: res.status,
-          reportPageUrl: documentUrl,
-          details: txt,
-        },
-        corsHeaders()
-      );
+      // Return the actual DocRaptor error so we can see what it hated
+      return json(422, {
+        success: false,
+        error: "DocRaptor request failed",
+        status: res.status,
+        documentUrl,
+        details: txt.slice(0, 5000),
+      });
     }
 
-    const pdfBuffer = Buffer.from(await res.arrayBuffer());
+    const arrayBuf = await res.arrayBuffer();
+    const pdfBuffer = Buffer.from(arrayBuf);
 
     return {
       statusCode: 200,
@@ -123,7 +113,12 @@ export const handler = async (event) => {
       isBase64Encoded: true,
     };
   } catch (err) {
-    console.error("[generate-report-pdf] error:", err);
-    return json(500, { success: false, error: "Unexpected server error" }, corsHeaders());
+    // This is the important part: you’ll now see the REAL cause
+    return json(500, {
+      success: false,
+      error: "Server exception",
+      message: err && err.message ? err.message : String(err),
+      stack: err && err.stack ? err.stack : null,
+    });
   }
 };
