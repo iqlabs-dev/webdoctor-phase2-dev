@@ -2,136 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report — PDF</title>
+  <title>iQWEB Website Report (PDF)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Polyfills for DocRaptor/Prince -->
-  <script>
-  (function () {
-    if (typeof Promise !== "function") {
-      function PolyPromise(fn) {
-        var state="pending", value, handlers=[];
-        function fulfill(r){ state="fulfilled"; value=r; handlers.slice().forEach(handle); handlers=[]; }
-        function reject(e){ state="rejected"; value=e; handlers.slice().forEach(handle); handlers=[]; }
-        function resolve(r){
-          try{
-            if (r===this) throw new TypeError("Promise self-resolution");
-            if (r && (typeof r==="object" || typeof r==="function")) {
-              var then=r.then;
-              if (typeof then==="function") return then.call(r, resolve, reject);
-            }
-            fulfill(r);
-          } catch(e){ reject(e); }
-        }
-        function handle(h){
-          if(state==="pending"){ handlers.push(h); return; }
-          var cb = state==="fulfilled" ? h.onFulfilled : h.onRejected;
-          if(!cb){ (state==="fulfilled"?h.resolve:h.reject)(value); return; }
-          try{ h.resolve(cb(value)); } catch(e){ h.reject(e); }
-        }
-        this.then=function(a,b){ return new PolyPromise(function(res,rej){ handle({onFulfilled: typeof a==="function"?a:null, onRejected: typeof b==="function"?b:null, resolve:res, reject:rej}); }); };
-        this.catch=function(b){ return this.then(null,b); };
-        try{ fn(resolve,reject); } catch(e){ reject(e); }
-      }
-      PolyPromise.resolve=function(v){ return new PolyPromise(function(res){ res(v); }); };
-      PolyPromise.reject=function(e){ return new PolyPromise(function(_,rej){ rej(e); }); };
-      PolyPromise.all=function(arr){
-        return new PolyPromise(function(resolve,reject){
-          if(!arr||!arr.length) return resolve([]);
-          var out=new Array(arr.length), remaining=arr.length;
-          for(var i=0;i<arr.length;i++)(function(i){
-            PolyPromise.resolve(arr[i]).then(function(v){ out[i]=v; remaining--; if(remaining===0) resolve(out); }, reject);
-          })(i);
-        });
-      };
-      window.Promise = PolyPromise;
-    }
-
-    if (typeof window.fetch !== "function") {
-      function Response(text, opts){
-        opts=opts||{};
-        this._text=text||"";
-        this.status=opts.status||200;
-        this.ok=this.status>=200 && this.status<300;
-        this.statusText=opts.statusText||"";
-      }
-      Response.prototype.text=function(){ return Promise.resolve(this._text); };
-      Response.prototype.json=function(){ try{ return Promise.resolve(JSON.parse(this._text||"{}")); }catch(e){ return Promise.reject(e);} };
-
-      window.fetch=function(url, opts){
-        opts=opts||{};
-        return new Promise(function(resolve, reject){
-          try{
-            var xhr=new XMLHttpRequest();
-            xhr.open(opts.method||"GET", url, true);
-            var headers=opts.headers||{};
-            for(var k in headers) if(Object.prototype.hasOwnProperty.call(headers,k)) xhr.setRequestHeader(k, headers[k]);
-            xhr.onload=function(){ resolve(new Response(xhr.responseText, {status:xhr.status, statusText:xhr.statusText})); };
-            xhr.onerror=function(){ reject(new TypeError("Network request failed")); };
-            xhr.send(opts.body||null);
-          } catch(e){ reject(e); }
-        });
-      };
-    }
-  })();
-  </script>
-
-  <!-- OPTIONAL: If you want exact styling parity, copy the SAME CSS from report.html into here. -->
   <style>
-    body { margin: 0; padding: 0; }
-    #loaderSection { padding: 28px 16px; font-family: system-ui, sans-serif; text-align: center; }
+    /* TEXT-FIRST / PRINT-FIRST (no fancy cards yet) */
+    @page { size: A4; margin: 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
+    .muted { color: #666; }
+    .small { font-size: 10px; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    h2 { font-size: 13px; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
+    h3 { font-size: 12px; margin: 14px 0 6px; }
+    p, li { font-size: 10.5px; line-height: 1.35; margin: 6px 0; }
+    ul { margin: 6px 0 6px 18px; padding: 0; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .brand { font-weight: 700; font-size: 14px; }
+    .meta { text-align: right; font-size: 10px; line-height: 1.35; }
+    hr { border: 0; border-top: 1px solid #ddd; margin: 12px 0; }
+    .section-note { margin-top: 2px; }
+    .page-break { page-break-before: always; }
+    .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #eee; display: flex; justify-content: space-between; font-size: 9px; color: #666; }
+    /* Make long words/URLs wrap */
+    .wrap { word-break: break-word; overflow-wrap: anywhere; }
   </style>
 </head>
 
 <body>
-  <section id="loaderSection">
-    <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
-    <div style="opacity:.7; margin-top:6px;">Rendering full report for PDF…</div>
-  </section>
 
-  <!-- anchors expected by /assets/js/report-data.js -->
-  <main id="reportRoot" style="display:none;">
-    <a id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
-    <div id="reportId">—</div>
-    <div id="reportDate">—</div>
+  <!-- HEADER -->
+  <div class="topbar">
+    <div>
+      <div class="brand">iQWEB</div>
+      <div class="muted small">Powered by Λ i Q™</div>
+    </div>
+    <div class="meta">
+      <div><strong>Website:</strong> <span class="wrap">{{website_url}}</span></div>
+      <div><strong>Report ID:</strong> {{report_id}}</div>
+      <div><strong>Report Date:</strong> {{report_date}}</div>
+    </div>
+  </div>
 
-    <div id="narrativeText"></div>
-    <div id="fixFirstBlock"></div>
+  <hr />
 
-    <div id="overallPill"></div>
-    <div id="overallBar"></div>
-    <div id="overallNote"></div>
+  <!-- EXECUTIVE NARRATIVE -->
+  <h2>Executive Narrative</h2>
+  {{executive_narrative}}
 
-    <div id="signalsGrid"></div>
+  <!-- DELIVERY SIGNALS -->
+  <h2>Delivery Signals</h2>
+  <p class="muted section-note small">{{overall_delivery_note}}</p>
+  <p><strong>Overall Delivery Score:</strong> {{overall_score}} / 100</p>
 
-    <div id="signalEvidenceRoot"></div>
-    <div id="keyMetricsRoot"></div>
-    <div id="topIssuesRoot"></div>
-    <div id="fixSequenceRoot"></div>
-    <div id="finalNotesRoot"></div>
-  </main>
+  <!-- This block is server-rendered HTML (per-signal name, score, and narrative lines) -->
+  {{delivery_signals}}
 
-  <script src="/assets/js/report-data.js"></script>
+  <!-- SIGNAL EVIDENCE (NEW PAGE) -->
+  <div class="page-break"></div>
+  <h2>Signal Evidence</h2>
+  <p class="muted small">Evidence below shows measurable observations captured during this scan (values are not guessed).</p>
 
-  <!-- DocRaptor gate -->
-  <script>
-    window.__IQWEB_REPORT_READY = false;
-    window.docraptorJavaScriptFinished = function () { return window.__IQWEB_REPORT_READY === true; };
+  <!-- This block is server-rendered HTML (observations tables + issues list per signal) -->
+  {{signal_evidence}}
 
-    (function waitReady() {
-      var reportRoot = document.getElementById("reportRoot");
-      var loader = document.getElementById("loaderSection");
-      var signals = document.getElementById("signalsGrid");
+  <!-- INSIGHT METRICS -->
+  <div class="page-break"></div>
+  <h2>Key Insight Metrics</h2>
+  <p><strong>Strength:</strong> {{insight_strength}}</p>
+  <p><strong>Risk:</strong> {{insight_risk}}</p>
+  <p><strong>Focus:</strong> {{insight_focus}}</p>
+  <p><strong>Next:</strong> {{insight_next}}</p>
 
-      var loaderHidden = loader && (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-      var reportVisible = reportRoot && (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-      var hasSignals = signals && signals.children && signals.children.length > 0;
+  <!-- TOP ISSUES -->
+  <h2>Top Issues Detected</h2>
+  {{top_issues}}
 
-      if (loaderHidden && reportVisible && hasSignals) { window.__IQWEB_REPORT_READY = true; return; }
-      setTimeout(waitReady, 150);
-    })();
+  <!-- FIX SEQUENCE -->
+  <h2>Recommended Fix Sequence</h2>
+  <p>{{fix_sequence_summary}}</p>
+  {{fix_sequence_list}}
 
-    setTimeout(function () { if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true; }, 30000);
-  </script>
+  <!-- FINAL NOTES -->
+  <h2>Final Notes</h2>
+  {{final_notes}}
+
+  <div class="footer">
+    <div>© 2025 iQWEB — All rights reserved.</div>
+    <div>{{report_id}}</div>
+  </div>
+
 </body>
 </html>

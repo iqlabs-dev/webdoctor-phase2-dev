@@ -1,124 +1,177 @@
 // netlify/functions/generate-report-pdf.js
-// CommonJS Netlify Function (no ESM imports)
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Cache-Control": "no-store",
-  };
-}
-
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(obj),
-  };
-}
-
-function getBaseUrl(event) {
-  // Netlify provides URL in production
-  if (process.env.URL) return process.env.URL;
-
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
-}
+// Generates PDF via DocRaptor by printing a server-rendered HTML page (NO JS).
+//
+// Requires env:
+// - DOC_RAPTOR_API_KY (note: ths is your env name in Netlify)
 
 exports.handler = async (event) => {
+  // CORS / preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept",
+        "Cache-Control": "no-store",
+      },
+      body: "",
+    };
+  }
+
+  // Enforce POST
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        Allow: "POST, OPTIONS",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
+
   try {
-    // Preflight
-    if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers: corsHeaders(), body: "" };
+    // Parse body
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Invalid JSON body" }),
+      };
     }
 
-    if (event.httpMethod !== "POST" && event.httpMethod !== "GET") {
-      return json(405, { success: false, error: "Method not allowed" });
-    }
-
-    // Read report_id
-    let reportId = "";
-    if (event.httpMethod === "GET") {
-      reportId = (event.queryStringParameters && event.queryStringParameters.report_id) || "";
-    } else {
-      const body = event.body ? JSON.parse(event.body) : {};
-      reportId = body.report_id || "";
-    }
-
+    const reportId = String(body.reportId || body.report_id || "").trim();
     if (!reportId) {
-      return json(400, { success: false, error: "Missing report_id" });
+      return {
+        statusCode: 400,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "Missing reportId" }),
+      };
     }
 
-    const apiKey = process.env.DOCRAPTOR_API_KEY || "";
+    const apiKey = process.env.DOC_RAPTOR_API_KEY;
     if (!apiKey) {
-      return json(500, { success: false, error: "DOCRAPTOR_API_KEY missing in Netlify env" });
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({ error: "DOC_RAPTOR_API_KEY is not set" }),
+      };
     }
 
-    const baseUrl = getBaseUrl(event);
+    const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    // Render SERVER HTML (no JS), so DocRaptor never touches your SPA/OSD
-    const documentUrl = `${baseUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
+    // DocRaptor will fetch this via GET
+    const pdfHtmlUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
       reportId
     )}`;
 
-    // ✅ Correct DocRaptor API endpoint
-    const apiUrl = "https://api.docraptor.com/docs";
+    // ✅ HARD CHECK: make sure the HTML URL actually returns 200 BEFORE calling DocRaptor
+    const probe = await fetch(pdfHtmlUrl, { method: "GET" });
+    const probeText = await probe.text().catch(() => "");
 
-    const payload = {
-      doc: {
-        document_type: "pdf",
-        name: `${reportId}.pdf`,
-        document_url: documentUrl,
-        javascript: false,
-        test: String(process.env.DOCRAPTOR_TEST || "false") === "true",
-      },
-    };
-
-    const auth = Buffer.from(`${apiKey}:`).toString("base64");
-
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      // Return the actual DocRaptor error so we can see what it hated
-      return json(422, {
-        success: false,
-        error: "DocRaptor request failed",
-        status: res.status,
-        documentUrl,
-        details: txt.slice(0, 5000),
-      });
+    if (!probe.ok) {
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "PDF HTML endpoint failed (DocRaptor would fail too)",
+          status: probe.status,
+          url: pdfHtmlUrl,
+          details: probeText.slice(0, 1500),
+        }),
+      };
     }
 
-    const arrayBuf = await res.arrayBuffer();
-    const pdfBuffer = Buffer.from(arrayBuf);
+    // Now call DocRaptor
+    const drResp = await fetch("https://docraptor.com/docs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/pdf",
+      },
+      body: JSON.stringify({
+        user_credentials: apiKey,
+        doc: {
+          name: `${reportId}.pdf`,
+          test: false,
+          document_type: "pdf",
+          document_url: pdfHtmlUrl,
+
+          // ✅ DO NOT execute JS (prevents Promise/window errors)
+          javascript: false,
+          wait_for_javascript: false,
+
+          prince_options: {
+            media: "print",
+          },
+        },
+      }),
+    });
+
+    if (!drResp.ok) {
+      const errText = await drResp.text().catch(() => "");
+      return {
+        statusCode: 500,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          error: "DocRaptor error",
+          status: drResp.status,
+          details: errText.slice(0, 3000),
+          pdfHtmlUrl,
+        }),
+      };
+    }
+
+    const arrayBuffer = await drResp.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     return {
       statusCode: 200,
+      isBase64Encoded: true,
       headers: {
-        ...corsHeaders(),
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: pdfBuffer.toString("base64"),
-      isBase64Encoded: true,
+      body: buffer.toString("base64"),
     };
   } catch (err) {
-    // This is the important part: you’ll now see the REAL cause
-    return json(500, {
-      success: false,
-      error: "Server exception",
-      message: err && err.message ? err.message : String(err),
-      stack: err && err.stack ? err.stack : null,
-    });
+    console.error("[generate-report-pdf] crash:", err);
+    return {
+      statusCode: 500,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({ error: err?.message || "Unknown error" }),
+    };
   }
 };

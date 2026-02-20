@@ -1,17 +1,27 @@
 // netlify/functions/get-report-data-pdf.js
+// Purpose: return a stable, PDF-ready payload for get-report-html-pdf.
+// It fetches your existing report JSON (from get-report-data) and normalizes it
+// so the PDF HTML renderer never breaks when fields are missing.
 //
-// PDF data adapter.
-// IMPORTANT: This MUST mirror the on-screen report (OSD).
-// So we call the existing OSD endpoint:
-//   /.netlify/functions/get-report-data?report_id=...
-// Then we reshape into a stable payload for get-report-html-pdf.js.
+// FIX (2026-02-18):
+// - Always provide a deterministic "executive" summary if narrative lines are missing
+// - Normalize narrative/findings so PDF can render consistently
 
 const FETCH_TIMEOUT_MS = 20000;
 
 exports.handler = async (event) => {
-  // CORS
+  // Preflight
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders(), body: "" };
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Accept",
+        "Cache-Control": "no-store",
+      },
+      body: "",
+    };
   }
 
   if (event.httpMethod !== "GET") {
@@ -27,348 +37,247 @@ exports.handler = async (event) => {
 
     if (!reportId) return json(400, { success: false, error: "Missing report_id" });
 
-    const baseUrl = getBaseUrl(event);
+    // IMPORTANT: This fetches your existing “full” report data endpoint.
+    // If your endpoint name is different, change ONLY this path.
+    const siteUrl = process.env.URL || "https://iqweb.ai";
+    const srcUrl =
+      siteUrl +
+      "/.netlify/functions/get-report-data?report_id=" +
+      encodeURIComponent(reportId);
 
-    // ✅ Pull the SAME payload OSD uses
-    const osdUrl = `${baseUrl}/.netlify/functions/get-report-data?report_id=${encodeURIComponent(reportId)}`;
-    const osd = await fetchJson(osdUrl);
-
-    if (!osd || osd.success !== true) {
+    const rawText = await fetchTextWithTimeout(srcUrl, FETCH_TIMEOUT_MS);
+    let raw;
+    try {
+      raw = JSON.parse(rawText || "{}");
+    } catch (e) {
       return json(500, {
         success: false,
-        error: "OSD report payload not available",
-        details: osd || null,
+        error: "Source report endpoint returned non-JSON",
+        sample: (rawText || "").slice(0, 600),
       });
     }
 
-    // ---- Normalize header ----
-    const header = {
-      website: osd?.header?.website || osd?.header?.url || osd?.header?.target_url || "",
-      report_id: osd?.header?.report_id || osd?.header?.id || reportId,
-      created_at: osd?.header?.created_at || osd?.header?.createdAt || osd?.header?.timestamp || "",
-    };
+    if (!raw || raw.success !== true) {
+      return json(500, {
+        success: false,
+        error: "Source report endpoint returned success=false",
+      });
+    }
 
-    // ---- Normalize scores ----
-    const scores = osd?.scores || osd?.header?.scores || {};
-    const normScores = {
-      overall: num(scores.overall),
-      performance: num(scores.performance),
-      mobile: num(scores.mobile),
-      seo: num(scores.seo),
-      security: num(scores.security),
-      structure: num(scores.structure),
-      accessibility: num(scores.accessibility),
-    };
+    // ---- Normalize fields we expect for PDF ----
+    const header = safeObj(raw.header);
+    const scores = safeObj(raw.scores);
 
-    // ---- Narrative (OSD source of truth) ----
-    const narrative = osd?.narrative || {};
+    // Some builds used narrative, some used findings; we support both.
+    const narrative = safeObj(raw.narrative);
+    const findings = safeObj(raw.findings || raw.finding);
 
-    // ---- Signals (OSD has either `signals` object or `delivery_signals` list) ----
-    // Your screenshot JSON shows `signals: { performance:{...}, mobile:{...}, ... }`
-    const signalsObj = osd?.signals && typeof osd.signals === "object" ? osd.signals : null;
-    const signalsList = Array.isArray(osd?.delivery_signals) ? osd.delivery_signals : null;
+    // Signals list comes in different names depending on earlier versions
+    const deliverySignals =
+      (Array.isArray(raw.delivery_signals) && raw.delivery_signals) ||
+      (Array.isArray(raw.deliverySignals) && raw.deliverySignals) ||
+      (Array.isArray(raw.signals) && raw.signals) ||
+      [];
 
-    // Evidence: commonly `evidence: { performance:[...], ... }` OR embedded in signal objects
-    const evidenceObj = osd?.evidence && typeof osd.evidence === "object" ? osd.evidence : null;
+    // Ensure evidence is renderable: prefer sig.observations, else convert sig.evidence object
+    const normalizedSignals = deliverySignals.map((sig) => {
+      const out = safeObj(sig);
 
-    // Build delivery_signals[] in a stable order
-    const order = [
-      { key: "overall", label: "Overall Delivery Score", scoreKey: "overall" },
-      { key: "performance", label: "Performance", scoreKey: "performance" },
-      { key: "mobile", label: "Mobile Experience", scoreKey: "mobile" },
-      { key: "seo", label: "SEO Foundations", scoreKey: "seo" },
-      { key: "security", label: "Security & Trust", scoreKey: "security" },
-      { key: "structure", label: "Structure & Semantics", scoreKey: "structure" },
-      { key: "accessibility", label: "Accessibility", scoreKey: "accessibility" },
-    ];
+      // clone
+      const o = Object.assign({}, out);
 
-    const delivery_signals = order.map(({ key, label, scoreKey }) => {
-      const fromObj = signalsObj?.[key] || null;
+      // Normalize label/id
+      o.label = o.label || o.name || o.id || "Signal";
+      o.id = o.id || o.label;
 
-      const fromList = signalsList
-        ? signalsList.find((s) => normalizeKey(s?.id || s?.key || s?.label || s?.name) === key) || null
-        : null;
+      // Normalize score number-ish
+      if (typeof o.score === "undefined" && typeof o.value !== "undefined") o.score = o.value;
 
-      const sig = fromObj || fromList || {};
+      // Normalize observations
+      if (!Array.isArray(o.observations) || o.observations.length === 0) {
+        const ev =
+          o.evidence && typeof o.evidence === "object" && !Array.isArray(o.evidence) ? o.evidence : null;
+        if (ev) {
+          o.observations = Object.keys(ev).map((k) => ({
+            label: prettifyKey(k),
+            value: ev[k],
+          }));
+        } else {
+          o.observations = [];
+        }
+      }
 
-      // Narrative lines:
-      // prefer narrative.signals[key].lines (OSD narrative)
-      // fallback to sig.lines/sig.narrative/sig.summary
-      const lines =
-        toLines(narrative?.signals?.[key]?.lines) ||
-        toLines(sig?.lines) ||
-        toLines(sig?.narrative) ||
-        toLines(sig?.summary);
+      // Normalize deductions list (used to derive Top Issues if needed)
+      if (!Array.isArray(o.deductions)) o.deductions = [];
 
-      // Evidence/observations:
-      // prefer evidence[key] array, else sig.observations
-      const observationsRaw = (evidenceObj && Array.isArray(evidenceObj[key]) && evidenceObj[key]) || sig?.observations;
-
-      const observations = Array.isArray(observationsRaw)
-        ? observationsRaw
-            .map((o) => ({
-              label: String(o?.label ?? "").trim(),
-              value: o?.value ?? null,
-              source: String(o?.source ?? "").trim(),
-            }))
-            .filter((o) => o.label)
-        : [];
-
-      // Deductions:
-      const deductionsRaw = Array.isArray(sig?.deductions) ? sig.deductions : [];
-      const deductions = deductionsRaw
-        .map((d) => ({
-          reason: String(d?.reason || d?.label || d?.message || "").trim(),
-          points: typeof d?.points === "number" ? d.points : null,
-          code: String(d?.code || "").trim(),
-        }))
-        .filter((d) => d.reason);
-
-      // Issues:
-      const issuesRaw = Array.isArray(sig?.issues) ? sig.issues : [];
-      const issues = issuesRaw
-        .map((it) => {
-          if (typeof it === "string") return { reason: it };
-          return {
-            reason: String(it?.reason || it?.message || it?.title || it?.text || "").trim(),
-            severity: String(it?.severity || it?.level || "").trim(),
-          };
-        })
-        .filter((it) => it.reason);
-
-      return {
-        id: key,
-        label: String(sig?.label || label || key),
-        score: num(sig?.score ?? normScores[scoreKey]),
-        base_score: num(sig?.base_score),
-        penalty_points: num(sig?.penalty_points),
-        lines: Array.isArray(lines) ? lines : [],
-        summary: "",
-        observations,
-        deductions,
-        issues,
-      };
+      return o;
     });
 
-    // ---- Top issues ----
-    // Prefer explicit top_issues from OSD, else derive from signal issues/deductions
-    const top_issues =
-      normalizeTopIssues(osd?.top_issues, delivery_signals) ||
-      normalizeTopIssues(osd?.topIssues, delivery_signals) ||
-      deriveTopIssues(delivery_signals);
+    // top issues: use explicit field if present, otherwise derive from deductions (deterministic)
+    const topIssues =
+      (Array.isArray(raw.top_issues) && raw.top_issues) ||
+      (Array.isArray(raw.topIssues) && raw.topIssues) ||
+      deriveTopIssuesFromSignals(normalizedSignals);
 
-    // ---- Fix sequence ----
-    // Prefer narrative.primary_constraint + fix order from narrative.overall lines if present
-    const fix_sequence = deriveFixSequence(osd, narrative, delivery_signals);
-
-    return json(200, {
+    // Final PDF payload (stable)
+    const pdfPayload = {
       success: true,
-      header,
-      scores: normScores,
-      narrative,
-      delivery_signals,
-      top_issues,
-      fix_sequence,
-      // Keep raw too (handy for debugging)
-      _osd_source: {
-        has_signals_obj: !!signalsObj,
-        has_signals_list: !!signalsList,
-        has_evidence_obj: !!evidenceObj,
+      header: {
+        website: header.website || header.url || "",
+        report_id: header.report_id || reportId,
+        created_at: header.created_at || header.report_date || "",
       },
-    });
+      scores: {
+        overall: scores.overall,
+        performance: scores.performance,
+        mobile: scores.mobile,
+        seo: scores.seo,
+        security: scores.security,
+        structure: scores.structure,
+        accessibility: scores.accessibility,
+      },
+      narrative: deepClone(narrative), // keep as-is but cloned so we can safely enrich
+      findings: deepClone(findings), // keep as-is
+      delivery_signals: normalizedSignals,
+      top_issues: topIssues,
+    };
+
+    // ✅ Inject deterministic executive summary if narrative lines are missing
+    ensureDeterministicExecutiveSummary(pdfPayload);
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify(pdfPayload),
+    };
   } catch (err) {
     console.error("[get-report-data-pdf] error:", err);
-    return json(500, { success: false, error: err?.message || "Server error" });
+    return json(500, { success: false, error: err?.message || "Unknown error" });
   }
 };
 
-// --------------------- helpers ---------------------
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
-    "Cache-Control": "no-store",
-  };
-}
-
-function json(statusCode, body) {
+function json(statusCode, obj) {
   return {
     statusCode,
-    headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Access-Control-Allow-Origin": "*",
+    },
+    body: JSON.stringify(obj),
   };
 }
 
-function getBaseUrl(event) {
-  if (process.env.URL) return process.env.URL;
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
+function safeObj(v) {
+  return v && typeof v === "object" ? v : {};
 }
 
-async function fetchJson(url) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+function deepClone(v) {
   try {
-    const res = await fetch(url, { method: "GET", headers: { Accept: "application/json" }, signal: controller.signal });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`Fetch failed ${res.status}: ${txt.slice(0, 400)}`);
-    }
-    return await res.json();
-  } finally {
-    clearTimeout(t);
+    return JSON.parse(JSON.stringify(v || {}));
+  } catch (_) {
+    return safeObj(v);
   }
 }
 
-function num(v) {
+function prettifyKey(k) {
+  k = String(k || "").split("_").join(" ");
+  return k.replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function numOrNull(v) {
   const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n) : null;
+  return Number.isFinite(n) ? n : null;
 }
 
-function normalizeKey(s) {
-  const x = String(s || "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  if (x.includes("overall")) return "overall";
-  if (x.includes("performance")) return "performance";
-  if (x.includes("mobile")) return "mobile";
-  if (x.includes("seo")) return "seo";
-  if (x.includes("security")) return "security";
-  if (x.includes("structure")) return "structure";
-  if (x.includes("access")) return "accessibility";
-  return x;
+function ensureDeterministicExecutiveSummary(payload) {
+  if (!payload || payload.success !== true) return;
+
+  const n = safeObj(payload.narrative);
+  const f = safeObj(payload.findings);
+
+  // existing lines?
+  const existing =
+    (n.overall && Array.isArray(n.overall.lines) && n.overall.lines.length) ||
+    (n.executive && Array.isArray(n.executive.lines) && n.executive.lines.length) ||
+    (f.overall && Array.isArray(f.overall.lines) && f.overall.lines.length) ||
+    (f.executive && Array.isArray(f.executive.lines) && f.executive.lines.length);
+
+  if (existing) return;
+
+  const scores = safeObj(payload.scores);
+
+  const overall = numOrNull(scores.overall);
+  const domains = [
+    { key: "performance", label: "Performance", score: numOrNull(scores.performance) },
+    { key: "mobile", label: "Mobile Experience", score: numOrNull(scores.mobile) },
+    { key: "seo", label: "SEO Foundations", score: numOrNull(scores.seo) },
+    { key: "security", label: "Security & Trust", score: numOrNull(scores.security) },
+    { key: "structure", label: "Structure & Semantics", score: numOrNull(scores.structure) },
+    { key: "accessibility", label: "Accessibility", score: numOrNull(scores.accessibility) },
+  ].filter((d) => d.score !== null);
+
+  domains.sort((a, b) => a.score - b.score);
+
+  const primary = domains[0];
+  const secondary = domains[1];
+
+  const lines = [];
+
+  if (overall !== null) lines.push(`Overall Delivery: ${overall}/100.`);
+  if (primary) lines.push(`Primary Fix: ${primary.label} (${primary.score}/100).`);
+  if (secondary) lines.push(`Secondary Fix: ${secondary.label} (${secondary.score}/100).`);
+  lines.push("Re-scan after changes to confirm measurable improvement.");
+
+  // Write into payload.narrative in the format the PDF renderer already expects.
+  payload.narrative = safeObj(payload.narrative);
+  payload.narrative.overall = { lines: lines };
+  payload.narrative.executive = { lines: lines };
 }
 
-function toLines(value) {
-  if (!value) return null;
-  if (Array.isArray(value)) {
-    const a = value.map((x) => String(x || "").trim()).filter(Boolean);
-    return a.length ? a : null;
-  }
-  if (typeof value === "string") {
-    const a = value
-      .split(/\r?\n|•/g)
-      .map((s) => String(s || "").trim())
-      .filter(Boolean);
-    return a.length ? a : null;
-  }
-  if (typeof value === "object") return toLines(value.lines || value.line || null);
-  return null;
-}
-
-function normalizeTopIssues(raw, deliverySignals) {
-  if (!raw) return null;
-
+function deriveTopIssuesFromSignals(signals) {
   const out = [];
   const seen = new Set();
 
-  const push = (s) => {
-    const t = String(s || "").trim();
-    if (!t || seen.has(t)) return;
-    seen.add(t);
-    out.push(t);
-  };
-
-  if (Array.isArray(raw)) {
-    for (const it of raw) {
-      if (typeof it === "string") {
-        push(it);
-      } else if (it && typeof it === "object") {
-        const sig = it.signal || it.domain || it.key || it.id || it.label || "";
-        const reason = it.reason || it.message || it.title || it.text || "";
-        if (sig && reason) push(`${sig}: ${reason}`);
-        else if (reason) push(reason);
-      }
-    }
-  } else if (typeof raw === "string") {
-    push(raw);
-  }
-
-  // If still empty, derive from signals
-  if (!out.length) return deriveTopIssues(deliverySignals);
-  return out.slice(0, 10);
-}
-
-function deriveTopIssues(deliverySignals) {
-  const items = [];
-
-  for (const sig of deliverySignals || []) {
-    const label = String(sig?.label || sig?.id || "Signal").trim();
-
-    // Prefer explicit issues (these are human readable)
-    for (const it of sig?.issues || []) {
-      const reason = String(it?.reason || it).trim();
-      if (reason) items.push({ weight: 100, text: `${label}: ${reason}` });
-    }
-
-    // Then deductions (sorted by points)
-    for (const d of sig?.deductions || []) {
-      const pts = typeof d?.points === "number" ? d.points : 0;
+  for (const sig of signals) {
+    const sigName = String(sig?.label || sig?.id || "Signal").trim() || "Signal";
+    const deds = Array.isArray(sig?.deductions) ? sig.deductions : [];
+    for (const d of deds) {
       const reason = String(d?.reason || "").trim();
-      if (reason) items.push({ weight: pts, text: `${label}: ${reason}${pts ? ` (${pts} pts)` : ""}` });
+      if (!reason) continue;
+      const item = `${sigName}: ${reason}`;
+      if (seen.has(item)) continue;
+      seen.add(item);
+      out.push(item);
+      if (out.length >= 10) break;
     }
-  }
-
-  items.sort((a, b) => (b.weight || 0) - (a.weight || 0));
-
-  const out = [];
-  const seen = new Set();
-  for (const it of items) {
-    if (seen.has(it.text)) continue;
-    seen.add(it.text);
-    out.push(it.text);
     if (out.length >= 10) break;
   }
+
   return out;
 }
 
-function deriveFixSequence(osd, narrative, deliverySignals) {
-  const seq = [];
-
-  // If OSD already provides a list, use it
-  if (Array.isArray(osd?.fix_sequence) && osd.fix_sequence.length) {
-    for (const s of osd.fix_sequence) {
-      const t = String(s || "").trim();
-      if (t) seq.push(t);
-    }
-    return seq.slice(0, 12);
+async function fetchTextWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    const txt = await resp.text().catch(() => "");
+    if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
+    if (!txt || txt.length < 2) throw new Error("Empty response from source report endpoint");
+    return txt;
+  } catch (e) {
+    if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
+    throw e;
+  } finally {
+    clearTimeout(id);
   }
-
-  // Narrative primary constraint is usually the best “#1”
-  const pc = narrative?.primary_constraint?.value || narrative?.primary_constraint?.text || "";
-  if (pc) seq.push(String(pc).trim());
-
-  // Sometimes overall lines include “Fix order: …”
-  const overallLines = toLines(narrative?.overall?.lines) || [];
-  for (const line of overallLines) {
-    if (/^fix\s*order\s*:/i.test(line) || /^primary\s*fix\s*:/i.test(line) || /^secondary\s*fix\s*:/i.test(line)) {
-      seq.push(line.replace(/^\s*/, ""));
-    }
-  }
-
-  // Fallback: build from lowest scoring domains
-  const scored = (deliverySignals || [])
-    .filter((s) => typeof s?.score === "number" && s.id && s.id !== "overall")
-    .slice()
-    .sort((a, b) => (a.score || 0) - (b.score || 0));
-
-  for (const s of scored.slice(0, 4)) {
-    seq.push(`Improve ${String(s.label || s.id)} first, then re-scan to confirm.`);
-  }
-
-  // Dedupe
-  const out = [];
-  const seen = new Set();
-  for (const s of seq) {
-    const t = String(s || "").trim();
-    if (!t || seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
-  }
-  return out.slice(0, 12);
 }
