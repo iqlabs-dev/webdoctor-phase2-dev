@@ -932,7 +932,7 @@
     </div>
   </div>
 
-  <!-- Renders the report from scan_results --
+  <!-- Renders the report from scan_results -->
   <script src="/assets/js/report-data.js"></script>
 
   <!-- UI buttons (Back/Refresh) -->
@@ -945,15 +945,6 @@
     const params = new URLSearchParams(window.location.search);
     const from = (params.get("from") || "").toLowerCase();
     const reportId = params.get("report_id") || "";
-
-        // PDF render (DocRaptor): force light theme + hide interactive controls
-    const isPdfRender = (from === "pdf") || (params.get("pdf") === "1");
-    if (isPdfRender) {
-      try { document.body.classList.add("light"); } catch (_) {}
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
-      if (pdfBtn) pdfBtn.style.display = "none";
-    }
 
     const isHistory = from === "history";
     const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
