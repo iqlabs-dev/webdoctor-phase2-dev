@@ -159,19 +159,21 @@
     });
   }
 
-  function fetchReportData(reportId) {
-    if (isPdfMode()) {
-      var token = getQueryParam("pdf_token") || "";
-      if (!token) return Promise.reject(new Error("Missing pdf_token (PDF mode)."));
-      var url =
-        "/.netlify/functions/get-report-data-pdf?report_id=" +
-        encodeURIComponent(reportId) +
-        "&pdf_token=" +
-        encodeURIComponent(token);
-      return fetchJson("GET", url);
-    }
-    return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
+function fetchReportData(reportId) {
+  // PDF mode: use the PDF-safe endpoint (no token required)
+  if (isPdfMode()) {
+    var url =
+      "/.netlify/functions/get-report-data-pdf?report_id=" +
+      encodeURIComponent(reportId);
+    return fetchJson("GET", url);
   }
+
+  // Normal OSD mode
+  return fetchJson(
+    "GET",
+    "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId)
+  );
+}
 
   // -----------------------------
   // Data contract bridge (new vs legacy)
