@@ -1,10 +1,10 @@
-// netlify/functions/get-report-data-pdf.js
-// Stable PDF payload provider.
-// Normalises scan output so PDF rendering never breaks when narrative is missing.
+// netlify/functions/generate-report-pdf.js
+// Generates PDF using DocRaptor from get-report-html-pdf
 
-const FETCH_TIMEOUT_MS = 20000;
+const https = require("https");
 
 exports.handler = async (event) => {
+  // Allow GET and POST
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -13,99 +13,82 @@ exports.handler = async (event) => {
     };
   }
 
-  if (event.httpMethod !== "GET") {
+  if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ success: false, error: "method_not_allowed" }),
+      headers: corsHeaders(),
+      body: "Method not allowed",
     };
   }
 
   try {
-    const reportId = String(
-      (event.queryStringParameters &&
-        (event.queryStringParameters.report_id ||
-          event.queryStringParameters.reportId)) ||
+    // Support GET query OR POST body
+    let reportId = "";
+
+    if (event.httpMethod === "GET") {
+      reportId = String(
+        event.queryStringParameters?.report_id ||
+        event.queryStringParameters?.reportId ||
         ""
-    ).trim();
+      ).trim();
+    } else {
+      const body = JSON.parse(event.body || "{}");
+      reportId = String(body.report_id || body.reportId || "").trim();
+    }
 
     if (!reportId) {
       return {
         statusCode: 400,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "missing_report_id" }),
+        headers: corsHeaders(),
+        body: "Missing report_id",
       };
     }
 
     const siteUrl = process.env.URL || "https://iqweb.ai";
+    const docraptorKey = process.env.DOCRAPTOR_API_KEY;
 
-    const dataUrl =
+    if (!docraptorKey) {
+      return {
+        statusCode: 500,
+        headers: corsHeaders(),
+        body: "Missing DOCRAPTOR_API_KEY",
+      };
+    }
+
+    const pdfSourceUrl =
       siteUrl +
-      "/.netlify/functions/get-report-data?report_id=" +
+      "/.netlify/functions/get-report-html-pdf?report_id=" +
       encodeURIComponent(reportId);
 
-    const rawText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
+    const docraptorPayload = JSON.stringify({
+      test: false,
+      document_type: "pdf",
+      name: `iQWEB_Report_${reportId}.pdf`,
+      document_content: null,
+      document_url: pdfSourceUrl,
+      prince_options: {
+        media: "print",
+      },
+    });
 
-    let base;
-    try {
-      base = JSON.parse(rawText || "{}");
-    } catch (e) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "invalid_json" }),
-      };
-    }
-
-    if (!base || base.success !== true) {
-      return {
-        statusCode: 500,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ success: false, error: "get-report-data_failed" }),
-      };
-    }
-
-    // ---------- SAFE NORMALISATION ----------
-
-    const payload = {
-      success: true,
-
-      header: base.header || {},
-
-      scores: base.scores || {},
-
-      // Narrative is OPTIONAL — never required
-      narrative: base.narrative || null,
-
-      findings: base.findings || null,
-
-      delivery_signals: Array.isArray(base.delivery_signals)
-        ? base.delivery_signals
-        : [],
-
-      top_issues: Array.isArray(base.top_issues)
-        ? base.top_issues
-        : [],
-    };
+    const pdfBuffer = await callDocRaptor(docraptorKey, docraptorPayload);
 
     return {
       statusCode: 200,
       headers: {
         ...corsHeaders(),
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="iQWEB_Report_${reportId}.pdf"`,
       },
-      body: JSON.stringify(payload),
+      body: pdfBuffer.toString("base64"),
+      isBase64Encoded: true,
     };
   } catch (err) {
-    console.error("[get-report-data-pdf] error:", err);
+    console.error("[generate-report-pdf] error:", err);
     return {
       statusCode: 500,
-      headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        success: false,
-        error: err?.message || "unknown_error",
-      }),
+      headers: corsHeaders(),
+      body: err?.message || "Unknown error",
     };
   }
 };
@@ -113,36 +96,49 @@ exports.handler = async (event) => {
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
   };
 }
 
-async function fetchTextWithTimeout(url, ms) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), ms);
+function callDocRaptor(apiKey, payload) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.docraptor.com",
+      port: 443,
+      path: "/docs",
+      method: "POST",
+      auth: apiKey + ":",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      },
+    };
 
-  try {
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
+    const req = https.request(options, (res) => {
+      const chunks = [];
+
+      res.on("data", (d) => chunks.push(d));
+
+      res.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(buffer);
+        } else {
+          reject(
+            new Error(
+              `DocRaptor error ${res.statusCode}: ${buffer
+                .toString()
+                .slice(0, 500)}`
+            )
+          );
+        }
+      });
     });
 
-    const txt = await resp.text().catch(() => "");
-
-    if (!resp.ok)
-      throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 500)}`);
-
-    if (!txt || txt.length < 2)
-      throw new Error("Empty response from get-report-data");
-
-    return txt;
-  } catch (e) {
-    if (e?.name === "AbortError")
-      throw new Error(`Timeout after ${ms}ms: ${url}`);
-    throw e;
-  } finally {
-    clearTimeout(id);
-  }
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
 }
