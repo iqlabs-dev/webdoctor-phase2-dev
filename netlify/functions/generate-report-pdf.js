@@ -1,21 +1,15 @@
 // netlify/functions/generate-report-pdf.js
-// iQWEB — Generate PDF using the EXACT same renderer as OSD (report.html + report-data.js)
+// Generates PDF via DocRaptor by printing a server-rendered HTML page (NO JS).
 //
-// Strategy:
-// - DocRaptor fetches /report.html?report_id=...&pdf=1 (public)
-// - report.html runs the normal JS renderer (report-data.js)
-// - In pdf mode, report-data.js sets window.status='done' when rendering is complete
-// - DocRaptor waits for JS before rendering (wait_for_javascript)
-//
-// This keeps OSD/PDF parity and avoids maintaining a second HTML renderer.
+// Reliable approach:
+// - Fetch printable HTML from get-report-html-pdf (server generated)
+// - Send DocRaptor request to https://api.docraptor.com/docs using Basic Auth
+// - Return base64 PDF to browser
 
-const fetch = require("node-fetch");
-
-const DOCRAPTOR_API = "https://api.docraptor.com/docs";
-const TIMEOUT_MS = Number(process.env.DOCRAPTOR_TIMEOUT_MS || "120000"); // 2 min
+const https = require("https");
 
 exports.handler = async (event) => {
-  // CORS preflight
+  // CORS / preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -24,73 +18,114 @@ exports.handler = async (event) => {
     };
   }
 
+  // Enforce POST (your UI sends POST)
   if (event.httpMethod !== "POST") {
-    return json(405, { success: false, error: "Method not allowed" });
+    return {
+      statusCode: 405,
+      headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
   }
 
   try {
-    const apiKey = process.env.DOCRAPTOR_API_KEY;
-    if (!apiKey) return json(500, { success: false, error: "DOCRAPTOR_API_KEY_missing" });
+    // Parse body
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ error: "Invalid JSON body" }),
+      };
+    }
 
-    const body = safeJson(event.body);
-    const reportId = String(body.report_id || body.reportId || body.id || "").trim();
+    const reportId = String(body.reportId || body.report_id || "").trim();
+    if (!reportId) {
+      return {
+        statusCode: 400,
+        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ error: "Missing reportId" }),
+      };
+    }
 
-    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
+    // ✅ Support BOTH env var names (you already have both patterns in repo)
+    const apiKey =
+      process.env.DOC_RAPTOR_API_KEY ||
+      process.env.DOCRAPTOR_API_KEY ||
+      "";
 
-    // Netlify provides URL in most contexts. Fall back to prod domain if absent.
-    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          error: "DocRaptor API key is not set",
+          expected_env: ["DOC_RAPTOR_API_KEY", "DOCRAPTOR_API_KEY"],
+        }),
+      };
+    }
 
-    // Use the SAME report page (OSD) and switch into PDF mode via query param.
-    // NOTE: include from=pdf so report.html can hide interactive UI.
-    const reportUrl =
-      siteUrl +
-      "/report.html?report_id=" +
-      encodeURIComponent(reportId) +
-      "&pdf=1&from=pdf";
+    const siteUrl = process.env.URL || "https://iqweb.ai";
 
-    const docName = `iQWEB Website Report — ${reportId}.pdf`;
+    // DocRaptor will fetch this via GET
+    const pdfHtmlUrl = `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(
+      reportId
+    )}`;
 
-    const payload = {
-      name: docName,
+    // ✅ Probe HTML endpoint first so we fail with a useful message
+    const probe = await fetch(pdfHtmlUrl, { method: "GET" });
+    const probeText = await probe.text().catch(() => "");
+
+    if (!probe.ok) {
+      return {
+        statusCode: 500,
+        headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          error: "PDF HTML endpoint failed (DocRaptor would fail too)",
+          status: probe.status,
+          url: pdfHtmlUrl,
+          details: probeText.slice(0, 1500),
+        }),
+      };
+    }
+
+    // ✅ DocRaptor request (Basic Auth) — most reliable method
+    const drPayload = JSON.stringify({
+      test: false,
       document_type: "pdf",
-      document_url: reportUrl,
-      test: String(process.env.DOCRAPTOR_TEST || "false").toLowerCase() === "true",
+      name: `${reportId}.pdf`,
+      document_url: pdfHtmlUrl,
 
-      // Make sure JS runs (report-data.js renders the report)
-      javascript: true,
+      // ✅ Don’t execute JS
+      javascript: false,
+      wait_for_javascript: false,
 
-      // Prince options are passed through by DocRaptor
       prince_options: {
         media: "print",
-        // IMPORTANT: wait for JS to signal completion (window.status='done')
-        wait_for_javascript: true,
-        // Give enough time for big reports to render
-        timeout: TIMEOUT_MS,
-        // PDFs should be white pages
-        no_background: true,
       },
-    };
+    });
 
-    const pdfBuffer = await postDocRaptor(apiKey, payload);
+    const pdfBuffer = await callDocRaptor(apiKey, drPayload);
 
-    const b64 = Buffer.from(pdfBuffer).toString("base64");
     return {
       statusCode: 200,
+      isBase64Encoded: true,
       headers: {
         ...corsHeaders(),
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${safeFilename(reportId)}.pdf"`,
+        "Content-Disposition": `attachment; filename="${reportId}.pdf"`,
         "Cache-Control": "no-store",
       },
-      isBase64Encoded: true,
-      body: b64,
+      body: pdfBuffer.toString("base64"),
     };
   } catch (err) {
-    console.error("[generate-report-pdf] error:", err);
-    return json(500, {
-      success: false,
-      error: err && err.message ? err.message : "Unknown error",
-    });
+    console.error("[generate-report-pdf] crash:", err);
+    return {
+      statusCode: 500,
+      headers: { ...corsHeaders(), "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ error: err?.message || "Unknown error" }),
+    };
   }
 };
 
@@ -99,56 +134,47 @@ function corsHeaders() {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept",
+    "Cache-Control": "no-store",
   };
 }
 
-function json(statusCode, obj) {
-  return {
-    statusCode,
-    headers: { ...corsHeaders(), "Content-Type": "application/json", "Cache-Control": "no-store" },
-    body: JSON.stringify(obj),
-  };
-}
-
-function safeJson(s) {
-  try {
-    return JSON.parse(s || "{}");
-  } catch (_) {
-    return {};
-  }
-}
-
-function safeFilename(reportId) {
-  return String(reportId || "report").replace(/[^a-zA-Z0-9._-]+/g, "_");
-}
-
-async function postDocRaptor(apiKey, docPayload) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), TIMEOUT_MS + 10000);
-
-  try {
-    const res = await fetch(DOCRAPTOR_API, {
+function callDocRaptor(apiKey, payload) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: "api.docraptor.com",
+      port: 443,
+      path: "/docs",
       method: "POST",
+      auth: apiKey + ":", // Basic Auth (apiKey as username, blank password)
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Basic " + Buffer.from(apiKey + ":").toString("base64"),
+        "Content-Length": Buffer.byteLength(payload),
+        Accept: "application/pdf",
       },
-      body: JSON.stringify(docPayload),
-      signal: controller.signal,
+    };
+
+    const req = https.request(options, (res) => {
+      const chunks = [];
+      res.on("data", (d) => chunks.push(d));
+      res.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(buffer);
+        } else {
+          reject(
+            new Error(
+              `DocRaptor error ${res.statusCode}: ${buffer
+                .toString("utf8")
+                .slice(0, 1200)}`
+            )
+          );
+        }
+      });
     });
 
-    const buf = await res.buffer();
-
-    if (!res.ok) {
-      const snippet = buf ? buf.toString("utf8").slice(0, 2000) : "";
-      throw new Error(`DocRaptor error (${res.status}): ${snippet || "no body"}`);
-    }
-
-    return buf;
-  } catch (e) {
-    if (e && e.name === "AbortError") throw new Error("DocRaptor request timed out");
-    throw e;
-  } finally {
-    clearTimeout(t);
-  }
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
 }
