@@ -625,13 +625,40 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
-      const actionBtn = document.createElement("button");
-      actionBtn.className = "btn-link btn-view";
-      actionBtn.type = "button";
-      actionBtn.textContent = "View + Download PDF";
-      actionBtn.onclick = () => goToReportFromHistory(row.report_id);
+// --- View Report button ---
+const viewBtn = document.createElement("button");
+viewBtn.className = "btn-link";
+viewBtn.type = "button";
+viewBtn.textContent = "View Report";
+viewBtn.onclick = () => goToReportFromHistory(row.report_id);
 
-      tdActions.appendChild(actionBtn);
+tdActions.appendChild(viewBtn);
+
+// --- Copy Link button ---
+const copyBtn = document.createElement("button");
+copyBtn.className = "btn-link";
+copyBtn.type = "button";
+copyBtn.style.marginLeft = "6px";
+copyBtn.textContent = "Copy Link";
+
+copyBtn.onclick = async () => {
+  const rid = normaliseReportId(row.report_id);
+  if (!rid) return;
+
+  const reportUrl = `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
+
+  try {
+    await navigator.clipboard.writeText(reportUrl);
+    copyBtn.textContent = "✓ Copied";
+    setTimeout(() => {
+      copyBtn.textContent = "Copy Link";
+    }, 2000);
+  } catch (err) {
+    console.error("Clipboard failed:", err);
+  }
+};
+
+tdActions.appendChild(copyBtn);
       tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
