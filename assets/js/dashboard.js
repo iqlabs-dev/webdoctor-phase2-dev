@@ -552,7 +552,7 @@ async function loadScanHistory() {
       .select("id,url,created_at,status,score_overall,metrics,report_url,report_id")
       .eq("user_id", currentUserId)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(100);
 
     if (error) {
       console.error("History load error:", error);
