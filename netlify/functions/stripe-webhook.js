@@ -162,11 +162,7 @@ async function incrementUserCredits(email, amount) {
 }
 
 // -------------------------------------------------
-// ✅ subscriptions table helpers (THIS is what you’re missing)
-// Table columns you showed:
-// email, price_id, status, stripe_session_id, stripe_payment_intent,
-// stripe_subscription_id, stripe_customer_id, current_period_end,
-// cancel_at_period_end, canceled_at, created_at...
+// ✅ subscriptions table helpers
 // -------------------------------------------------
 async function safeUpsertSubscription(email, patch) {
   const e = normalizeEmail(email);
@@ -198,7 +194,6 @@ async function safeUpsertSubscription(email, patch) {
   // If a column mismatch happens, strip unknowns and retry (safe)
   if (isMissingColumnError(res.error)) {
     const retry = { ...payload };
-    // nothing optional here to strip reliably; just retry once
     res = await supabase
       .from("subscriptions")
       .upsert(retry, { onConflict: "email" });
@@ -232,8 +227,6 @@ async function findSubscriptionByStripeCustomerId(customerId) {
 
 // -------------------------------------------------
 // 🔒 Payments Freeze (fulfillment guard)
-// - MUST "ack" Stripe with 200
-// - MUST NOT grant credits / plans while frozen
 // -------------------------------------------------
 async function isPaymentsFrozenForFulfillment() {
   if (process.env.PAYMENTS_DISABLED === "1") return true;
@@ -356,7 +349,7 @@ export const handler = async (event) => {
 
         const periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
 
-        // ✅ Write subscriptions table (this is what you’re checking in Supabase UI)
+        // ✅ Write subscriptions table
         if (email) {
           const subUp = await safeUpsertSubscription(email, {
             price_id: priceIdFromStripe || null,
@@ -372,7 +365,7 @@ export const handler = async (event) => {
           if (subUp.error) throw subUp.error;
         }
 
-        // ✅ PRIMARY: user_credits (dashboard reads this)
+        // ✅ PRIMARY: user_credits
         if (planPayload && email) {
           const upUc = await safeUpsertUserCredits(email, {
             plan: planPayload.plan,
@@ -481,7 +474,6 @@ export const handler = async (event) => {
     }
 
     // ---------------- customer.subscription.updated ----------------
-    // This is the event you pasted: cancel_at_period_end flips TRUE, cancel_at set, status stays "active"
     if (stripeEvent.type === "customer.subscription.updated") {
       const sub = stripeEvent.data.object;
       const subscriptionId = sub.id;
@@ -493,6 +485,12 @@ export const handler = async (event) => {
         return json(200, { ok: true, frozen: true });
       }
 
+      // ✅ SAFER: explicitly convert current_period_end if present
+      const currentPeriodEndIso =
+        typeof sub?.current_period_end === "number"
+          ? new Date(sub.current_period_end * 1000).toISOString()
+          : null;
+
       // Determine price + mapped plan (optional)
       const priceId = sub?.items?.data?.[0]?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
@@ -500,7 +498,6 @@ export const handler = async (event) => {
       // Find email (prefer DB link)
       let email = null;
 
-      // Try subscriptions table first (fast + matches what you’re inspecting)
       const existingSubRow =
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
         (await findSubscriptionByStripeCustomerId(customerId));
@@ -522,18 +519,16 @@ export const handler = async (event) => {
           status: sub?.status || null,
           stripe_subscription_id: subscriptionId || null,
           stripe_customer_id: customerId || null,
-          current_period_end: unixToIsoOrNull(sub?.current_period_end),
+          current_period_end: currentPeriodEndIso, // ✅ changed
           cancel_at_period_end: !!sub?.cancel_at_period_end,
           canceled_at: unixToIsoOrNull(sub?.canceled_at),
         });
         if (up.error) throw up.error;
 
-        // Optional: if you want dashboard plan to flip immediately (usually you already handle via checkout/invoice)
+        // Optional: reflect plan immediately (you can later choose to not reset credits here)
         if (mapped && mapped.kind === "subscription") {
           const upUc = await safeUpsertUserCredits(email, {
             plan: mapped.plan,
-            // DO NOT reset credits here if you prefer invoice.paid to be the source of truth.
-            // But it’s harmless if you want immediate reflection:
             credits: mapped.credits,
             stripe_customer_id: customerId || null,
           });
