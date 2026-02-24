@@ -50,6 +50,22 @@ function unixToIsoOrNull(unixSeconds) {
 }
 
 /**
+ * IMPORTANT FIX:
+ * Stripe sometimes omits sub.current_period_end on customer.subscription.updated,
+ * but includes:
+ * - cancel_at (same as scheduled end)
+ * - items.data[0].current_period_end
+ */
+function getSubscriptionPeriodEndUnix(sub) {
+  return (
+    sub?.current_period_end ||
+    sub?.cancel_at ||
+    sub?.items?.data?.[0]?.current_period_end ||
+    null
+  );
+}
+
+/**
  * Defensive update:
  * If your DB doesn't have a column yet,
  * Supabase can return Postgres 42703 "column does not exist".
@@ -171,7 +187,6 @@ async function incrementUserCredits(email, amount) {
 async function safeWriteSubscription({ email, subscriptionId, customerId, patch }) {
   const e = normalizeEmail(email);
 
-  // Always keep IDs in the row if we have them
   const payload = {
     ...(e ? { email: e } : {}),
     ...(subscriptionId ? { stripe_subscription_id: subscriptionId } : {}),
@@ -211,7 +226,6 @@ async function safeWriteSubscription({ email, subscriptionId, customerId, patch 
 
     if (!res.error) return res;
 
-    // If no UNIQUE(email), fall back to update by email
     const msg = String(res.error?.message || res.error || "");
     const looksLikeNoConstraint =
       msg.toLowerCase().includes("there is no unique") ||
@@ -284,7 +298,6 @@ async function isPaymentsFrozenForFulfillment() {
 function computeSubscriptionStatus(subObj) {
   const base = subObj?.status || null;
   if (!base) return null;
-  // If Stripe says "active" but cancel_at_period_end true, store "canceling"
   if (base === "active" && subObj?.cancel_at_period_end) return "canceling";
   return base;
 }
@@ -334,7 +347,6 @@ export const handler = async (event) => {
         normalizeEmail(session?.customer_email) ||
         null;
 
-      // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: checkout.session.completed (fulfillment blocked)", {
@@ -380,7 +392,6 @@ export const handler = async (event) => {
         if (priceKey === "sub50") planPayload = { plan: "intelligence", credits: 50 };
         if (priceKey === "sub100") planPayload = { plan: "impact", credits: 100 };
 
-        // Pull subscription to get price + current_period_end
         const subObj = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["items.data.price"] });
         const priceIdFromStripe = subObj?.items?.data?.[0]?.price?.id || null;
 
@@ -391,10 +402,9 @@ export const handler = async (event) => {
           }
         }
 
-        const periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
+        const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(subObj));
 
-        // ✅ Write subscriptions table (prefer Stripe IDs)
-        await safeWriteSubscription({
+        const wr = await safeWriteSubscription({
           email,
           subscriptionId,
           customerId,
@@ -408,8 +418,8 @@ export const handler = async (event) => {
             canceled_at: unixToIsoOrNull(subObj?.canceled_at),
           }
         });
+        if (wr?.error) throw wr.error;
 
-        // ✅ PRIMARY: user_credits (dashboard reads this)
         if (planPayload && email) {
           const upUc = await safeUpsertUserCredits(email, {
             plan: planPayload.plan,
@@ -419,7 +429,6 @@ export const handler = async (event) => {
           if (upUc.error) throw upUc.error;
         }
 
-        // Legacy: profiles
         if (planPayload) {
           const up = await safeUpdateProfile(userId, {
             plan: planPayload.plan,
@@ -452,17 +461,14 @@ export const handler = async (event) => {
       if (!mapped) return json(200, { ok: true, note: "invoice: unmapped price" });
       if (mapped.kind !== "subscription") return json(200, { ok: true });
 
-      // 🔒 PAYMENTS FREEZE
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: invoice (fulfillment blocked)", { customerId, subscriptionId, priceId });
         return json(200, { ok: true, frozen: true });
       }
 
-      // email
       let email = normalizeEmail(invoice?.customer_email) || null;
 
-      // Find profile to get email if needed
       let profile = null;
       if (!email) {
         if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
@@ -470,18 +476,16 @@ export const handler = async (event) => {
         if (profile?.email) email = normalizeEmail(profile.email);
       }
 
-      // current period end
       let periodEndIso = null;
       let subObj = null;
       if (subscriptionId) {
         try {
           subObj = await stripe.subscriptions.retrieve(subscriptionId);
-          periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
+          periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(subObj));
         } catch (_) {}
       }
 
-      // ✅ update subscriptions table (prefer Stripe IDs)
-      await safeWriteSubscription({
+      const wr = await safeWriteSubscription({
         email,
         subscriptionId,
         customerId,
@@ -493,8 +497,8 @@ export const handler = async (event) => {
           canceled_at: unixToIsoOrNull(subObj?.canceled_at),
         }
       });
+      if (wr?.error) throw wr.error;
 
-      // ✅ user_credits monthly reset
       if (email) {
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
@@ -504,7 +508,6 @@ export const handler = async (event) => {
         if (upUc.error) throw upUc.error;
       }
 
-      // legacy profiles if found
       if (profile?.user_id) {
         const up = await safeUpdateProfile(profile.user_id, {
           plan: mapped.plan,
@@ -532,11 +535,9 @@ export const handler = async (event) => {
         return json(200, { ok: true, frozen: true });
       }
 
-      // Determine price + mapped plan (optional)
       const priceId = sub?.items?.data?.[0]?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
 
-      // Find email if possible (but do NOT require it anymore)
       let email = null;
 
       const existingSubRow =
@@ -552,26 +553,25 @@ export const handler = async (event) => {
         if (profile?.email) email = normalizeEmail(profile.email);
       }
 
-      // ✅ ALWAYS write subscription state by Stripe IDs
-      const up = await safeWriteSubscription({
+      const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
+
+      const wr = await safeWriteSubscription({
         email,
         subscriptionId,
         customerId,
         patch: {
           price_id: priceId || null,
           status: computeSubscriptionStatus(sub) || null,
-          current_period_end: unixToIsoOrNull(sub?.current_period_end),
+          current_period_end: periodEndIso,              // ✅ FIXED
           cancel_at_period_end: !!sub?.cancel_at_period_end,
           canceled_at: unixToIsoOrNull(sub?.canceled_at),
         }
       });
-      if (up.error) throw up.error;
+      if (wr?.error) throw wr.error;
 
-      // Optional: update user_credits if we have email and mapping
       if (email && mapped && mapped.kind === "subscription") {
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
-          // Keep as-is OR set immediately; you were OK with immediate reflection
           credits: mapped.credits,
           stripe_customer_id: customerId || null,
         });
@@ -593,7 +593,6 @@ export const handler = async (event) => {
         return json(200, { ok: true, frozen: true });
       }
 
-      // Find email if possible (but don’t require it)
       let email = null;
       const existing =
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
@@ -608,7 +607,8 @@ export const handler = async (event) => {
         if (profile?.email) email = normalizeEmail(profile.email);
       }
 
-      // ✅ subscriptions table update by Stripe IDs
+      const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
+
       const upSub = await safeWriteSubscription({
         email,
         subscriptionId,
@@ -617,12 +617,11 @@ export const handler = async (event) => {
           status: "canceled",
           cancel_at_period_end: true,
           canceled_at: unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
-          current_period_end: unixToIsoOrNull(sub?.current_period_end),
+          current_period_end: periodEndIso,              // ✅ FIXED
         }
       });
-      if (upSub.error) throw upSub.error;
+      if (upSub?.error) throw upSub.error;
 
-      // ✅ user_credits back to free (if we can identify user by email)
       if (email) {
         const upUc = await safeUpsertUserCredits(email, { plan: "free", credits: 0 });
         if (upUc.error) throw upUc.error;
@@ -631,11 +630,9 @@ export const handler = async (event) => {
       return json(200, { ok: true });
     }
 
-    // Acknowledge everything else
     return json(200, { ok: true });
   } catch (err) {
     console.error("stripe-webhook error:", err);
-    // IMPORTANT: returning 200 avoids Stripe retry storms while live-testing
     return json(200, { ok: false, error: String(err?.message || err) });
   }
 };
