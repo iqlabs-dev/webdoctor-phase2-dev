@@ -23,7 +23,7 @@ function json(statusCode, obj) {
  * Your mapping:
  * SUB_50  = Intelligence
  * SUB_100 = Impact
- * ONEOFF  = Single report ($49)
+ * ONEOFF  = Single report
  */
 function mapPriceToPlan(priceId) {
   const sub50 = process.env.STRIPE_PRICE_SUB_50;
@@ -71,9 +71,9 @@ async function findProfileByStripeSubscription(subscriptionId) {
 
 /**
  * Defensive update:
- * If your DB doesn't have billing_period_end yet (or any future optional column),
- * Supabase will return Postgres 42703 "column does not exist".
- * We retry without the optional fields so Stripe webhooks never break the loop.
+ * If your DB doesn't have some optional column,
+ * Supabase returns Postgres 42703 "column does not exist".
+ * We retry without optional fields so Stripe webhooks never brick fulfillment.
  */
 function isMissingColumnError(err) {
   const msg = (err && (err.message || err.details)) ? String(err.message || err.details) : "";
@@ -82,15 +82,12 @@ function isMissingColumnError(err) {
 }
 
 async function safeUpdateProfile(userId, patch) {
-  // First attempt (full patch)
   let res = await supabase.from("profiles").update(patch).eq("user_id", userId);
   if (!res.error) return res;
 
-  // If a column is missing, drop optional fields and retry.
   if (isMissingColumnError(res.error)) {
     const retryPatch = { ...patch };
     delete retryPatch.billing_period_end;
-
     res = await supabase.from("profiles").update(retryPatch).eq("user_id", userId);
     return res;
   }
@@ -133,25 +130,14 @@ async function safeUpsertUserCredits(email, patch) {
   const e = normalizeEmail(email);
   if (!e) return { error: new Error("Missing email for user_credits upsert") };
 
-  // Requires a UNIQUE constraint on user_credits.email (recommended).
-  // If you don't have it, this will create duplicates — but it will still show you what's happening fast.
-  const payload = {
-    email: e,
-    ...patch,
-  };
+  const payload = { email: e, ...patch };
 
-  let res = await supabase
-    .from("user_credits")
-    .upsert(payload, { onConflict: "email" });
-
+  let res = await supabase.from("user_credits").upsert(payload, { onConflict: "email" });
   if (!res.error) return res;
 
-  // If optional columns ever diverge (unlikely here), you can strip fields and retry.
   if (isMissingColumnError(res.error)) {
     const retry = { ...payload };
-    res = await supabase
-      .from("user_credits")
-      .upsert(retry, { onConflict: "email" });
+    res = await supabase.from("user_credits").upsert(retry, { onConflict: "email" });
     return res;
   }
 
@@ -166,7 +152,46 @@ async function incrementUserCredits(email, amount) {
   const current = existing && typeof existing.credits === "number" ? existing.credits : 0;
   const next = current + (amount || 0);
 
-  const res = await safeUpsertUserCredits(e, { credits: next });
+  return await safeUpsertUserCredits(e, { credits: next });
+}
+
+// -------------------------------------------------
+// ✅ subscriptions table helpers (your Supabase table)
+// Keeps your SQL view of cancel_at_period_end / current_period_end in sync.
+// -------------------------------------------------
+
+async function safeUpsertSubscriptionRow(row) {
+  // NOTE: This assumes you have a UNIQUE constraint on subscriptions.user_id (recommended).
+  // If you do not, upsert will error; we will fail-open (log + continue) so Stripe doesn't retry storm.
+  let res = await supabase.from("subscriptions").upsert(row, { onConflict: "user_id" });
+  if (!res.error) return res;
+
+  if (isMissingColumnError(res.error)) {
+    // Strip any optional fields you might not have yet
+    const retry = { ...row };
+    delete retry.current_period_end;
+    delete retry.cancel_at_period_end;
+    delete retry.canceled_at;
+    res = await supabase.from("subscriptions").upsert(retry, { onConflict: "user_id" });
+    return res;
+  }
+
+  return res;
+}
+
+async function safeUpdateSubscriptionByUserId(userId, patch) {
+  let res = await supabase.from("subscriptions").update(patch).eq("user_id", userId);
+  if (!res.error) return res;
+
+  if (isMissingColumnError(res.error)) {
+    const retry = { ...patch };
+    delete retry.current_period_end;
+    delete retry.cancel_at_period_end;
+    delete retry.canceled_at;
+    res = await supabase.from("subscriptions").update(retry).eq("user_id", userId);
+    return res;
+  }
+
   return res;
 }
 
@@ -175,8 +200,8 @@ async function incrementUserCredits(email, amount) {
 // - MUST "ack" Stripe with 200
 // - MUST NOT grant credits / plans while frozen
 // -------------------------------------------------
+
 async function isPaymentsFrozenForFulfillment() {
-  // Emergency env kill switch (optional)
   if (process.env.PAYMENTS_DISABLED === "1") return true;
 
   try {
@@ -186,7 +211,7 @@ async function isPaymentsFrozenForFulfillment() {
       .eq("id", 1)
       .maybeSingle();
 
-    if (error) return false; // fail-open (don't brick Stripe if DB hiccups)
+    if (error) return false; // fail-open
     return !!(data && data.freeze_payments);
   } catch {
     return false; // fail-open
@@ -213,61 +238,81 @@ export const handler = async (event) => {
     }
 
     // ---------------- checkout.session.completed ----------------
-   if (stripeEvent.type === "checkout.session.completed") {
-  const session = stripeEvent.data.object;
+    if (stripeEvent.type === "checkout.session.completed") {
+      const session = stripeEvent.data.object;
 
-  const mode = session.mode; // "payment" or "subscription"
-  const userId = session?.metadata?.user_id || session?.client_reference_id || null;
+      const mode = session.mode; // "payment" or "subscription"
+      const userId = session?.metadata?.user_id || session?.client_reference_id || null;
 
-  const customerId = session.customer || null;
-  const subscriptionId = session.subscription || null;
+      const customerId = session.customer || null;
+      const subscriptionId = session.subscription || null;
 
-  const priceKey =
-    session?.metadata?.priceKey ||
-    session?.metadata?.price_key ||
-    null;
+      const priceKey =
+        session?.metadata?.priceKey ||
+        session?.metadata?.price_key ||
+        null;
 
-  if (!userId) return json(200, { ok: true, note: "No user_id" });
+      if (!userId) return json(200, { ok: true, note: "No user_id" });
 
-  const profile = await findProfileByUserId(userId);
-  if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
+      const profile = await findProfileByUserId(userId);
+      if (!profile) return json(200, { ok: true, note: "No profile for user_id" });
 
-  const email =
-    normalizeEmail(profile.email) ||
-    normalizeEmail(session?.customer_details?.email) ||
-    normalizeEmail(session?.customer_email) ||
-    null;
+      const email =
+        normalizeEmail(profile.email) ||
+        normalizeEmail(session?.customer_details?.email) ||
+        normalizeEmail(session?.customer_email) ||
+        null;
 
-  // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
-  const frozen = await isPaymentsFrozenForFulfillment();
-  if (frozen) {
-    console.warn(
-      "[payments] frozen: checkout.session.completed received but fulfillment blocked",
-      { userId, email, mode, priceKey }
-    );
-    // IMPORTANT: still return 200 so Stripe does NOT retry
-    return json(200, { ok: true, frozen: true });
-  }
+      // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
+      const frozen = await isPaymentsFrozenForFulfillment();
+      if (frozen) {
+        console.warn("[payments] frozen: checkout.session.completed received but fulfillment blocked", {
+          userId, email, mode, priceKey
+        });
+        return json(200, { ok: true, frozen: true });
+      }
 
-  // Always store Stripe IDs on profiles (existing behavior)
-  const idPatch = {};
-  if (customerId) idPatch.stripe_customer_id = customerId;
-  if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
+      // Always store Stripe IDs on profiles
+      const idPatch = {};
+      if (customerId) idPatch.stripe_customer_id = customerId;
+      if (subscriptionId) idPatch.stripe_subscription_id = subscriptionId;
 
-  if (Object.keys(idPatch).length) {
-    const up = await safeUpdateProfile(userId, idPatch);
-    if (up.error) throw up.error;
-  }
+      if (Object.keys(idPatch).length) {
+        const up = await safeUpdateProfile(userId, idPatch);
+        if (up.error) throw up.error;
+      }
+
+      // Also try to keep subscriptions table in sync (non-fatal if it fails)
+      try {
+        const row = {
+          user_id: userId,
+          email: email || null,
+          price_id:
+            priceKey === "sub50" ? process.env.STRIPE_PRICE_SUB_50 :
+            priceKey === "sub100" ? process.env.STRIPE_PRICE_SUB_100 :
+            priceKey === "oneoff" ? process.env.STRIPE_PRICE_ONEOFF_SCAN :
+            null,
+          status: mode === "subscription" ? "active" : "paid",
+          stripe_session_id: session.id || null,
+          stripe_payment_intent: session.payment_intent || null,
+          stripe_customer_id: customerId || null,
+          stripe_subscription_id: subscriptionId || null,
+        };
+        const r = await safeUpsertSubscriptionRow(row);
+        if (r.error) console.warn("subscriptions upsert (checkout.session.completed) failed:", r.error);
+      } catch (e) {
+        console.warn("subscriptions upsert (checkout.session.completed) exception:", e);
+      }
+
       // One-off: increment by 1 (never expires)
       if (mode === "payment") {
         if (priceKey === "oneoff") {
-          // ✅ PRIMARY: user_credits (dashboard Paid scans reads this)
           if (email) {
             const inc = await incrementUserCredits(email, 1);
             if (inc.error) throw inc.error;
           }
 
-          // Keep legacy behavior (profiles) so admin/other UI doesn’t break
+          // Legacy behavior (profiles)
           const rpc = await supabase.rpc("increment_credits", { p_user_id: userId, p_amount: 1 });
           if (rpc.error) {
             const nextCredits = (profile.credits || 0) + 1;
@@ -326,6 +371,23 @@ export const handler = async (event) => {
             stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
           });
           if (up.error) throw up.error;
+
+          // ✅ subscriptions table: keep period end + status synced
+          try {
+            const upd = await safeUpdateSubscriptionByUserId(userId, {
+              status: "active",
+              stripe_customer_id: customerId || null,
+              stripe_subscription_id: subscriptionId || null,
+              current_period_end: periodEndIso,
+              cancel_at_period_end: !!subObj?.cancel_at_period_end,
+              canceled_at: unixToIsoOrNull(subObj?.canceled_at),
+              price_id: subObj?.items?.data?.[0]?.price?.id || null,
+              email: email || null,
+            });
+            if (upd.error) console.warn("subscriptions update (post-subscribe) failed:", upd.error);
+          } catch (e) {
+            console.warn("subscriptions update (post-subscribe) exception:", e);
+          }
         }
 
         return json(200, { ok: true });
@@ -341,31 +403,24 @@ export const handler = async (event) => {
       const customerId = invoice.customer || null;
       const subscriptionId = invoice.subscription || null;
 
-      // Determine which price was billed
       const line = invoice?.lines?.data?.[0] || null;
       const priceId = line?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
 
       if (!mapped) return json(200, { ok: true, note: "invoice.paid: unmapped price" });
-
-      // Only reset monthly for subscription plans
       if (mapped.kind !== "subscription") return json(200, { ok: true });
 
       // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
-const frozen = await isPaymentsFrozenForFulfillment();
-if (frozen) {
-  console.warn(
-    "[payments] frozen: invoice.paid received but fulfillment blocked",
-    { customerId, subscriptionId, priceId }
-  );
-  return json(200, { ok: true, frozen: true });
-}
+      const frozen = await isPaymentsFrozenForFulfillment();
+      if (frozen) {
+        console.warn("[payments] frozen: invoice.paid received but fulfillment blocked", {
+          customerId, subscriptionId, priceId
+        });
+        return json(200, { ok: true, frozen: true });
+      }
 
-
-      // Prefer email directly from invoice if present
       let email = normalizeEmail(invoice?.customer_email) || null;
 
-      // Find profile by subscription then customer (fallback) to get email
       let profile = null;
       if (!email) {
         if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
@@ -375,21 +430,21 @@ if (frozen) {
 
       if (!email) return json(200, { ok: true, note: "invoice.paid: no email to update user_credits" });
 
-      // Grab current period end for UI (optional)
       let periodEndIso = null;
+      let subObj = null;
       if (subscriptionId) {
         try {
-          const subObj = await stripe.subscriptions.retrieve(subscriptionId);
+          subObj = await stripe.subscriptions.retrieve(subscriptionId);
           periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
-        } catch (_) {
+        } catch {
           // non-fatal
         }
       }
 
-      // ✅ PRIMARY: user_credits
+      // ✅ PRIMARY: user_credits (monthly reset, no rollover)
       const upUc = await safeUpsertUserCredits(email, {
         plan: mapped.plan,
-        credits: mapped.credits, // monthly reset, no rollover
+        credits: mapped.credits,
         stripe_customer_id: customerId || null,
       });
       if (upUc.error) throw upUc.error;
@@ -405,27 +460,102 @@ if (frozen) {
           stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
         });
         if (up.error) throw up.error;
+
+        // subscriptions table
+        try {
+          const upd = await safeUpdateSubscriptionByUserId(profile.user_id, {
+            status: "active",
+            stripe_customer_id: customerId || null,
+            stripe_subscription_id: subscriptionId || null,
+            current_period_end: periodEndIso,
+            cancel_at_period_end: !!subObj?.cancel_at_period_end,
+            canceled_at: unixToIsoOrNull(subObj?.canceled_at),
+            price_id: priceId || null,
+            email,
+          });
+          if (upd.error) console.warn("subscriptions update (invoice.paid) failed:", upd.error);
+        } catch (e) {
+          console.warn("subscriptions update (invoice.paid) exception:", e);
+        }
+      }
+
+      return json(200, { ok: true });
+    }
+
+    // ---------------- customer.subscription.updated ----------------
+    // This is the event you saw when you cancelled in the portal:
+    // it sets cancel_at_period_end=true and provides cancel_at/current_period_end.
+    if (stripeEvent.type === "customer.subscription.updated") {
+      const sub = stripeEvent.data.object;
+
+      const subscriptionId = sub.id;
+      const customerId = sub.customer || null;
+
+      // 🔒 PAYMENTS FREEZE — DO NOT change entitlements while frozen
+      const frozen = await isPaymentsFrozenForFulfillment();
+      if (frozen) {
+        console.warn("[payments] frozen: customer.subscription.updated received but fulfillment blocked", {
+          customerId, subscriptionId
+        });
+        return json(200, { ok: true, frozen: true });
+      }
+
+      // Find profile so we can update subscriptions row + (optionally) profiles fields
+      let profile = null;
+      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
+      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
+
+      // We do NOT zero credits here. Stripe keeps the sub "active" until period end.
+      const periodEndIso = unixToIsoOrNull(sub?.current_period_end);
+      const canceledAtIso = unixToIsoOrNull(sub?.canceled_at);
+
+      // Update profiles (best-effort)
+      if (profile?.user_id) {
+        const patch = {
+          stripe_customer_id: customerId || profile.stripe_customer_id || null,
+          stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
+          subscription_status: sub?.status || profile.subscription_status || "active",
+          billing_period_end: periodEndIso,
+        };
+        const up = await safeUpdateProfile(profile.user_id, patch);
+        if (up.error) console.warn("profiles update (subscription.updated) failed:", up.error);
+
+        // Update subscriptions table (this is what you want to inspect in SQL)
+        try {
+          const upd = await safeUpdateSubscriptionByUserId(profile.user_id, {
+            status: sub?.status || "active",
+            stripe_customer_id: customerId || null,
+            stripe_subscription_id: subscriptionId || null,
+            current_period_end: periodEndIso,
+            cancel_at_period_end: !!sub?.cancel_at_period_end,
+            canceled_at: canceledAtIso,
+            price_id: sub?.items?.data?.[0]?.price?.id || null,
+            email: normalizeEmail(profile.email) || null,
+          });
+          if (upd.error) console.warn("subscriptions update (subscription.updated) failed:", upd.error);
+        } catch (e) {
+          console.warn("subscriptions update (subscription.updated) exception:", e);
+        }
       }
 
       return json(200, { ok: true });
     }
 
     // ---------------- customer.subscription.deleted ----------------
+    // This fires when the subscription actually ends (or is immediately cancelled).
     if (stripeEvent.type === "customer.subscription.deleted") {
       const sub = stripeEvent.data.object;
       const subscriptionId = sub.id;
       const customerId = sub.customer || null;
 
       // 🔒 PAYMENTS FREEZE — STOP FULFILLMENT HERE
-const frozen = await isPaymentsFrozenForFulfillment();
-if (frozen) {
-  console.warn(
-    "[payments] frozen: customer.subscription.deleted received but fulfillment blocked",
-    { customerId, subscriptionId }
-  );
-  return json(200, { ok: true, frozen: true });
-}
-
+      const frozen = await isPaymentsFrozenForFulfillment();
+      if (frozen) {
+        console.warn("[payments] frozen: customer.subscription.deleted received but fulfillment blocked", {
+          customerId, subscriptionId
+        });
+        return json(200, { ok: true, frozen: true });
+      }
 
       let profile = null;
       if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
@@ -433,7 +563,7 @@ if (frozen) {
 
       const email = normalizeEmail(profile?.email) || null;
 
-      // ✅ PRIMARY: user_credits
+      // ✅ PRIMARY: user_credits -> free
       if (email) {
         const upUc = await safeUpsertUserCredits(email, {
           plan: "free",
@@ -452,6 +582,20 @@ if (frozen) {
           billing_period_end: null,
         });
         if (up.error) throw up.error;
+
+        // subscriptions table
+        try {
+          const upd = await safeUpdateSubscriptionByUserId(profile.user_id, {
+            status: "canceled",
+            stripe_subscription_id: null,
+            current_period_end: null,
+            cancel_at_period_end: false,
+            canceled_at: unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
+          });
+          if (upd.error) console.warn("subscriptions update (subscription.deleted) failed:", upd.error);
+        } catch (e) {
+          console.warn("subscriptions update (subscription.deleted) exception:", e);
+        }
       }
 
       return json(200, { ok: true });
