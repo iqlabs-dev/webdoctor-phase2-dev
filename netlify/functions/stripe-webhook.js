@@ -163,44 +163,80 @@ async function incrementUserCredits(email, amount) {
 
 // -------------------------------------------------
 // ✅ subscriptions table helpers
+// IMPORTANT FIX:
+// - Prefer update by stripe_subscription_id (most reliable)
+// - Then by stripe_customer_id
+// - Email only as a fallback
 // -------------------------------------------------
-async function safeUpsertSubscription(email, patch) {
+async function safeWriteSubscription({ email, subscriptionId, customerId, patch }) {
   const e = normalizeEmail(email);
-  if (!e) return { error: new Error("Missing email for subscriptions upsert") };
 
-  const payload = { email: e, ...patch };
+  // Always keep IDs in the row if we have them
+  const payload = {
+    ...(e ? { email: e } : {}),
+    ...(subscriptionId ? { stripe_subscription_id: subscriptionId } : {}),
+    ...(customerId ? { stripe_customer_id: customerId } : {}),
+    ...patch,
+  };
 
-  // Prefer upsert on email (assumes UNIQUE(email); if not, we fallback to update)
-  let res = await supabase
-    .from("subscriptions")
-    .upsert(payload, { onConflict: "email" });
+  // 1) Update by subscription_id (best)
+  if (subscriptionId) {
+    const upd = await supabase
+      .from("subscriptions")
+      .update(payload)
+      .eq("stripe_subscription_id", subscriptionId)
+      .select("id");
 
-  if (!res.error) return res;
-
-  // If you don't have UNIQUE(email), onConflict will fail.
-  // Fallback: update by email.
-  const msg = String(res.error?.message || res.error || "");
-  const looksLikeNoConstraint =
-    msg.toLowerCase().includes("there is no unique") ||
-    msg.toLowerCase().includes("no unique or exclusion constraint") ||
-    msg.toLowerCase().includes("on conflict") ||
-    msg.toLowerCase().includes("constraint");
-
-  if (looksLikeNoConstraint) {
-    const upd = await supabase.from("subscriptions").update(patch).eq("email", e);
-    return upd;
+    if (upd.error && !isMissingColumnError(upd.error)) return upd;
+    if (!upd.error && Array.isArray(upd.data) && upd.data.length > 0) return upd;
   }
 
-  // If a column mismatch happens, strip unknowns and retry (safe)
-  if (isMissingColumnError(res.error)) {
-    const retry = { ...payload };
-    res = await supabase
+  // 2) Update by customer_id (second best)
+  if (customerId) {
+    const upd = await supabase
       .from("subscriptions")
-      .upsert(retry, { onConflict: "email" });
+      .update(payload)
+      .eq("stripe_customer_id", customerId)
+      .select("id");
+
+    if (upd.error && !isMissingColumnError(upd.error)) return upd;
+    if (!upd.error && Array.isArray(upd.data) && upd.data.length > 0) return upd;
+  }
+
+  // 3) Upsert by email (fallback)
+  if (e) {
+    let res = await supabase
+      .from("subscriptions")
+      .upsert(payload, { onConflict: "email" });
+
+    if (!res.error) return res;
+
+    // If no UNIQUE(email), fall back to update by email
+    const msg = String(res.error?.message || res.error || "");
+    const looksLikeNoConstraint =
+      msg.toLowerCase().includes("there is no unique") ||
+      msg.toLowerCase().includes("no unique or exclusion constraint") ||
+      msg.toLowerCase().includes("on conflict") ||
+      msg.toLowerCase().includes("constraint");
+
+    if (looksLikeNoConstraint) {
+      const upd = await supabase.from("subscriptions").update(payload).eq("email", e);
+      return upd;
+    }
+
+    if (isMissingColumnError(res.error)) {
+      res = await supabase
+        .from("subscriptions")
+        .upsert(payload, { onConflict: "email" });
+      return res;
+    }
+
     return res;
   }
 
-  return res;
+  // 4) Last resort: insert a row even without email (if your schema allows it)
+  const ins = await supabase.from("subscriptions").insert(payload);
+  return ins;
 }
 
 async function findSubscriptionByStripeSubscriptionId(subscriptionId) {
@@ -243,6 +279,14 @@ async function isPaymentsFrozenForFulfillment() {
   } catch {
     return false; // fail-open
   }
+}
+
+function computeSubscriptionStatus(subObj) {
+  const base = subObj?.status || null;
+  if (!base) return null;
+  // If Stripe says "active" but cancel_at_period_end true, store "canceling"
+  if (base === "active" && subObj?.cancel_at_period_end) return "canceling";
+  return base;
 }
 
 export const handler = async (event) => {
@@ -349,23 +393,23 @@ export const handler = async (event) => {
 
         const periodEndIso = unixToIsoOrNull(subObj?.current_period_end);
 
-        // ✅ Write subscriptions table
-        if (email) {
-          const subUp = await safeUpsertSubscription(email, {
+        // ✅ Write subscriptions table (prefer Stripe IDs)
+        await safeWriteSubscription({
+          email,
+          subscriptionId,
+          customerId,
+          patch: {
             price_id: priceIdFromStripe || null,
-            status: subObj?.status || "active",
+            status: computeSubscriptionStatus(subObj) || "active",
             stripe_session_id: session.id || null,
             stripe_payment_intent: session.payment_intent || null,
-            stripe_subscription_id: subscriptionId || null,
-            stripe_customer_id: customerId || null,
             current_period_end: periodEndIso,
             cancel_at_period_end: !!subObj?.cancel_at_period_end,
             canceled_at: unixToIsoOrNull(subObj?.canceled_at),
-          });
-          if (subUp.error) throw subUp.error;
-        }
+          }
+        });
 
-        // ✅ PRIMARY: user_credits
+        // ✅ PRIMARY: user_credits (dashboard reads this)
         if (planPayload && email) {
           const upUc = await safeUpsertUserCredits(email, {
             plan: planPayload.plan,
@@ -394,8 +438,8 @@ export const handler = async (event) => {
       return json(200, { ok: true });
     }
 
-    // ---------------- invoice.paid ----------------
-    if (stripeEvent.type === "invoice.paid") {
+    // ---------------- invoice.paid OR invoice.payment_succeeded ----------------
+    if (stripeEvent.type === "invoice.paid" || stripeEvent.type === "invoice.payment_succeeded") {
       const invoice = stripeEvent.data.object;
 
       const customerId = invoice.customer || null;
@@ -405,13 +449,13 @@ export const handler = async (event) => {
       const priceId = line?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
 
-      if (!mapped) return json(200, { ok: true, note: "invoice.paid: unmapped price" });
+      if (!mapped) return json(200, { ok: true, note: "invoice: unmapped price" });
       if (mapped.kind !== "subscription") return json(200, { ok: true });
 
       // 🔒 PAYMENTS FREEZE
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
-        console.warn("[payments] frozen: invoice.paid (fulfillment blocked)", { customerId, subscriptionId, priceId });
+        console.warn("[payments] frozen: invoice (fulfillment blocked)", { customerId, subscriptionId, priceId });
         return json(200, { ok: true, frozen: true });
       }
 
@@ -436,22 +480,25 @@ export const handler = async (event) => {
         } catch (_) {}
       }
 
-      // ✅ update subscriptions table too
-      if (email) {
-        const subUp = await safeUpsertSubscription(email, {
+      // ✅ update subscriptions table (prefer Stripe IDs)
+      await safeWriteSubscription({
+        email,
+        subscriptionId,
+        customerId,
+        patch: {
           price_id: priceId || null,
-          status: subObj?.status || "active",
-          stripe_subscription_id: subscriptionId || null,
-          stripe_customer_id: customerId || null,
+          status: computeSubscriptionStatus(subObj) || "active",
           current_period_end: periodEndIso,
           cancel_at_period_end: !!subObj?.cancel_at_period_end,
           canceled_at: unixToIsoOrNull(subObj?.canceled_at),
-        });
-        if (subUp.error) throw subUp.error;
+        }
+      });
 
+      // ✅ user_credits monthly reset
+      if (email) {
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
-          credits: mapped.credits, // monthly reset, no rollover
+          credits: mapped.credits,
           stripe_customer_id: customerId || null,
         });
         if (upUc.error) throw upUc.error;
@@ -485,17 +532,11 @@ export const handler = async (event) => {
         return json(200, { ok: true, frozen: true });
       }
 
-      // ✅ SAFER: explicitly convert current_period_end if present
-      const currentPeriodEndIso =
-        typeof sub?.current_period_end === "number"
-          ? new Date(sub.current_period_end * 1000).toISOString()
-          : null;
-
       // Determine price + mapped plan (optional)
       const priceId = sub?.items?.data?.[0]?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
 
-      // Find email (prefer DB link)
+      // Find email if possible (but do NOT require it anymore)
       let email = null;
 
       const existingSubRow =
@@ -504,7 +545,6 @@ export const handler = async (event) => {
 
       if (existingSubRow?.email) email = normalizeEmail(existingSubRow.email);
 
-      // Fallback to profiles
       if (!email) {
         let profile = null;
         if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
@@ -512,28 +552,30 @@ export const handler = async (event) => {
         if (profile?.email) email = normalizeEmail(profile.email);
       }
 
-      // Write subscription state to subscriptions table
-      if (email) {
-        const up = await safeUpsertSubscription(email, {
+      // ✅ ALWAYS write subscription state by Stripe IDs
+      const up = await safeWriteSubscription({
+        email,
+        subscriptionId,
+        customerId,
+        patch: {
           price_id: priceId || null,
-          status: sub?.status || null,
-          stripe_subscription_id: subscriptionId || null,
-          stripe_customer_id: customerId || null,
-          current_period_end: currentPeriodEndIso, // ✅ changed
+          status: computeSubscriptionStatus(sub) || null,
+          current_period_end: unixToIsoOrNull(sub?.current_period_end),
           cancel_at_period_end: !!sub?.cancel_at_period_end,
           canceled_at: unixToIsoOrNull(sub?.canceled_at),
-        });
-        if (up.error) throw up.error;
-
-        // Optional: reflect plan immediately (you can later choose to not reset credits here)
-        if (mapped && mapped.kind === "subscription") {
-          const upUc = await safeUpsertUserCredits(email, {
-            plan: mapped.plan,
-            credits: mapped.credits,
-            stripe_customer_id: customerId || null,
-          });
-          if (upUc.error) throw upUc.error;
         }
+      });
+      if (up.error) throw up.error;
+
+      // Optional: update user_credits if we have email and mapping
+      if (email && mapped && mapped.kind === "subscription") {
+        const upUc = await safeUpsertUserCredits(email, {
+          plan: mapped.plan,
+          // Keep as-is OR set immediately; you were OK with immediate reflection
+          credits: mapped.credits,
+          stripe_customer_id: customerId || null,
+        });
+        if (upUc.error) throw upUc.error;
       }
 
       return json(200, { ok: true });
@@ -551,7 +593,7 @@ export const handler = async (event) => {
         return json(200, { ok: true, frozen: true });
       }
 
-      // Find email from subscriptions table first
+      // Find email if possible (but don’t require it)
       let email = null;
       const existing =
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
@@ -559,40 +601,31 @@ export const handler = async (event) => {
 
       if (existing?.email) email = normalizeEmail(existing.email);
 
-      // Fallback to profiles
-      let profile = null;
       if (!email) {
+        let profile = null;
         if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
         if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
         if (profile?.email) email = normalizeEmail(profile.email);
       }
 
-      // ✅ subscriptions table update
-      if (email) {
-        const upSub = await safeUpsertSubscription(email, {
+      // ✅ subscriptions table update by Stripe IDs
+      const upSub = await safeWriteSubscription({
+        email,
+        subscriptionId,
+        customerId,
+        patch: {
           status: "canceled",
-          stripe_subscription_id: subscriptionId || null,
-          stripe_customer_id: customerId || null,
           cancel_at_period_end: true,
           canceled_at: unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
           current_period_end: unixToIsoOrNull(sub?.current_period_end),
-        });
-        if (upSub.error) throw upSub.error;
+        }
+      });
+      if (upSub.error) throw upSub.error;
 
-        // ✅ user_credits back to free
+      // ✅ user_credits back to free (if we can identify user by email)
+      if (email) {
         const upUc = await safeUpsertUserCredits(email, { plan: "free", credits: 0 });
         if (upUc.error) throw upUc.error;
-      }
-
-      // legacy profiles
-      if (profile?.user_id) {
-        const up = await safeUpdateProfile(profile.user_id, {
-          plan: "free",
-          subscription_status: "canceled",
-          stripe_subscription_id: null,
-          billing_period_end: null,
-        });
-        if (up.error) throw up.error;
       }
 
       return json(200, { ok: true });
