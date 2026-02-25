@@ -266,13 +266,19 @@
   }
 
 /* HERO H1 styling */
-.hero-h1 span{
+.hero-h1 span {
   color: var(--accent);               /* teal */
   background: none;
   -webkit-background-clip: initial;
   background-clip: initial;
   text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
 }
+
+.hero-h1 span.hero-white {
+  color: #ffffff !important;
+  text-shadow: none; /* optional: keeps the white clean */
+}
+
 
 .hero-beta{
   margin-top: 10px;
@@ -1048,14 +1054,12 @@
 <main class="hero-shell">
   <section class="hero-left">
 
-    <h1 class="hero-h1">
-      iQWEB transforms <span>website data</span><br>
-      <span>into clarity.</span>
-    </h1>
+<h1 class="hero-h1">
+  Turn <span class="hero-white">raw performance signals</span><br>
+  into <span>client-ready reports.</span>
+</h1>
 
-    <p class="hero-beta">
-  Early v1 release — feedback welcome.
-</p>
+
 
     <p class="hero-sub">
 iQWEB is a diagnostic clarity layer that sits between raw metrics and client decisions. It helps agencies and developers review, prioritise and explain how a website behaves in 
