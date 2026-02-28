@@ -676,8 +676,13 @@ else {
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
-      var card = document.createElement("div");
-      card.className = "card";
+      var severityClass = "severity-strong";
+
+if (score < 65) severityClass = "severity-high";
+else if (score < 90) severityClass = "severity-medium";
+
+var card = document.createElement("div");
+card.className = "card " + severityClass;
       card.innerHTML =
         '<div class="card-top">' +
           "<h3>" + escapeHtml(label) + "</h3>" +
