@@ -1055,9 +1055,33 @@
     function normKey(s) {
       return String(s || "")
         .toLowerCase()
+        .replace(/<\s*/g, "<")                  // normalize "< title" -> "<title"
+        .replace(/\s*>/g, ">")                  // normalize "title >" -> "title>"
         .replace(/\s+/g, " ")
-        .replace(/[^\w\s:<>\-]/g, "")
+        .replace(/[^\w\s:<>\-]/g, "")           // drop punctuation that causes dupes (.,() etc)
         .trim();
+    }
+
+    // Stronger normalization for dedupe:
+    // - removes the word "tag"
+    // - removes trailing "present/missing" variants
+    // - normalizes common SEO wording collisions
+    function normIssueTitle(t) {
+      var s = String(t || "");
+      s = s.replace(/\s+/g, " ").trim();
+
+      // kill common duplicate variants
+      s = s.replace(/\btag\b/gi, "");                 // "Missing <title> tag" -> "Missing <title>"
+      s = s.replace(/\s+\./g, ".");                   // "description ." -> "description."
+      s = s.replace(/\.\s*$/g, "");                   // trailing period
+      s = s.replace(/\s+\(/g, "(").replace(/\)\s+/g, ")");
+
+      // normalize very common collisions
+      s = s.replace(/\bmeta\s+description\b/gi, "meta description");
+      s = s.replace(/\bpage\s+title\b/gi, "title");
+      s = s.replace(/\bcanonical\s+link\b/gi, "canonical");
+
+      return normKey(s);
     }
 
     function sevRank(sev) {
@@ -1067,7 +1091,15 @@
       if (sev === "MED" || sev === "MEDIUM") return 2;
       if (sev === "LOW") return 1;
       if (sev === "OK") return 0;
-      return 1;
+      return 1; // MONITOR/default
+    }
+
+    function normaliseRequiredMissing(label, sig, text) {
+      if (!/required signal missing/i.test(String(text || ""))) return String(text || "");
+      var spec = "";
+      try { spec = specificMissingSignals(sig); } catch (e) { spec = ""; }
+      if (spec) return label + ": " + spec;
+      return label + ": Missing baseline inputs for this signal.";
     }
 
     function collectFromSignal(sig, out) {
@@ -1076,35 +1108,37 @@
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
+      // Issues
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
-        var title = String(it.title || it.id || (label + ": issue")).trim();
-        if (!title) continue;
-        if (/required signal missing/i.test(title)) {
-          var spec = specificMissingSignals(sig);
-          if (spec) title = label + ": " + spec;
-          else title = label + ": Required baseline inputs not detected.";
-        }
+        var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
+        if (!rawTitle) continue;
+
+        var title = normaliseRequiredMissing(label, sig, rawTitle);
 
         out.push({
           title: title,
-          sev: String(it.severity || "monitor").toUpperCase(),
+          sev: String(it.severity || "MONITOR").toUpperCase(),
           why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-          _rank: sevRank(it.severity || "monitor")
+          _rank: sevRank(it.severity || "MONITOR")
         });
       }
 
+      // Deductions
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
         var pts = num(dd.points);
-        var reason = String(dd.reason || dd.code || "").trim();
-        if (!reason) continue;
+        var rawReason = String(dd.reason || dd.code || "").trim();
+        if (!rawReason) continue;
+
+        // ignore tiny noise
         if (pts !== null && pts < 2) continue;
 
+        var reason = rawReason;
         if (/required signal missing/i.test(reason)) {
-          var spec2 = specificMissingSignals(sig);
-          if (spec2) reason = spec2;
-          else reason = "Required baseline inputs not detected.";
+          var spec2 = "";
+          try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
+          reason = spec2 || "Missing baseline inputs for this signal.";
         }
 
         out.push({
@@ -1116,26 +1150,61 @@
       }
     }
 
+    // Prefer primary constraint issues if present
     var all = [];
     var primaryOnly = [];
 
     if (primary && primary.key) {
       for (var i = 0; i < signals.length; i++) {
-        if (domainKeyFromSignal(signals[i]) === primary.key) collectFromSignal(signals[i], primaryOnly);
+        if (domainKeyFromSignal(signals[i]) === primary.key) {
+          collectFromSignal(signals[i], primaryOnly);
+        }
       }
     }
 
-    for (var k = 0; k < signals.length; k++) collectFromSignal(safeObj(signals[k]), all);
+    for (var k = 0; k < signals.length; k++) {
+      collectFromSignal(safeObj(signals[k]), all);
+    }
 
+    // Dedup:
+    // - normalize title strongly
+    // - ignore minor differences in why text (keep "best" one)
+    // - keep highest severity instance if same underlying issue repeats
     function dedupe(list) {
-      var seen = {};
-      var out = [];
+      var map = {};
       for (var i = 0; i < list.length; i++) {
         var it = list[i];
-        var key = normKey(it.title) + "|" + normKey(it.sev) + "|" + normKey(it.why);
-        if (seen[key]) continue;
-        seen[key] = true;
-        out.push(it);
+        if (!it || !it.title) continue;
+
+        var tKey = normIssueTitle(it.title);
+        var sKey = normKey(it.sev);
+
+        // Core identity is mostly the title meaning. Severity is used only to pick the best entry.
+        var key = tKey;
+
+        if (!map[key]) {
+          map[key] = it;
+        } else {
+          // choose the "better" one:
+          // 1) higher severity rank
+          // 2) longer/more informative why text
+          var cur = map[key];
+          var rNew = it._rank || sevRank(it.sev);
+          var rCur = cur._rank || sevRank(cur.sev);
+
+          if (rNew > rCur) {
+            map[key] = it;
+          } else if (rNew === rCur) {
+            var wNew = String(it.why || "");
+            var wCur = String(cur.why || "");
+            if (wNew.length > wCur.length) map[key] = it;
+          }
+        }
+      }
+
+      var out = [];
+      for (var kk in map) {
+        if (map.hasOwnProperty(kk)) out.push(map[kk]);
       }
       return out;
     }
@@ -1149,6 +1218,11 @@
       var ra = a._rank || sevRank(a.sev);
       var rb = b._rank || sevRank(b.sev);
       if (rb !== ra) return rb - ra;
+      // stable tie-break: title
+      var ta = normKey(a.title);
+      var tb = normKey(b.title);
+      if (ta < tb) return -1;
+      if (ta > tb) return 1;
       return 0;
     });
 
@@ -1181,7 +1255,6 @@
 
     root.innerHTML = html;
   }
-
   // -----------------------------
   // Fix Sequence
   // -----------------------------
