@@ -3,17 +3,20 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * PATCH GOAL (coherence pass):
+ * COHERENCE PASS:
  * 1) One Primary Constraint selector used across: Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence.
  * 2) Supporting Fix shown only when relevant + meaningful (no more “1KB HTML, 0 inline scripts”).
  * 3) Low-score/no-evidence guardrail text to avoid “tool made this up” vibe.
- * 4) Stop “good is bad” evidence lines (e.g., “inline scripts below baseline (0)”).
- * 5) De-dupe + prioritise Top Issues (no repeats / no spammy Monitor rows unless needed).
+ * 4) Stop “good is bad” evidence lines.
+ * 5) De-dupe + prioritise Top Issues.
  *
  * TRUST PATCH:
  * - If score is 0 but there is no issues/deductions/evidence/observations, treat as NOT MEASURED (N/A).
- * - If issues/deductions are empty BUT evidence clearly fails baseline checks, show “evidence flags” count
- *   so we never show “Issues Found: none” while also saying “X is not satisfied”.
+ * - If issues/deductions are empty BUT evidence clearly fails baseline checks, show “evidence flags” count.
+ *
+ * AGENCY PATCH (UI):
+ * - Remove weights from report UI (cards + Key Findings). Weights belong in documentation, not client-facing reports.
+ * - Populate Key Findings grid fields when present (findingOverall/findingConstraint/etc).
  */
 
 (function () {
@@ -51,11 +54,17 @@
       .replace(/'/g, "&#039;");
   }
 
+  function setText(id, text) {
+    var el = $(id);
+    if (!el) return false;
+    el.textContent = String(text == null ? "" : text);
+    return true;
+  }
+
   function formatDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
-
     try {
       return d.toLocaleString("en-NZ", {
         timeZone: "Pacific/Auckland",
@@ -321,11 +330,11 @@
   }
 
   function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
-    if (key === "security") return "Close the top Security & Trust gaps.";
-    if (key === "seo") return "Stabilise SEO Foundations baseline signals.";
-    if (key === "structure") return "Correct core Structure & Semantics issues.";
-    if (key === "accessibility") return "Resolve top Accessibility blockers.";
+    if (key === "performance" || key === "mobile") return "Reduce mobile LCP below 2.5s and stabilise layout shifts.";
+    if (key === "security") return "Implement the missing security headers and resolve any mixed content.";
+    if (key === "seo") return "Fix missing SEO baseline signals (indexability, H1/title/meta).";
+    if (key === "structure") return "Correct core semantic structure and required document tags.";
+    if (key === "accessibility") return "Resolve the highest-impact accessibility blockers (labels/controls/contrast).";
     return "Improve the weakest baseline signal.";
   }
 
@@ -364,11 +373,9 @@
   }
 
   // Evidence heuristics (conservative)
-  // Goal: only surface evidence when it clearly indicates a problem.
   function isMeaningfulFail(key, value) {
     var k = String(key || "").toLowerCase();
 
-    // Boolean evidence: only show when it indicates a missing/failed requirement.
     if (typeof value === "boolean") {
       if (k.indexOf("missing") !== -1) return value === true;
       if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
@@ -380,14 +387,12 @@
     var nv = num(value);
     if (nv === null) return false;
 
-    // Coverage/ratio-like: low is bad
     if (k.indexOf("coverage") !== -1 || k.indexOf("ratio") !== -1) {
       if (nv >= 0 && nv <= 1) return nv < 0.9;
       if (nv > 1 && nv <= 100) return nv < 90;
       return false;
     }
 
-    // LCP/CLS/INP/TTFB/etc: high is bad
     if (k.indexOf("lcp") !== -1) {
       if (nv > 0 && nv < 50) return nv > 2.5;
       return nv > 2500;
@@ -396,16 +401,12 @@
     if (k.indexOf("cls") !== -1) return nv > 0.1;
     if (k.indexOf("ttfb") !== -1) return nv > 800;
 
-    // Bytes/sizes: large is bad
     if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
 
-    // Inline scripts: high is bad
     if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
 
-    // Requests/resources: only flag when clearly high
     if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) return nv >= 60;
 
-    // Generic "count": do NOT treat 0 as failure unless it's explicitly “missing/required/error”
     if (k.indexOf("count") !== -1) {
       if (k.indexOf("missing") !== -1 || k.indexOf("required") !== -1 || k.indexOf("error") !== -1 || k.indexOf("fail") !== -1) {
         return nv <= 0;
@@ -416,7 +417,6 @@
     return false;
   }
 
-  // NEW: count evidence flags so “Issues Found” can’t say none when evidence says failed
   function countEvidenceFlags(sig) {
     sig = safeObj(sig);
     var ev = safeObj(sig.evidence);
@@ -429,7 +429,6 @@
     return c;
   }
 
-  // NEW: If score is 0 but there is no evidence at all, treat as "not measured"
   function isUnmeasuredSignal(sig, score) {
     sig = safeObj(sig);
     if (score !== 0) return false;
@@ -446,7 +445,6 @@
     if (eKeys.length) return false;
 
     if (sig.measured === false || sig.not_measured === true) return true;
-
     return true;
   }
 
@@ -454,7 +452,6 @@
     scores = safeObj(scores);
     signals = asArray(signals);
 
-    // Ignore "ghost 0" signals with no evidence
     function domainHasMeasuredSignal(domainKey) {
       for (var i = 0; i < signals.length; i++) {
         var sig = safeObj(signals[i]);
@@ -514,12 +511,9 @@
   }
 
   // -----------------------------
-  // Deterministic Executive Delivery Summary (client-ready)
+  // Executive Summary (populate grid if present)
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
-    var el = $("narrativeText");
-    if (!el) return;
-
     data = safeObj(data);
     var scores = pickScores(data);
     var psi = pickPsiEnvelope(data);
@@ -537,7 +531,6 @@
 
       var n = num(v);
       if (n === null) return null;
-
       if (n > 0 && n < 100) return round1(n);
       return round1(n / 1000);
     }
@@ -559,63 +552,101 @@
       return Math.round(n);
     }
 
-    var out = "";
-    function p(text) {
-      out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(text) + "</p>";
-    }
-    function h(text) {
-      out += "<p style='margin:0 0 8px 0; line-height:1.35; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; font-size:11px; opacity:0.95;'>" + escapeHtml(text) + "</p>";
+    // If the report HTML includes the grid fields, use them (prevents layout blow-outs)
+    var hasGrid =
+      !!$("findingOverall") &&
+      !!$("findingConstraint") &&
+      !!$("findingImpact") &&
+      !!$("findingFix") &&
+      !!$("findingNext");
+
+    // Hide the "Summary will load..." line if present in this section
+    function hideSummaryPlaceholder() {
+      try {
+        var section = $("executiveNarrativeSection");
+        if (!section) return;
+        var muted = section.querySelector(".section-body .muted");
+        if (muted) muted.style.display = "none";
+      } catch (e) {}
     }
 
-    p("Overall Delivery: " + overall + "/100");
+    // Fallback container (older HTML)
+    var legacy = $("narrativeText");
 
     if (!primary || !primary.key) {
-      h("Status");
-      p("No clear primary constraint was identified from the scan output.");
-      h("Next Step");
-      p("Re-run the scan and review the signal evidence blocks for the clearest measurable deficit.");
-      el.innerHTML = out;
+      if (hasGrid) {
+        setText("findingOverall", overall + "/100 (" + verdict(overall) + ")");
+        setText("findingConstraint", "No clear primary constraint identified from this scan.");
+        setText("findingImpact", "This scan did not return enough measurable evidence to identify a single highest-impact constraint.");
+        setText("findingFix", "Re-run the scan and review the Signal Evidence blocks for the clearest measurable deficit.");
+        setText("findingNext", "Re-scan after any change to confirm the result is measurable.");
+        hideSummaryPlaceholder();
+        return;
+      }
+
+      if (legacy) {
+        legacy.innerHTML =
+          "<p style='margin:0; line-height:1.55;'>" +
+          escapeHtml("Overall Delivery: " + overall + "/100") +
+          "</p>" +
+          "<p style='margin:10px 0 0 0; line-height:1.55;'>" +
+          escapeHtml("No clear primary constraint was identified from the scan output.") +
+          "</p>";
+      }
       return;
     }
 
-    p((LABELS[primary.key] || primary.key) + ": " + asInt(scores[primary.key], 0) + "/100 (" + Math.round(primary.weight * 100) + "% weight)");
+    var domainLabel = (LABELS[primary.key] || primary.key);
+    var domainScore = asInt(scores[primary.key], 0);
 
-    h("Primary Issue");
-    p((LABELS[primary.key] || primary.key) + " is currently limiting overall delivery.");
+    var impactLine =
+      domainLabel +
+      " is the primary constraint in this scan and represents the biggest measurable lift if improved.";
 
-    h("Why it matters");
-    p("This area has the highest impact on the overall score in this scan, so improving it is likely to produce the largest measurable lift.");
+    var fixLine = primaryFixLineForKey(primary.key);
 
+    var nextLine = "Apply one measurable change, then re-run the scan to confirm the lift.";
+
+    // Optional supporting detail (only when meaningful)
+    var support = "";
     if (primary.key === "performance" || primary.key === "mobile") {
       var lcp = lcpSecondsFromPsi();
-      if (lcp !== null && lcp > 0) p("Mobile LCP: " + lcp + "s (target <2.5s)");
-    }
+      if (lcp !== null && lcp > 0 && lcp > 2.5) {
+        support = "Mobile LCP observed at " + lcp + "s (target <2.5s).";
+      } else {
+        var hb = htmlBytesFromBasic();
+        var is = inlineScriptsFromBasic();
+        var kb = (hb !== null) ? Math.round(hb / 1024) : null;
 
-    h("Recommended Fix");
-    p(primaryFixLineForKey(primary.key));
-
-    if (primary.key === "performance" || primary.key === "mobile") {
-      var hb = htmlBytesFromBasic();
-      var is = inlineScriptsFromBasic();
-
-      var kb = (hb !== null) ? Math.round(hb / 1024) : null;
-      var showPayload = false;
-      if (kb !== null && kb >= 50) showPayload = true;
-      if (is !== null && is >= 3) showPayload = true;
-
-      if (showPayload) {
         var parts = [];
         if (kb !== null && kb >= 50) parts.push(kb + "KB HTML");
         if (is !== null && is >= 3) parts.push(is + " inline scripts");
-        h("Supporting Fix");
-        p("Reduce initial payload (" + parts.join(", ") + ").");
+
+        if (parts.length) support = "Supporting signal: initial payload is high (" + parts.join(", ") + ").";
       }
     }
 
-    h("Next Step");
-    p("Re-run the scan after optimisation to confirm measurable improvement.");
+    if (hasGrid) {
+      setText("findingOverall", overall + "/100 (" + verdict(overall) + ")");
+      setText("findingConstraint", domainLabel + " (" + domainScore + "/100)");
+      setText("findingImpact", impactLine + (support ? " " + support : ""));
+      setText("findingFix", fixLine);
+      setText("findingNext", nextLine);
+      hideSummaryPlaceholder();
+      return;
+    }
 
-    el.innerHTML = out;
+    // Legacy fallback
+    if (legacy) {
+      var html =
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Overall Delivery: " + overall + "/100") + "</p>" +
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(domainLabel + ": " + domainScore + "/100") + "</p>" +
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Primary issue: " + domainLabel + " is limiting overall delivery.") + "</p>" +
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(impactLine + (support ? " " + support : "")) + "</p>" +
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Recommended fix: " + fixLine) + "</p>" +
+        "<p style='margin:0; line-height:1.55;'>" + escapeHtml("Next step: " + nextLine) + "</p>";
+      legacy.innerHTML = html;
+    }
   }
 
   // -----------------------------
@@ -650,7 +681,6 @@
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      // NEW: if issues/deductions are empty but evidence clearly fails, show evidence flags
       if (!issues.length && !deds.length) {
         var ef = countEvidenceFlags(sig);
         if (ef > 0) return "Issues Found: " + ef + " evidence flag" + (ef === 1 ? "" : "s");
@@ -742,21 +772,17 @@
       var score = unmeasured ? null : rawScore;
 
       var key = domainKeyFromSignal(sig);
-      var w = key ? (WEIGHTS[key] || 0) : 0;
-      var weightPct = w ? (Math.round(w * 100) + "%") : "";
-
       var flagged = hasFlags(sig);
-      var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
 
       var headline = "Stable";
-      if (unmeasured) headline = "Not Measured";
-      else if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
-      else if (w && defPts >= 3) headline = "Secondary Fix";
-      else if (w) headline = isStrong(score) ? "Strong" : "Stable";
-      else headline = "Deterministic";
+      if (unmeasured) headline = "Not measured";
+      else if (key && primary && primary.key && key === primary.key) headline = "Priority fix";
+      else if (score !== null && score < 75) headline = "Needs work";
+      else if (score !== null && isStrong(score)) headline = "Strong";
+      else headline = "Stable";
 
       var lines = [];
-      lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
+      lines.push("Status: " + headline);
 
       if (unmeasured && !flagged) {
         lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
@@ -772,7 +798,7 @@
         if (flagged) {
           lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
         } else if (emptyButLow) {
-          lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
+          lines.push("Why: Limited evidence returned for this signal. Missing or blocked inputs are treated as a penalty to preserve completeness.");
         } else {
           if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
           else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
@@ -1117,7 +1143,7 @@
         var ul1 = phases[0].querySelector("ul");
         if (ul1) {
           ul1.innerHTML =
-            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong>.</li>" +
+            "<li>Prioritise <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong> first.</li>" +
             "<li>Re-run the scan immediately to confirm measurable improvement before expanding scope.</li>" +
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
@@ -1190,8 +1216,27 @@
       .catch(function () {
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
+
+        // Try to populate grid error state if present
+        if ($("findingOverall")) {
+          setText("findingOverall", "—");
+          setText("findingConstraint", "Report data could not be loaded.");
+          setText("findingImpact", "The scan payload could not be retrieved for this report.");
+          setText("findingFix", "Refresh and try again, or re-run the scan.");
+          setText("findingNext", "If this persists, contact support with the report ID.");
+          try {
+            var section = $("executiveNarrativeSection");
+            if (section) {
+              var muted = section.querySelector(".section-body .muted");
+              if (muted) muted.style.display = "none";
+            }
+          } catch (e2) {}
+          return;
+        }
+
         var n = $("narrativeText");
         if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Report data could not be loaded for this scan.</div>";
+
         var ff = $("fixFirstBlock");
         if (ff) ff.innerHTML = "";
       });
