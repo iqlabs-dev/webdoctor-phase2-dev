@@ -3,20 +3,21 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * COHERENCE PASS:
+ * PATCH GOAL (coherence pass):
  * 1) One Primary Constraint selector used across: Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence.
  * 2) Supporting Fix shown only when relevant + meaningful (no more “1KB HTML, 0 inline scripts”).
  * 3) Low-score/no-evidence guardrail text to avoid “tool made this up” vibe.
- * 4) Stop “good is bad” evidence lines.
- * 5) De-dupe + prioritise Top Issues.
+ * 4) Stop “good is bad” evidence lines (e.g., “inline scripts below baseline (0)”).
+ * 5) De-dupe + prioritise Top Issues (no repeats / no spammy Monitor rows unless needed).
  *
  * TRUST PATCH:
  * - If score is 0 but there is no issues/deductions/evidence/observations, treat as NOT MEASURED (N/A).
- * - If issues/deductions are empty BUT evidence clearly fails baseline checks, show “evidence flags” count.
+ * - If issues/deductions are empty BUT evidence clearly fails baseline checks, show “evidence flags” count
+ *   so we never show “Issues Found: none” while also saying “X is not satisfied”.
  *
- * AGENCY PATCH (UI):
- * - Remove weights from report UI (cards + Key Findings). Weights belong in documentation, not client-facing reports.
- * - Populate Key Findings grid fields when present (findingOverall/findingConstraint/etc).
+ * NEW COPY PATCH:
+ * - Replace vague “required signal missing” with specific, readable descriptions (esp. Security headers).
+ * - Key Findings uses a structured 5-row briefing layout (no raw paragraph dump).
  */
 
 (function () {
@@ -54,17 +55,11 @@
       .replace(/'/g, "&#039;");
   }
 
-  function setText(id, text) {
-    var el = $(id);
-    if (!el) return false;
-    el.textContent = String(text == null ? "" : text);
-    return true;
-  }
-
   function formatDate(iso) {
     if (!iso) return "—";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
+
     try {
       return d.toLocaleString("en-NZ", {
         timeZone: "Pacific/Auckland",
@@ -84,8 +79,8 @@
     var n = asInt(score, 0);
     if (n >= 90) return "Strong";
     if (n >= 75) return "Good";
-    if (n >= 55) return "Needs work";
-    return "Needs attention";
+    if (n >= 55) return "Fair";
+    return "Needs work";
   }
 
   // Query param (ES5)
@@ -330,11 +325,11 @@
   }
 
   function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Reduce mobile LCP below 2.5s and stabilise layout shifts.";
-    if (key === "security") return "Implement the missing security headers and resolve any mixed content.";
-    if (key === "seo") return "Fix missing SEO baseline signals (indexability, H1/title/meta).";
-    if (key === "structure") return "Correct core semantic structure and required document tags.";
-    if (key === "accessibility") return "Resolve the highest-impact accessibility blockers (labels/controls/contrast).";
+    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
+    if (key === "security") return "Implement missing security headers and remove mixed-content requests.";
+    if (key === "seo") return "Stabilise indexability and metadata baseline signals.";
+    if (key === "structure") return "Correct semantic structure and required tags.";
+    if (key === "accessibility") return "Resolve top accessibility blockers (labels/controls/contrast).";
     return "Improve the weakest baseline signal.";
   }
 
@@ -343,7 +338,7 @@
     if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
     if (key === "mobile") return "Recommended Fix: Mobile LCP + layout stability.";
     if (key === "seo") return "Recommended Fix: indexability + metadata baseline.";
-    if (key === "security") return "Recommended Fix: headers/policy baseline + mixed content.";
+    if (key === "security") return "Recommended Fix: security headers baseline + mixed content.";
     if (key === "structure") return "Recommended Fix: semantic structure + required tags.";
     if (key === "accessibility") return "Recommended Fix: labels/controls + contrast fundamentals.";
     return "";
@@ -511,7 +506,56 @@
   }
 
   // -----------------------------
-  // Executive Summary (populate grid if present)
+  // Specific “missing signal” wording (replace vague text)
+  // -----------------------------
+  function specificMissingSignals(sig) {
+    sig = safeObj(sig);
+    var ev = safeObj(sig.evidence);
+    var keys = Object.keys(ev || {});
+    if (!keys.length) return "";
+
+    function isMissingKey(k, v) {
+      var lk = String(k || "").toLowerCase();
+      if (typeof v === "boolean") {
+        if (lk.indexOf("missing") !== -1) return v === true;
+        if (lk.indexOf("present") !== -1 || lk.indexOf("enabled") !== -1 || lk.indexOf("hsts") !== -1 || lk.indexOf("viewport") !== -1 || lk.indexOf("indexable") !== -1) return v === false;
+      }
+      return false;
+    }
+
+    function pushIf(label, match) {
+      match = String(match || "").toLowerCase();
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = ev[k];
+        var lk = String(k).toLowerCase();
+        if (lk.indexOf(match) !== -1 && isMissingKey(k, v)) return label;
+      }
+      return "";
+    }
+
+    var found = [];
+    var a;
+
+    a = pushIf("HSTS", "hsts"); if (a) found.push(a);
+    a = pushIf("Content-Security-Policy", "content_security_policy"); if (a) found.push(a);
+    a = pushIf("Content-Security-Policy", "csp"); if (a && found.indexOf(a) === -1) found.push(a);
+    a = pushIf("X-Content-Type-Options", "x_content_type_options"); if (a) found.push(a);
+    a = pushIf("X-Frame-Options", "x_frame_options"); if (a) found.push(a);
+    a = pushIf("Referrer-Policy", "referrer"); if (a) found.push(a);
+    a = pushIf("Permissions-Policy", "permissions"); if (a) found.push(a);
+
+    a = pushIf("Viewport meta tag", "viewport"); if (a) found.push(a);
+    a = pushIf("HTML lang attribute", "html_lang"); if (a) found.push(a);
+    a = pushIf("Primary heading (H1)", "h1"); if (a) found.push(a);
+
+    if (!found.length) return "";
+    if (found.length === 1) return "Missing: " + found[0] + ".";
+    return "Missing: " + found.slice(0, 4).join(", ") + (found.length > 4 ? "…" : "") + ".";
+  }
+
+  // -----------------------------
+  // Key Findings (structured 5-row briefing)
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
     data = safeObj(data);
@@ -521,6 +565,18 @@
 
     var overall = asInt(scores.overall, 0);
 
+    var oEl = $("findingOverall");
+    var cEl = $("findingConstraint");
+    var iEl = $("findingImpact");
+    var fEl = $("findingFix");
+    var nEl = $("findingNext");
+
+    function setText(el, t) {
+      if (!el) return;
+      el.textContent = (t == null || t === "") ? "—" : String(t);
+    }
+
+    // Helpers (optional supporting metrics)
     function lcpSecondsFromPsi() {
       var m = safeObj(psi.mobile);
       var f = safeObj(m.facts);
@@ -552,101 +608,50 @@
       return Math.round(n);
     }
 
-    // If the report HTML includes the grid fields, use them (prevents layout blow-outs)
-    var hasGrid =
-      !!$("findingOverall") &&
-      !!$("findingConstraint") &&
-      !!$("findingImpact") &&
-      !!$("findingFix") &&
-      !!$("findingNext");
+    // Overall row
+    setText(oEl, overall + "/100 — " + verdict(overall));
 
-    // Hide the "Summary will load..." line if present in this section
-    function hideSummaryPlaceholder() {
-      try {
-        var section = $("executiveNarrativeSection");
-        if (!section) return;
-        var muted = section.querySelector(".section-body .muted");
-        if (muted) muted.style.display = "none";
-      } catch (e) {}
-    }
-
-    // Fallback container (older HTML)
-    var legacy = $("narrativeText");
-
+    // If no primary, keep it neutral but complete.
     if (!primary || !primary.key) {
-      if (hasGrid) {
-        setText("findingOverall", overall + "/100 (" + verdict(overall) + ")");
-        setText("findingConstraint", "No clear primary constraint identified from this scan.");
-        setText("findingImpact", "This scan did not return enough measurable evidence to identify a single highest-impact constraint.");
-        setText("findingFix", "Re-run the scan and review the Signal Evidence blocks for the clearest measurable deficit.");
-        setText("findingNext", "Re-scan after any change to confirm the result is measurable.");
-        hideSummaryPlaceholder();
-        return;
-      }
-
-      if (legacy) {
-        legacy.innerHTML =
-          "<p style='margin:0; line-height:1.55;'>" +
-          escapeHtml("Overall Delivery: " + overall + "/100") +
-          "</p>" +
-          "<p style='margin:10px 0 0 0; line-height:1.55;'>" +
-          escapeHtml("No clear primary constraint was identified from the scan output.") +
-          "</p>";
-      }
+      setText(cEl, "No clear primary constraint identified from this scan output.");
+      setText(iEl, "The scan did not return enough evidence to identify a single highest-leverage constraint.");
+      setText(fEl, "Review the Signal Evidence blocks and address the clearest measurable deficit.");
+      setText(nEl, "Re-run the scan after one change to confirm a measurable lift.");
       return;
     }
 
     var domainLabel = (LABELS[primary.key] || primary.key);
     var domainScore = asInt(scores[primary.key], 0);
+    var weightPct = Math.round((primary.weight || 0) * 100);
 
-    var impactLine =
-      domainLabel +
-      " is the primary constraint in this scan and represents the biggest measurable lift if improved.";
+    // Primary constraint row
+    setText(cEl, domainLabel + " — " + domainScore + "/100 (" + weightPct + "% weight)");
 
-    var fixLine = primaryFixLineForKey(primary.key);
-
-    var nextLine = "Apply one measurable change, then re-run the scan to confirm the lift.";
-
-    // Optional supporting detail (only when meaningful)
-    var support = "";
+    // Impact row
+    var impactText = domainLabel + " is currently limiting overall delivery. Improving this domain is likely to produce the largest measurable lift in this scan.";
     if (primary.key === "performance" || primary.key === "mobile") {
       var lcp = lcpSecondsFromPsi();
-      if (lcp !== null && lcp > 0 && lcp > 2.5) {
-        support = "Mobile LCP observed at " + lcp + "s (target <2.5s).";
-      } else {
-        var hb = htmlBytesFromBasic();
-        var is = inlineScriptsFromBasic();
-        var kb = (hb !== null) ? Math.round(hb / 1024) : null;
+      if (lcp !== null && lcp > 0) impactText += " Mobile LCP observed: " + lcp + "s (target < 2.5s).";
+    }
+    setText(iEl, impactText);
 
-        var parts = [];
-        if (kb !== null && kb >= 50) parts.push(kb + "KB HTML");
-        if (is !== null && is >= 3) parts.push(is + " inline scripts");
+    // Fix row (with meaningful supporting hint only when it matters)
+    var fixText = primaryFixLineForKey(primary.key);
 
-        if (parts.length) support = "Supporting signal: initial payload is high (" + parts.join(", ") + ").";
-      }
+    if (primary.key === "performance" || primary.key === "mobile") {
+      var hb = htmlBytesFromBasic();
+      var is = inlineScriptsFromBasic();
+      var kb = (hb !== null) ? Math.round(hb / 1024) : null;
+      var parts = [];
+      if (kb !== null && kb >= 50) parts.push(kb + "KB HTML");
+      if (is !== null && is >= 3) parts.push(is + " inline scripts");
+      if (parts.length) fixText += " Reduce initial payload (" + parts.join(", ") + ").";
     }
 
-    if (hasGrid) {
-      setText("findingOverall", overall + "/100 (" + verdict(overall) + ")");
-      setText("findingConstraint", domainLabel + " (" + domainScore + "/100)");
-      setText("findingImpact", impactLine + (support ? " " + support : ""));
-      setText("findingFix", fixLine);
-      setText("findingNext", nextLine);
-      hideSummaryPlaceholder();
-      return;
-    }
+    setText(fEl, fixText);
 
-    // Legacy fallback
-    if (legacy) {
-      var html =
-        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Overall Delivery: " + overall + "/100") + "</p>" +
-        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(domainLabel + ": " + domainScore + "/100") + "</p>" +
-        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Primary issue: " + domainLabel + " is limiting overall delivery.") + "</p>" +
-        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(impactLine + (support ? " " + support : "")) + "</p>" +
-        "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Recommended fix: " + fixLine) + "</p>" +
-        "<p style='margin:0; line-height:1.55;'>" + escapeHtml("Next step: " + nextLine) + "</p>";
-      legacy.innerHTML = html;
-    }
+    // Next step row
+    setText(nEl, "Apply one measurable change, then re-run the scan to confirm the lift.");
   }
 
   // -----------------------------
@@ -734,11 +739,33 @@
       return label + " needs attention.";
     }
 
+    // Replace vague "required signal missing" with specific signal names where possible
+    function normalizeExplainLine(text, sig) {
+      var t = String(text || "").trim();
+      if (!t) return "";
+
+      if (/required signal missing/i.test(t)) {
+        var spec = specificMissingSignals(sig);
+        if (spec) return spec;
+
+        // Fallback: still specific-ish, not “signal missing”
+        var dk = domainKeyFromSignal(sig);
+        if (dk === "security") return "Required security headers are missing or not detected.";
+        if (dk === "seo") return "Required SEO baseline signals were not detected.";
+        if (dk === "structure") return "Required structural tags were not detected.";
+        if (dk === "accessibility") return "Required accessibility signals were not detected.";
+        return "Required baseline signals were not detected.";
+      }
+
+      return t;
+    }
+
     function pickExplainLine(sig, allowEvidence) {
       var issues = asArray(sig.issues);
       if (issues.length) {
         var it = safeObj(issues[0]);
         var t = String(it.title || it.id || "").trim();
+        t = normalizeExplainLine(t, sig);
         if (t) return t;
       }
 
@@ -746,6 +773,7 @@
       if (deds.length) {
         var dd = safeObj(deds[0]);
         var r = String(dd.reason || dd.code || "").trim();
+        r = normalizeExplainLine(r, sig);
         if (r) return r;
       }
 
@@ -762,6 +790,12 @@
       return "";
     }
 
+    function getRecommendation(score, text) {
+      var s = asInt(score, 0);
+      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+      return text;
+    }
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
@@ -772,17 +806,21 @@
       var score = unmeasured ? null : rawScore;
 
       var key = domainKeyFromSignal(sig);
+      var w = key ? (WEIGHTS[key] || 0) : 0;
+      var weightPct = w ? (Math.round(w * 100) + "%") : "";
+
       var flagged = hasFlags(sig);
+      var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
 
       var headline = "Stable";
-      if (unmeasured) headline = "Not measured";
-      else if (key && primary && primary.key && key === primary.key) headline = "Priority fix";
-      else if (score !== null && score < 75) headline = "Needs work";
-      else if (score !== null && isStrong(score)) headline = "Strong";
-      else headline = "Stable";
+      if (unmeasured) headline = "Not Measured";
+      else if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
+      else if (w && defPts >= 3) headline = "Secondary Fix";
+      else if (w) headline = isStrong(score) ? "Strong" : "Stable";
+      else headline = "Deterministic";
 
       var lines = [];
-      lines.push("Status: " + headline);
+      lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
       if (unmeasured && !flagged) {
         lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
@@ -798,7 +836,7 @@
         if (flagged) {
           lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
         } else if (emptyButLow) {
-          lines.push("Why: Limited evidence returned for this signal. Missing or blocked inputs are treated as a penalty to preserve completeness.");
+          lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
         } else {
           if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
           else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
@@ -891,6 +929,10 @@
         for (var j = 0; j < issues.length; j++) {
           var it = safeObj(issues[j]);
           var t = String(it.title || it.id || "Issue");
+          if (/required signal missing/i.test(t)) {
+            var spec = specificMissingSignals(sig);
+            if (spec) t = spec;
+          }
           var sev = String(it.severity || "").toUpperCase();
           var impact = String(it.impact || it.detail || it.description || "");
           body += "<div class='issue' style='margin-bottom:10px;'>";
@@ -910,6 +952,10 @@
           var dd = safeObj(deds[k]);
           var pts = dd.points;
           var reason = dd.reason || dd.code || "";
+          if (/required signal missing/i.test(reason)) {
+            var spec2 = specificMissingSignals(sig);
+            if (spec2) reason = spec2;
+          }
           body += kvHtml((pts != null ? ("-" + pts + " pts") : "Deduction"), reason);
         }
         body += "</div>";
@@ -1034,6 +1080,12 @@
         var it = safeObj(issues[j]);
         var title = String(it.title || it.id || (label + ": issue")).trim();
         if (!title) continue;
+        if (/required signal missing/i.test(title)) {
+          var spec = specificMissingSignals(sig);
+          if (spec) title = label + ": " + spec;
+          else title = label + ": Required baseline inputs not detected.";
+        }
+
         out.push({
           title: title,
           sev: String(it.severity || "monitor").toUpperCase(),
@@ -1048,6 +1100,12 @@
         var reason = String(dd.reason || dd.code || "").trim();
         if (!reason) continue;
         if (pts !== null && pts < 2) continue;
+
+        if (/required signal missing/i.test(reason)) {
+          var spec2 = specificMissingSignals(sig);
+          if (spec2) reason = spec2;
+          else reason = "Required baseline inputs not detected.";
+        }
 
         out.push({
           title: label + ": " + reason,
@@ -1143,7 +1201,7 @@
         var ul1 = phases[0].querySelector("ul");
         if (ul1) {
           ul1.innerHTML =
-            "<li>Prioritise <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong> first.</li>" +
+            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong>.</li>" +
             "<li>Re-run the scan immediately to confirm measurable improvement before expanding scope.</li>" +
             "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
         }
@@ -1165,16 +1223,6 @@
         }
       }
     } catch (e) {}
-  }
-
-  // -----------------------------
-  // Recommendation Guardrail
-  // Prevents "Score 100 but still fix something"
-  // -----------------------------
-  function getRecommendation(score, text) {
-    var s = asInt(score, 0);
-    if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
-    return text;
   }
 
   // -----------------------------
@@ -1217,25 +1265,18 @@
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
 
-        // Try to populate grid error state if present
-        if ($("findingOverall")) {
-          setText("findingOverall", "—");
-          setText("findingConstraint", "Report data could not be loaded.");
-          setText("findingImpact", "The scan payload could not be retrieved for this report.");
-          setText("findingFix", "Refresh and try again, or re-run the scan.");
-          setText("findingNext", "If this persists, contact support with the report ID.");
-          try {
-            var section = $("executiveNarrativeSection");
-            if (section) {
-              var muted = section.querySelector(".section-body .muted");
-              if (muted) muted.style.display = "none";
-            }
-          } catch (e2) {}
-          return;
-        }
+        // Keep Key Findings clean even on error
+        var oEl = $("findingOverall");
+        var cEl = $("findingConstraint");
+        var iEl = $("findingImpact");
+        var fEl = $("findingFix");
+        var nEl = $("findingNext");
 
-        var n = $("narrativeText");
-        if (n) n.innerHTML = "<div class='muted' style='font-size:12px;'>Report data could not be loaded for this scan.</div>";
+        if (oEl) oEl.textContent = "—";
+        if (cEl) cEl.textContent = "Report data could not be loaded for this scan.";
+        if (iEl) iEl.textContent = "—";
+        if (fEl) fEl.textContent = "—";
+        if (nEl) nEl.textContent = "Refresh and try again.";
 
         var ff = $("fixFirstBlock");
         if (ff) ff.innerHTML = "";

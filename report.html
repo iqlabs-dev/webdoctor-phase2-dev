@@ -195,12 +195,6 @@
       font-size: 13px;
     }
 
-    body.light .overall-strip {
-      background: rgba(15,23,42,0.03);
-      border-color: rgba(15,23,42,0.10);
-    }
-    body.light .overall-strip-note { color: rgba(15,23,42,0.78); }
-
     /* Sections */
     .section {
       width: 100%;
@@ -294,8 +288,41 @@
       font-size: 13px;
       white-space: pre-line;
     }
-    .summary p { margin: 0 0 10px 0; }
     .muted { color: var(--muted); }
+
+    /* === Key Findings (structured 5-row briefing) === */
+    .keyfindings {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .finding-row{
+      display:grid;
+      grid-template-columns:160px 1fr;
+      gap:12px;
+      padding:6px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .finding-row:last-child { border-bottom: 0; }
+    .finding-label{
+      font-weight:700;
+      font-size:11px;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+      color:var(--muted);
+      padding-top: 2px;
+    }
+    .finding-value{
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    @media (max-width: 520px) {
+      .finding-row { grid-template-columns: 1fr; gap: 6px; }
+      .finding-label { padding-top: 0; }
+    }
 
     /* 3x2 grid */
     .grid {
@@ -627,26 +654,6 @@
       padding-top: 10px;
     }
 
-    /* Light theme support */
-    body.light { background: #e5edf4; color: #0f172a; }
-    body.light .top-card,
-    body.light .section,
-    body.light .loader-wrap {
-      background: rgba(255,255,255,0.80);
-      border-color: rgba(15,23,42,0.12);
-      box-shadow: 0 10px 30px rgba(15,23,42,0.10);
-    }
-    body.light .section-head { background: rgba(15,23,42,0.03); }
-    body.light .meta-line, body.light .card, body.light details.evidence-block > summary, body.light .acc-body, body.light .kv,
-    body.light .insight, body.light .issue, body.light .phase {
-      background: rgba(15,23,42,0.03);
-      border-color: rgba(15,23,42,0.10);
-    }
-    body.light .bar { background: rgba(15,23,42,0.10); }
-    body.light .summary, body.light .issue-why, body.light .phase-body li, body.light .insight .text { color: rgba(15,23,42,0.78); }
-    body.light .muted { color: rgba(15,23,42,0.55); }
-    body.light .brand .tag { color: rgba(15,23,42,0.55); }
-
     /* PRINT / PDF MODE */
     @media print {
       :root { color-scheme: light; }
@@ -666,7 +673,8 @@
       .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
         color: #0f172a !important;
       }
-      .summary, .issue-why, .insight .text, .kv .k, .kv .v {
+      .summary, .issue-why, .phase-body li, .insight .text, .kv .k, .kv .v,
+      .finding-value, .finding-label {
         color: #111827 !important;
       }
       .bar { background: #e5e7eb !important; }
@@ -764,16 +772,41 @@
       <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
 
-        <!-- Deterministic Summary -->
+        <!-- Key Findings -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Key Findings</h2>
           </div>
           <div class="section-body">
-            <div id="narrativeText" class="summary"></div>
-            <div id="narrativeFallback" class="muted" style="font-size:12px;">
-              Summary will load after scan data is available.
+
+            <!-- Structured 5-row briefing (populated by report-data.js) -->
+            <div id="narrativeText" class="keyfindings">
+              <div class="finding-row">
+                <div class="finding-label">Overall Delivery</div>
+                <div class="finding-value" id="findingOverall">—</div>
+              </div>
+
+              <div class="finding-row">
+                <div class="finding-label">Primary Constraint</div>
+                <div class="finding-value" id="findingConstraint">—</div>
+              </div>
+
+              <div class="finding-row">
+                <div class="finding-label">Impact</div>
+                <div class="finding-value" id="findingImpact">—</div>
+              </div>
+
+              <div class="finding-row">
+                <div class="finding-label">Recommended Fix</div>
+                <div class="finding-value" id="findingFix">—</div>
+              </div>
+
+              <div class="finding-row">
+                <div class="finding-label">Next Step</div>
+                <div class="finding-value" id="findingNext">—</div>
+              </div>
             </div>
+
           </div>
         </section>
 
