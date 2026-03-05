@@ -3,10 +3,12 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * PATCH GOAL (coherence pass):
- * 1) One Primary Constraint selector used across: Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence.
- * 2) Supporting Fix shown only when relevant + meaningful (no more “1KB HTML, 0 inline scripts”).
- * 3) Low-score/no-evidence guardrail text to avoid “tool made this up” vibe.
+ * PATCH (5 changes):
+ * 1) Never show “Issues Found: none” when score < 90 (use evidence/deduction phrasing instead).
+ * 2) Deduplicate Top Issues (no repeated titles/reasons).
+ * 3) Add severity tiers on cards (CRITICAL/HIGH/MODERATE).
+ * 4) Reduce card verbosity (Priority/Why/Fix only + counts only when present).
+ * 5) Make weighted primary-selection explicit once in Key Findings.
  */
 
 (function () {
@@ -72,6 +74,22 @@
     if (n >= 75) return "Good";
     if (n >= 55) return "Needs work";
     return "Needs attention";
+  }
+
+  function severityTier(score) {
+    var s = asInt(score, 0);
+    if (s <= 20) return "CRITICAL";
+    if (s <= 40) return "HIGH";
+    if (s <= 70) return "MODERATE";
+    return (s >= 90) ? "STRONG" : "STABLE";
+  }
+
+  function normalizeKey(s) {
+    s = String(s == null ? "" : s).toLowerCase();
+    s = s.replace(/<[^>]*>/g, " ");      // drop tags from title-ish strings
+    s = s.replace(/[^a-z0-9]+/g, " ");   // normalize punctuation
+    s = s.replace(/\s+/g, " ").trim();
+    return s;
   }
 
   // Query param (ES5)
@@ -322,14 +340,15 @@
     return "Improve the weakest baseline signal.";
   }
 
-  function recommendedFixForKey(key) {
+  // Short, non-debuggy
+  function fixLineShort(key) {
     if (!key) return "";
-    if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
-    if (key === "mobile") return "Recommended Fix: Mobile LCP + layout stability.";
-    if (key === "seo") return "Recommended Fix: indexability + metadata baseline.";
-    if (key === "security") return "Recommended Fix: headers/policy baseline + mixed content.";
-    if (key === "structure") return "Recommended Fix: semantic structure + required tags.";
-    if (key === "accessibility") return "Recommended Fix: labels/controls + contrast fundamentals.";
+    if (key === "performance") return "Fix: Reduce LCP and main-thread blocking.";
+    if (key === "mobile") return "Fix: Improve mobile LCP and layout stability.";
+    if (key === "seo") return "Fix: Fix indexability, titles, metadata, canonicals.";
+    if (key === "security") return "Fix: Add missing security headers and policy baseline.";
+    if (key === "structure") return "Fix: Restore core semantic structure and required tags.";
+    if (key === "accessibility") return "Fix: Resolve missing labels/controls and contrast basics.";
     return "";
   }
 
@@ -357,8 +376,6 @@
   }
 
   function computePrimaryConstraint(scores, signals) {
-    // Picks primary domain by weighted deficit points, with a minimum threshold.
-    // If nothing crosses threshold but flags exist, pick the strongest weighted flagged domain.
     scores = safeObj(scores);
     signals = asArray(signals);
 
@@ -460,6 +477,9 @@
 
     p("Overall Delivery: " + overall + "/100");
 
+    // Change #5: explain primary selection ONCE
+    p("Primary Issue is selected using weighted scoring impact (highest weighted deficit).");
+
     if (!primary || !primary.key) {
       h("Status");
       p("No clear primary constraint was identified from the scan output.");
@@ -493,7 +513,6 @@
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
 
-      // “Meaningful” thresholds to avoid junk like 1KB / 0 scripts
       var kb = (hb !== null) ? Math.round(hb / 1024) : null;
       var showPayload = false;
       if (kb !== null && kb >= 50) showPayload = true;
@@ -515,7 +534,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (client-friendly, no debug output)
+  // Delivery signal cards (client-friendly)
   // -----------------------------
   function renderSignalsGrid(signals, scores, primary) {
     var grid = $("signalsGrid");
@@ -525,7 +544,7 @@
     scores = safeObj(scores);
     grid.innerHTML = "";
 
-    // Inject badge styles once (safe; no need to edit report.html/css)
+    // Inject badge styles once
     try {
       if (!document.getElementById("iqweb-primary-badge-style")) {
         var st = document.createElement("style");
@@ -539,18 +558,7 @@
       }
     } catch (e) {}
 
-    function issuesFoundLine(sig) {
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-      var a = [];
-      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
-      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
-    }
-
-    function isStrong(score) { return asInt(score, 0) >= 90; }
-
-    // Evidence heuristics (kept but constrained)
+    // Evidence heuristics (constrained)
     function isMeaningfulFail(key, value) {
       var k = String(key || "").toLowerCase();
 
@@ -577,7 +585,6 @@
       var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
       if (!label) label = "Requirement";
 
-      // Small polish for common keys
       var lk = k.toLowerCase();
       if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) label = "HTML lang attribute";
       if (lk.indexOf("title") !== -1) label = "Title tag";
@@ -614,13 +621,23 @@
         var ev = safeObj(sig.evidence);
         var keys = Object.keys(ev || {});
         for (var i = 0; i < keys.length; i++) {
-          var k = keys[i];
-          var v = ev[k];
-          if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
+          var kk = keys[i];
+          var vv = ev[kk];
+          if (isMeaningfulFail(kk, vv)) return prettyEvidenceText(kk, vv);
         }
       }
 
       return "";
+    }
+
+    function countsLineIfPresent(sig) {
+      // Change #1: do NOT show “Issues Found: none” when score < 90
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+      var a = [];
+      if (issues.length) a.push("Issues: " + issues.length);
+      if (deds.length) a.push("Deductions: " + deds.length);
+      return a.length ? a.join(" • ") : "";
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -633,45 +650,49 @@
       var w = key ? (WEIGHTS[key] || 0) : 0;
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
-      var defPts = w ? deficitWeightedPoints(score, w) : 0;
       var flagged = hasFlags(sig);
+      var tier = severityTier(score);
 
-      // Headline
-      var headline = "Stable";
-      if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
-      else if (w && defPts >= 3) headline = "Secondary Fix";
-      else if (w) headline = isStrong(score) ? "Strong" : "Stable";
-      else headline = "Deterministic";
+      var isPrimary = !!(key && primary && primary.key && key === primary.key);
 
+      // Change #4: reduced verbosity (3 lines + optional counts if present)
       var lines = [];
-      lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
-      if (key && primary && primary.key && key === primary.key) {
-        lines.push("Why it matters: biggest measurable lift available in this scan.");
+      // Line 1: Priority + weight + tier
+      if (w) {
+        lines.push((isPrimary ? "PRIORITY" : "SECONDARY") + " • " + weightPct + " WEIGHT" + " • " + tier);
+      } else {
+        lines.push(tier);
       }
 
+      // Line 2: Why (one sentence)
       var allowEvidence = flagged || (score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
-      // Guardrail: low score but nothing to point at
-      var emptyButLow = (!flagged && !because && score < 70);
-
       if (flagged) {
-        lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
-      } else if (emptyButLow) {
-        lines.push("Why: Inputs were incomplete or not observable — score reflects missing signals.");
+        lines.push(because ? ("Why: " + because) : "Why: Evidence flags were detected in this domain.");
       } else {
-        if (isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
-        else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
+        if (score >= 90) {
+          lines.push("Why: Baseline stable — no measurable blockers detected in this scan.");
+        } else if (because) {
+          lines.push("Why: " + because);
+        } else {
+          // Change #1: low score without issues — do not imply made-up reasons
+          lines.push("Why: Measured deductions were applied from scan evidence or missing/unobservable signals.");
+        }
       }
 
-      var lever = recommendedFixForKey(key);
-      if (lever) lines.push(lever);
+      // Line 3: Fix (short)
+      var fx = fixLineShort(key);
+      if (fx) lines.push(fx);
 
-      lines.push(issuesFoundLine(sig));
+      // Optional counts only when present (no “none”)
+      var c = countsLineIfPresent(sig);
+      if (c) lines.push(c);
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
+      // Existing visual class mapping kept
       var severityClass = "severity-strong";
       if (score < 65) severityClass = "severity-high";
       else if (score < 90) severityClass = "severity-medium";
@@ -679,7 +700,7 @@
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-      var badgeHtml = (key && primary && primary.key && key === primary.key) ? '<div class="primary-badge">Primary Issue</div>' : "";
+      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Issue</div>' : "";
 
       card.innerHTML =
         badgeHtml +
@@ -832,7 +853,7 @@
 
     if (primary && primary.key) {
       items[2].text = (LABELS[primary.key] || primary.key) + " is the primary constraint in this scan.";
-      items[3].text = "Address one measurable item in this domain, then re-scan to confirm the lift.";
+      items[3].text = "Fix one measurable item in this domain, then re-scan to confirm the lift.";
     }
 
     var html = '<div class="insight-list">';
@@ -849,13 +870,24 @@
   }
 
   // -----------------------------
-  // Top Issues (primary domain first)
+  // Top Issues (primary domain first, deduped)
   // -----------------------------
   function renderTopIssues(signals, primary) {
     var root = $("topIssuesRoot");
     if (!root) return;
 
     signals = asArray(signals);
+
+    // Change #2: dedupe
+    var seen = {};
+
+    function pushDedup(out, title, sev, why, dedupeKey) {
+      var k = normalizeKey(dedupeKey || title);
+      if (!k) k = normalizeKey(title);
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push({ title: title, sev: sev, why: why });
+    }
 
     function collectFromSignal(sig, out) {
       var label = String(sig.label || sig.id || "Signal");
@@ -864,20 +896,18 @@
 
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
-        out.push({
-          title: String(it.title || it.id || (label + ": issue")).trim(),
-          sev: String(it.severity || "monitor").toUpperCase(),
-          why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output."
-        });
+        var t = String(it.title || it.id || (label + ": issue")).trim();
+        var sev = String(it.severity || "monitor").toUpperCase();
+        var why = String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.";
+        // dedupe by issue title only (not label) to avoid repeats like “Missing title” / “Missing <title> tag”
+        pushDedup(out, t, sev, why, t);
       }
 
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
-        out.push({
-          title: label + ": " + String(dd.reason || dd.code || "Deduction"),
-          sev: "MONITOR",
-          why: "A measured deduction was applied from scan evidence."
-        });
+        var r = String(dd.reason || dd.code || "Deduction");
+        var tt = label + ": " + r;
+        pushDedup(out, tt, "MONITOR", "A measured deduction was applied from scan evidence.", r);
       }
     }
 
