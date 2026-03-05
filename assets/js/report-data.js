@@ -337,14 +337,15 @@
     return round1((100 - s) * w);
   }
 
-  function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
-    if (key === "security") return "Close the top Security & Trust gaps.";
-    if (key === "seo") return "Stabilise SEO Foundations baseline signals.";
-    if (key === "structure") return "Correct core Structure & Semantics issues.";
-    if (key === "accessibility") return "Resolve top Accessibility blockers.";
-    return "Improve the weakest baseline signal.";
-  }
+function primaryFixLineForKey(key) {
+  if (key === "performance") return "Reduce LCP and main-thread time (target LCP <2.5s).";
+  if (key === "mobile") return "Improve mobile LCP and layout stability (CLS).";
+  if (key === "security") return "Close the top Security & Trust gaps.";
+  if (key === "seo") return "Stabilise SEO Foundations baseline signals.";
+  if (key === "structure") return "Correct core Structure & Semantics issues.";
+  if (key === "accessibility") return "Resolve top Accessibility blockers.";
+  return "Improve the weakest baseline signal.";
+}
 
   // -----------------------------
   // Deterministic Executive Delivery Summary (client-ready)
@@ -561,7 +562,9 @@
       var a = [];
       if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
       if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
+      return a.length
+  ? ("Findings: " + a.join(" • "))
+  : "Findings: no discrete issues flagged (score reflects measurable drag).";
     }
 
     function hasFlags(sig) {
@@ -628,10 +631,11 @@
       var flagged = hasFlags(sig);
 
       // Headline line
-      var headline = "Stable";
-      if (w && defPts >= 3) {
-        headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
-      }
+   var headline = "Stable";
+
+if (w && defPts >= 3) {
+  headline = (i === primaryIdx) ? "Top Priority" : "Secondary Priority";
+}
       else if (w) {
         if (flagged) headline = "Secondary Fix";
         else headline = isStrong(score) ? "Strong" : "Stable";
