@@ -235,34 +235,21 @@
       border-radius: 16px;
       padding: 14px 14px;
     }
+
     /* === Signal Severity Styling (premium, subtle) === */
+    .card.severity-strong {
+      border-color: rgba(34, 197, 94, 0.35);
+      background: linear-gradient(180deg, rgba(34,197,94,0.08), rgba(0,0,0,0.18));
+    }
+    .card.severity-medium {
+      border-color: rgba(245, 158, 11, 0.45);
+      background: linear-gradient(180deg, rgba(245,158,11,0.08), rgba(0,0,0,0.18));
+    }
+    .card.severity-high {
+      border-color: rgba(239, 68, 68, 0.55);
+      background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.18));
+    }
 
-.card.severity-strong {
-  border-color: rgba(34, 197, 94, 0.35);
-  background: linear-gradient(
-    180deg,
-    rgba(34,197,94,0.08),
-    rgba(0,0,0,0.18)
-  );
-}
-
-.card.severity-medium {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: linear-gradient(
-    180deg,
-    rgba(245,158,11,0.08),
-    rgba(0,0,0,0.18)
-  );
-}
-
-.card.severity-high {
-  border-color: rgba(239, 68, 68, 0.55);
-  background: linear-gradient(
-    180deg,
-    rgba(239,68,68,0.10),
-    rgba(0,0,0,0.18)
-  );
-}
     .card-top {
       display: flex;
       align-items: center;
@@ -380,9 +367,6 @@
       .evidence-list { grid-template-columns: 1fr 1fr; }
     }
 
-    /* KEY FIX #1:
-       Let values wrap INSIDE the kv row so nothing can spill out of the card.
-       Keep the label fixed-ish, allow the value to take remaining space and wrap. */
     .kv {
       display: flex;
       align-items: flex-start;
@@ -405,11 +389,11 @@
       font-weight: 600;
       font-size: 12px;
       text-align: right;
-      white-space: normal;          /* was nowrap */
-      overflow-wrap: anywhere;      /* allow wrap */
-      word-break: break-word;       /* hard wrap long strings */
-      min-width: 0;                 /* allow flex shrink */
-      flex: 1 1 auto;               /* take remaining space */
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      min-width: 0;
+      flex: 1 1 auto;
       max-width: 45%;
     }
 
@@ -556,8 +540,6 @@
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(255,255,255,0.03);
     }
-    /* KEY FIX #2:
-       Hard-force the Phase title/time font + sizing so nothing can “inherit weirdly” */
     .phase-title {
       margin: 0;
       font-family: "Montserrat", system-ui, sans-serif;
@@ -734,7 +716,6 @@
     <div class="shell-inner">
 
       <div class="top-card">
-
         <!-- Brand Bar -->
         <div class="top-row">
           <div class="brand">
@@ -749,7 +730,6 @@
             <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
             <button id="refreshBtn" class="btn">Refresh</button>
           </div>
-
         </div>
 
         <!-- Meta Strip -->
@@ -769,7 +749,6 @@
             <div class="v" id="reportDate">—</div>
           </div>
         </div>
-
       </div>
 
       <!-- Loader -->
@@ -796,7 +775,7 @@
           </div>
         </section>
 
-        <!-- What to Fix First (and Why) -->
+        <!-- What to Fix First (optional) -->
         <div id="fixFirstBlock"></div>
 
         <!-- Delivery Signals -->
@@ -806,7 +785,6 @@
           </div>
 
           <div class="section-body">
-
             <div class="overall-strip">
               <div class="overall-strip-top">
                 <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
@@ -825,7 +803,6 @@
             <div class="summary muted" style="font-size:12px;">
               Each signal is presented as a short diagnostic narrative, backed by evidence below.
             </div>
-
           </div>
         </section>
 
@@ -864,13 +841,6 @@
                   <span class="issue-label">Monitor</span>
                 </div>
                 <div class="issue-why">This section will summarise the highest-leverage issues detected from the evidence captured during this scan.</div>
-              </div>
-              <div class="issue">
-                <div class="issue-top">
-                  <p class="issue-title">Why this is calm, not alarmist</p>
-                  <span class="issue-label">Worth addressing</span>
-                </div>
-                <div class="issue-why">iQWEB avoids panic language. If a signal is missing or uncertain, it is shown as “not available” rather than guessed.</div>
               </div>
             </div>
           </div>
@@ -975,30 +945,26 @@
     const reportId = params.get("report_id") || "";
 
     const isHistory = from === "history";
-    const isPreview = reportId === "EXAMPLE-REPORT-001"; // preview/example report
+    const isPreview = reportId === "EXAMPLE-REPORT-001";
 
-    // Default: keep evidence accordions CLOSED on web
     try {
       document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
     } catch (_) {}
 
-// History view: hide Back + Refresh, NO PDF
-if (isHistory) {
-  if (refreshBtn) refreshBtn.style.display = "none";
-  if (backBtn) backBtn.style.display = "none";
-  if (pdfBtn) pdfBtn.style.display = "none";
-  return; // done
-}
+    if (isHistory) {
+      if (refreshBtn) refreshBtn.style.display = "none";
+      if (backBtn) backBtn.style.display = "none";
+      if (pdfBtn) pdfBtn.style.display = "none";
+      return;
+    }
 
-    // Preview report: remove Back + Refresh (open in new tab from homepage)
     if (isPreview) {
       if (refreshBtn) refreshBtn.style.display = "none";
       if (backBtn) backBtn.style.display = "none";
       if (pdfBtn) pdfBtn.style.display = "none";
-      return; // done
+      return;
     }
 
-    // Normal (real) report view: keep Back + Refresh
     if (pdfBtn) pdfBtn.style.display = "none";
     if (refreshBtn) refreshBtn.onclick = () => location.reload();
 
@@ -1009,75 +975,67 @@ if (isHistory) {
   })();
   </script>
 
-<script>
-  // ===== DocRaptor render gate (single source of truth) =====
-  window.__IQWEB_REPORT_READY = false;
+  <script>
+    // ===== DocRaptor render gate (single source of truth) =====
+    window.__IQWEB_REPORT_READY = false;
 
-  // Detect "PDF render mode"
-  var __IQWEB_PDF_MODE = (function () {
-    try {
-      var p = new URLSearchParams(location.search);
-      if (p.get("pdf") === "1") return true;
-    } catch (_) {}
+    // Detect "PDF render mode"
+    var __IQWEB_PDF_MODE = (function () {
+      try {
+        var p = new URLSearchParams(location.search);
+        if (p.get("pdf") === "1") return true;
+      } catch (_) {}
 
-    // Backup: DocRaptor user-agent often includes "DocRaptor"
-    try {
-      return /DocRaptor/i.test(navigator.userAgent);
-    } catch (_) {
-      return false;
-    }
-  })();
+      try {
+        return /DocRaptor/i.test(navigator.userAgent);
+      } catch (_) {
+        return false;
+      }
+    })();
 
-  // helper
-  function setEvidenceOpen(open) {
-    try {
-      var list = document.querySelectorAll("details.evidence-block");
-      for (var i = 0; i < list.length; i++) list[i].open = !!open;
-    } catch (_) {}
-  }
-
-  // Always CLOSED for any normal page view (OSD + Preview)
-  setEvidenceOpen(false);
-
-  // MUST be global and named EXACTLY this for DocRaptor
-  window.docraptorJavaScriptFinished = function () {
-    return window.__IQWEB_REPORT_READY === true;
-  };
-
-  (function waitForReportReady() {
-    var reportRoot = document.getElementById("reportRoot");
-    var loader = document.getElementById("loaderSection");
-    var signals = document.getElementById("signalsGrid");
-
-    var loaderHidden =
-      loader &&
-      (loader.style.display === "none" || getComputedStyle(loader).display === "none");
-
-    var reportVisible =
-      reportRoot &&
-      (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
-
-    var hasSignals =
-      signals && signals.children && signals.children.length > 0;
-
-    if (loaderHidden && reportVisible && hasSignals) {
-      // ✅ Only open evidence when rendering PDF
-      if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-      else setEvidenceOpen(false);
-
-      window.__IQWEB_REPORT_READY = true;
-      return;
+    function setEvidenceOpen(open) {
+      try {
+        var list = document.querySelectorAll("details.evidence-block");
+        for (var i = 0; i < list.length; i++) list[i].open = !!open;
+      } catch (_) {}
     }
 
-    setTimeout(waitForReportReady, 150);
-  })();
+    setEvidenceOpen(false);
 
-  // Hard safety (prevents infinite hang)
-  setTimeout(function () {
-    if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
-  }, 30000);
-</script>
+    window.docraptorJavaScriptFinished = function () {
+      return window.__IQWEB_REPORT_READY === true;
+    };
 
+    (function waitForReportReady() {
+      var reportRoot = document.getElementById("reportRoot");
+      var loader = document.getElementById("loaderSection");
+      var signals = document.getElementById("signalsGrid");
 
+      var loaderHidden =
+        loader &&
+        (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+      var reportVisible =
+        reportRoot &&
+        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+      var hasSignals =
+        signals && signals.children && signals.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) {
+        if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
+        else setEvidenceOpen(false);
+
+        window.__IQWEB_REPORT_READY = true;
+        return;
+      }
+
+      setTimeout(waitForReportReady, 150);
+    })();
+
+    setTimeout(function () {
+      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+    }, 30000);
+  </script>
 </body>
 </html>
