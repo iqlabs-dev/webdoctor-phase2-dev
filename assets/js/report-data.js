@@ -10,13 +10,7 @@
  * fixFirstBlock (optional)
  *
  * Deterministic Executive Summary + client-ready, constraint-aware signal cards (no AI narrative).
- * Tone polish pass (v1.0): clearer, calmer, “web-dev conversation” language across the whole report.
- *
- * PATCH (requested changes 1-4):
- * 1) Fix confusing findings fallback (no more “no discrete issues flagged…” wording)
- * 2) Remove vague filler sentence “Score indicates measurable drag…”
- * 3) Standardise terminology (Top Priority / Secondary Priority)
- * 4) Hide “Recommended Fix” line for very high scores (>=95), show stable baseline instead
+ * Tone polish pass (v1.1): structured “doctor diagnosis” Key Findings + safer signal copy.
  */
 
 (function () {
@@ -343,17 +337,17 @@
     return round1((100 - s) * w);
   }
 
-  function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Primary Fix: Reduce Mobile LCP below 2.5s.";
-    if (key === "security") return "Primary Fix: Close the top Security & Trust gaps.";
-    if (key === "seo") return "Primary Fix: Stabilise SEO Foundations baseline signals.";
-    if (key === "structure") return "Primary Fix: Correct core Structure & Semantics issues.";
-    if (key === "accessibility") return "Primary Fix: Resolve top Accessibility blockers.";
-    return "Primary Fix: Improve the weakest baseline signal.";
+  function primaryFixForKey(key) {
+    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
+    if (key === "security") return "Close the top Security & Trust gaps (headers, policy baseline, mixed content).";
+    if (key === "seo") return "Stabilise SEO Foundations baseline signals (indexability, canonicals, metadata).";
+    if (key === "structure") return "Correct core Structure & Semantics issues (required tags, semantic structure).";
+    if (key === "accessibility") return "Resolve top Accessibility blockers (labels/controls, contrast fundamentals).";
+    return "Improve the weakest baseline signal.";
   }
 
   // -----------------------------
-  // Deterministic Executive Delivery Summary (client-ready)
+  // Deterministic Executive Summary (doctor-style Key Findings)
   // -----------------------------
   function renderExecutiveSummary(data) {
     var el = $("narrativeText");
@@ -368,7 +362,7 @@
 
     // Find primary constraint = highest weighted deficit
     var keys = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-    var primary = { k: "", deficit: -1, score: 0, w: 0 };
+    var primary = { k: "", deficit: -1, score: 0, w: 0, pts: 0 };
 
     for (var i = 0; i < keys.length; i++) {
       var k = keys[i];
@@ -376,7 +370,7 @@
       if (s === null) continue;
       var w = WEIGHTS[k] || 0;
       var def = (100 - s) * w;
-      if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w };
+      if (def > primary.deficit) primary = { k: k, deficit: def, score: s, w: w, pts: deficitWeightedPoints(s, w) };
     }
 
     function lcpSecondsFromPsi() {
@@ -412,56 +406,72 @@
       return Math.round(n);
     }
 
-    var lines = [];
-    lines.push("Overall Delivery: " + overall + "/100");
+    // Guardrail: don’t declare “Primary Issue” on very strong outputs.
+    // Conditions to show a primary issue:
+    // - primary exists AND weighted deficit points >= 3 (meaningful)
+    // - AND overall is not already very high (90+) with strong primary domain (90+)
+    var hasMeaningfulPrimary = !!(primary.k && primary.pts >= 3);
+    if (overall >= 90 && primary.score >= 90) hasMeaningfulPrimary = false;
 
-    if (primary.k) {
-      lines.push(
-        (LABELS[primary.k] || primary.k) +
-        ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
+    // Render “doctor diagnosis” block (structured headings)
+    function block(title, text) {
+      return (
+        "<p style='margin:0 0 10px 0; line-height:1.55;'>" +
+          "<span style='display:block; font-size:11px; letter-spacing:.12em; opacity:.9; font-weight:700;'>" +
+            escapeHtml(title) +
+          "</span>" +
+          "<span style='display:block; margin-top:4px;'>" + escapeHtml(text) + "</span>" +
+        "</p>"
       );
-
-      // Only mention model pressure if meaningful (>= 3 pts)
-      var primaryPts = deficitWeightedPoints(primary.score, primary.w);
-      if (primaryPts >= 3) {
-        lines.push((LABELS[primary.k] || primary.k) + " is the primary measurable constraint in this scan.");
-      }
-
-      // Optional metric line (facts only)
-      if (primary.k === "performance" || primary.k === "mobile") {
-        var lcp = lcpSecondsFromPsi();
-        if (lcp !== null && lcp > 0) {
-          lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
-        }
-      }
-
-      lines.push(primaryFixLineForKey(primary.k));
-
-      // Secondary payload line (facts only)
-      var hb = htmlBytesFromBasic();
-      var is = inlineScriptsFromBasic();
-      if (hb !== null || is !== null) {
-        var parts = [];
-        if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
-        if (is !== null) parts.push(is + " inline scripts");
-        if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
-      }
-
-      lines.push("Re-scan after changes to confirm measurable improvement.");
     }
-
-    // Cap at 6 lines max
-    if (lines.length > 6) lines = lines.slice(0, 6);
 
     var out = "";
-    for (var j = 0; j < lines.length; j++) {
-      out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(lines[j]) + "</p>";
+
+    // Always start with top lines
+    out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml("Overall Delivery: " + overall + "/100") + "</p>";
+
+    if (!hasMeaningfulPrimary) {
+      // Strong baseline / no clear constraint
+      out += block("STATUS", "Baseline is strong — no primary constraint detected in weighted signals for this scan.");
+      out += block("NEXT STEP", "Use periodic re-scans to catch regressions after content or template changes.");
+      el.innerHTML = out;
+      return;
     }
+
+    // Primary domain line
+    out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" +
+      escapeHtml((LABELS[primary.k] || primary.k) + ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)") +
+      "</p>";
+
+    // Primary Issue / Why / Fix / Supporting / Next
+    out += block("PRIMARY ISSUE", (LABELS[primary.k] || primary.k) + " is currently limiting overall delivery in this scan.");
+    out += block("WHY IT MATTERS", "This domain carries the strongest weighting pressure in this scan and offers the largest measurable lift.");
+    out += block("RECOMMENDED FIX", primaryFixForKey(primary.k));
+
+    // Supporting fix (facts only)
+    var hb = htmlBytesFromBasic();
+    var is = inlineScriptsFromBasic();
+    var parts = [];
+    if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
+    if (is !== null) parts.push(is + " inline scripts");
+    if (parts.length) {
+      out += block("SUPPORTING FIX", "Reduce initial payload (" + parts.join(", ") + ").");
+    }
+
+    // Optional metric line (facts only) for performance/mobile
+    if (primary.k === "performance" || primary.k === "mobile") {
+      var lcp = lcpSecondsFromPsi();
+      if (lcp !== null && lcp > 0) {
+        out += block("MEASURE", "Mobile LCP: " + lcp + "s (target <2.5s)");
+      }
+    }
+
+    out += block("NEXT STEP", "Re-run the scan after optimisation to confirm measurable improvement.");
     el.innerHTML = out;
   }
 
   // -----------------------------
-  // Delivery signal cards (client-friendly, no debug output)
+  // Delivery signal cards (diagnostic, client-friendly)
   // -----------------------------
   function renderSignalsGrid(signals, scores) {
     var grid = $("signalsGrid");
@@ -483,93 +493,6 @@
       return "";
     }
 
-    // Only surface evidence that reads like a real “fail”
-    function isMeaningfulFail(key, value) {
-      var k = String(key || "").toLowerCase();
-
-      if (typeof value === "boolean") {
-        if (k.indexOf("missing") !== -1) return value === true;
-        if (
-          k.indexOf("present") !== -1 ||
-          k.indexOf("enabled") !== -1 ||
-          k.indexOf("https") !== -1 ||
-          k.indexOf("hsts") !== -1 ||
-          k.indexOf("viewport") !== -1 ||
-          k.indexOf("indexable") !== -1
-        ) return value === false;
-
-        return value === false;
-      }
-
-      var nv = num(value);
-      if (nv !== null) {
-        if (k.indexOf("ratio") !== -1) return nv < 1;
-        if (k.indexOf("count") !== -1) return nv <= 0;
-        if (k.indexOf("coverage") !== -1) return nv < 1;
-      }
-
-      return false;
-    }
-
-    function prettyEvidenceText(key, value) {
-      var k = String(key || "");
-      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!label) label = "Requirement";
-
-      if (typeof value === "boolean") {
-        if (String(key).toLowerCase().indexOf("missing") !== -1 && value === true) return label + " is missing.";
-        if (value === false) return label + " is not satisfied.";
-      }
-
-      var nv = num(value);
-      if (nv !== null) return label + " is below baseline (" + nv + ").";
-      return label + " needs attention.";
-    }
-
-    function pickExplainLine(sig, allowEvidence) {
-      // 1) Issues
-      var issues = asArray(sig.issues);
-      if (issues.length) {
-        var it = safeObj(issues[0]);
-        var t = String(it.title || it.id || "").trim();
-        if (t) return t;
-      }
-
-      // 2) Deductions
-      var deds = asArray(sig.deductions);
-      if (deds.length) {
-        var dd = safeObj(deds[0]);
-        var r = String(dd.reason || dd.code || "").trim();
-        if (r) return r;
-      }
-
-      // 3) Evidence heuristics (ONLY if allowed)
-      if (allowEvidence) {
-        var ev = safeObj(sig.evidence);
-        var keys = Object.keys(ev || {});
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i];
-          var v = ev[k];
-          if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
-        }
-      }
-
-      return "";
-    }
-
-    function findingsLine(sig) {
-      // CHANGE #1: better fallback wording when no discrete issues/deductions exist
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-      var a = [];
-      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
-      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-
-      return a.length
-        ? ("Findings: " + a.join(" • "))
-        : "Findings: metrics exceed recommended thresholds (score-based).";
-    }
-
     function hasFlags(sig) {
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
@@ -580,18 +503,22 @@
       return asInt(score, 0) >= 90;
     }
 
+    function isVeryStrong(score) {
+      return asInt(score, 0) >= 95;
+    }
+
     function fixLeverForKey(key) {
       if (!key) return "";
-      if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
-      if (key === "mobile") return "Recommended Fix: Mobile LCP + layout stability.";
-      if (key === "seo") return "Recommended Fix: indexability + metadata baseline.";
-      if (key === "security") return "Recommended Fix: headers/policy baseline + mixed content.";
-      if (key === "structure") return "Recommended Fix: semantic structure + required tags.";
-      if (key === "accessibility") return "Recommended Fix: labels/controls + contrast fundamentals.";
+      if (key === "performance") return "LCP + main-thread cost.";
+      if (key === "mobile") return "Mobile LCP + layout stability.";
+      if (key === "seo") return "Indexability + metadata baseline.";
+      if (key === "security") return "Headers/policy baseline + mixed content.";
+      if (key === "structure") return "Semantic structure + required tags.";
+      if (key === "accessibility") return "Labels/controls + contrast fundamentals.";
       return "";
     }
 
-    // Primary constraint among mapped signals (>=3 pts)
+    // First pass: find primary constraint among mapped signals (>=3 weighted pts)
     var maxDef = -1;
     var primaryIdx = -1;
 
@@ -619,58 +546,69 @@
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
       var flagged = hasFlags(sig);
 
-      // CHANGE #3: Standardise terminology
-      var headline = "Stable";
-      if (w && defPts >= 3) {
-        headline = (i === primaryIdx) ? "Top Priority" : "Secondary Priority";
-      } else if (w) {
-        if (flagged) headline = "Secondary Priority";
-        else headline = isStrong(score) ? "Strong" : "Stable";
+      // Title tag logic (don’t call “priority” when it’s actually strong)
+      var tag = "Stable";
+      if (w && defPts >= 3) tag = (i === primaryIdx) ? "Top Priority" : "Secondary Priority";
+      else if (w && flagged) tag = "Secondary Priority";
+      else if (w && isStrong(score) && !flagged) tag = "Strong";
+      else if (w) tag = "Stable";
+      else tag = "Deterministic";
+
+      // WHY line
+      var why = "";
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+
+      if (i === primaryIdx && defPts >= 3) {
+        why = "Biggest measurable lift available in this scan.";
+      } else if (flagged && issues.length) {
+        var it = safeObj(issues[0]);
+        why = String(it.title || it.id || "").trim();
+      } else if (flagged && deds.length) {
+        var dd = safeObj(deds[0]);
+        why = String(dd.reason || dd.code || "").trim();
+      } else if (isStrong(score)) {
+        why = "Baseline stable — no measurable blockers detected in this scan.";
+      } else if (w && defPts >= 2) {
+        why = "This area contributes measurable drag to delivery in this scan.";
       } else {
-        headline = "Deterministic";
+        why = "Baseline stable for this scan.";
+      }
+
+      // Recommended fix line (mapped only)
+      var rec = "";
+      if (w) {
+        var lever = fixLeverForKey(key);
+        if (lever) rec = lever;
+      }
+      if (!rec) rec = "No action required.";
+
+      // Findings line (safe + non-contradictory)
+      var findings = "";
+      if (issues.length || deds.length) {
+        var a = [];
+        if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
+        if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
+        findings = a.join(" • ");
+      } else {
+        // If score is low but there are no discrete flags, be explicit without sounding broken
+        if (!isStrong(score) && w && defPts >= 3) findings = "Score reflects measured drag (no discrete flags returned).";
+        else if (isVeryStrong(score)) findings = "Baseline within recommended range.";
+        else if (isStrong(score)) findings = "Baseline stable.";
+        else findings = "Minor measurable drag.";
       }
 
       var lines = [];
+      if (w) lines.push(tag + " • " + weightPct + " WEIGHT");
+      else lines.push(tag);
 
-      // Always show the weight
-      if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
-      else lines.push(headline);
-
-      // Priority explanation
-      if (w && defPts >= 3 && i === primaryIdx) {
-        lines.push("Why it matters: biggest measurable lift available in this scan.");
-      }
-
-      // Why line rules
-      // CHANGE #2: remove vague filler fallback (no “Score indicates measurable drag…”)
-      var allowEvidence = flagged || (!isStrong(score) && score < 90);
-      var because = pickExplainLine(sig, allowEvidence);
-
-      if (flagged) {
-        if (because) lines.push("Why: " + because);
-        else lines.push("Why: Review the items flagged below.");
-      } else {
-        if (score >= 95) {
-          // For very high scores, keep it clean
-          lines.push("Baseline stable — no optimisation required in this scan.");
-        } else if (isStrong(score)) {
-          lines.push("Baseline stable — no measurable blockers detected in this scan.");
-        } else {
-          // only show something if we can justify it
-          if (because) lines.push("Why: " + because);
-          // else: intentionally say nothing (avoid vague filler)
-        }
-      }
-
-      // CHANGE #4: hide “Recommended Fix” on very high scores (>=95)
-      var lever = fixLeverForKey(key);
-      if (lever && score < 95) lines.push(lever);
-
-      // Findings line (always last)
-      lines.push(findingsLine(sig));
+      lines.push("Why: " + why);
+      lines.push("Recommended Fix: " + rec);
+      lines.push("Findings: " + findings);
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
+      // Severity class (visual) — keep your existing thresholds
       var severityClass = "severity-strong";
       if (score < 65) severityClass = "severity-high";
       else if (score < 90) severityClass = "severity-medium";
@@ -1020,10 +958,10 @@
 
     showReport();
 
-    // Executive block is deterministic (client-ready)
+    // Key Findings (doctor-style, deterministic)
     renderExecutiveSummary(data);
 
-    // Signal cards are deterministic + client-explainable
+    // Signal cards (diagnostic copy)
     renderSignalsGrid(signals, scores);
 
     renderSignalEvidence(signals);
