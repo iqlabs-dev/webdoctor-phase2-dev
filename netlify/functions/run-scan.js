@@ -1133,10 +1133,30 @@ function buildScores(url, html, res, isHtml, psi) {
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
   const perf = perfPack.score;
 
+  // ---------------------------------------------
+  // Structure & Semantics scoring (credibility pass)
+  // ---------------------------------------------
   let structure = 25;
+
   if (isHtml) {
-    const structureChecks = [basic.title_present, basic.h1_present, basic.viewport_present];
-    structure = Math.round((structureChecks.filter(Boolean).length / structureChecks.length) * 100);
+    // More stable foundation set (avoid 0/100 cliffs)
+    const checks = [
+      { key: "title_present", ok: basic.title_present === true, label: "Title present" },
+      { key: "h1_present", ok: basic.h1_present === true, label: "H1 present" },
+      { key: "viewport_present", ok: basic.viewport_present === true, label: "Viewport meta present" },
+      { key: "html_lang_present", ok: basic.html_lang_present === true, label: "<html lang> present" },
+      { key: "canonical_present", ok: basic.canonical_present === true, label: "Canonical present" },
+      { key: "robots_meta_present", ok: basic.robots_meta_present === true, label: "Robots meta present" },
+    ];
+
+    const passed = checks.filter((c) => c.ok).length;
+    const raw = Math.round((passed / checks.length) * 100);
+
+    // Floor to avoid “system looks broken” scores on otherwise normal sites
+    structure = clamp(raw, 10, 100);
+  } else {
+    // Non-HTML responses should stay low (signals genuinely not observable)
+    structure = 25;
   }
 
   const mobilePack = scoreMobileFromBasic(basic, isHtml, psi);
