@@ -3,12 +3,12 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * Coherence Pass (5 fixes):
- * 1) Single Primary Constraint selector used everywhere (Key Findings, Cards, Key Insights, Top Issues, Fix Sequence).
- * 2) Remove any “debug/selection explanation” tone (no “Primary Issue is selected…” line).
- * 3) Supporting Fix only when relevant + meaningful (no junk metrics).
- * 4) Guardrails for low score + no evidence to avoid “tool made this up” vibe.
- * 5) Top Issues de-dupe + don’t spam deductions when real issues exist.
+ * COHERENCE PASS (5 changes):
+ * 1) Single Primary Constraint selector used everywhere (Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence).
+ * 2) Supporting Fix only when meaningful (no “1KB HTML, 0 scripts”).
+ * 3) Guardrails when score is low but no actionable evidence (avoid “made this up” vibe).
+ * 4) Evidence-aware “flags” (treat failing evidence as a flag even if issues/deductions arrays are empty).
+ * 5) Top Issues ordering + fallback: primary domain first; if none, show best actionable across all (not random/mismatched).
  */
 
 (function () {
@@ -324,7 +324,7 @@
     return "Improve the weakest baseline signal.";
   }
 
-  function fixLineForKey(key) {
+  function recommendedFixForKey(key) {
     if (!key) return "";
     if (key === "performance") return "Fix: LCP + main-thread cost.";
     if (key === "mobile") return "Fix: Mobile LCP + layout stability.";
@@ -336,7 +336,7 @@
   }
 
   // -----------------------------
-  // Domain mapping + Primary Constraint selector (SINGLE source of truth)
+  // Domain mapping + Evidence heuristics
   // -----------------------------
   function domainKeyFromSignal(sig) {
     sig = safeObj(sig);
@@ -351,26 +351,107 @@
     return "";
   }
 
+  function isMeaningfulFail(key, value) {
+    var k = String(key || "").toLowerCase();
+
+    // boolean signals
+    if (typeof value === "boolean") {
+      if (k.indexOf("missing") !== -1) return value === true;
+      if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 ||
+          k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1 || k.indexOf("allowed") !== -1) {
+        return value === false;
+      }
+      // generic false means "not satisfied"
+      return value === false;
+    }
+
+    // numeric signals
+    var nv = num(value);
+    if (nv !== null) {
+      // treat obvious “below baseline” as meaningful only when it can actually be low
+      if (k.indexOf("ratio") !== -1) return nv < 1;
+      if (k.indexOf("coverage") !== -1) return nv < 0.9;
+      if (k.indexOf("count") !== -1) return nv <= 0;
+      if (k.indexOf("ms") !== -1) return nv > 2500; // perf-style threshold
+      if (k.indexOf("bytes") !== -1) return nv > 50000; // 50KB+
+    }
+
+    // string signals: treat explicit "missing" / "not found" as meaningful
+    if (typeof value === "string") {
+      var s = value.toLowerCase();
+      if (s.indexOf("missing") !== -1) return true;
+      if (s.indexOf("not found") !== -1) return true;
+      if (s.indexOf("not satisfied") !== -1) return true;
+    }
+
+    return false;
+  }
+
+  function evidenceHasMeaningfulFail(evidence) {
+    evidence = safeObj(evidence);
+    try {
+      var keys = Object.keys(evidence || {});
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (isMeaningfulFail(k, evidence[k])) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function prettyEvidenceText(key, value) {
+    var k = String(key || "");
+    var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!label) label = "Requirement";
+
+    var lk = k.toLowerCase();
+    if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) label = "HTML lang attribute";
+    if (lk.indexOf("title") !== -1) label = "Title tag";
+    if (lk.indexOf("viewport") !== -1) label = "Viewport meta tag";
+    if (lk.indexOf("canonical") !== -1) label = "Canonical";
+    if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) label = "Robots / indexability";
+
+    if (typeof value === "boolean") {
+      if (lk.indexOf("missing") !== -1 && value === true) return label + " is missing.";
+      if (value === false) return label + " is not satisfied.";
+    }
+
+    var nv = num(value);
+    if (nv !== null) {
+      if (lk.indexOf("ms") !== -1) return label + " is above target (" + Math.round(nv) + "ms).";
+      if (lk.indexOf("bytes") !== -1) return label + " is above baseline (" + Math.round(nv / 1024) + "KB).";
+      return label + " is below baseline (" + nv + ").";
+    }
+
+    if (typeof value === "string") return label + ": " + value;
+    return label + " needs attention.";
+  }
+
   function hasFlags(sig) {
     sig = safeObj(sig);
     var issues = asArray(sig.issues);
     var deds = asArray(sig.deductions);
+    if (issues.length > 0 || deds.length > 0) return true;
+
+    // CHANGE #4: treat failing evidence as a “flag” even if issues/deductions arrays are empty
     var ev = safeObj(sig.evidence);
-    // treat meaningful evidence keys as flags (prevents “0 issues but score tanked” confusion)
-    var eKeys = Object.keys(ev || {});
-    return (issues.length > 0 || deds.length > 0 || eKeys.length > 0);
+    if (evidenceHasMeaningfulFail(ev)) return true;
+
+    return false;
   }
 
+  // -----------------------------
+  // Primary Constraint selector (SINGLE source of truth)
+  // -----------------------------
   function computePrimaryConstraint(scores, signals) {
-    // Picks primary domain by weighted deficit points, with a minimum threshold.
-    // If nothing crosses threshold but flags exist, pick highest-weight flagged domain.
+    // Pass 1: weighted deficit threshold (>= 3 points) using scores object
+    // Pass 2: evidence-aware fallback (flags) using signals, highest weight wins
     scores = safeObj(scores);
     signals = asArray(signals);
 
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
 
-    // Pass 1: weighted deficit threshold (>= 3 points)
     for (var i = 0; i < domains.length; i++) {
       var dk = domains[i];
       var s = scoreFor(scores, dk);
@@ -382,7 +463,6 @@
       }
     }
 
-    // Find matching signal index
     if (best.key) {
       for (var a = 0; a < signals.length; a++) {
         if (domainKeyFromSignal(signals[a]) === best.key) { best.idx = a; break; }
@@ -390,7 +470,7 @@
       return best;
     }
 
-    // Pass 2: fallback to flagged highest-weight domain
+    // Evidence-aware fallback: pick flagged domain with highest weight
     var flaggedBest = { key: "", w: -1, score: 0, idx: -1 };
     for (var j = 0; j < signals.length; j++) {
       var sig = safeObj(signals[j]);
@@ -401,6 +481,7 @@
       var sc = asInt(sig.score, 0);
       if (ww > flaggedBest.w) flaggedBest = { key: k, w: ww, score: sc, idx: j };
     }
+
     if (flaggedBest.key) {
       return { key: flaggedBest.key, pts: 0, score: flaggedBest.score, weight: flaggedBest.w, idx: flaggedBest.idx, flagged: true };
     }
@@ -409,7 +490,7 @@
   }
 
   // -----------------------------
-  // Deterministic Executive Delivery Summary (client-ready)
+  // Deterministic Executive Delivery Summary (Key Findings block)
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
     var el = $("narrativeText");
@@ -468,21 +549,27 @@
       h("Status");
       p("No clear primary constraint was identified from the scan output.");
       h("Next Step");
-      p("Re-run the scan and review the Signal Evidence blocks for the clearest measurable deficit.");
+      p("Re-run the scan and review the signal evidence blocks for the clearest measurable deficit.");
       el.innerHTML = out;
       return;
     }
 
-    p((LABELS[primary.key] || primary.key) + ": " + asInt(scores[primary.key], 0) + "/100 (" + Math.round(primary.weight * 100) + "% weight)");
+    var pk = primary.key;
+    var pLabel = LABELS[pk] || pk;
+    var pScore = asInt(scores[pk], asInt(primary.score, 0));
+    var wPct = Math.round((primary.weight || 0) * 100);
+
+    // CHANGE #1: keep this clean (no “selected using weighted scoring impact” explanation text)
+    p(pLabel + ": " + pScore + "/100 (" + wPct + "% weight)");
 
     h("Primary Issue");
-    p((LABELS[primary.key] || primary.key) + " is currently limiting overall delivery.");
+    p(pLabel + " is currently limiting overall delivery.");
 
     h("Why it matters");
     p("This domain carries the strongest weighting pressure in this scan and offers the largest measurable lift.");
 
     // Facts-only metric (optional)
-    if (primary.key === "performance" || primary.key === "mobile") {
+    if (pk === "performance" || pk === "mobile") {
       var lcp = lcpSecondsFromPsi();
       if (lcp !== null && lcp > 0) {
         p("Mobile LCP: " + lcp + "s (target <2.5s)");
@@ -490,17 +577,15 @@
     }
 
     h("Recommended Fix");
-    p(primaryFixLineForKey(primary.key));
+    p(primaryFixLineForKey(pk));
 
-    // Supporting fix: ONLY for perf/mobile AND only if meaningful
-    if (primary.key === "performance" || primary.key === "mobile") {
+    // CHANGE #2: Supporting fix only when meaningful (perf/mobile only, thresholds)
+    if (pk === "performance" || pk === "mobile") {
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
 
       var kb = (hb !== null) ? Math.round(hb / 1024) : null;
       var showPayload = false;
-
-      // Meaningful thresholds (prevents junk like 1KB / 0 scripts)
       if (kb !== null && kb >= 50) showPayload = true;
       if (is !== null && is >= 3) showPayload = true;
 
@@ -520,7 +605,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (client-friendly, no debug tone)
+  // Delivery signal cards
   // -----------------------------
   function renderSignalsGrid(signals, scores, primary) {
     var grid = $("signalsGrid");
@@ -547,6 +632,7 @@
     function issuesFoundLine(sig) {
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
+      // do not count evidence as “issues found”, keep this strictly what backend returned
       var a = [];
       if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
       if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
@@ -554,49 +640,6 @@
     }
 
     function isStrong(score) { return asInt(score, 0) >= 90; }
-
-    function isMeaningfulFail(key, value) {
-      var k = String(key || "").toLowerCase();
-
-      if (typeof value === "boolean") {
-        if (k.indexOf("missing") !== -1) return value === true;
-        if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
-          return value === false;
-        }
-        return value === false;
-      }
-
-      var nv = num(value);
-      if (nv !== null) {
-        if (k.indexOf("ratio") !== -1) return nv < 1;
-        if (k.indexOf("count") !== -1) return nv <= 0;
-        if (k.indexOf("coverage") !== -1) return nv < 1;
-      }
-
-      return false;
-    }
-
-    function prettyEvidenceText(key, value) {
-      var k = String(key || "");
-      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!label) label = "Requirement";
-
-      var lk = k.toLowerCase();
-      if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) label = "HTML lang attribute";
-      if (lk.indexOf("title") !== -1) label = "Title tag";
-      if (lk.indexOf("viewport") !== -1) label = "Viewport meta tag";
-      if (lk.indexOf("canonical") !== -1) label = "Canonical";
-      if (lk.indexOf("robots") !== -1) label = "Robots / indexability";
-
-      if (typeof value === "boolean") {
-        if (lk.indexOf("missing") !== -1 && value === true) return label + " is missing.";
-        if (value === false) return label + " is not satisfied.";
-      }
-
-      var nv = num(value);
-      if (nv !== null) return label + " is below baseline (" + nv + ").";
-      return label + " needs attention.";
-    }
 
     function pickExplainLine(sig, allowEvidence) {
       var issues = asArray(sig.issues);
@@ -637,9 +680,11 @@
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
+
+      // CHANGE #4: evidence-aware flags
       var flagged = hasFlags(sig);
 
-      // Headline (clean + consistent)
+      // Headline
       var headline = "Stable";
       if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
       else if (w && defPts >= 3) headline = "Secondary Fix";
@@ -653,22 +698,24 @@
         lines.push("Why it matters: biggest measurable lift available in this scan.");
       }
 
+      // Evidence allowed when flagged OR score is not strong
       var allowEvidence = flagged || (score < 90);
+
       var because = pickExplainLine(sig, allowEvidence);
 
-      // Guardrail: low score but nothing to point at
-      var emptyButLow = (!flagged && !because && score < 70);
+      // CHANGE #3: guardrail when low score but no actionable evidence
+      var lowButNoHook = (!because && !flagged && score < 70);
 
       if (flagged) {
-        lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
-      } else if (emptyButLow) {
-        lines.push("Why: Required inputs were missing or not observable — score reflects missing signals.");
+        lines.push(because ? ("Why: " + because) : "Why: Review the evidence items below.");
+      } else if (lowButNoHook) {
+        lines.push("Why: Required inputs were incomplete or not observable — score reflects missing signals.");
       } else {
-        if (isStrong(score)) lines.push("Why: Baseline stable — no measurable blockers detected in this scan.");
-        else lines.push(because ? ("Why: " + because) : "Why: Score indicates measurable drag in this domain.");
+        if (isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
+        else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
       }
 
-      var lever = fixLineForKey(key);
+      var lever = recommendedFixForKey(key);
       if (lever) lines.push(lever);
 
       lines.push(issuesFoundLine(sig));
@@ -852,7 +899,7 @@
   }
 
   // -----------------------------
-  // Top Issues (primary domain first, de-duped, no spam)
+  // Top Issues (primary-first ordering + sane fallback)
   // -----------------------------
   function renderTopIssues(signals, primary) {
     var root = $("topIssuesRoot");
@@ -860,74 +907,69 @@
 
     signals = asArray(signals);
 
-    function normTitle(s) {
-      return String(s || "")
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .replace(/[^\w\s:<>-]/g, "")
-        .trim();
+    function sevRank(sev) {
+      var s = String(sev || "").toUpperCase();
+      if (s === "CRITICAL") return 4;
+      if (s === "HIGH") return 3;
+      if (s === "MED" || s === "MEDIUM") return 2;
+      return 1; // MONITOR/LOW/UNKNOWN
     }
 
-    function pushUnique(out, seen, item) {
-      var key = normTitle(item.title);
-      if (!key) return;
-      if (seen[key]) return;
-      seen[key] = true;
-      out.push(item);
-    }
-
-    function collectFromSignal(sig, out, seen) {
+    function collect(sig, out, isPrimary) {
+      sig = safeObj(sig);
       var label = String(sig.label || sig.id || "Signal");
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      // If real issues exist, don’t also flood with “monitor” deductions.
-      if (issues.length) {
-        for (var j = 0; j < issues.length; j++) {
-          var it = safeObj(issues[j]);
-          var t = String(it.title || it.id || (label + ": issue")).trim();
-          var sev = String(it.severity || "monitor").toUpperCase();
-          var why = String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.";
-          pushUnique(out, seen, { title: t, sev: sev, why: why });
-        }
-        return;
+      for (var j = 0; j < issues.length; j++) {
+        var it = safeObj(issues[j]);
+        out.push({
+          title: String(it.title || it.id || (label + ": issue")).trim(),
+          sev: String(it.severity || "monitor").toUpperCase(),
+          why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+          primary: !!isPrimary
+        });
       }
 
-      // No issues -> allow a couple of deductions as “monitor” (still de-duped)
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
-        var reason = String(dd.reason || dd.code || "Deduction").trim();
-        if (!reason) continue;
-        pushUnique(out, seen, {
-          title: label + ": " + reason,
+        out.push({
+          title: label + ": " + String(dd.reason || dd.code || "Deduction"),
           sev: "MONITOR",
-          why: "A measured deduction was applied from scan evidence."
+          why: "A measured deduction was applied from scan evidence.",
+          primary: !!isPrimary
         });
-        // cap per-signal to prevent spam
-        if (out.length >= 8) break;
       }
     }
 
-    var issuesOut = [];
-    var seen = {};
+    var out = [];
+    var pk = primary && primary.key ? primary.key : "";
 
-    // Pass 1: primary domain
-    if (primary && primary.key) {
+    // Pass 1: primary domain issues/deductions only
+    if (pk) {
       for (var i = 0; i < signals.length; i++) {
-        if (domainKeyFromSignal(signals[i]) === primary.key) {
-          collectFromSignal(signals[i], issuesOut, seen);
-        }
+        if (domainKeyFromSignal(signals[i]) === pk) collect(signals[i], out, true);
       }
     }
 
-    // Pass 2: global fallback
-    if (!issuesOut.length) {
+    // CHANGE #5: if primary has none, fall back to best actionable across all (but still “primary-first” if any)
+    if (!out.length) {
       for (var k = 0; k < signals.length; k++) {
-        collectFromSignal(safeObj(signals[k]), issuesOut, seen);
+        var sigK = safeObj(signals[k]);
+        var isP = (pk && domainKeyFromSignal(sigK) === pk);
+        collect(sigK, out, isP);
       }
     }
 
-    var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
+    // Sort: primary items first, then severity, then title
+    out.sort(function (a, b) {
+      if (a.primary !== b.primary) return a.primary ? -1 : 1;
+      var ar = sevRank(a.sev), br = sevRank(b.sev);
+      if (ar !== br) return br - ar;
+      return String(a.title).localeCompare(String(b.title));
+    });
+
+    var cap = out.length > 6 ? 6 : out.length;
 
     if (!cap) {
       root.innerHTML =
@@ -943,18 +985,16 @@
 
     var html = "";
     for (var x = 0; x < cap; x++) {
-      var it2 = issuesOut[x];
-      var sev2 = String(it2.sev || "MONITOR").toUpperCase();
+      var it2 = out[x];
       html +=
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(sev2) + "</span>" +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
           "</div>" +
           '<div class="issue-why impact-text">' + escapeHtml(it2.why) + "</div>" +
         "</div>";
     }
-
     root.innerHTML = html;
   }
 
@@ -1018,7 +1058,7 @@
 
     showReport();
 
-    // Primary constraint computed once and used everywhere
+    // CHANGE #1: Primary constraint computed once and used everywhere
     var primary = computePrimaryConstraint(scores, signals);
 
     renderExecutiveSummary(data, primary);
@@ -1054,4 +1094,4 @@
       boot();
     }
   } catch (e) {}
-})();
+})(); 
