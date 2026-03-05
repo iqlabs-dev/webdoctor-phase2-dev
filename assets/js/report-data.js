@@ -3,12 +3,12 @@
  * /assets/js/report-data.js
  * iQWEB Report Renderer — v5.2 (ES5, no modules)
  *
- * PATCH (5 changes):
- * 1) Never show “Issues Found: none” when score < 90 (use evidence/deduction phrasing instead).
- * 2) Deduplicate Top Issues (no repeated titles/reasons).
- * 3) Add severity tiers on cards (CRITICAL/HIGH/MODERATE).
- * 4) Reduce card verbosity (Priority/Why/Fix only + counts only when present).
- * 5) Make weighted primary-selection explicit once in Key Findings.
+ * Coherence Pass (5 fixes):
+ * 1) Single Primary Constraint selector used everywhere (Key Findings, Cards, Key Insights, Top Issues, Fix Sequence).
+ * 2) Remove any “debug/selection explanation” tone (no “Primary Issue is selected…” line).
+ * 3) Supporting Fix only when relevant + meaningful (no junk metrics).
+ * 4) Guardrails for low score + no evidence to avoid “tool made this up” vibe.
+ * 5) Top Issues de-dupe + don’t spam deductions when real issues exist.
  */
 
 (function () {
@@ -74,22 +74,6 @@
     if (n >= 75) return "Good";
     if (n >= 55) return "Needs work";
     return "Needs attention";
-  }
-
-  function severityTier(score) {
-    var s = asInt(score, 0);
-    if (s <= 20) return "CRITICAL";
-    if (s <= 40) return "HIGH";
-    if (s <= 70) return "MODERATE";
-    return (s >= 90) ? "STRONG" : "STABLE";
-  }
-
-  function normalizeKey(s) {
-    s = String(s == null ? "" : s).toLowerCase();
-    s = s.replace(/<[^>]*>/g, " ");      // drop tags from title-ish strings
-    s = s.replace(/[^a-z0-9]+/g, " ");   // normalize punctuation
-    s = s.replace(/\s+/g, " ").trim();
-    return s;
   }
 
   // Query param (ES5)
@@ -340,15 +324,14 @@
     return "Improve the weakest baseline signal.";
   }
 
-  // Short, non-debuggy
-  function fixLineShort(key) {
+  function fixLineForKey(key) {
     if (!key) return "";
-    if (key === "performance") return "Fix: Reduce LCP and main-thread blocking.";
-    if (key === "mobile") return "Fix: Improve mobile LCP and layout stability.";
-    if (key === "seo") return "Fix: Fix indexability, titles, metadata, canonicals.";
-    if (key === "security") return "Fix: Add missing security headers and policy baseline.";
-    if (key === "structure") return "Fix: Restore core semantic structure and required tags.";
-    if (key === "accessibility") return "Fix: Resolve missing labels/controls and contrast basics.";
+    if (key === "performance") return "Fix: LCP + main-thread cost.";
+    if (key === "mobile") return "Fix: Mobile LCP + layout stability.";
+    if (key === "seo") return "Fix: indexability + metadata baseline.";
+    if (key === "security") return "Fix: headers/policy baseline + mixed content.";
+    if (key === "structure") return "Fix: semantic structure + required tags.";
+    if (key === "accessibility") return "Fix: labels/controls + contrast fundamentals.";
     return "";
   }
 
@@ -372,10 +355,15 @@
     sig = safeObj(sig);
     var issues = asArray(sig.issues);
     var deds = asArray(sig.deductions);
-    return (issues.length > 0 || deds.length > 0);
+    var ev = safeObj(sig.evidence);
+    // treat meaningful evidence keys as flags (prevents “0 issues but score tanked” confusion)
+    var eKeys = Object.keys(ev || {});
+    return (issues.length > 0 || deds.length > 0 || eKeys.length > 0);
   }
 
   function computePrimaryConstraint(scores, signals) {
+    // Picks primary domain by weighted deficit points, with a minimum threshold.
+    // If nothing crosses threshold but flags exist, pick highest-weight flagged domain.
     scores = safeObj(scores);
     signals = asArray(signals);
 
@@ -394,7 +382,7 @@
       }
     }
 
-    // Find the matching signal index for the chosen key (if any)
+    // Find matching signal index
     if (best.key) {
       for (var a = 0; a < signals.length; a++) {
         if (domainKeyFromSignal(signals[a]) === best.key) { best.idx = a; break; }
@@ -402,7 +390,7 @@
       return best;
     }
 
-    // Pass 2: pick flagged domain with highest weight (fallback)
+    // Pass 2: fallback to flagged highest-weight domain
     var flaggedBest = { key: "", w: -1, score: 0, idx: -1 };
     for (var j = 0; j < signals.length; j++) {
       var sig = safeObj(signals[j]);
@@ -466,7 +454,6 @@
       return Math.round(n);
     }
 
-    // Build a clean “audit-style” block
     var out = "";
     function p(text) {
       out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(text) + "</p>";
@@ -477,14 +464,11 @@
 
     p("Overall Delivery: " + overall + "/100");
 
-    // Change #5: explain primary selection ONCE
-    p("Primary Issue is selected using weighted scoring impact (highest weighted deficit).");
-
     if (!primary || !primary.key) {
       h("Status");
       p("No clear primary constraint was identified from the scan output.");
       h("Next Step");
-      p("Re-run the scan and review the signal evidence blocks for the clearest measurable deficit.");
+      p("Re-run the scan and review the Signal Evidence blocks for the clearest measurable deficit.");
       el.innerHTML = out;
       return;
     }
@@ -515,6 +499,8 @@
 
       var kb = (hb !== null) ? Math.round(hb / 1024) : null;
       var showPayload = false;
+
+      // Meaningful thresholds (prevents junk like 1KB / 0 scripts)
       if (kb !== null && kb >= 50) showPayload = true;
       if (is !== null && is >= 3) showPayload = true;
 
@@ -534,7 +520,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (client-friendly)
+  // Delivery signal cards (client-friendly, no debug tone)
   // -----------------------------
   function renderSignalsGrid(signals, scores, primary) {
     var grid = $("signalsGrid");
@@ -558,7 +544,17 @@
       }
     } catch (e) {}
 
-    // Evidence heuristics (constrained)
+    function issuesFoundLine(sig) {
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
+      var a = [];
+      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
+      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
+      return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
+    }
+
+    function isStrong(score) { return asInt(score, 0) >= 90; }
+
     function isMeaningfulFail(key, value) {
       var k = String(key || "").toLowerCase();
 
@@ -621,23 +617,13 @@
         var ev = safeObj(sig.evidence);
         var keys = Object.keys(ev || {});
         for (var i = 0; i < keys.length; i++) {
-          var kk = keys[i];
-          var vv = ev[kk];
-          if (isMeaningfulFail(kk, vv)) return prettyEvidenceText(kk, vv);
+          var k = keys[i];
+          var v = ev[k];
+          if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
         }
       }
 
       return "";
-    }
-
-    function countsLineIfPresent(sig) {
-      // Change #1: do NOT show “Issues Found: none” when score < 90
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-      var a = [];
-      if (issues.length) a.push("Issues: " + issues.length);
-      if (deds.length) a.push("Deductions: " + deds.length);
-      return a.length ? a.join(" • ") : "";
     }
 
     for (var i = 0; i < signals.length; i++) {
@@ -650,49 +636,45 @@
       var w = key ? (WEIGHTS[key] || 0) : 0;
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
+      var defPts = w ? deficitWeightedPoints(score, w) : 0;
       var flagged = hasFlags(sig);
-      var tier = severityTier(score);
 
-      var isPrimary = !!(key && primary && primary.key && key === primary.key);
+      // Headline (clean + consistent)
+      var headline = "Stable";
+      if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
+      else if (w && defPts >= 3) headline = "Secondary Fix";
+      else if (w) headline = isStrong(score) ? "Strong" : "Stable";
+      else headline = "Deterministic";
 
-      // Change #4: reduced verbosity (3 lines + optional counts if present)
       var lines = [];
+      lines.push(w ? (headline + " • " + weightPct + " weight") : headline);
 
-      // Line 1: Priority + weight + tier
-      if (w) {
-        lines.push((isPrimary ? "PRIORITY" : "SECONDARY") + " • " + weightPct + " WEIGHT" + " • " + tier);
-      } else {
-        lines.push(tier);
+      if (key && primary && primary.key && key === primary.key) {
+        lines.push("Why it matters: biggest measurable lift available in this scan.");
       }
 
-      // Line 2: Why (one sentence)
       var allowEvidence = flagged || (score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
+      // Guardrail: low score but nothing to point at
+      var emptyButLow = (!flagged && !because && score < 70);
+
       if (flagged) {
-        lines.push(because ? ("Why: " + because) : "Why: Evidence flags were detected in this domain.");
+        lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
+      } else if (emptyButLow) {
+        lines.push("Why: Required inputs were missing or not observable — score reflects missing signals.");
       } else {
-        if (score >= 90) {
-          lines.push("Why: Baseline stable — no measurable blockers detected in this scan.");
-        } else if (because) {
-          lines.push("Why: " + because);
-        } else {
-          // Change #1: low score without issues — do not imply made-up reasons
-          lines.push("Why: Measured deductions were applied from scan evidence or missing/unobservable signals.");
-        }
+        if (isStrong(score)) lines.push("Why: Baseline stable — no measurable blockers detected in this scan.");
+        else lines.push(because ? ("Why: " + because) : "Why: Score indicates measurable drag in this domain.");
       }
 
-      // Line 3: Fix (short)
-      var fx = fixLineShort(key);
-      if (fx) lines.push(fx);
+      var lever = fixLineForKey(key);
+      if (lever) lines.push(lever);
 
-      // Optional counts only when present (no “none”)
-      var c = countsLineIfPresent(sig);
-      if (c) lines.push(c);
+      lines.push(issuesFoundLine(sig));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
-      // Existing visual class mapping kept
       var severityClass = "severity-strong";
       if (score < 65) severityClass = "severity-high";
       else if (score < 90) severityClass = "severity-medium";
@@ -700,7 +682,7 @@
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Issue</div>' : "";
+      var badgeHtml = (key && primary && primary.key && key === primary.key) ? '<div class="primary-badge">Primary Issue</div>' : "";
 
       card.innerHTML =
         badgeHtml +
@@ -848,12 +830,12 @@
       if (v < worst.v) worst = { k: k, v: v };
     }
 
-    if (best.k) items[0].text = best.k.toUpperCase() + " is strongest (" + best.v + "/100).";
-    if (worst.k) items[1].text = worst.k.toUpperCase() + " is the main risk (" + worst.v + "/100).";
+    if (best.k) items[0].text = (LABELS[best.k] || best.k) + " is strongest (" + best.v + "/100).";
+    if (worst.k) items[1].text = (LABELS[worst.k] || worst.k) + " is the main risk (" + worst.v + "/100).";
 
     if (primary && primary.key) {
       items[2].text = (LABELS[primary.key] || primary.key) + " is the primary constraint in this scan.";
-      items[3].text = "Fix one measurable item in this domain, then re-scan to confirm the lift.";
+      items[3].text = "Address one measurable item in this domain, then re-scan to confirm the lift.";
     }
 
     var html = '<div class="insight-list">';
@@ -870,7 +852,7 @@
   }
 
   // -----------------------------
-  // Top Issues (primary domain first, deduped)
+  // Top Issues (primary domain first, de-duped, no spam)
   // -----------------------------
   function renderTopIssues(signals, primary) {
     var root = $("topIssuesRoot");
@@ -878,46 +860,62 @@
 
     signals = asArray(signals);
 
-    // Change #2: dedupe
-    var seen = {};
-
-    function pushDedup(out, title, sev, why, dedupeKey) {
-      var k = normalizeKey(dedupeKey || title);
-      if (!k) k = normalizeKey(title);
-      if (seen[k]) return;
-      seen[k] = true;
-      out.push({ title: title, sev: sev, why: why });
+    function normTitle(s) {
+      return String(s || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/[^\w\s:<>-]/g, "")
+        .trim();
     }
 
-    function collectFromSignal(sig, out) {
+    function pushUnique(out, seen, item) {
+      var key = normTitle(item.title);
+      if (!key) return;
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(item);
+    }
+
+    function collectFromSignal(sig, out, seen) {
       var label = String(sig.label || sig.id || "Signal");
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      for (var j = 0; j < issues.length; j++) {
-        var it = safeObj(issues[j]);
-        var t = String(it.title || it.id || (label + ": issue")).trim();
-        var sev = String(it.severity || "monitor").toUpperCase();
-        var why = String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.";
-        // dedupe by issue title only (not label) to avoid repeats like “Missing title” / “Missing <title> tag”
-        pushDedup(out, t, sev, why, t);
+      // If real issues exist, don’t also flood with “monitor” deductions.
+      if (issues.length) {
+        for (var j = 0; j < issues.length; j++) {
+          var it = safeObj(issues[j]);
+          var t = String(it.title || it.id || (label + ": issue")).trim();
+          var sev = String(it.severity || "monitor").toUpperCase();
+          var why = String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.";
+          pushUnique(out, seen, { title: t, sev: sev, why: why });
+        }
+        return;
       }
 
+      // No issues -> allow a couple of deductions as “monitor” (still de-duped)
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
-        var r = String(dd.reason || dd.code || "Deduction");
-        var tt = label + ": " + r;
-        pushDedup(out, tt, "MONITOR", "A measured deduction was applied from scan evidence.", r);
+        var reason = String(dd.reason || dd.code || "Deduction").trim();
+        if (!reason) continue;
+        pushUnique(out, seen, {
+          title: label + ": " + reason,
+          sev: "MONITOR",
+          why: "A measured deduction was applied from scan evidence."
+        });
+        // cap per-signal to prevent spam
+        if (out.length >= 8) break;
       }
     }
 
     var issuesOut = [];
+    var seen = {};
 
-    // Pass 1: primary domain only
+    // Pass 1: primary domain
     if (primary && primary.key) {
       for (var i = 0; i < signals.length; i++) {
         if (domainKeyFromSignal(signals[i]) === primary.key) {
-          collectFromSignal(signals[i], issuesOut);
+          collectFromSignal(signals[i], issuesOut, seen);
         }
       }
     }
@@ -925,15 +923,14 @@
     // Pass 2: global fallback
     if (!issuesOut.length) {
       for (var k = 0; k < signals.length; k++) {
-        collectFromSignal(safeObj(signals[k]), issuesOut);
+        collectFromSignal(safeObj(signals[k]), issuesOut, seen);
       }
     }
 
     var cap = issuesOut.length > 6 ? 6 : issuesOut.length;
 
-    var html = "";
     if (!cap) {
-      html =
+      root.innerHTML =
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">No issues detected</p>' +
@@ -941,17 +938,18 @@
           "</div>" +
           '<div class="issue-why">This scan did not return any actionable issues.</div>' +
         "</div>";
-      root.innerHTML = html;
       return;
     }
 
+    var html = "";
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
+      var sev2 = String(it2.sev || "MONITOR").toUpperCase();
       html +=
         '<div class="issue">' +
           '<div class="issue-top">' +
             '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+            '<span class="issue-label">' + escapeHtml(sev2) + "</span>" +
           "</div>" +
           '<div class="issue-why impact-text">' + escapeHtml(it2.why) + "</div>" +
         "</div>";
@@ -1023,12 +1021,8 @@
     // Primary constraint computed once and used everywhere
     var primary = computePrimaryConstraint(scores, signals);
 
-    // Executive block (client-ready)
     renderExecutiveSummary(data, primary);
-
-    // Signal cards (client-explainable)
     renderSignalsGrid(signals, scores, primary);
-
     renderSignalEvidence(signals);
     renderKeyInsights(scores, signals, primary);
     renderTopIssues(signals, primary);
