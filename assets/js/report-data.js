@@ -9,6 +9,10 @@
  * 3) Low-score/no-evidence guardrail text to avoid “tool made this up” vibe.
  * 4) Stop “good is bad” evidence lines (e.g., “inline scripts below baseline (0)”).
  * 5) De-dupe + prioritise Top Issues (no repeats / no spammy Monitor rows unless needed).
+ *
+ * PATCH (trust fix):
+ * - If a delivery signal has no score returned, display "N/A" (not 0)
+ * - Prevent "0 score + no issues found" contradictions
  */
 
 (function () {
@@ -23,6 +27,17 @@
     if (typeof fallback === "undefined") fallback = 0;
     var n = Number(v);
     if (!isFinite(n)) return fallback;
+    n = Math.round(n);
+    if (n < 0) n = 0;
+    if (n > 100) n = 100;
+    return n;
+  }
+
+  // NEW: score helper that returns null when score is missing/unparseable
+  function asScore(v) {
+    if (v === null || typeof v === "undefined" || v === "") return null;
+    var n = Number(v);
+    if (!isFinite(n)) return null;
     n = Math.round(n);
     if (n < 0) n = 0;
     if (n > 100) n = 100;
@@ -303,7 +318,9 @@
   function scoreFor(scores, k) {
     if (!scores) return null;
     if (typeof scores[k] === "undefined") return null;
-    return asInt(scores[k], 0);
+    var n = Number(scores[k]);
+    if (!isFinite(n)) return null;
+    return asInt(n, 0);
   }
 
   function deficitWeightedPoints(score, weight) {
@@ -393,7 +410,8 @@
       var k = domainKeyFromSignal(sig);
       if (!k) continue;
       var ww = WEIGHTS[k] || 0;
-      var sc = asInt(sig.score, 0);
+      var scMaybe = asScore(sig.score);
+      var sc = (scMaybe === null) ? 0 : scMaybe;
       if (ww > flaggedBest.w) flaggedBest = { key: k, w: ww, score: sc, idx: j };
     }
     if (flaggedBest.key) {
@@ -525,7 +543,7 @@
     scores = safeObj(scores);
     grid.innerHTML = "";
 
-    // Inject badge styles once (safe; no need to edit report.html/css)
+    // Inject badge + NA styles once (safe; no need to edit report.html/css)
     try {
       if (!document.getElementById("iqweb-primary-badge-style")) {
         var st = document.createElement("style");
@@ -533,7 +551,9 @@
         st.type = "text/css";
         st.appendChild(document.createTextNode(
           ".primary-badge{position:absolute;top:-10px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
-          ".card{position:relative;}"
+          ".card{position:relative;}"+
+          ".severity-na{opacity:.92;}"+
+          ".severity-na .bar>div{width:0 !important;}"
         ));
         document.head.appendChild(st);
       }
@@ -548,7 +568,7 @@
       return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
     }
 
-    function isStrong(score) { return asInt(score, 0) >= 90; }
+    function isStrong(score) { return (score !== null && asInt(score, 0) >= 90); }
 
     // Evidence heuristics (conservative)
     // Goal: only surface evidence when it clearly indicates a problem.
@@ -683,18 +703,21 @@
       var sig = safeObj(signals[i]);
 
       var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
+      var score = asScore(sig.score); // <-- FIX: null when not measured
 
       var key = domainKeyFromSignal(sig);
       var w = key ? (WEIGHTS[key] || 0) : 0;
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
-      var defPts = w ? deficitWeightedPoints(score, w) : 0;
       var flagged = hasFlags(sig);
+
+      var defPts = 0;
+      if (w && score !== null) defPts = deficitWeightedPoints(score, w);
 
       // Headline
       var headline = "Stable";
-      if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
+      if (score === null) headline = "Not Measured";
+      else if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
       else if (w && defPts >= 3) headline = "Secondary Fix";
       else if (w) headline = isStrong(score) ? "Strong" : "Stable";
       else headline = "Deterministic";
@@ -702,25 +725,29 @@
       var lines = [];
       lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
-      if (key && primary && primary.key && key === primary.key) {
-        lines.push("Why it matters: biggest measurable lift available in this scan.");
-      }
-
-      // Only use evidence when it won't produce “good is bad” lines.
-      // If score is Strong and nothing is flagged, do not pull evidence.
-      var allowEvidence = (flagged || (score < 90));
-      var because = pickExplainLine(sig, allowEvidence);
-
-      // Guardrail: low score but nothing to point at
-      var emptyButLow = (!flagged && !because && score < 70);
-
-      if (flagged) {
-        lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
-      } else if (emptyButLow) {
-        lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
+      if (score === null && !flagged) {
+        lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
       } else {
-        if (isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
-        else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
+        if (key && primary && primary.key && key === primary.key) {
+          lines.push("Why it matters: biggest measurable lift available in this scan.");
+        }
+
+        // Only use evidence when it won't produce “good is bad” lines.
+        // If score is Strong and nothing is flagged, do not pull evidence.
+        var allowEvidence = (flagged || (score !== null && score < 90));
+        var because = pickExplainLine(sig, allowEvidence);
+
+        // Guardrail: low score but nothing to point at
+        var emptyButLow = (score !== null && !flagged && !because && score < 70);
+
+        if (flagged) {
+          lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
+        } else if (emptyButLow) {
+          lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
+        } else {
+          if (isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
+          else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
+        }
       }
 
       var lever = recommendedFixForKey(key);
@@ -730,8 +757,10 @@
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
+      // Severity class
       var severityClass = "severity-strong";
-      if (score < 65) severityClass = "severity-high";
+      if (score === null) severityClass = "severity-na";
+      else if (score < 65) severityClass = "severity-high";
       else if (score < 90) severityClass = "severity-medium";
 
       var card = document.createElement("div");
@@ -743,9 +772,9 @@
         badgeHtml +
         '<div class="card-top">' +
           "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
+          '<div class="score-right">' + escapeHtml(String(score === null ? "N/A" : score)) + "</div>" +
         "</div>" +
-        '<div class="bar"><div style="width:' + score + '%;"></div></div>' +
+        '<div class="bar"><div style="width:' + (score === null ? 0 : score) + '%;"></div></div>' +
         '<div class="summary">' + summaryHtml + "</div>";
 
       grid.appendChild(card);
@@ -777,7 +806,7 @@
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
       var label = String(sig.label || sig.id || "Signal");
-      var score = asInt(sig.score, 0);
+      var score = asScore(sig.score); // <-- FIX: null when not measured
       var issues = asArray(sig.issues);
       var obs = asArray(sig.observations);
       var deds = asArray(sig.deductions);
@@ -790,7 +819,7 @@
       var summary =
         '<summary>' +
           '<div class="acc-title">' + escapeHtml(label) + "</div>" +
-          '<div class="acc-score">' + escapeHtml(String(score)) + "/100</div>" +
+          '<div class="acc-score">' + escapeHtml(String(score === null ? "N/A" : score)) + "/100</div>" +
         "</summary>";
 
       var body = '<div class="acc-body">';
