@@ -18,6 +18,10 @@
  * NEW COPY PATCH:
  * - Replace vague “required signal missing” with specific, readable descriptions (esp. Security headers).
  * - Key Findings uses a structured 5-row briefing layout (no raw paragraph dump).
+ *
+ * NARRATIVE PATCH (THIS UPDATE):
+ * - Add deterministic narrative templates for ALL delivery domains (Performance/Mobile/SEO/Security/Structure/Accessibility).
+ * - Narrative is template-based + filled from deterministic evidence (no AI, no guessing).
  */
 
 (function () {
@@ -555,6 +559,203 @@
   }
 
   // -----------------------------
+  // Narrative Engine (deterministic templates across ALL delivery domains)
+  // -----------------------------
+  function mapEvidenceKeyToHuman(k) {
+    var lk = String(k || "").toLowerCase();
+
+    // SEO
+    if (lk.indexOf("title") !== -1 && (lk.indexOf("missing") !== -1 || lk.indexOf("present") !== -1)) return "page title";
+    if (lk.indexOf("meta") !== -1 && lk.indexOf("description") !== -1) return "meta description";
+    if (lk.indexOf("canonical") !== -1) return "canonical link";
+    if (lk.indexOf("h1") !== -1) return "primary heading (H1)";
+    if (lk.indexOf("html_lang") !== -1 || lk.indexOf("lang") !== -1 && lk.indexOf("html") !== -1) return "HTML language attribute";
+
+    // Security
+    if (lk.indexOf("hsts") !== -1) return "HSTS policy";
+    if (lk.indexOf("content_security_policy") !== -1 || lk === "csp" || lk.indexOf("csp") !== -1) return "Content Security Policy";
+    if (lk.indexOf("x_content_type_options") !== -1) return "X-Content-Type-Options";
+    if (lk.indexOf("x_frame_options") !== -1) return "X-Frame-Options";
+    if (lk.indexOf("referrer") !== -1) return "Referrer-Policy";
+    if (lk.indexOf("permissions") !== -1) return "Permissions-Policy";
+    if (lk.indexOf("mixed") !== -1 && lk.indexOf("content") !== -1) return "mixed content requests";
+
+    // Mobile/Perf
+    if (lk.indexOf("lcp") !== -1) return "Largest Contentful Paint (LCP)";
+    if (lk.indexOf("cls") !== -1) return "layout stability (CLS)";
+    if (lk.indexOf("inp") !== -1) return "Interaction to Next Paint (INP)";
+    if (lk.indexOf("ttfb") !== -1) return "Time to First Byte (TTFB)";
+    if (lk.indexOf("tbt") !== -1) return "Total Blocking Time (TBT)";
+    if (lk.indexOf("viewport") !== -1) return "viewport meta tag";
+
+    // Accessibility/Structure
+    if (lk.indexOf("alt") !== -1) return "image alt text";
+    if (lk.indexOf("label") !== -1) return "form labels";
+    if (lk.indexOf("contrast") !== -1) return "colour contrast";
+    if (lk.indexOf("aria") !== -1) return "ARIA attributes";
+    if (lk.indexOf("landmark") !== -1) return "semantic landmarks";
+
+    // Fallback: tidy
+    return String(k || "")
+      .replace(/[_\-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function uniquePush(arr, s) {
+    s = String(s || "").trim();
+    if (!s) return;
+    if (arr.indexOf(s) === -1) arr.push(s);
+  }
+
+  // Pull the most client-meaningful failing items from a domain’s evidence/issues/deductions.
+  function collectNarrativeSignalsForDomain(domainKey, signals) {
+    signals = asArray(signals);
+
+    // Prefer measured signal(s) for this domain only
+    var collected = [];
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      if (domainKeyFromSignal(sig) !== domainKey) continue;
+
+      var sc = asInt(sig.score, 0);
+      if (isUnmeasuredSignal(sig, sc)) continue;
+
+      // 1) Evidence booleans / metrics that fail baseline
+      var ev = safeObj(sig.evidence);
+      var keys = Object.keys(ev || {});
+      for (var k = 0; k < keys.length; k++) {
+        var ek = keys[k];
+        var evv = ev[ek];
+        if (isMeaningfulFail(ek, evv)) {
+          uniquePush(collected, mapEvidenceKeyToHuman(ek));
+        }
+      }
+
+      // 2) "required signal missing" as a quick “missing:” list (already conservative)
+      var spec = "";
+      try { spec = specificMissingSignals(sig); } catch (e) { spec = ""; }
+      if (spec && spec.indexOf("Missing:") === 0) {
+        // Extract terms between "Missing:" and "."
+        var chunk = spec.replace(/^Missing:\s*/i, "").replace(/\.$/, "");
+        var parts = chunk.split(",");
+        for (var p = 0; p < parts.length; p++) {
+          uniquePush(collected, String(parts[p] || "").trim());
+        }
+      }
+
+      // Cap: we don’t want long lists in narrative
+      if (collected.length >= 6) break;
+    }
+
+    // Clean up: if we accidentally collected generic phrases, keep only best first items
+    if (collected.length > 6) collected = collected.slice(0, 6);
+    return collected;
+  }
+
+  function joinHumanList(list, max) {
+    list = asArray(list);
+    if (!list.length) return "";
+    if (typeof max === "number" && max > 0 && list.length > max) list = list.slice(0, max);
+
+    if (list.length === 1) return list[0];
+    if (list.length === 2) return list[0] + " and " + list[1];
+    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
+  }
+
+  function getDomainNarrative(domainKey, pickedSignals, extras) {
+    pickedSignals = asArray(pickedSignals);
+    extras = safeObj(extras);
+
+    var listText = joinHumanList(pickedSignals, 4);
+    var haveList = !!listText;
+
+    // NOTE: These are intentionally short, consultant-style lines (no AI, no guessing).
+    if (domainKey === "seo") {
+      return {
+        impact:
+          "Search visibility is currently limited by incomplete SEO baseline signals." +
+          (haveList ? (" Key indexing elements such as " + listText + " are missing or incomplete.") : ""),
+        fix:
+          "Establish the SEO baseline (title, primary heading, description, canonical, and indexability) before deeper optimisation work.",
+        next:
+          "Apply the SEO baseline changes, then re-run the scan to confirm a measurable lift."
+      };
+    }
+
+    if (domainKey === "security") {
+      return {
+        impact:
+          "Security and trust headers are currently incomplete." +
+          (haveList ? (" Important response policies such as " + listText + " are not present.") : ""),
+        fix:
+          "Add a baseline security header set (HSTS, CSP where appropriate, frame protection, content-type protection, and referrer policy), then re-scan.",
+        next:
+          "Implement the missing headers and re-run the scan to confirm protections are detected."
+      };
+    }
+
+    if (domainKey === "structure") {
+      return {
+        impact:
+          "Page structure and semantic markup are incomplete." +
+          (haveList ? (" Key structural signals such as " + listText + " help engines and assistive tools interpret content correctly.") : ""),
+        fix:
+          "Correct semantic structure first (headings, landmarks, required tags), then address secondary quality improvements.",
+        next:
+          "Make one structural pass, then re-run the scan to validate the improvement."
+      };
+    }
+
+    if (domainKey === "accessibility") {
+      return {
+        impact:
+          "Accessibility signals are partially incomplete." +
+          (haveList ? (" Elements such as " + listText + " help assistive technologies interpret page content correctly.") : ""),
+        fix:
+          "Resolve top accessibility blockers (labels, alt text, contrast, and ARIA where needed) and verify via a re-scan.",
+        next:
+          "Fix one set of blockers, then re-run the scan to confirm measurable change."
+      };
+    }
+
+    if (domainKey === "mobile") {
+      // If we have observed LCP seconds, include it as measurable context
+      var lcp = extras && extras.mobileLcpSeconds;
+      var lcpTxt = (typeof lcp === "number" && isFinite(lcp) && lcp > 0) ? (" Mobile LCP observed: " + round1(lcp) + "s (target < 2.5s).") : "";
+
+      return {
+        impact:
+          "Mobile rendering stability and performance can be improved." + lcpTxt,
+        fix:
+          "Reduce mobile LCP and layout shift by optimising hero media, render-blocking resources, and initial payload size.",
+        next:
+          "Ship one mobile performance change, then re-run the scan to confirm the lift."
+      };
+    }
+
+    if (domainKey === "performance") {
+      var lcp2 = extras && extras.mobileLcpSeconds;
+      var lcpTxt2 = (typeof lcp2 === "number" && isFinite(lcp2) && lcp2 > 0) ? (" Mobile LCP observed: " + round1(lcp2) + "s (target < 2.5s).") : "";
+
+      return {
+        impact:
+          "Page loading performance can be improved." + lcpTxt2,
+        fix:
+          "Optimise the primary render path (LCP element, main-thread work, and render-blocking resources) and then re-scan.",
+        next:
+          "Apply one measurable performance change, then re-run the scan to confirm improvement."
+      };
+    }
+
+    return {
+      impact: "No major delivery constraints were identified from this scan output.",
+      fix: "Review the Signal Evidence blocks and address the clearest evidence-backed deficit.",
+      next: "Re-run the scan after one change to confirm a measurable lift."
+    };
+  }
+
+  // -----------------------------
   // Key Findings (structured 5-row briefing)
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
@@ -627,16 +828,19 @@
     // Primary constraint row
     setText(cEl, domainLabel + " — " + domainScore + "/100 (" + weightPct + "% weight)");
 
-    // Impact row
-    var impactText = domainLabel + " is currently limiting overall delivery. Improving this domain is likely to produce the largest measurable lift in this scan.";
-    if (primary.key === "performance" || primary.key === "mobile") {
-      var lcp = lcpSecondsFromPsi();
-      if (lcp !== null && lcp > 0) impactText += " Mobile LCP observed: " + lcp + "s (target < 2.5s).";
-    }
-    setText(iEl, impactText);
+    // Build narrative signals from deterministic evidence
+    var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
+    var extras = {
+      mobileLcpSeconds: lcpSecondsFromPsi()
+    };
 
-    // Fix row (with meaningful supporting hint only when it matters)
-    var fixText = primaryFixLineForKey(primary.key);
+    var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);
+
+    // Impact row (template-based, filled from evidence)
+    setText(iEl, narrative.impact);
+
+    // Fix row (template-based, with meaningful supporting payload hints ONLY when relevant)
+    var fixText = narrative.fix;
 
     if (primary.key === "performance" || primary.key === "mobile") {
       var hb = htmlBytesFromBasic();
@@ -645,13 +849,13 @@
       var parts = [];
       if (kb !== null && kb >= 50) parts.push(kb + "KB HTML");
       if (is !== null && is >= 3) parts.push(is + " inline scripts");
-      if (parts.length) fixText += " Reduce initial payload (" + parts.join(", ") + ").";
+      if (parts.length) fixText += " Initial payload signals observed: " + parts.join(", ") + ".";
     }
 
     setText(fEl, fixText);
 
     // Next step row
-    setText(nEl, "Apply one measurable change, then re-run the scan to confirm the lift.");
+    setText(nEl, narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.");
   }
 
   // -----------------------------
@@ -1177,7 +1381,6 @@
         if (!it || !it.title) continue;
 
         var tKey = normIssueTitle(it.title);
-        var sKey = normKey(it.sev);
 
         // Core identity is mostly the title meaning. Severity is used only to pick the best entry.
         var key = tKey;
@@ -1255,6 +1458,7 @@
 
     root.innerHTML = html;
   }
+
   // -----------------------------
   // Fix Sequence
   // -----------------------------
