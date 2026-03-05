@@ -11,8 +11,9 @@
  * 5) De-dupe + prioritise Top Issues (no repeats / no spammy Monitor rows unless needed).
  *
  * TRUST PATCH:
- * - If a signal score is 0 but there is no issues/deductions/evidence/observations, treat as NOT MEASURED (N/A).
- * - Prevent "0 score + no issues found" contradictions.
+ * - If score is 0 but there is no issues/deductions/evidence/observations, treat as NOT MEASURED (N/A).
+ * - If issues/deductions are empty BUT evidence clearly fails baseline checks, show “evidence flags” count
+ *   so we never show “Issues Found: none” while also saying “X is not satisfied”.
  */
 
 (function () {
@@ -362,6 +363,72 @@
     return (issues.length > 0 || deds.length > 0);
   }
 
+  // Evidence heuristics (conservative)
+  // Goal: only surface evidence when it clearly indicates a problem.
+  function isMeaningfulFail(key, value) {
+    var k = String(key || "").toLowerCase();
+
+    // Boolean evidence: only show when it indicates a missing/failed requirement.
+    if (typeof value === "boolean") {
+      if (k.indexOf("missing") !== -1) return value === true;
+      if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
+        return value === false;
+      }
+      return value === false;
+    }
+
+    var nv = num(value);
+    if (nv === null) return false;
+
+    // Coverage/ratio-like: low is bad
+    if (k.indexOf("coverage") !== -1 || k.indexOf("ratio") !== -1) {
+      if (nv >= 0 && nv <= 1) return nv < 0.9;
+      if (nv > 1 && nv <= 100) return nv < 90;
+      return false;
+    }
+
+    // LCP/CLS/INP/TTFB/etc: high is bad
+    if (k.indexOf("lcp") !== -1) {
+      if (nv > 0 && nv < 50) return nv > 2.5;
+      return nv > 2500;
+    }
+    if (k.indexOf("inp") !== -1) return nv > 200;
+    if (k.indexOf("cls") !== -1) return nv > 0.1;
+    if (k.indexOf("ttfb") !== -1) return nv > 800;
+
+    // Bytes/sizes: large is bad
+    if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
+
+    // Inline scripts: high is bad
+    if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
+
+    // Requests/resources: only flag when clearly high
+    if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) return nv >= 60;
+
+    // Generic "count": do NOT treat 0 as failure unless it's explicitly “missing/required/error”
+    if (k.indexOf("count") !== -1) {
+      if (k.indexOf("missing") !== -1 || k.indexOf("required") !== -1 || k.indexOf("error") !== -1 || k.indexOf("fail") !== -1) {
+        return nv <= 0;
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  // NEW: count evidence flags so “Issues Found” can’t say none when evidence says failed
+  function countEvidenceFlags(sig) {
+    sig = safeObj(sig);
+    var ev = safeObj(sig.evidence);
+    var keys = Object.keys(ev || {});
+    var c = 0;
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (isMeaningfulFail(k, ev[k])) c++;
+    }
+    return c;
+  }
+
   // NEW: If score is 0 but there is no evidence at all, treat as "not measured"
   function isUnmeasuredSignal(sig, score) {
     sig = safeObj(sig);
@@ -378,7 +445,6 @@
     if (obs.length) return false;
     if (eKeys.length) return false;
 
-    // Optional: if backend explicitly marks it
     if (sig.measured === false || sig.not_measured === true) return true;
 
     return true;
@@ -403,7 +469,6 @@
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
 
-    // Pass 1: weighted deficit threshold (>= 3 points) AND domain has a measured signal
     for (var i = 0; i < domains.length; i++) {
       var dk = domains[i];
       if (!domainHasMeasuredSignal(dk)) continue;
@@ -418,7 +483,6 @@
       }
     }
 
-    // Find the matching signal index for the chosen key (if any)
     if (best.key) {
       for (var a = 0; a < signals.length; a++) {
         var sigA = safeObj(signals[a]);
@@ -431,7 +495,6 @@
       return best;
     }
 
-    // Pass 2: pick flagged domain with highest weight (fallback)
     var flaggedBest = { key: "", w: -1, score: 0, idx: -1 };
     for (var j = 0; j < signals.length; j++) {
       var sig = safeObj(signals[j]);
@@ -525,9 +588,7 @@
 
     if (primary.key === "performance" || primary.key === "mobile") {
       var lcp = lcpSecondsFromPsi();
-      if (lcp !== null && lcp > 0) {
-        p("Mobile LCP: " + lcp + "s (target <2.5s)");
-      }
+      if (lcp !== null && lcp > 0) p("Mobile LCP: " + lcp + "s (target <2.5s)");
     }
 
     h("Recommended Fix");
@@ -558,7 +619,7 @@
   }
 
   // -----------------------------
-  // Delivery signal cards (client-friendly, no debug output)
+  // Delivery signal cards
   // -----------------------------
   function renderSignalsGrid(signals, scores, primary) {
     var grid = $("signalsGrid");
@@ -585,8 +646,17 @@
 
     function issuesFoundLine(sig, unmeasured) {
       if (unmeasured) return "Issues Found: not measured";
+
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
+
+      // NEW: if issues/deductions are empty but evidence clearly fails, show evidence flags
+      if (!issues.length && !deds.length) {
+        var ef = countEvidenceFlags(sig);
+        if (ef > 0) return "Issues Found: " + ef + " evidence flag" + (ef === 1 ? "" : "s");
+        return "Issues Found: none";
+      }
+
       var a = [];
       if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
       if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
@@ -594,42 +664,6 @@
     }
 
     function isStrong(score) { return asInt(score, 0) >= 90; }
-
-    // (unchanged evidence heuristics + formatting helpers)
-    function isMeaningfulFail(key, value) {
-      var k = String(key || "").toLowerCase();
-      if (typeof value === "boolean") {
-        if (k.indexOf("missing") !== -1) return value === true;
-        if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
-          return value === false;
-        }
-        return value === false;
-      }
-      var nv = num(value);
-      if (nv === null) return false;
-      if (k.indexOf("coverage") !== -1 || k.indexOf("ratio") !== -1) {
-        if (nv >= 0 && nv <= 1) return nv < 0.9;
-        if (nv > 1 && nv <= 100) return nv < 90;
-        return false;
-      }
-      if (k.indexOf("lcp") !== -1) {
-        if (nv > 0 && nv < 50) return nv > 2.5;
-        return nv > 2500;
-      }
-      if (k.indexOf("inp") !== -1) return nv > 200;
-      if (k.indexOf("cls") !== -1) return nv > 0.1;
-      if (k.indexOf("ttfb") !== -1) return nv > 800;
-      if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
-      if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
-      if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) return nv >= 60;
-      if (k.indexOf("count") !== -1) {
-        if (k.indexOf("missing") !== -1 || k.indexOf("required") !== -1 || k.indexOf("error") !== -1 || k.indexOf("fail") !== -1) {
-          return nv <= 0;
-        }
-        return false;
-      }
-      return false;
-    }
 
     function prettyEvidenceText(key, value) {
       var k = String(key || "");
@@ -881,13 +915,11 @@
       root.appendChild(det);
     }
 
-    if (!signals.length) {
-      root.innerHTML = "<div class='muted'>No evidence blocks returned.</div>";
-    }
+    if (!signals.length) root.innerHTML = "<div class='muted'>No evidence blocks returned.</div>";
   }
 
   // -----------------------------
-  // Key Insight Metrics (aligned to primary constraint)
+  // Key Insight Metrics
   // -----------------------------
   function renderKeyInsights(scores, signals, primary) {
     var root = $("keyMetricsRoot");
@@ -937,7 +969,7 @@
   }
 
   // -----------------------------
-  // Top Issues (primary domain first, de-duped, avoids spammy Monitor rows)
+  // Top Issues
   // -----------------------------
   function renderTopIssues(signals, primary) {
     var root = $("topIssuesRoot");
@@ -960,7 +992,7 @@
       if (sev === "MED" || sev === "MEDIUM") return 2;
       if (sev === "LOW") return 1;
       if (sev === "OK") return 0;
-      return 1; // MONITOR / default
+      return 1;
     }
 
     function collectFromSignal(sig, out) {
@@ -1002,15 +1034,11 @@
 
     if (primary && primary.key) {
       for (var i = 0; i < signals.length; i++) {
-        if (domainKeyFromSignal(signals[i]) === primary.key) {
-          collectFromSignal(signals[i], primaryOnly);
-        }
+        if (domainKeyFromSignal(signals[i]) === primary.key) collectFromSignal(signals[i], primaryOnly);
       }
     }
 
-    for (var k = 0; k < signals.length; k++) {
-      collectFromSignal(safeObj(signals[k]), all);
-    }
+    for (var k = 0; k < signals.length; k++) collectFromSignal(safeObj(signals[k]), all);
 
     function dedupe(list) {
       var seen = {};
@@ -1068,7 +1096,7 @@
   }
 
   // -----------------------------
-  // Fix Sequence (aligned to primary constraint)
+  // Fix Sequence
   // -----------------------------
   function renderFixSequence(scores, signals, primary) {
     var root = $("fixSequenceRoot");
