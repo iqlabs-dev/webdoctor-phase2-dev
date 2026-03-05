@@ -296,6 +296,21 @@
     }
     .muted { color: var(--muted); }
 
+    .finding-row{
+display:grid;
+grid-template-columns:160px 1fr;
+gap:12px;
+padding:6px 0;
+}
+
+.finding-label{
+font-weight:700;
+font-size:11px;
+letter-spacing:.1em;
+text-transform:uppercase;
+color:var(--muted);
+}
+
     /* 3x2 grid */
     .grid {
       display: grid;
@@ -769,7 +784,34 @@
             <h2 class="section-title">Key Findings</h2>
           </div>
           <div class="section-body">
-            <div id="narrativeText" class="summary">
+           <div id="narrativeText" class="summary">
+
+  <div class="finding-row">
+    <div class="finding-label">Overall Delivery</div>
+    <div id="findingOverall"></div>
+  </div>
+
+  <div class="finding-row">
+    <div class="finding-label">Primary Constraint</div>
+    <div id="findingConstraint"></div>
+  </div>
+
+  <div class="finding-row">
+    <div class="finding-label">Why It Matters</div>
+    <div id="findingImpact"></div>
+  </div>
+
+  <div class="finding-row">
+    <div class="finding-label">Recommended Fix</div>
+    <div id="findingFix"></div>
+  </div>
+
+  <div class="finding-row">
+    <div class="finding-label">Next Step</div>
+    <div id="findingNext"></div>
+  </div>
+
+</div>
               <div class="muted" style="font-size:12px;">Summary will load after scan data is available.</div>
             </div>
           </div>

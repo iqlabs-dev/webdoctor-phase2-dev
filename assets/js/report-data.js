@@ -584,7 +584,7 @@
     p((LABELS[primary.key] || primary.key) + " is currently limiting overall delivery.");
 
     h("Why it matters");
-    p("This domain carries the strongest weighting pressure in this scan and offers the largest measurable lift.");
+    p("This area has the highest impact on the overall score in this scan, so improving it is likely to produce the largest measurable lift.");
 
     if (primary.key === "performance" || primary.key === "mobile") {
       var lcp = lcpSecondsFromPsi();
@@ -780,6 +780,7 @@
       }
 
       var lever = recommendedFixForKey(key);
+      if (lever && score !== null) lever = getRecommendation(score, lever);
       if (lever) lines.push(lever);
 
       lines.push(issuesFoundLine(sig, unmeasured));
@@ -928,11 +929,13 @@
     scores = safeObj(scores);
     signals = asArray(signals);
 
+    var placeholder = "Derived insights will appear here as additional scans are analysed. This report focuses on deterministic delivery signals.";
+
     var items = [
-      { key: "Strength", text: "Not available in this scan output." },
-      { key: "Risk",     text: "Not available in this scan output." },
-      { key: "Focus",    text: "Not available in this scan output." },
-      { key: "Next",     text: "Not available in this scan output." }
+      { key: "Strength", text: placeholder },
+      { key: "Risk",     text: placeholder },
+      { key: "Focus",    text: placeholder },
+      { key: "Next",     text: placeholder }
     ];
 
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -1136,6 +1139,16 @@
         }
       }
     } catch (e) {}
+  }
+
+  // -----------------------------
+  // Recommendation Guardrail
+  // Prevents "Score 100 but still fix something"
+  // -----------------------------
+  function getRecommendation(score, text) {
+    var s = asInt(score, 0);
+    if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+    return text;
   }
 
   // -----------------------------
