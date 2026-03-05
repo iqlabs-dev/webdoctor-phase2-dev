@@ -312,13 +312,15 @@
       color:var(--muted);
       padding-top: 2px;
     }
-    .finding-value{
-      color: var(--ink-soft);
-      font-size: 13px;
-      line-height: 1.5;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
+.finding-value{
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display:flex;
+  align-items:flex-start;
+}
     @media (max-width: 520px) {
       .finding-row { grid-template-columns: 1fr; gap: 6px; }
       .finding-label { padding-top: 0; }
@@ -779,36 +781,48 @@
           </div>
           <div class="section-body">
 
-            <!-- Structured 5-row briefing (populated by report-data.js) -->
-            <div id="narrativeText" class="keyfindings">
-              <div class="finding-row">
-                <div class="finding-label">Overall Delivery</div>
-                <div class="finding-value" id="findingOverall">—</div>
-              </div>
+<!-- Structured 5-row briefing (populated by report-data.js) -->
+<div id="narrativeText" class="keyfindings">
 
-              <div class="finding-row">
-                <div class="finding-label">Primary Constraint</div>
-                <div class="finding-value" id="findingConstraint">—</div>
-              </div>
+  <div class="finding-row">
+    <div class="finding-label">Overall Delivery</div>
+    <div class="finding-value" id="findingOverall">
+      Scan results loading…
+    </div>
+  </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Impact</div>
-                <div class="finding-value" id="findingImpact">—</div>
-              </div>
+  <div class="finding-row">
+    <div class="finding-label">Primary Constraint</div>
+    <div class="finding-value" id="findingConstraint">
+      Scan results loading…
+    </div>
+  </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Recommended Fix</div>
-                <div class="finding-value" id="findingFix">—</div>
-              </div>
+  <div class="finding-row">
+    <div class="finding-label">Impact</div>
+    <div class="finding-value" id="findingImpact">
+      Analysing delivery signals…
+    </div>
+  </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Next Step</div>
-                <div class="finding-value" id="findingNext">—</div>
-              </div>
-            </div>
+  <div class="finding-row">
+    <div class="finding-label">Recommended Fix</div>
+    <div class="finding-value" id="findingFix">
+      Generating prioritised recommendation…
+    </div>
+  </div>
 
-          </div>
-        </section>
+  <div class="finding-row">
+    <div class="finding-label">Next Step</div>
+    <div class="finding-value" id="findingNext">
+      Preparing recommended next action…
+    </div>
+  </div>
+
+</div>
+
+</div>
+</section>
 
         <!-- What to Fix First (optional) -->
         <div id="fixFirstBlock"></div>
