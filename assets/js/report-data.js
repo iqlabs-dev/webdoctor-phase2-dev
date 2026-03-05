@@ -338,12 +338,12 @@
   }
 
   function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Primary Fix: Reduce Mobile LCP below 2.5s.";
-    if (key === "security") return "Primary Fix: Close the top Security & Trust gaps.";
-    if (key === "seo") return "Primary Fix: Stabilise SEO Foundations baseline signals.";
-    if (key === "structure") return "Primary Fix: Correct core Structure & Semantics issues.";
-    if (key === "accessibility") return "Primary Fix: Resolve top Accessibility blockers.";
-    return "Primary Fix: Improve the weakest baseline signal.";
+    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
+    if (key === "security") return "Close the top Security & Trust gaps.";
+    if (key === "seo") return "Stabilise SEO Foundations baseline signals.";
+    if (key === "structure") return "Correct core Structure & Semantics issues.";
+    if (key === "accessibility") return "Resolve top Accessibility blockers.";
+    return "Improve the weakest baseline signal.";
   }
 
   // -----------------------------
@@ -384,7 +384,6 @@
       var n = num(v);
       if (n === null) return null;
 
-      // If already in seconds (tiny), keep it; otherwise assume ms.
       if (n > 0 && n < 100) return round1(n);
       return round1(n / 1000);
     }
@@ -406,51 +405,55 @@
       return Math.round(n);
     }
 
-    var lines = [];
-    lines.push("Overall Delivery: " + overall + "/100");
+    // Build a clean “audit-style” block
+    var out = "";
+    function p(text) {
+      out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(text) + "</p>";
+    }
+    function h(text) {
+      out += "<p style='margin:0 0 8px 0; line-height:1.35; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; font-size:11px; opacity:0.95;'>" + escapeHtml(text) + "</p>";
+    }
+
+    p("Overall Delivery: " + overall + "/100");
 
     if (primary.k) {
-      lines.push(
-        (LABELS[primary.k] || primary.k) +
-        ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)"
-      );
+      // Optional detail line (keeps your current behaviour but calmer)
+      p((LABELS[primary.k] || primary.k) + ": " + primary.score + "/100 (" + Math.round(primary.w * 100) + "% weight)");
 
-      // Only mention model pressure if meaningful (>= 3 pts)
-      var primaryPts = deficitWeightedPoints(primary.score, primary.w);
-      if (primaryPts >= 3) {
-        lines.push((LABELS[primary.k] || primary.k) + " is the primary measurable constraint in this scan.");
-      }
+      h("Primary Issue");
+      p((LABELS[primary.k] || primary.k) + " is currently limiting overall delivery.");
 
-      // Optional metric line (facts only)
+      h("Why it matters");
+      p("This domain carries the strongest weighting pressure in this scan and offers the largest measurable lift.");
+
+      // Facts-only metric (optional)
       if (primary.k === "performance" || primary.k === "mobile") {
         var lcp = lcpSecondsFromPsi();
         if (lcp !== null && lcp > 0) {
-          lines.push("Mobile LCP: " + lcp + "s (target <2.5s)");
+          p("Mobile LCP: " + lcp + "s (target <2.5s)");
         }
       }
 
-      lines.push(primaryFixLineForKey(primary.k));
+      h("Recommended Fix");
+      p(primaryFixLineForKey(primary.k));
 
-      // Secondary payload line (facts only)
+      // Supporting fix (ONE only)
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
       if (hb !== null || is !== null) {
         var parts = [];
         if (hb !== null) parts.push(Math.round(hb / 1024) + "KB HTML");
         if (is !== null) parts.push(is + " inline scripts");
-        if (parts.length) lines.push("Secondary Fix: Reduce initial payload (" + parts.join(", ") + ").");
+        if (parts.length) {
+          h("Supporting Fix");
+          p("Reduce initial payload (" + parts.join(", ") + ").");
+        }
       }
 
-      lines.push("Re-scan after changes to confirm measurable improvement.");
+      h("Next Step");
+      p("Re-run the scan after optimisation to confirm measurable improvement.");
     }
 
-    // Cap at 6 lines max
-    if (lines.length > 6) lines = lines.slice(0, 6);
-
-    var out = "";
-    for (var j = 0; j < lines.length; j++) {
-      out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(lines[j]) + "</p>";
-    }
     el.innerHTML = out;
   }
 
@@ -552,13 +555,13 @@
       return "";
     }
 
-    function flagsLine(sig) {
+    function issuesFoundLine(sig) {
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
       var a = [];
       if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
       if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? ("Flags: " + a.join(" • ")) : "Flags: none";
+      return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
     }
 
     function hasFlags(sig) {
@@ -571,14 +574,14 @@
       return asInt(score, 0) >= 90;
     }
 
-    function fixLeverForKey(key) {
+    function recommendedFixForKey(key) {
       if (!key) return "";
-      if (key === "performance") return "Fix lever: LCP + main-thread cost.";
-      if (key === "mobile") return "Fix lever: Mobile LCP + layout stability.";
-      if (key === "seo") return "Fix lever: indexability + metadata baseline.";
-      if (key === "security") return "Fix lever: headers/policy baseline + mixed content.";
-      if (key === "structure") return "Fix lever: semantic structure + required tags.";
-      if (key === "accessibility") return "Fix lever: labels/controls + contrast fundamentals.";
+      if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
+      if (key === "mobile") return "Recommended Fix: Mobile LCP + layout stability.";
+      if (key === "seo") return "Recommended Fix: indexability + metadata baseline.";
+      if (key === "security") return "Recommended Fix: headers/policy baseline + mixed content.";
+      if (key === "structure") return "Recommended Fix: semantic structure + required tags.";
+      if (key === "accessibility") return "Recommended Fix: labels/controls + contrast fundamentals.";
       return "";
     }
 
@@ -597,6 +600,20 @@
       if (pPts >= 3 && pPts > maxDef) { maxDef = pPts; primaryIdx = p; }
     }
 
+    // Inject badge styles once (safe; no need to edit report.html/css)
+    try {
+      if (!document.getElementById("iqweb-primary-badge-style")) {
+        var st = document.createElement("style");
+        st.id = "iqweb-primary-badge-style";
+        st.type = "text/css";
+        st.appendChild(document.createTextNode(
+          ".primary-badge{position:absolute;top:-10px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}" +
+          ".card{position:relative;}"
+        ));
+        document.head.appendChild(st);
+      }
+    } catch (e) {}
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
@@ -610,44 +627,28 @@
       var defPts = w ? deficitWeightedPoints(score, w) : 0;
       var flagged = hasFlags(sig);
 
-      // Headline line: client-friendly framing
-      // - Priority Fix: primary constraint (>=3 pts)
-      // - Secondary Fix: other meaningful drags (>=3 pts)
-      // - Strong: high score AND no flags
-      // - Stable: default for weighted domains
-      // - Deterministic: unmapped
-var headline = "Stable";
-
-if (w && defPts >= 3) {
-  headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
-}
-else if (w) {
-  if (flagged) {
-    headline = "Secondary Fix";
-  } else {
-    headline = isStrong(score) ? "Strong" : "Stable";
-  }
-}
-else {
-  headline = "Deterministic";
-}
-
+      // Headline line
+      var headline = "Stable";
+      if (w && defPts >= 3) {
+        headline = (i === primaryIdx) ? "Priority Fix" : "Secondary Fix";
+      }
+      else if (w) {
+        if (flagged) headline = "Secondary Fix";
+        else headline = isStrong(score) ? "Strong" : "Stable";
+      }
+      else {
+        headline = "Deterministic";
+      }
 
       var lines = [];
 
-      // Always show the weight (client framing)
       if (w) lines.push(headline + " • " + weightPct + " WEIGHT");
       else lines.push(headline);
 
-      // Primary priority explanation (short, client-safe)
       if (w && defPts >= 3 && i === primaryIdx) {
-        lines.push("Why it’s priority: biggest measurable lift available in this scan.");
+        lines.push("Why it matters: biggest measurable lift available in this scan.");
       }
 
-      // WHY rules:
-      // - If flagged: show why (issues/deductions first; evidence allowed)
-      // - If not flagged AND strong (>=90): calm baseline line
-      // - If not flagged AND not strong (<90): allow evidence heuristics, else calm fallback
       var allowEvidence = flagged || (!isStrong(score) && score < 90);
       var because = pickExplainLine(sig, allowEvidence);
 
@@ -658,32 +659,29 @@ else {
         if (isStrong(score)) {
           lines.push("Baseline stable — no measurable blockers detected in this scan.");
         } else {
-          if (because) {
-            lines.push("Why: " + because);
-          } else {
-            lines.push("Score indicates measurable drag in this domain.");
-
-          }
+          if (because) lines.push("Why: " + because);
+          else lines.push("Score indicates measurable drag in this domain.");
         }
       }
 
-      // Fix lever (always helpful, but only when mapped)
-      var lever = fixLeverForKey(key);
+      var lever = recommendedFixForKey(key);
       if (lever) lines.push(lever);
 
-      // Flags last
-      lines.push(flagsLine(sig));
+      lines.push(issuesFoundLine(sig));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
       var severityClass = "severity-strong";
+      if (score < 65) severityClass = "severity-high";
+      else if (score < 90) severityClass = "severity-medium";
 
-if (score < 65) severityClass = "severity-high";
-else if (score < 90) severityClass = "severity-medium";
+      var card = document.createElement("div");
+      card.className = "card " + severityClass;
 
-var card = document.createElement("div");
-card.className = "card " + severityClass;
+      var badgeHtml = (i === primaryIdx) ? '<div class="primary-badge">Primary Issue</div>' : "";
+
       card.innerHTML =
+        badgeHtml +
         '<div class="card-top">' +
           "<h3>" + escapeHtml(label) + "</h3>" +
           '<div class="score-right">' + escapeHtml(String(score)) + "</div>" +
@@ -933,17 +931,16 @@ card.className = "card " + severityClass;
 
     for (var x = 0; x < cap; x++) {
       var it2 = issuesOut[x];
-html +=
-  '<div class="issue">' +
-    '<div class="issue-top">' +
-      '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-      '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-    "</div>" +
-    '<div class="issue-why impact-text">' +
-      escapeHtml(it2.why || "Worth reviewing based on scan output.") +
-    "</div>" +
-  "</div>";
-
+      html +=
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
+          "</div>" +
+          '<div class="issue-why impact-text">' +
+            escapeHtml(it2.why || "Worth reviewing based on scan output.") +
+          "</div>" +
+        "</div>";
     }
 
     root.innerHTML = html;
