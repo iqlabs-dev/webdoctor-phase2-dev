@@ -10,9 +10,9 @@
  * 4) Stop “good is bad” evidence lines (e.g., “inline scripts below baseline (0)”).
  * 5) De-dupe + prioritise Top Issues (no repeats / no spammy Monitor rows unless needed).
  *
- * PATCH (trust fix):
- * - If a delivery signal has no score returned, display "N/A" (not 0)
- * - Prevent "0 score + no issues found" contradictions
+ * TRUST PATCH:
+ * - If a signal score is 0 but there is no issues/deductions/evidence/observations, treat as NOT MEASURED (N/A).
+ * - Prevent "0 score + no issues found" contradictions.
  */
 
 (function () {
@@ -27,17 +27,6 @@
     if (typeof fallback === "undefined") fallback = 0;
     var n = Number(v);
     if (!isFinite(n)) return fallback;
-    n = Math.round(n);
-    if (n < 0) n = 0;
-    if (n > 100) n = 100;
-    return n;
-  }
-
-  // NEW: score helper that returns null when score is missing/unparseable
-  function asScore(v) {
-    if (v === null || typeof v === "undefined" || v === "") return null;
-    var n = Number(v);
-    if (!isFinite(n)) return null;
     n = Math.round(n);
     if (n < 0) n = 0;
     if (n > 100) n = 100;
@@ -373,20 +362,55 @@
     return (issues.length > 0 || deds.length > 0);
   }
 
+  // NEW: If score is 0 but there is no evidence at all, treat as "not measured"
+  function isUnmeasuredSignal(sig, score) {
+    sig = safeObj(sig);
+    if (score !== 0) return false;
+
+    var issues = asArray(sig.issues);
+    var deds = asArray(sig.deductions);
+    var obs = asArray(sig.observations);
+    var evidence = safeObj(sig.evidence);
+    var eKeys = Object.keys(evidence || {});
+
+    if (issues.length) return false;
+    if (deds.length) return false;
+    if (obs.length) return false;
+    if (eKeys.length) return false;
+
+    // Optional: if backend explicitly marks it
+    if (sig.measured === false || sig.not_measured === true) return true;
+
+    return true;
+  }
+
   function computePrimaryConstraint(scores, signals) {
-    // Picks primary domain by weighted deficit points, with a minimum threshold.
-    // If nothing crosses threshold but flags exist, pick the strongest weighted flagged domain.
     scores = safeObj(scores);
     signals = asArray(signals);
+
+    // Ignore "ghost 0" signals with no evidence
+    function domainHasMeasuredSignal(domainKey) {
+      for (var i = 0; i < signals.length; i++) {
+        var sig = safeObj(signals[i]);
+        if (domainKeyFromSignal(sig) !== domainKey) continue;
+        var sc = asInt(sig.score, 0);
+        if (isUnmeasuredSignal(sig, sc)) continue;
+        return true;
+      }
+      return false;
+    }
 
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
     var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
 
-    // Pass 1: weighted deficit threshold (>= 3 points)
+    // Pass 1: weighted deficit threshold (>= 3 points) AND domain has a measured signal
     for (var i = 0; i < domains.length; i++) {
       var dk = domains[i];
+      if (!domainHasMeasuredSignal(dk)) continue;
+
       var s = scoreFor(scores, dk);
       if (s === null) continue;
+
       var w = WEIGHTS[dk] || 0;
       var pts = deficitWeightedPoints(s, w);
       if (pts >= 3 && pts > best.pts) {
@@ -397,7 +421,12 @@
     // Find the matching signal index for the chosen key (if any)
     if (best.key) {
       for (var a = 0; a < signals.length; a++) {
-        if (domainKeyFromSignal(signals[a]) === best.key) { best.idx = a; break; }
+        var sigA = safeObj(signals[a]);
+        if (domainKeyFromSignal(sigA) !== best.key) continue;
+        var scA = asInt(sigA.score, 0);
+        if (isUnmeasuredSignal(sigA, scA)) continue;
+        best.idx = a;
+        break;
       }
       return best;
     }
@@ -410,8 +439,8 @@
       var k = domainKeyFromSignal(sig);
       if (!k) continue;
       var ww = WEIGHTS[k] || 0;
-      var scMaybe = asScore(sig.score);
-      var sc = (scMaybe === null) ? 0 : scMaybe;
+      var sc = asInt(sig.score, 0);
+      if (isUnmeasuredSignal(sig, sc)) continue;
       if (ww > flaggedBest.w) flaggedBest = { key: k, w: ww, score: sc, idx: j };
     }
     if (flaggedBest.key) {
@@ -467,7 +496,6 @@
       return Math.round(n);
     }
 
-    // Build a clean “audit-style” block
     var out = "";
     function p(text) {
       out += "<p style='margin:0 0 10px 0; line-height:1.55;'>" + escapeHtml(text) + "</p>";
@@ -495,7 +523,6 @@
     h("Why it matters");
     p("This domain carries the strongest weighting pressure in this scan and offers the largest measurable lift.");
 
-    // Facts-only metric (optional)
     if (primary.key === "performance" || primary.key === "mobile") {
       var lcp = lcpSecondsFromPsi();
       if (lcp !== null && lcp > 0) {
@@ -506,12 +533,10 @@
     h("Recommended Fix");
     p(primaryFixLineForKey(primary.key));
 
-    // Supporting fix: ONLY for perf/mobile AND only if meaningful
     if (primary.key === "performance" || primary.key === "mobile") {
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
 
-      // “Meaningful” thresholds to avoid junk like 1KB / 0 scripts
       var kb = (hb !== null) ? Math.round(hb / 1024) : null;
       var showPayload = false;
       if (kb !== null && kb >= 50) showPayload = true;
@@ -543,7 +568,6 @@
     scores = safeObj(scores);
     grid.innerHTML = "";
 
-    // Inject badge + NA styles once (safe; no need to edit report.html/css)
     try {
       if (!document.getElementById("iqweb-primary-badge-style")) {
         var st = document.createElement("style");
@@ -559,7 +583,8 @@
       }
     } catch (e) {}
 
-    function issuesFoundLine(sig) {
+    function issuesFoundLine(sig, unmeasured) {
+      if (unmeasured) return "Issues Found: not measured";
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
       var a = [];
@@ -568,14 +593,11 @@
       return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
     }
 
-    function isStrong(score) { return (score !== null && asInt(score, 0) >= 90); }
+    function isStrong(score) { return asInt(score, 0) >= 90; }
 
-    // Evidence heuristics (conservative)
-    // Goal: only surface evidence when it clearly indicates a problem.
+    // (unchanged evidence heuristics + formatting helpers)
     function isMeaningfulFail(key, value) {
       var k = String(key || "").toLowerCase();
-
-      // Boolean evidence: only show when it indicates a missing/failed requirement.
       if (typeof value === "boolean") {
         if (k.indexOf("missing") !== -1) return value === true;
         if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
@@ -583,52 +605,29 @@
         }
         return value === false;
       }
-
       var nv = num(value);
       if (nv === null) return false;
-
-      // Coverage/ratio-like: low is bad
       if (k.indexOf("coverage") !== -1 || k.indexOf("ratio") !== -1) {
-        // Only treat as bad if it resembles a fraction/percentage.
         if (nv >= 0 && nv <= 1) return nv < 0.9;
         if (nv > 1 && nv <= 100) return nv < 90;
         return false;
       }
-
-      // LCP/CLS/INP/TTFB/etc: high is bad (ms)
       if (k.indexOf("lcp") !== -1) {
-        // accept seconds or ms; treat > 2500ms or >2.5s as bad
         if (nv > 0 && nv < 50) return nv > 2.5;
         return nv > 2500;
       }
       if (k.indexOf("inp") !== -1) return nv > 200;
       if (k.indexOf("cls") !== -1) return nv > 0.1;
       if (k.indexOf("ttfb") !== -1) return nv > 800;
-
-      // Bytes/sizes: large is bad (we use 50KB as “worth mentioning” for HTML-ish payloads)
-      if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) {
-        // Avoid flagging tiny values as “below baseline”
-        return nv >= 50000;
-      }
-
-      // Inline scripts: high is bad, low is good (0 is NOT a fail)
-      if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) {
-        return nv >= 3;
-      }
-
-      // Requests/resources: only flag when clearly high (avoid 0/low being treated as bad)
-      if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) {
-        return nv >= 60;
-      }
-
-      // Generic "count": do NOT treat 0 as failure unless it's explicitly “missing/required/error”
+      if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
+      if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
+      if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) return nv >= 60;
       if (k.indexOf("count") !== -1) {
         if (k.indexOf("missing") !== -1 || k.indexOf("required") !== -1 || k.indexOf("error") !== -1 || k.indexOf("fail") !== -1) {
           return nv <= 0;
         }
         return false;
       }
-
       return false;
     }
 
@@ -703,20 +702,20 @@
       var sig = safeObj(signals[i]);
 
       var label = String(sig.label || sig.id || "Signal");
-      var score = asScore(sig.score); // <-- FIX: null when not measured
+      var rawScore = asInt(sig.score, 0);
+
+      var unmeasured = isUnmeasuredSignal(sig, rawScore);
+      var score = unmeasured ? null : rawScore;
 
       var key = domainKeyFromSignal(sig);
       var w = key ? (WEIGHTS[key] || 0) : 0;
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
       var flagged = hasFlags(sig);
+      var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
 
-      var defPts = 0;
-      if (w && score !== null) defPts = deficitWeightedPoints(score, w);
-
-      // Headline
       var headline = "Stable";
-      if (score === null) headline = "Not Measured";
+      if (unmeasured) headline = "Not Measured";
       else if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
       else if (w && defPts >= 3) headline = "Secondary Fix";
       else if (w) headline = isStrong(score) ? "Strong" : "Stable";
@@ -725,19 +724,15 @@
       var lines = [];
       lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
-      if (score === null && !flagged) {
+      if (unmeasured && !flagged) {
         lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
       } else {
         if (key && primary && primary.key && key === primary.key) {
           lines.push("Why it matters: biggest measurable lift available in this scan.");
         }
 
-        // Only use evidence when it won't produce “good is bad” lines.
-        // If score is Strong and nothing is flagged, do not pull evidence.
         var allowEvidence = (flagged || (score !== null && score < 90));
         var because = pickExplainLine(sig, allowEvidence);
-
-        // Guardrail: low score but nothing to point at
         var emptyButLow = (score !== null && !flagged && !because && score < 70);
 
         if (flagged) {
@@ -745,7 +740,7 @@
         } else if (emptyButLow) {
           lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
         } else {
-          if (isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
+          if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
           else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
         }
       }
@@ -753,13 +748,12 @@
       var lever = recommendedFixForKey(key);
       if (lever) lines.push(lever);
 
-      lines.push(issuesFoundLine(sig));
+      lines.push(issuesFoundLine(sig, unmeasured));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
-      // Severity class
       var severityClass = "severity-strong";
-      if (score === null) severityClass = "severity-na";
+      if (unmeasured) severityClass = "severity-na";
       else if (score < 65) severityClass = "severity-high";
       else if (score < 90) severityClass = "severity-medium";
 
@@ -772,9 +766,9 @@
         badgeHtml +
         '<div class="card-top">' +
           "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(score === null ? "N/A" : score)) + "</div>" +
+          '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
         "</div>" +
-        '<div class="bar"><div style="width:' + (score === null ? 0 : score) + '%;"></div></div>' +
+        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
         '<div class="summary">' + summaryHtml + "</div>";
 
       grid.appendChild(card);
@@ -806,7 +800,10 @@
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
       var label = String(sig.label || sig.id || "Signal");
-      var score = asScore(sig.score); // <-- FIX: null when not measured
+      var rawScore = asInt(sig.score, 0);
+      var unmeasured = isUnmeasuredSignal(sig, rawScore);
+      var score = unmeasured ? null : rawScore;
+
       var issues = asArray(sig.issues);
       var obs = asArray(sig.observations);
       var deds = asArray(sig.deductions);
@@ -819,10 +816,14 @@
       var summary =
         '<summary>' +
           '<div class="acc-title">' + escapeHtml(label) + "</div>" +
-          '<div class="acc-score">' + escapeHtml(String(score === null ? "N/A" : score)) + "/100</div>" +
+          '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "/100</div>" +
         "</summary>";
 
       var body = '<div class="acc-body">';
+
+      if (unmeasured) {
+        body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>This signal was not measured in this scan (no evidence returned).</div>";
+      }
 
       if (issues.length) {
         body += "<div class='evidence-title'>Issues</div>";
@@ -968,7 +969,6 @@
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      // Prefer explicit issues first (these are already human-legible)
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
         var title = String(it.title || it.id || (label + ": issue")).trim();
@@ -981,14 +981,11 @@
         });
       }
 
-      // Only add deductions if we still need fill AND they are meaningful
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
         var pts = num(dd.points);
         var reason = String(dd.reason || dd.code || "").trim();
         if (!reason) continue;
-
-        // Avoid noisy “Monitor” rows for tiny or repetitive deductions
         if (pts !== null && pts < 2) continue;
 
         out.push({
@@ -1003,7 +1000,6 @@
     var all = [];
     var primaryOnly = [];
 
-    // Gather primary domain issues
     if (primary && primary.key) {
       for (var i = 0; i < signals.length; i++) {
         if (domainKeyFromSignal(signals[i]) === primary.key) {
@@ -1012,12 +1008,10 @@
       }
     }
 
-    // Gather everything (fallback)
     for (var k = 0; k < signals.length; k++) {
       collectFromSignal(safeObj(signals[k]), all);
     }
 
-    // De-dupe
     function dedupe(list) {
       var seen = {};
       var out = [];
@@ -1034,10 +1028,8 @@
     primaryOnly = dedupe(primaryOnly);
     all = dedupe(all);
 
-    // Choose source: primary if it has anything, else global
     var chosen = primaryOnly.length ? primaryOnly : all;
 
-    // Sort by severity then keep stable-ish
     chosen.sort(function (a, b) {
       var ra = a._rank || sevRank(a.sev);
       var rb = b._rank || sevRank(b.sev);
@@ -1135,13 +1127,9 @@
 
     showReport();
 
-    // Primary constraint computed once and used everywhere
     var primary = computePrimaryConstraint(scores, signals);
 
-    // Executive block (client-ready)
     renderExecutiveSummary(data, primary);
-
-    // Signal cards (client-explainable)
     renderSignalsGrid(signals, scores, primary);
 
     renderSignalEvidence(signals);
