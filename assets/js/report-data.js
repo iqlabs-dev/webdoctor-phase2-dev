@@ -370,16 +370,36 @@ function pickOverallSummary(data, overallScore) {
     return round1((100 - s) * w);
   }
 
-  function recommendedFixForKey(key) {
-    if (!key) return "";
-    if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
-    if (key === "mobile") return "Recommended Fix: Mobile LCP + layout stability.";
-    if (key === "seo") return "Recommended Fix: indexability + metadata baseline.";
-    if (key === "security") return "Recommended Fix: security headers baseline + mixed content.";
-    if (key === "structure") return "Recommended Fix: semantic structure + required tags.";
-    if (key === "accessibility") return "Recommended Fix: labels/controls + contrast fundamentals.";
-    return "";
+function recommendedFixForKey(key) {
+
+  switch (key) {
+
+    case "seo":
+    case "seo_foundations":
+      return "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.";
+
+    case "structure":
+    case "structure_semantics":
+      return "Correct the document structure by ensuring a single primary heading (H1) is present and that semantic HTML tags are used consistently.";
+
+    case "security":
+    case "security_trust":
+      return "Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.";
+
+    case "mobile":
+    case "mobile_experience":
+      return "Ensure the viewport meta tag is correctly configured and review layout stability to improve mobile rendering and Largest Contentful Paint performance.";
+
+    case "accessibility":
+      return "Add the HTML language attribute and review labels, controls, and colour contrast to improve accessibility for assistive technologies.";
+
+    case "performance":
+      return "Review performance diagnostics and optimise loading behaviour to ensure stable Core Web Vitals and responsive rendering.";
+
+    default:
+      return "Review the evidence signals and address the underlying technical constraint affecting this category.";
   }
+}
 
   // -----------------------------
   // Domain mapping + Primary Constraint selector
