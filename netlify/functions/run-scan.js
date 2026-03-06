@@ -1694,58 +1694,64 @@ console.log("[run-scan] PSI (background) state", {
       });
     }
 
-    const uf = await getUserFlags(user_id);
-    if (!uf) {
-      return json(500, {
-        success: false,
-        code: "flags_unavailable",
-        error: "Unable to verify access. Please try again.",
-      });
-    }
+let uf = null;
+let oneOffCredits = 0;
+let oneOffActive = false;
+let paidActive = false;
+let trialActive = false;
 
-    // One-off credit lookup (user_credits table)
-    const { data: oneOffRow, error: oneOffErr } = await supabase
-      .from("user_credits")
-      .select("credits")
+if (!isAnonymous) {
+  uf = await getUserFlags(user_id);
+  if (!uf) {
+    return json(500, {
+      success: false,
+      code: "flags_unavailable",
+      error: "Unable to verify access. Please try again.",
+    });
+  }
+
+  // One-off credit lookup (user_credits table)
+  const { data: oneOffRow, error: oneOffErr } = await supabase
+    .from("user_credits")
+    .select("credits")
     .eq("id", user_id)
+    .maybeSingle();
 
+  if (oneOffErr) {
+    console.error("[one-off] lookup error:", oneOffErr);
+  }
 
-      .maybeSingle();
+  oneOffCredits = Number(oneOffRow?.credits || 0);
+  oneOffActive = oneOffCredits > 0;
 
-    if (oneOffErr) {
-      console.error("[one-off] lookup error:", oneOffErr);
-    }
+  // Per-user bans/freeze
+  if (!isFounder && uf.is_banned) {
+    return json(403, {
+      success: false,
+      code: "user_banned",
+      error: "Account access disabled. Contact support.",
+    });
+  }
+  if (!isFounder && uf.is_frozen) {
+    return json(403, {
+      success: false,
+      code: "user_frozen",
+      error: "Account temporarily frozen. Contact support.",
+    });
+  }
 
-    const oneOffCredits = Number(oneOffRow?.credits || 0);
-    const oneOffActive = oneOffCredits > 0;
+  // Access policy: Founder OR Paid OR Trial OR One-off credits
+  paidActive = isPaidActive(uf);
+  trialActive = isTrialActive(uf);
 
-    // Per-user bans/freeze
-    if (!isFounder && uf.is_banned) {
-      return json(403, {
-        success: false,
-        code: "user_banned",
-        error: "Account access disabled. Contact support.",
-      });
-    }
-    if (!isFounder && uf.is_frozen) {
-      return json(403, {
-        success: false,
-        code: "user_frozen",
-        error: "Account temporarily frozen. Contact support.",
-      });
-    }
-
-    // Access policy: Founder OR Paid OR Trial OR One-off credits
-    const paidActive = isPaidActive(uf);
-    const trialActive = isTrialActive(uf);
-
-    if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
-      return json(402, {
-        success: false,
-        code: "access_required",
-        error: "This account does not have scanning access. Please subscribe or request an invite trial.",
-      });
-    }
+  if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
+    return json(402, {
+      success: false,
+      code: "access_required",
+      error: "This account does not have scanning access. Please subscribe or request an invite trial.",
+    });
+  }
+}
 
 // --------------------------------------------------
 // Consume EXACTLY ONE scan (trial → paid → one-off)
