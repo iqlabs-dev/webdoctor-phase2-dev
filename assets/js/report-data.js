@@ -923,10 +923,10 @@
 
       var nv = num(value);
       if (nv !== null) {
-        if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
-          var kb = Math.round(nv / 1024);
-          return label + " is above baseline (" + kb + "KB).";
-        }
+   if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
+  var kb = Math.round(nv / 1024);
+  return "HTML payload exceeds baseline (" + kb + "KB).";
+}
         if (lk.indexOf("lcp") !== -1) {
           var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
           return "Mobile LCP is above target (" + sec + "s).";
