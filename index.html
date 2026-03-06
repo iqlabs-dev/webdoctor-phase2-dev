@@ -20,12 +20,13 @@
       --ink-soft: #c0cfeb;
       --muted: #9aa4ba;
 
-      /* iQLABS-family teal */
       --accent: #22d3ee;
       --accent-2: #14b8a6;
       --accent-soft: rgba(34, 211, 238, 0.12);
 
       --danger: #fb7185;
+      --danger-soft: rgba(251, 113, 133, 0.12);
+      --ok-soft: rgba(20, 184, 166, 0.12);
       --border-subtle: #1f2937;
       --panel: #070d1c;
       --panel-soft: #0b1224;
@@ -230,18 +231,160 @@
       animation-delay: 140ms;
     }
 
+    /* HERO SCAN BAR */
+ .hero-scan-shell {
+  margin-top: 20px;
+  max-width: 760px;
+  opacity: 0;
+  animation: heroFadeUp 620ms ease forwards;
+  animation-delay: 220ms;
+}
+
+    .hero-scan-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+.hero-scan-input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 11px;
+  border: 1px solid rgba(34,211,238,0.35);
+
+  background:
+    radial-gradient(circle at top left, rgba(34,211,238,0.06), transparent 40%),
+    rgba(8,14,28,0.96);
+
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 500;
+
+  padding: 0 16px;
+
+  outline: none;
+
+  box-shadow: 0 10px 26px rgba(0,0,0,0.32);
+
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+    .hero-scan-input::placeholder {
+      color: rgba(192,207,235,0.52);
+    }
+
+.hero-scan-input:focus {
+  border-color: rgba(34,211,238,0.72);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,0.36),
+    0 0 0 2px rgba(34,211,238,0.10);
+}
+
+.hero-scan-button {
+  min-height: 38px;
+  padding: 0 20px;
+
+  border-radius: 11px;
+  border: 1px solid rgba(34,211,238,0.55);
+
+  background:
+    radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
+
+  color: var(--ink-soft);
+
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 800;
+
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+  white-space: nowrap;
+
+  box-shadow: 0 10px 28px rgba(15,23,42,0.82);
+
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease;
+}
+
+.hero-scan-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.85);
+  box-shadow: 0 12px 32px rgba(34,211,238,0.30);
+  color: var(--ink);
+}
+
+    .hero-scan-button:disabled {
+      opacity: 0.68;
+      cursor: wait;
+    }
+
+ .hero-scan-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+    .hero-scan-helper {
+      font-size: 0.8rem;
+      line-height: 1.55;
+      color: rgba(192,207,235,0.82);
+      margin: 0;
+    }
+
+    .hero-scan-helper strong {
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+
+    .hero-scan-status {
+      display: none;
+      width: fit-content;
+      max-width: 100%;
+      padding: 9px 12px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(15,23,42,0.72);
+      color: rgba(229,240,255,0.88);
+    }
+
+    .hero-scan-status.is-visible { display: inline-flex; }
+
+    .hero-scan-status.is-error {
+      border-color: rgba(251,113,133,0.35);
+      background: var(--danger-soft);
+      color: #ffd5de;
+    }
+
+    .hero-scan-status.is-ok {
+      border-color: rgba(20,184,166,0.35);
+      background: var(--ok-soft);
+      color: #ccfbf1;
+    }
+
     .hero-cta {
-      margin-top: 18px;
+      margin-top: 12px;
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
       align-items: center;
       opacity: 0;
       animation: heroFadeUp 620ms ease forwards;
-      animation-delay: 240ms;
+      animation-delay: 280ms;
     }
 
-    /* TEXT LINK (no box) */
     .hero-text-link {
       display: inline-flex;
       align-items: center;
@@ -251,8 +394,6 @@
       letter-spacing: 0.04em;
       color: var(--accent-2);
       text-decoration: none !important;
-
-      /* HARD-KILL any button styling */
       background: transparent !important;
       border: 0 !important;
       box-shadow: none !important;
@@ -274,13 +415,12 @@
       border-radius: 8px;
     }
 
-    /* (Keep this if you use it elsewhere; not used by the hero link anymore) */
     .wd-pill-link {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       padding: 11px 22px;
-      border-radius: 12px; /* less playful */
+      border-radius: 12px;
       font-weight: 700;
       font-size: 0.78rem;
       letter-spacing: 0.14em;
@@ -338,7 +478,6 @@
       box-shadow: 0 0 18px rgba(34,211,238,0.35);
     }
 
-    /* 3 PILLARS (lightweight, no heavy cards) */
     .pillars {
       margin-top: 22px;
       max-width: 980px;
@@ -376,6 +515,16 @@
     @media (max-width: 960px) {
       .pillars { grid-template-columns: 1fr; gap: 14px; }
       .pillar p { max-width: 70ch; }
+    }
+
+    @media (max-width: 720px) {
+      .hero-scan-form {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-scan-button {
+        width: 100%;
+      }
     }
 
     /* SECTIONS */
@@ -927,23 +1076,46 @@
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
-      <h1 class="hero-h1">
-  Turn <span class="hero-white">raw performance</span><br>
-  <span class="hero-white">signals</span> <span class="hero-white">into</span> <span class="hero-teal-fade">client</span><br>
-  <span class="hero-teal-fade">ready reports.</span>
-</h1>
+          <h1 class="hero-h1">
+            Turn <span class="hero-white">raw performance</span><br>
+            <span class="hero-white">signals</span> <span class="hero-white">into</span> <span class="hero-teal-fade">client</span><br>
+            <span class="hero-teal-fade">ready reports.</span>
+          </h1>
 
           <h2 class="hero-h2">
             iQWEB translates technical signals into a clear, prioritised summary your clients can understand and trust.
           </h2>
 
-          <div class="hero-cta">
-            <!-- CHANGED: was class="wd-pill-link" (boxed). Now pure text link. -->
-            <a href="/report.html?report_id=EXAMPLE-REPORT-001"
-               target="_blank"
-               rel="noopener"
-               class="hero-text-link">View example report →</a>
+          <div class="hero-scan-shell" aria-label="Run a complimentary scan">
+            <form class="hero-scan-form" id="heroScanForm">
+              <input
+                id="heroScanInput"
+                class="hero-scan-input"
+                type="url"
+                inputmode="url"
+                autocomplete="url"
+                spellcheck="false"
+                placeholder="https://yourwebsite.com"
+                aria-label="Website URL"
+                required
+              />
+              <button id="heroScanButton" class="hero-scan-button" type="submit">Run Scan</button>
+            </form>
+
+            <div class="hero-scan-meta">
+<p class="hero-scan-helper">
+  Scan any public website URL — your first scan is free.
+</p>
+              <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
+            </div>
           </div>
+
+      <div class="hero-cta">
+  <a href="/report.html?report_id=EXAMPLE-REPORT-001"
+     target="_blank"
+     rel="noopener"
+     class="hero-text-link">See a real report example →</a>
+</div>
 
           <div class="hero-proof" aria-label="Platform proof points">
             <span class="proof-chip"><span class="proof-dot"></span>Powered by PSI + Core Web Vitals</span>
@@ -1270,10 +1442,8 @@
   </div>
 
   <script>
-    // Enable JS-controlled reveal states
     document.documentElement.classList.add("js-anim");
 
-    // Pricing buttons -> dashboard buy param
     document.querySelectorAll(".pricing-cta").forEach(btn => {
       btn.addEventListener("click", () => {
         const plan =
@@ -1298,7 +1468,6 @@
       });
     });
 
-    // Workflow staged reveal: trigger once when section enters viewport
     (function () {
       const how = document.getElementById("how");
       if (!how) return;
@@ -1321,7 +1490,6 @@
       io.observe(how);
     })();
 
-    // Pricing reveal: ONLY after workflow reveal finishes + pricing is in view
     (function () {
       const pricing = document.getElementById("pricing");
       const how = document.getElementById("how");
@@ -1408,6 +1576,88 @@
       const row = pricing.querySelector(".pricing-row") || pricing;
       pricingObserver.observe(row);
     })();
+  </script>
+
+  <script type="module">
+    import { runScan, normaliseUrl } from "/assets/js/scan.js";
+
+    const form = document.getElementById("heroScanForm");
+    const input = document.getElementById("heroScanInput");
+    const button = document.getElementById("heroScanButton");
+    const status = document.getElementById("heroScanStatus");
+
+    if (form && input && button && status) {
+      const setStatus = (message, type = "") => {
+        status.textContent = message || "";
+        status.className = "hero-scan-status";
+        if (message) {
+          status.classList.add("is-visible");
+          if (type === "error") status.classList.add("is-error");
+          if (type === "ok") status.classList.add("is-ok");
+        }
+      };
+
+      const setBusy = (busy) => {
+        button.disabled = busy;
+        button.textContent = busy ? "Building Report..." : "Run Scan";
+      };
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const raw = input.value || "";
+        const url = normaliseUrl(raw);
+
+        if (!url) {
+          setStatus("Enter a website URL to run a scan.", "error");
+          input.focus();
+          return;
+        }
+
+        let reportWindow = null;
+
+        try {
+          setStatus("");
+          setBusy(true);
+
+          reportWindow = window.open("", "_blank", "noopener");
+
+          const result = await runScan(url);
+
+          if (!result?.report_id) {
+            throw new Error("No report ID returned");
+          }
+
+          const reportUrl = `/report.html?report_id=${encodeURIComponent(result.report_id)}`;
+
+          if (reportWindow) {
+            reportWindow.location.href = reportUrl;
+          } else {
+            window.open(reportUrl, "_blank", "noopener");
+          }
+
+          setStatus("Report started successfully. Opening in a new tab.", "ok");
+        } catch (err) {
+          if (reportWindow && !reportWindow.closed) {
+            reportWindow.close();
+          }
+
+          const msg = String(err?.message || "");
+
+          if (msg.toLowerCase().includes("free scan already used")) {
+            setStatus("Your complimentary scan has already been used on this browser. Create an account to run additional reports.", "error");
+          } else if (msg.toLowerCase().includes("anon_id_required")) {
+            setStatus("Unable to start anonymous scan. Refresh the page and try again.", "error");
+          } else if (msg.toLowerCase().includes("access_required")) {
+            setStatus("Scanning access is not available for this request.", "error");
+          } else {
+            setStatus(msg || "Unable to run scan right now. Please try again.", "error");
+          }
+        } finally {
+          setBusy(false);
+        }
+      });
+    }
   </script>
 
 </body>
