@@ -1149,11 +1149,11 @@
       det.className = "evidence-block";
       det.open = false;
 
-      var summary =
-        '<summary>' +
-          '<div class="acc-title">' + escapeHtml(label) + "</div>" +
-          '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "/100</div>' +
-        "</summary>";
+var summary = ""
+  + "<summary>"
+  + '<div class="acc-title">' + escapeHtml(label) + '</div>'
+  + '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '/100</div>'
+  + "</summary>";
 
       var body = '<div class="acc-body">';
 
