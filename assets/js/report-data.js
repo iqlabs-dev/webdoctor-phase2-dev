@@ -1026,26 +1026,22 @@
       var lines = [];
       lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
-      if (unmeasured && !flagged) {
-        lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
-      } else {
-        if (key && primary && primary.key && key === primary.key) {
-          lines.push("Why it matters: biggest measurable lift available in this scan.");
-        }
+if (unmeasured && !flagged) {
+  lines.push("Why: Not measured in this scan — no evidence returned for this signal.");
+} else {
+  var allowEvidence = (flagged || (score !== null && score < 90));
+  var because = pickExplainLine(sig, allowEvidence);
+  var emptyButLow = (score !== null && !flagged && !because && score < 70);
 
-        var allowEvidence = (flagged || (score !== null && score < 90));
-        var because = pickExplainLine(sig, allowEvidence);
-        var emptyButLow = (score !== null && !flagged && !because && score < 70);
-
-        if (flagged) {
-          lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
-        } else if (emptyButLow) {
-          lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
-        } else {
-          if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
-          else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
-        }
-      }
+  if (flagged) {
+    lines.push(because ? ("Why: " + because) : "Why: Review the items flagged below.");
+  } else if (emptyButLow) {
+    lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
+  } else {
+    if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
+    else lines.push(because ? ("Why: " + because) : "Score indicates measurable drag in this domain.");
+  }
+}
 
       var lever = recommendedFixForKey(key);
       if (lever && score !== null) lever = getRecommendation(score, lever);
