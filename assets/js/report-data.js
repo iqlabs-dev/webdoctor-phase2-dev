@@ -895,7 +895,7 @@
         st.id = "iqweb-primary-badge-style";
         st.type = "text/css";
         st.appendChild(document.createTextNode(
-          ".primary-badge{position:absolute;top:-10px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
+          ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
           ".card{position:relative;}"+
           ".severity-na{opacity:.92;}"+
           ".severity-na .bar>div{width:0 !important;}"
@@ -1096,7 +1096,7 @@
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Issue</div>' : "";
+     var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
 
       card.innerHTML =
         badgeHtml +
