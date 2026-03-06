@@ -861,13 +861,19 @@
   // -----------------------------
   // Delivery signal cards
   // -----------------------------
-  function renderSignalsGrid(signals, scores, primary) {
-    var grid = $("signalsGrid");
-    if (!grid) return;
+function renderSignalsGrid(signals, scores, primary) {
 
-    signals = asArray(signals);
-    scores = safeObj(scores);
-    grid.innerHTML = "";
+  function issuePrefixForScore(score) {
+    if (score !== null && score >= 80) return "Improvement Opportunity";
+    return "Issue";
+  }
+
+  var grid = $("signalsGrid");
+  if (!grid) return;
+
+  signals = asArray(signals);
+  scores = safeObj(scores);
+  grid.innerHTML = "";
 
     try {
       if (!document.getElementById("iqweb-primary-badge-style")) {
@@ -904,45 +910,77 @@
 
     function isStrong(score) { return asInt(score, 0) >= 90; }
 
-    function prettyEvidenceText(key, value) {
-      var k = String(key || "");
-      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!label) label = "Requirement";
+function prettyEvidenceText(key, value) {
+  var k = String(key || "");
+  var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!label) label = "Requirement";
 
-      var lk = k.toLowerCase();
-      if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) label = "HTML lang attribute";
-      if (lk.indexOf("title") !== -1) label = "Title tag";
-      if (lk.indexOf("viewport") !== -1) label = "Viewport meta tag";
-      if (lk.indexOf("canonical") !== -1) label = "Canonical";
-      if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) label = "Robots / indexability";
+  var lk = k.toLowerCase();
 
-      if (typeof value === "boolean") {
-        if (lk.indexOf("missing") !== -1 && value === true) return label + " is missing.";
-        if (value === false) return label + " is not satisfied.";
-      }
+  if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
+    label = "HTML lang attribute";
+  } else if (lk.indexOf("title") !== -1) {
+    label = "Page title (<title>)";
+  } else if (lk.indexOf("viewport") !== -1) {
+    label = "Viewport meta tag";
+  } else if (lk.indexOf("canonical") !== -1) {
+    label = "Canonical link";
+  } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
+    label = "Indexability controls";
+  } else if (lk.indexOf("referrer") !== -1) {
+    label = "Referrer-Policy header";
+  } else if (lk.indexOf("permissions") !== -1) {
+    label = "Permissions-Policy header";
+  } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
+    label = "X-Frame-Options header";
+  } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
+    label = "X-Content-Type-Options header";
+  } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
+    label = "Content-Security-Policy header";
+  } else if (lk.indexOf("hsts") !== -1) {
+    label = "HSTS header";
+  }
 
-      var nv = num(value);
-      if (nv !== null) {
-   if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
-  var kb = Math.round(nv / 1024);
-  return "HTML payload exceeds baseline (" + kb + "KB).";
-}
-        if (lk.indexOf("lcp") !== -1) {
-          var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
-          return "Mobile LCP is above target (" + sec + "s).";
-        }
-        if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
-          return "Inline scripts are above baseline (" + Math.round(nv) + ").";
-        }
-        if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
-          return label + " is below baseline (" + nv + ").";
-        }
-        return label + " is outside baseline (" + nv + ").";
-      }
-
-      return label + " needs attention.";
+  if (typeof value === "boolean") {
+    if (lk.indexOf("missing") !== -1 && value === true) {
+      if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+      if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+      if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+      if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+      return label + " is missing.";
     }
 
+    if (value === false) {
+      if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+      if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+      if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+      if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
+      if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+      return label + " is missing or incorrectly configured.";
+    }
+  }
+
+  var nv = num(value);
+  if (nv !== null) {
+    if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
+      var kb = Math.round(nv / 1024);
+      return "HTML payload exceeds baseline (" + kb + "KB).";
+    }
+    if (lk.indexOf("lcp") !== -1) {
+      var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
+      return "Largest Contentful Paint exceeds target (" + sec + "s).";
+    }
+    if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
+      return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
+    }
+    if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
+      return label + " is below baseline (" + nv + ").";
+    }
+    return label + " is outside baseline (" + nv + ").";
+  }
+
+  return label + " needs attention.";
+}
     // Replace vague "required signal missing" with specific signal names where possible
     function normalizeExplainLine(text, sig) {
       var t = String(text || "").trim();
@@ -994,22 +1032,28 @@
       return "";
     }
 
-    function getRecommendation(score, text) {
-      var s = asInt(score, 0);
-      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
-      return text;
-    }
+function getRecommendation(score, text) {
+  var s = asInt(score, 0);
+  if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+  return text;
+}
 
-    for (var i = 0; i < signals.length; i++) {
+function issuePrefixForScore(score) {
+  if (score !== null && score >= 80) return "Improvement Opportunity";
+  return "Issue";
+}
+
+for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
       var label = String(sig.label || sig.id || "Signal");
       var rawScore = asInt(sig.score, 0);
 
-      var unmeasured = isUnmeasuredSignal(sig, rawScore);
-      var score = unmeasured ? null : rawScore;
+     var unmeasured = isUnmeasuredSignal(sig, rawScore);
+var score = unmeasured ? null : rawScore;
+var prefix = issuePrefixForScore(score);
 
-      var key = domainKeyFromSignal(sig);
+var key = domainKeyFromSignal(sig);
       var w = key ? (WEIGHTS[key] || 0) : 0;
       var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
@@ -1027,20 +1071,20 @@
       lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
 
 if (unmeasured && !flagged) {
-  lines.push("Issue: Not measured in this scan — no evidence returned for this signal.");
+  lines.push(prefix + ": Not measured in this scan — no evidence returned for this signal.");
 } else {
   var allowEvidence = (flagged || (score !== null && score < 90));
   var because = pickExplainLine(sig, allowEvidence);
   var emptyButLow = (score !== null && !flagged && !because && score < 70);
 
   if (flagged) {
-   lines.push(because ? ("Issue: " + because) : "Issue: Review the items flagged below.");
+lines.push(because ? (prefix + ": " + because) : (prefix + ": Review the items flagged below."));
   } else if (emptyButLow) {
     lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
   } else {
     if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
    if (score !== null && score < 90) {
-  lines.push(because ? ("Issue: " + because) : "Issue: Structural signals indicate measurable drag.");
+ lines.push(because ? (prefix + ": " + because) : (prefix + ": Structural signals indicate measurable drag."));
 }
   }
 }
