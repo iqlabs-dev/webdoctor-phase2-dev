@@ -1771,7 +1771,6 @@ if (!isAnonymous) {
     }
 
     const row = Array.isArray(consume) ? consume[0] : consume;
-
     if (row?.allowed) {
       consumedFrom = "trial";
     } else {
@@ -1783,84 +1782,129 @@ if (!isAnonymous) {
     }
   }
 
-  // 2) PAID subscription scans (profiles.credits)
+  // 2) PAID subscription scans (profiles.credits) — supports profiles.user_id OR profiles.id
   if (!isFounder && !consumedFrom && paidActive) {
     let profile = null;
+    let keyField = null;
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("credits")
-      .eq("user_id", user_id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("[paid] read error:", error);
-      return json(500, {
-        success: false,
-        code: "paid_lookup_error",
-        error: "Unable to check paid credits.",
-      });
-    }
-
-    profile = data;
-
-    if (profile && profile.credits > 0) {
-      const { error: decErr } = await supabase
+    // Attempt A: profiles.user_id
+    {
+      const { data, error } = await supabase
         .from("profiles")
-        .update({ credits: profile.credits - 1 })
-        .eq("user_id", user_id);
+        .select("credits")
+        .eq("user_id", user_id)
+        .maybeSingle();
 
-      if (decErr) {
-        console.error("[paid] decrement error:", decErr);
+      if (error) {
+        console.error("[paid] read error (by user_id):", error);
         return json(500, {
           success: false,
-          code: "credit_decrement_error",
-          error: "Unable to decrement credits.",
+          code: "paid_read_error",
+          error: "Unable to verify subscription credits.",
+        });
+      }
+      if (data) {
+        profile = data;
+        keyField = "user_id";
+      }
+    }
+
+    // Attempt B: profiles.id (fallback)
+    if (!profile) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("credits")
+        .eq("id", user_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("[paid] read error (by id):", error);
+        return json(500, {
+          success: false,
+          code: "paid_read_error",
+          error: "Unable to verify subscription credits.",
         });
       }
 
-      consumedFrom = "paid";
+      if (data) {
+        profile = data;
+        keyField = "id";
+      }
     }
-  }
 
-  // 3) ONE-OFF credits
-  if (!isFounder && !consumedFrom && oneOffActive) {
-    const { data: consume, error: consumeErr } = await supabase.rpc(
-      "consume_oneoff_scan",
-      { p_user_id: user_id }
-    );
-
-    if (consumeErr) {
-      console.error("[oneoff] consume error:", consumeErr);
+    if (!profile || !keyField) {
+      console.error("[paid] no profiles row found for user:", user_id);
       return json(500, {
         success: false,
-        code: "oneoff_error",
-        error: "Unable to apply one-off scan.",
+        code: "paid_profile_missing",
+        error: "Billing profile not found for this account. Please contact support.",
       });
     }
 
-    const row = Array.isArray(consume) ? consume[0] : consume;
-
-    if (row?.allowed) {
-      consumedFrom = "oneoff";
+    const credits = Number(profile.credits || 0);
+    if (credits <= 0) {
+      return json(402, {
+        success: false,
+        code: "paid_exhausted",
+        error: "No subscription credits remaining.",
+      });
     }
+
+    // atomic-ish decrement: only update if credits > 0 and match key
+    const { data: updated, error: updateErr } = await supabase
+      .from("profiles")
+      .update({ credits: credits - 1 })
+      .eq(keyField, user_id)
+      .gt("credits", 0)
+      .select("credits")
+      .maybeSingle();
+
+    if (updateErr || !updated) {
+      console.error("[paid] decrement error:", updateErr, { keyField, user_id });
+      return json(500, {
+        success: false,
+        code: "paid_consume_error",
+        error: "Unable to apply subscription usage.",
+      });
+    }
+
+    consumedFrom = "paid";
+  }
+
+  // 3) ONE-OFF scans (user_credits)
+  if (!isFounder && !consumedFrom && oneOffActive) {
+    const { data: updatedRow, error: oneOffUpdErr } = await supabase
+      .from("user_credits")
+      .update({ credits: oneOffCredits - 1, updated_at: new Date().toISOString() })
+      .eq("id", user_id)
+      .gt("credits", 0)
+      .select("credits")
+      .maybeSingle();
+
+    if (oneOffUpdErr || !updatedRow) {
+      console.error("[one-off] consume error:", oneOffUpdErr);
+      return json(500, {
+        success: false,
+        code: "oneoff_consume_error",
+        error: "Unable to apply one-off scan credit.",
+      });
+    }
+
+    consumedFrom = "one-off";
+  }
+
+  // Safety net (should never happen if access gate is correct)
+  if (!isFounder && !consumedFrom) {
+    return json(402, {
+      success: false,
+      code: "no_credits",
+      error: "No scan credits available.",
+    });
   }
 
 } else {
-
-  // Anonymous demo scan
   consumedFrom = "anonymous-demo";
-
 }
-
-    // Safety net (should never happen if access gate is correct)
-    if (!isFounder && !consumedFrom) {
-      return json(402, {
-        success: false,
-        code: "no_credits",
-        error: "No scan credits available.",
-      });
-    }
 
     // ---------------------------------------------
     // Run scan
