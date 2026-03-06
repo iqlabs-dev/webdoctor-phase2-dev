@@ -1620,7 +1620,111 @@
           setStatus("");
           setBusy(true);
 
-       reportWindow = window.open("", "_blank");
+     reportWindow = window.open("", "_blank");
+
+if (reportWindow) {
+  reportWindow.document.write(`
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Building report... | iQWEB</title>
+      <style>
+        :root {
+          --bg: #050814;
+          --panel: #0b1224;
+          --border: rgba(34, 211, 238, 0.22);
+          --accent: #22d3ee;
+          --text: #e5f0ff;
+          --muted: #9aa4ba;
+        }
+
+        * { box-sizing: border-box; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          background: var(--bg);
+          color: var(--text);
+          font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .wrap {
+          width: 100%;
+          max-width: 520px;
+          padding: 32px;
+        }
+
+        .card {
+          background: linear-gradient(180deg, rgba(10,16,34,0.92), rgba(8,12,24,0.92));
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          padding: 28px 26px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+          text-align: center;
+        }
+
+        .brand {
+          font-size: 1.1rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          margin-bottom: 20px;
+          color: var(--text);
+        }
+
+        .loader {
+          width: 42px;
+          height: 42px;
+          margin: 0 auto 18px;
+          border-radius: 999px;
+          border: 2px solid rgba(34, 211, 238, 0.18);
+          border-top-color: var(--accent);
+          animation: spin 0.9s linear infinite;
+        }
+
+        .title {
+          font-size: 1.1rem;
+          font-weight: 700;
+          margin: 0 0 10px;
+          color: var(--text);
+        }
+
+        .text {
+          margin: 0;
+          font-size: 0.92rem;
+          line-height: 1.65;
+          color: var(--muted);
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <div class="card">
+          <div class="brand">iQWEB</div>
+          <div class="loader"></div>
+          <h1 class="title">Building report...</h1>
+          <p class="text">
+            This can take a few minutes while iQWEB completes the scan and prepares your results.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+  reportWindow.document.close();
+}
 
           const result = await runScan(url);
 
