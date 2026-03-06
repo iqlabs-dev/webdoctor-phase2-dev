@@ -19,9 +19,13 @@
  * - Replace vague “required signal missing” with specific, readable descriptions (esp. Security headers).
  * - Key Findings uses a structured 5-row briefing layout (no raw paragraph dump).
  *
- * NARRATIVE PATCH (THIS UPDATE):
+ * NARRATIVE PATCH:
  * - Add deterministic narrative templates for ALL delivery domains (Performance/Mobile/SEO/Security/Structure/Accessibility).
  * - Narrative is template-based + filled from deterministic evidence (no AI, no guessing).
+ *
+ * SCORE MODEL PATCH:
+ * - Verdict, signal headline, severity class, and issue prefix are governed by /assets/js/score-model.js
+ * - report-data.js now renders UI from the score model instead of hardcoding threshold logic inline.
  */
 
 (function () {
@@ -80,11 +84,52 @@
   }
 
   function verdict(score) {
+    var model = window.IQWEB_SCORE_MODEL || null;
+    if (model && typeof model.overallVerdict === "function") {
+      return model.overallVerdict(score);
+    }
+
     var n = asInt(score, 0);
     if (n >= 90) return "Strong";
-    if (n >= 75) return "Good";
-    if (n >= 55) return "Fair";
-    return "Needs work";
+    if (n >= 70) return "Good";
+    if (n >= 50) return "Fair";
+    return "Poor";
+  }
+
+  function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured) {
+    var model = window.IQWEB_SCORE_MODEL || null;
+    if (model && typeof model.signalHeadline === "function") {
+      return model.signalHeadline(score, flagged, isPrimary, unmeasured);
+    }
+
+    if (unmeasured) return "Not Measured";
+    if (isPrimary) return "Priority Fix";
+    if (flagged && score !== null && score < 40) return "Critical Fix";
+    if (flagged && score !== null && score < 80) return "Secondary Fix";
+    if (flagged) return "Improvement Opportunity";
+    if (score !== null && score >= 90) return "Strong";
+    if (score !== null && score >= 80) return "Stable";
+    if (score !== null && score < 40) return "Critical Fix";
+    if (score !== null) return "Needs Attention";
+    return "Deterministic";
+  }
+
+  function severityClassFromModel(score, unmeasured) {
+    var model = window.IQWEB_SCORE_MODEL || null;
+    if (model && typeof model.severityClass === "function") {
+      return model.severityClass(score, unmeasured);
+    }
+
+    if (unmeasured) return "severity-na";
+    if (score < 40) return "severity-high";
+    if (score < 90) return "severity-medium";
+    return "severity-strong";
+  }
+
+  function issuePrefixFromModel(score, flagged, isPrimary, unmeasured) {
+    var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
+    if (headline === "Improvement Opportunity") return "Improvement Opportunity";
+    return "Issue";
   }
 
   // Query param (ES5)
@@ -328,15 +373,6 @@
     return round1((100 - s) * w);
   }
 
-  function primaryFixLineForKey(key) {
-    if (key === "performance" || key === "mobile") return "Reduce Mobile LCP below 2.5s.";
-    if (key === "security") return "Implement missing security headers and remove mixed-content requests.";
-    if (key === "seo") return "Stabilise indexability and metadata baseline signals.";
-    if (key === "structure") return "Correct semantic structure and required tags.";
-    if (key === "accessibility") return "Resolve top accessibility blockers (labels/controls/contrast).";
-    return "Improve the weakest baseline signal.";
-  }
-
   function recommendedFixForKey(key) {
     if (!key) return "";
     if (key === "performance") return "Recommended Fix: LCP + main-thread cost.";
@@ -349,7 +385,7 @@
   }
 
   // -----------------------------
-  // Domain mapping + Primary Constraint selector (SINGLE source of truth)
+  // Domain mapping + Primary Constraint selector
   // -----------------------------
   function domainKeyFromSignal(sig) {
     sig = safeObj(sig);
@@ -371,13 +407,16 @@
     return (issues.length > 0 || deds.length > 0);
   }
 
-  // Evidence heuristics (conservative)
+  // -----------------------------
+  // Evidence heuristics
+  // -----------------------------
   function isMeaningfulFail(key, value) {
     var k = String(key || "").toLowerCase();
 
     if (typeof value === "boolean") {
       if (k.indexOf("missing") !== -1) return value === true;
-      if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 || k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
+      if (k.indexOf("present") !== -1 || k.indexOf("enabled") !== -1 || k.indexOf("https") !== -1 ||
+          k.indexOf("hsts") !== -1 || k.indexOf("viewport") !== -1 || k.indexOf("indexable") !== -1) {
         return value === false;
       }
       return value === false;
@@ -401,9 +440,7 @@
     if (k.indexOf("ttfb") !== -1) return nv > 800;
 
     if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
-
     if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
-
     if (k.indexOf("request") !== -1 || k.indexOf("resource") !== -1) return nv >= 60;
 
     if (k.indexOf("count") !== -1) {
@@ -510,7 +547,7 @@
   }
 
   // -----------------------------
-  // Specific “missing signal” wording (replace vague text)
+  // Specific “missing signal” wording
   // -----------------------------
   function specificMissingSignals(sig) {
     sig = safeObj(sig);
@@ -522,7 +559,8 @@
       var lk = String(k || "").toLowerCase();
       if (typeof v === "boolean") {
         if (lk.indexOf("missing") !== -1) return v === true;
-        if (lk.indexOf("present") !== -1 || lk.indexOf("enabled") !== -1 || lk.indexOf("hsts") !== -1 || lk.indexOf("viewport") !== -1 || lk.indexOf("indexable") !== -1) return v === false;
+        if (lk.indexOf("present") !== -1 || lk.indexOf("enabled") !== -1 || lk.indexOf("hsts") !== -1 ||
+            lk.indexOf("viewport") !== -1 || lk.indexOf("indexable") !== -1) return v === false;
       }
       return false;
     }
@@ -559,19 +597,17 @@
   }
 
   // -----------------------------
-  // Narrative Engine (deterministic templates across ALL delivery domains)
+  // Narrative Engine
   // -----------------------------
   function mapEvidenceKeyToHuman(k) {
     var lk = String(k || "").toLowerCase();
 
-    // SEO
     if (lk.indexOf("title") !== -1 && (lk.indexOf("missing") !== -1 || lk.indexOf("present") !== -1)) return "page title";
     if (lk.indexOf("meta") !== -1 && lk.indexOf("description") !== -1) return "meta description";
     if (lk.indexOf("canonical") !== -1) return "canonical link";
     if (lk.indexOf("h1") !== -1) return "primary heading (H1)";
-    if (lk.indexOf("html_lang") !== -1 || lk.indexOf("lang") !== -1 && lk.indexOf("html") !== -1) return "HTML language attribute";
+    if ((lk.indexOf("html_lang") !== -1) || (lk.indexOf("lang") !== -1 && lk.indexOf("html") !== -1)) return "HTML language attribute";
 
-    // Security
     if (lk.indexOf("hsts") !== -1) return "HSTS policy";
     if (lk.indexOf("content_security_policy") !== -1 || lk === "csp" || lk.indexOf("csp") !== -1) return "Content Security Policy";
     if (lk.indexOf("x_content_type_options") !== -1) return "X-Content-Type-Options";
@@ -580,7 +616,6 @@
     if (lk.indexOf("permissions") !== -1) return "Permissions-Policy";
     if (lk.indexOf("mixed") !== -1 && lk.indexOf("content") !== -1) return "mixed content requests";
 
-    // Mobile/Perf
     if (lk.indexOf("lcp") !== -1) return "Largest Contentful Paint (LCP)";
     if (lk.indexOf("cls") !== -1) return "layout stability (CLS)";
     if (lk.indexOf("inp") !== -1) return "Interaction to Next Paint (INP)";
@@ -588,14 +623,12 @@
     if (lk.indexOf("tbt") !== -1) return "Total Blocking Time (TBT)";
     if (lk.indexOf("viewport") !== -1) return "viewport meta tag";
 
-    // Accessibility/Structure
     if (lk.indexOf("alt") !== -1) return "image alt text";
     if (lk.indexOf("label") !== -1) return "form labels";
     if (lk.indexOf("contrast") !== -1) return "colour contrast";
     if (lk.indexOf("aria") !== -1) return "ARIA attributes";
     if (lk.indexOf("landmark") !== -1) return "semantic landmarks";
 
-    // Fallback: tidy
     return String(k || "")
       .replace(/[_\-]+/g, " ")
       .replace(/\s+/g, " ")
@@ -608,12 +641,10 @@
     if (arr.indexOf(s) === -1) arr.push(s);
   }
 
-  // Pull the most client-meaningful failing items from a domain’s evidence/issues/deductions.
   function collectNarrativeSignalsForDomain(domainKey, signals) {
     signals = asArray(signals);
-
-    // Prefer measured signal(s) for this domain only
     var collected = [];
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
       if (domainKeyFromSignal(sig) !== domainKey) continue;
@@ -621,7 +652,6 @@
       var sc = asInt(sig.score, 0);
       if (isUnmeasuredSignal(sig, sc)) continue;
 
-      // 1) Evidence booleans / metrics that fail baseline
       var ev = safeObj(sig.evidence);
       var keys = Object.keys(ev || {});
       for (var k = 0; k < keys.length; k++) {
@@ -632,11 +662,9 @@
         }
       }
 
-      // 2) "required signal missing" as a quick “missing:” list (already conservative)
       var spec = "";
       try { spec = specificMissingSignals(sig); } catch (e) { spec = ""; }
       if (spec && spec.indexOf("Missing:") === 0) {
-        // Extract terms between "Missing:" and "."
         var chunk = spec.replace(/^Missing:\s*/i, "").replace(/\.$/, "");
         var parts = chunk.split(",");
         for (var p = 0; p < parts.length; p++) {
@@ -644,11 +672,9 @@
         }
       }
 
-      // Cap: we don’t want long lists in narrative
       if (collected.length >= 6) break;
     }
 
-    // Clean up: if we accidentally collected generic phrases, keep only best first items
     if (collected.length > 6) collected = collected.slice(0, 6);
     return collected;
   }
@@ -670,7 +696,6 @@
     var listText = joinHumanList(pickedSignals, 4);
     var haveList = !!listText;
 
-    // NOTE: These are intentionally short, consultant-style lines (no AI, no guessing).
     if (domainKey === "seo") {
       return {
         impact:
@@ -720,7 +745,6 @@
     }
 
     if (domainKey === "mobile") {
-      // If we have observed LCP seconds, include it as measurable context
       var lcp = extras && extras.mobileLcpSeconds;
       var lcpTxt = (typeof lcp === "number" && isFinite(lcp) && lcp > 0) ? (" Mobile LCP observed: " + round1(lcp) + "s (target < 2.5s).") : "";
 
@@ -756,7 +780,7 @@
   }
 
   // -----------------------------
-  // Key Findings (structured 5-row briefing)
+  // Key Findings
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
     data = safeObj(data);
@@ -777,7 +801,6 @@
       el.textContent = (t == null || t === "") ? "—" : String(t);
     }
 
-    // Helpers (optional supporting metrics)
     function lcpSecondsFromPsi() {
       var m = safeObj(psi.mobile);
       var f = safeObj(m.facts);
@@ -809,10 +832,8 @@
       return Math.round(n);
     }
 
-    // Overall row
     setText(oEl, overall + "/100 — " + verdict(overall));
 
-    // If no primary, keep it neutral but complete.
     if (!primary || !primary.key) {
       setText(cEl, "No clear primary constraint identified from this scan output.");
       setText(iEl, "The scan did not return enough evidence to identify a single highest-leverage constraint.");
@@ -822,25 +843,17 @@
     }
 
     var domainLabel = (LABELS[primary.key] || primary.key);
+    setText(cEl, domainLabel);
 
-
-    // Primary constraint row
-setText(cEl, domainLabel);
-
-    // Build narrative signals from deterministic evidence
     var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
     var extras = {
       mobileLcpSeconds: lcpSecondsFromPsi()
     };
 
     var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);
-
-    // Impact row (template-based, filled from evidence)
     setText(iEl, narrative.impact);
 
-    // Fix row (template-based, with meaningful supporting payload hints ONLY when relevant)
     var fixText = narrative.fix;
-
     if (primary.key === "performance" || primary.key === "mobile") {
       var hb = htmlBytesFromBasic();
       var is = inlineScriptsFromBasic();
@@ -852,27 +865,19 @@ setText(cEl, domainLabel);
     }
 
     setText(fEl, fixText);
-
-    // Next step row
     setText(nEl, narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.");
   }
 
   // -----------------------------
   // Delivery signal cards
   // -----------------------------
-function renderSignalsGrid(signals, scores, primary) {
+  function renderSignalsGrid(signals, scores, primary) {
+    var grid = $("signalsGrid");
+    if (!grid) return;
 
-  function issuePrefixForScore(score) {
-    if (score !== null && score >= 80) return "Improvement Opportunity";
-    return "Issue";
-  }
-
-  var grid = $("signalsGrid");
-  if (!grid) return;
-
-  signals = asArray(signals);
-  scores = safeObj(scores);
-  grid.innerHTML = "";
+    signals = asArray(signals);
+    scores = safeObj(scores);
+    grid.innerHTML = "";
 
     try {
       if (!document.getElementById("iqweb-primary-badge-style")) {
@@ -889,98 +894,82 @@ function renderSignalsGrid(signals, scores, primary) {
       }
     } catch (e) {}
 
-    function issuesFoundLine(sig, unmeasured) {
-      if (unmeasured) return "Issues Found: not measured";
-
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
-
-      if (!issues.length && !deds.length) {
-        var ef = countEvidenceFlags(sig);
-        if (ef > 0) return "Issues Found: " + ef + " signal" + (ef === 1 ? "" : "s");
-        return "Issues Found: none";
-      }
-
-      var a = [];
-      if (issues.length) a.push(issues.length + " issue" + (issues.length === 1 ? "" : "s"));
-      if (deds.length) a.push(deds.length + " deduction" + (deds.length === 1 ? "" : "s"));
-      return a.length ? ("Issues Found: " + a.join(" • ")) : "Issues Found: none";
-    }
-
     function isStrong(score) { return asInt(score, 0) >= 90; }
 
-function prettyEvidenceText(key, value) {
-  var k = String(key || "");
-  var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!label) label = "Requirement";
+    function prettyEvidenceText(key, value) {
+      var k = String(key || "");
+      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!label) label = "Requirement";
 
-  var lk = k.toLowerCase();
+      var lk = k.toLowerCase();
 
-  if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
-    label = "HTML lang attribute";
-  } else if (lk.indexOf("title") !== -1) {
-    label = "Page title (<title>)";
-  } else if (lk.indexOf("viewport") !== -1) {
-    label = "Viewport meta tag";
-  } else if (lk.indexOf("canonical") !== -1) {
-    label = "Canonical link";
-  } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
-    label = "Indexability controls";
-  } else if (lk.indexOf("referrer") !== -1) {
-    label = "Referrer-Policy header";
-  } else if (lk.indexOf("permissions") !== -1) {
-    label = "Permissions-Policy header";
-  } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
-    label = "X-Frame-Options header";
-  } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
-    label = "X-Content-Type-Options header";
-  } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
-    label = "Content-Security-Policy header";
-  } else if (lk.indexOf("hsts") !== -1) {
-    label = "HSTS header";
-  }
+      if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
+        label = "HTML lang attribute";
+      } else if (lk.indexOf("title") !== -1) {
+        label = "Page title (<title>)";
+      } else if (lk.indexOf("viewport") !== -1) {
+        label = "Viewport meta tag";
+      } else if (lk.indexOf("canonical") !== -1) {
+        label = "Canonical link";
+      } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
+        label = "Indexability controls";
+      } else if (lk.indexOf("referrer") !== -1) {
+        label = "Referrer-Policy header";
+      } else if (lk.indexOf("permissions") !== -1) {
+        label = "Permissions-Policy header";
+      } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
+        label = "X-Frame-Options header";
+      } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
+        label = "X-Content-Type-Options header";
+      } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
+        label = "Content-Security-Policy header";
+      } else if (lk.indexOf("hsts") !== -1) {
+        label = "HSTS header";
+      }
 
-  if (typeof value === "boolean") {
-    if (lk.indexOf("missing") !== -1 && value === true) {
-      if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-      if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-      if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-      if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-      return label + " is missing.";
+      if (typeof value === "boolean") {
+        if (lk.indexOf("missing") !== -1 && value === true) {
+          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
+          return label + " is missing.";
+        }
+
+        if (value === false) {
+          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+          if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
+          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
+          return label + " is missing or incorrectly configured.";
+        }
+      }
+
+      var nv = num(value);
+      if (nv !== null) {
+        if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
+          var kb = Math.round(nv / 1024);
+          return "HTML payload exceeds baseline (" + kb + "KB).";
+        }
+        if (lk.indexOf("lcp") !== -1) {
+          var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
+          return "Largest Contentful Paint exceeds target (" + sec + "s).";
+        }
+        if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
+          return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
+        }
+        if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
+          return label + " is below baseline (" + nv + ").";
+        }
+        return label + " is outside baseline (" + nv + ").";
+      }
+
+      return label + " needs attention.";
     }
 
-    if (value === false) {
-      if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-      if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-      if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-      if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
-      if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-      return label + " is missing or incorrectly configured.";
-    }
-  }
-
-  var nv = num(value);
-  if (nv !== null) {
-    if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
-      var kb = Math.round(nv / 1024);
-      return "HTML payload exceeds baseline (" + kb + "KB).";
-    }
-    if (lk.indexOf("lcp") !== -1) {
-      var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
-      return "Largest Contentful Paint exceeds target (" + sec + "s).";
-    }
-    if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
-      return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
-    }
-    if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
-      return label + " is below baseline (" + nv + ").";
-    }
-    return label + " is outside baseline (" + nv + ").";
-  }
-
-  return label + " needs attention.";
-}
-    // Replace vague "required signal missing" with specific signal names where possible
     function normalizeExplainLine(text, sig) {
       var t = String(text || "").trim();
       if (!t) return "";
@@ -989,10 +978,9 @@ function prettyEvidenceText(key, value) {
         var spec = specificMissingSignals(sig);
         if (spec) return spec;
 
-        // Fallback: still specific-ish, not “signal missing”
         var dk = domainKeyFromSignal(sig);
         if (dk === "security") return "Required security headers are missing or not detected.";
-        if (dk === "seo") return "Required SEO baseline signals were not detected.";
+        if (dk === "seo") return "Core SEO signals such as indexability or metadata could not be confirmed.";
         if (dk === "structure") return "Required structural tags were not detected.";
         if (dk === "accessibility") return "Required accessibility signals were not detected.";
         return "Required baseline signals were not detected.";
@@ -1007,6 +995,17 @@ function prettyEvidenceText(key, value) {
         var it = safeObj(issues[0]);
         var t = String(it.title || it.id || "").trim();
         t = normalizeExplainLine(t, sig);
+
+        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "");
+
+        if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
+        else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
+        else if (/missing h1/i.test(t) || /missing h1 heading/i.test(t) || /h1 present is missing/i.test(t)) t = "Primary heading (H1) is missing or incorrectly configured.";
+        else if (/canonical link missing/i.test(t)) t = "Canonical link is missing.";
+        else if (/viewport meta tag/i.test(t) && /not satisfied/i.test(t)) t = "Viewport meta tag is missing or incorrectly configured.";
+        else if (/html lang/i.test(t) && /missing/i.test(t)) t = "HTML lang attribute is missing.";
+        else if (/required seo baseline signals were not detected/i.test(t)) t = "Core SEO signals such as indexability and metadata could not be confirmed.";
+
         if (t) return t;
       }
 
@@ -1015,6 +1014,7 @@ function prettyEvidenceText(key, value) {
         var dd = safeObj(deds[0]);
         var r = String(dd.reason || dd.code || "").trim();
         r = normalizeExplainLine(r, sig);
+        if (/required seo baseline signals were not detected/i.test(r)) r = "Core SEO signals such as indexability and metadata could not be confirmed.";
         if (r) return r;
       }
 
@@ -1031,102 +1031,68 @@ function prettyEvidenceText(key, value) {
       return "";
     }
 
-function getRecommendation(score, text) {
-  var s = asInt(score, 0);
-  if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
-  return text;
-}
+    function getRecommendation(score, text) {
+      var s = asInt(score, 0);
+      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+      return text;
+    }
 
-function issuePrefixForScore(score) {
-  if (score !== null && score >= 80) return "Improvement Opportunity";
-  return "Issue";
-}
-
-for (var i = 0; i < signals.length; i++) {
+    for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
       var label = String(sig.label || sig.id || "Signal");
       var rawScore = asInt(sig.score, 0);
 
-     var unmeasured = isUnmeasuredSignal(sig, rawScore);
-var score = unmeasured ? null : rawScore;
-var prefix = issuePrefixForScore(score);
+      var unmeasured = isUnmeasuredSignal(sig, rawScore);
+      var score = unmeasured ? null : rawScore;
 
-var key = domainKeyFromSignal(sig);
+      var key = domainKeyFromSignal(sig);
       var w = key ? (WEIGHTS[key] || 0) : 0;
-      var weightPct = w ? (Math.round(w * 100) + "%") : "";
 
       var flagged = hasFlags(sig);
       var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
+      var isPrimary = !!(key && primary && primary.key && key === primary.key);
+      var prefix = issuePrefixFromModel(score, flagged, isPrimary, unmeasured);
 
-
-var headline = "Stable";
-
-if (unmeasured) {
-  headline = "Not Measured";
-} else if (key && primary && primary.key && key === primary.key) {
-  headline = "Priority Fix";
-} else if (flagged && score !== null && score < 40) {
-  headline = "Critical Fix";
-} else if (flagged && score !== null && score < 80) {
-  headline = "Secondary Fix";
-} else if (flagged) {
-  headline = "Improvement Opportunity";
-} else if (score !== null && score >= 90) {
-  headline = "Strong";
-} else if (score !== null && score >= 80) {
-  headline = "Stable";
-} else if (score !== null && score < 40) {
-  headline = "Critical Fix";
-} else if (score !== null) {
-  headline = "Needs Attention";
-} else {
-  headline = "Deterministic";
-}
+      var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
 
       var lines = [];
-     lines.push(headline);
+      lines.push(headline);
 
-if (unmeasured && !flagged) {
-  lines.push(prefix + ": Not measured in this scan — no evidence returned for this signal.");
-} else {
-  var allowEvidence = (flagged || (score !== null && score < 90));
-  var because = pickExplainLine(sig, allowEvidence);
-  var emptyButLow = (score !== null && !flagged && !because && score < 70);
+      if (unmeasured && !flagged) {
+        lines.push(prefix + ": Not measured in this scan — no evidence returned for this signal.");
+      } else {
+        var allowEvidence = (flagged || (score !== null && score < 90));
+        var because = pickExplainLine(sig, allowEvidence);
+        var emptyButLow = (score !== null && !flagged && !because && score < 70);
 
-if (flagged) {
-  lines.push(because ? because : "Review the items flagged below.");
-} else if (emptyButLow) {
-  lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
-} else {
-  if (score !== null && isStrong(score)) {
-    lines.push("Baseline stable — no measurable blockers detected in this scan.");
-  } else if (score !== null && score < 90) {
-    lines.push(because ? because : "Structural signals indicate measurable drag.");
-  }
-}
-}
+        if (flagged) {
+          lines.push(because ? because : "Review the items flagged below.");
+        } else if (emptyButLow) {
+          lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
+        } else {
+          if (score !== null && isStrong(score)) {
+            lines.push("Baseline stable — no measurable blockers detected in this scan.");
+          } else if (score !== null && score < 90) {
+            lines.push(because ? because : "Structural signals indicate measurable drag.");
+          }
+        }
+      }
 
-var lever = recommendedFixForKey(key);
-
-if (lever && score !== null && score < 90) {
-  lever = getRecommendation(score, lever);
-  lines.push(lever);
-}
-
-// lines.push(issuesFoundLine(sig, unmeasured));
+      var lever = recommendedFixForKey(key);
+      if (lever && score !== null && score < 90) {
+        lever = getRecommendation(score, lever);
+        lines.push(lever);
+      }
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
-var severityClass = "severity-strong";
-if (unmeasured) severityClass = "severity-na";
-else if (score < 40) severityClass = "severity-high";
-else if (score < 90) severityClass = "severity-medium";
+      var severityClass = severityClassFromModel(score, unmeasured);
 
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-      var badgeHtml = (key && primary && primary.key && key === primary.key) ? '<div class="primary-badge">Primary Issue</div>' : "";
+      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Issue</div>' : "";
 
       card.innerHTML =
         badgeHtml +
@@ -1322,32 +1288,23 @@ else if (score < 90) severityClass = "severity-medium";
     function normKey(s) {
       return String(s || "")
         .toLowerCase()
-        .replace(/<\s*/g, "<")                  // normalize "< title" -> "<title"
-        .replace(/\s*>/g, ">")                  // normalize "title >" -> "title>"
+        .replace(/<\s*/g, "<")
+        .replace(/\s*>/g, ">")
         .replace(/\s+/g, " ")
-        .replace(/[^\w\s:<>\-]/g, "")           // drop punctuation that causes dupes (.,() etc)
+        .replace(/[^\w\s:<>\-]/g, "")
         .trim();
     }
 
-    // Stronger normalization for dedupe:
-    // - removes the word "tag"
-    // - removes trailing "present/missing" variants
-    // - normalizes common SEO wording collisions
     function normIssueTitle(t) {
       var s = String(t || "");
       s = s.replace(/\s+/g, " ").trim();
-
-      // kill common duplicate variants
-      s = s.replace(/\btag\b/gi, "");                 // "Missing <title> tag" -> "Missing <title>"
-      s = s.replace(/\s+\./g, ".");                   // "description ." -> "description."
-      s = s.replace(/\.\s*$/g, "");                   // trailing period
+      s = s.replace(/\btag\b/gi, "");
+      s = s.replace(/\s+\./g, ".");
+      s = s.replace(/\.\s*$/g, "");
       s = s.replace(/\s+\(/g, "(").replace(/\)\s+/g, ")");
-
-      // normalize very common collisions
       s = s.replace(/\bmeta\s+description\b/gi, "meta description");
       s = s.replace(/\bpage\s+title\b/gi, "title");
       s = s.replace(/\bcanonical\s+link\b/gi, "canonical");
-
       return normKey(s);
     }
 
@@ -1358,7 +1315,7 @@ else if (score < 90) severityClass = "severity-medium";
       if (sev === "MED" || sev === "MEDIUM") return 2;
       if (sev === "LOW") return 1;
       if (sev === "OK") return 0;
-      return 1; // MONITOR/default
+      return 1;
     }
 
     function normaliseRequiredMissing(label, sig, text) {
@@ -1375,7 +1332,6 @@ else if (score < 90) severityClass = "severity-medium";
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
-      // Issues
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
         var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
@@ -1391,14 +1347,12 @@ else if (score < 90) severityClass = "severity-medium";
         });
       }
 
-      // Deductions
       for (var m = 0; m < deds.length; m++) {
         var dd = safeObj(deds[m]);
         var pts = num(dd.points);
         var rawReason = String(dd.reason || dd.code || "").trim();
         if (!rawReason) continue;
 
-        // ignore tiny noise
         if (pts !== null && pts < 2) continue;
 
         var reason = rawReason;
@@ -1417,7 +1371,6 @@ else if (score < 90) severityClass = "severity-medium";
       }
     }
 
-    // Prefer primary constraint issues if present
     var all = [];
     var primaryOnly = [];
 
@@ -1433,10 +1386,6 @@ else if (score < 90) severityClass = "severity-medium";
       collectFromSignal(safeObj(signals[k]), all);
     }
 
-    // Dedup:
-    // - normalize title strongly
-    // - ignore minor differences in why text (keep "best" one)
-    // - keep highest severity instance if same underlying issue repeats
     function dedupe(list) {
       var map = {};
       for (var i = 0; i < list.length; i++) {
@@ -1444,16 +1393,11 @@ else if (score < 90) severityClass = "severity-medium";
         if (!it || !it.title) continue;
 
         var tKey = normIssueTitle(it.title);
-
-        // Core identity is mostly the title meaning. Severity is used only to pick the best entry.
         var key = tKey;
 
         if (!map[key]) {
           map[key] = it;
         } else {
-          // choose the "better" one:
-          // 1) higher severity rank
-          // 2) longer/more informative why text
           var cur = map[key];
           var rNew = it._rank || sevRank(it.sev);
           var rCur = cur._rank || sevRank(cur.sev);
@@ -1484,7 +1428,6 @@ else if (score < 90) severityClass = "severity-medium";
       var ra = a._rank || sevRank(a.sev);
       var rb = b._rank || sevRank(b.sev);
       if (rb !== ra) return rb - ra;
-      // stable tie-break: title
       var ta = normKey(a.title);
       var tb = normKey(b.title);
       if (ta < tb) return -1;
@@ -1509,14 +1452,14 @@ else if (score < 90) severityClass = "severity-medium";
     var html = "";
     for (var x = 0; x < cap; x++) {
       var it2 = chosen[x];
-      html +=
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">' + escapeHtml(it2.title) + "</p>" +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + "</span>" +
-          "</div>" +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why) + "</div>" +
-        "</div>";
+html +=
+  '<div class="issue">' +
+  '<div class="issue-top">' +
+  '<p class="issue-title">' + escapeHtml(it2.title) + '</p>' +
+  '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
+  '</div>' +
+  '<div class="issue-why impact-text">' + escapeHtml(it2.why) + '</div>' +
+  '</div>';
     }
 
     root.innerHTML = html;
@@ -1605,7 +1548,6 @@ else if (score < 90) severityClass = "severity-medium";
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
 
-        // Keep Key Findings clean even on error
         var oEl = $("findingOverall");
         var cEl = $("findingConstraint");
         var iEl = $("findingImpact");
