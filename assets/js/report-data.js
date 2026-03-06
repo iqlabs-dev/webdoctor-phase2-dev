@@ -1068,7 +1068,7 @@ var key = domainKeyFromSignal(sig);
       else headline = "Deterministic";
 
       var lines = [];
-      lines.push(w ? (headline + " • " + weightPct + " WEIGHT") : headline);
+     lines.push(headline);
 
 if (unmeasured && !flagged) {
   lines.push(prefix + ": Not measured in this scan — no evidence returned for this signal.");
