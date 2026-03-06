@@ -730,17 +730,16 @@
       };
     }
 
-    if (domainKey === "structure") {
-      return {
-        impact:
-          "Page structure and semantic markup are incomplete." +
-          (haveList ? (" Key structural signals such as " + listText + " help engines and assistive tools interpret content correctly.") : ""),
-        fix:
-          "Correct semantic structure first (headings, landmarks, required tags), then address secondary quality improvements.",
-        next:
-          "Make one structural pass, then re-run the scan to validate the improvement."
-      };
-    }
+ if (domainKey === "structure") {
+  return {
+    impact:
+      "Page structure and semantic markup are incomplete. Core document structure signals such as headings, landmarks, and semantic HTML elements help engines and assistive tools interpret page content correctly.",
+    fix:
+      "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
+    next:
+      "Make one structural pass, then re-run the scan to validate the improvement."
+  };
+}
 
     if (domainKey === "accessibility") {
       return {
