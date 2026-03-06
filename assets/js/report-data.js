@@ -24,7 +24,7 @@
  * - Narrative is template-based + filled from deterministic evidence (no AI, no guessing).
  *
  * SCORE MODEL PATCH:
- * - Verdict, signal headline, severity class, and issue prefix are governed by /assets/js/score-model.js
+ * - Verdict, signal headline, severity class, and primary issue selection are governed by /assets/js/score-model.js
  * - report-data.js now renders UI from the score model instead of hardcoding threshold logic inline.
  */
 
@@ -105,12 +105,13 @@
     if (unmeasured) return "Not Measured";
     if (isPrimary) return "Priority Fix";
     if (flagged && score !== null && score < 40) return "Critical Fix";
-    if (flagged && score !== null && score < 80) return "Secondary Fix";
+    if (flagged && score !== null && score < 80) return "Priority Fix";
     if (flagged) return "Improvement Opportunity";
     if (score !== null && score >= 90) return "Strong";
-    if (score !== null && score >= 80) return "Stable";
-    if (score !== null && score < 40) return "Critical Fix";
-    if (score !== null) return "Needs Attention";
+    if (score !== null && score >= 70) return "Stable";
+    if (score !== null && score >= 50) return "Improvement Opportunity";
+    if (score !== null && score >= 35) return "Priority Fix";
+    if (score !== null) return "Critical Fix";
     return "Deterministic";
   }
 
@@ -121,15 +122,9 @@
     }
 
     if (unmeasured) return "severity-na";
-    if (score < 40) return "severity-high";
+    if (score < 35) return "severity-high";
     if (score < 90) return "severity-medium";
     return "severity-strong";
-  }
-
-  function issuePrefixFromModel(score, flagged, isPrimary, unmeasured) {
-    var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
-    if (headline === "Improvement Opportunity") return "Improvement Opportunity";
-    return "Issue";
   }
 
   // Query param (ES5)
@@ -254,15 +249,15 @@
     return asArray(m.delivery_signals);
   }
 
-function pickOverallSummary(data, overallScore) {
-  data = safeObj(data);
+  function pickOverallSummary(data, overallScore) {
+    data = safeObj(data);
 
-  return (
-    "Overall delivery is " +
-    verdict(asInt(overallScore, 0)).toLowerCase() +
-    ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
-  );
-}
+    return (
+      "Overall delivery is " +
+      verdict(asInt(overallScore, 0)).toLowerCase() +
+      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
+    );
+  }
 
   function pickPsiEnvelope(data) {
     data = safeObj(data);
@@ -370,36 +365,34 @@ function pickOverallSummary(data, overallScore) {
     return round1((100 - s) * w);
   }
 
-function recommendedFixForKey(key) {
+  function recommendedFixForKey(key) {
+    switch (key) {
+      case "seo":
+      case "seo_foundations":
+        return "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.";
 
-  switch (key) {
+      case "structure":
+      case "structure_semantics":
+        return "Correct the document structure by ensuring a single primary heading (H1) is present and that semantic HTML tags are used consistently.";
 
-    case "seo":
-    case "seo_foundations":
-      return "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.";
+      case "security":
+      case "security_trust":
+        return "Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.";
 
-    case "structure":
-    case "structure_semantics":
-      return "Correct the document structure by ensuring a single primary heading (H1) is present and that semantic HTML tags are used consistently.";
+      case "mobile":
+      case "mobile_experience":
+        return "Ensure the viewport meta tag is correctly configured and review layout stability to improve mobile rendering and Largest Contentful Paint performance.";
 
-    case "security":
-    case "security_trust":
-      return "Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.";
+      case "accessibility":
+        return "Add the HTML language attribute and review labels, controls, and colour contrast to improve accessibility for assistive technologies.";
 
-    case "mobile":
-    case "mobile_experience":
-      return "Ensure the viewport meta tag is correctly configured and review layout stability to improve mobile rendering and Largest Contentful Paint performance.";
+      case "performance":
+        return "Review performance diagnostics and optimise loading behaviour to ensure stable Core Web Vitals and responsive rendering.";
 
-    case "accessibility":
-      return "Add the HTML language attribute and review labels, controls, and colour contrast to improve accessibility for assistive technologies.";
-
-    case "performance":
-      return "Review performance diagnostics and optimise loading behaviour to ensure stable Core Web Vitals and responsive rendering.";
-
-    default:
-      return "Review the evidence signals and address the underlying technical constraint affecting this category.";
+      default:
+        return "Review the evidence signals and address the underlying technical constraint affecting this category.";
+    }
   }
-}
 
   // -----------------------------
   // Domain mapping + Primary Constraint selector
@@ -505,6 +498,21 @@ function recommendedFixForKey(key) {
     scores = safeObj(scores);
     signals = asArray(signals);
 
+    var model = window.IQWEB_SCORE_MODEL || null;
+
+    if (model && typeof model.pickPrimarySignal === "function") {
+      var picked = model.pickPrimarySignal(signals);
+
+      if (picked && picked.key) {
+        return {
+          key: picked.key,
+          score: picked.score,
+          idx: picked.index,
+          flagged: true
+        };
+      }
+    }
+
     function domainHasMeasuredSignal(domainKey) {
       for (var i = 0; i < signals.length; i++) {
         var sig = safeObj(signals[i]);
@@ -543,21 +551,6 @@ function recommendedFixForKey(key) {
         break;
       }
       return best;
-    }
-
-    var flaggedBest = { key: "", w: -1, score: 0, idx: -1 };
-    for (var j = 0; j < signals.length; j++) {
-      var sig = safeObj(signals[j]);
-      if (!hasFlags(sig)) continue;
-      var k = domainKeyFromSignal(sig);
-      if (!k) continue;
-      var ww = WEIGHTS[k] || 0;
-      var sc = asInt(sig.score, 0);
-      if (isUnmeasuredSignal(sig, sc)) continue;
-      if (ww > flaggedBest.w) flaggedBest = { key: k, w: ww, score: sc, idx: j };
-    }
-    if (flaggedBest.key) {
-      return { key: flaggedBest.key, pts: 0, score: flaggedBest.score, weight: flaggedBest.w, idx: flaggedBest.idx, flagged: true };
     }
 
     return { key: "", pts: 0, score: 0, weight: 0, idx: -1, flagged: false };
@@ -1064,20 +1057,15 @@ function recommendedFixForKey(key) {
       var score = unmeasured ? null : rawScore;
 
       var key = domainKeyFromSignal(sig);
-      var w = key ? (WEIGHTS[key] || 0) : 0;
-
       var flagged = hasFlags(sig);
-      var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
       var isPrimary = !!(key && primary && primary.key && key === primary.key);
-      var prefix = issuePrefixFromModel(score, flagged, isPrimary, unmeasured);
 
       var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
-
       var lines = [];
       lines.push(headline);
 
       if (unmeasured && !flagged) {
-        lines.push(prefix + ": Not measured in this scan — no evidence returned for this signal.");
+        lines.push("Not measured in this scan — no evidence returned for this signal.");
       } else {
         var allowEvidence = (flagged || (score !== null && score < 90));
         var because = pickExplainLine(sig, allowEvidence);
@@ -1103,7 +1091,6 @@ function recommendedFixForKey(key) {
       }
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-
       var severityClass = severityClassFromModel(score, unmeasured);
 
       var card = document.createElement("div");
@@ -1165,7 +1152,7 @@ function recommendedFixForKey(key) {
       var summary =
         '<summary>' +
           '<div class="acc-title">' + escapeHtml(label) + "</div>" +
-          '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "/100</div>" +
+          '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "/100</div>' +
         "</summary>";
 
       var body = '<div class="acc-body">';
@@ -1469,14 +1456,14 @@ function recommendedFixForKey(key) {
     var html = "";
     for (var x = 0; x < cap; x++) {
       var it2 = chosen[x];
-html +=
-  '<div class="issue">' +
-  '<div class="issue-top">' +
-  '<p class="issue-title">' + escapeHtml(it2.title) + '</p>' +
-  '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
-  '</div>' +
-  '<div class="issue-why impact-text">' + escapeHtml(it2.why) + '</div>' +
-  '</div>';
+      html +=
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">' + escapeHtml(it2.title) + '</p>' +
+            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
+          '</div>' +
+          '<div class="issue-why impact-text">' + escapeHtml(it2.why) + '</div>' +
+        '</div>';
     }
 
     root.innerHTML = html;
