@@ -1620,7 +1620,7 @@
           setStatus("");
           setBusy(true);
 
-          reportWindow = window.open("", "_blank", "noopener");
+       reportWindow = window.open("", "_blank");
 
           const result = await runScan(url);
 
@@ -1630,11 +1630,11 @@
 
           const reportUrl = `/report.html?report_id=${encodeURIComponent(result.report_id)}`;
 
-          if (reportWindow) {
-            reportWindow.location.href = reportUrl;
-          } else {
-            window.open(reportUrl, "_blank", "noopener");
-          }
+      if (reportWindow && !reportWindow.closed) {
+  reportWindow.location.href = reportUrl;
+} else {
+  window.open(reportUrl, "_blank");
+}
 
           setStatus("Report started successfully. Opening in a new tab.", "ok");
         } catch (err) {
