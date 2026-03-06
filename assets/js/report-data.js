@@ -1089,9 +1089,12 @@ lines.push(because ? (prefix + ": " + because) : (prefix + ": Review the items f
   }
 }
 
-  var lever = recommendedFixForKey(key);
-if (lever && score != null) lever = getRecommendation(score, lever);
-if (lever) lines.push(lever);
+var lever = recommendedFixForKey(key);
+
+if (lever && score !== null && score < 90) {
+  lever = getRecommendation(score, lever);
+  lines.push(lever);
+}
 
 // lines.push(issuesFoundLine(sig, unmeasured));
 
