@@ -822,11 +822,10 @@
     }
 
     var domainLabel = (LABELS[primary.key] || primary.key);
-    var domainScore = asInt(scores[primary.key], 0);
-    var weightPct = Math.round((primary.weight || 0) * 100);
+
 
     // Primary constraint row
-    setText(cEl, domainLabel + " — " + domainScore + "/100 (" + weightPct + "% weight)");
+setText(cEl, domainLabel);
 
     // Build narrative signals from deterministic evidence
     var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
