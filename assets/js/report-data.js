@@ -1059,12 +1059,25 @@ var key = domainKeyFromSignal(sig);
       var flagged = hasFlags(sig);
       var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
 
-      var headline = "Stable";
-      if (unmeasured) headline = "Not Measured";
-      else if (key && primary && primary.key && key === primary.key) headline = "Priority Fix";
-      else if (w && defPts >= 3) headline = "Secondary Fix";
-      else if (w) headline = isStrong(score) ? "Strong" : "Stable";
-      else headline = "Deterministic";
+  var headline = "Stable";
+
+if (unmeasured) {
+  headline = "Not Measured";
+} else if (key && primary && primary.key && key === primary.key) {
+  headline = "Priority Fix";
+} else if (flagged && score !== null && score >= 90) {
+  headline = "Improvement Opportunity";
+} else if (flagged && score !== null && score < 90) {
+  headline = "Secondary Fix";
+} else if (score !== null && score >= 90) {
+  headline = "Strong";
+} else if (score !== null && score >= 80) {
+  headline = "Stable";
+} else if (score !== null) {
+  headline = "Needs Attention";
+} else {
+  headline = "Deterministic";
+}
 
       var lines = [];
      lines.push(headline);
