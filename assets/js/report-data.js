@@ -1059,16 +1059,17 @@ var key = domainKeyFromSignal(sig);
       var flagged = hasFlags(sig);
       var defPts = (w && score !== null) ? deficitWeightedPoints(score, w) : 0;
 
-  var headline = "Stable";
+
+var headline = "Stable";
 
 if (unmeasured) {
   headline = "Not Measured";
 } else if (key && primary && primary.key && key === primary.key) {
   headline = "Priority Fix";
-} else if (flagged && score !== null && score >= 90) {
-  headline = "Improvement Opportunity";
-} else if (flagged && score !== null && score < 90) {
+} else if (flagged && score !== null && score < 80) {
   headline = "Secondary Fix";
+} else if (flagged) {
+  headline = "Improvement Opportunity";
 } else if (score !== null && score >= 90) {
   headline = "Strong";
 } else if (score !== null && score >= 80) {
@@ -1089,16 +1090,17 @@ if (unmeasured && !flagged) {
   var because = pickExplainLine(sig, allowEvidence);
   var emptyButLow = (score !== null && !flagged && !because && score < 70);
 
-  if (flagged) {
-lines.push(because ? (prefix + ": " + because) : (prefix + ": Review the items flagged below."));
-  } else if (emptyButLow) {
-    lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
-  } else {
-    if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
-   if (score !== null && score < 90) {
- lines.push(because ? (prefix + ": " + because) : (prefix + ": Structural signals indicate measurable drag."));
-}
+if (flagged) {
+  lines.push(because ? because : "Review the items flagged below.");
+} else if (emptyButLow) {
+  lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
+} else {
+  if (score !== null && isStrong(score)) {
+    lines.push("Baseline stable — no measurable blockers detected in this scan.");
+  } else if (score !== null && score < 90) {
+    lines.push(because ? because : "Structural signals indicate measurable drag.");
   }
+}
 }
 
 var lever = recommendedFixForKey(key);
