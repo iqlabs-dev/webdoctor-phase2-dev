@@ -1066,6 +1066,8 @@ if (unmeasured) {
   headline = "Not Measured";
 } else if (key && primary && primary.key && key === primary.key) {
   headline = "Priority Fix";
+} else if (flagged && score !== null && score < 40) {
+  headline = "Critical Fix";
 } else if (flagged && score !== null && score < 80) {
   headline = "Secondary Fix";
 } else if (flagged) {
@@ -1074,6 +1076,8 @@ if (unmeasured) {
   headline = "Strong";
 } else if (score !== null && score >= 80) {
   headline = "Stable";
+} else if (score !== null && score < 40) {
+  headline = "Critical Fix";
 } else if (score !== null) {
   headline = "Needs Attention";
 } else {
@@ -1114,10 +1118,10 @@ if (lever && score !== null && score < 90) {
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
-      var severityClass = "severity-strong";
-      if (unmeasured) severityClass = "severity-na";
-      else if (score < 65) severityClass = "severity-high";
-      else if (score < 90) severityClass = "severity-medium";
+var severityClass = "severity-strong";
+if (unmeasured) severityClass = "severity-na";
+else if (score < 40) severityClass = "severity-high";
+else if (score < 90) severityClass = "severity-medium";
 
       var card = document.createElement("div");
       card.className = "card " + severityClass;
