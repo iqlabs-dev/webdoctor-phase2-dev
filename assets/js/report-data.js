@@ -254,18 +254,15 @@
     return asArray(m.delivery_signals);
   }
 
-  function pickOverallSummary(data, overallScore) {
-    data = safeObj(data);
-    if (typeof data.overall_summary === "string" && data.overall_summary) return data.overall_summary;
-    if (data.narrative && typeof data.narrative.overall_summary === "string" && data.narrative.overall_summary) {
-      return data.narrative.overall_summary;
-    }
-    return (
-      "Overall delivery is " +
-      verdict(asInt(overallScore, 0)).toLowerCase() +
-      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
-    );
-  }
+function pickOverallSummary(data, overallScore) {
+  data = safeObj(data);
+
+  return (
+    "Overall delivery is " +
+    verdict(asInt(overallScore, 0)).toLowerCase() +
+    ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
+  );
+}
 
   function pickPsiEnvelope(data) {
     data = safeObj(data);
