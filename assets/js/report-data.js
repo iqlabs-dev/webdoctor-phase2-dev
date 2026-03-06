@@ -892,7 +892,7 @@
 
       if (!issues.length && !deds.length) {
         var ef = countEvidenceFlags(sig);
-        if (ef > 0) return "Issues Found: " + ef + " evidence flag" + (ef === 1 ? "" : "s");
+        if (ef > 0) return "Issues Found: " + ef + " signal" + (ef === 1 ? "" : "s");
         return "Issues Found: none";
       }
 
@@ -1039,15 +1039,15 @@ if (unmeasured && !flagged) {
     lines.push("Why: This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty to preserve completeness.");
   } else {
     if (score !== null && isStrong(score)) lines.push("Baseline stable — no measurable blockers detected in this scan.");
-    else lines.push(because ? ("Issue: " + because) : "Issue detected in this domain.");
+    lines.push(because ? ("Issue: " + because) : "Issue: Structural signals indicate measurable drag.");
   }
 }
 
-      var lever = recommendedFixForKey(key);
-      if (lever && score !== null) lever = getRecommendation(score, lever);
-      if (lever) lines.push(lever);
+  var lever = recommendedFixForKey(key);
+if (lever && score != null) lever = getRecommendation(score, lever);
+if (lever) lines.push(lever);
 
-      lines.push(issuesFoundLine(sig, unmeasured));
+// lines.push(issuesFoundLine(sig, unmeasured));
 
       var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
 
