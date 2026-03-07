@@ -349,9 +349,9 @@
 
 .hero-scan-status {
   display: none;
-  width: fit-content;
-  max-width: 100%;
-  padding: 11px 13px;
+  width: 100%;
+  max-width: 640px;
+  padding: 12px 14px;
   border-radius: 12px;
   font-size: 0.78rem;
   line-height: 1.5;
@@ -391,7 +391,7 @@
   font-weight: 500;
   letter-spacing: 0.01em;
   color: #d8f9ff;
-  max-width: 520px;
+  max-width: 600px;
 }
 
 .hero-scan-status-actions {
@@ -1822,7 +1822,7 @@ if (
   msg.toLowerCase().includes("free_scan_used")
 ) {
 setStatus(
-  "Your free scan is complete. <br> Create a free account to run additional scans,save reports and track results over time.",
+  "Your free scan is complete.<br>Create a free account to run additional scans, save reports and track results over time.",
   "promo",
   '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
 );
