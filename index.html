@@ -1104,7 +1104,7 @@
 
             <div class="hero-scan-meta">
 <p class="hero-scan-helper">
-  Scan any public website URL — your first scan is free.
+  Scan any public website URL — your first report is free.
 </p>
               <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
             </div>
@@ -1748,15 +1748,37 @@ if (reportWindow) {
 
           const msg = String(err?.message || "");
 
-          if (msg.toLowerCase().includes("free scan already used")) {
-            setStatus("Your complimentary scan has already been used on this browser. Create an account to run additional reports.", "error");
-          } else if (msg.toLowerCase().includes("anon_id_required")) {
-            setStatus("Unable to start anonymous scan. Refresh the page and try again.", "error");
-          } else if (msg.toLowerCase().includes("access_required")) {
-            setStatus("Scanning access is not available for this request.", "error");
-          } else {
-            setStatus(msg || "Unable to run scan right now. Please try again.", "error");
-          }
+if (
+  msg.toLowerCase().includes("free scan already used") ||
+  msg.toLowerCase().includes("free_scan_used")
+) {
+  setStatus(
+    "Your free demo report has already been used. Create a free account to run additional scans and save reports.",
+    "error"
+  );
+
+} else if (msg.toLowerCase().includes("anon_id_required")) {
+
+  setStatus(
+    "Unable to start the anonymous scan. Please refresh the page and try again.",
+    "error"
+  );
+
+} else if (msg.toLowerCase().includes("access_required")) {
+
+  setStatus(
+    "Scanning access is not available for this request.",
+    "error"
+  );
+
+} else {
+
+  setStatus(
+    msg || "Unable to run the scan right now. Please try again.",
+    "error"
+  );
+
+}
         } finally {
           setBusy(false);
         }
