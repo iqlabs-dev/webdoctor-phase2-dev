@@ -400,26 +400,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid rgba(34,211,238,0.55);
-  background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-  color: var(--ink-soft);
+  border: 1px solid rgba(34,211,238,0.72);
+  background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
+  color: var(--ink);
   font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 800;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   text-decoration: none;
-  box-shadow: 0 10px 24px rgba(15,23,42,0.70);
+  box-shadow: 0 12px 28px rgba(15,23,42,0.72);
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
 }
 
 .hero-scan-status-cta:hover {
   transform: translateY(-1px);
-  border-color: rgba(34,211,238,0.88);
-  box-shadow: 0 14px 28px rgba(34,211,238,0.26);
-  color: var(--ink);
+  border-color: rgba(34,211,238,0.95);
+  box-shadow: 0 16px 30px rgba(34,211,238,0.30);
+  color: #ffffff;
   text-decoration: none;
 }
 
@@ -1817,11 +1817,11 @@ if (
   msg.toLowerCase().includes("free scan already used") ||
   msg.toLowerCase().includes("free_scan_used")
 ) {
-  setStatus(
-    "Your free demo report has already been used. Create a free account to run additional scans and save reports.",
-    "promo",
-    '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
-  );
+setStatus(
+  "Your free report has been used. Create a free account to run more scans and save reports.",
+  "promo",
+  '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
+);
 
 } else if (msg.toLowerCase().includes("anon_id_required")) {
 
