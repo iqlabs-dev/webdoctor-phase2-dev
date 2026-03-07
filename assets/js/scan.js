@@ -4,7 +4,7 @@ import { supabase } from "./supabaseClient.js";
 /**
  * 🔥 HARD LOAD MARKER
  */
-console.log("🔥🔥🔥 NEW scan.js LOADED (AUTH + DEMO VERSION) 🔥🔥🔥");
+console.log("🔥🔥🔥 NEW scan.js LOADED (AUTH + DEMO VERSION + PUBLIC URL VALIDATION) 🔥🔥🔥");
 
 /**
  * Create a stable anonymous browser ID.
@@ -47,11 +47,62 @@ function getAnonId() {
   }
 }
 
+/**
+ * Frontend public-target validation.
+ * This blocks obvious local/private targets before they ever hit the backend.
+ * Backend still must validate too.
+ */
 export function normaliseUrl(raw) {
-  if (!raw) return "";
+  if (!raw) {
+    throw new Error("Please enter a website URL.");
+  }
+
   let url = String(raw).trim();
-  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-  return url.replace(/\s+/g, "");
+
+  if (!/^https?:\/\//i.test(url)) {
+    url = "https://" + url;
+  }
+
+  url = url.replace(/\s+/g, "");
+
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (err) {
+    console.warn("🚫 Invalid URL:", url, err);
+    throw new Error("Please enter a valid public website URL.");
+  }
+
+  const protocol = String(parsed.protocol || "").toLowerCase();
+  if (protocol !== "http:" && protocol !== "https:") {
+    throw new Error("Only public http/https websites can be scanned.");
+  }
+
+  const host = String(parsed.hostname || "").toLowerCase();
+
+  // obvious local / loopback
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    host.endsWith(".local")
+  ) {
+    throw new Error("Private or local network addresses cannot be scanned.");
+  }
+
+  // obvious private / reserved IPv4 targets
+  if (
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+    /^169\.254\./.test(host)
+  ) {
+    throw new Error("Private or local network addresses cannot be scanned.");
+  }
+
+  return parsed.href;
 }
 
 /**
@@ -61,6 +112,12 @@ export function normaliseUrl(raw) {
  */
 export async function runScan(url) {
   console.log("🚀 runScan() CALLED with URL:", url);
+
+  // ----------------------------------
+  // 0. FRONTEND VALIDATION
+  // ----------------------------------
+  const safeUrl = normaliseUrl(url);
+  console.log("✅ URL validated:", safeUrl);
 
   // ----------------------------------
   // 1. CHECK SUPABASE SESSION
@@ -92,7 +149,7 @@ export async function runScan(url) {
   const anonId = getAnonId();
 
   const payload = {
-    url,
+    url: safeUrl,
     user_id: window.currentUserId || null,
     email: window.currentUserEmail || null,
     anon_id: anonId,
@@ -113,7 +170,7 @@ export async function runScan(url) {
   }
 
   // ----------------------------------
-  // 4. CALL NETLIFY FUNCTIO
+  // 4. CALL NETLIFY FUNCTION
   // ----------------------------------
   console.log("📡 Sending POST /.netlify/functions/run-scan");
 
@@ -134,7 +191,6 @@ export async function runScan(url) {
   // ----------------------------------
   if (scanData?.error === "free_scan_used") {
     console.warn("⚠️ FREE DEMO ALREADY USED");
-
     throw new Error("free_scan_used");
   }
 
@@ -158,7 +214,7 @@ export async function runScan(url) {
 
   return {
     success: true,
-    url,
+    url: safeUrl,
     scan_id: scanData.scan_id,
     report_id: scanData.report_id,
     anonymous: isAnonymous,
