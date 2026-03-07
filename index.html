@@ -386,11 +386,12 @@
 }
 
 .hero-scan-status-text {
-  font-size: 1rem;
-  line-height: 1.55;
-  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  font-weight: 500;
   letter-spacing: 0.01em;
-  color: #e6fbff;
+  color: #d8f9ff;
+  max-width: 520px;
 }
 
 .hero-scan-status-actions {
@@ -1821,7 +1822,7 @@ if (
   msg.toLowerCase().includes("free_scan_used")
 ) {
 setStatus(
-  "Your free report has been used. Create a free account to run more scans and save reports.",
+  "Your free report has been used. <br> Create a free account to run more scans and save reports.",
   "promo",
   '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
 );
