@@ -533,10 +533,15 @@ export const handler = async (event) => {
       });
       if (wr?.error) throw wr.error;
 
-      if (email && mapped && mapped.kind === "subscription") {
+         if (email && mapped && mapped.kind === "subscription") {
+        const existingCredits = await findUserCreditsByEmail(email);
+
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
-          credits: mapped.credits,
+          credits:
+            existingCredits && typeof existingCredits.credits === "number"
+              ? existingCredits.credits
+              : 0,
           stripe_customer_id: customerId || null,
         });
         if (upUc.error) throw upUc.error;
@@ -588,8 +593,20 @@ export const handler = async (event) => {
       });
       if (upSub?.error) throw upSub.error;
 
-      if (email) {
-        const upUc = await safeUpsertUserCredits(email, { plan: "free", credits: 0 });
+         if (email) {
+        const existingCredits = await findUserCreditsByEmail(email);
+
+        const upUc = await safeUpsertUserCredits(email, {
+          plan:
+            existingCredits && existingCredits.plan
+              ? existingCredits.plan
+              : "free",
+          credits:
+            existingCredits && typeof existingCredits.credits === "number"
+              ? existingCredits.credits
+              : 0,
+          stripe_customer_id: customerId || null,
+        });
         if (upUc.error) throw upUc.error;
       }
 
