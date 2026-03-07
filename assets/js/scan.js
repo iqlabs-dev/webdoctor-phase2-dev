@@ -113,7 +113,7 @@ export async function runScan(url) {
   }
 
   // ----------------------------------
-  // 4. CALL NETLIFY FUNCTION
+  // 4. CALL NETLIFY FUNCTIO
   // ----------------------------------
   console.log("📡 Sending POST /.netlify/functions/run-scan");
 
