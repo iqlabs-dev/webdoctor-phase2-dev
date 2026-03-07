@@ -1463,46 +1463,86 @@ function getClientIp(event) {
 }
 
 async function checkAnonFreeScan({ anon_id, ip_address, url }) {
-
   if (!anon_id) {
     return {
       allowed: false,
       statusCode: 400,
-      error: "Missing anon_id"
+      error: "anon_id_required"
     };
   }
 
-const { data, error } = await supabase
-  .from("anon_scans")
-  .select("id")
-  .eq("anon_id", anon_id)
-  .eq("status", "completed")
-  .limit(1);
+  const cutoffIso = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString();
 
-if (error) {
-  console.error("[anon_scans] lookup error:", error);
-  return {
-    allowed: false,
-    statusCode: 500,
-    error: "anon_scan_lookup_failed"
-  };
+  // Check same browser anon_id in last 24 hours
+  const { data: anonRows, error: anonError } = await supabase
+    .from("anon_scans")
+    .select("id")
+    .eq("anon_id", anon_id)
+    .eq("status", "completed")
+    .gte("created_at", cutoffIso)
+    .limit(1);
+
+  if (anonError) {
+    console.error("[anon_scans] anon_id lookup error:", anonError);
+    return {
+      allowed: false,
+      statusCode: 500,
+      error: "anon_scan_lookup_failed"
+    };
+  }
+
+// Check same IP in last 24 hours (only if IP detected)
+let ipRows = [];
+let ipError = null;
+
+if (ip_address) {
+
+  const result = await supabase
+    .from("anon_scans")
+    .select("id")
+    .eq("ip_address", ip_address)
+    .eq("status", "completed")
+    .gte("created_at", cutoffIso)
+    .limit(1);
+
+  ipRows = result.data;
+  ipError = result.error;
+
+  if (ipError) {
+    console.error("[anon_scans] ip lookup error:", ipError);
+    return {
+      allowed: false,
+      statusCode: 500,
+      error: "anon_scan_lookup_failed"
+    };
+  }
+
 }
 
-if (data && data.length > 0) {
+  const alreadyUsed =
+    (anonRows && anonRows.length > 0) ||
+    (ipRows && ipRows.length > 0);
 
-  await supabase.from("anon_scans").insert({
-    anon_id,
-    ip_address,
-    url,
-    status: "blocked"
-  });
+  if (alreadyUsed) {
+    const { error: blockedInsertError } = await supabase
+      .from("anon_scans")
+      .insert({
+        anon_id,
+        ip_address: ip_address || "unknown",
+        url,
+        status: "blocked"
+      });
 
-  return {
-    allowed: false,
-    statusCode: 403,
-    error: "free_scan_used"
-  };
-}
+    if (blockedInsertError) {
+      console.error("[anon_scans] blocked insert error:", blockedInsertError);
+    }
+
+    return {
+      allowed: false,
+      statusCode: 403,
+      error: "free_scan_used"
+    };
+  }
 
   return { allowed: true };
 }
