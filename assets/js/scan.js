@@ -6,30 +6,53 @@ import { supabase } from "./supabaseClient.js";
  */
 console.log("🔥🔥🔥 NEW scan.js LOADED (AUTH + DEMO VERSION) 🔥🔥🔥");
 
-
 /**
- * Create or fetch anonymous device ID
- * Used for the one free demo scan
+ * Create a stable anonymous browser ID.
+ * This must persist across scans in the same browser so
+ * the backend can enforce the one free scan rule.
  */
-function getAnonId() {
-  let anonId = localStorage.getItem("iqweb_anon_id");
-
-  if (!anonId) {
-    anonId = crypto.randomUUID();
-    localStorage.setItem("iqweb_anon_id", anonId);
-  }
-
-  return anonId;
+function createAnonId() {
+  return (
+    "anon_" +
+    Date.now().toString(36) +
+    "_" +
+    Math.random().toString(36).slice(2, 10)
+  );
 }
 
+/**
+ * Get or create the anonymous device ID used for the free scan.
+ * Stored in localStorage so repeat scans from the same browser
+ * reuse the same identifier.
+ */
+function getAnonId() {
+  const storageKey = "iqweb_anon_id";
+
+  try {
+    let anonId = window.localStorage.getItem(storageKey);
+
+    if (!anonId) {
+      anonId = createAnonId();
+      window.localStorage.setItem(storageKey, anonId);
+      console.log("🪪 Created new anon_id:", anonId);
+    } else {
+      console.log("🪪 Reusing existing anon_id:", anonId);
+    }
+
+    return anonId;
+  } catch (err) {
+    const fallbackAnonId = createAnonId();
+    console.warn("⚠️ localStorage unavailable, using fallback anon_id:", fallbackAnonId, err);
+    return fallbackAnonId;
+  }
+}
 
 export function normaliseUrl(raw) {
   if (!raw) return "";
-  let url = raw.trim();
+  let url = String(raw).trim();
   if (!/^https?:\/\//i.test(url)) url = "https://" + url;
   return url.replace(/\s+/g, "");
 }
-
 
 /**
  * Locked architecture:
@@ -37,14 +60,16 @@ export function normaliseUrl(raw) {
  * - generate-report is read-only
  */
 export async function runScan(url) {
-
   console.log("🚀 runScan() CALLED with URL:", url);
 
   // ----------------------------------
   // 1. CHECK SUPABASE SESSION
   // ----------------------------------
-
   const { data: sessionData, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.warn("⚠️ supabase.auth.getSession() warning:", error);
+  }
 
   const session = sessionData?.session || null;
 
@@ -61,25 +86,24 @@ export async function runScan(url) {
     isAnonymous = true;
   }
 
-
   // ----------------------------------
   // 2. BUILD PAYLOAD
   // ----------------------------------
+  const anonId = getAnonId();
 
   const payload = {
     url,
     user_id: window.currentUserId || null,
     email: window.currentUserEmail || null,
-    anon_id: getAnonId(), // important for demo tracking
+    anon_id: anonId,
   };
 
+  console.log("🪪 anon_id being sent:", anonId);
   console.log("📦 Scan payload:", payload);
-
 
   // ----------------------------------
   // 3. BUILD HEADERS
   // ----------------------------------
-
   const headers = {
     "Content-Type": "application/json",
   };
@@ -88,11 +112,9 @@ export async function runScan(url) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
-
   // ----------------------------------
   // 4. CALL NETLIFY FUNCTION
   // ----------------------------------
-
   console.log("📡 Sending POST /.netlify/functions/run-scan");
 
   const scanRes = await fetch("/.netlify/functions/run-scan", {
@@ -107,29 +129,19 @@ export async function runScan(url) {
 
   console.log("📡 run-scan response body:", scanData);
 
-
   // ----------------------------------
   // 5. HANDLE FREE SCAN LIMIT
   // ----------------------------------
-
   if (scanData?.error === "free_scan_used") {
-
     console.warn("⚠️ FREE DEMO ALREADY USED");
 
-    alert(
-      "Your complimentary iQWEB scan has already been used.\n\nCreate an account to run additional reports."
-    );
-
-    throw new Error("Free scan already used");
+    throw new Error("free_scan_used");
   }
-
 
   // ----------------------------------
   // 6. HANDLE ERRORS
   // ----------------------------------
-
   if (!scanRes.ok || !scanData?.success) {
-
     console.error("❌ run-scan FAILED");
 
     throw new Error(
@@ -139,11 +151,9 @@ export async function runScan(url) {
     );
   }
 
-
   // ----------------------------------
   // 7. SUCCESS
   // ----------------------------------
-
   console.log("✅ run-scan SUCCESS", scanData);
 
   return {
@@ -151,7 +161,6 @@ export async function runScan(url) {
     url,
     scan_id: scanData.scan_id,
     report_id: scanData.report_id,
-    anonymous: isAnonymous
+    anonymous: isAnonymous,
   };
-
 }
