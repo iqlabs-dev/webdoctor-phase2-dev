@@ -1640,7 +1640,7 @@
     const status = document.getElementById("heroScanStatus");
 
     if (form && input && button && status) {
-  const setStatus = (message, type = "", ctaHtml = "") => {
+const setStatus = (message, type = "", ctaHtml = "") => {
   status.innerHTML = "";
 
   status.className = "hero-scan-status";
@@ -1655,7 +1655,7 @@
 
   const text = document.createElement("div");
   text.className = "hero-scan-status-text";
-  text.textContent = message;
+  text.innerHTML = message;
   status.appendChild(text);
 
   if (ctaHtml) {
@@ -1822,7 +1822,7 @@ if (
   msg.toLowerCase().includes("free_scan_used")
 ) {
 setStatus(
-  "Your free report has been used. <br> Create a free account to run more scans and save reports.",
+  "Your free report has been used. <br><br> Create a free account to run more scans and save reports.",
   "promo",
   '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
 );
