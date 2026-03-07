@@ -1343,72 +1343,78 @@
         </div>
       </section>
 
-      <!-- PRICING -->
-      <section class="section" id="pricing">
-        <div class="section-header">
-          <div>
-            <div class="section-kicker">Pricing</div>
-            <div class="section-title">Simple pricing, clear limits.</div>
-          </div>
-        </div>
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-header">
+    <div>
+      <div class="section-kicker">Pricing</div>
+      <div class="section-title">Simple pricing, clear limits.</div>
+    </div>
+  </div>
 
-        <div class="pricing-row">
-          <div class="pricing-card">
-            <div class="pricing-name">Single Report</div>
-            <div class="pricing-price">$49</div>
-            <div class="pricing-meta-extra">One-time purchase</div>
+  <div class="pricing-row">
 
-            <ul class="pricing-bullets">
-              <li>1 full website diagnostic</li>
-              <li>Client-ready shareable report</li>
-              <li>Verified Report ID</li>
-              <li>No subscription</li>
-            </ul>
+    <!-- STARTER -->
+    <div class="pricing-card">
+      <div class="pricing-name">Starter</div>
+      <div class="pricing-price">$39 / month</div>
+      <div class="pricing-meta-extra">For occasional diagnostics</div>
 
-            <button class="pricing-cta" data-plan="single">GET REPORT</button>
-          </div>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>10 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable report</li>
+        <li>No auto-overage</li>
+        <li>Monthly reset — unused reports don’t roll over</li>
+      </ul>
 
-          <div class="pricing-card">
-            <div class="pricing-name">Intelligence</div>
-            <div class="pricing-price">$99 / month</div>
-            <div class="pricing-meta-extra">For regular use</div>
+      <button class="pricing-cta" data-plan="sub10">START SUBSCRIPTION</button>
+    </div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>50 reports per month</strong></li>
-              <li>Full diagnostics</li>
-              <li>Client-ready shareable report</li>
-              <li>No auto-overage</li>
-              <li>Monthly reset — unused reports don’t roll over</li>
-            </ul>
+    <!-- PROFESSIONAL -->
+    <div class="pricing-card">
+      <div class="pricing-name">Professional</div>
+      <div class="pricing-price">$99 / month</div>
+      <div class="pricing-meta-extra">For regular agency use</div>
 
-            <button class="pricing-cta" data-plan="intelligence">START SUBSCRIPTION</button>
-          </div>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>50 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable report</li>
+        <li>No auto-overage</li>
+        <li>Monthly reset — unused reports don’t roll over</li>
+      </ul>
 
-          <div class="pricing-card">
-            <div class="pricing-name">Impact</div>
-            <div class="pricing-price">$149 / month</div>
-            <div class="pricing-meta-extra">For high-volume teams</div>
+      <button class="pricing-cta" data-plan="sub50">START SUBSCRIPTION</button>
+    </div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>100 reports per month</strong></li>
-              <li>Full diagnostics</li>
-              <li>Client-ready shareable report</li>
-              <li>No auto-overage</li>
-              <li>Monthly reset — unused reports don’t roll over</li>
-            </ul>
+    <!-- AGENCY -->
+    <div class="pricing-card">
+      <div class="pricing-name">Agency</div>
+      <div class="pricing-price">$149 / month</div>
+      <div class="pricing-meta-extra">For high-volume teams</div>
 
-            <button class="pricing-cta" data-plan="impact">START SUBSCRIPTION</button>
-          </div>
-        </div>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>100 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable report</li>
+        <li>No auto-overage</li>
+        <li>Monthly reset — unused reports don’t roll over</li>
+      </ul>
 
-        <p class="pricing-note">All prices are in USD.</p>
-        <p class="pricing-note">🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.</p>
+      <button class="pricing-cta" data-plan="sub100">START SUBSCRIPTION</button>
+    </div>
 
-        <p class="pricing-footnote">
-          Need a tailored plan?
-          <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
-        </p>
-      </section>
+  </div>
+
+  <p class="pricing-note">All prices are in USD.</p>
+  <p class="pricing-note">🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.</p>
+
+  <p class="pricing-footnote">
+    Need a tailored plan?
+    <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
+  </p>
+</section>
 
       <!-- TRUST -->
       <section class="section" id="trust">
@@ -1506,11 +1512,11 @@
           btn.getAttribute("data-buy");
 
         const map = {
-          single: "oneoff",
-          oneoff: "oneoff",
-          intelligence: "sub50",
+          starter: "sub10",
+          sub10: "sub10",
+          professional: "sub50",
           sub50: "sub50",
-          impact: "sub100",
+          agency: "sub100",
           sub100: "sub100",
         };
 

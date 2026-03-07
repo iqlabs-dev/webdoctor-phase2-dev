@@ -26,12 +26,10 @@ function json(statusCode, payload) {
 // 🔒 PAYMENTS FREEZE (Admin flag + emergency env)
 // -------------------------------------------------
 async function isPaymentsFrozen() {
-  // Emergency kill switch (env)
   if (process.env.PAYMENTS_DISABLED === "1") {
     return { frozen: true, reason: "env_kill_switch" };
   }
 
-  // Admin-controlled flag (DB)
   try {
     const { data, error } = await supabase
       .from("admin_flags")
@@ -39,10 +37,15 @@ async function isPaymentsFrozen() {
       .eq("id", 1)
       .maybeSingle();
 
-    if (error) return { frozen: false }; // fail-open (don’t brick payments if DB hiccups)
+    if (error) return { frozen: false };
+
     if (data && data.freeze_payments === true) {
-      return { frozen: true, reason: data.freeze_reason || "admin_freeze" };
+      return {
+        frozen: true,
+        reason: data.freeze_reason || "admin_freeze",
+      };
     }
+
     return { frozen: false };
   } catch (_) {
     return { frozen: false };
@@ -55,20 +58,17 @@ export const handler = async (event) => {
       return json(405, { error: "Method not allowed" });
     }
 
-    // ✅ Block NEW checkout session creation here
-  const freeze = await isPaymentsFrozen();
-if (freeze.frozen) {
-  return json(503, {
-    ok: false,
-    code: "checkout_frozen",
-    title: "Checkout temporarily unavailable",
-    message:
-      freeze.reason
-        ? `Checkout is paused: ${freeze.reason}. Please try again shortly.`
-        : "Checkout is currently frozen for maintenance. Please try again later.",
-  });
-}
-
+    const freeze = await isPaymentsFrozen();
+    if (freeze.frozen) {
+      return json(503, {
+        ok: false,
+        code: "checkout_frozen",
+        title: "Checkout temporarily unavailable",
+        message: freeze.reason
+          ? `Checkout is paused: ${freeze.reason}. Please try again shortly.`
+          : "Checkout is currently frozen for maintenance. Please try again later.",
+      });
+    }
 
     const { priceKey, user_id, email } = JSON.parse(event.body || "{}");
 
@@ -76,15 +76,27 @@ if (freeze.frozen) {
     if (!user_id) return json(400, { error: "Missing user_id" });
     if (!email) return json(400, { error: "Missing email" });
 
+    // -------------------------------------------------
+    // Pricing map
+    // Frontend should now send one of:
+    // - sub10
+    // - sub50
+    // - sub100
+    // -------------------------------------------------
     const PRICE_MAP = {
-      oneoff: process.env.STRIPE_PRICE_ONEOFF_SCAN,
+      sub10: process.env.STRIPE_PRICE_SUB_10,
       sub50: process.env.STRIPE_PRICE_SUB_50,
       sub100: process.env.STRIPE_PRICE_SUB_100,
     };
 
     const priceId = PRICE_MAP[priceKey];
+
     if (!priceId) {
-      return json(400, { error: "Invalid priceKey", priceKey });
+      return json(400, {
+        error: "Invalid priceKey",
+        priceKey,
+        allowed: Object.keys(PRICE_MAP),
+      });
     }
 
     // Base URL derived from request (works for prod + previews)
@@ -98,10 +110,12 @@ if (freeze.frozen) {
 
     const cancel_url = `${origin}/dashboard.html`;
 
-    const mode = priceKey === "oneoff" ? "payment" : "subscription";
+    // All plans are now subscriptions
+    const mode = "subscription";
 
-    // Try reuse an existing Stripe customer (prevents duplicates)
+    // Try reusing an existing Stripe customer
     let stripeCustomerId = null;
+
     try {
       const { data: profile } = await supabase
         .from("profiles")
@@ -109,7 +123,11 @@ if (freeze.frozen) {
         .eq("user_id", user_id)
         .maybeSingle();
 
-      if (profile && typeof profile.stripe_customer_id === "string" && profile.stripe_customer_id.startsWith("cus_")) {
+      if (
+        profile &&
+        typeof profile.stripe_customer_id === "string" &&
+        profile.stripe_customer_id.startsWith("cus_")
+      ) {
         stripeCustomerId = profile.stripe_customer_id;
       }
     } catch (_) {
@@ -143,6 +161,7 @@ if (freeze.frozen) {
     return json(200, { url: session.url });
   } catch (err) {
     console.error("Stripe checkout error:", err);
+
     return json(500, {
       error: err?.raw?.message || err.message || "Checkout failed",
     });

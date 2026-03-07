@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>iQWEB — Pricing</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="iQWEB pricing — simple plans with clear limits. One-off report or usage-capped subscriptions.">
+  <meta name="description" content="iQWEB pricing — simple subscription plans with clear monthly scan limits for agencies and teams.">
 
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -233,8 +233,8 @@
       <section class="hero">
         <h1>Pricing</h1>
         <p>
-          Simple pricing, clear limits.<br/>
-          One-off reports or usage-capped subscriptions — no auto-overage.
+          Simple subscription pricing, clear limits.<br/>
+          Monthly scan plans for agencies and teams — no auto-overage.
         </p>
       </section>
 
@@ -242,33 +242,34 @@
 
       <section class="pricing-row">
 
-        <!-- Single Report -->
+        <!-- Starter -->
         <article class="card">
-          <div class="plan-name">Single Report</div>
-          <div class="price">$49</div>
-          <div class="meta">One-time purchase</div>
+          <div class="plan-name">Starter</div>
+          <div class="price">$39 / month</div>
+          <div class="meta">For occasional diagnostics</div>
 
           <ul class="bullets">
-            <li>1 full website diagnostic</li>
-            <li>Client-ready PDF included</li>
-            <li>Verified Report ID</li>
-            <li>No subscription</li>
+            <li>Up to <strong>10 reports per month</strong></li>
+            <li>Full website diagnostics</li>
+            <li>Client-ready shareable report</li>
+            <li>No auto-overage</li>
+            <li>Monthly reset — unused reports don’t roll over</li>
           </ul>
 
-          <button class="cta pricing-cta" data-buy="oneoff">
-            Get report
+          <button class="cta pricing-cta" data-buy="sub10">
+            Start subscription
           </button>
         </article>
 
-        <!-- Intelligence -->
+        <!-- Professional -->
         <article class="card">
-          <div class="plan-name">Intelligence</div>
+          <div class="plan-name">Professional</div>
           <div class="price">$99 / month</div>
-          <div class="meta">For regular use</div>
+          <div class="meta">For regular agency use</div>
 
-      <ul class="bullets">
+          <ul class="bullets">
             <li>Up to <strong>50 reports per month</strong></li>
-            <li>Full diagnostics</li>
+            <li>Full website diagnostics</li>
             <li>Client-ready shareable report</li>
             <li>No auto-overage</li>
             <li>Monthly reset — unused reports don’t roll over</li>
@@ -279,15 +280,15 @@
           </button>
         </article>
 
-        <!-- Impact -->
+        <!-- Agency -->
         <article class="card">
-          <div class="plan-name">Impact</div>
+          <div class="plan-name">Agency</div>
           <div class="price">$149 / month</div>
           <div class="meta">For high-volume teams</div>
 
           <ul class="bullets">
             <li>Up to <strong>100 reports per month</strong></li>
-            <li>Full diagnostics</li>
+            <li>Full website diagnostics</li>
             <li>Client-ready shareable report</li>
             <li>No auto-overage</li>
             <li>Monthly reset — unused reports don’t roll over</li>
@@ -395,8 +396,7 @@
     // Auto-open if pricing.html?buy=...
     const params = new URLSearchParams(location.search);
     const buy = params.get("buy");
-    if (buy === "oneoff" || buy === "sub50" || buy === "sub100") {
-      // small delay so page paint happens first
+    if (buy === "sub10" || buy === "sub50" || buy === "sub100") {
       setTimeout(() => openCheckout(buy), 150);
     }
   </script>

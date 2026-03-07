@@ -710,9 +710,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  bindCheckout($("btn-plan-insight"), "oneoff");
-  bindCheckout($("btn-plan-intelligence"), "sub50");
-  bindCheckout($("btn-plan-impact"), "sub100");
+bindCheckout($("btn-plan-starter"), "sub10");
+bindCheckout($("btn-plan-professional"), "sub50");
+bindCheckout($("btn-plan-agency"), "sub100");
 
  
 // Billing: Stripe portal
@@ -759,7 +759,7 @@ if (manageLink) {
     }
 
     if (runBtn.disabled) {
-      statusEl.textContent = "No scans remaining. Select a plan to continue.";
+      statusEl.textContent = "No scans remaining. Choose a plan to continue.";
       return;
     }
 
