@@ -380,6 +380,7 @@ export const handler = async (event) => {
         });
         if (wr?.error) throw wr.error;
 
+        // Initial purchase: set starting allowance for the paid period.
         if (planPayload && email) {
           const upUc = await safeUpsertUserCredits(email, {
             plan: planPayload.plan,
@@ -461,6 +462,7 @@ export const handler = async (event) => {
       });
       if (wr?.error) throw wr.error;
 
+      // Renewal boundary: reset allowance for the new paid month.
       if (email) {
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
@@ -533,10 +535,19 @@ export const handler = async (event) => {
       });
       if (wr?.error) throw wr.error;
 
+      // IMPORTANT:
+      // Do NOT reset remaining credits here.
+      // This event is also used when a user cancels at period end.
+      // We only keep plan linkage/customer linkage/status in sync.
       if (email && mapped && mapped.kind === "subscription") {
+        const existingCredits = await findUserCreditsByEmail(email);
+
         const upUc = await safeUpsertUserCredits(email, {
           plan: mapped.plan,
-          credits: mapped.credits,
+          credits:
+            existingCredits && typeof existingCredits.credits === "number"
+              ? existingCredits.credits
+              : 0,
           stripe_customer_id: customerId || null,
         });
         if (upUc.error) throw upUc.error;
@@ -588,8 +599,24 @@ export const handler = async (event) => {
       });
       if (upSub?.error) throw upSub.error;
 
+      // IMPORTANT:
+      // Do NOT zero credits here.
+      // User should keep remaining scans until paid period expiry.
+      // Expiry cleanup should happen separately at true access end.
       if (email) {
-        const upUc = await safeUpsertUserCredits(email, { plan: "free", credits: 0 });
+        const existingCredits = await findUserCreditsByEmail(email);
+
+        const upUc = await safeUpsertUserCredits(email, {
+          plan:
+            existingCredits && existingCredits.plan
+              ? existingCredits.plan
+              : "free",
+          credits:
+            existingCredits && typeof existingCredits.credits === "number"
+              ? existingCredits.credits
+              : 0,
+          stripe_customer_id: customerId || null,
+        });
         if (upUc.error) throw upUc.error;
       }
 
