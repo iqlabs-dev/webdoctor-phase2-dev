@@ -347,32 +347,81 @@
       font-weight: 700;
     }
 
-    .hero-scan-status {
-      display: none;
-      width: fit-content;
-      max-width: 100%;
-      padding: 9px 12px;
-      border-radius: 12px;
-      font-size: 0.78rem;
-      line-height: 1.5;
-      border: 1px solid rgba(148,163,184,0.22);
-      background: rgba(15,23,42,0.72);
-      color: rgba(229,240,255,0.88);
-    }
+.hero-scan-status {
+  display: none;
+  width: fit-content;
+  max-width: 100%;
+  padding: 11px 13px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border: 1px solid rgba(148,163,184,0.22);
+  background: rgba(15,23,42,0.72);
+  color: rgba(229,240,255,0.88);
+}
 
-    .hero-scan-status.is-visible { display: inline-flex; }
+.hero-scan-status.is-visible {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
 
-    .hero-scan-status.is-error {
-      border-color: rgba(251,113,133,0.35);
-      background: var(--danger-soft);
-      color: #ffd5de;
-    }
+.hero-scan-status.is-error {
+  border-color: rgba(251,113,133,0.35);
+  background: var(--danger-soft);
+  color: #ffd5de;
+}
 
-    .hero-scan-status.is-ok {
-      border-color: rgba(20,184,166,0.35);
-      background: var(--ok-soft);
-      color: #ccfbf1;
-    }
+.hero-scan-status.is-ok {
+  border-color: rgba(20,184,166,0.35);
+  background: var(--ok-soft);
+  color: #ccfbf1;
+}
+
+.hero-scan-status.is-promo {
+  border-color: rgba(34,211,238,0.34);
+  background: rgba(34,211,238,0.10);
+  color: #d8f9ff;
+}
+
+.hero-scan-status-text {
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.hero-scan-status-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-scan-status-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(34,211,238,0.55);
+  background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(15,23,42,0.70);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+}
+
+.hero-scan-status-cta:hover {
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.88);
+  box-shadow: 0 14px 28px rgba(34,211,238,0.26);
+  color: var(--ink);
+  text-decoration: none;
+}
 
     .hero-cta {
       margin-top: 12px;
@@ -1587,15 +1636,31 @@
     const status = document.getElementById("heroScanStatus");
 
     if (form && input && button && status) {
-      const setStatus = (message, type = "") => {
-        status.textContent = message || "";
-        status.className = "hero-scan-status";
-        if (message) {
-          status.classList.add("is-visible");
-          if (type === "error") status.classList.add("is-error");
-          if (type === "ok") status.classList.add("is-ok");
-        }
-      };
+  const setStatus = (message, type = "", ctaHtml = "") => {
+  status.innerHTML = "";
+
+  status.className = "hero-scan-status";
+
+  if (!message) return;
+
+  status.classList.add("is-visible");
+
+  if (type === "error") status.classList.add("is-error");
+  if (type === "ok") status.classList.add("is-ok");
+  if (type === "promo") status.classList.add("is-promo");
+
+  const text = document.createElement("div");
+  text.className = "hero-scan-status-text";
+  text.textContent = message;
+  status.appendChild(text);
+
+  if (ctaHtml) {
+    const actions = document.createElement("div");
+    actions.className = "hero-scan-status-actions";
+    actions.innerHTML = ctaHtml;
+    status.appendChild(actions);
+  }
+};
 
       const setBusy = (busy) => {
         button.disabled = busy;
@@ -1754,7 +1819,8 @@ if (
 ) {
   setStatus(
     "Your free demo report has already been used. Create a free account to run additional scans and save reports.",
-    "error"
+    "promo",
+    '<a class="hero-scan-status-cta" href="/dashboard.html">Create Free Account</a>'
   );
 
 } else if (msg.toLowerCase().includes("anon_id_required")) {
