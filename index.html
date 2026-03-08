@@ -205,25 +205,41 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .hero-h1 {
-      font-size: clamp(2.6rem, 4.6vw, 4.15rem);
-      line-height: 1.02;
-      letter-spacing: -0.02em;
-      font-weight: 800;
-      margin: 0;
-      color: #ffffff;
-      opacity: 0;
-      animation: heroFadeUp 620ms ease forwards;
-    }
+.hero-h1 {
+  font-size: clamp(2.6rem, 4.6vw, 4.15rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  margin: 0;
+  opacity: 0;
+  animation: heroFadeUp 620ms ease forwards;
+}
 
-    .hero-h1 span { color: var(--accent); text-shadow: 0 0 18px rgba(34, 211, 238, 0.25); }
-    .hero-h1 span.hero-white { color: #ffffff !important; text-shadow: none; }
+.hero-h1.hero-teal {
+  color: #22d3ee;
+  text-shadow: none;
+}
 
-    @keyframes tealFadeIn {
-      from { opacity: 0; filter: blur(1.5px); transform: translateY(6px); }
-      to   { opacity: 1; filter: blur(0); transform: translateY(0); }
-    }
-    .hero-h1 .hero-teal-fade { opacity: 0; animation: tealFadeIn 720ms ease forwards; animation-delay: 260ms; }
+.hero-h1 span {
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+}
+
+.hero-h1 span.hero-white {
+  color: #ffffff !important;
+  text-shadow: none;
+}
+
+@keyframes tealFadeIn {
+  from { opacity: 0; filter: blur(1.5px); transform: translateY(6px); }
+  to   { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+
+.hero-h1 .hero-teal-fade {
+  opacity: 0;
+  animation: tealFadeIn 720ms ease forwards;
+  animation-delay: 260ms;
+}
 
     .hero-h2 {
       font-size: clamp(1.05rem, 1.45vw, 1.22rem);
@@ -231,7 +247,7 @@
       color: rgba(255,255,255,0.88);
       font-weight: 500;
       max-width: 68ch;
-      margin: 26px 0 0;
+      margin: 32px 0 0;
       opacity: 0;
       animation: heroFadeUp 620ms ease forwards;
       animation-delay: 140ms;
@@ -444,22 +460,33 @@
       animation-delay: 280ms;
     }
 
-    .hero-text-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.86rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--accent-2);
-      text-decoration: none !important;
-      background: transparent !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      padding: 0 !important;
-      border-radius: 0 !important;
-      outline: none;
-    }
+.hero-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  color: #22d3ee;
+
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  border-radius: 0;
+  outline: none;
+
+  transition: color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.hero-text-link:hover {
+  color: #67e8f9;
+  transform: translateX(2px);
+  opacity: 0.95;
+}
 
     .hero-text-link:hover {
       color: #7dd3fc;
@@ -1132,73 +1159,79 @@
         </div>
       </header>
 
-      <!-- HERO -->
-      <main class="hero-shell">
-        <section class="hero-left">
-          <h1 class="hero-h1">
-            Turn <span class="hero-white">raw performance</span><br>
-            <span class="hero-white">signals</span> <span class="hero-white">into</span> <span class="hero-teal-fade">client</span><br>
-            <span class="hero-teal-fade">ready reports.</span>
-          </h1>
+<!-- HERO -->
+<main class="hero-shell">
+  <section class="hero-left">
 
-          <h2 class="hero-h2">
-            iQWEB translates technical signals into a clear, prioritised summary your clients can understand and trust.
-          </h2>
+    <h1 class="hero-h1 hero-teal">
+      Turn website diagnostics into reports clients understand.
+    </h1>
 
-          <div class="hero-scan-shell" aria-label="Run a complimentary scan">
-            <form class="hero-scan-form" id="heroScanForm">
-              <input
-                id="heroScanInput"
-                class="hero-scan-input"
-                type="text"
-                inputmode="url"
-                autocomplete="url"
-                spellcheck="false"
-                placeholder="Enter website URL (example.com)"
-                aria-label="Website URL"
-                required
-              />
-              <button id="heroScanButton" class="hero-scan-button" type="submit">Run Free Scan</button>
-            </form>
+    <h2 class="hero-h2">
+      iQWEB analyses website performance and technical signals
+to generate a report agencies can share with clients
+to explain issues and prioritise fixes.
+    </h2>
 
-            <div class="hero-scan-meta">
-<p class="hero-scan-helper">
-  Scan any public website URL — your first report is free.
-</p>
-              <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
-            </div>
-          </div>
+<div class="hero-scan-shell" aria-label="Generate a website report">
+  <form class="hero-scan-form" id="heroScanForm">
+    <input
+      id="heroScanInput"
+      class="hero-scan-input"
+      type="text"
+      inputmode="url"
+      autocomplete="url"
+      spellcheck="false"
+      placeholder="Enter a website URL"
+      aria-label="Website URL"
+      required
+    />
+    <button id="heroScanButton" class="hero-scan-button" type="submit">
+      Generate Report
+    </button>
+  </form>
 
-      <div class="hero-cta">
-  <a href="/report.html?report_id=EXAMPLE-REPORT-001"
-     target="_blank"
-     rel="noopener"
-     class="hero-text-link">See a real report example →</a>
+  <div class="hero-scan-meta">
+    <p class="hero-scan-helper">
+      Generate a report for any public website — your first report is free.
+    </p>
+    <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
+  </div>
 </div>
 
-          <div class="hero-proof" aria-label="Platform proof points">
-            <span class="proof-chip"><span class="proof-dot"></span>Powered by PSI + Core Web Vitals</span>
-            <span class="proof-chip"><span class="proof-dot"></span>Deterministic scoring model</span>
-            <span class="proof-chip"><span class="proof-dot"></span>No generic AI summaries</span>
-            <span class="proof-chip"><span class="proof-dot"></span>Made in New Zealand</span>
-          </div>
+<div class="hero-cta">
+  <a href="/report.html?report_id=demo"
+     target="_blank"
+     rel="noopener"
+     class="hero-text-link">
+     View example report →
+  </a>
+</div>
 
-          <div class="pillars" aria-label="Three pillars">
-            <div class="pillar">
-              <h3>Evidence-driven</h3>
-              <p>Grounded in real performance and structural signals — not opinions, screenshots, or vibes.</p>
-            </div>
-            <div class="pillar">
-              <h3>Deterministic model</h3>
-              <p>Consistent outputs you can explain and defend in a client conversation.</p>
-            </div>
-            <div class="pillar">
-              <h3>Client-ready</h3>
-              <p>Clear priorities, weakest-signal emphasis, and a report link you can share with confidence.</p>
-            </div>
-          </div>
-        </section>
-      </main>
+    <div class="hero-proof" aria-label="Platform proof points">
+      <span class="proof-chip"><span class="proof-dot"></span>Multi-signal website diagnostics</span>
+      <span class="proof-chip"><span class="proof-dot"></span>Deterministic scoring model</span>
+      <span class="proof-chip"><span class="proof-dot"></span>No generic AI summaries</span>
+      <span class="proof-chip"><span class="proof-dot"></span>Made in New Zealand</span>
+    </div>
+
+    <div class="pillars" aria-label="Three pillars">
+      <div class="pillar">
+        <h3>Evidence-driven</h3>
+        <p>Grounded in real performance and structural signals — not opinions, screenshots, or vibes.</p>
+      </div>
+      <div class="pillar">
+        <h3>Deterministic model</h3>
+        <p>Consistent outputs you can explain and defend in a client conversation.</p>
+      </div>
+      <div class="pillar">
+        <h3>Client-ready</h3>
+        <p>Clear priorities, weakest-signal emphasis, and a report link you can share with confidence.</p>
+      </div>
+    </div>
+
+  </section>
+</main>
 
 <!-- NINE SIGNALS -->
 <section id="signals" class="iq-section iq-section-signals">
