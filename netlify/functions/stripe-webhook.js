@@ -160,46 +160,6 @@ async function safeUpdateProfile(userId, patch) {
 }
 
 // -------------------------------------------------
-// user_credits helpers
-// -------------------------------------------------
-async function findUserCreditsByEmail(email) {
-  const e = normalizeEmail(email);
-  if (!e) return null;
-
-  const { data, error } = await supabase
-    .from("user_credits")
-    .select("id,email,credits,plan,stripe_customer_id")
-    .eq("email", e)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
-async function safeUpsertUserCredits(email, patch) {
-  const e = normalizeEmail(email);
-  if (!e) return { error: new Error("Missing email for user_credits upsert") };
-
-  const payload = { email: e, ...patch };
-
-  let res = await supabase
-    .from("user_credits")
-    .upsert(payload, { onConflict: "email" });
-
-  if (!res.error) return res;
-
-  if (isMissingColumnError(res.error)) {
-    const retry = { ...payload };
-    res = await supabase
-      .from("user_credits")
-      .upsert(retry, { onConflict: "email" });
-    return res;
-  }
-
-  return res;
-}
-
-// -------------------------------------------------
 // subscriptions helpers
 // -------------------------------------------------
 async function safeWriteSubscription({ email, subscriptionId, customerId, patch }) {
@@ -252,7 +212,7 @@ async function safeWriteSubscription({ email, subscriptionId, customerId, patch 
       msg.includes("on conflict") ||
       msg.includes("constraint");
 
-    // 4) If email has no unique constraint, try update-by-email first,
+    // If email has no unique constraint, try update-by-email first,
     // and if no row exists, do a real insert.
     if (looksLikeNoConstraint) {
       const upd = await supabase
@@ -347,14 +307,10 @@ export const handler = async (event) => {
     }
 
     const sig = event.headers["stripe-signature"];
-    if (!sig) {
-      return json(400, { ok: false, error: "Missing stripe-signature" });
-    }
+    if (!sig) return json(400, { ok: false, error: "Missing stripe-signature" });
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      return json(500, { ok: false, error: "Missing STRIPE_WEBHOOK_SECRET" });
-    }
+    if (!webhookSecret) return json(500, { ok: false, error: "Missing STRIPE_WEBHOOK_SECRET" });
 
     let stripeEvent;
     try {
@@ -469,15 +425,6 @@ export const handler = async (event) => {
         });
         if (wr?.error) throw wr.error;
 
-        if (planPayload && email) {
-          const upUc = await safeUpsertUserCredits(email, {
-            plan: planPayload.plan,
-            credits: planPayload.credits,
-            stripe_customer_id: customerId || null,
-          });
-          if (upUc.error) throw upUc.error;
-        }
-
         if (planPayload) {
           const up = await safeUpdateProfile(userId, {
             plan: planPayload.plan,
@@ -506,10 +453,7 @@ export const handler = async (event) => {
     }
 
     // ---------------- invoice.paid OR invoice.payment_succeeded ----------------
-    if (
-      stripeEvent.type === "invoice.paid" ||
-      stripeEvent.type === "invoice.payment_succeeded"
-    ) {
+    if (stripeEvent.type === "invoice.paid" || stripeEvent.type === "invoice.payment_succeeded") {
       const invoice = stripeEvent.data.object;
 
       const customerId = invoice.customer || null;
@@ -530,9 +474,7 @@ export const handler = async (event) => {
         return json(200, { ok: true, note: "invoice: unmapped price" });
       }
 
-      if (mapped.kind !== "subscription") {
-        return json(200, { ok: true });
-      }
+      if (mapped.kind !== "subscription") return json(200, { ok: true });
 
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
@@ -551,9 +493,11 @@ export const handler = async (event) => {
       if (subscriptionId) {
         profile = await findProfileByStripeSubscription(subscriptionId);
       }
+
       if (!profile && customerId) {
         profile = await findProfileByStripeCustomer(customerId);
       }
+
       if (!profile && email) {
         profile = await findProfileByEmail(email);
       }
@@ -589,23 +533,6 @@ export const handler = async (event) => {
         },
       });
       if (wr?.error) throw wr.error;
-
-      if (email) {
-        const upUc = await safeUpsertUserCredits(email, {
-          plan: mapped.plan,
-          credits: mapped.credits,
-          stripe_customer_id: customerId || null,
-        });
-        if (upUc.error) throw upUc.error;
-      } else {
-        console.warn("[stripe-webhook] invoice event could not resolve email for user_credits update", {
-          stripeEventType: stripeEvent.type,
-          invoiceId: invoice?.id || null,
-          customerId,
-          subscriptionId,
-          priceId,
-        });
-      }
 
       if (profile?.user_id) {
         const up = await safeUpdateProfile(profile.user_id, {
@@ -664,24 +591,14 @@ export const handler = async (event) => {
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
         (await findSubscriptionByStripeCustomerId(customerId));
 
-      if (existingSubRow?.email) {
-        email = normalizeEmail(existingSubRow.email);
-      }
+      if (existingSubRow?.email) email = normalizeEmail(existingSubRow.email);
 
       let profile = null;
-      if (subscriptionId) {
-        profile = await findProfileByStripeSubscription(subscriptionId);
-      }
-      if (!profile && customerId) {
-        profile = await findProfileByStripeCustomer(customerId);
-      }
-      if (!profile && email) {
-        profile = await findProfileByEmail(email);
-      }
+      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
+      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
+      if (!profile && email) profile = await findProfileByEmail(email);
 
-      if (!email && profile?.email) {
-        email = normalizeEmail(profile.email);
-      }
+      if (!email && profile?.email) email = normalizeEmail(profile.email);
 
       const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
 
@@ -698,20 +615,6 @@ export const handler = async (event) => {
         },
       });
       if (wr?.error) throw wr.error;
-
-      if (email && mapped && mapped.kind === "subscription") {
-        const existingCredits = await findUserCreditsByEmail(email);
-
-        const upUc = await safeUpsertUserCredits(email, {
-          plan: mapped.plan,
-          credits:
-            existingCredits && typeof existingCredits.credits === "number"
-              ? existingCredits.credits
-              : 0,
-          stripe_customer_id: customerId || null,
-        });
-        if (upUc.error) throw upUc.error;
-      }
 
       if (profile?.user_id && mapped && mapped.kind === "subscription") {
         const up = await safeUpdateProfile(profile.user_id, {
@@ -750,24 +653,14 @@ export const handler = async (event) => {
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
         (await findSubscriptionByStripeCustomerId(customerId));
 
-      if (existing?.email) {
-        email = normalizeEmail(existing.email);
-      }
+      if (existing?.email) email = normalizeEmail(existing.email);
 
       let profile = null;
-      if (subscriptionId) {
-        profile = await findProfileByStripeSubscription(subscriptionId);
-      }
-      if (!profile && customerId) {
-        profile = await findProfileByStripeCustomer(customerId);
-      }
-      if (!profile && email) {
-        profile = await findProfileByEmail(email);
-      }
+      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
+      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
+      if (!profile && email) profile = await findProfileByEmail(email);
 
-      if (!email && profile?.email) {
-        email = normalizeEmail(profile.email);
-      }
+      if (!email && profile?.email) email = normalizeEmail(profile.email);
 
       const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
 
@@ -778,29 +671,11 @@ export const handler = async (event) => {
         patch: {
           status: "canceled",
           cancel_at_period_end: true,
-          canceled_at:
-            unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
+          canceled_at: unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
           current_period_end: periodEndIso,
         },
       });
       if (upSub?.error) throw upSub.error;
-
-      if (email) {
-        const existingCredits = await findUserCreditsByEmail(email);
-
-        const upUc = await safeUpsertUserCredits(email, {
-          plan:
-            existingCredits && existingCredits.plan
-              ? existingCredits.plan
-              : "free",
-          credits:
-            existingCredits && typeof existingCredits.credits === "number"
-              ? existingCredits.credits
-              : 0,
-          stripe_customer_id: customerId || null,
-        });
-        if (upUc.error) throw upUc.error;
-      }
 
       if (profile?.user_id) {
         const up = await safeUpdateProfile(profile.user_id, {
