@@ -313,19 +313,19 @@ function updateUsageUI(profile) {
 // -----------------------------
 // Profile load (READ ONLY)
 // user_credits: paid credits (id = auth.user.id)
-// user_flags: free scans + flags (user_id = auth.user.id)
+// user_flags: fre scans + flags (user_id = auth.user.id)
 // -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-// 1) paid credits (USER_CREDITS — Paddle/one-off packs)
+// 1) paid credits (PROFILES — source of truth)
 let ucRow = null;
 try {
   const uc1 = await supabase
-    .from("user_credits")
-    .select("id,email,credits")
-    .eq("id", currentUserId)
+    .from("profiles")
+    .select("credits")
+    .eq("user_id", currentUserId)
     .maybeSingle();
 
   if (!uc1.error && uc1.data) ucRow = uc1.data;
