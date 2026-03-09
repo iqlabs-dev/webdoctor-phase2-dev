@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.2 — paid+free credits display + stable access gating + history + report nav");
+console.log("DASHBOARD JS v4.3 — signup trial bootstrap + paid+free credits display + stable access gating + history + report nav");
 
 let currentUserId = null;
 
@@ -41,13 +41,11 @@ function normaliseReportId(v) {
   const m = s.match(/^WEB-(\d{8})-(\d{1,5})$/);
   if (!m) return null;
 
-  const datePart = m[1];                 // YYYYMMDD
+  const datePart = m[1];
   const tail = String(m[2]).padStart(5, "0");
 
   return `WEB-${datePart}-${tail}`;
 }
-
-
 
 /**
  * Latest Scan → View report (same tab)
@@ -65,7 +63,6 @@ function goToReport(reportId) {
   window.location.href = url;
 }
 
-
 /**
  * Scan History → View + Download PDF (new tab)
  */
@@ -80,7 +77,6 @@ function goToReportFromHistory(reportId) {
   console.log("[NAV] history new-tab ->", url);
   window.open(url, "_blank", "noopener");
 }
-
 
 function setUserUI(email) {
   const emailEl = $("wd-user-email");
@@ -141,7 +137,6 @@ async function startCheckout(priceKey) {
 
     const data = await res.json().catch(function () { return {}; });
 
-    // If backend blocked checkout (freeze/maintenance)
     if (!res.ok) {
       if (data && (data.code === "checkout_frozen" || data.code === "payments_disabled")) {
         var title = data.title ? String(data.title) : "Checkout temporarily unavailable";
@@ -164,7 +159,6 @@ async function startCheckout(priceKey) {
     alert((err && err.message) ? err.message : "Checkout could not be started.");
   }
 }
-
 
 // -----------------------------
 // Stripe Customer Portal (Billing)
@@ -199,6 +193,32 @@ async function openStripePortal() {
     window.location.href = data.url;
   } catch (err) {
     alert(err.message || "Unable to open billing portal.");
+  }
+}
+
+// -----------------------------
+// One-time signup trial credit bootstrap
+// -----------------------------
+async function bootstrapSignupTrialCredits() {
+  if (!currentUserId) return;
+
+  try {
+    const res = await fetch("/.netlify/functions/grant-trial-credits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: currentUserId }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      console.warn("[TRIAL BOOTSTRAP] non-fatal error:", data);
+      return;
+    }
+
+    console.log("[TRIAL BOOTSTRAP] result:", data);
+  } catch (err) {
+    console.warn("[TRIAL BOOTSTRAP] unexpected non-fatal error:", err);
   }
 }
 
@@ -266,10 +286,8 @@ function updateUsageUI(profile) {
     return;
   }
 
-  // Paid chip
   if (paidEl) paidEl.textContent = access.founder ? "999" : String(access.paidRemaining);
 
-  // Free chip
   if (freeChip && freeEl) {
     if (access.freeRemaining > 0 && !access.founder) {
       freeEl.textContent = String(access.freeRemaining);
@@ -293,7 +311,6 @@ function updateUsageUI(profile) {
     }
   }
 
-  // Info line (don’t overwrite “Scan complete.”)
   if (infoEl && !access.founder) {
     const current = String(infoEl.textContent || "");
     if (current.indexOf("Scan complete") === -1) {
@@ -312,28 +329,24 @@ function updateUsageUI(profile) {
 
 // -----------------------------
 // Profile load (READ ONLY)
-// user_credits: paid credits (id = auth.user.id)
-// user_flags: fre scans + flags (user_id = auth.user.id)
+// profiles: paid credits (user_id = auth.user.id)
+// user_flags: free scans + flags (user_id = auth.user.id)
 // -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-// 1) paid credits (PROFILES — source of truth)
-let ucRow = null;
-try {
-  const uc1 = await supabase
-    .from("profiles")
-    .select("credits")
-    .eq("user_id", currentUserId)
-    .maybeSingle();
+    let ucRow = null;
+    try {
+      const uc1 = await supabase
+        .from("profiles")
+        .select("credits")
+        .eq("user_id", currentUserId)
+        .maybeSingle();
 
-  if (!uc1.error && uc1.data) ucRow = uc1.data;
-} catch (_) {}
+      if (!uc1.error && uc1.data) ucRow = uc1.data;
+    } catch (_) {}
 
-
-
-    // 2) user_flags (free scans + flags)
     let ufRow = null;
     try {
       const uf1 = await supabase
@@ -347,14 +360,10 @@ try {
 
     const merged = {
       user_id: currentUserId,
-    email: (window.currentUserEmail || ""),
-
-
+      email: (window.currentUserEmail || ""),
       paid_credits: (ucRow && Number.isFinite(ucRow.credits)) ? ucRow.credits : 0,
-
       free_scans: (ufRow && Number.isFinite(ufRow.trial_scans_remaining)) ? ufRow.trial_scans_remaining : 0,
       free_expires_at: (ufRow && ufRow.trial_expires_at) ? ufRow.trial_expires_at : null,
-
       is_frozen: !!(ufRow && ufRow.is_frozen),
       is_banned: !!(ufRow && ufRow.is_banned),
     };
@@ -391,7 +400,7 @@ async function generateNarrative(reportId, accessToken) {
 }
 
 // -----------------------------
-// LATEST SCAN CARD (NO PDF HERE)
+// LATEST SCAN CARD
 // -----------------------------
 function updateLatestScanCard(row, opts = {}) {
   const elUrl = $("ls-url");
@@ -625,40 +634,37 @@ async function loadScanHistory() {
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
-// --- View Report button ---
-const viewBtn = document.createElement("button");
-viewBtn.className = "btn-link";
-viewBtn.type = "button";
-viewBtn.textContent = "View Report";
-viewBtn.onclick = () => goToReportFromHistory(row.report_id);
+      const viewBtn = document.createElement("button");
+      viewBtn.className = "btn-link";
+      viewBtn.type = "button";
+      viewBtn.textContent = "View Report";
+      viewBtn.onclick = () => goToReportFromHistory(row.report_id);
+      tdActions.appendChild(viewBtn);
 
-tdActions.appendChild(viewBtn);
-
-// --- Copy Link button ---
-const copyBtn = document.createElement("button");
-copyBtn.className = "btn-link";
-copyBtn.type = "button";
-copyBtn.style.marginLeft = "6px";
-copyBtn.textContent = "Copy Link";
-
-copyBtn.onclick = async () => {
-  const rid = normaliseReportId(row.report_id);
-  if (!rid) return;
-
-  const reportUrl = `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
-
-  try {
-    await navigator.clipboard.writeText(reportUrl);
-    copyBtn.textContent = "✓ Copied";
-    setTimeout(() => {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "btn-link";
+      copyBtn.type = "button";
+      copyBtn.style.marginLeft = "6px";
       copyBtn.textContent = "Copy Link";
-    }, 2000);
-  } catch (err) {
-    console.error("Clipboard failed:", err);
-  }
-};
 
-tdActions.appendChild(copyBtn);
+      copyBtn.onclick = async () => {
+        const rid = normaliseReportId(row.report_id);
+        if (!rid) return;
+
+        const reportUrl = `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
+
+        try {
+          await navigator.clipboard.writeText(reportUrl);
+          copyBtn.textContent = "✓ Copied";
+          setTimeout(() => {
+            copyBtn.textContent = "Copy Link";
+          }, 2000);
+        } catch (err) {
+          console.error("Clipboard failed:", err);
+        }
+      };
+
+      tdActions.appendChild(copyBtn);
       tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
@@ -710,43 +716,42 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-bindCheckout($("btn-plan-starter"), "sub10");
-bindCheckout($("btn-plan-professional"), "sub50");
-bindCheckout($("btn-plan-agency"), "sub100");
+  bindCheckout($("btn-plan-starter"), "sub10");
+  bindCheckout($("btn-plan-professional"), "sub50");
+  bindCheckout($("btn-plan-agency"), "sub100");
 
- 
-// Billing: Stripe portal
-const manageLink = document.getElementById("manage-subscription");
-if (manageLink) {
-  manageLink.addEventListener("click", async (e) => {
-    e.preventDefault();
+  const manageLink = document.getElementById("manage-subscription");
+  if (manageLink) {
+    manageLink.addEventListener("click", async (e) => {
+      e.preventDefault();
 
-    // prevent double-clicks
-    if (manageLink.dataset.loading === "1") return;
-    manageLink.dataset.loading = "1";
+      if (manageLink.dataset.loading === "1") return;
+      manageLink.dataset.loading = "1";
 
-    const originalText = manageLink.textContent;
-    manageLink.textContent = "Opening billing…";
-    manageLink.setAttribute("aria-busy", "true");
-    manageLink.style.pointerEvents = "none";
-    manageLink.style.opacity = "0.75";
+      const originalText = manageLink.textContent;
+      manageLink.textContent = "Opening billing…";
+      manageLink.setAttribute("aria-busy", "true");
+      manageLink.style.pointerEvents = "none";
+      manageLink.style.opacity = "0.75";
 
-    try {
-      await openStripePortal(); // redirects on success
-    } catch (err) {
-      console.error("Stripe portal error:", err);
-      alert("Unable to open billing right now. Please try again.");
+      try {
+        await openStripePortal();
+      } catch (err) {
+        console.error("Stripe portal error:", err);
+        alert("Unable to open billing right now. Please try again.");
 
-      // restore only if it failed
-      manageLink.dataset.loading = "0";
-      manageLink.textContent = originalText;
-      manageLink.removeAttribute("aria-busy");
-      manageLink.style.pointerEvents = "";
-      manageLink.style.opacity = "";
-    }
-  });
-}
+        manageLink.dataset.loading = "0";
+        manageLink.textContent = originalText;
+        manageLink.removeAttribute("aria-busy");
+        manageLink.style.pointerEvents = "";
+        manageLink.style.opacity = "";
+      }
+    });
+  }
 
+  // IMPORTANT:
+  // Bootstrap one-time signup trial credits BEFORE loading profile UI.
+  await bootstrapSignupTrialCredits();
 
   await refreshProfile();
   await loadScanHistory();
@@ -803,14 +808,10 @@ if (manageLink) {
 
       console.log("[RUN-SCAN] reportId:", reportId);
 
-          // Normalise the report_id (handles legacy values like ...-7014 -> ...-07014)
       const rid = normaliseReportId(reportId);
 
-      // Do NOT rely on run-scan response for report readiness.
-      // loadScanHistory() + updateLatestScanCard() is the source of truth for when report_id appears.
       showViewReportCTA();
 
-      // Fire-and-forget narrative generation ONLY if we already have an ID
       if (rid) {
         generateNarrative(rid, accessToken).catch((e) => {
           console.warn("[GENERATE-NARRATIVE] failed:", (e && e.message) || e);
@@ -820,6 +821,7 @@ if (manageLink) {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + ((err && err.message) || "Unknown error");
     } finally {
+      runBtn.disabled = false;
       await refreshProfile();
       updateUsageUI(window.currentProfile);
     }
