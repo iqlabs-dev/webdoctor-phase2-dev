@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.3 — signup trial bootstrap + paid+free credits display + stable access gating + history + report nav");
+console.log("DASHBOARD JS v4.4 — signup bootstrap + scans remaining + animated scan state");
 
 let currentUserId = null;
 
@@ -99,10 +99,6 @@ function showViewReportCTA() {
   statusEl.textContent = "✅ Scan complete.";
 }
 
-function isFounderEmail(email) {
-  return String(email || "").trim().toLowerCase() === "david.esther@iqlabs.co.nz";
-}
-
 function toDateOrNull(v) {
   try {
     if (!v) return null;
@@ -116,7 +112,11 @@ function toDateOrNull(v) {
 function fmtShortDate(d) {
   try {
     if (!d) return "";
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" });
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    });
   } catch {
     return "";
   }
@@ -135,7 +135,9 @@ async function startCheckout(priceKey) {
       }),
     });
 
-    const data = await res.json().catch(function () { return {}; });
+    const data = await res.json().catch(function () {
+      return {};
+    });
 
     if (!res.ok) {
       if (data && (data.code === "checkout_frozen" || data.code === "payments_disabled")) {
@@ -145,7 +147,10 @@ async function startCheckout(priceKey) {
         return;
       }
 
-      var errMsg = (data && (data.error || data.message)) ? (data.error || data.message) : "Unable to start checkout";
+      var errMsg =
+        data && (data.error || data.message)
+          ? (data.error || data.message)
+          : "Unable to start checkout";
       throw new Error(errMsg);
     }
 
@@ -223,11 +228,10 @@ async function bootstrapSignupTrialCredits() {
 }
 
 // -----------------------------
-// Access / credits model (Paid + Free)
+// Access / credits model
 // -----------------------------
-function computeAccess(profile, email) {
+function computeAccess(profile) {
   const now = Date.now();
-  const founder = isFounderEmail(email);
 
   const frozen = !!(profile && profile.is_frozen);
   const banned = !!(profile && profile.is_banned);
@@ -243,11 +247,11 @@ function computeAccess(profile, email) {
 
   const freeRemaining = freeWindowOk ? Math.max(0, freeScans) : 0;
   const paidRemaining = Math.max(0, paid);
+  const totalRemaining = paidRemaining + freeRemaining;
 
-  const canScan = founder || freeRemaining > 0 || paidRemaining > 0;
+  const canScan = totalRemaining > 0;
 
   return {
-    founder,
     frozen,
     banned,
     canScan,
@@ -255,21 +259,21 @@ function computeAccess(profile, email) {
     freeRemaining,
     freeExpiry,
     freeWindowOk,
-    totalRemaining: paidRemaining + freeRemaining,
+    totalRemaining,
   };
 }
 
 function updateUsageUI(profile) {
   const banner = $("subscription-banner");
   const runScanBtn = $("run-scan");
-  const paidEl = $("wd-plan-scans-remaining");
+  const scansEl = $("wd-plan-scans-remaining");
   const freeChip = $("wd-free-chip");
   const freeEl = $("wd-free-scans");
   const infoEl = $("trial-info");
 
-  const access = computeAccess(profile, window.currentUserEmail);
+  const access = computeAccess(profile);
 
-  if (!access.founder && (access.banned || access.frozen)) {
+  if (access.banned || access.frozen) {
     if (banner) {
       banner.style.display = "block";
       banner.innerHTML = `<div style="font-weight:800;">${
@@ -280,16 +284,20 @@ function updateUsageUI(profile) {
       runScanBtn.disabled = true;
       runScanBtn.title = access.banned ? "Account access disabled." : "Account temporarily frozen.";
     }
-    if (paidEl) paidEl.textContent = "0";
+    if (scansEl) scansEl.textContent = "0";
     if (freeChip) freeChip.style.display = "none";
-    if (infoEl) infoEl.textContent = access.banned ? "Account access disabled." : "Account temporarily frozen.";
+    if (infoEl) {
+      infoEl.textContent = access.banned
+        ? "Account access disabled."
+        : "Account temporarily frozen.";
+    }
     return;
   }
 
-  if (paidEl) paidEl.textContent = access.founder ? "999" : String(access.paidRemaining);
+  if (scansEl) scansEl.textContent = String(access.totalRemaining);
 
   if (freeChip && freeEl) {
-    if (access.freeRemaining > 0 && !access.founder) {
+    if (access.freeRemaining > 0) {
       freeEl.textContent = String(access.freeRemaining);
       freeChip.style.display = "inline-flex";
     } else {
@@ -311,17 +319,17 @@ function updateUsageUI(profile) {
     }
   }
 
-  if (infoEl && !access.founder) {
+  if (infoEl) {
     const current = String(infoEl.textContent || "");
-    if (current.indexOf("Scan complete") === -1) {
+    if (current.indexOf("Scan complete") === -1 && current.indexOf("Building report") === -1) {
       if (access.freeRemaining > 0) {
         infoEl.textContent = access.freeExpiry
           ? `Free scans available • Expires ${fmtShortDate(access.freeExpiry)}`
           : "Free scans available.";
       } else if (access.paidRemaining > 0) {
-        infoEl.textContent = "Paid scans available.";
+        infoEl.textContent = "Scans available.";
       } else {
-        infoEl.textContent = "No credits available. Select a plan.";
+        infoEl.textContent = "No scans remaining. Select a plan.";
       }
     }
   }
@@ -360,7 +368,7 @@ async function refreshProfile() {
 
     const merged = {
       user_id: currentUserId,
-      email: (window.currentUserEmail || ""),
+      email: window.currentUserEmail || "",
       paid_credits: (ucRow && Number.isFinite(ucRow.credits)) ? ucRow.credits : 0,
       free_scans: (ufRow && Number.isFinite(ufRow.trial_scans_remaining)) ? ufRow.trial_scans_remaining : 0,
       free_expires_at: (ufRow && ufRow.trial_expires_at) ? ufRow.trial_expires_at : null,
@@ -489,7 +497,9 @@ function applyHistoryFilter() {
   const rows = Array.from(tbody.querySelectorAll("tr"));
 
   if (!q) {
-    rows.forEach((tr) => (tr.style.display = ""));
+    rows.forEach((tr) => {
+      tr.style.display = "";
+    });
     return;
   }
 
@@ -749,10 +759,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // IMPORTANT:
-  // Bootstrap one-time signup trial credits BEFORE loading profile UI.
   await bootstrapSignupTrialCredits();
-
   await refreshProfile();
   await loadScanHistory();
 
@@ -768,12 +775,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    statusEl.textContent = "Running scan…";
     runBtn.disabled = true;
+
+    let dots = 0;
+    statusEl.textContent = "Building report";
+
+    const dotTimer = setInterval(() => {
+      dots = (dots + 1) % 4;
+      statusEl.textContent = "Building report" + ".".repeat(dots);
+    }, 400);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
+      const accessToken =
+        sessionData && sessionData.session
+          ? sessionData.session.access_token
+          : null;
 
       if (!accessToken) {
         throw new Error("Session expired. Please refresh and log in again.");
@@ -821,6 +838,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.error("[RUN-SCAN] error:", err);
       statusEl.textContent = "Scan failed: " + ((err && err.message) || "Unknown error");
     } finally {
+      clearInterval(dotTimer);
       runBtn.disabled = false;
       await refreshProfile();
       updateUsageUI(window.currentProfile);
