@@ -575,15 +575,27 @@ export const handler = async (event) => {
 
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
-        console.warn("[payments] frozen: customer.subscription.updated (fulfillment blocked)", {
-          customerId,
-          subscriptionId,
-        });
+        console.warn(
+          "[payments] frozen: customer.subscription.updated (fulfillment blocked)",
+          {
+            customerId,
+            subscriptionId,
+          }
+        );
         return json(200, { ok: true, frozen: true });
       }
 
       const priceId = sub?.items?.data?.[0]?.price?.id || null;
       const mapped = priceId ? mapPriceToPlan(priceId) : null;
+
+      console.log("[stripe-webhook] customer.subscription.updated incoming", {
+        subscriptionId,
+        customerId,
+        priceId,
+        stripe_status: sub?.status || null,
+        cancel_at_period_end: !!sub?.cancel_at_period_end,
+        computed_status: computeSubscriptionStatus(sub) || null,
+      });
 
       let email = null;
 
@@ -602,23 +614,24 @@ export const handler = async (event) => {
 
       const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
 
-      const wr = await safeWriteSubscription({
-        email,
-        subscriptionId,
-        customerId,
-        patch: {
+      // Force lifecycle updates by Stripe subscription ID only.
+      const wr = await supabase
+        .from("subscriptions")
+        .update({
           price_id: priceId || null,
           status: computeSubscriptionStatus(sub) || null,
           current_period_end: periodEndIso,
           cancel_at_period_end: !!sub?.cancel_at_period_end,
           canceled_at: unixToIsoOrNull(sub?.canceled_at),
-        },
-      });
-      if (wr?.error) throw wr.error;
+          ...(email ? { email } : {}),
+          ...(customerId ? { stripe_customer_id: customerId } : {}),
+        })
+        .eq("stripe_subscription_id", subscriptionId);
 
-      if (profile?.user_id && mapped && mapped.kind === "subscription") {
-        const up = await safeUpdateProfile(profile.user_id, {
-          plan: mapped.plan,
+      if (wr.error) throw wr.error;
+
+      if (profile?.user_id) {
+        const profilePatch = {
           subscription_status:
             computeSubscriptionStatus(sub) ||
             profile.subscription_status ||
@@ -626,9 +639,25 @@ export const handler = async (event) => {
           billing_period_end: periodEndIso,
           stripe_customer_id: customerId || profile.stripe_customer_id || null,
           stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
-        });
+        };
+
+        if (mapped && mapped.kind === "subscription") {
+          profilePatch.plan = mapped.plan;
+        }
+
+        const up = await safeUpdateProfile(profile.user_id, profilePatch);
         if (up.error) throw up.error;
       }
+
+      console.log("[stripe-webhook] customer.subscription.updated applied", {
+        subscriptionId,
+        customerId,
+        email,
+        profile_user_id: profile?.user_id || null,
+        written_status: computeSubscriptionStatus(sub) || null,
+        written_cancel_at_period_end: !!sub?.cancel_at_period_end,
+        periodEndIso,
+      });
 
       return json(200, { ok: true });
     }
