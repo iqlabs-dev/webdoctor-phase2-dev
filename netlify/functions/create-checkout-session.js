@@ -23,7 +23,7 @@ function json(statusCode, payload) {
 }
 
 // -------------------------------------------------
-// 🔒 PAYMENTS FREEZE (Admin flag + emergency env)
+// Payments freeze
 // -------------------------------------------------
 async function isPaymentsFrozen() {
   if (process.env.PAYMENTS_DISABLED === "1") {
@@ -78,7 +78,7 @@ export const handler = async (event) => {
 
     // -------------------------------------------------
     // Pricing map
-    // Frontend should now send one of:
+    // Frontend sends:
     // - sub10
     // - sub50
     // - sub100
@@ -99,7 +99,6 @@ export const handler = async (event) => {
       });
     }
 
-    // Base URL derived from request (works for prod + previews)
     const origin = event.headers.origin || `https://${event.headers.host}`;
 
     const success_url =
@@ -110,10 +109,10 @@ export const handler = async (event) => {
 
     const cancel_url = `${origin}/dashboard.html`;
 
-    // All plans are now subscriptions
     const mode = "subscription";
 
-    // Try reusing an existing Stripe customer
+    // Reuse existing Stripe customer where possible.
+    // For subscription mode, DO NOT send customer_creation.
     let stripeCustomerId = null;
 
     try {
@@ -131,32 +130,32 @@ export const handler = async (event) => {
         stripeCustomerId = profile.stripe_customer_id;
       }
     } catch (_) {
-      // non-fatal — fallback to creating a customer
+      // non-fatal
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionPayload = {
       mode,
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-
-      ...(stripeCustomerId
-        ? { customer: stripeCustomerId }
-        : {
-            customer_creation: "always",
-            customer_email: email,
-          }),
-
       client_reference_id: user_id,
-
       success_url,
       cancel_url,
-
       metadata: {
         user_id,
         priceKey,
         mode,
       },
-    });
+    };
+
+    if (stripeCustomerId) {
+      sessionPayload.customer = stripeCustomerId;
+    } else {
+      // Stripe can create the customer automatically in subscription mode
+      // when customer is omitted. customer_email is safe here.
+      sessionPayload.customer_email = email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionPayload);
 
     return json(200, { url: session.url });
   } catch (err) {
