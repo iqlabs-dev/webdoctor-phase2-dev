@@ -231,6 +231,22 @@
       font-size: 12px;
     }
 
+.paid-scans{
+  color: #22c55e;
+  border-color: rgba(34,197,94,.30);
+  background: rgba(34,197,94,.08);
+  font-weight: 700;
+}
+
+.paid-scans strong{
+  color: #b7ffcf;
+}
+
+#wd-plan-scans-remaining,
+#wd-free-scans{
+  margin-left: 6px;
+}
+
     .wrap{
       padding: 18px 22px 12px 22px;
       display:flex;
@@ -676,8 +692,8 @@ tbody td:nth-child(7) {
           <div class="sub" id="page-subtitle"></div>
         </div>
         <div class="right">
-   <span class="chip">Paid scans: <strong id="wd-plan-scans-remaining" style="margin-left:6px;">0</strong></span>
-<span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans" style="margin-left:6px;">0</strong></span>
+  <span class="chip paid-scans">Paid Scans: <strong id="wd-plan-scans-remaining">0</strong></span>
+<span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
 
       </div>
       </header>
@@ -827,13 +843,11 @@ tbody td:nth-child(7) {
               Current plan, scans remaining, renewal date.  
             </div>
 
-            <div style="margin-top:14px;">
+<div style="margin-top:14px;">
   <a id="manage-subscription" class="wd-history-link" href="#">
-  Manage subscription
-</a>
-
-              </a>
-            </div>
+    Manage subscription
+  </a>
+</div>
           </div>
         </div>
 
