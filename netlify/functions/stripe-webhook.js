@@ -30,9 +30,15 @@ function mapPriceToPlan(priceId) {
   const sub50 = process.env.STRIPE_PRICE_SUB_50;
   const sub100 = process.env.STRIPE_PRICE_SUB_100;
 
-  if (priceId === sub10) return { plan: "starter", credits: 10, kind: "subscription" };
-  if (priceId === sub50) return { plan: "professional", credits: 50, kind: "subscription" };
-  if (priceId === sub100) return { plan: "agency", credits: 100, kind: "subscription" };
+  if (priceId === sub10) {
+    return { plan: "starter", credits: 10, kind: "subscription" };
+  }
+  if (priceId === sub50) {
+    return { plan: "professional", credits: 50, kind: "subscription" };
+  }
+  if (priceId === sub100) {
+    return { plan: "agency", credits: 100, kind: "subscription" };
+  }
 
   return null;
 }
@@ -66,7 +72,10 @@ function getSubscriptionPeriodEndUnix(sub) {
 }
 
 function isMissingColumnError(err) {
-  const msg = (err && (err.message || err.details)) ? String(err.message || err.details) : "";
+  const msg =
+    err && (err.message || err.details)
+      ? String(err.message || err.details)
+      : "";
   const code = err && err.code ? String(err.code) : "";
   return code === "42703" || msg.toLowerCase().includes("does not exist");
 }
@@ -77,7 +86,9 @@ function isMissingColumnError(err) {
 async function findProfileByUserId(userId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
+    .select(
+      "user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id"
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -90,7 +101,9 @@ async function findProfileByStripeCustomer(customerId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
+    .select(
+      "user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id"
+    )
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
@@ -103,7 +116,9 @@ async function findProfileByStripeSubscription(subscriptionId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
+    .select(
+      "user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id"
+    )
     .eq("stripe_subscription_id", subscriptionId)
     .maybeSingle();
 
@@ -117,7 +132,9 @@ async function findProfileByEmail(email) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id")
+    .select(
+      "user_id,email,credits,plan,subscription_status,stripe_customer_id,stripe_subscription_id"
+    )
     .eq("email", e)
     .maybeSingle();
 
@@ -132,7 +149,10 @@ async function safeUpdateProfile(userId, patch) {
   if (isMissingColumnError(res.error)) {
     const retryPatch = { ...patch };
     delete retryPatch.billing_period_end;
-    res = await supabase.from("profiles").update(retryPatch).eq("user_id", userId);
+    res = await supabase
+      .from("profiles")
+      .update(retryPatch)
+      .eq("user_id", userId);
     return res;
   }
 
@@ -192,6 +212,7 @@ async function safeWriteSubscription({ email, subscriptionId, customerId, patch 
     ...patch,
   };
 
+  // 1) Try update by subscription id
   if (subscriptionId) {
     const upd = await supabase
       .from("subscriptions")
@@ -203,6 +224,7 @@ async function safeWriteSubscription({ email, subscriptionId, customerId, patch 
     if (!upd.error && Array.isArray(upd.data) && upd.data.length > 0) return upd;
   }
 
+  // 2) Try update by customer id
   if (customerId) {
     const upd = await supabase
       .from("subscriptions")
@@ -214,36 +236,59 @@ async function safeWriteSubscription({ email, subscriptionId, customerId, patch 
     if (!upd.error && Array.isArray(upd.data) && upd.data.length > 0) return upd;
   }
 
+  // 3) Try upsert by email if email exists
   if (e) {
     let res = await supabase
       .from("subscriptions")
-      .upsert(payload, { onConflict: "email" });
+      .upsert(payload, { onConflict: "email" })
+      .select("id");
 
     if (!res.error) return res;
 
-    const msg = String(res.error?.message || res.error || "");
+    const msg = String(res.error?.message || res.error || "").toLowerCase();
     const looksLikeNoConstraint =
-      msg.toLowerCase().includes("there is no unique") ||
-      msg.toLowerCase().includes("no unique or exclusion constraint") ||
-      msg.toLowerCase().includes("on conflict") ||
-      msg.toLowerCase().includes("constraint");
+      msg.includes("there is no unique") ||
+      msg.includes("no unique or exclusion constraint") ||
+      msg.includes("on conflict") ||
+      msg.includes("constraint");
 
+    // 4) If email has no unique constraint, try update-by-email first,
+    // and if no row exists, do a real insert.
     if (looksLikeNoConstraint) {
-      const upd = await supabase.from("subscriptions").update(payload).eq("email", e);
-      return upd;
+      const upd = await supabase
+        .from("subscriptions")
+        .update(payload)
+        .eq("email", e)
+        .select("id");
+
+      if (upd.error) return upd;
+      if (Array.isArray(upd.data) && upd.data.length > 0) return upd;
+
+      const ins = await supabase
+        .from("subscriptions")
+        .insert(payload)
+        .select("id");
+
+      return ins;
     }
 
     if (isMissingColumnError(res.error)) {
-      res = await supabase
+      const ins = await supabase
         .from("subscriptions")
-        .upsert(payload, { onConflict: "email" });
-      return res;
+        .insert(payload)
+        .select("id");
+
+      return ins;
     }
 
     return res;
   }
 
-  return await supabase.from("subscriptions").insert(payload);
+  // 5) Last fallback: direct insert
+  return await supabase
+    .from("subscriptions")
+    .insert(payload)
+    .select("id");
 }
 
 async function findSubscriptionByStripeSubscriptionId(subscriptionId) {
@@ -302,10 +347,14 @@ export const handler = async (event) => {
     }
 
     const sig = event.headers["stripe-signature"];
-    if (!sig) return json(400, { ok: false, error: "Missing stripe-signature" });
+    if (!sig) {
+      return json(400, { ok: false, error: "Missing stripe-signature" });
+    }
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) return json(500, { ok: false, error: "Missing STRIPE_WEBHOOK_SECRET" });
+    if (!webhookSecret) {
+      return json(500, { ok: false, error: "Missing STRIPE_WEBHOOK_SECRET" });
+    }
 
     let stripeEvent;
     try {
@@ -338,7 +387,10 @@ export const handler = async (event) => {
           mode,
           customerId,
           subscriptionId,
-          email: normalizeEmail(session?.customer_details?.email) || normalizeEmail(session?.customer_email) || null,
+          email:
+            normalizeEmail(session?.customer_details?.email) ||
+            normalizeEmail(session?.customer_email) ||
+            null,
           priceKey,
         });
         return json(200, { ok: true, note: "No user_id" });
@@ -362,7 +414,10 @@ export const handler = async (event) => {
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: checkout.session.completed (fulfillment blocked)", {
-          userId, email, mode, priceKey,
+          userId,
+          email,
+          mode,
+          priceKey,
         });
         return json(200, { ok: true, frozen: true });
       }
@@ -435,6 +490,15 @@ export const handler = async (event) => {
           if (up.error) throw up.error;
         }
 
+        console.log("[stripe-webhook] checkout.session.completed granted subscription", {
+          email,
+          userId,
+          subscriptionId,
+          customerId,
+          plan: planPayload?.plan || null,
+          credits: planPayload?.credits || null,
+        });
+
         return json(200, { ok: true });
       }
 
@@ -442,7 +506,10 @@ export const handler = async (event) => {
     }
 
     // ---------------- invoice.paid OR invoice.payment_succeeded ----------------
-    if (stripeEvent.type === "invoice.paid" || stripeEvent.type === "invoice.payment_succeeded") {
+    if (
+      stripeEvent.type === "invoice.paid" ||
+      stripeEvent.type === "invoice.payment_succeeded"
+    ) {
       const invoice = stripeEvent.data.object;
 
       const customerId = invoice.customer || null;
@@ -463,29 +530,30 @@ export const handler = async (event) => {
         return json(200, { ok: true, note: "invoice: unmapped price" });
       }
 
-      if (mapped.kind !== "subscription") return json(200, { ok: true });
+      if (mapped.kind !== "subscription") {
+        return json(200, { ok: true });
+      }
 
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: invoice (fulfillment blocked)", {
-          customerId, subscriptionId, priceId,
+          customerId,
+          subscriptionId,
+          priceId,
         });
         return json(200, { ok: true, frozen: true });
       }
 
       let email = normalizeEmail(invoice?.customer_email) || null;
 
-      // Always try to resolve the actual profile
       let profile = null;
 
       if (subscriptionId) {
         profile = await findProfileByStripeSubscription(subscriptionId);
       }
-
       if (!profile && customerId) {
         profile = await findProfileByStripeCustomer(customerId);
       }
-
       if (!profile && email) {
         profile = await findProfileByEmail(email);
       }
@@ -560,6 +628,15 @@ export const handler = async (event) => {
         });
       }
 
+      console.log("[stripe-webhook] invoice granted subscription", {
+        email,
+        userId: profile?.user_id || null,
+        subscriptionId,
+        customerId,
+        plan: mapped.plan,
+        credits: mapped.credits,
+      });
+
       return json(200, { ok: true });
     }
 
@@ -572,7 +649,8 @@ export const handler = async (event) => {
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: customer.subscription.updated (fulfillment blocked)", {
-          customerId, subscriptionId,
+          customerId,
+          subscriptionId,
         });
         return json(200, { ok: true, frozen: true });
       }
@@ -586,14 +664,24 @@ export const handler = async (event) => {
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
         (await findSubscriptionByStripeCustomerId(customerId));
 
-      if (existingSubRow?.email) email = normalizeEmail(existingSubRow.email);
+      if (existingSubRow?.email) {
+        email = normalizeEmail(existingSubRow.email);
+      }
 
       let profile = null;
-      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
-      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
-      if (!profile && email) profile = await findProfileByEmail(email);
+      if (subscriptionId) {
+        profile = await findProfileByStripeSubscription(subscriptionId);
+      }
+      if (!profile && customerId) {
+        profile = await findProfileByStripeCustomer(customerId);
+      }
+      if (!profile && email) {
+        profile = await findProfileByEmail(email);
+      }
 
-      if (!email && profile?.email) email = normalizeEmail(profile.email);
+      if (!email && profile?.email) {
+        email = normalizeEmail(profile.email);
+      }
 
       const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
 
@@ -628,7 +716,10 @@ export const handler = async (event) => {
       if (profile?.user_id && mapped && mapped.kind === "subscription") {
         const up = await safeUpdateProfile(profile.user_id, {
           plan: mapped.plan,
-          subscription_status: computeSubscriptionStatus(sub) || profile.subscription_status || "active",
+          subscription_status:
+            computeSubscriptionStatus(sub) ||
+            profile.subscription_status ||
+            "active",
           billing_period_end: periodEndIso,
           stripe_customer_id: customerId || profile.stripe_customer_id || null,
           stripe_subscription_id: subscriptionId || profile.stripe_subscription_id || null,
@@ -648,7 +739,8 @@ export const handler = async (event) => {
       const frozen = await isPaymentsFrozenForFulfillment();
       if (frozen) {
         console.warn("[payments] frozen: customer.subscription.deleted (fulfillment blocked)", {
-          customerId, subscriptionId,
+          customerId,
+          subscriptionId,
         });
         return json(200, { ok: true, frozen: true });
       }
@@ -658,14 +750,24 @@ export const handler = async (event) => {
         (await findSubscriptionByStripeSubscriptionId(subscriptionId)) ||
         (await findSubscriptionByStripeCustomerId(customerId));
 
-      if (existing?.email) email = normalizeEmail(existing.email);
+      if (existing?.email) {
+        email = normalizeEmail(existing.email);
+      }
 
       let profile = null;
-      if (subscriptionId) profile = await findProfileByStripeSubscription(subscriptionId);
-      if (!profile && customerId) profile = await findProfileByStripeCustomer(customerId);
-      if (!profile && email) profile = await findProfileByEmail(email);
+      if (subscriptionId) {
+        profile = await findProfileByStripeSubscription(subscriptionId);
+      }
+      if (!profile && customerId) {
+        profile = await findProfileByStripeCustomer(customerId);
+      }
+      if (!profile && email) {
+        profile = await findProfileByEmail(email);
+      }
 
-      if (!email && profile?.email) email = normalizeEmail(profile.email);
+      if (!email && profile?.email) {
+        email = normalizeEmail(profile.email);
+      }
 
       const periodEndIso = unixToIsoOrNull(getSubscriptionPeriodEndUnix(sub));
 
@@ -676,7 +778,8 @@ export const handler = async (event) => {
         patch: {
           status: "canceled",
           cancel_at_period_end: true,
-          canceled_at: unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
+          canceled_at:
+            unixToIsoOrNull(sub?.canceled_at) || new Date().toISOString(),
           current_period_end: periodEndIso,
         },
       });
@@ -715,6 +818,11 @@ export const handler = async (event) => {
     return json(200, { ok: true });
   } catch (err) {
     console.error("stripe-webhook error:", err);
-    return json(200, { ok: false, error: String(err?.message || err) });
+
+    // Return non-200 so Stripe retries failed fulfillment
+    return json(500, {
+      ok: false,
+      error: String(err?.message || err),
+    });
   }
 };
