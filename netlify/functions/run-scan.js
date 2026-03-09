@@ -1737,7 +1737,8 @@ console.log("[run-scan] PSI (background) state", {
 let uf = null;
 let oneOffCredits = 0;
 let oneOffActive = false;
-let paidActive = false;
+let paidCredits = 0;
+let paidCreditsActive = false;
 let trialActive = false;
 
 if (!isAnonymous) {
@@ -1750,7 +1751,44 @@ if (!isAnonymous) {
     });
   }
 
-  // One-off credit lookup (user_credits table)
+  // Paid credits lookup (PROFILES = source of truth)
+  let profileRow = null;
+  let profileKeyField = null;
+
+  {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[paid] profiles lookup error (by user_id):", error);
+    } else if (data) {
+      profileRow = data;
+      profileKeyField = "user_id";
+    }
+  }
+
+  if (!profileRow) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("credits")
+      .eq("id", user_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[paid] profiles lookup error (by id):", error);
+    } else if (data) {
+      profileRow = data;
+      profileKeyField = "id";
+    }
+  }
+
+  paidCredits = Number(profileRow?.credits || 0);
+  paidCreditsActive = paidCredits > 0;
+
+  // Legacy one-off credit lookup (safe fallback only)
   const { data: oneOffRow, error: oneOffErr } = await supabase
     .from("user_credits")
     .select("credits")
@@ -1772,6 +1810,7 @@ if (!isAnonymous) {
       error: "Account access disabled. Contact support.",
     });
   }
+
   if (!isFounder && uf.is_frozen) {
     return json(403, {
       success: false,
@@ -1780,25 +1819,21 @@ if (!isAnonymous) {
     });
   }
 
-  // Access policy: Founder OR Paid OR Trial OR One-off credits
-  paidActive = isPaidActive(uf);
+  // Access policy
   trialActive = isTrialActive(uf);
 
-  if (!isFounder && !paidActive && !trialActive && !oneOffActive) {
+  if (!isFounder && !trialActive && !paidCreditsActive && !oneOffActive) {
     return json(402, {
       success: false,
       code: "access_required",
       error: "This account does not have scanning access. Please subscribe or request an invite trial.",
     });
   }
-}
 
-// --------------------------------------------------
-// Consume EXACTLY ONE scan (trial → paid → one-off)
-// --------------------------------------------------
-let consumedFrom = null;
-
-if (!isAnonymous) {
+  // --------------------------------------------------
+  // Consume EXACTLY ONE scan (trial → paid → one-off)
+  // --------------------------------------------------
+  let consumedFrom = null;
 
   // 1) TRIAL / FREE scans (user_flags)
   if (!isFounder && trialActive) {
@@ -1828,96 +1863,47 @@ if (!isAnonymous) {
     }
   }
 
-  // 2) PAID subscription scans (profiles.credits) — supports profiles.user_id OR profiles.id
-  if (!isFounder && !consumedFrom && paidActive) {
-    let profile = null;
-    let keyField = null;
-
-    // Attempt A: profiles.user_id
-    {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("user_id", user_id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[paid] read error (by user_id):", error);
-        return json(500, {
-          success: false,
-          code: "paid_read_error",
-          error: "Unable to verify subscription credits.",
-        });
-      }
-      if (data) {
-        profile = data;
-        keyField = "user_id";
-      }
-    }
-
-    // Attempt B: profiles.id (fallback)
-    if (!profile) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("credits")
-        .eq("id", user_id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[paid] read error (by id):", error);
-        return json(500, {
-          success: false,
-          code: "paid_read_error",
-          error: "Unable to verify subscription credits.",
-        });
-      }
-
-      if (data) {
-        profile = data;
-        keyField = "id";
-      }
-    }
-
-    if (!profile || !keyField) {
-      console.error("[paid] no profiles row found for user:", user_id);
+  // 2) PAID scans from profiles.credits
+  if (!isFounder && !consumedFrom && paidCreditsActive) {
+    if (!profileRow || !profileKeyField) {
       return json(500, {
         success: false,
         code: "paid_profile_missing",
-        error: "Billing profile not found for this account. Please contact support.",
+        error: "Billing profile not found for this account.",
       });
     }
 
-    const credits = Number(profile.credits || 0);
-    if (credits <= 0) {
+    const currentCredits = Number(profileRow.credits || 0);
+
+    if (currentCredits <= 0) {
       return json(402, {
         success: false,
         code: "paid_exhausted",
-        error: "No subscription credits remaining.",
+        error: "No paid credits remaining.",
       });
     }
 
-    // atomic-ish decrement: only update if credits > 0 and match key
     const { data: updated, error: updateErr } = await supabase
       .from("profiles")
-      .update({ credits: credits - 1 })
-      .eq(keyField, user_id)
+      .update({ credits: currentCredits - 1 })
+      .eq(profileKeyField, user_id)
       .gt("credits", 0)
       .select("credits")
       .maybeSingle();
 
     if (updateErr || !updated) {
-      console.error("[paid] decrement error:", updateErr, { keyField, user_id });
+      console.error("[paid] decrement error:", updateErr, { profileKeyField, user_id });
       return json(500, {
         success: false,
         code: "paid_consume_error",
-        error: "Unable to apply subscription usage.",
+        error: "Unable to apply paid scan usage.",
       });
     }
 
     consumedFrom = "paid";
   }
 
-  // 3) ONE-OFF scans (user_credits)
+  // 3) ONE-OFF scans (fallback only)
   if (!isFounder && !consumedFrom && oneOffActive) {
     const { data: updatedRow, error: oneOffUpdErr } = await supabase
       .from("user_credits")
@@ -1939,7 +1925,7 @@ if (!isAnonymous) {
     consumedFrom = "one-off";
   }
 
-  // Safety net (should never happen if access gate is correct)
+  // Safety net
   if (!isFounder && !consumedFrom) {
     return json(402, {
       success: false,
@@ -1948,8 +1934,10 @@ if (!isAnonymous) {
     });
   }
 
+  // expose to later response payload
+  body._consumedFrom = consumedFrom;
 } else {
-  consumedFrom = "anonymous-demo";
+  body._consumedFrom = "anonymous-demo";
 }
 
     // ---------------------------------------------
@@ -2090,7 +2078,7 @@ if (gate.ready) {
       scores,
       narrative_requested: !!generate_narrative,
       narrative_ok,
-      consumed_from: consumedFrom, // handy for debugging
+    consumed_from: body._consumedFrom, // handy for debugging
       report_url: `${origin}/report.html?report_id=${encodeURIComponent(finalReportId)}`,
     });
   } catch (e) {
