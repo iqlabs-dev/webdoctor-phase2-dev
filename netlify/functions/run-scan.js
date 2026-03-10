@@ -1823,11 +1823,11 @@ if (!isAnonymous) {
   trialActive = isTrialActive(uf);
 
   if (!isFounder && !trialActive && !paidCreditsActive && !oneOffActive) {
-    return json(402, {
-      success: false,
-      code: "access_required",
-      error: "This account does not have scanning access. Please subscribe or request an invite trial.",
-    });
+ return json(402, {
+  success: false,
+  code: "access_required",
+  error: "No scans remaining. Create an account to get 5 free scans or choose a plan to continue scanning.",
+});
   }
 
   // --------------------------------------------------
