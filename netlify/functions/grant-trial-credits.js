@@ -6,6 +6,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const SIGNUP_TRIAL_CREDITS = 5;
+
 function json(statusCode, obj) {
   return {
     statusCode,
@@ -47,7 +49,7 @@ export const handler = async (event) => {
     const { error: updErr } = await supabase
       .from("profiles")
       .update({
-        credits: 10,
+        credits: SIGNUP_TRIAL_CREDITS,
         trial_granted: true,
       })
       .eq("user_id", user_id);
@@ -57,7 +59,7 @@ export const handler = async (event) => {
     return json(200, {
       ok: true,
       granted: true,
-      credits: 10,
+      credits: SIGNUP_TRIAL_CREDITS,
     });
   } catch (err) {
     return json(500, { ok: false, error: String(err?.message || err) });
