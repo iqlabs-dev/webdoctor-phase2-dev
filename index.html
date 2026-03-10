@@ -355,26 +355,27 @@
       font-weight: 700;
     }
 
-    .hero-scan-status {
-      display: none;
-      width: 100%;
-      max-width: 700px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      font-size: 0.78rem;
-      line-height: 1.5;
-      border: 1px solid rgba(148,163,184,0.22);
-      background: rgba(15,23,42,0.72);
-      color: rgba(229,240,255,0.88);
-    }
+  .hero-scan-status {
+  display: none;
+  width: fit-content;
+  max-width: 520px;
+  min-width: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  border: 1px solid rgba(148,163,184,0.22);
+  background: rgba(15,23,42,0.72);
+  color: rgba(229,240,255,0.88);
+  margin-top: 2px;
+}
 
-    .hero-scan-status.is-visible {
-      display: inline-flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
-
+   .hero-scan-status.is-visible {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
     .hero-scan-status.is-error {
       border-color: rgba(251,113,133,0.35);
       background: var(--danger-soft);
@@ -393,14 +394,14 @@
       color: #d8f9ff;
     }
 
-    .hero-scan-status-text {
-      font-size: 0.98rem;
-      line-height: 1.65;
-      font-weight: 500;
-      letter-spacing: 0.01em;
-      color: #d8f9ff;
-      max-width: 660px;
-    }
+  .hero-scan-status-text {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #d8f9ff;
+  max-width: 100%;
+}
 
     .hero-scan-status-actions {
       display: flex;
@@ -2213,7 +2214,7 @@
 
                   .wrap {
                     width: 100%;
-                    max-width: 520px;
+                    max-width: 460px;
                     padding: 32px;
                   }
 
