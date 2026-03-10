@@ -2303,12 +2303,12 @@
 
           const msg = String(err?.message || "");
 
-          if (
+            if (
             msg.toLowerCase().includes("free scan already used") ||
             msg.toLowerCase().includes("free_scan_used")
           ) {
             setStatus(
-              "Your scan is complete.<br>Create an account to access the dashboard. Additional scans require a plan.",
+              "No free scans available.<br>Create an account to receive <strong>5 free scans</strong> and run your report again.",
               "promo",
               '<a class="hero-scan-status-cta" href="/dashboard.html">Create Account</a>'
             );
