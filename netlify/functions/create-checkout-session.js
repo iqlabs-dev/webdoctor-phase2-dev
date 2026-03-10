@@ -79,15 +79,17 @@ export const handler = async (event) => {
     // -------------------------------------------------
     // Pricing map
     // Frontend sends:
-    // - sub10
-    // - sub50
-    // - sub100
+  // - sub25
+// - sub100
+// - sub300
     // -------------------------------------------------
+   
     const PRICE_MAP = {
-      sub10: process.env.STRIPE_PRICE_SUB_10,
-      sub50: process.env.STRIPE_PRICE_SUB_50,
-      sub100: process.env.STRIPE_PRICE_SUB_100,
-    };
+  sub25: process.env.STRIPE_PRICE_SUB_25,
+  sub100: process.env.STRIPE_PRICE_SUB_100,
+  sub300: process.env.STRIPE_PRICE_SUB_300,
+};
+  
 
     const priceId = PRICE_MAP[priceKey];
 

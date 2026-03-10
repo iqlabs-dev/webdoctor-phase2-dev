@@ -726,9 +726,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  bindCheckout($("btn-plan-starter"), "sub10");
-  bindCheckout($("btn-plan-professional"), "sub50");
-  bindCheckout($("btn-plan-agency"), "sub100");
+bindCheckout($("btn-plan-starter"), "sub25");
+bindCheckout($("btn-plan-professional"), "sub100");
+bindCheckout($("btn-plan-agency"), "sub300");
 
   const manageLink = document.getElementById("manage-subscription");
   if (manageLink) {

@@ -26,18 +26,20 @@ function json(statusCode, obj) {
  * SUB_100  = Agency
  */
 function mapPriceToPlan(priceId) {
-  const sub10 = process.env.STRIPE_PRICE_SUB_10;
-  const sub50 = process.env.STRIPE_PRICE_SUB_50;
+  const sub25 = process.env.STRIPE_PRICE_SUB_25;
   const sub100 = process.env.STRIPE_PRICE_SUB_100;
+  const sub300 = process.env.STRIPE_PRICE_SUB_300;
 
-  if (priceId === sub10) {
-    return { plan: "starter", credits: 10, kind: "subscription" };
+  if (priceId === sub25) {
+    return { plan: "starter", credits: 25, kind: "subscription" };
   }
-  if (priceId === sub50) {
-    return { plan: "professional", credits: 50, kind: "subscription" };
-  }
+
   if (priceId === sub100) {
-    return { plan: "agency", credits: 100, kind: "subscription" };
+    return { plan: "professional", credits: 100, kind: "subscription" };
+  }
+
+  if (priceId === sub300) {
+    return { plan: "agency", credits: 300, kind: "subscription" };
   }
 
   return null;
@@ -390,9 +392,9 @@ export const handler = async (event) => {
       if (mode === "subscription" && subscriptionId) {
         let planPayload = null;
 
-        if (priceKey === "sub10") planPayload = { plan: "starter", credits: 10 };
-        if (priceKey === "sub50") planPayload = { plan: "professional", credits: 50 };
-        if (priceKey === "sub100") planPayload = { plan: "agency", credits: 100 };
+if (priceKey === "sub25") planPayload = { plan: "starter", credits: 25 };
+if (priceKey === "sub100") planPayload = { plan: "professional", credits: 100 };
+if (priceKey === "sub300") planPayload = { plan: "agency", credits: 300 };
 
         const subObj = await stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price"],

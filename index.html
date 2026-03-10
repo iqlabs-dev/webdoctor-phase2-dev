@@ -6,11 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="iQWEB delivers website performance, SEO, accessibility and security diagnostics — turning PSI, Core Web Vitals and technical signals into prioritised, client-ready reports for agencies and developers.">
 
-<link rel="icon" href="/favicon.ico">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
 
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
@@ -205,41 +205,41 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-.hero-h1 {
-  font-size: clamp(2.6rem, 4.6vw, 4.15rem);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
-  font-weight: 800;
-  margin: 0;
-  opacity: 0;
-  animation: heroFadeUp 620ms ease forwards;
-}
+    .hero-h1 {
+      font-size: clamp(2.6rem, 4.6vw, 4.15rem);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      font-weight: 800;
+      margin: 0;
+      opacity: 0;
+      animation: heroFadeUp 620ms ease forwards;
+    }
 
-.hero-h1.hero-teal {
-  color: #22d3ee;
-  text-shadow: none;
-}
+    .hero-h1.hero-teal {
+      color: #22d3ee;
+      text-shadow: none;
+    }
 
-.hero-h1 span {
-  color: var(--accent);
-  text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
-}
+    .hero-h1 span {
+      color: var(--accent);
+      text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+    }
 
-.hero-h1 span.hero-white {
-  color: #ffffff !important;
-  text-shadow: none;
-}
+    .hero-h1 span.hero-white {
+      color: #ffffff !important;
+      text-shadow: none;
+    }
 
-@keyframes tealFadeIn {
-  from { opacity: 0; filter: blur(1.5px); transform: translateY(6px); }
-  to   { opacity: 1; filter: blur(0); transform: translateY(0); }
-}
+    @keyframes tealFadeIn {
+      from { opacity: 0; filter: blur(1.5px); transform: translateY(6px); }
+      to   { opacity: 1; filter: blur(0); transform: translateY(0); }
+    }
 
-.hero-h1 .hero-teal-fade {
-  opacity: 0;
-  animation: tealFadeIn 720ms ease forwards;
-  animation-delay: 260ms;
-}
+    .hero-h1 .hero-teal-fade {
+      opacity: 0;
+      animation: tealFadeIn 720ms ease forwards;
+      animation-delay: 260ms;
+    }
 
     .hero-h2 {
       font-size: clamp(1.05rem, 1.45vw, 1.22rem);
@@ -254,13 +254,13 @@
     }
 
     /* HERO SCAN BAR */
- .hero-scan-shell {
-  margin-top: 20px;
-  max-width: 760px;
-  opacity: 0;
-  animation: heroFadeUp 620ms ease forwards;
-  animation-delay: 220ms;
-}
+    .hero-scan-shell {
+      margin-top: 20px;
+      max-width: 760px;
+      opacity: 0;
+      animation: heroFadeUp 620ms ease forwards;
+      animation-delay: 220ms;
+    }
 
     .hero-scan-form {
       display: grid;
@@ -269,103 +269,89 @@
       align-items: center;
     }
 
-.hero-scan-input {
-  width: 100%;
-  min-height: 40px;
-  border-radius: 11px;
-  border: 1px solid rgba(34,211,238,0.35);
-
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,0.06), transparent 40%),
-    rgba(8,14,28,0.96);
-
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 0.92rem;
-  font-weight: 500;
-
-  padding: 0 16px;
-
-  outline: none;
-
-  box-shadow: 0 10px 26px rgba(0,0,0,0.32);
-
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    background 0.18s ease;
-}
+    .hero-scan-input {
+      width: 100%;
+      min-height: 40px;
+      border-radius: 11px;
+      border: 1px solid rgba(34,211,238,0.35);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.06), transparent 40%),
+        rgba(8,14,28,0.96);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.92rem;
+      font-weight: 500;
+      padding: 0 16px;
+      outline: none;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.32);
+      transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease;
+    }
 
     .hero-scan-input::placeholder {
       color: rgba(192,207,235,0.52);
     }
 
-.hero-scan-input:focus {
-  border-color: rgba(34,211,238,0.72);
-  box-shadow:
-    0 12px 30px rgba(0,0,0,0.36),
-    0 0 0 2px rgba(34,211,238,0.10);
-}
+    .hero-scan-input:focus {
+      border-color: rgba(34,211,238,0.72);
+      box-shadow:
+        0 12px 30px rgba(0,0,0,0.36),
+        0 0 0 2px rgba(34,211,238,0.10);
+    }
 
-.hero-scan-button {
-  min-height: 40px;
-  padding: 0 22px;
+    .hero-scan-button {
+      min-height: 40px;
+      padding: 0 22px;
+      border-radius: 11px;
+      border: 1px solid rgba(34,211,238,0.65);
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.20), rgba(2,6,23,1));
+      color: #e6fbff;
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow:
+        0 0 18px rgba(34,211,238,0.25),
+        0 10px 28px rgba(15,23,42,0.82);
+      transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        color 0.16s ease;
+    }
 
-  border-radius: 11px;
-  border: 1px solid rgba(34,211,238,0.65);
+    .hero-scan-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.9);
+      box-shadow:
+        0 0 26px rgba(34,211,238,0.45),
+        0 12px 32px rgba(15,23,42,0.9);
+    }
 
-  background:
-    radial-gradient(circle at top, rgba(34,211,238,0.20), rgba(2,6,23,1));
-
-  color: #e6fbff;
-
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 800;
-
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-
-  cursor: pointer;
-  white-space: nowrap;
-
-  box-shadow:
-    0 0 18px rgba(34,211,238,0.25),
-    0 10px 28px rgba(15,23,42,0.82);
-
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease,
-    color 0.16s ease;
-}
-
-.hero-scan-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(34,211,238,0.9);
-  box-shadow:
-    0 0 26px rgba(34,211,238,0.45),
-    0 12px 32px rgba(15,23,42,0.9);
-}
-
-.hero-scan-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(34,211,238,0.85);
-  box-shadow: 0 12px 32px rgba(34,211,238,0.30);
-  color: var(--ink);
-}
+    .hero-scan-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.85);
+      box-shadow: 0 12px 32px rgba(34,211,238,0.30);
+      color: var(--ink);
+    }
 
     .hero-scan-button:disabled {
       opacity: 0.68;
       cursor: wait;
     }
 
- .hero-scan-meta {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+    .hero-scan-meta {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
 
     .hero-scan-helper {
       font-size: 0.8rem;
@@ -379,85 +365,85 @@
       font-weight: 700;
     }
 
-.hero-scan-status {
-  display: none;
-  width: 100%;
-  max-width: 700px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  border: 1px solid rgba(148,163,184,0.22);
-  background: rgba(15,23,42,0.72);
-  color: rgba(229,240,255,0.88);
-}
+    .hero-scan-status {
+      display: none;
+      width: 100%;
+      max-width: 700px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      border: 1px solid rgba(148,163,184,0.22);
+      background: rgba(15,23,42,0.72);
+      color: rgba(229,240,255,0.88);
+    }
 
-.hero-scan-status.is-visible {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-}
+    .hero-scan-status.is-visible {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
 
-.hero-scan-status.is-error {
-  border-color: rgba(251,113,133,0.35);
-  background: var(--danger-soft);
-  color: #ffd5de;
-}
+    .hero-scan-status.is-error {
+      border-color: rgba(251,113,133,0.35);
+      background: var(--danger-soft);
+      color: #ffd5de;
+    }
 
-.hero-scan-status.is-ok {
-  border-color: rgba(20,184,166,0.35);
-  background: var(--ok-soft);
-  color: #ccfbf1;
-}
+    .hero-scan-status.is-ok {
+      border-color: rgba(20,184,166,0.35);
+      background: var(--ok-soft);
+      color: #ccfbf1;
+    }
 
-.hero-scan-status.is-promo {
-  border-color: rgba(34,211,238,0.34);
-  background: rgba(34,211,238,0.10);
-  color: #d8f9ff;
-}
+    .hero-scan-status.is-promo {
+      border-color: rgba(34,211,238,0.34);
+      background: rgba(34,211,238,0.10);
+      color: #d8f9ff;
+    }
 
-.hero-scan-status-text {
-  font-size: 0.98rem;
-  line-height: 1.65;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  color: #d8f9ff;
-  max-width: 660px;
-}
+    .hero-scan-status-text {
+      font-size: 0.98rem;
+      line-height: 1.65;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: #d8f9ff;
+      max-width: 660px;
+    }
 
-.hero-scan-status-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+    .hero-scan-status-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-.hero-scan-status-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 0 16px;
-  border-radius: 999px;
-  border: 1px solid rgba(34,211,238,0.72);
-  background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
-  color: var(--ink);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  text-decoration: none;
-  box-shadow: 0 12px 28px rgba(15,23,42,0.72);
-  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
-}
+    .hero-scan-status-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,211,238,0.72);
+      background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
+      color: var(--ink);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      text-decoration: none;
+      box-shadow: 0 12px 28px rgba(15,23,42,0.72);
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+    }
 
-.hero-scan-status-cta:hover {
-  transform: translateY(-1px);
-  border-color: rgba(34,211,238,0.95);
-  box-shadow: 0 16px 30px rgba(34,211,238,0.30);
-  color: #ffffff;
-  text-decoration: none;
-}
+    .hero-scan-status-cta:hover {
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.95);
+      box-shadow: 0 16px 30px rgba(34,211,238,0.30);
+      color: #ffffff;
+      text-decoration: none;
+    }
 
     .hero-cta {
       margin-top: 12px;
@@ -470,33 +456,29 @@
       animation-delay: 280ms;
     }
 
-.hero-text-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+    .hero-text-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #22d3ee;
+      text-decoration: none;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      border-radius: 0;
+      outline: none;
+      transition: color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    }
 
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-
-  color: #22d3ee;
-
-  text-decoration: none;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  border-radius: 0;
-  outline: none;
-
-  transition: color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
-}
-
-.hero-text-link:hover {
-  color: #67e8f9;
-  transform: translateX(2px);
-  opacity: 0.95;
-}
+    .hero-text-link:hover {
+      color: #67e8f9;
+      transform: translateX(2px);
+      opacity: 0.95;
+    }
 
     .hero-text-link:hover {
       color: #7dd3fc;
@@ -540,87 +522,349 @@
       background: rgba(15, 23, 42, 1);
     }
 
-    .hero-proof {
-      margin-top: 18px;
+    .hero-signup-wrap {
+      width: 100%;
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
+      justify-content: center;
       align-items: center;
+      margin-top: 36px;
+      margin-bottom: 28px;
+    }
+
+    .hero-signup-promo {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 14px;
+      padding: 18px 22px;
+      border-radius: 14px;
+      border: 1px solid rgba(34,211,238,0.22);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.10), transparent 42%),
+        rgba(15,23,42,0.52);
+    }
+
+    .hero-signup-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: rgba(229,240,255,0.84);
+    }
+
+    .hero-signup-copy strong {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #d8f9ff;
+      line-height: 1.35;
+    }
+
+    .hero-signup-copy p {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: rgba(229,240,255,0.84);
+    }
+
+    .hero-signup-button {
+      margin-top: 4px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      border: 1px solid rgba(34,211,238,0.68);
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      color: #e5f0ff;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .hero-signup-button:hover {
+      border-color: rgba(34,211,238,0.92);
+      box-shadow: 0 0 18px rgba(34,211,238,0.30);
+      color: #ffffff;
+    }
+
+    /* DIAGNOSTIC ZONE */
+    .iq-diagnostic-zone {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      margin-top: 0;
+      padding-bottom: 22px;
+      border-radius: 24px;
+    }
+
+    .iq-diagnostic-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 1;
+    }
+
+    .sample-reports,
+    .hero-proof,
+    .iq-section-signals {
+      position: relative;
+      z-index: 2;
+    }
+
+    .sample-reports {
+      margin-top: 0;
+      margin-bottom: 26px;
+      text-align: center;
       opacity: 0;
       animation: heroFadeUp 620ms ease forwards;
-      animation-delay: 320ms;
+      animation-delay: 300ms;
+      padding: 28px 22px 24px;
+      border-radius: 20px;
+    }
+
+    .sample-reports-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 20px;
+    }
+
+    .sample-reports-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .sample-report-card {
+      padding: 20px;
+      border-radius: 14px;
+      border: 1px solid rgba(34,211,238,0.20);
+      background:
+        linear-gradient(180deg, rgba(10,16,34,0.88), rgba(8,12,24,0.90));
+      backdrop-filter: blur(8px);
+      text-decoration: none;
+      color: #cfefff;
+      box-shadow: 0 16px 32px rgba(0,0,0,0.22);
+      transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .sample-report-card:hover {
+      border-color: rgba(34,211,238,0.55);
+      transform: translateY(-2px);
+      box-shadow: 0 18px 38px rgba(0,0,0,0.32);
+      background:
+        linear-gradient(180deg, rgba(10,16,34,0.94), rgba(8,12,24,0.96));
+      text-decoration: none;
+    }
+
+    .sample-report-card h3 {
+      margin: 0 0 10px;
+      font-size: 0.92rem;
+      color: #eaf8ff;
+    }
+
+    .sample-report-card p {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: rgba(229,240,255,0.84);
+    }
+
+    .sample-report-link {
+      display: block;
+      margin-top: 12px;
+      font-weight: 700;
+      color: #22d3ee;
+    }
+
+    /* animated diagnostic layers */
+    .iq-grid,
+    .iq-network,
+    .iq-pulse,
+    .iq-nodes {
+      position: absolute;
+      inset: 0;
+    }
+
+    .iq-grid {
+      background-image:
+        linear-gradient(rgba(34,211,238,0.10) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,211,238,0.10) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(circle at 50% 36%, rgba(0,0,0,1) 50%, transparent 96%);
+      -webkit-mask-image: radial-gradient(circle at 50% 36%, rgba(0,0,0,1) 50%, transparent 96%);
+      animation: iqGridDrift 24s linear infinite;
+    }
+
+    .iq-network {
+      opacity: 0.30;
+      background:
+        linear-gradient(118deg, transparent 0 22%, rgba(34,211,238,0.14) 22.2%, transparent 22.7%) 12% 14% / 360px 180px no-repeat,
+        linear-gradient(32deg, transparent 0 38%, rgba(34,211,238,0.12) 38.2%, transparent 38.7%) 60% 18% / 300px 160px no-repeat,
+        linear-gradient(142deg, transparent 0 44%, rgba(34,211,238,0.11) 44.2%, transparent 44.7%) 28% 46% / 320px 170px no-repeat,
+        linear-gradient(18deg, transparent 0 48%, rgba(34,211,238,0.11) 48.2%, transparent 48.7%) 72% 50% / 300px 160px no-repeat,
+        linear-gradient(90deg, transparent 0 49%, rgba(34,211,238,0.10) 49.2%, transparent 49.7%) 50% 72% / 480px 200px no-repeat;
+      filter: blur(0.2px);
+      animation: iqNetworkShift 18s ease-in-out infinite;
+    }
+
+    .iq-nodes span {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      margin: -4px 0 0 -4px;
+      border-radius: 999px;
+      background: rgba(34,211,238,0.95);
+      box-shadow:
+        0 0 18px rgba(34,211,238,0.72),
+        0 0 34px rgba(34,211,238,0.34),
+        0 0 54px rgba(34,211,238,0.14);
+      animation: iqNodeFloat linear infinite;
+    }
+
+    .iq-nodes span::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,211,238,0.22);
+      animation: iqNodeHalo 3.8s ease-in-out infinite;
+    }
+
+    .iq-nodes span:nth-child(1) { top: 12%; left: 10%; animation-delay: 0s; animation-duration: 29s; }
+    .iq-nodes span:nth-child(2) { top: 16%; left: 38%; animation-delay: 2s; animation-duration: 33s; }
+    .iq-nodes span:nth-child(3) { top: 14%; left: 76%; animation-delay: 4s; animation-duration: 27s; }
+
+    .iq-nodes span:nth-child(4) { top: 36%; left: 14%; animation-delay: 6s; animation-duration: 35s; }
+    .iq-nodes span:nth-child(5) { top: 42%; left: 48%; animation-delay: 8s; animation-duration: 31s; }
+    .iq-nodes span:nth-child(6) { top: 38%; left: 84%; animation-delay: 10s; animation-duration: 30s; }
+
+    .iq-nodes span:nth-child(7) { top: 66%; left: 18%; animation-delay: 12s; animation-duration: 34s; }
+    .iq-nodes span:nth-child(8) { top: 72%; left: 54%; animation-delay: 14s; animation-duration: 28s; }
+    .iq-nodes span:nth-child(9) { top: 68%; left: 88%; animation-delay: 16s; animation-duration: 32s; }
+
+    .iq-pulse {
+      background:
+        radial-gradient(circle at 34% 30%, rgba(34,211,238,0.16), transparent 0 30%),
+        radial-gradient(circle at 72% 28%, rgba(34,211,238,0.12), transparent 0 24%),
+        radial-gradient(circle at 52% 66%, rgba(34,211,238,0.11), transparent 0 22%);
+      filter: blur(14px);
+      animation: iqPulse 13s ease-in-out infinite;
+    }
+
+    @keyframes iqGridDrift {
+      0%   { transform: translate3d(0, 0, 0); }
+      50%  { transform: translate3d(-10px, -8px, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+
+    @keyframes iqNetworkShift {
+      0%   { transform: translate3d(0, 0, 0); opacity: 0.18; }
+      50%  { transform: translate3d(6px, -5px, 0); opacity: 0.32; }
+      100% { transform: translate3d(0, 0, 0); opacity: 0.18; }
+    }
+
+    @keyframes iqNodeFloat {
+      0% {
+        transform: translate3d(0px, 0px, 0) scale(0.90);
+        opacity: 0.08;
+      }
+      10% {
+        opacity: 0.24;
+      }
+      28% {
+        transform: translate3d(28px, -12px, 0) scale(0.98);
+        opacity: 0.62;
+      }
+      50% {
+        transform: translate3d(72px, -26px, 0) scale(1.08);
+        opacity: 1;
+      }
+      70% {
+        transform: translate3d(112px, -18px, 0) scale(1.02);
+        opacity: 0.78;
+      }
+      88% {
+        transform: translate3d(144px, -6px, 0) scale(0.96);
+        opacity: 0.34;
+      }
+      100% {
+        transform: translate3d(170px, 0px, 0) scale(0.90);
+        opacity: 0;
+      }
+    }
+
+    @keyframes iqNodeHalo {
+      0%, 100% {
+        opacity: 0.18;
+        transform: scale(0.96);
+      }
+      50% {
+        opacity: 0.52;
+        transform: scale(1.08);
+      }
+    }
+
+    @keyframes iqPulse {
+      0%   { opacity: 0.05; transform: scale(1); }
+      50%  { opacity: 0.18; transform: scale(1.05); }
+      100% { opacity: 0.05; transform: scale(1); }
+    }
+
+    .hero-proof {
+      margin-top: 26px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: nowrap;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-proof::-webkit-scrollbar {
+      display: none;
     }
 
     .proof-chip {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
+      gap: 7px;
+      padding: 7px 10px;
       border-radius: 999px;
-      font-size: 0.74rem;
-      letter-spacing: 0.06em;
+      font-size: 0.68rem;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       color: rgba(229,240,255,0.82);
       background: rgba(15,23,42,0.55);
       border: 1px solid rgba(148,163,184,0.24);
       white-space: nowrap;
+      flex: 0 0 auto;
     }
 
     .proof-dot {
       width: 7px;
       height: 7px;
       border-radius: 999px;
-      background: rgba(34,211,238,0.75);
-      box-shadow: 0 0 18px rgba(34,211,238,0.35);
+      background: rgba(34,211,238,0.78);
+      box-shadow:
+        0 0 18px rgba(34,211,238,0.60),
+        0 0 36px rgba(34,211,238,0.25);
     }
 
-    .pillars {
-      margin-top: 22px;
-      max-width: 980px;
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-      opacity: 0;
-      animation: heroFadeUp 720ms ease forwards;
-      animation-delay: 420ms;
-    }
-
-    .pillar {
-      padding: 0;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-    }
-
-    .pillar h3 {
-      margin: 0 0 8px;
-      font-size: 0.78rem;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(229,240,255,0.92);
-      font-weight: 800;
-    }
-
-    .pillar p {
-      margin: 0;
-      font-size: 0.88rem;
-      line-height: 1.7;
-      color: rgba(192,207,235,0.78);
-    }
-
-    @media (max-width: 960px) {
-      .pillars { grid-template-columns: 1fr; gap: 14px; }
-      .pillar p { max-width: 70ch; }
-    }
-
-    @media (max-width: 720px) {
-      .hero-scan-form {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-scan-button {
-        width: 100%;
-      }
+    .brand-iqweb {
+      text-transform: none !important;
+      letter-spacing: normal;
     }
 
     /* SECTIONS */
@@ -661,7 +905,7 @@
 
     .iq-section-inner {
       max-width: 980px;
-      margin: 0;
+      margin: 0 auto;
       padding: 0;
     }
 
@@ -671,6 +915,7 @@
       opacity: 0;
       animation: heroFadeUp 720ms ease forwards;
       animation-delay: 560ms;
+      padding-bottom: 6px;
     }
 
     .iq-section-signals::before { display: none !important; }
@@ -678,7 +923,8 @@
     .iq-section-header {
       max-width: none;
       margin-bottom: 18px;
-      text-align: left;
+      text-align: center;
+      justify-content: center;
     }
 
     .iq-section-title {
@@ -690,6 +936,9 @@
       margin: 0 0 6px;
       opacity: 1;
       color: var(--ink);
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .iq-signal-grid {
@@ -700,13 +949,18 @@
     }
 
     @media (max-width: 960px) {
+      .sample-reports-grid { grid-template-columns: 1fr; max-width: 560px; }
+      .hero-proof { flex-wrap: wrap; }
       .iq-section-signals { margin-top: 58px; }
       .iq-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .iq-grid { background-size: 56px 56px; }
     }
 
     @media (max-width: 640px) {
       .iq-section-signals { margin-top: 44px; }
       .iq-signal-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .sample-reports { padding: 22px 14px 18px; }
+      .iq-network { opacity: 0.15; }
     }
 
     .iq-signal-card {
@@ -863,7 +1117,12 @@
     #how.wf-animate .wf-step:nth-child(3) .wf-content { animation-delay: 1400ms; }
 
     @media (prefers-reduced-motion: reduce) {
-      #how.wf-animate .wf-step .wf-content {
+      #how.wf-animate .wf-step .wf-content,
+      .iq-grid,
+      .iq-network,
+      .iq-nodes span,
+      .iq-nodes span::after,
+      .iq-pulse {
         opacity: 1 !important;
         clip-path: none !important;
         transform: none !important;
@@ -872,6 +1131,14 @@
     }
 
     @media (max-width: 720px) {
+      .hero-scan-form {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-scan-button {
+        width: 100%;
+      }
+
       #how.section { margin-top: 68px; margin-bottom: 10px; }
 
       .wf-stepper {
@@ -1169,175 +1436,226 @@
         </div>
       </header>
 
-<!-- HERO -->
-<main class="hero-shell">
-  <section class="hero-left">
+      <!-- HERO -->
+      <main class="hero-shell">
+        <section class="hero-left">
 
-    <h1 class="hero-h1 hero-teal">
-      Turn technical audits into client-ready reports
-    </h1>
+          <h1 class="hero-h1 hero-teal">
+            Client-ready website audit reports for web agencies
+          </h1>
 
-    <h2 class="hero-h2">
-Scan any website and generate a structured report you can share with clients to explain issues and prioritise optimisation work.
-    </h2>
+          <h2 class="hero-h2">
+            Scan any website and generate a structured audit you can share with clients to explain Performance, Security and SEO issues.
+          </h2>
 
-<div class="hero-scan-shell" aria-label="Generate a website report">
-  <form class="hero-scan-form" id="heroScanForm">
-    <input
-      id="heroScanInput"
-      class="hero-scan-input"
-      type="text"
-      inputmode="url"
-      autocomplete="url"
-      spellcheck="false"
-      placeholder="Enter a website URL"
-      aria-label="Website URL"
-      required
-    />
-    <button id="heroScanButton" class="hero-scan-button" type="submit">
-      Run Free Scan
-    </button>
-  </form>
+          <div class="hero-scan-shell" aria-label="Generate a website report">
+            <form class="hero-scan-form" id="heroScanForm">
+              <input
+                id="heroScanInput"
+                class="hero-scan-input"
+                type="text"
+                inputmode="url"
+                autocomplete="url"
+                spellcheck="false"
+                placeholder="Enter a website URL"
+                aria-label="Website URL"
+                required
+              />
+              <button id="heroScanButton" class="hero-scan-button" type="submit">
+                Run Free Scan
+              </button>
+            </form>
 
-  <div class="hero-scan-meta">
-    <p class="hero-scan-helper">
-      <p class="hero-scan-helper">
-  No signup required — generate a report for any public website.
-    </p>
-    <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
-  </div>
-</div>
+            <div class="hero-scan-meta">
+              <p class="hero-scan-helper">
+                No signup required — generate a report for any public website.
+              </p>
+              <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
+            </div>
+          </div>
 
+          <div class="hero-signup-wrap">
+            <div class="hero-signup-promo">
+              <div class="hero-signup-copy">
+                <strong>Create an Account<br>Get 5 Free Scans</strong>
+                <p>Save reports, track scan history, and keep testing client sites from your dashboard.</p>
+              </div>
+              <a href="/dashboard.html" class="hero-signup-button">Create Free Account</a>
+            </div>
+          </div>
 
+          <section class="iq-diagnostic-zone">
 
-    <div class="hero-proof" aria-label="Platform proof points">
-      <span class="proof-chip"><span class="proof-dot"></span>Multi-signal website diagnostics</span>
-      <span class="proof-chip"><span class="proof-dot"></span>Deterministic scoring model</span>
-      <span class="proof-chip"><span class="proof-dot"></span>No generic AI summaries</span>
-      <span class="proof-chip"><span class="proof-dot"></span>Made in New Zealand</span>
-    </div>
+            <!-- Animated diagnostic background -->
+            <div class="iq-diagnostic-bg" aria-hidden="true">
+              <div class="iq-grid"></div>
+              <div class="iq-network"></div>
 
-    <div class="pillars" aria-label="Three pillars">
-      <div class="pillar">
-        <h3>Evidence-driven</h3>
-        <p>Grounded in real performance and structural signals — not opinions, screenshots, or vibes.</p>
-      </div>
-      <div class="pillar">
-        <h3>Deterministic model</h3>
-        <p>Consistent outputs you can explain and defend in a client conversation.</p>
-      </div>
-      <div class="pillar">
-        <h3>Client-ready</h3>
-        <p>Clear priorities, weakest-signal emphasis, and a report link you can share with confidence.</p>
-      </div>
-    </div>
+              <div class="iq-nodes">
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
 
-  </section>
-</main>
+              <div class="iq-pulse"></div>
+            </div>
 
-<!-- NINE SIGNALS -->
-<section id="signals" class="iq-section iq-section-signals">
-  <div class="iq-section-inner">
-    <header class="iq-section-header">
-      <h2 class="iq-section-title">What every iQWEB scan evaluates and delivers</h2>
-    </header>
+            <!-- SAMPLE REPORTS -->
+            <section class="sample-reports">
+              <h2 class="sample-reports-title">
+                View Real <span class="brand-iqweb">iQWEB</span> Reports
+              </h2>
 
-    <div class="iq-signal-grid">
+              <div class="sample-reports-grid">
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Performance</h3>
-        <p class="iq-signal-text">How fast your pages load and respond for real users.</p>
-        <ul class="iq-signal-list">
-          <li>Core Web Vitals evaluation (LCP, INP, CLS)</li>
-          <li>Real-world load behaviour and responsiveness</li>
-          <li>Asset weight and request efficiency</li>
-          <li>Server response and TTFB patterns</li>
-        </ul>
-      </article>
+                <a class="sample-report-card"
+                   href="https://iqweb.ai/report.html?report_id=WEB-20260310-30137&from=history"
+                   target="_blank" rel="noopener">
+                  <h3>Performance Bottleneck</h3>
+                  <p>Example scan where page weight and render path affect loading performance.</p>
+                  <span class="sample-report-link">View Report →</span>
+                </a>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">SEO Foundations</h3>
-        <p class="iq-signal-text">How clearly search engines can understand and rank your site.</p>
-        <ul class="iq-signal-list">
-          <li>Title, meta and canonical clarity</li>
-          <li>Indexability and crawl readiness</li>
-          <li>Basic schema coverage and indexing signals</li>
-        </ul>
-      </article>
+                <a class="sample-report-card"
+                   href="https://iqweb.ai/report.html?report_id=WEB-20260310-50217&from=history"
+                   target="_blank" rel="noopener">
+                  <h3>Security &amp; Trust Risk</h3>
+                  <p>Example scan highlighting missing security headers and browser protection signals.</p>
+                  <span class="sample-report-link">View Report →</span>
+                </a>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Structure &amp; Semantics</h3>
-        <p class="iq-signal-text">Whether your HTML scaffolding communicates meaning.</p>
-        <ul class="iq-signal-list">
-          <li>Heading hierarchy</li>
-          <li>Core landmarks (header, main, nav, footer)</li>
-          <li>Missing or broken structural elements</li>
-        </ul>
-      </article>
+                <a class="sample-report-card"
+                   href="https://iqweb.ai/report.html?report_id=WEB-20260310-21674&from=history"
+                   target="_blank" rel="noopener">
+                  <h3>SEO Foundations Issue</h3>
+                  <p>Example scan where missing metadata, canonical signals and indexing elements limit visibility.</p>
+                  <span class="sample-report-link">View Report →</span>
+                </a>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Mobile Experience</h3>
-        <p class="iq-signal-text">How your site behaves on the screens your customers actually use.</p>
-        <ul class="iq-signal-list">
-          <li>Responsive layout integrity</li>
-          <li>Tap target sizing, spacing and usability</li>
-          <li>Readability on small devices</li>
-        </ul>
-      </article>
+              </div>
+            </section>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Security &amp; Trust</h3>
-        <p class="iq-signal-text">Signals that protect users and reinforce credibility.</p>
-        <ul class="iq-signal-list">
-          <li>Protocol and redirect behaviour</li>
-          <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.)</li>
-          <li>Mixed-content and downgrade risks</li>
-        </ul>
-      </article>
+            <div class="hero-proof" aria-label="Platform proof points">
+              <span class="proof-chip"><span class="proof-dot"></span>Multi-signal website diagnostics</span>
+              <span class="proof-chip"><span class="proof-dot"></span>Deterministic scoring model</span>
+              <span class="proof-chip"><span class="proof-dot"></span>No generic AI summaries</span>
+              <span class="proof-chip"><span class="proof-dot"></span>Evidence-based diagnostics</span>
+            </div>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Accessibility</h3>
-        <p class="iq-signal-text">How usable your site is for people using assistive technologies.</p>
-        <ul class="iq-signal-list">
-          <li>Contrast, labels and ARIA usage</li>
-          <li>Alt text coverage for key imagery</li>
-          <li>Common keyboard / screen reader traps</li>
-        </ul>
-      </article>
+            <!-- NINE SIGNALS -->
+            <section id="signals" class="iq-section iq-section-signals">
+              <div class="iq-section-inner">
+                <header class="iq-section-header">
+                  <h2 class="iq-section-title">What every iQWEB scan evaluates and delivers</h2>
+                </header>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Infrastructure Signals</h3>
-        <p class="iq-signal-text">Behind-the-scenes signals affecting reliability and infrastructure health.</p>
-        <ul class="iq-signal-list">
-          <li>DNS, SPF and DMARC presence</li>
-          <li>SSL validity and expiry window</li>
-          <li>Server response and hosting platform indicators</li>
-        </ul>
-      </article>
+                <div class="iq-signal-grid">
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Content &amp; Metadata</h3>
-        <p class="iq-signal-text">Whether your pages present clear relevance, summary, and preview signals.</p>
-        <ul class="iq-signal-list">
-          <li>Title and description sanity checks</li>
-          <li>Thin or near-empty pages</li>
-          <li>Social preview and Open Graph hygiene</li>
-        </ul>
-      </article>
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Performance</h3>
+                    <p class="iq-signal-text">How fast your pages load and respond for real users.</p>
+                    <ul class="iq-signal-list">
+                      <li>Core Web Vitals evaluation (LCP, INP, CLS)</li>
+                      <li>Real-world load behaviour and responsiveness</li>
+                      <li>Asset weight and request efficiency</li>
+                      <li>Server response and TTFB patterns</li>
+                    </ul>
+                  </article>
 
-      <article class="iq-signal-card">
-        <h3 class="iq-signal-title">Report Output</h3>
-        <p class="iq-signal-text">What iQWEB produces after the evaluation is complete.</p>
-        <ul class="iq-signal-list">
-          <li>Executive summary in human language</li>
-          <li>Ranked “Top Issues” list</li>
-          <li>Step-by-step recommended fix sequence</li>
-        </ul>
-      </article>
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">SEO Foundations</h3>
+                    <p class="iq-signal-text">How clearly search engines can understand and rank your site.</p>
+                    <ul class="iq-signal-list">
+                      <li>Title, meta and canonical clarity</li>
+                      <li>Indexability and crawl readiness</li>
+                      <li>Basic schema coverage and indexing signals</li>
+                    </ul>
+                  </article>
 
-    </div>
-  </div>
-</section>
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Structure &amp; Semantics</h3>
+                    <p class="iq-signal-text">Whether your HTML scaffolding communicates meaning.</p>
+                    <ul class="iq-signal-list">
+                      <li>Heading hierarchy</li>
+                      <li>Core landmarks (header, main, nav, footer)</li>
+                      <li>Missing or broken structural elements</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Mobile Experience</h3>
+                    <p class="iq-signal-text">How your site behaves on the screens your customers actually use.</p>
+                    <ul class="iq-signal-list">
+                      <li>Responsive layout integrity</li>
+                      <li>Tap target sizing, spacing and usability</li>
+                      <li>Readability on small devices</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Security &amp; Trust</h3>
+                    <p class="iq-signal-text">Signals that protect users and reinforce credibility.</p>
+                    <ul class="iq-signal-list">
+                      <li>Protocol and redirect behaviour</li>
+                      <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.)</li>
+                      <li>Mixed-content and downgrade risks</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Accessibility</h3>
+                    <p class="iq-signal-text">How usable your site is for people using assistive technologies.</p>
+                    <ul class="iq-signal-list">
+                      <li>Contrast, labels and ARIA usage</li>
+                      <li>Alt text coverage for key imagery</li>
+                      <li>Common keyboard / screen reader traps</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Infrastructure Signals</h3>
+                    <p class="iq-signal-text">Behind-the-scenes signals affecting reliability and infrastructure health.</p>
+                    <ul class="iq-signal-list">
+                      <li>DNS, SPF and DMARC presence</li>
+                      <li>SSL validity and expiry window</li>
+                      <li>Server response and hosting platform indicators</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Content &amp; Metadata</h3>
+                    <p class="iq-signal-text">Whether your pages present clear relevance, summary, and preview signals.</p>
+                    <ul class="iq-signal-list">
+                      <li>Title and description sanity checks</li>
+                      <li>Thin or near-empty pages</li>
+                      <li>Social preview and Open Graph hygiene</li>
+                    </ul>
+                  </article>
+
+                  <article class="iq-signal-card">
+                    <h3 class="iq-signal-title">Report Output</h3>
+                    <p class="iq-signal-text">What iQWEB produces after the evaluation is complete.</p>
+                    <ul class="iq-signal-list">
+                      <li>Executive summary in human language</li>
+                      <li>Ranked “Top Issues” list</li>
+                      <li>Step-by-step recommended fix sequence</li>
+                    </ul>
+                  </article>
+
+                </div>
+              </div>
+            </section>
+
+          </section>
+
+        </section>
+      </main>
 
       <!-- HOW IT WORKS / WORKFLOW -->
       <section class="section" id="how">
@@ -1387,78 +1705,75 @@ Scan any website and generate a structured report you can share with clients to 
         </div>
       </section>
 
-<!-- PRICING -->
-<section class="section" id="pricing">
-  <div class="section-header">
-    <div>
-      <div class="section-kicker">Pricing</div>
-      <div class="section-title">Simple pricing, clear limits.</div>
-    </div>
-  </div>
+      <!-- PRICING -->
+      <section class="section" id="pricing">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Pricing</div>
+            <div class="section-title">Simple pricing, clear limits.</div>
+          </div>
+        </div>
 
-  <div class="pricing-row">
+        <div class="pricing-row">
 
-    <!-- STARTER -->
-    <div class="pricing-card">
-      <div class="pricing-name">Starter</div>
-      <div class="pricing-price">$39 / month</div>
-      <div class="pricing-meta-extra">For occasional diagnostics</div>
+          <div class="pricing-card">
+            <div class="pricing-name">Starter</div>
+            <div class="pricing-price">$39 / month</div>
+            <div class="pricing-meta-extra">For occasional diagnostics</div>
 
-      <ul class="pricing-bullets">
-        <li>Up to <strong>10 reports per month</strong></li>
-        <li>Full website diagnostics</li>
-        <li>Client-ready shareable report</li>
-        <li>No auto-overage</li>
-        <li>Monthly reset — unused reports don’t roll over</li>
-      </ul>
+            <ul class="pricing-bullets">
+              <li>Up to <strong>25 reports per month</strong></li>
+              <li>Full website diagnostics</li>
+              <li>Client-ready shareable report</li>
+              <li>No auto-overage</li>
+              <li>Monthly reset — unused reports don’t roll over</li>
+            </ul>
 
-      <button class="pricing-cta" data-plan="sub10">START SUBSCRIPTION</button>
-    </div>
+            <button class="pricing-cta" data-plan="sub10">START SUBSCRIPTION</button>
+          </div>
 
-    <!-- PROFESSIONAL -->
-    <div class="pricing-card">
-      <div class="pricing-name">Professional</div>
-      <div class="pricing-price">$99 / month</div>
-      <div class="pricing-meta-extra">For regular agency use</div>
+          <div class="pricing-card">
+            <div class="pricing-name">Professional</div>
+            <div class="pricing-price">$99 / month</div>
+            <div class="pricing-meta-extra">For regular agency use</div>
 
-      <ul class="pricing-bullets">
-        <li>Up to <strong>50 reports per month</strong></li>
-        <li>Full website diagnostics</li>
-        <li>Client-ready shareable report</li>
-        <li>No auto-overage</li>
-        <li>Monthly reset — unused reports don’t roll over</li>
-      </ul>
+            <ul class="pricing-bullets">
+              <li>Up to <strong>100 reports per month</strong></li>
+              <li>Full website diagnostics</li>
+              <li>Client-ready shareable report</li>
+              <li>No auto-overage</li>
+              <li>Monthly reset — unused reports don’t roll over</li>
+            </ul>
 
-      <button class="pricing-cta" data-plan="sub50">START SUBSCRIPTION</button>
-    </div>
+            <button class="pricing-cta" data-plan="sub50">START SUBSCRIPTION</button>
+          </div>
 
-    <!-- AGENCY -->
-    <div class="pricing-card">
-      <div class="pricing-name">Agency</div>
-      <div class="pricing-price">$149 / month</div>
-      <div class="pricing-meta-extra">For high-volume teams</div>
+          <div class="pricing-card">
+            <div class="pricing-name">Agency</div>
+            <div class="pricing-price">$199 / month</div>
+            <div class="pricing-meta-extra">For high-volume teams</div>
 
-      <ul class="pricing-bullets">
-        <li>Up to <strong>100 reports per month</strong></li>
-        <li>Full website diagnostics</li>
-        <li>Client-ready shareable report</li>
-        <li>No auto-overage</li>
-        <li>Monthly reset — unused reports don’t roll over</li>
-      </ul>
+            <ul class="pricing-bullets">
+              <li>Up to <strong>300 reports per month</strong></li>
+              <li>Full website diagnostics</li>
+              <li>Client-ready shareable report</li>
+              <li>No auto-overage</li>
+              <li>Monthly reset — unused reports don’t roll over</li>
+            </ul>
 
-      <button class="pricing-cta" data-plan="sub100">START SUBSCRIPTION</button>
-    </div>
+            <button class="pricing-cta" data-plan="sub100">START SUBSCRIPTION</button>
+          </div>
 
-  </div>
+        </div>
 
-  <p class="pricing-note">All prices are in USD.</p>
-  <p class="pricing-note">🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.</p>
+        <p class="pricing-note">All prices are in USD.</p>
+        <p class="pricing-note">🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.</p>
 
-  <p class="pricing-footnote">
-    Need a tailored plan?
-    <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
-  </p>
-</section>
+        <p class="pricing-footnote">
+          Need a tailored plan?
+          <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
+        </p>
+      </section>
 
       <!-- TRUST -->
       <section class="section" id="trust">
@@ -1625,7 +1940,7 @@ Scan any website and generate a structured report you can share with clients to 
         revealed = true;
 
         if (header) {
-          header.style.animationDelay = `0ms`;
+          header.style.animationDelay = "0ms";
           header.classList.add("is-revealed");
         }
 
@@ -1690,31 +2005,30 @@ Scan any website and generate a structured report you can share with clients to 
     const status = document.getElementById("heroScanStatus");
 
     if (form && input && button && status) {
-const setStatus = (message, type = "", ctaHtml = "") => {
-  status.innerHTML = "";
+      const setStatus = (message, type = "", ctaHtml = "") => {
+        status.innerHTML = "";
+        status.className = "hero-scan-status";
 
-  status.className = "hero-scan-status";
+        if (!message) return;
 
-  if (!message) return;
+        status.classList.add("is-visible");
 
-  status.classList.add("is-visible");
+        if (type === "error") status.classList.add("is-error");
+        if (type === "ok") status.classList.add("is-ok");
+        if (type === "promo") status.classList.add("is-promo");
 
-  if (type === "error") status.classList.add("is-error");
-  if (type === "ok") status.classList.add("is-ok");
-  if (type === "promo") status.classList.add("is-promo");
+        const text = document.createElement("div");
+        text.className = "hero-scan-status-text";
+        text.innerHTML = message;
+        status.appendChild(text);
 
-  const text = document.createElement("div");
-  text.className = "hero-scan-status-text";
-  text.innerHTML = message;
-  status.appendChild(text);
-
-  if (ctaHtml) {
-    const actions = document.createElement("div");
-    actions.className = "hero-scan-status-actions";
-    actions.innerHTML = ctaHtml;
-    status.appendChild(actions);
-  }
-};
+        if (ctaHtml) {
+          const actions = document.createElement("div");
+          actions.className = "hero-scan-status-actions";
+          actions.innerHTML = ctaHtml;
+          status.appendChild(actions);
+        }
+      };
 
       const setBusy = (busy) => {
         button.disabled = busy;
@@ -1739,111 +2053,111 @@ const setStatus = (message, type = "", ctaHtml = "") => {
           setStatus("");
           setBusy(true);
 
-     reportWindow = window.open("", "_blank");
+          reportWindow = window.open("", "_blank");
 
-if (reportWindow) {
-  reportWindow.document.write(`
-    <!doctype html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <title>Building report... | iQWEB</title>
-      <style>
-        :root {
-          --bg: #050814;
-          --panel: #0b1224;
-          --border: rgba(34, 211, 238, 0.22);
-          --accent: #22d3ee;
-          --text: #e5f0ff;
-          --muted: #9aa4ba;
-        }
+          if (reportWindow) {
+            reportWindow.document.write(`
+              <!doctype html>
+              <html lang="en">
+              <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <title>Building report... | iQWEB</title>
+                <style>
+                  :root {
+                    --bg: #050814;
+                    --panel: #0b1224;
+                    --border: rgba(34, 211, 238, 0.22);
+                    --accent: #22d3ee;
+                    --text: #e5f0ff;
+                    --muted: #9aa4ba;
+                  }
 
-        * { box-sizing: border-box; }
-        html, body {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          height: 100%;
-          background: var(--bg);
-          color: var(--text);
-          font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
+                  * { box-sizing: border-box; }
+                  html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: var(--bg);
+                    color: var(--text);
+                    font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                  }
 
-        body {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
+                  body {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  }
 
-        .wrap {
-          width: 100%;
-          max-width: 520px;
-          padding: 32px;
-        }
+                  .wrap {
+                    width: 100%;
+                    max-width: 520px;
+                    padding: 32px;
+                  }
 
-        .card {
-          background: linear-gradient(180deg, rgba(10,16,34,0.92), rgba(8,12,24,0.92));
-          border: 1px solid var(--border);
-          border-radius: 18px;
-          padding: 28px 26px;
-          box-shadow: 0 20px 60px rgba(0,0,0,0.45);
-          text-align: center;
-        }
+                  .card {
+                    background: linear-gradient(180deg, rgba(10,16,34,0.92), rgba(8,12,24,0.92));
+                    border: 1px solid var(--border);
+                    border-radius: 18px;
+                    padding: 28px 26px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+                    text-align: center;
+                  }
 
-        .brand {
-          font-size: 1.1rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          margin-bottom: 20px;
-          color: var(--text);
-        }
+                  .brand {
+                    font-size: 1.1rem;
+                    font-weight: 800;
+                    letter-spacing: 0.04em;
+                    margin-bottom: 20px;
+                    color: var(--text);
+                  }
 
-        .loader {
-          width: 42px;
-          height: 42px;
-          margin: 0 auto 18px;
-          border-radius: 999px;
-          border: 2px solid rgba(34, 211, 238, 0.18);
-          border-top-color: var(--accent);
-          animation: spin 0.9s linear infinite;
-        }
+                  .loader {
+                    width: 42px;
+                    height: 42px;
+                    margin: 0 auto 18px;
+                    border-radius: 999px;
+                    border: 2px solid rgba(34, 211, 238, 0.18);
+                    border-top-color: var(--accent);
+                    animation: spin 0.9s linear infinite;
+                  }
 
-        .title {
-          font-size: 1.1rem;
-          font-weight: 700;
-          margin: 0 0 10px;
-          color: var(--text);
-        }
+                  .title {
+                    font-size: 1.1rem;
+                    font-weight: 700;
+                    margin: 0 0 10px;
+                    color: var(--text);
+                  }
 
-        .text {
-          margin: 0;
-          font-size: 0.92rem;
-          line-height: 1.65;
-          color: var(--muted);
-        }
+                  .text {
+                    margin: 0;
+                    font-size: 0.92rem;
+                    line-height: 1.65;
+                    color: var(--muted);
+                  }
 
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="wrap">
-        <div class="card">
-          <div class="brand">iQWEB</div>
-          <div class="loader"></div>
-          <h1 class="title">Building report...</h1>
-          <p class="text">
-            This can take a few minutes while iQWEB completes the scan and prepares your results.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `);
-  reportWindow.document.close();
-}
+                  @keyframes spin {
+                    to { transform: rotate(360deg); }
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="wrap">
+                  <div class="card">
+                    <div class="brand">iQWEB</div>
+                    <div class="loader"></div>
+                    <h1 class="title">Building report...</h1>
+                    <p class="text">
+                      This can take a few minutes while iQWEB completes the scan and prepares your results.
+                    </p>
+                  </div>
+                </div>
+              </body>
+              </html>
+            `);
+            reportWindow.document.close();
+          }
 
           const result = await runScan(url);
 
@@ -1853,11 +2167,11 @@ if (reportWindow) {
 
           const reportUrl = `/report.html?report_id=${encodeURIComponent(result.report_id)}`;
 
-      if (reportWindow && !reportWindow.closed) {
-  reportWindow.location.href = reportUrl;
-} else {
-  window.open(reportUrl, "_blank");
-}
+          if (reportWindow && !reportWindow.closed) {
+            reportWindow.location.href = reportUrl;
+          } else {
+            window.open(reportUrl, "_blank");
+          }
 
           setStatus("Report started successfully. Opening in a new tab.", "ok");
         } catch (err) {
@@ -1867,38 +2181,31 @@ if (reportWindow) {
 
           const msg = String(err?.message || "");
 
-if (
-  msg.toLowerCase().includes("free scan already used") ||
-  msg.toLowerCase().includes("free_scan_used")
-) {
-setStatus(
-  "Your scan is complete.<br>Create an account to access the dashboard. Additional scans require a plan.",
-  "promo",
-  '<a class="hero-scan-status-cta" href="/dashboard.html">Create Account</a>'
-);
-
-} else if (msg.toLowerCase().includes("anon_id_required")) {
-
-  setStatus(
-    "Unable to start the anonymous scan. Please refresh the page and try again.",
-    "error"
-  );
-
-} else if (msg.toLowerCase().includes("access_required")) {
-
-  setStatus(
-    "Scanning access is not available for this request.",
-    "error"
-  );
-
-} else {
-
-  setStatus(
-    msg || "Unable to run the scan right now. Please try again.",
-    "error"
-  );
-
-}
+          if (
+            msg.toLowerCase().includes("free scan already used") ||
+            msg.toLowerCase().includes("free_scan_used")
+          ) {
+            setStatus(
+              "Your scan is complete.<br>Create an account to access the dashboard. Additional scans require a plan.",
+              "promo",
+              '<a class="hero-scan-status-cta" href="/dashboard.html">Create Account</a>'
+            );
+          } else if (msg.toLowerCase().includes("anon_id_required")) {
+            setStatus(
+              "Unable to start the anonymous scan. Please refresh the page and try again.",
+              "error"
+            );
+          } else if (msg.toLowerCase().includes("access_required")) {
+            setStatus(
+              "Scanning access is not available for this request.",
+              "error"
+            );
+          } else {
+            setStatus(
+              msg || "Unable to run the scan right now. Please try again.",
+              "error"
+            );
+          }
         } finally {
           setBusy(false);
         }
