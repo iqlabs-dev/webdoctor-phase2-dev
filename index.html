@@ -14,7 +14,7 @@
 
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Fathom Anlytics — iQWEB -->
+  <!-- Fathom Analytics — iQWEB -->
   <script src="https://cdn.usefathom.com/script.js" data-site="MIQNNPNX" defer></script>
 
   <style>
@@ -66,142 +66,216 @@
       padding: 18px 18px 32px;
     }
 
-    /* HEADER */
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding: 6px 16px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
-      border: 1px solid rgba(148,163,184,0.26);
-      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
-      backdrop-filter: blur(26px);
-      position: sticky;
-      top: 12px;
-      z-index: 20;
-    }
 
-    .nav-left { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
-    .nav-title {
-      font-family: "Montserrat", sans-serif;
-      font-weight: 700;
-      font-size: 1.08rem;
-      letter-spacing: 0.04em;
-      color: var(--ink-soft);
-      white-space: nowrap;
-      text-decoration: none;
-    }
-    .nav-title:hover { text-decoration: none; }
+ /* HEADER */
+.nav {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+  border: 1px solid rgba(148,163,184,0.26);
+  box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+  backdrop-filter: blur(26px);
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+}
 
-    .nav-center { display: flex; align-items: center; gap: 18px; font-size: 0.8rem; }
-    .nav-links { display: flex; align-items: center; gap: 14px; }
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  justify-self: start;
+}
 
-    .nav-link {
-      color: var(--muted);
-      text-decoration: none;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      font-size: 0.66rem;
-      font-weight: 500;
-      padding-bottom: 2px;
-      border-bottom: 1px solid transparent;
-      transition: color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
-      opacity: 0.9;
-      white-space: nowrap;
-    }
+.nav-title {
+  font-family: "Montserrat", sans-serif;
+  font-weight: 700;
+  font-size: 1.08rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-decoration: none;
+}
 
-    .nav-link:hover {
-      color: var(--ink-soft);
-      border-color: rgba(148,163,184,0.7);
-      opacity: 1;
-      text-decoration: none;
-    }
+.nav-title:hover {
+  text-decoration: none;
+}
 
-    .nav-right { display: flex; align-items: center; gap: 10px; }
+.nav-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-size: 0.8rem;
+}
 
-    .nav-cta, .nav-ghost {
-      border-radius: 999px;
-      padding: 7px 18px;
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      border: 1px solid transparent;
-      cursor: pointer;
-      background: none;
-      color: inherit;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      text-decoration: none;
-      white-space: nowrap;
-      font-weight: 600;
-      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    }
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin: 0 auto;
+}
 
-    .nav-ghost {
-      border-color: rgba(148,163,184,0.4);
-      color: var(--muted);
-    }
+.nav-link {
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.66rem;
+  font-weight: 500;
+  padding-bottom: 2px;
+  border-bottom: 1px solid transparent;
+  transition: color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+  opacity: 0.9;
+  white-space: nowrap;
+}
 
-    .nav-ghost:hover {
-      border-color: rgba(148,163,184,0.9);
-      color: var(--ink-soft);
-      background: rgba(15,23,42,0.9);
-      text-decoration: none;
-    }
+.nav-link:hover {
+  color: var(--ink-soft);
+  border-color: rgba(148,163,184,0.7);
+  opacity: 1;
+  text-decoration: none;
+}
+.nav-dashboard {
+  font-size: 0.68rem;
+}
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+}
 
-    .nav-cta {
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      border-color: rgba(34,211,238,0.55);
-      color: var(--ink-soft);
-      box-shadow: 0 14px 32px rgba(15,23,42,0.85);
-      position: relative;
-      overflow: hidden;
-    }
+ 
+.nav-cta,
+.nav-ghost {
+  border-radius: 999px;
+  padding: 7px 18px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: 600;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
 
-    .nav-cta::before {
-      content: "";
-      position: absolute;
-      inset: -30%;
-      background: radial-gradient(circle at 0% 0%, rgba(34,211,238,0.28), transparent 55%);
-      opacity: 0.6;
-      pointer-events: none;
-    }
+.nav-ghost {
+  border-color: rgba(148,163,184,0.35);
+  background: rgba(15,23,42,0.35);
+  color: var(--ink-soft);
+}
 
-    .nav-cta span, .nav-cta svg { position: relative; z-index: 1; }
-    .nav-cta svg { width: 16px; height: 16px; }
+.nav-ghost:hover {
+  border-color: rgba(148,163,184,0.75);
+  color: var(--ink);
+  background: rgba(15,23,42,0.85);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
 
-    .nav-cta:hover {
-      transform: translateY(-2px);
-      border-color: rgba(34,211,238,0.9);
-      box-shadow: 0 18px 46px rgba(34,211,238,0.55);
-      color: var(--ink);
-      text-decoration: none;
-    }
+.nav-cta {
+  background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+  border-color: rgba(34,211,238,0.55);
+  color: var(--ink-soft);
+  box-shadow: 0 14px 32px rgba(15,23,42,0.85);
+  position: relative;
+  overflow: hidden;
+}
 
-    @media (max-width: 860px) {
-      .shell-inner { padding-inline: 16px; }
-      .nav { border-radius: 16px; }
-      .nav-center { display: none; }
-    }
+.nav-cta::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(circle at 0% 0%, rgba(34,211,238,0.28), transparent 55%);
+  opacity: 0.6;
+  pointer-events: none;
+}
 
+.nav-cta span,
+.nav-cta svg {
+  position: relative;
+  z-index: 1;
+}
+
+.nav-cta svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nav-cta:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34,211,238,0.9);
+  box-shadow: 0 18px 46px rgba(34,211,238,0.55);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .shell-inner {
+    padding-inline: 16px;
+  }
+
+  .nav {
+    grid-template-columns: auto auto;
+    border-radius: 16px;
+  }
+
+  .nav-center {
+    display: none;
+  }
+
+  .nav-right {
+    justify-self: end;
+  }
+}
+
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #8df3ff;
+  border: 1px solid rgba(34,211,238,0.35);
+  background: rgba(34,211,238,0.08);
+}
 /* HERO */
 .hero-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
   margin-top: 96px;
   margin-bottom: 18px;
-  align-items: flex-start;
+  justify-items: center;
 }
 
 .hero-left {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
 }
 
 @keyframes heroFadeUp {
@@ -210,15 +284,24 @@
 }
 
 .hero-title {
-  font-size: clamp(2.6rem, 4.6vw, 4.15rem);
-  line-height: 1.02;
-  letter-spacing: -0.02em;
+  font-size: clamp(2.45rem, 4.6vw, 4.15rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
   font-weight: 800;
   margin: 0;
   color: #22d3ee;
   text-shadow: none;
   opacity: 0;
   animation: heroFadeUp 620ms ease forwards;
+  max-width: 24ch;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.hero-title-white,
+.hero-title-accent {
+  display: inline;
 }
 
 .hero-title-white {
@@ -228,134 +311,145 @@
 
 .hero-title-accent {
   color: #22d3ee;
-  text-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+  text-shadow: 0 0 18px rgba(34,211,238,0.25);
 }
 
 .hero-h2 {
-  font-size: clamp(1.05rem, 1.45vw, 1.22rem);
-  line-height: 1.65;
-  color: rgba(255,255,255,0.88);
+  font-size: clamp(1.25rem, 1.65vw, 1.45rem);
+  line-height: 1.5;
+  color: rgba(255,255,255,0.92);
   font-weight: 500;
-  max-width: 68ch;
-  margin: 32px 0 0;
+  max-width: 58ch;
+  margin: 24px auto 0;
   opacity: 0;
   animation: heroFadeUp 620ms ease forwards;
   animation-delay: 140ms;
+  text-align: center;
 }
 
-    /* HERO SCAN BAR */
-    .hero-scan-shell {
-      margin-top: 20px;
-      max-width: 760px;
-      opacity: 0;
-      animation: heroFadeUp 620ms ease forwards;
-      animation-delay: 220ms;
-    }
 
-    .hero-scan-form {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-    }
+/* HERO SCAN BAR */
+.hero-scan-shell {
+  margin-top: 34px;
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+  opacity: 0;
+  animation: heroFadeUp 620ms ease forwards;
+  animation-delay: 220ms;
+}
 
-    .hero-scan-input {
-      width: 100%;
-      min-height: 40px;
-      border-radius: 11px;
-      border: 1px solid rgba(34,211,238,0.35);
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,0.06), transparent 40%),
-        rgba(8,14,28,0.96);
-      color: var(--ink);
-      font-family: inherit;
-      font-size: 0.92rem;
-      font-weight: 500;
-      padding: 0 16px;
-      outline: none;
-      box-shadow: 0 10px 26px rgba(0,0,0,0.32);
-      transition:
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        background 0.18s ease;
-    }
+.hero-scan-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(34,211,238,0.24);
+  background:
+    radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
+    rgba(8,14,28,0.78);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,0.28),
+    inset 0 0 0 1px rgba(255,255,255,0.02);
+}
 
-    .hero-scan-input::placeholder {
-      color: rgba(192,207,235,0.52);
-    }
+.hero-scan-input {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0 10px;
+  outline: none;
+  box-shadow: none;
+}
 
-    .hero-scan-input:focus {
-      border-color: rgba(34,211,238,0.72);
-      box-shadow:
-        0 12px 30px rgba(0,0,0,0.36),
-        0 0 0 2px rgba(34,211,238,0.10);
-    }
+.hero-scan-input::placeholder {
+  color: rgba(192,207,235,0.50);
+}
 
-    .hero-scan-button {
-      min-height: 40px;
-      padding: 0 22px;
-      border-radius: 11px;
-      border: 1px solid rgba(34,211,238,0.65);
-      background:
-        radial-gradient(circle at top, rgba(34,211,238,0.20), rgba(2,6,23,1));
-      color: #e6fbff;
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      cursor: pointer;
-      white-space: nowrap;
-      box-shadow:
-        0 0 18px rgba(34,211,238,0.25),
-        0 10px 28px rgba(15,23,42,0.82);
-      transition:
-        transform 0.16s ease,
-        border-color 0.16s ease,
-        box-shadow 0.16s ease,
-        color 0.16s ease;
-    }
+.hero-scan-input:focus {
+  box-shadow: none;
+}
 
-    .hero-scan-button:hover {
-      transform: translateY(-1px);
-      border-color: rgba(34,211,238,0.9);
-      box-shadow:
-        0 0 26px rgba(34,211,238,0.45),
-        0 12px 32px rgba(15,23,42,0.9);
-    }
+.hero-scan-button {
+  min-height: 46px;
+  padding: 0 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(34,211,238,0.68);
+  background:
+    radial-gradient(circle at top, rgba(34,211,238,0.22), rgba(2,6,23,1));
+  color: #e6fbff;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    0 0 16px rgba(34,211,238,0.30),
+    0 10px 24px rgba(15,23,42,0.70);
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    background 0.16s ease;
+}
 
-    .hero-scan-button:hover:not(:disabled) {
-      transform: translateY(-1px);
-      border-color: rgba(34,211,238,0.85);
-      box-shadow: 0 12px 32px rgba(34,211,238,0.30);
-      color: var(--ink);
-    }
+.hero-scan-button:hover,
+.hero-scan-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.92);
+  box-shadow:
+    0 0 22px rgba(34,211,238,0.42),
+    0 12px 30px rgba(15,23,42,0.84);
+  color: #ffffff;
+}
 
-    .hero-scan-button:disabled {
-      opacity: 0.68;
-      cursor: wait;
-    }
+.hero-scan-button:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
 
-    .hero-scan-meta {
-      margin-top: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+.hero-scan-meta {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
-    .hero-scan-helper {
-      font-size: 0.8rem;
-      line-height: 1.55;
-      color: rgba(192,207,235,0.82);
-      margin: 0;
-    }
+.hero-scan-helper {
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: rgba(192,207,235,0.82);
+  margin: 0;
+  text-align: center;
+}
 
-    .hero-scan-helper strong {
-      color: var(--ink-soft);
-      font-weight: 700;
-    }
+.hero-benefits {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: rgba(192,207,235,0.82);
+}
 
-  .hero-scan-status {
+.hero-benefits span::before {
+  content: "✓";
+  margin-right: 6px;
+  color: #22d3ee;
+}
+
+.hero-scan-status {
   display: none;
   width: fit-content;
   max-width: 420px;
@@ -370,31 +464,32 @@
   margin-top: 2px;
 }
 
-   .hero-scan-status.is-visible {
+.hero-scan-status.is-visible {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
 }
-    .hero-scan-status.is-error {
-      border-color: rgba(251,113,133,0.35);
-      background: var(--danger-soft);
-      color: #ffd5de;
-    }
 
-    .hero-scan-status.is-ok {
-      border-color: rgba(20,184,166,0.35);
-      background: var(--ok-soft);
-      color: #ccfbf1;
-    }
+.hero-scan-status.is-error {
+  border-color: rgba(251,113,133,0.35);
+  background: var(--danger-soft);
+  color: #ffd5de;
+}
 
-    .hero-scan-status.is-promo {
-      border-color: rgba(34,211,238,0.34);
-      background: rgba(34,211,238,0.10);
-      color: #d8f9ff;
-    }
+.hero-scan-status.is-ok {
+  border-color: rgba(20,184,166,0.35);
+  background: var(--ok-soft);
+  color: #ccfbf1;
+}
 
-  .hero-scan-status-text {
+.hero-scan-status.is-promo {
+  border-color: rgba(34,211,238,0.34);
+  background: rgba(34,211,238,0.10);
+  color: #d8f9ff;
+}
+
+.hero-scan-status-text {
   font-size: 0.92rem;
   line-height: 1.55;
   font-weight: 500;
@@ -403,184 +498,110 @@
   max-width: 100%;
 }
 
-    .hero-scan-status-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+.hero-scan-status-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 
-    .hero-scan-status-cta {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 38px;
-      padding: 0 16px;
+.hero-scan-status-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(34,211,238,0.72);
+  background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 12px 28px rgba(15,23,42,0.72);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+}
+
+.hero-scan-status-cta:hover {
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.95);
+  box-shadow: 0 16px 30px rgba(34,211,238,0.30);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+@media (max-width: 720px) {
+  .hero-scan-shell {
+    max-width: 100%;
+  }
+
+  .hero-scan-form {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .hero-scan-button {
+    width: 100%;
+  }
+}
+
+.hero-benefits {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: rgba(192,207,235,0.72);
+}
+
+.hero-benefits span::before {
+  content: "✓";
+  margin-right: 6px;
+  color: #22d3ee;
+}
+
+.hero-proof {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: nowrap;
+  width: 100%;
+  margin-top: 38px;
+  margin-bottom: 72px;
+}
+
+.hero-proof span {
+  white-space: nowrap;
+}
+.proof-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: rgba(229,240,255,0.88);
+  background: rgba(8,14,28,0.65);
+  border: 1px solid rgba(34,211,238,0.22);
+  white-space: nowrap;
+}
+
+
+    .proof-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 999px;
-      border: 1px solid rgba(34,211,238,0.72);
-      background: radial-gradient(circle at top, rgba(15,23,42,0.98), #020617);
-      color: var(--ink);
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.13em;
-      text-transform: uppercase;
-      text-decoration: none;
-      box-shadow: 0 12px 28px rgba(15,23,42,0.72);
-      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
-    }
-
-    .hero-scan-status-cta:hover {
-      transform: translateY(-1px);
-      border-color: rgba(34,211,238,0.95);
-      box-shadow: 0 16px 30px rgba(34,211,238,0.30);
-      color: #ffffff;
-      text-decoration: none;
-    }
-
-    .hero-cta {
-      margin-top: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      opacity: 0;
-      animation: heroFadeUp 620ms ease forwards;
-      animation-delay: 280ms;
-    }
-
-    .hero-text-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: #22d3ee;
-      text-decoration: none;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      padding: 0;
-      border-radius: 0;
-      outline: none;
-      transition: color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
-    }
-
-    .hero-text-link:hover {
-      color: #67e8f9;
-      transform: translateX(2px);
-      opacity: 0.95;
-    }
-
-    .hero-text-link:hover {
-      color: #7dd3fc;
-      text-decoration: none !important;
-      transform: translateX(2px);
-      opacity: 0.92;
-    }
-
-    .hero-text-link:focus-visible {
-      outline: 2px solid rgba(34,211,238,0.55);
-      outline-offset: 4px;
-      border-radius: 8px;
-    }
-
-    .wd-pill-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 11px 22px;
-      border-radius: 12px;
-      font-weight: 700;
-      font-size: 0.78rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-      text-decoration: none;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(34, 211, 238, 0.55);
-      transition:
-        transform 160ms ease,
-        border-color 160ms ease,
-        box-shadow 200ms ease,
-        background 160ms ease;
-    }
-
-    .wd-pill-link:hover {
-      text-decoration: none;
-      transform: translateY(-1px);
-      border-color: rgba(34, 211, 238, 0.95);
-      box-shadow: 0 0 24px rgba(34, 211, 238, 0.25);
-      background: rgba(15, 23, 42, 1);
-    }
-
-    .hero-signup-wrap {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-top: 36px;
-      margin-bottom: 28px;
-    }
-
-    .hero-signup-promo {
-      width: 100%;
-      max-width: 340px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 14px;
-      padding: 18px 22px;
-      border-radius: 14px;
-      border: 1px solid rgba(34,211,238,0.15);
-      background:
-        radial-gradient(circle at top left, rgba(34,211,238,0.10), transparent 42%),
-        rgba(15,23,42,0.52);
-    }
-
-    .hero-signup-copy {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-      line-height: 1.6;
-      color: rgba(229,240,255,0.84);
-    }
-
-    .hero-signup-copy strong {
-      font-size: 0.92rem;
-      font-weight: 700;
-      color: #d8f9ff;
-      line-height: 1.35;
-    }
-
-    .hero-signup-copy p {
-      margin: 0;
-      font-size: 0.82rem;
-      line-height: 1.55;
-      color: rgba(229,240,255,0.84);
-    }
-
-    .hero-signup-button {
-      margin-top: 4px;
-      padding: 10px 22px;
-      border-radius: 10px;
-      border: 1px solid rgba(34,211,238,0.68);
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      color: #e5f0ff;
-      font-size: 0.72rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      text-decoration: none;
-    }
-
-    .hero-signup-button:hover {
-      border-color: rgba(34,211,238,0.92);
-      box-shadow: 0 0 18px rgba(34,211,238,0.30);
-      color: #ffffff;
+      background: rgba(34,211,238,0.78);
+      box-shadow:
+        0 0 18px rgba(34,211,238,0.60),
+        0 0 36px rgba(34,211,238,0.25);
     }
 
     /* DIAGNOSTIC ZONE */
@@ -588,7 +609,7 @@
       position: relative;
       overflow: hidden;
       isolation: isolate;
-      margin-top: 0;
+      margin-top: 18px;
       padding-bottom: 22px;
       border-radius: 24px;
     }
@@ -602,30 +623,29 @@
     }
 
     .sample-reports,
-    .hero-proof,
     .iq-section-signals {
       position: relative;
       z-index: 2;
     }
 
-    .sample-reports {
-      margin-top: 0;
-      margin-bottom: 26px;
-      text-align: center;
-      opacity: 0;
-      animation: heroFadeUp 620ms ease forwards;
-      animation-delay: 300ms;
-      padding: 28px 22px 24px;
-      border-radius: 20px;
-    }
+ .sample-reports {
+  margin-top: 0;
+  margin-bottom: 34px;
+  text-align: center;
+  opacity: 0;
+  animation: heroFadeUp 620ms ease forwards;
+  animation-delay: 300ms;
+  padding: 20px 22px 24px;
+  border-radius: 20px;
+}
 
-    .sample-reports-title {
-      font-size: 1.35rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin: 0 0 20px;
-    }
+.sample-reports-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  margin: 0 0 26px;
+  color: #e6f3ff;
+}
 
     .sample-reports-grid {
       display: grid;
@@ -648,10 +668,10 @@
       transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
     }
 
-    .sample-report-card:hover {
-      border-color: rgba(34,211,238,0.55);
-      transform: translateY(-2px);
-      box-shadow: 0 18px 38px rgba(0,0,0,0.32);
+  .sample-report-card:hover {
+transform:translateY(-4px) scale(1.02);
+border-color:rgba(34,211,238,0.7);
+box-shadow:0 22px 44px rgba(0,0,0,0.45);
       background:
         linear-gradient(180deg, rgba(10,16,34,0.94), rgba(8,12,24,0.96));
       text-decoration: none;
@@ -734,11 +754,9 @@
     .iq-nodes span:nth-child(1) { top: 12%; left: 10%; animation-delay: 0s; animation-duration: 29s; }
     .iq-nodes span:nth-child(2) { top: 16%; left: 38%; animation-delay: 2s; animation-duration: 33s; }
     .iq-nodes span:nth-child(3) { top: 14%; left: 76%; animation-delay: 4s; animation-duration: 27s; }
-
     .iq-nodes span:nth-child(4) { top: 36%; left: 14%; animation-delay: 6s; animation-duration: 35s; }
     .iq-nodes span:nth-child(5) { top: 42%; left: 48%; animation-delay: 8s; animation-duration: 31s; }
     .iq-nodes span:nth-child(6) { top: 38%; left: 84%; animation-delay: 10s; animation-duration: 30s; }
-
     .iq-nodes span:nth-child(7) { top: 66%; left: 18%; animation-delay: 12s; animation-duration: 34s; }
     .iq-nodes span:nth-child(8) { top: 72%; left: 54%; animation-delay: 14s; animation-duration: 28s; }
     .iq-nodes span:nth-child(9) { top: 68%; left: 88%; animation-delay: 16s; animation-duration: 32s; }
@@ -811,53 +829,6 @@
       100% { opacity: 0.05; transform: scale(1); }
     }
 
-    .hero-proof {
-      margin-top: 26px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: nowrap;
-      max-width: 900px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .hero-proof::-webkit-scrollbar {
-      display: none;
-    }
-
-    .proof-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 7px 10px;
-      border-radius: 999px;
-      font-size: 0.68rem;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: rgba(229,240,255,0.82);
-      background: rgba(15,23,42,0.55);
-      border: 1px solid rgba(148,163,184,0.24);
-      white-space: nowrap;
-      flex: 0 0 auto;
-    }
-
-    .proof-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: rgba(34,211,238,0.78);
-      box-shadow:
-        0 0 18px rgba(34,211,238,0.60),
-        0 0 36px rgba(34,211,238,0.25);
-    }
-
-    .brand-iqweb {
-      text-transform: none !important;
-      letter-spacing: normal;
-    }
-
     /* SECTIONS */
     .section { margin-top: 40px; }
 
@@ -901,7 +872,7 @@
     }
 
     .iq-section-signals {
-      margin-top: 72px;
+      margin-top: 58px;
       position: relative;
       opacity: 0;
       animation: heroFadeUp 720ms ease forwards;
@@ -921,7 +892,7 @@
     .iq-section-title {
       font-family: "Montserrat", sans-serif;
       font-weight: 800;
-      font-size: 1.06rem;
+      font-size: 1.02rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       margin: 0 0 6px;
@@ -937,21 +908,6 @@
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 26px;
-    }
-
-    @media (max-width: 960px) {
-      .sample-reports-grid { grid-template-columns: 1fr; max-width: 560px; }
-      .hero-proof { flex-wrap: wrap; }
-      .iq-section-signals { margin-top: 58px; }
-      .iq-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-      .iq-grid { background-size: 56px 56px; }
-    }
-
-    @media (max-width: 640px) {
-      .iq-section-signals { margin-top: 44px; }
-      .iq-signal-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-      .sample-reports { padding: 22px 14px 18px; }
-      .iq-network { opacity: 0.15; }
     }
 
     .iq-signal-card {
@@ -983,6 +939,8 @@
     .iq-signal-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
     .iq-signal-list li { position: relative; padding-left: 14px; font-size: 0.80rem; line-height: 1.5; color: rgba(229,240,255,0.82); }
     .iq-signal-list li::before { content:""; position:absolute; left: 0; top: 0.55em; width: 6px; height: 6px; border-radius: 999px; background: rgba(34,211,238,0.35); }
+
+
 
     /* WORKFLOW */
     #how.section { margin-top: 78px; margin-bottom: 18px; }
@@ -1121,14 +1079,16 @@
       }
     }
 
-    @media (max-width: 720px) {
-      .hero-scan-form {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 960px) {
+      .sample-reports-grid { grid-template-columns: 1fr; max-width: 560px; }
+      .iq-section-signals { margin-top: 50px; }
+      .iq-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+      .iq-grid { background-size: 56px 56px; }
+    }
 
-      .hero-scan-button {
-        width: 100%;
-      }
+    @media (max-width: 720px) {
+      .hero-scan-form { grid-template-columns: 1fr; }
+      .hero-scan-button { width: 100%; }
 
       #how.section { margin-top: 68px; margin-bottom: 10px; }
 
@@ -1152,11 +1112,22 @@
       .wf-content h3 { font-size: 17px; }
     }
 
+    @media (max-width: 640px) {
+      .hero-shell { margin-top: 72px; }
+      .hero-title { max-width: 100%; }
+      .iq-section-signals { margin-top: 42px; }
+      .iq-signal-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .sample-reports { padding: 22px 14px 18px; }
+      .iq-network { opacity: 0.15; }
+      .proof-chip { white-space: normal; text-align: left; }
+    }
+
     /* PRICING */
     #pricing.section {
       margin-top: 86px !important;
       margin-bottom: 120px;
     }
+
     .pricing-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 
     .pricing-card {
@@ -1190,6 +1161,7 @@
       border-color: rgba(34, 211, 238, 0.7) !important;
       box-shadow: 0 24px 58px rgba(34, 211, 238, 0.40);
     }
+
     .pricing-card:hover::before { opacity: 1; }
 
     .pricing-name { font-size: 0.84rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(148,163,184,0.95); }
@@ -1236,12 +1208,12 @@
 
     @keyframes fadeUpSoft {
       from { opacity: 0; transform: translateY(10px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0);  filter: blur(0); }
+      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
     }
 
     @keyframes cardRevealUp {
       from { opacity: 0; transform: translateY(14px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0);  filter: blur(0); }
+      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
     }
 
     .js-anim #pricing .section-header,
@@ -1279,200 +1251,192 @@
       }
     }
 
-   /* TRUST */
-.trust-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-  align-items: stretch;
-  margin-top: 10px;
-}
+    /* TRUST */
+    .trust-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: stretch;
+      margin-top: 10px;
+    }
 
-.trust-block {
-  flex: 2 1 260px;
-  font-size: 0.84rem;
-  color: var(--muted);
-  line-height: 1.85;
-  max-width: 560px;
-}
+    .trust-block {
+      flex: 2 1 260px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.85;
+      max-width: 560px;
+    }
 
-.trust-callout {
-  flex: 1 1 240px;
-  border-radius: 16px;
-  padding: 14px 16px 15px;
-  background: rgba(15, 23, 42, 0.97);
-  border: 1px solid rgba(34, 197, 94, 0.55);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.85);
-  font-size: 0.8rem;
-  color: #bbf7d0;
-  line-height: 1.75;
-  align-self: flex-start;
-  margin-top: -20px;
-  position: relative;
-  overflow: hidden;
-}
+    .trust-callout {
+      flex: 1 1 240px;
+      border-radius: 16px;
+      padding: 14px 16px 15px;
+      background: rgba(15, 23, 42, 0.97);
+      border: 1px solid rgba(34, 197, 94, 0.55);
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.85);
+      font-size: 0.8rem;
+      color: #bbf7d0;
+      line-height: 1.75;
+      align-self: flex-start;
+      margin-top: -20px;
+      position: relative;
+      overflow: hidden;
+    }
 
-.trust-callout::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.18), transparent 55%);
-  opacity: 0.9;
-  pointer-events: none;
-}
+    .trust-callout::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: radial-gradient(circle at 0% 0%, rgba(34, 197, 94, 0.18), transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
 
-.trust-callout span {
-  display: block;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: #bbf7d0;
-  margin-bottom: 6px;
-  position: relative;
-  z-index: 1;
-  font-weight: 800;
-}
+    .trust-callout span {
+      display: block;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #bbf7d0;
+      margin-bottom: 6px;
+      position: relative;
+      z-index: 1;
+      font-weight: 800;
+    }
 
-.trust-callout p,
-.trust-callout ul {
-  position: relative;
-  z-index: 1;
-}
+    .trust-callout p,
+    .trust-callout ul {
+      position: relative;
+      z-index: 1;
+    }
 
-.trust-callout ul {
-  margin: 6px 0 4px 18px;
-  padding: 0;
-}
+    .trust-callout ul {
+      margin: 6px 0 4px 18px;
+      padding: 0;
+    }
 
-.trust-callout ul li {
-  margin-bottom: 4px;
-}
+    .trust-callout ul li {
+      margin-bottom: 4px;
+    }
 
-.trust-link {
-  color: var(--accent);
-  text-decoration: none;
-  border-bottom: 1px dotted rgba(34, 211, 238, 0.55);
-}
+    .trust-link {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px dotted rgba(34, 211, 238, 0.55);
+    }
 
-.trust-link:hover {
-  color: #e0f2fe;
-  border-bottom-style: solid;
-}
+    .trust-link:hover {
+      color: #e0f2fe;
+      border-bottom-style: solid;
+    }
 
-.trust-contact {
-  margin-top: 38px;
-  padding: 10px 14px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(34,211,238,0.15);
+    .trust-contact {
+      margin-top: 38px;
+      padding: 10px 14px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(34,211,238,0.15);
+      max-width: 440px;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.08), transparent 45%),
+        linear-gradient(180deg, rgba(10,16,34,0.82), rgba(8,12,24,0.88));
+      box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+      color: rgba(229,240,255,0.86);
+    }
 
-  max-width: 440px;
+    .trust-contact-title {
+      margin: 0 0 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #d8f9ff;
+    }
 
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,0.08), transparent 45%),
-    linear-gradient(180deg, rgba(10,16,34,0.82), rgba(8,12,24,0.88));
+    .trust-contact-row + .trust-contact-row {
+      margin-top: 12px;
+    }
 
-  box-shadow: 0 10px 22px rgba(0,0,0,0.28);
+    .trust-contact-label {
+      display: block;
+      margin: 0 0 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1.5;
+      color: rgba(192, 207, 235, 0.82);
+    }
 
-  color: rgba(229,240,255,0.86);
-}
+    .trust-contact-email {
+      display: inline-block;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      line-height: 1.4;
+      color: #67e8f9;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(103, 232, 249, 0.45);
+      transition: color 0.16s ease, border-color 0.16s ease, text-shadow 0.16s ease;
+    }
 
-.trust-contact-title {
-  margin: 0 0 12px;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #d8f9ff;
-}
+    .trust-contact-email:first-of-type {
+      font-size: 1.05rem;
+    }
 
-.trust-contact-row + .trust-contact-row {
-  margin-top: 12px;
-}
+    .trust-contact-email:hover {
+      color: #e0f2fe;
+      border-bottom-color: rgba(224, 242, 254, 0.9);
+      text-decoration: none;
+      text-shadow: 0 0 16px rgba(34, 211, 238, 0.18);
+    }
 
-.trust-contact-label {
-  display: block;
-  margin: 0 0 4px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.5;
-  color: rgba(192, 207, 235, 0.82);
-}
+    @media (max-width: 640px) {
+      .trust-contact { padding: 16px 16px 18px; }
+      .trust-contact-email { font-size: 0.94rem; }
+    }
 
-.trust-contact-email {
-  display: inline-block;
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  line-height: 1.4;
-  color: #67e8f9;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(103, 232, 249, 0.45);
-  transition: color 0.16s ease, border-color 0.16s ease, text-shadow 0.16s ease;
-}
+    #trust .trust-block p:first-of-type {
+      margin-top: 4px;
+    }
 
-.trust-contact-email:first-of-type {
-  font-size: 1.05rem;
-}
+    /* CLOSING */
+    .closing-statement {
+      margin-top: 48px;
+      padding: 35px 20px 50px;
+      background: transparent;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
 
-.trust-contact-email:hover {
-  color: #e0f2fe;
-  border-bottom-color: rgba(224, 242, 254, 0.9);
-  text-decoration: none;
-  text-shadow: 0 0 16px rgba(34, 211, 238, 0.18);
-}
+    .closing-philosophy {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 18px;
+      font-size: 1rem;
+      line-height: 1.8;
+      color: rgba(229,240,255,0.85);
+      text-align: center;
+    }
 
-@media (max-width: 640px) {
-  .trust-contact {
-    padding: 16px 16px 18px;
-  }
+    @media (max-width: 600px) {
+      .closing-statement {
+        margin-top: 40px;
+        padding: 44px 16px 28px;
+      }
 
-  .trust-contact-email {
-    font-size: 0.94rem;
-  }
-}
-#trust .trust-block p:first-of-type {
-  margin-top: 4px;
-}
-
-/* CLOSING */
-.closing-statement {
-  margin-top: 48px;
-  padding: 35px 20px 50px;
-  background: transparent;
-  border-top: 1px solid rgba(255,255,255,0.05);
-}
-
-.closing-philosophy {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 0 18px;
-  font-size: 1rem;
-  line-height: 1.8;
-  color: rgba(229,240,255,0.85);
-  text-align: center;
-}
-
-@media (max-width: 600px) {
-  .closing-statement {
-    margin-top: 40px;
-    padding: 44px 16px 28px;
-  }
-
-  .closing-philosophy {
-    font-size: 0.95rem;
-    line-height: 1.7;
-  }
-}
+      .closing-philosophy {
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+    }
 
     /* FOOTER */
-   .wd-footer {
-  padding: 28px 0;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
+    .wd-footer {
+      padding: 28px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
 
     .wd-footer-inner {
       max-width: 1280px;
@@ -1497,6 +1461,7 @@
       .wd-footer-inner { grid-template-columns: 1fr; row-gap: 10px; text-align: center; }
       .wd-footer-left, .wd-footer-right { justify-self: center; }
     }
+
   </style>
 </head>
 
@@ -1505,85 +1470,92 @@
     <div class="shell-inner">
 
       <!-- NAVIGATION -->
-      <header class="nav">
-        <div class="nav-left">
-          <a href="/" class="nav-title">iQWEB</a>
-        </div>
+<header class="nav">
 
-        <div class="nav-center">
-          <div class="nav-links">
-            <a href="#how" class="nav-link">How it works</a>
-            <a href="#signals" class="nav-link">Signals we check</a>
-            <a href="#pricing" class="nav-link">Pricing</a>
-            <a href="#trust" class="nav-link">Trust</a>
-          </div>
-        </div>
+  <div class="nav-left">
+    <a href="/" class="nav-title">iQWEB</a>
 
-        <div class="nav-right">
-          <a href="/dashboard.html" class="nav-ghost">Dashboard</a>
-          <a href="/dashboard.html" class="nav-cta">
-            <span>Login</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path fill="currentColor"
-                d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z" />
-            </svg>
-          </a>
-        </div>
-      </header>
+    <a href="/dashboard.html" class="nav-ghost">
+      Dashboard
+    </a>
+  </div>
+
+  <div class="nav-center">
+    <div class="nav-links">
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="#signals" class="nav-link">Signals</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+      <a href="#trust" class="nav-link">Trust</a>
+    </div>
+  </div>
+
+  <div class="nav-right">
+    <a href="/dashboard.html" class="nav-cta">
+      <span>5 Free Scans</span>
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z"/>
+      </svg>
+    </a>
+  </div>
+
+</header>
 
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
 
- <h1 class="hero-title">
-  <span class="hero-title-white">Turn Website Diagnostics into</span>
-  <span class="hero-title-accent">Client-Ready Reports</span>
+<h1 class="hero-title">
+  <span class="hero-title-white">Stop Translating Lighthouse</span>
+  <span class="hero-title-white">Reports</span>
+  <span class="hero-title-accent">For Clients</span>
 </h1>
 
           <h2 class="hero-h2">
-       iQWEB analyzes performance, SEO, security, and delivery signals. Turning raw technical diagnostics into structured reports 
-       you can share with clients to explain issues, priorities, and recommended improvements.
+ Turn Lighthouse and Core Web Vitals data into client-ready reports
+that clearly explain issues, priorities and recommended fixes.
           </h2>
 
-          <div class="hero-scan-shell" aria-label="Generate a website report">
-            <form class="hero-scan-form" id="heroScanForm">
-              <input
-                id="heroScanInput"
-                class="hero-scan-input"
-                type="text"
-                inputmode="url"
-                autocomplete="url"
-                spellcheck="false"
-                placeholder="Enter a site URL"
-                aria-label="Website URL"
-                required
-              />
-              <button id="heroScanButton" class="hero-scan-button" type="submit">
-                Run Free Scan
-              </button>
-            </form>
+<div class="hero-scan-shell" aria-label="Generate a website report">
+  <form class="hero-scan-form" id="heroScanForm">
+    <input
+      id="heroScanInput"
+      class="hero-scan-input"
+      type="text"
+      inputmode="url"
+      autocomplete="url"
+      spellcheck="false"
+      placeholder="Enter a site URL"
+      aria-label="Website URL"
+      required
+    />
+    <button id="heroScanButton" class="hero-scan-button" type="submit">
+      Run Free Scan
+    </button>
+  </form>
 
-            <div class="hero-scan-meta">
-              <p class="hero-scan-helper">
-                No signup required — generate a report for any public website.
-              </p>
-              <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
-            </div>
-          </div>
+  <div class="hero-scan-meta">
 
-          <div class="hero-signup-wrap">
-            <div class="hero-signup-promo">
-              <div class="hero-signup-copy">
-                <strong>Create an Account<br>Get 5 Free Scans</strong>
-                <p>Save reports, track scan history, and keep testing client sites from your dashboard.</p>
-              </div>
-              <a href="/dashboard.html" class="hero-signup-button">Create Account</a>
-            </div>
+
+    <div class="hero-benefits">
+      <span>No signup required</span>
+      <span>Public websites only</span>
+      <span>Client-ready report</span>
+      <span>Shareable output</span>
+    </div>
+
+    <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
+  </div>
+</div>
+
+          <div class="hero-proof" aria-label="Platform proof points">
+            <span class="proof-chip"><span class="proof-dot"></span>Google PSI + Lighthouse Data</span>
+            <span class="proof-chip"><span class="proof-dot"></span>Core Web Vitals + Site Diagnostics</span>
+            <span class="proof-chip"><span class="proof-dot"></span>Structured Client Reports</span>
+            <span class="proof-chip"><span class="proof-dot"></span>Clear Explanations</span>
           </div>
 
           <section class="iq-diagnostic-zone">
 
-            <!-- Animated diagnostic background -->
             <div class="iq-diagnostic-bg" aria-hidden="true">
               <div class="iq-grid"></div>
               <div class="iq-network"></div>
@@ -1605,12 +1577,9 @@
 
             <!-- SAMPLE REPORTS -->
             <section class="sample-reports">
-              <h2 class="sample-reports-title">
-                View Real <span class="brand-iqweb">iQWEB</span> Reports
-              </h2>
+              <h2 class="sample-reports-title">View Client-Ready Reports</h2>
 
               <div class="sample-reports-grid">
-
                 <a class="sample-report-card"
                    href="https://iqweb.ai/report.html?report_id=WEB-20260310-30137&from=history"
                    target="_blank" rel="noopener">
@@ -1634,22 +1603,14 @@
                   <p>Example scan where missing metadata, canonical signals and indexing elements limit visibility.</p>
                   <span class="sample-report-link">View Report →</span>
                 </a>
-
               </div>
             </section>
-
-            <div class="hero-proof" aria-label="Platform proof points">
-              <span class="proof-chip"><span class="proof-dot"></span>Multi-signal website diagnostics</span>
-              <span class="proof-chip"><span class="proof-dot"></span>Deterministic scoring model</span>
-              <span class="proof-chip"><span class="proof-dot"></span>No generic AI summaries</span>
-              <span class="proof-chip"><span class="proof-dot"></span>Evidence-based diagnostics</span>
-            </div>
 
             <!-- NINE SIGNALS -->
             <section id="signals" class="iq-section iq-section-signals">
               <div class="iq-section-inner">
                 <header class="iq-section-header">
-                  <h2 class="iq-section-title">What every iQWEB scan evaluates and delivers</h2>
+                  <h2 class="iq-section-title">What iQWEB checks before generating the report</h2>
                 </header>
 
                 <div class="iq-signal-grid">
@@ -1748,8 +1709,9 @@
                 </div>
               </div>
             </section>
-
           </section>
+
+     
 
         </section>
       </main>
@@ -1872,114 +1834,107 @@
         </p>
       </section>
 
-<!-- TRUST -->
-<section class="section" id="trust">
-  <div class="section-header">
-    <div>
-      <div class="section-kicker">Trust &amp; verification</div>
-      <div class="section-title">Built as a Health Check, Not a Data Farm.</div>
-    </div>
-  </div>
-
-  <div class="trust-row">
-
- <!-- LEFT COLUMN -->
-<div class="trust-block">
-
-  <p>
-    <strong>iQWEB is built as a health check, not a data farm.</strong>
-    Reports are generated from public signals and include a unique
-    iQWEB Report ID so they can be referenced, shared, and independently verified.
-  </p>
-
-  <p>
-    iQWEB is powered by the Λ i Q™ Core Engine and built in New Zealand.
-    If something ever looks wrong, there is a real person you can contact.
-  </p>
-
-      <!-- CONTACT CARD -->
-      <div class="trust-contact">
-
-        <p class="trust-contact-title">Talk to a real person</p>
-
-        <div class="trust-contact-row">
-          <span class="trust-contact-label">
-            Questions, feedback, or report concerns
-          </span>
-          <a class="trust-contact-email" href="mailto:support@iqweb.ai">
-            support@iqweb.ai
-          </a>
-        </div>
-
-        <div class="trust-contact-row">
-          <span class="trust-contact-label">
-            General enquiries
-          </span>
-          <a class="trust-contact-email" href="mailto:info@iqweb.ai">
-            info@iqweb.ai
-          </a>
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- RIGHT COLUMN -->
-    <aside class="trust-callout">
-
-      <span>Verification &amp; security</span>
-
-      <p>
-        We’re establishing a dedicated trust hub at
-        <a href="/trust" class="trust-link">trust.iqweb.ai</a>,
-        designed to provide:
-      </p>
-
-      <ul>
-        <li>Independent verification of report IDs</li>
-        <li>Security and privacy notes in plain language</li>
-        <li>Platform status and change history</li>
-      </ul>
-
-      <p style="margin-top:4px;">
-        iQWEB is intentionally released as a living platform,
-        built to improve without disruption. Feedback is always welcome.
-      </p>
-
-    </aside>
-
-  </div>
-</section>
-    <!-- CLOSING STATEMENT -->
-    <section class="closing-statement">
-      <div class="closing-inner">
-        <p class="closing-philosophy">
-      iQWEB exists to bring clarity to websites that have become increasingly complex beneath the surface. Reports are built on measurable signals and transparent scoring — helping teams understand what matters, decide what to fix, and move forward with confidence.
-        </p>
-      </div>
-    </section>
-
-    <!-- FOOTER -->
-    <footer class="wd-footer">
-      <div class="wd-footer-inner">
-        <div class="wd-footer-left">© 2025 iQWEB – All rights reserved.</div>
-
-        <div class="wd-footer-center">
-          <div class="wd-footer-links">
-            <a href="/">Home</a>
-            <a href="#pricing">Pricing</a>
-            <a href="/trust.html">Trust</a>
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
-            <a href="/refunds">Billing &amp; Refunds</a>
-            <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+      <!-- TRUST -->
+      <section class="section" id="trust">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Trust &amp; verification</div>
+            <div class="section-title">Built as a Health Check, Not a Data Farm.</div>
           </div>
         </div>
 
-        <div class="wd-footer-right">Powered by Λ i Q™.</div>
-      </div>
-    </footer>
+        <div class="trust-row">
 
+          <div class="trust-block">
+            <p>
+              <strong>iQWEB is built as a health check, not a data farm.</strong>
+              Reports are generated from public signals and include a unique
+              iQWEB Report ID so they can be referenced, shared, and independently verified.
+            </p>
+
+            <p>
+              iQWEB is powered by the Λ i Q™ Core Engine and built in New Zealand.
+              If something ever looks wrong, there is a real person you can contact.
+            </p>
+
+            <div class="trust-contact">
+              <p class="trust-contact-title">Talk to a real person</p>
+
+              <div class="trust-contact-row">
+                <span class="trust-contact-label">
+                  Questions, feedback, or report concerns
+                </span>
+                <a class="trust-contact-email" href="mailto:support@iqweb.ai">
+                  support@iqweb.ai
+                </a>
+              </div>
+
+              <div class="trust-contact-row">
+                <span class="trust-contact-label">
+                  General enquiries
+                </span>
+                <a class="trust-contact-email" href="mailto:info@iqweb.ai">
+                  info@iqweb.ai
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <aside class="trust-callout">
+            <span>Verification &amp; security</span>
+
+            <p>
+              We’re establishing a dedicated trust hub at
+              <a href="/trust.html" class="trust-link">trust.iqweb.ai</a>,
+              designed to provide:
+            </p>
+
+            <ul>
+              <li>Independent verification of report IDs</li>
+              <li>Security and privacy notes in plain language</li>
+              <li>Platform status and change history</li>
+            </ul>
+
+            <p style="margin-top:4px;">
+              iQWEB is intentionally released as a living platform,
+              built to improve without disruption. Feedback is always welcome.
+            </p>
+          </aside>
+
+        </div>
+      </section>
+
+      <!-- CLOSING STATEMENT -->
+      <section class="closing-statement">
+        <div class="closing-inner">
+          <p class="closing-philosophy">
+            iQWEB exists to bring clarity to websites that have become increasingly complex beneath the surface. Reports are built on measurable signals and transparent scoring — helping teams understand what matters, decide what to fix, and move forward with confidence.
+          </p>
+        </div>
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="wd-footer">
+        <div class="wd-footer-inner">
+          <div class="wd-footer-left">© 2025 iQWEB – All rights reserved.</div>
+
+          <div class="wd-footer-center">
+            <div class="wd-footer-links">
+              <a href="/">Home</a>
+              <a href="#pricing">Pricing</a>
+              <a href="/trust.html">Trust</a>
+              <a href="/privacy">Privacy</a>
+              <a href="/terms">Terms</a>
+              <a href="/refunds">Billing &amp; Refunds</a>
+              <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+            </div>
+          </div>
+
+          <div class="wd-footer-right">Powered by Λ i Q™.</div>
+        </div>
+      </footer>
+
+    </div>
   </div>
 
   <script>
@@ -2155,7 +2110,7 @@
 
       const setBusy = (busy) => {
         button.disabled = busy;
-        button.textContent = busy ? "Building Report..." : "Run Scan";
+        button.textContent = busy ? "Building Report..." : "Run Free Scan";
       };
 
       form.addEventListener("submit", async (e) => {
@@ -2304,7 +2259,7 @@
 
           const msg = String(err?.message || "");
 
-            if (
+          if (
             msg.toLowerCase().includes("free scan already used") ||
             msg.toLowerCase().includes("free_scan_used")
           ) {
