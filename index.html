@@ -246,7 +246,9 @@ html {
   }
 
   .nav {
-    grid-template-columns: auto auto;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 8px 12px;
     border-radius: 16px;
   }
 
@@ -254,8 +256,66 @@ html {
     display: none;
   }
 
+  .nav-left {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .nav-title {
+    font-size: 0.98rem;
+  }
+
+  .nav-ghost {
+    display: none;
+  }
+
   .nav-right {
     justify-self: end;
+  }
+
+  .nav-cta {
+    padding: 7px 14px;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+  }
+}
+@media (max-width: 640px) {
+  .hero-shell {
+    margin-top: 64px;
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 10vw, 2.9rem);
+    line-height: 1.08;
+    max-width: 100%;
+  }
+
+  .hero-title-white,
+  .hero-title-accent {
+    display: block;
+  }
+
+  .hero-h2 {
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 100%;
+    padding-inline: 4px;
+  }
+
+  .hero-benefits {
+    gap: 10px 16px;
+    font-size: 0.76rem;
+  }
+
+  .hero-proof {
+    gap: 10px;
+    margin-top: 28px;
+    margin-bottom: 52px;
+  }
+
+  .proof-chip {
+    font-size: 0.72rem;
+    padding: 7px 12px;
   }
 }
 
@@ -447,21 +507,7 @@ html {
   text-align: center;
 }
 
-.hero-benefits {
-  display: flex;
-  justify-content: center;
-  gap: 18px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: rgba(192,207,235,0.82);
-}
 
-.hero-benefits span::before {
-  content: "✓";
-  margin-right: 6px;
-  color: #22d3ee;
-}
 
 .hero-scan-status {
   display: none;
@@ -581,16 +627,17 @@ html {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 18px;
-  flex-wrap: nowrap;
+  gap: 12px;
+  flex-wrap: wrap;
   width: 100%;
   margin-top: 38px;
   margin-bottom: 72px;
 }
 
 .hero-proof span {
-  white-space: nowrap;
+  white-space: normal;
 }
+
 .proof-chip {
   display: inline-flex;
   align-items: center;
@@ -604,7 +651,8 @@ html {
   color: rgba(229,240,255,0.88);
   background: rgba(8,14,28,0.65);
   border: 1px solid rgba(34,211,238,0.22);
-  white-space: nowrap;
+  white-space: normal;
+  text-align: center;
 }
 
 
@@ -1128,15 +1176,12 @@ box-shadow:0 22px 44px rgba(0,0,0,0.45);
       .wf-content h3 { font-size: 17px; }
     }
 
-    @media (max-width: 640px) {
-      .hero-shell { margin-top: 72px; }
-      .hero-title { max-width: 100%; }
-      .iq-section-signals { margin-top: 42px; }
-      .iq-signal-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-      .sample-reports { padding: 22px 14px 18px; }
-      .iq-network { opacity: 0.15; }
-      .proof-chip { white-space: normal; text-align: left; }
-    }
+@media (max-width: 640px) {
+  .iq-section-signals { margin-top: 42px; }
+  .iq-signal-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .sample-reports { padding: 22px 14px 18px; }
+  .iq-network { opacity: 0.15; }
+}
 
 /* PRICING */
 #pricing.section {
@@ -2075,11 +2120,11 @@ to explain issues, priorities and recommended fixes.
           <aside class="trust-callout">
             <span>Verification &amp; security</span>
 
-            <p>
-              We’re establishing a dedicated trust hub at
-              <a href="/trust.html" class="trust-link">trust.iqweb.ai</a>,
-              designed to provide:
-            </p>
+        <p>
+  We’re building a dedicated Trust page
+  <a href="/trust.html" class="trust-link">here</a>,
+  designed to provide:
+</p>
 
             <ul>
               <li>Independent verification of report IDs</li>
