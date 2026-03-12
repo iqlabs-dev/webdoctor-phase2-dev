@@ -940,7 +940,9 @@ box-shadow:0 22px 44px rgba(0,0,0,0.45);
     .iq-signal-list li { position: relative; padding-left: 14px; font-size: 0.80rem; line-height: 1.5; color: rgba(229,240,255,0.82); }
     .iq-signal-list li::before { content:""; position:absolute; left: 0; top: 0.55em; width: 6px; height: 6px; border-radius: 999px; background: rgba(34,211,238,0.35); }
 
-
+.signal-metrics {
+  white-space: nowrap;
+}
 
     /* WORKFLOW */
     #how.section { margin-top: 78px; margin-bottom: 18px; }
@@ -1122,134 +1124,301 @@ box-shadow:0 22px 44px rgba(0,0,0,0.45);
       .proof-chip { white-space: normal; text-align: left; }
     }
 
-    /* PRICING */
-    #pricing.section {
-      margin-top: 86px !important;
-      margin-bottom: 120px;
-    }
+/* PRICING */
+#pricing.section {
+  margin-top: 94px !important;
+  margin-bottom: 128px;
+  position: relative;
+}
 
-    .pricing-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.pricing-row {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 30px;
+  isolation: isolate;
+}
 
-    .pricing-card {
-      position: relative;
-      flex: 1 1 210px;
-      border-radius: 16px;
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      border: 1px solid rgba(34, 211, 238, 0.35) !important;
-      padding: 18px 16px 18px;
-      min-height: 280px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      box-shadow: 0 18px 38px rgba(15,23,42,0.85);
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-      overflow: hidden;
-    }
+.pricing-row::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 980px;
+  height: 520px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(34, 211, 238, 0.10) 0%,
+    rgba(34, 211, 238, 0.05) 32%,
+    rgba(34, 211, 238, 0.02) 54%,
+    rgba(34, 211, 238, 0) 74%
+  );
+  filter: blur(64px);
+  pointer-events: none;
+  z-index: 0;
+}
 
-    .pricing-card::before {
-      content: "";
-      position: absolute;
-      inset: -40%;
-      background: radial-gradient(circle at top, rgba(20,184,166,0.26), transparent 60%);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.25s ease;
-    }
+.pricing-card {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 290px;
+  min-height: 312px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 22px 18px;
+  border-radius: 18px;
+  overflow: hidden;
 
-    .pricing-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(34, 211, 238, 0.7) !important;
-      box-shadow: 0 24px 58px rgba(34, 211, 238, 0.40);
-    }
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(10, 16, 34, 0.92), rgba(7, 11, 24, 0.94));
 
-    .pricing-card:hover::before { opacity: 1; }
+  border: 1px solid rgba(34, 211, 238, 0.20);
 
-    .pricing-name { font-size: 0.84rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(148,163,184,0.95); }
-    .pricing-price { font-size: 1.05rem; font-weight: 800; }
-    .pricing-meta-extra { font-size: 0.8rem; color: var(--ink-soft); margin-top: 2px; margin-bottom: 2px; }
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.34),
+    0 4px 10px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 
-    .pricing-bullets { margin: 2px 0 4px; padding-left: 18px; color: var(--muted); font-size: 0.8rem; line-height: 1.55; }
-    .pricing-bullets li { margin: 0 0 6px 0; }
-    .pricing-bullets strong { color: var(--ink-soft); }
+  backdrop-filter: blur(10px);
 
-    .pricing-note { font-size: 0.84rem; color: var(--muted); opacity: 0.75; margin: 12px 0 8px; }
+  transition:
+    transform 0.22s ease,
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
 
-    .pricing-footnote { font-size: 0.8rem; color: var(--muted); margin-top: 8px; }
-    .pricing-footnote-link { color: #7dd3fc; text-decoration: none; border-bottom: 1px dotted rgba(125,211,252,0.7); }
-    .pricing-footnote-link:hover { color: #e0f2fe; border-bottom-style: solid; }
+.pricing-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.10), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%);
+  opacity: 0.9;
+  pointer-events: none;
+}
 
-    .pricing-cta {
-      margin-top: auto;
-      align-self: stretch;
-      border-radius: 999px;
-      padding: 7px 16px;
-      font-size: 0.76rem;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      border: 1px solid rgba(34,211,238,0.7);
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      color: var(--ink-soft);
-      cursor: pointer;
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 12px 28px rgba(15,23,42,0.85);
-      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    }
+.pricing-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(34, 211, 238, 0.36);
+  box-shadow:
+    0 24px 56px rgba(0, 0, 0, 0.42),
+    0 10px 22px rgba(34, 211, 238, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.11), transparent 42%),
+    linear-gradient(180deg, rgba(11, 18, 38, 0.94), rgba(7, 11, 24, 0.96));
+}
 
-    .pricing-cta:hover {
-      transform: translateY(-2px);
-      border-color: rgba(34,211,238,0.95);
-      box-shadow: 0 18px 40px rgba(34,211,238,0.55);
-      color: var(--ink);
-      text-decoration: none;
-    }
+.pricing-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(148, 163, 184, 0.94);
+  margin: 0;
+}
 
-    @keyframes fadeUpSoft {
-      from { opacity: 0; transform: translateY(10px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-    }
+.pricing-price {
+  font-size: 1.9rem;
+  line-height: 1.05;
+  font-weight: 800;
+  color: #f8fcff;
+  margin: 0;
+}
 
-    @keyframes cardRevealUp {
-      from { opacity: 0; transform: translateY(14px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-    }
+.pricing-meta-extra {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: rgba(192, 207, 235, 0.82);
+  margin: -2px 0 2px;
+  min-height: 2.4em;
+}
 
-    .js-anim #pricing .section-header,
-    .js-anim #pricing .pricing-note,
-    .js-anim #pricing .pricing-footnote {
-      opacity: 0;
-      transform: translateY(10px);
-      will-change: opacity, transform;
-    }
+.pricing-bullets {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  color: rgba(192, 207, 235, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.62;
+}
 
-    .js-anim .pricing-card {
-      opacity: 0;
-      transform: translateY(14px);
-      will-change: opacity, transform;
-    }
+.pricing-bullets li {
+  margin: 0 0 7px 0;
+}
 
-    #pricing .section-header.is-revealed,
-    #pricing .pricing-note.is-revealed,
-    #pricing .pricing-footnote.is-revealed {
-      animation: fadeUpSoft 700ms cubic-bezier(.22,1,.36,1) forwards;
-    }
+.pricing-bullets strong {
+  color: #e8f7ff;
+  font-weight: 700;
+}
 
-    .pricing-card.is-revealed {
-      animation: cardRevealUp 850ms cubic-bezier(.22,1,.36,1) forwards;
-    }
+.pricing-note {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(154, 164, 186, 0.88);
+  opacity: 1;
+  margin: 12px 0 0;
+}
 
-    @media (prefers-reduced-motion: reduce) {
-      .js-anim #pricing .section-header,
-      .js-anim #pricing .pricing-note,
-      .js-anim #pricing .pricing-footnote,
-      .js-anim .pricing-card {
-        opacity: 1 !important;
-        transform: none !important;
-        animation: none !important;
-      }
-    }
+.pricing-footnote {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(154, 164, 186, 0.88);
+  margin-top: 8px;
+}
+
+.pricing-footnote-link {
+  color: #7dd3fc;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(125, 211, 252, 0.68);
+}
+
+.pricing-footnote-link:hover {
+  color: #e0f2fe;
+  border-bottom-style: solid;
+}
+
+.pricing-cta {
+  margin-top: auto;
+  align-self: stretch;
+
+  border-radius: 999px;
+  padding: 8px 18px;
+
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+
+  cursor: pointer;
+
+  color: #e6f9ff;
+
+  border: 1px solid rgba(34,211,238,0.85);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(15,23,42,0.95) 0%,
+      rgba(2,6,23,0.95) 100%
+    );
+
+  box-shadow:
+    inset 0 0 10px rgba(34,211,238,0.08),
+    0 10px 28px rgba(0,0,0,0.45);
+
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.pricing-cta:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(34,211,238,1);
+
+  box-shadow:
+    inset 0 0 14px rgba(34,211,238,0.14),
+    0 18px 40px rgba(34,211,238,0.35);
+
+  color: #ffffff;
+  text-decoration: none;
+}
+
+@keyframes fadeUpSoft {
+  from { opacity: 0; transform: translateY(10px); filter: blur(1px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes cardRevealUp {
+  from { opacity: 0; transform: translateY(14px); filter: blur(1px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.js-anim #pricing .section-header,
+.js-anim #pricing .pricing-note,
+.js-anim #pricing .pricing-footnote {
+  opacity: 0;
+  transform: translateY(10px);
+  will-change: opacity, transform;
+}
+
+.js-anim .pricing-card {
+  opacity: 0;
+  transform: translateY(14px);
+  will-change: opacity, transform;
+}
+
+#pricing .section-header.is-revealed,
+#pricing .pricing-note.is-revealed,
+#pricing .pricing-footnote.is-revealed {
+  animation: fadeUpSoft 700ms cubic-bezier(.22,1,.36,1) forwards;
+}
+
+.pricing-card.is-revealed {
+  animation: cardRevealUp 850ms cubic-bezier(.22,1,.36,1) forwards;
+}
+
+@media (max-width: 960px) {
+  .pricing-row::before {
+    width: 760px;
+    height: 460px;
+  }
+}
+
+@media (max-width: 720px) {
+  #pricing.section {
+    margin-top: 78px !important;
+    margin-bottom: 96px;
+  }
+
+  .pricing-row {
+    gap: 14px;
+  }
+
+  .pricing-card {
+    flex: 1 1 100%;
+    min-height: auto;
+    padding: 22px 18px 18px;
+  }
+
+  .pricing-row::before {
+    width: 620px;
+    height: 520px;
+  }
+
+  .pricing-price {
+    font-size: 1.72rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-anim #pricing .section-header,
+  .js-anim #pricing .pricing-note,
+  .js-anim #pricing .pricing-footnote,
+  .js-anim .pricing-card {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .pricing-card,
+  .pricing-cta {
+    transition: none !important;
+  }
+}
 
     /* TRUST */
     .trust-row {
@@ -1620,7 +1789,7 @@ to explain issues, priorities and recommended fixes.
                     <h3 class="iq-signal-title">Performance</h3>
                     <p class="iq-signal-text">How fast your pages load and respond for real users.</p>
                     <ul class="iq-signal-list">
-                      <li>Core Web Vitals evaluation (LCP, INP, CLS)</li>
+                    <li>Core Web Vitals evaluation<br><span class="signal-metrics">(LCP, INP, CLS)</span></li>
                       <li>Real-world load behaviour and responsiveness</li>
                       <li>Asset weight and request efficiency</li>
                       <li>Server response and TTFB patterns</li>
@@ -1642,7 +1811,7 @@ to explain issues, priorities and recommended fixes.
                     <p class="iq-signal-text">Whether your HTML scaffolding communicates meaning.</p>
                     <ul class="iq-signal-list">
                       <li>Heading hierarchy</li>
-                      <li>Core landmarks (header, main, nav, footer)</li>
+                    <li>Core landmarks<br><span class="signal-metrics">(header, main, nav, footer)</span></li>
                       <li>Missing or broken structural elements</li>
                     </ul>
                   </article>
@@ -1659,7 +1828,7 @@ to explain issues, priorities and recommended fixes.
 
                   <article class="iq-signal-card">
                     <h3 class="iq-signal-title">Security &amp; Trust</h3>
-                    <p class="iq-signal-text">Signals that protect users and reinforce credibility.</p>
+                    <p class="iq-signal-text">Security checks that protect users and reinforce site trust.</p>
                     <ul class="iq-signal-list">
                       <li>Protocol and redirect behaviour</li>
                       <li>Key security headers (HSTS, CSP, X-Frame-Options, etc.)</li>
@@ -1767,75 +1936,78 @@ to explain issues, priorities and recommended fixes.
   </div>
 </section>
 
-      <!-- PRICING -->
-      <section class="section" id="pricing">
-        <div class="section-header">
-          <div>
-            <div class="section-kicker">Pricing</div>
-            <div class="section-title">Simple pricing, clear limits.</div>
-          </div>
-        </div>
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-header">
+    <div>
+      <div class="section-kicker">Pricing</div>
+      <div class="section-title">Simple pricing based on monthly reports.</div>
+    </div>
+  </div>
 
-        <div class="pricing-row">
+  <div class="pricing-row">
 
-          <div class="pricing-card">
-            <div class="pricing-name">Starter</div>
-            <div class="pricing-price">$39 / month</div>
-            <div class="pricing-meta-extra">For occasional diagnostics</div>
+    <div class="pricing-card">
+      <div class="pricing-name">Starter</div>
+      <div class="pricing-price">$39 / month</div>
+      <div class="pricing-meta-extra">For freelancers and small client workloads</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>25 reports per month</strong></li>
-              <li>Full website diagnostics</li>
-              <li>Client-ready shareable report</li>
-              <li>No auto-overage</li>
-              <li>Monthly reset — unused reports don’t roll over</li>
-            </ul>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>25 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable reports</li>
+        <li>No automatic overage charges</li>
+        <li>Reports reset monthly</li>
+      </ul>
 
-            <button class="pricing-cta" data-plan="sub10">START SUBSCRIPTION</button>
-          </div>
+      <button class="pricing-cta" data-plan="sub10">Get Started</button>
+    </div>
 
-          <div class="pricing-card">
-            <div class="pricing-name">Professional</div>
-            <div class="pricing-price">$99 / month</div>
-            <div class="pricing-meta-extra">For regular agency use</div>
+    <div class="pricing-card">
+      <div class="pricing-name">Professional</div>
+      <div class="pricing-price">$99 / month</div>
+      <div class="pricing-meta-extra">For agencies running regular client audits</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>100 reports per month</strong></li>
-              <li>Full website diagnostics</li>
-              <li>Client-ready shareable report</li>
-              <li>No auto-overage</li>
-              <li>Monthly reset — unused reports don’t roll over</li>
-            </ul>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>100 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable reports</li>
+        <li>No automatic overage charges</li>
+        <li>Reports reset monthly</li>
+      </ul>
 
-            <button class="pricing-cta" data-plan="sub50">START SUBSCRIPTION</button>
-          </div>
+      <button class="pricing-cta" data-plan="sub50">Get Started</button>
+    </div>
 
-          <div class="pricing-card">
-            <div class="pricing-name">Agency</div>
-            <div class="pricing-price">$199 / month</div>
-            <div class="pricing-meta-extra">For high-volume teams</div>
+    <div class="pricing-card">
+      <div class="pricing-name">Agency</div>
+      <div class="pricing-price">$199 / month</div>
+      <div class="pricing-meta-extra">For teams managing multiple client sites</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>300 reports per month</strong></li>
-              <li>Full website diagnostics</li>
-              <li>Client-ready shareable report</li>
-              <li>No auto-overage</li>
-              <li>Monthly reset — unused reports don’t roll over</li>
-            </ul>
+      <ul class="pricing-bullets">
+        <li>Up to <strong>300 reports per month</strong></li>
+        <li>Full website diagnostics</li>
+        <li>Client-ready shareable reports</li>
+        <li>No automatic overage charges</li>
+        <li>Reports reset monthly</li>
+      </ul>
 
-            <button class="pricing-cta" data-plan="sub100">START SUBSCRIPTION</button>
-          </div>
+      <button class="pricing-cta" data-plan="sub100">Get Started</button>
+    </div>
 
-        </div>
+  </div>
 
-        <p class="pricing-note">All prices are in USD.</p>
-        <p class="pricing-note">🔒 Lifetime price lock. Your plan’s price will never increase while your subscription stays active.</p>
+  <p class="pricing-note">All prices are in USD.</p>
 
-        <p class="pricing-footnote">
-          Need a tailored plan?
-          <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
-        </p>
-      </section>
+  <p class="pricing-note">
+    🔒 Lifetime price lock. Keep your price for as long as your subscription remains active.
+  </p>
+
+  <p class="pricing-footnote">
+    Need a tailored plan?
+    <a href="mailto:pricing@iqweb.ai" class="pricing-footnote-link">pricing@iqweb.ai</a>
+  </p>
+</section>
 
       <!-- TRUST -->
       <section class="section" id="trust">
