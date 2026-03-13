@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="iQWEB icon"><defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0d1424"></stop>
-      <stop offset="100%" stop-color="#050814"></stop>
-    </linearGradient>
-  </defs><rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"></rect><text x="256" y="308" text-anchor="middle" font-family="Montserrat, Inter, Arial, sans-serif" font-size="248" font-weight="700" letter-spacing="-18" fill="#ffffff">iQ</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><rect width="512" height="512" fill="#050814"></rect><circle cx="92" cy="104" r="34" fill="#22D3EE"></circle><rect x="58" y="158" width="68" height="260" rx="4" fill="#22D3EE"></rect><circle cx="314" cy="256" r="146" fill="#22D3EE"></circle><circle cx="314" cy="256" r="88" fill="#050814"></circle><path d="M356 330 L454 428 L404 428 L323 347 Z" fill="#22D3EE"></path></svg>
