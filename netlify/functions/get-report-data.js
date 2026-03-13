@@ -178,10 +178,7 @@ function normaliseSignal(sig) {
 }
 
 // -----------------------------
-// Narrative normaliser (v5.2 -> UI-compatible)
-// Goals:
-// - Guarantee overall.lines exists when executive_narrative exists
-// - Guarantee executive_lead exists (string) for current UI
+// Narrative normaliser
 // -----------------------------
 function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
   const en = safeObj(executive_narrative);
@@ -195,7 +192,6 @@ function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
     }
   };
 
-  // target 3 lines, max 5
   pushSome(en.framing?.lines, 2);
 
   if (lines.length < 3) pushSome(en.root_constraint?.lines, 3);
@@ -242,12 +238,9 @@ export async function handler(event) {
 
     const byNumericId = isNumericString(reportParam);
 
-    // IMPORTANT:
-    // Do NOT select columns unless you are 100% sure they exist.
-    // Keep this list minimal + stable.
     let q = supabase
       .from("scan_results")
-      .select("id, report_id, url, created_at, metrics, score_overall, narrative")
+      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -268,9 +261,38 @@ export async function handler(event) {
     const scan = rows?.[0] || null;
     if (!scan) return json(404, { success: false, error: "Report not found" });
 
+    let branding = {
+      agency_name: "",
+      agency_website: "",
+      agency_email: "",
+      agency_phone: "",
+      agency_logo_url: "",
+      agency_accent_color: "",
+    };
+
+    if (scan.user_id) {
+      const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select(
+          "agency_name, agency_website, agency_email, agency_phone, agency_logo_url, agency_accent_color"
+        )
+        .eq("user_id", scan.user_id)
+        .maybeSingle();
+
+      if (!profileErr && profile) {
+        branding = {
+          agency_name: profile.agency_name || "",
+          agency_website: profile.agency_website || "",
+          agency_email: profile.agency_email || "",
+          agency_phone: profile.agency_phone || "",
+          agency_logo_url: profile.agency_logo_url || "",
+          agency_accent_color: profile.agency_accent_color || "",
+        };
+      }
+    }
+
     const metrics = safeObj(scan.metrics);
 
-    // Surface commonly-used blocks at top level (polling script supports both top-level and metrics.*)
     const basic_checks = safeObj(metrics.basic_checks);
     const security_headers = safeObj(metrics.security_headers);
     const psi = safeObj(metrics.psi);
@@ -328,15 +350,12 @@ export async function handler(event) {
     const findings = asArray(metrics.findings);
     const fix_plan = asArray(metrics.fix_plan);
 
-    // Narrative (null-preserving)
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
-    // Attach deterministic overall summary so UI + PDF use the same source
     if (narrative && typeof narrative === "object") {
       narrative.overall_summary = narrative.overall_summary || overall_summary;
     }
 
-    // Derive narrative status from JSON (avoids relying on missing DB columns)
     const narrative_status =
       (narrative && typeof narrative === "object" && isNonEmptyString(narrative._status)
         ? narrative._status
@@ -351,7 +370,14 @@ export async function handler(event) {
         created_at: scan.created_at,
       },
 
-      // For polling/readiness logic (your report-polling.js checks these)
+      branding,
+      agency_name: branding.agency_name,
+      agency_website: branding.agency_website,
+      agency_email: branding.agency_email,
+      agency_phone: branding.agency_phone,
+      agency_logo_url: branding.agency_logo_url,
+      agency_accent_color: branding.agency_accent_color,
+
       basic_checks,
       security_headers,
       psi,
