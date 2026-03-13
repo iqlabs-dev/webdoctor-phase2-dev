@@ -275,6 +275,66 @@
     return {};
   }
 
+  function pickBranding(data) {
+    data = safeObj(data);
+
+    if (data.branding && typeof data.branding === "object") {
+      return safeObj(data.branding);
+    }
+
+    return {
+      agency_name: data.agency_name || "",
+      agency_website: data.agency_website || "",
+      agency_email: data.agency_email || "",
+      agency_phone: data.agency_phone || "",
+      agency_logo_url: data.agency_logo_url || "",
+      agency_accent_color: data.agency_accent_color || ""
+    };
+  }
+
+  function applyBrandingUI(branding) {
+    branding = safeObj(branding);
+
+    var agencyName = $("agencyName");
+    var agencyLogo = $("agencyLogo");
+
+    var agencyWebsite = $("agencyWebsite");
+    var agencyEmail = $("agencyEmail");
+    var agencyPhone = $("agencyPhone");
+
+    var agencyWebsiteWrap = $("agencyWebsiteWrap");
+    var agencyEmailWrap = $("agencyEmailWrap");
+    var agencyPhoneWrap = $("agencyPhoneWrap");
+
+    if (agencyName && branding.agency_name) {
+      agencyName.textContent = String(branding.agency_name);
+    }
+
+    if (agencyLogo && branding.agency_logo_url) {
+      agencyLogo.src = String(branding.agency_logo_url);
+      agencyLogo.style.display = "block";
+    }
+
+    if (agencyWebsite && branding.agency_website) {
+      agencyWebsite.textContent = String(branding.agency_website);
+      if (agencyWebsiteWrap) agencyWebsiteWrap.style.display = "block";
+    }
+
+    if (agencyEmail && branding.agency_email) {
+      agencyEmail.textContent = String(branding.agency_email);
+      if (agencyEmailWrap) agencyEmailWrap.style.display = "block";
+    }
+
+    if (agencyPhone && branding.agency_phone) {
+      agencyPhone.textContent = String(branding.agency_phone);
+      if (agencyPhoneWrap) agencyPhoneWrap.style.display = "block";
+    }
+
+    if (branding.agency_accent_color) {
+      document.documentElement.style.setProperty("--accent", String(branding.agency_accent_color));
+    }
+  }
+
   // -----------------------------
   // DOM actions
   // -----------------------------
@@ -1520,6 +1580,9 @@ var summary = ""
     var header = pickHeader(data);
     var scores = pickScores(data);
     var signals = pickSignals(data);
+    var branding = pickBranding(data);
+
+    applyBrandingUI(branding);
 
     setHeaderUI(header);
 

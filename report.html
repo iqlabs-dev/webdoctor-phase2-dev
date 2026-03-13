@@ -82,6 +82,15 @@
       letter-spacing: 0.02em;
       font-size: 18px;
     }
+    .brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#agencyLogo {
+  border-radius: 6px;
+}
 
     .top-actions {
       display: flex;
@@ -750,9 +759,15 @@
 
       <div class="top-card">
         <div class="top-row">
-          <div class="brand">
-            <div class="logo">Website Report</div>
-          </div>
+        <div class="brand" id="reportBrand">
+  <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
+  <div class="brand-copy">
+    <div class="logo" id="agencyName">Website Report</div>
+    <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+      Website Performance Report
+    </div>
+  </div>
+</div>
 
           <div class="top-actions">
             <button id="backToDashboard" class="btn">Back to dashboard</button>
@@ -775,6 +790,23 @@
           <div class="meta-cell">
             <div class="k">Report Date</div>
             <div class="v" id="reportDate">—</div>
+          </div>
+        </div>
+
+        <div class="meta-strip" style="margin-top:10px;">
+          <div class="meta-cell" id="agencyWebsiteWrap" style="display:none;">
+            <div class="k">Agency Website</div>
+            <div class="v" id="agencyWebsite"></div>
+          </div>
+
+          <div class="meta-cell" id="agencyEmailWrap" style="display:none;">
+            <div class="k">Agency Email</div>
+            <div class="v" id="agencyEmail"></div>
+          </div>
+
+          <div class="meta-cell" id="agencyPhoneWrap" style="display:none;">
+            <div class="k">Agency Phone</div>
+            <div class="v" id="agencyPhone"></div>
           </div>
         </div>
       </div>
