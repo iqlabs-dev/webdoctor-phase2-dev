@@ -21,12 +21,12 @@
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --radius: 14px;
       --radius2: 18px;
-
       --sidebar-w: 212px;
     }
 
     *{ box-sizing:border-box; }
     html, body { height:100%; }
+
     body{
       margin:0;
       font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
@@ -42,7 +42,6 @@
       flex-direction:row;
     }
 
-    /* Sidebar */
     .sidebar{
       width: var(--sidebar-w);
       flex: 0 0 var(--sidebar-w);
@@ -75,10 +74,8 @@
       line-height: 1.1;
     }
 
-    /* Hide the old tagline */
     .brand .tag{ display:none; }
 
-    /* Email under iQWEB */
     .brand-email{
       font-size: 12px;
       color: var(--muted2);
@@ -91,7 +88,6 @@
       background: rgba(255,255,255,.02);
     }
 
-    /* ✅ POLISH: Remove the "D" chip permanently (even if JS tries to show it) */
     #wd-user-initial{ display:none !important; }
 
     .nav{
@@ -138,6 +134,7 @@
       border-radius: 12px;
       padding: 10px;
     }
+
     .contact-pop a{
       display:block;
       padding: 8px 8px;
@@ -148,12 +145,14 @@
       font-size: 12px;
       line-height: 1.2;
     }
+
     .contact-pop a span{
       display:block;
       color: var(--muted2);
       font-size: 11px;
       margin-top: 3px;
     }
+
     .contact-pop a:hover{
       background: rgba(255,255,255,.03);
       border-color: rgba(255,255,255,.06);
@@ -170,7 +169,6 @@
       gap: 8px;
     }
 
-    /* Main */
     .main{
       flex:1;
       min-width:0;
@@ -179,7 +177,6 @@
       background: transparent;
     }
 
-    /* ✅ Topbar blends (no slab) */
     .topbar{
       height: 62px;
       display:flex;
@@ -197,11 +194,13 @@
       gap: 10px;
       min-width:0;
     }
+
     .topbar .title{
       font-weight: 700;
       font-size: 15px;
       white-space:nowrap;
     }
+
     .topbar .sub{
       font-size: 12px;
       color: var(--muted2);
@@ -209,6 +208,7 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+
     #page-subtitle:empty{ display:none; }
 
     .topbar .right{
@@ -231,21 +231,21 @@
       font-size: 12px;
     }
 
-.paid-scans{
-  color: #22c55e;
-  border-color: rgba(34,197,94,.30);
-  background: rgba(34,197,94,.08);
-  font-weight: 700;
-}
+    .paid-scans{
+      color: #22c55e;
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.08);
+      font-weight: 700;
+    }
 
-.paid-scans strong{
-  color: #b7ffcf;
-}
+    .paid-scans strong{
+      color: #b7ffcf;
+    }
 
-#wd-plan-scans-remaining,
-#wd-free-scans{
-  margin-left: 6px;
-}
+    #wd-plan-scans-remaining,
+    #wd-free-scans{
+      margin-left: 6px;
+    }
 
     .wrap{
       padding: 18px 22px 12px 22px;
@@ -263,12 +263,12 @@
       padding: 16px;
     }
 
-    /* ✅ S-tier hierarchy: primary vs secondary */
     .card.primary{
       background: linear-gradient(180deg, rgba(16,24,44,.78), rgba(10,15,26,.65));
       border-color: rgba(255,255,255,.12);
       box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
     }
+
     .card.secondary{
       background: rgba(10,15,26,.52);
       border-color: rgba(255,255,255,.06);
@@ -279,7 +279,7 @@
       gap: 14px;
       align-items:stretch;
       flex-wrap:wrap;
-      margin-bottom: 6px; /* micro-separation */
+      margin-bottom: 6px;
     }
 
     .col{
@@ -288,12 +288,12 @@
       display:flex;
     }
 
-    /* Equal-height cards for Latest + Run Scan */
     .card.equal{
       width:100%;
       display:flex;
       flex-direction:column;
     }
+
     .card.equal .scanhelp{
       margin-top:auto;
     }
@@ -305,12 +305,14 @@
       gap: 10px;
       margin-bottom: 10px;
     }
+
     .h h2{
       margin:0;
       font-size: 13px;
       font-weight: 700;
       letter-spacing: .01em;
     }
+
     .h .meta{
       font-size: 12px;
       color: var(--muted2);
@@ -325,80 +327,80 @@
       color: rgba(255,255,255,.85);
       font-size: 12px;
     }
+
     #subscription-banner strong{ font-weight: 700; }
     #subscription-banner .muted{ color: var(--muted2); }
 
-    /* Plan prompt banner (shown when no scans/plan active) */
-.plan-banner{
-  display:none; /* dashboard.js controls this */
-  border-radius: 16px;
-  border: 1px solid rgba(24,214,196,.22);
-  background: linear-gradient(180deg, rgba(24,214,196,.10), rgba(10,15,26,.55));
-  padding: 12px 14px;
-}
+    .plan-banner{
+      display:none;
+      border-radius: 16px;
+      border: 1px solid rgba(24,214,196,.22);
+      background: linear-gradient(180deg, rgba(24,214,196,.10), rgba(10,15,26,.55));
+      padding: 12px 14px;
+    }
 
-.plan-banner-top{
-  display:flex;
-  flex-direction:column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
+    .plan-banner-top{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
 
-.plan-banner-title{
-  font-weight: 800;
-  color: rgba(255,255,255,.92);
-  letter-spacing: .01em;
-  font-size: 13px;
-}
+    .plan-banner-title{
+      font-weight: 800;
+      color: rgba(255,255,255,.92);
+      letter-spacing: .01em;
+      font-size: 13px;
+    }
 
-.plan-banner-sub{
-  color: rgba(255,255,255,.65);
-  font-size: 12px;
-  line-height: 1.35;
-}
+    .plan-banner-sub{
+      color: rgba(255,255,255,.65);
+      font-size: 12px;
+      line-height: 1.35;
+    }
 
-.plan-banner-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap: 10px;
-}
+    .plan-banner-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+    }
 
-.plan-btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding: 9px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(24,214,196,.28);
-  background: rgba(0,0,0,.14);
-  color: rgba(255,255,255,.88);
-  font-size: 12px;
-  font-weight: 700;
-  text-decoration: none;
-  transition: transform .16s ease, background .16s ease, border-color .16s ease;
-}
+    .plan-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(24,214,196,.28);
+      background: rgba(0,0,0,.14);
+      color: rgba(255,255,255,.88);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease;
+    }
 
-.plan-btn:hover{
-  transform: translateY(-1px);
-  background: rgba(24,214,196,.10);
-  border-color: rgba(24,214,196,.42);
-  text-decoration:none;
-}
+    .plan-btn:hover{
+      transform: translateY(-1px);
+      background: rgba(24,214,196,.10);
+      border-color: rgba(24,214,196,.42);
+      text-decoration:none;
+    }
 
-
-    /* Latest scan */
     .latest{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap: 12px;
     }
+
     .latest-left{
       min-width:0;
       display:flex;
       flex-direction:column;
       gap: 4px;
     }
+
     .latest-url{
       font-weight:700;
       font-size: 14px;
@@ -406,15 +408,18 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+
     .latest-date{
       font-size: 12px;
       color: var(--muted2);
     }
+
     .latest-right{
       display:flex;
       align-items:center;
       gap: 10px;
     }
+
     .score{
       display:inline-flex;
       align-items:center;
@@ -430,7 +435,6 @@
       font-size: 12px;
     }
 
-    /* Buttons */
     .btn{
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.03);
@@ -442,22 +446,27 @@
       font-weight: 600;
       letter-spacing:.01em;
     }
+
     .btn:hover{
       background: rgba(255,255,255,.05);
       border-color: rgba(255,255,255,.14);
     }
+
     .btn:disabled{
       opacity:.55;
       cursor:not-allowed;
     }
+
     .btn-primary{
       border-color: rgba(24,214,196,.25);
       background: rgba(24,214,196,.10);
     }
+
     .btn-primary:hover{
       background: rgba(24,214,196,.14);
       border-color: rgba(24,214,196,.30);
     }
+
     .btn-link{
       border: 1px solid rgba(255,255,255,.10);
       background: rgba(255,255,255,.02);
@@ -468,18 +477,19 @@
       font-weight: 600;
       color: rgba(255,255,255,.88);
     }
+
     .btn-link:hover{
       background: rgba(255,255,255,.05);
       border-color: rgba(255,255,255,.14);
     }
 
-    /* Run scan */
     .scanbar{
       display:flex;
       gap: 10px;
       align-items:center;
       flex-wrap:wrap;
     }
+
     .scanbar input{
       flex: 1;
       min-width: 260px;
@@ -491,6 +501,7 @@
       outline: none;
       font-size: 13px;
     }
+
     .scanbar input::placeholder{ color: rgba(255,255,255,.35); }
 
     .scanhelp{
@@ -499,43 +510,46 @@
       margin-top: 8px;
       line-height: 1.35;
     }
+
     #trial-info{
       margin-top: 10px;
       font-size: 12px;
       color: rgba(255,255,255,.86);
     }
 
-    /* Table */
     .table-wrap{
       overflow:auto;
       border-radius: 14px;
       border: 1px solid rgba(255,255,255,.06);
       background: rgba(0,0,0,.10);
     }
+
     table{
       width:100%;
       border-collapse:collapse;
       min-width: 760px;
       font-size: 13px;
     }
- thead th{
-  text-align: left;
-  padding: 12px 12px;
-  color: rgba(255,255,255,.92);   /* platinum white */
-  font-weight: 700;
-  font-size: 13px;               /* slightly larger */
-  letter-spacing: .02em;
-  border-bottom: 1px solid rgba(255,255,255,.08);
-  background: rgba(255,255,255,.02);
-  white-space: nowrap;
-}
-/* Keep helper text visually secondary */
-thead th .actions-helper {
-  font-size: 11px;
-  font-weight: 500;
-  color: rgba(255,255,255,.45);
-  letter-spacing: normal;
-}
+
+    thead th{
+      text-align: left;
+      padding: 12px 12px;
+      color: rgba(255,255,255,.92);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: .02em;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      white-space: nowrap;
+    }
+
+    thead th .actions-helper {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,.45);
+      letter-spacing: normal;
+    }
+
     tbody td{
       padding: 12px 12px;
       border-bottom: 1px solid rgba(255,255,255,.05);
@@ -543,9 +557,11 @@ thead th .actions-helper {
       vertical-align:middle;
       white-space:nowrap;
     }
+
     tbody tr:hover td{
       background: rgba(255,255,255,.02);
     }
+
     .col-url{
       max-width: 420px;
       overflow:hidden;
@@ -557,6 +573,7 @@ thead th .actions-helper {
       text-decoration: none;
       border-bottom: 1px solid rgba(24,214,196,.18);
     }
+
     .history-url:hover{
       border-bottom-color: rgba(24,214,196,.40);
     }
@@ -574,16 +591,15 @@ thead th .actions-helper {
       align-items:center;
       gap: 8px;
     }
+
     .wd-history-link:hover{
       background: rgba(255,255,255,.05);
       border-color: rgba(255,255,255,.14);
     }
 
-    /* Views */
     .view{ display:none; }
     .view.active{ display:block; }
 
-    /* Footer */
     .footer{
       margin-top:auto;
       padding: 14px 6px 10px 6px;
@@ -596,42 +612,242 @@ thead th .actions-helper {
       border-top: 1px solid rgba(255,255,255,.06);
     }
 
+    thead th:nth-child(4),
+    thead th:nth-child(5),
+    thead th:nth-child(7),
+    tbody td:nth-child(4),
+    tbody td:nth-child(5),
+    tbody td:nth-child(7) {
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .history-helper {
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.55);
+    }
+
+    .brand-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .brand-field{
+      display:flex;
+      flex-direction:column;
+      gap: 7px;
+    }
+
+    .brand-field.full{
+      grid-column: 1 / -1;
+    }
+
+    .brand-field label{
+      font-size: 12px;
+      color: rgba(255,255,255,.82);
+      font-weight: 600;
+    }
+
+    .brand-field input{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.92);
+      outline: none;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .brand-field input::placeholder{
+      color: rgba(255,255,255,.35);
+    }
+
+    .brand-actions{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      margin-top: 16px;
+    }
+
+    .logo-upload-row{
+      display:flex;
+      gap: 12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top: 10px;
+    }
+
+    .logo-preview-box{
+      min-height: 72px;
+      border: 1px dashed rgba(255,255,255,.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,.02);
+      padding: 14px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      margin-top: 14px;
+    }
+
+    .logo-preview-empty{
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
+    .logo-preview-img{
+      max-width: 160px;
+      max-height: 40px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display:none;
+    }
+
+    .preview-shell{
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(16,24,44,.55), rgba(10,15,26,.48));
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .preview-header{
+      display:flex;
+      align-items:center;
+      gap: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      flex-wrap:wrap;
+    }
+
+    .preview-logo-wrap{
+      min-width: 160px;
+      min-height: 40px;
+      display:flex;
+      align-items:center;
+    }
+
+    .preview-logo{
+      max-width: 160px;
+      max-height: 40px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display:none;
+    }
+
+    .preview-brand-copy{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      min-width: 220px;
+    }
+
+    .preview-company{
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(255,255,255,.92);
+    }
+
+    .preview-title{
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+
+    .preview-footer{
+      padding-top: 12px;
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap: 16px;
+      font-size: 12px;
+      color: rgba(255,255,255,.72);
+      flex-wrap:wrap;
+    }
+
+    .preview-footer-left{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+    }
+
+    .preview-footer-right{
+      margin-left:auto;
+      text-align:right;
+      display:flex;
+      align-items:flex-end;
+    }
+
+    .preview-powered{
+      color: rgba(255,255,255,.58);
+      font-size: 12px;
+      font-weight: 600;
+      white-space:nowrap;
+    }
+
+    .preview-note{
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
     @media (max-width: 920px){
       :root{ --sidebar-w: 210px; }
       .topbar{ padding: 12px 14px; }
       .wrap{ padding: 14px; }
+      .brand-grid{ grid-template-columns: 1fr; }
     }
+
     @media (max-width: 760px){
       .app{ flex-direction:column; }
+
       .sidebar{
         width: 100%;
         flex-basis:auto;
         border-right:none;
         border-bottom: 1px solid var(--border);
       }
-      .nav{ flex-direction:row; flex-wrap:wrap; }
-      .nav a, .nav button{ flex: 1 1 auto; justify-content:center; }
+
+      .nav{
+        flex-direction:row;
+        flex-wrap:wrap;
+      }
+
+      .nav a,
+      .nav button{
+        flex: 1 1 auto;
+        justify-content:center;
+      }
+
       table{ min-width: 720px; }
-      .footer{ flex-direction:column; align-items:flex-start; }
+
+      .footer{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+
+      .preview-header{
+        align-items:flex-start;
+      }
+
+      .preview-footer{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+
+      .preview-footer-right{
+        margin-left:0;
+        text-align:left;
+      }
     }
-    /* Center Score, Status, Actions columns */
-thead th:nth-child(4),
-thead th:nth-child(5),
-thead th:nth-child(7),
-tbody td:nth-child(4),
-tbody td:nth-child(5),
-tbody td:nth-child(7) {
-  text-align: center;
-  vertical-align: middle;
-}
-
-/* Helper text under table */
-.history-helper {
-  margin-top: 10px;
-  font-size: 12px;
-  color: rgba(255,255,255,.55);
-}
-
   </style>
 </head>
 
@@ -646,7 +862,6 @@ tbody td:nth-child(7) {
 
         <div id="wd-user-email" class="brand-email">—</div>
 
-        <!-- hiden legacy IDs (safe for JS) -->
         <div id="wd-user-name" style="display:none;"></div>
         <div id="wd-admin-badge" style="display:none;"></div>
         <div id="wd-credits-count" style="display:none;">0</div>
@@ -657,7 +872,7 @@ tbody td:nth-child(7) {
         <a href="#" class="active" data-view="view-dashboard">Dashboard</a>
         <a href="#" data-view="view-billing">Billing</a>
         <a href="#" data-view="view-account">Account</a>
-
+        <a href="#" data-view="view-branding">Branding</a>
         <button type="button" id="contact-toggle" aria-expanded="false">Contact</button>
       </nav>
 
@@ -692,45 +907,25 @@ tbody td:nth-child(7) {
           <div class="sub" id="page-subtitle"></div>
         </div>
         <div class="right">
-  <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
-<span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
-
-      </div>
+          <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
+          <span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
+        </div>
       </header>
 
       <div class="wrap">
         <div id="view-dashboard" class="view active">
-      <div id="subscription-banner" class="plan-banner">
-  <div class="plan-banner-top">
-    <div class="plan-banner-title">No plan active</div>
-    <div class="plan-banner-sub">Choose a plan to enable scanning.</div>
-  </div>
+          <div id="subscription-banner" class="plan-banner">
+            <div class="plan-banner-top">
+              <div class="plan-banner-title">No plan active</div>
+              <div class="plan-banner-sub">Choose a plan to enable scanning.</div>
+            </div>
 
-<div class="plan-banner-actions">
-  <a
-    id="btn-plan-starter"
-    class="plan-btn"
-    href="#">
-    Starter ($39/mo)
-  </a>
-
-  <a
-    id="btn-plan-professional"
-    class="plan-btn"
-    href="#">
-    Professional ($99/mo)
-  </a>
-
-  <a
-    id="btn-plan-agency"
-    class="plan-btn"
-    href="#">
-    Agency ($199/mo)
-  </a>
-</div>
-
-</div>
-
+            <div class="plan-banner-actions">
+              <a id="btn-plan-starter" class="plan-btn" href="#">Starter ($39/mo)</a>
+              <a id="btn-plan-professional" class="plan-btn" href="#">Professional ($99/mo)</a>
+              <a id="btn-plan-agency" class="plan-btn" href="#">Agency ($199/mo)</a>
+            </div>
+          </div>
 
           <div class="row">
             <div class="col">
@@ -751,7 +946,6 @@ tbody td:nth-child(7) {
                   </div>
                 </div>
 
-                <!-- ✅ Removed instruction line -->
                 <div class="scanhelp"></div>
               </div>
             </div>
@@ -768,7 +962,6 @@ tbody td:nth-child(7) {
                   <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
                 </div>
 
-                <!-- ✅ Removed instrction line -->
                 <div class="scanhelp"></div>
 
                 <div id="trial-info"></div>
@@ -797,40 +990,34 @@ tbody td:nth-child(7) {
                     font-size: 12px;"
                 />
                 <button id="history-clear" class="btn" type="button">Clear</button>
-                <!-- ✅ Removed “Latest 20 scans” -->
               </div>
             </div>
 
             <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
 
             <div class="table-wrap">
-<table>
-  <thead>
-    <tr>
-      <th>Date</th>
-      <th>Time</th>
-      <th>Website</th>
-      <th>Score</th>
-      <th>Status</th>
-      <th>Report ID</th>
-      <th>
-        Actions
-    <div class="actions-helper">
-  Open or share your live report
-</div>
-      </th>
-    </tr>
-  </thead>
-
-  <tbody id="history-body"></tbody>
-</table>
-
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Website</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>Report ID</th>
+                    <th>
+                      Actions
+                      <div class="actions-helper">
+                        Open or share your live report
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+              </table>
             </div>
           </div>
         </div>
-  
-
-
 
         <div id="view-billing" class="view">
           <div class="card secondary">
@@ -840,14 +1027,14 @@ tbody td:nth-child(7) {
             </div>
 
             <div class="scanhelp">
-              Current plan, scans remaining, renewal date.  
+              Current plan, scans remaining, renewal date.
             </div>
 
-<div style="margin-top:14px;">
-  <a id="manage-subscription" class="wd-history-link" href="#">
-    Manage subscription
-  </a>
-</div>
+            <div style="margin-top:14px;">
+              <a id="manage-subscription" class="wd-history-link" href="#">
+                Manage subscription
+              </a>
+            </div>
           </div>
         </div>
 
@@ -866,6 +1053,103 @@ tbody td:nth-child(7) {
           </div>
         </div>
 
+        <div id="view-branding" class="view">
+          <div class="card secondary">
+            <div class="h">
+              <h2>Company Details</h2>
+              <span class="meta">Used in your report header and footer</span>
+            </div>
+
+            <div class="brand-grid">
+              <div class="brand-field">
+                <label for="brand-company">Company Name</label>
+                <input id="brand-company" type="text" placeholder="Your company name" />
+              </div>
+
+              <div class="brand-field">
+                <label for="brand-website">Website</label>
+                <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
+              </div>
+
+              <div class="brand-field">
+                <label for="brand-email">Email</label>
+                <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
+              </div>
+
+              <div class="brand-field">
+                <label for="brand-phone">Phone (optional)</label>
+                <input id="brand-phone" type="text" placeholder="+64 ..." />
+              </div>
+
+              <div class="brand-field full">
+                <label for="brand-accent">Accent Colour</label>
+                <input id="brand-accent" type="text" placeholder="#18D6C4" value="#18D6C4" />
+              </div>
+            </div>
+
+            <div class="brand-actions">
+              <button id="brand-save" class="btn btn-primary" type="button">Save Branding</button>
+            </div>
+          </div>
+
+          <div class="card secondary">
+            <div class="h">
+              <h2>Logo</h2>
+              <span class="meta">Optional report branding</span>
+            </div>
+
+            <div class="scanhelp">
+              PNG or SVG recommended. Logos are scaled automatically to fit the report header.
+            </div>
+
+            <div class="logo-upload-row">
+              <input id="brand-logo" type="file" accept="image/png,image/svg+xml" />
+              <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
+            </div>
+
+            <div class="logo-preview-box">
+              <span id="logo-preview-empty" class="logo-preview-empty">No logo uploaded yet.</span>
+              <img id="brand-logo-preview" class="logo-preview-img" alt="Logo preview" />
+            </div>
+          </div>
+
+          <div class="card secondary">
+            <div class="h">
+              <h2>Preview</h2>
+              <span class="meta">How your branding will appear in reports</span>
+            </div>
+
+            <div class="preview-shell">
+              <div class="preview-header">
+                <div class="preview-logo-wrap">
+                  <img id="preview-logo" class="preview-logo" alt="Report logo preview" />
+                </div>
+
+                <div class="preview-brand-copy">
+                  <div id="preview-company" class="preview-company">Your Company Name</div>
+                  <div id="preview-title" class="preview-title">Website Performance Report</div>
+                </div>
+              </div>
+
+              <div class="preview-footer">
+                <div class="preview-footer-left">
+                  <div id="preview-website">yourcompany.com</div>
+                  <div id="preview-email">hello@yourcompany.com</div>
+                  <div id="preview-phone">+64 ...</div>
+                </div>
+
+                <div class="preview-footer-right">
+                  <div class="preview-powered">Powered by iQWEB</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="preview-note">
+              This is a visual preview only for now. Save wiring can be added next.
+            </div>
+          </div>
+        </div>
+
         <footer class="footer">
           <div>© 2025 iQWEB – All rights reserved.</div>
           <div>Powered by Λ i Q™</div>
@@ -874,11 +1158,10 @@ tbody td:nth-child(7) {
     </section>
   </div>
 
-   <!-- Core wiring (load ONCE) -->
-  <script type="module" src="/assets/js/dashboard.js"></script>
+<script type="module" src="/assets/js/dashboard.js"></script>
+<script type="module" src="/assets/js/dashboard-branding.js"></script>
 
-  <!-- UI-only nav + contact dropdown (no Supabase / no auth here) -->
-  <script type="module">
+<script type="module">
     const $ = (sel) => document.querySelector(sel);
 
     const navItems = Array.from(document.querySelectorAll('.nav a[data-view]'));
@@ -893,13 +1176,16 @@ tbody td:nth-child(7) {
       if (pageTitle) {
         pageTitle.textContent =
           viewId === 'view-billing' ? 'Billing' :
-          viewId === 'view-account' ? 'Account' : 'Dashboard';
+          viewId === 'view-account' ? 'Account' :
+          viewId === 'view-branding' ? 'Branding' :
+          'Dashboard';
       }
 
       if (pageSubtitle) {
         pageSubtitle.textContent =
           viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
           viewId === 'view-account' ? 'Identity and security.' :
+          viewId === 'view-branding' ? 'Company details, logo and report preview.' :
           '';
       }
     }
@@ -909,7 +1195,6 @@ tbody td:nth-child(7) {
       setActiveView(a.dataset.view);
     }));
 
-    // Contact dropdown
     const contactToggle = $('#contact-toggle');
     const contactPop = $('#contact-pop');
 
@@ -933,7 +1218,103 @@ tbody td:nth-child(7) {
       if (contactPop.contains(e.target) || contactToggle.contains(e.target)) return;
       closeContact();
     });
-  </script>
 
+    const brandCompany = $('#brand-company');
+    const brandWebsite = $('#brand-website');
+    const brandEmail = $('#brand-email');
+    const brandPhone = $('#brand-phone');
+    const brandAccent = $('#brand-accent');
+    const brandLogo = $('#brand-logo');
+    const brandLogoPreview = $('#brand-logo-preview');
+    const previewLogo = $('#preview-logo');
+    const logoPreviewEmpty = $('#logo-preview-empty');
+    const brandLogoRemove = $('#brand-logo-remove');
+
+    const previewCompany = $('#preview-company');
+    const previewWebsite = $('#preview-website');
+    const previewEmail = $('#preview-email');
+    const previewPhone = $('#preview-phone');
+    const previewTitle = $('#preview-title');
+
+    function normaliseWebsite(value){
+      return value?.trim() || 'yourcompany.com';
+    }
+
+    function updateBrandPreview(){
+      if (previewCompany) {
+        previewCompany.textContent = brandCompany?.value?.trim() || 'Your Company Name';
+      }
+
+      if (previewWebsite) {
+        previewWebsite.textContent = normaliseWebsite(brandWebsite?.value);
+      }
+
+      if (previewEmail) {
+        previewEmail.textContent = brandEmail?.value?.trim() || 'hello@yourcompany.com';
+      }
+
+      if (previewPhone) {
+        previewPhone.textContent = brandPhone?.value?.trim() || '+64 ...';
+      }
+
+      if (previewTitle && brandAccent?.value?.trim()) {
+        previewTitle.style.color = brandAccent.value.trim();
+      } else if (previewTitle) {
+        previewTitle.style.color = '#18D6C4';
+      }
+    }
+
+    [brandCompany, brandWebsite, brandEmail, brandPhone, brandAccent].forEach((field) => {
+      if (!field) return;
+      field.addEventListener('input', updateBrandPreview);
+    });
+
+    if (brandLogo) {
+      brandLogo.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const src = event.target?.result;
+          if (!src) return;
+
+          if (brandLogoPreview) {
+            brandLogoPreview.src = src;
+            brandLogoPreview.style.display = 'block';
+          }
+
+          if (previewLogo) {
+            previewLogo.src = src;
+            previewLogo.style.display = 'block';
+          }
+
+          if (logoPreviewEmpty) {
+            logoPreviewEmpty.style.display = 'none';
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    if (brandLogoRemove) {
+      brandLogoRemove.addEventListener('click', () => {
+        if (brandLogo) brandLogo.value = '';
+        if (brandLogoPreview) {
+          brandLogoPreview.src = '';
+          brandLogoPreview.style.display = 'none';
+        }
+        if (previewLogo) {
+          previewLogo.src = '';
+          previewLogo.style.display = 'none';
+        }
+        if (logoPreviewEmpty) {
+          logoPreviewEmpty.style.display = 'inline';
+        }
+      });
+    }
+
+    updateBrandPreview();
+  </script>
 </body>
 </html>

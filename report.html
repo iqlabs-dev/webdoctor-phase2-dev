@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report — v5.2</title>
+  <title>Website Report — v5.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Font -->
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
@@ -55,7 +54,6 @@
       gap: 18px;
     }
 
-    /* Top header card */
     .top-card {
       width: 100%;
       border-radius: var(--radius);
@@ -78,17 +76,11 @@
       align-items: center;
       gap: 10px;
     }
+
     .brand .logo {
       font-weight: 800;
       letter-spacing: 0.02em;
       font-size: 18px;
-    }
-    .brand .tag {
-      color: rgba(229,240,255,0.70);
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      font-size: 11px;
     }
 
     .top-actions {
@@ -97,6 +89,7 @@
       gap: 10px;
       margin-left: auto;
     }
+
     .btn {
       border: 1px solid var(--border);
       background: rgba(0,0,0,0.22);
@@ -111,7 +104,6 @@
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
 
-    /* Meta strip */
     .meta-strip {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -152,7 +144,6 @@
       .meta-strip { grid-template-columns: 1fr; }
     }
 
-    /* Overall summary strip */
     .overall-strip {
       display: flex;
       flex-direction: column;
@@ -195,7 +186,6 @@
       font-size: 13px;
     }
 
-    /* Sections */
     .section {
       width: 100%;
       border-radius: var(--radius);
@@ -204,6 +194,7 @@
       box-shadow: var(--shadow);
       overflow: hidden;
     }
+
     .section-head {
       padding: 14px 16px;
       border-bottom: 1px solid var(--border-subtle);
@@ -213,6 +204,7 @@
       justify-content: space-between;
       gap: 10px;
     }
+
     .section-title {
       margin: 0;
       font-size: 13px;
@@ -220,9 +212,9 @@
       text-transform: uppercase;
       color: var(--ink-soft);
     }
+
     .section-body { padding: 16px; }
 
-    /* Cards */
     .card {
       background: rgba(0,0,0,0.18);
       border: 1px solid var(--border-subtle);
@@ -230,7 +222,6 @@
       padding: 14px 14px;
     }
 
-    /* === Signal Severity Styling (premium, subtle) === */
     .card.severity-strong {
       border-color: rgba(34, 197, 94, 0.35);
       background: linear-gradient(180deg, rgba(34,197,94,0.08), rgba(0,0,0,0.18));
@@ -251,6 +242,7 @@
       gap: 12px;
       margin-bottom: 8px;
     }
+
     .card h3 {
       margin: 0;
       font-size: 12px;
@@ -258,6 +250,7 @@
       text-transform: uppercase;
       color: var(--ink-soft);
     }
+
     .score-right {
       font-weight: 800;
       font-size: 15px;
@@ -273,6 +266,7 @@
       overflow: hidden;
       border: 1px solid rgba(255,255,255,0.08);
     }
+
     .bar > div {
       height: 100%;
       width: 0%;
@@ -288,14 +282,15 @@
       font-size: 13px;
       white-space: pre-line;
     }
+
     .muted { color: var(--muted); }
 
-    /* === Key Findings (structured 5-row briefing) === */
     .keyfindings {
       display: flex;
       flex-direction: column;
       gap: 10px;
     }
+
     .finding-row{
       display:grid;
       grid-template-columns:160px 1fr;
@@ -303,7 +298,9 @@
       padding:6px 0;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
+
     .finding-row:last-child { border-bottom: 0; }
+
     .finding-label{
       font-weight:700;
       font-size:11px;
@@ -312,43 +309,45 @@
       color:var(--muted);
       padding-top: 2px;
     }
-.finding-value{
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  display:flex;
-  align-items:flex-start;
-}
+
+    .finding-value{
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      display:flex;
+      align-items:flex-start;
+    }
+
     @media (max-width: 520px) {
       .finding-row { grid-template-columns: 1fr; gap: 6px; }
       .finding-label { padding-top: 0; }
     }
 
-    /* 3x2 grid */
     .grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
     }
+
     @media (min-width: 980px) {
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
-    /* Signal Evidence layout */
     #signalEvidenceRoot {
       display: grid;
       grid-template-columns: 1fr;
       gap: 14px;
       align-items: start;
     }
+
     @media (min-width: 900px) {
       #signalEvidenceRoot { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
+
     #signalEvidenceRoot > .evidence-block { align-self: start; }
 
-    /* Prevent issue text overflow */
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
     .issue-title {
@@ -359,11 +358,13 @@
       line-height: 1.35;
       white-space: normal;
     }
+
     .issue-label {
       flex: 0 0 auto;
       margin-left: 10px;
       white-space: nowrap;
     }
+
     .issue-why {
       white-space: normal;
       overflow-wrap: anywhere;
@@ -393,6 +394,7 @@
       grid-template-columns: 1fr;
       gap: 8px;
     }
+
     @media (min-width: 800px) {
       .evidence-list { grid-template-columns: 1fr 1fr; }
     }
@@ -407,6 +409,7 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.06);
     }
+
     .kv .k {
       color: var(--muted);
       font-size: 12px;
@@ -414,6 +417,7 @@
       max-width: 55%;
       overflow-wrap: anywhere;
     }
+
     .kv .v{
       color: var(--ink);
       font-weight: 600;
@@ -433,7 +437,6 @@
       word-break: break-word;
     }
 
-    /* Evidence accordions */
     details.evidence-block { padding: 0; }
     details.evidence-block > summary {
       list-style: none;
@@ -454,12 +457,14 @@
       border-bottom-right-radius: 0;
       border-bottom: 0;
     }
+
     .acc-score {
       font-weight: 800;
       color: var(--ink);
       font-size: 13px;
       opacity: 0.95;
     }
+
     .acc-body {
       padding: 14px;
       border: 1px solid var(--border-subtle);
@@ -469,7 +474,6 @@
       background: rgba(0,0,0,0.14);
     }
 
-    /* Key metrics must not behave like accordions */
     #keyMetricsRoot details,
     #keyMetricsRoot summary {
       all: unset;
@@ -483,9 +487,11 @@
       grid-template-columns: 1fr;
       gap: 10px;
     }
+
     @media (min-width: 900px) {
       .insight-list { grid-template-columns: 1fr 1fr; }
     }
+
     .insight {
       border-radius: 14px;
       padding: 12px 12px;
@@ -495,6 +501,7 @@
       gap: 10px;
       align-items: flex-start;
     }
+
     .insight .tag {
       flex: 0 0 auto;
       font-weight: 800;
@@ -505,6 +512,7 @@
       padding-top: 2px;
       min-width: 92px;
     }
+
     .insight .text {
       color: var(--ink-soft);
       font-size: 13px;
@@ -512,12 +520,14 @@
     }
 
     .issue-list { display: flex; flex-direction: column; gap: 10px; }
+
     .issue {
       border-radius: 14px;
       padding: 12px 12px;
       background: rgba(0,0,0,0.16);
       border: 1px solid var(--border-subtle);
     }
+
     .issue-top {
       display: flex;
       justify-content: space-between;
@@ -526,6 +536,7 @@
       margin-bottom: 6px;
       flex-wrap: wrap;
     }
+
     .issue-title {
       margin: 0;
       font-size: 12.5px;
@@ -540,6 +551,7 @@
       flex: 1 1 auto;
       min-width: 0;
     }
+
     .issue-label {
       font-size: 11px;
       letter-spacing: 0.06em;
@@ -551,9 +563,9 @@
       background: rgba(255,255,255,0.03);
       white-space: nowrap;
     }
+
     .issue-why { color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
 
-    /* Fix sequence */
     .phase {
       border-radius: 16px;
       border: 1px solid var(--border-subtle);
@@ -561,6 +573,7 @@
       overflow: hidden;
       margin-bottom: 12px;
     }
+
     .phase-head {
       padding: 12px 14px;
       display: flex;
@@ -570,6 +583,7 @@
       border-bottom: 1px solid var(--border-subtle);
       background: rgba(255,255,255,0.03);
     }
+
     .phase-title {
       margin: 0;
       font-family: "Montserrat", system-ui, sans-serif;
@@ -579,6 +593,7 @@
       font-weight: 800;
       color: var(--ink);
     }
+
     .phase-time {
       font-family: "Montserrat", system-ui, sans-serif;
       font-size: 11px;
@@ -586,7 +601,9 @@
       text-transform: uppercase;
       color: rgba(229,240,255,0.65);
     }
+
     .phase-body { padding: 12px 14px; }
+
     .phase-body ul {
       margin: 0;
       padding-left: 18px;
@@ -595,6 +612,7 @@
       font-size: 13px;
       line-height: 1.45;
     }
+
     .phase-body li {
       margin: 6px 0;
       line-height: 1.45;
@@ -603,7 +621,6 @@
       font-weight: 500;
     }
 
-    /* Loader */
     .loader-wrap {
       width: 100%;
       max-width: 1120px;
@@ -624,16 +641,18 @@
       align-items: center;
       justify-content: center;
     }
+
     .pulse::after {
-      content: "Λ i Q";
+      content: "Report";
       font-family: "Montserrat", system-ui, sans-serif;
-      font-weight: 500;
+      font-weight: 700;
       font-size: 20px;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.10em;
       color: rgba(235, 240, 245, 0.92);
       text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
       animation: iqPulse 1.8s ease-in-out infinite;
     }
+
     @keyframes iqPulse {
       0%   { opacity: 0.55; }
       50%  { opacity: 1; }
@@ -656,29 +675,33 @@
       padding-top: 10px;
     }
 
-    /* PRINT / PDF MODE */
     @media print {
       :root { color-scheme: light; }
       html, body {
         background: #ffffff !important;
         color: #0f172a !important;
       }
+
       * {
         box-shadow: none !important;
         text-shadow: none !important;
         filter: none !important;
       }
+
       .card, .section, .evidence-block, .insight, .issue, .acc-body, .kv {
         background: #ffffff !important;
         border: 1px solid #e5e7eb !important;
       }
+
       .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
         color: #0f172a !important;
       }
+
       .summary, .issue-why, .phase-body li, .insight .text, .kv .k, .kv .v,
       .finding-value, .finding-label {
         color: #111827 !important;
       }
+
       .bar { background: #e5e7eb !important; }
       .bar > div { background: #111827 !important; }
 
@@ -693,7 +716,6 @@
       details { page-break-inside: avoid; }
       .card, .section, .evidence-block, .issue, .insight { break-inside: avoid; }
 
-      /* Expand all evidence accordions */
       details.evidence-block { display: block !important; }
       details.evidence-block > summary { display: none !important; }
       details.evidence-block .acc-body {
@@ -727,13 +749,9 @@
     <div class="shell-inner">
 
       <div class="top-card">
-        <!-- Brand Bar -->
         <div class="top-row">
           <div class="brand">
-            <div class="logo">iQWEB</div>
-            <div style="font-size:11px; letter-spacing:0.12em; color:var(--ink-soft);">
-              Powered by Λ i Q™
-            </div>
+            <div class="logo">Website Report</div>
           </div>
 
           <div class="top-actions">
@@ -743,7 +761,6 @@
           </div>
         </div>
 
-        <!-- Meta Strip -->
         <div class="meta-strip">
           <div class="meta-cell">
             <div class="k">Website</div>
@@ -762,72 +779,51 @@
         </div>
       </div>
 
-      <!-- Loader -->
       <section id="loaderSection" class="loader-wrap">
         <div class="pulse" aria-hidden="true"></div>
         <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
         <div id="loaderStatus" class="muted" style="font-size:12px;">
-          Fetching scan data and rendering deterministic signals. Narrative is optional and will not block output.
+          Fetching scan data and rendering deterministic signals.
         </div>
       </section>
 
-      <!-- Main Report -->
       <main id="reportRoot" style="display:none;">
-
-        <!-- Key Findings -->
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Key Findings</h2>
           </div>
           <div class="section-body">
+            <div id="narrativeText" class="keyfindings">
+              <div class="finding-row">
+                <div class="finding-label">Overall Delivery</div>
+                <div class="finding-value" id="findingOverall">Scan results loading…</div>
+              </div>
 
-<!-- Structured 5-row briefing (populated by report-data.js) -->
-<div id="narrativeText" class="keyfindings">
+              <div class="finding-row">
+                <div class="finding-label">Primary Constraint</div>
+                <div class="finding-value" id="findingConstraint">Scan results loading…</div>
+              </div>
 
-  <div class="finding-row">
-    <div class="finding-label">Overall Delivery</div>
-    <div class="finding-value" id="findingOverall">
-      Scan results loading…
-    </div>
-  </div>
+              <div class="finding-row">
+                <div class="finding-label">Impact</div>
+                <div class="finding-value" id="findingImpact">Analysing delivery signals…</div>
+              </div>
 
-  <div class="finding-row">
-    <div class="finding-label">Primary Constraint</div>
-    <div class="finding-value" id="findingConstraint">
-      Scan results loading…
-    </div>
-  </div>
+              <div class="finding-row">
+                <div class="finding-label">Recommended Fix</div>
+                <div class="finding-value" id="findingFix">Generating prioritised recommendation…</div>
+              </div>
 
-  <div class="finding-row">
-    <div class="finding-label">Impact</div>
-    <div class="finding-value" id="findingImpact">
-      Analysing delivery signals…
-    </div>
-  </div>
+              <div class="finding-row">
+                <div class="finding-label">Next Step</div>
+                <div class="finding-value" id="findingNext">Preparing recommended next action…</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-  <div class="finding-row">
-    <div class="finding-label">Recommended Fix</div>
-    <div class="finding-value" id="findingFix">
-      Generating prioritised recommendation…
-    </div>
-  </div>
-
-  <div class="finding-row">
-    <div class="finding-label">Next Step</div>
-    <div class="finding-value" id="findingNext">
-      Preparing recommended next action…
-    </div>
-  </div>
-
-</div>
-
-</div>
-</section>
-
-        <!-- What to Fix First (optional) -->
         <div id="fixFirstBlock"></div>
 
-        <!-- Delivery Signals -->
         <section class="section" id="deliverySignalsSection">
           <div class="section-head">
             <h2 class="section-title">Delivery Signals</h2>
@@ -956,7 +952,7 @@
           <div class="section-body" id="finalNotesRoot">
             <div class="final-notes">
               <p>
-                iQWEB analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
+                This report analyses observable build, structure, security, and semantic signals from a site’s delivered HTML and response headers to help teams prioritise what to review and improve next.
               </p>
 
               <p>
@@ -964,28 +960,20 @@
               </p>
 
               <p>
-                Trust matters: scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
+                Scan output is used solely to generate this report and is not sold. Payment details are handled by the payment provider and are not stored.
               </p>
             </div>
           </div>
         </section>
-
       </main>
 
-      <div class="footer">
-        © 2025 iQWEB – All rights reserved.
-      </div>
-
+      <div class="footer"></div>
     </div>
   </div>
 
-<!-- Score model (single source of truth) -->
-<script src="/assets/js/score-model.js"></script>
+  <script src="/assets/js/score-model.js"></script>
+  <script src="/assets/js/report-data.js"></script>
 
-<!-- Report renderer -->
-<script src="/assets/js/report-data.js"></script>
-
-  <!-- UI buttons (Back/Refresh) -->
   <script>
   (function () {
     const refreshBtn = document.getElementById("refreshBtn");
@@ -1028,10 +1016,8 @@
   </script>
 
   <script>
-    // ===== DocRaptor render gate (single source of truth) =====
     window.__IQWEB_REPORT_READY = false;
 
-    // Detect "PDF render mode"
     var __IQWEB_PDF_MODE = (function () {
       try {
         var p = new URLSearchParams(location.search);
