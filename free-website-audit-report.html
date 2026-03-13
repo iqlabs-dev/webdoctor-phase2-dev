@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Free Website Audit Report | iQWEB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="See what a free website audit report should include and how iQWEB structures performance, SEO, security, and diagnostic signals into a clearer client-ready format." />
+
+  <link rel="icon" href="/favicon.ico?v=1" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+  <link rel="manifest" href="/site.webmanifest?v=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.usefathom.com/script.js" data-site="MIQNNPNX" defer></script>
+
+  <style>
+
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --accent-2: #14b8a6;
+      --border-subtle: #1f2937;
+      --panel: #070d1c;
+      --panel-soft: #0b1224;
+      --shadow-soft: 0 26px 60px rgba(0, 0, 0, 0.55);
+      --radius-lg: 22px;
+      --radius-pill: 999px;
+      --max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 28%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-mid) 42%, var(--bg-bot));
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e0f2fe; text-decoration: underline; }
+
+    .page-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 18px 18px 42px;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+
+    .nav-left, .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .nav-left { justify-self: start; }
+    .nav-right { justify-self: end; }
+
+    .nav-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 0.8rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      margin: 0 auto;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      text-decoration: none;
+    }
+    .nav-title:hover { text-decoration: none; }
+
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.66rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    .nav-link:hover,
+    .nav-link.is-active {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+      opacity: 1;
+      text-decoration: none;
+    }
+
+    .nav-cta,
+    .nav-ghost {
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .nav-ghost {
+      border-color: rgba(148,163,184,0.35);
+      background: rgba(15,23,42,0.35);
+      color: var(--ink-soft);
+    }
+
+    .nav-ghost:hover {
+      border-color: rgba(148,163,184,0.75);
+      color: var(--ink);
+      background: rgba(15,23,42,0.85);
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.55);
+      color: var(--ink-soft);
+      box-shadow: 0 14px 32px rgba(15,23,42,0.85);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.9);
+      box-shadow: 0 18px 46px rgba(34,211,238,0.55);
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .article-hero {
+      margin-top: 94px;
+      margin-bottom: 28px;
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #8df3ff;
+      border: 1px solid rgba(34,211,238,0.35);
+      background: rgba(34,211,238,0.08);
+    }
+
+    .article-title {
+      font-size: clamp(2.3rem, 4.8vw, 4rem);
+      line-height: 1.03;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+      margin: 0 auto;
+      max-width: 18ch;
+      color: #fff;
+    }
+
+    .article-title .accent {
+      color: #22d3ee;
+      text-shadow: 0 0 18px rgba(34,211,238,0.2);
+    }
+
+    .article-subtitle {
+      font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+      line-height: 1.65;
+      color: rgba(255,255,255,0.88);
+      font-weight: 500;
+      max-width: 68ch;
+      margin: 20px auto 0;
+    }
+
+    .hero-actions {
+      margin-top: 28px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border-radius: 999px;
+      padding: 11px 20px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.72);
+      color: var(--ink);
+      box-shadow: 0 16px 36px rgba(15,23,42,0.7);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.95);
+      box-shadow: 0 18px 42px rgba(34,211,238,0.32);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      border-color: rgba(148,163,184,0.28);
+      background: rgba(15,23,42,0.58);
+      color: var(--ink-soft);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(148,163,184,0.58);
+      text-decoration: none;
+    }
+
+    .content-shell {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border-radius: 22px;
+      padding: 26px 24px;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
+        linear-gradient(180deg, rgba(10,16,34,0.9), rgba(8,12,24,0.92));
+      border: 1px solid rgba(34,211,238,0.14);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.34);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(7,13,28,0.72);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.015);
+    }
+
+    .info-card h3,
+    .section-heading {
+      margin: 0 0 10px;
+      color: #eef7ff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      color: rgba(141,243,255,0.86);
+      font-weight: 700;
+    }
+
+    .lead,
+    .panel p,
+    .info-card p,
+    .timeline-note,
+    .update-copy {
+      color: rgba(229,240,255,0.82);
+      line-height: 1.75;
+      font-size: 0.94rem;
+      margin: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: rgba(229,240,255,0.84);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .list li + li { margin-top: 8px; }
+    .list strong { color: #eef7ff; }
+
+    .highlight {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(34,211,238,0.1);
+      border: 1px solid rgba(34,211,238,0.22);
+      color: #c8f8ff;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      vertical-align: middle;
+    }
+
+    .cta-panel {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      gap: 18px;
+      align-items: start;
+      padding: 16px 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .timeline-item:first-child { border-top: 0; padding-top: 0; }
+
+    .timeline-date {
+      font-size: 0.76rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: rgba(141,243,255,0.8);
+      padding-top: 4px;
+    }
+
+    .timeline-body h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      color: #eef7ff;
+    }
+
+    .timeline-body p { margin: 0; color: rgba(229,240,255,0.8); line-height: 1.75; }
+    .timeline-body ul { margin: 12px 0 0; padding-left: 18px; color: rgba(229,240,255,0.84); line-height: 1.7; font-size: 0.92rem; }
+
+    .wd-footer {
+      padding: 28px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-top: 56px;
+    }
+
+    .wd-footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 18px;
+      opacity: 0.9;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      column-gap: 18px;
+    }
+
+    .wd-footer-left { justify-self: start; white-space: nowrap; }
+    .wd-footer-center { justify-self: center; }
+    .wd-footer-right { justify-self: end; white-space: nowrap; color: var(--muted); opacity: 0.85; }
+
+    .wd-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+    .wd-footer-links a { color: var(--ink-soft); text-decoration: none; font-size: 0.75rem; }
+    .wd-footer-links a:hover { color: var(--ink); text-decoration: none; }
+
+    @media (max-width: 980px) {
+      .panel-grid,
+      .cta-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .shell-inner { padding-inline: 16px; }
+      .nav {
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 16px;
+      }
+      .nav-center { display: none; }
+      .nav-title { font-size: 0.98rem; }
+      .nav-ghost { display: none; }
+      .nav-cta {
+        padding: 7px 14px;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+      }
+      .article-hero { margin-top: 72px; }
+    }
+
+    @media (max-width: 720px) {
+      .timeline-item { grid-template-columns: 1fr; gap: 8px; }
+      .wd-footer-inner {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+        text-align: center;
+      }
+      .wd-footer-left,
+      .wd-footer-right {
+        justify-self: center;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .article-title { font-size: clamp(2rem, 9vw, 2.8rem); max-width: 100%; }
+      .article-subtitle { font-size: 1rem; max-width: 100%; }
+      .panel { padding: 22px 18px; }
+      .info-card { padding: 16px; }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div class="shell-inner">
+      <header class="nav">
+        <div class="nav-left">
+          <a href="/" class="nav-title">iQWEB</a>
+          
+        </div>
+
+        <div class="nav-center">
+          <div class="nav-links">
+            <a href="/changelog.html" class="nav-link">Changelog</a>
+      <a href="/pagespeed-score-explained.html" class="nav-link">PageSpeed</a>
+      <a href="/pagespeed-report-for-clients.html" class="nav-link is-active">Client Reports</a>
+      <a href="/website-diagnostics-explained.html" class="nav-link">Diagnostics</a>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <a href="/" class="nav-cta">Main Page</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="article-hero">
+          <div class="hero-badge">Report Example</div>
+          <h1 class="article-title">Free <span class="accent">Website Audit Report</span> Example</h1>
+          <p class="article-subtitle">Most website audit tools produce raw diagnostics. A better report explains what the signals mean, where the main weaknesses are, and what should be fixed first. This page shows the kind of structure agencies and clients can both work with.</p>
+
+          <div class="hero-actions">
+            <a href="/" class="btn-primary">Visit Main Page</a>
+            <a href="/" class="btn-secondary">Back to Home</a>
+          </div>
+        </section>
+
+        <div class="content-shell">
+
+          <section class="panel">
+            <div>
+              <span class="eyebrow">What people usually expect</span>
+              <h2 class="section-heading">A useful audit report is more than a score screenshot.</h2>
+              <p class="lead">A client-ready audit report should combine evidence, interpretation, and prioritisation. That means performance findings, SEO foundations, structural checks, security basics, and a sensible explanation of impact. Without that structure, the report is harder to use as a sales or delivery tool.</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-grid">
+              <div class="info-card">
+                <span class="eyebrow">Section 1</span>
+                <h3>Executive summary</h3>
+                <p>Describe the site condition in human language so the client immediately understands whether the site looks healthy, mixed, or at risk.</p>
+              </div>
+              <div class="info-card">
+                <span class="eyebrow">Section 2</span>
+                <h3>Signal breakdown</h3>
+                <p>Show the categories being assessed such as performance, SEO, accessibility, security, and delivery behaviour.</p>
+              </div>
+              <div class="info-card">
+                <span class="eyebrow">Section 3</span>
+                <h3>Prioritised fixes</h3>
+                <p>Rank the issues that matter most so the report supports decisions instead of overwhelming the client with noise.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">What iQWEB includes</span>
+              <h2 class="section-heading">The report format is designed to be shared, not just inspected.</h2>
+            </div>
+            <ul class="list">
+              <li><strong>Performance context:</strong> not just the score, but the likely friction points behind it.</li>
+              <li><strong>SEO foundations:</strong> visibility-related basics such as metadata, indexing signals, and structural clarity.</li>
+              <li><strong>Trust and security indicators:</strong> checks that affect browser protection, trust posture, and delivery hygiene.</li>
+              <li><strong>Recommended sequence:</strong> a more useful order of operations so the client understands what comes first.</li>
+            </ul>
+          </section>
+
+          <section class="panel cta-panel">
+            <div>
+              <span class="eyebrow">Use case</span>
+              <h2 class="section-heading">This is meant to support real client conversations.</h2>
+              <p class="lead">Agencies can use the report as a discovery tool, a diagnostic leave-behind, or a pre-proposal aid. Instead of manually rewriting Lighthouse findings every time, the report starts the conversation from a clearer baseline.</p>
+            </div>
+            <div class="info-card">
+              <h3>Next read</h3>
+              <p>Need the broader context behind the categories themselves?</p>
+              <p style="margin-top:12px;"><a href="/website-diagnostics-explained.html" class="highlight">Read diagnostics guide</a></p>
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+
+      <footer class="wd-footer">
+        <div class="wd-footer-inner">
+          <div class="wd-footer-left">© 2025 iQWEB – All rights reserved.</div>
+
+          <div class="wd-footer-center">
+            <div class="wd-footer-links">
+              <a href="/">Home</a>
+              <a href="/#pricing">Pricing</a>
+              <a href="/trust.html">Trust</a>
+              <a href="/privacy.html">Privacy</a>
+              <a href="/terms.html">Terms</a>
+              <a href="/refunds.html">Billing &amp; Refunds</a>
+              <a href="/changelog.html">Changelog</a>
+              <a href="/pagespeed-score-explained.html">PageSpeed Score Explained</a>
+              <a href="/pagespeed-report-for-clients.html">PageSpeed Reports for Clients</a>
+              <a href="/free-website-audit-report.html">Free Website Audit Report</a>
+              <a href="/website-diagnostics-explained.html">Website Diagnostics Explained</a>
+              <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+            </div>
+          </div>
+
+          <div class="wd-footer-right">Powered by Λ i Q™.</div>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+</body>
+</html>
