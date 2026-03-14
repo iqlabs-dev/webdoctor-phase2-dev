@@ -768,14 +768,23 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-     <div class="top-card">
+<div class="top-card">
   <div class="top-row">
     <div class="brand" id="reportBrand">
       <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
+      
       <div class="brand-copy">
         <div class="logo" id="agencyName">Website Report</div>
+
         <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
           Website Report
+        </div>
+
+        <!-- Agency contact block -->
+        <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+          <div id="agencyWebsiteLine" style="display:none;"></div>
+          <div id="agencyEmailLine" style="display:none;"></div>
+          <div id="agencyPhoneLine" style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -787,23 +796,7 @@
     </div>
   </div>
 
-  <div class="meta-strip" id="agencyMetaStrip" style="display:none; margin-top:14px;">
-    <div class="meta-cell" id="agencyWebsiteWrap" style="display:none;">
-      <div class="k">Agency Website</div>
-      <div class="v" id="agencyWebsite"></div>
-    </div>
-
-    <div class="meta-cell" id="agencyEmailWrap" style="display:none;">
-      <div class="k">Agency Email</div>
-      <div class="v" id="agencyEmail"></div>
-    </div>
-
-    <div class="meta-cell" id="agencyPhoneWrap" style="display:none;">
-      <div class="k">Agency Phone</div>
-      <div class="v" id="agencyPhone"></div>
-    </div>
-  </div>
-
+  <!-- Report metadata -->
   <div class="meta-strip">
     <div class="meta-cell">
       <div class="k">Website</div>

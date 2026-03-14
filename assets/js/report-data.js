@@ -299,72 +299,79 @@ function applyBrandingUI(branding) {
   var agencyLogo = $("agencyLogo");
   var agencyReportLabel = $("agencyReportLabel");
 
-  var agencyMetaStrip = $("agencyMetaStrip");
-  var agencyWebsite = $("agencyWebsite");
-  var agencyEmail = $("agencyEmail");
-  var agencyPhone = $("agencyPhone");
+  /* NEW stacked header contact block */
+  var agencyContactBlock = $("agencyContactBlock");
+  var agencyWebsiteLine = $("agencyWebsiteLine");
+  var agencyEmailLine = $("agencyEmailLine");
+  var agencyPhoneLine = $("agencyPhoneLine");
 
-  var agencyWebsiteWrap = $("agencyWebsiteWrap");
-  var agencyEmailWrap = $("agencyEmailWrap");
-  var agencyPhoneWrap = $("agencyPhoneWrap");
-
+  /* footer */
   var footer = $("reportFooter");
   var footerAgencyName = $("footerAgencyName");
   var footerAgencyWebsite = $("footerAgencyWebsite");
   var footerAgencyEmail = $("footerAgencyEmail");
   var footerAgencyPhone = $("footerAgencyPhone");
 
+  /* company name */
   if (agencyName) {
     agencyName.textContent = branding.agency_name
       ? String(branding.agency_name)
       : "Website Report";
   }
 
+  /* report subtitle */
   if (agencyReportLabel) {
     agencyReportLabel.textContent = branding.agency_report_title
       ? String(branding.agency_report_title)
       : "Website Report";
   }
 
+  /* logo */
   if (agencyLogo && branding.agency_logo_url) {
     agencyLogo.src = String(branding.agency_logo_url);
     agencyLogo.style.display = "block";
   }
 
+  /* accent color */
   if (branding.agency_accent_color) {
-    document.documentElement.style.setProperty("--accent", String(branding.agency_accent_color));
+    document.documentElement.style.setProperty(
+      "--accent",
+      String(branding.agency_accent_color)
+    );
   }
 
-  var hasHeaderMeta = false;
+  /* HEADER CONTACT BLOCK */
+  var hasHeaderContact = false;
 
-  if (agencyWebsite && agencyWebsiteWrap && branding.agency_website) {
-    agencyWebsite.textContent = String(branding.agency_website);
-    agencyWebsiteWrap.style.display = "block";
-    hasHeaderMeta = true;
-  } else if (agencyWebsiteWrap) {
-    agencyWebsiteWrap.style.display = "none";
+  if (agencyWebsiteLine && branding.agency_website) {
+    agencyWebsiteLine.textContent = String(branding.agency_website);
+    agencyWebsiteLine.style.display = "block";
+    hasHeaderContact = true;
+  } else if (agencyWebsiteLine) {
+    agencyWebsiteLine.style.display = "none";
   }
 
-  if (agencyEmail && agencyEmailWrap && branding.agency_email) {
-    agencyEmail.textContent = String(branding.agency_email);
-    agencyEmailWrap.style.display = "block";
-    hasHeaderMeta = true;
-  } else if (agencyEmailWrap) {
-    agencyEmailWrap.style.display = "none";
+  if (agencyEmailLine && branding.agency_email) {
+    agencyEmailLine.textContent = String(branding.agency_email);
+    agencyEmailLine.style.display = "block";
+    hasHeaderContact = true;
+  } else if (agencyEmailLine) {
+    agencyEmailLine.style.display = "none";
   }
 
-  if (agencyPhone && agencyPhoneWrap && branding.agency_phone) {
-    agencyPhone.textContent = String(branding.agency_phone);
-    agencyPhoneWrap.style.display = "block";
-    hasHeaderMeta = true;
-  } else if (agencyPhoneWrap) {
-    agencyPhoneWrap.style.display = "none";
+  if (agencyPhoneLine && branding.agency_phone) {
+    agencyPhoneLine.textContent = String(branding.agency_phone);
+    agencyPhoneLine.style.display = "block";
+    hasHeaderContact = true;
+  } else if (agencyPhoneLine) {
+    agencyPhoneLine.style.display = "none";
   }
 
-  if (agencyMetaStrip) {
-    agencyMetaStrip.style.display = hasHeaderMeta ? "grid" : "none";
+  if (agencyContactBlock) {
+    agencyContactBlock.style.display = hasHeaderContact ? "block" : "none";
   }
 
+  /* FOOTER */
   var hasFooterContent = false;
 
   if (footerAgencyName && branding.agency_name) {
