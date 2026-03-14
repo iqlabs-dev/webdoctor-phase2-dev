@@ -317,9 +317,10 @@ if (agencyName && branding.agency_name) {
   agencyName.textContent = String(branding.agency_name);
 }
 
-  /* report subtitle */
-if (agencyReportLabel && branding.agency_report_title) {
-  agencyReportLabel.textContent = String(branding.agency_report_title);
+/* report subtitle / title */
+if (agencyReportLabel) {
+  const title = branding.agency_report_title;
+  agencyReportLabel.textContent = title ? String(title) : "";
 }
 
   /* logo */

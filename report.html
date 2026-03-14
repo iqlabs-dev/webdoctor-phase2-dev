@@ -815,20 +815,23 @@
 
 <div class="top-card">
   <div class="top-row">
-    <!-- Left: Company info -->
-    <div class="brand-copy">
-<div class="logo" id="agencyName"></div>
+<!-- Left: Company info -->
+<div class="brand-copy">
+  <!-- Company name -->
+  <div class="logo" id="agencyName"></div>
 
-    <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+  <!-- Report subtitle / title -->
+  <div id="agencyReportLabel"
+       style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+  </div>
+
+  <!-- Agency contact block (optional, hidden by default) -->
+  <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+    <div id="agencyWebsiteLine" style="display:none;"></div>
+    <div id="agencyEmailLine" style="display:none;"></div>
+    <div id="agencyPhoneLine" style="display:none;"></div>
+  </div>
 </div>
-
-      <!-- Agency contact block -->
-      <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
-        <div id="agencyWebsiteLine" style="display:none;"></div>
-        <div id="agencyEmailLine" style="display:none;"></div>
-        <div id="agencyPhoneLine" style="display:none;"></div>
-      </div>
-    </div>
 
     <!-- Right: Square logo -->
     <img id="agencyLogo" alt="Agency logo" style="display:none;">
