@@ -117,6 +117,9 @@ function showBanner(src) {
   }
 }
 
+// ---------------------------
+// Main preview update
+// ---------------------------
 function updatePreviewFromFields() {
   const company = textValue("brand-company");
   const website = textValue("brand-website");
@@ -144,18 +147,24 @@ function updatePreviewFromFields() {
   const previewFooterLeft = $("preview-footer-left");
   if (previewFooterLeft) previewFooterLeft.style.display = showFooterContact ? "flex" : "none";
 
-  // Show banner only if header style = banner and src exists
+  // -------------------------
+  // Banner vs Compact
+  // -------------------------
   const previewBannerWrap = $("preview-banner-wrap");
-  if (previewBannerWrap) {
-    const previewBanner = $("preview-banner");
-    const hasBanner = !!(previewBanner && previewBanner.getAttribute("src"));
-    previewBannerWrap.style.display = headerStyle === "banner" && hasBanner ? "block" : "none";
-  }
-
-  // Show logo only in compact style
+  const previewBanner = $("preview-banner");
   const previewLogoWrap = document.querySelector(".preview-logo-wrap");
-  if (previewLogoWrap) {
-    previewLogoWrap.style.display = headerStyle === "compact" ? "flex" : "none";
+
+  if (headerStyle === "banner") {
+    if (previewBannerWrap) previewBannerWrap.style.display = "block";
+    if (previewLogoWrap) previewLogoWrap.style.display = "none";
+
+    // Placeholder if no banner uploaded
+    if (previewBanner && !previewBanner.getAttribute("src")) {
+      previewBanner.src = "/assets/img/banner-placeholder.png";
+    }
+  } else {
+    if (previewBannerWrap) previewBannerWrap.style.display = "none";
+    if (previewLogoWrap) previewLogoWrap.style.display = "flex";
   }
 }
 
@@ -302,7 +311,9 @@ async function uploadAsset(file, type) {
   return { path, publicUrl };
 }
 
+// ---------------------------
 // Logo upload/remove
+// ---------------------------
 async function uploadLogo(file) {
   const result = await uploadAsset(file, "logo");
   if (!result) return;
@@ -332,7 +343,9 @@ async function removeLogo() {
   updatePreviewFromFields();
 }
 
+// ---------------------------
 // Banner upload/remove
+// ---------------------------
 async function uploadBanner(file) {
   const result = await uploadAsset(file, "banner");
   if (!result) return;
