@@ -787,31 +787,32 @@
 
 <div class="top-card">
   <div class="top-row">
-<div class="brand" id="reportBrand">
-  <div class="brand-copy">
-    <div class="logo" id="agencyName">Website Report</div>
+    <!-- Left: Company info -->
+    <div class="brand-copy">
+      <div class="logo" id="agencyName">Website Report</div>
 
-    <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
-      Website Report
+      <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+        Website Report
+      </div>
+
+      <!-- Agency contact block -->
+      <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+        <div id="agencyWebsiteLine" style="display:none;"></div>
+        <div id="agencyEmailLine" style="display:none;"></div>
+        <div id="agencyPhoneLine" style="display:none;"></div>
+      </div>
     </div>
 
-    <!-- Agency contact block -->
-    <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
-      <div id="agencyWebsiteLine" style="display:none;"></div>
-      <div id="agencyEmailLine" style="display:none;"></div>
-      <div id="agencyPhoneLine" style="display:none;"></div>
-    </div>
+    <!-- Right: Square logo -->
+    <img id="agencyLogo" alt="Agency logo" style="display:none;">
+
   </div>
 
-  <!-- Move logo after brand-copy to sit right -->
-  <img id="agencyLogo" alt="Agency logo" style="display:none;">
-</div>
-
-    <div class="top-actions">
-      <button id="backToDashboard" class="btn">Back to dashboard</button>
-      <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
-      <button id="refreshBtn" class="btn">Refresh</button>
-    </div>
+  <!-- Top actions (buttons) -->
+  <div class="top-actions">
+    <button id="backToDashboard" class="btn" style="padding:6px 8px; font-size:12px;">Back to dashboard</button>
+    <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+    <!-- Refresh button removed -->
   </div>
 
   <!-- Report metadata -->
