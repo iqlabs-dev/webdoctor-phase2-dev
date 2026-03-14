@@ -63,13 +63,13 @@
       padding: 16px 16px;
     }
 
-    .top-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* pushes logo right */
+  gap: 16px;
+  flex-wrap: wrap;
+}
 
     .brand {
       display: flex;
@@ -89,9 +89,15 @@
       gap: 4px;
     }
 
-    #agencyLogo {
-      border-radius: 6px;
-    }
+ #agencyLogo {
+  display: block;
+  max-width: 140px;   /* larger than previous 42px */
+  max-height: 140px;  /* larger than previous 42px */
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
 
     .top-actions {
       display: flex;
@@ -154,6 +160,8 @@
     @media (max-width: 700px) {
       .meta-strip { grid-template-columns: 1fr; }
     }
+
+
 
     .overall-strip {
       display: flex;
@@ -363,6 +371,15 @@
 
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
+
+    @media (max-width: 900px) {
+  #agencyLogo { max-width: 110px; max-height: 110px; }
+}
+
+@media (max-width: 700px) {
+  .top-row { flex-direction: column; align-items: flex-start; }
+  #agencyLogo { margin-top: 12px; }
+}
 
     .issue-title {
       flex: 1 1 auto;
@@ -770,24 +787,25 @@
 
 <div class="top-card">
   <div class="top-row">
-    <div class="brand" id="reportBrand">
-      <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
-      
-      <div class="brand-copy">
-        <div class="logo" id="agencyName">Website Report</div>
+<div class="brand" id="reportBrand">
+  <div class="brand-copy">
+    <div class="logo" id="agencyName">Website Report</div>
 
-        <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
-          Website Report
-        </div>
-
-        <!-- Agency contact block -->
-        <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
-          <div id="agencyWebsiteLine" style="display:none;"></div>
-          <div id="agencyEmailLine" style="display:none;"></div>
-          <div id="agencyPhoneLine" style="display:none;"></div>
-        </div>
-      </div>
+    <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+      Website Report
     </div>
+
+    <!-- Agency contact block -->
+    <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+      <div id="agencyWebsiteLine" style="display:none;"></div>
+      <div id="agencyEmailLine" style="display:none;"></div>
+      <div id="agencyPhoneLine" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Move logo after brand-copy to sit right -->
+  <img id="agencyLogo" alt="Agency logo" style="display:none;">
+</div>
 
     <div class="top-actions">
       <button id="backToDashboard" class="btn">Back to dashboard</button>
