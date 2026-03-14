@@ -40,10 +40,6 @@ function safeHeaderStyle(v) {
   return v === "banner" ? "banner" : "compact";
 }
 
-function cleanAccent(value) {
-  return value || "#18D6C4";
-}
-
 function normaliseWebsite(value) {
   return String(value || "").trim() || "yourcompany.com";
 }
@@ -126,7 +122,6 @@ function updatePreviewFromFields() {
   const website = textValue("brand-website");
   const email = textValue("brand-email");
   const phone = textValue("brand-phone");
-  const accent = cleanAccent(textValue("brand-accent"));
   const reportTitle = textValue("brand-report-title") || "Website Report";
   const headerStyle = safeHeaderStyle(textValue("brand-header-style"));
   const showHeaderContact = boolValue("brand-show-header-contact", true);
@@ -142,9 +137,6 @@ function updatePreviewFromFields() {
   setText("preview-footer-website", normaliseWebsite(website));
   setText("preview-footer-email", email || "hello@yourcompany.com");
   setText("preview-footer-phone", phone || "+64 ...");
-
-  const previewTitleEl = $("preview-title");
-  if (previewTitleEl) previewTitleEl.style.color = accent;
 
   const previewHeaderContact = $("preview-header-contact");
   if (previewHeaderContact) previewHeaderContact.style.display = showHeaderContact ? "flex" : "none";
@@ -210,7 +202,6 @@ async function loadBranding() {
       agency_phone,
       agency_logo_url,
       agency_banner_url,
-      agency_accent_color,
       agency_report_title,
       header_style,
       show_header_contact,
@@ -228,7 +219,6 @@ async function loadBranding() {
   setValue("brand-website", data.agency_website || "");
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
-  setValue("brand-accent", data.agency_accent_color || "#18D6C4");
   setValue("brand-report-title", data.agency_report_title || "Website Report");
   setValue("brand-header-style", safeHeaderStyle(data.header_style || "compact"));
 
@@ -269,7 +259,6 @@ async function saveBranding() {
     agency_website: textValue("brand-website"),
     agency_email: textValue("brand-email"),
     agency_phone: textValue("brand-phone"),
-    agency_accent_color: cleanAccent(textValue("brand-accent")),
     agency_report_title: textValue("brand-report-title") || "Website Report",
     header_style: safeHeaderStyle(textValue("brand-header-style")),
     show_header_contact: boolValue("brand-show-header-contact", true),
@@ -382,7 +371,6 @@ function wirePreviewInputs() {
     "brand-website",
     "brand-email",
     "brand-phone",
-    "brand-accent",
     "brand-report-title",
     "brand-header-style",
     "brand-show-header-contact",
