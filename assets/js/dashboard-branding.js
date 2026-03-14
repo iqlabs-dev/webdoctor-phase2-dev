@@ -1,3 +1,4 @@
+// /assets/js/dashboard-branding.js
 import { supabase } from "./supabaseClient.js";
 
 const $ = (id) => document.getElementById(id);
@@ -35,11 +36,6 @@ function setText(id, value) {
   if (el) el.textContent = value || "";
 }
 
-function setDisplay(id, value) {
-  const el = $(id);
-  if (el) el.style.display = value;
-}
-
 function safeHeaderStyle(v) {
   return v === "banner" ? "banner" : "compact";
 }
@@ -67,7 +63,7 @@ function readFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     try {
       const reader = new FileReader();
-      reader.onload = (event) => resolve(event.target && event.target.result ? event.target.result : "");
+      reader.onload = (event) => resolve(event.target?.result || "");
       reader.onerror = reject;
       reader.readAsDataURL(file);
     } catch (err) {
@@ -117,7 +113,7 @@ function showBanner(src) {
 
   if (wrap) {
     const headerStyle = safeHeaderStyle(textValue("brand-header-style"));
-    wrap.style.display = (src && headerStyle === "banner") ? "block" : "none";
+    wrap.style.display = src && headerStyle === "banner" ? "block" : "none";
   }
 
   if (empty) {
@@ -136,6 +132,7 @@ function updatePreviewFromFields() {
   const showHeaderContact = boolValue("brand-show-header-contact", true);
   const showFooterContact = boolValue("brand-show-footer-contact", true);
 
+  // Left info
   setText("preview-company", company || "Your Company Name");
   setText("preview-title", reportTitle);
   setText("preview-website", normaliseWebsite(website));
@@ -146,30 +143,25 @@ function updatePreviewFromFields() {
   setText("preview-footer-email", email || "hello@yourcompany.com");
   setText("preview-footer-phone", phone || "+64 ...");
 
-  const previewTitle = $("preview-title");
-  if (previewTitle) {
-    previewTitle.style.color = accent;
-  }
+  const previewTitleEl = $("preview-title");
+  if (previewTitleEl) previewTitleEl.style.color = accent;
 
   const previewHeaderContact = $("preview-header-contact");
-  if (previewHeaderContact) {
-    previewHeaderContact.style.display = showHeaderContact ? "flex" : "none";
-  }
+  if (previewHeaderContact) previewHeaderContact.style.display = showHeaderContact ? "flex" : "none";
 
   const previewFooterLeft = $("preview-footer-left");
-  if (previewFooterLeft) {
-    previewFooterLeft.style.display = showFooterContact ? "flex" : "none";
-  }
+  if (previewFooterLeft) previewFooterLeft.style.display = showFooterContact ? "flex" : "none";
 
+  // Show banner only if header style = banner and src exists
   const previewBannerWrap = $("preview-banner-wrap");
-  const previewLogoWrap = document.querySelector(".preview-logo-wrap");
-
   if (previewBannerWrap) {
     const previewBanner = $("preview-banner");
     const hasBanner = !!(previewBanner && previewBanner.getAttribute("src"));
-    previewBannerWrap.style.display = (headerStyle === "banner" && hasBanner) ? "block" : "none";
+    previewBannerWrap.style.display = headerStyle === "banner" && hasBanner ? "block" : "none";
   }
 
+  // Show logo only in compact style
+  const previewLogoWrap = document.querySelector(".preview-logo-wrap");
   if (previewLogoWrap) {
     previewLogoWrap.style.display = headerStyle === "compact" ? "flex" : "none";
   }
@@ -180,47 +172,31 @@ function updatePreviewFromFields() {
 // ---------------------------
 async function getUser() {
   const { data, error } = await supabase.auth.getUser();
-
-  if (error) {
+  if (error || !data || !data.user) {
     console.error("[branding] getUser error:", error);
     window.location.href = "/login.html";
     return false;
   }
-
-  if (!data || !data.user) {
-    window.location.href = "/login.html";
-    return false;
-  }
-
   currentUserId = data.user.id;
   return true;
 }
 
 // ---------------------------
-// Profile save helpers
+// Save helpers
 // ---------------------------
 async function saveProfileData(payload) {
-  if (!currentUserId) {
-    console.error("[branding] no currentUserId");
-    return false;
-  }
-
-  const { error } = await supabase
-    .from("profiles")
-    .update(payload)
-    .eq("user_id", currentUserId);
-
+  if (!currentUserId) return false;
+  const { error } = await supabase.from("profiles").update(payload).eq("user_id", currentUserId);
   if (error) {
-    console.error("[branding] profile save failed:", error);
+    console.error("[branding] save failed:", error);
     alert("Branding save failed.");
     return false;
   }
-
   return true;
 }
 
 // ---------------------------
-// Load branding fields
+// Load branding
 // ---------------------------
 async function loadBranding() {
   if (!currentUserId) return;
@@ -243,12 +219,10 @@ async function loadBranding() {
     .eq("user_id", currentUserId)
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("[branding] load failed:", error);
     return;
   }
-
-  if (!data) return;
 
   setValue("brand-company", data.agency_name || "");
   setValue("brand-website", data.agency_website || "");
@@ -281,13 +255,13 @@ async function loadBranding() {
 }
 
 // ---------------------------
-// Save Branding button
+// Save branding
 // ---------------------------
 async function saveBranding() {
-  const saveBtn = $("brand-save");
-  if (saveBtn) {
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Saving...";
+  const btn = $("brand-save");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Saving...";
   }
 
   const payload = {
@@ -304,51 +278,33 @@ async function saveBranding() {
 
   const ok = await saveProfileData(payload);
 
-  if (saveBtn) {
-    saveBtn.disabled = false;
-    saveBtn.textContent = ok ? "Saved" : "Save Branding";
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = ok ? "Saved" : "Save Branding";
   }
 
-  if (ok) {
-    updatePreviewFromFields();
-
-    setTimeout(() => {
-      const btn = $("brand-save");
-      if (btn) btn.textContent = "Save Branding";
-    }, 1400);
-  }
+  if (ok) updatePreviewFromFields();
 }
 
 // ---------------------------
-// Upload helpers
+// Upload/remove helpers
 // ---------------------------
 async function uploadAsset(file, type) {
   if (!file || !currentUserId) return null;
 
-  const ext = (String(file.name || "").split(".").pop() || "png").toLowerCase();
-  const safeExt = ["png", "jpg", "jpeg", "webp", "svg"].indexOf(ext) !== -1 ? ext : "png";
-  const path =
-    type === "banner"
-      ? `banners/${currentUserId}/banner.${safeExt}`
-      : `logos/${currentUserId}/logo.${safeExt}`;
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const safeExt = ["png","jpg","jpeg","webp","svg"].includes(ext) ? ext : "png";
+  const path = type === "banner" ? `banners/${currentUserId}/banner.${safeExt}` : `logos/${currentUserId}/logo.${safeExt}`;
 
-  const { error: uploadError } = await supabase
-    .storage
-    .from("branding-assets")
-    .upload(path, file, { upsert: true });
-
+  const { error: uploadError } = await supabase.storage.from("branding-assets").upload(path, file, { upsert:true });
   if (uploadError) {
     console.error(`[branding] ${type} upload failed:`, uploadError);
     alert(`${type === "banner" ? "Banner" : "Logo"} upload failed.`);
     return null;
   }
 
-  const { data } = supabase
-    .storage
-    .from("branding-assets")
-    .getPublicUrl(path);
-
-  const publicUrl = data && data.publicUrl ? data.publicUrl : "";
+  const { data } = supabase.storage.from("branding-assets").getPublicUrl(path);
+  const publicUrl = data?.publicUrl || "";
   if (!publicUrl) {
     alert(`${type === "banner" ? "Banner" : "Logo"} uploaded, but URL could not be created.`);
     return null;
@@ -357,18 +313,11 @@ async function uploadAsset(file, type) {
   return { path, publicUrl };
 }
 
-// ---------------------------
 // Logo upload/remove
-// ---------------------------
 async function uploadLogo(file) {
   const result = await uploadAsset(file, "logo");
   if (!result) return;
-
-  const ok = await saveProfileData({
-    agency_logo_url: result.publicUrl
-  });
-
-  if (!ok) return;
+  if (!await saveProfileData({ agency_logo_url: result.publicUrl })) return;
 
   currentLogoPath = result.path;
   showLogo(result.publicUrl);
@@ -377,54 +326,28 @@ async function uploadLogo(file) {
 
 async function removeLogo() {
   const btn = $("brand-logo-remove");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Removing...";
-  }
+  if (btn) { btn.disabled = true; btn.textContent = "Removing..."; }
 
   if (currentLogoPath) {
-    const { error } = await supabase
-      .storage
-      .from("branding-assets")
-      .remove([currentLogoPath]);
-
-    if (error) {
-      console.warn("[branding] storage remove warning:", error);
-    }
+    const { error } = await supabase.storage.from("branding-assets").remove([currentLogoPath]);
+    if (error) console.warn("[branding] logo remove warning:", error);
   }
 
-  const ok = await saveProfileData({
-    agency_logo_url: null
-  });
-
-  if (ok) {
+  if (await saveProfileData({ agency_logo_url: null })) {
     currentLogoPath = null;
     showLogo("");
-
-    const input = $("brand-logo");
-    if (input) input.value = "";
+    const input = $("brand-logo"); if (input) input.value = "";
   }
 
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = "Remove Logo";
-  }
-
+  if (btn) { btn.disabled = false; btn.textContent = "Remove Logo"; }
   updatePreviewFromFields();
 }
 
-// ---------------------------
 // Banner upload/remove
-// ---------------------------
 async function uploadBanner(file) {
   const result = await uploadAsset(file, "banner");
   if (!result) return;
-
-  const ok = await saveProfileData({
-    agency_banner_url: result.publicUrl
-  });
-
-  if (!ok) return;
+  if (!await saveProfileData({ agency_banner_url: result.publicUrl })) return;
 
   currentBannerPath = result.path;
   showBanner(result.publicUrl);
@@ -433,39 +356,20 @@ async function uploadBanner(file) {
 
 async function removeBanner() {
   const btn = $("brand-banner-remove");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Removing...";
-  }
+  if (btn) { btn.disabled = true; btn.textContent = "Removing..."; }
 
   if (currentBannerPath) {
-    const { error } = await supabase
-      .storage
-      .from("branding-assets")
-      .remove([currentBannerPath]);
-
-    if (error) {
-      console.warn("[branding] banner remove warning:", error);
-    }
+    const { error } = await supabase.storage.from("branding-assets").remove([currentBannerPath]);
+    if (error) console.warn("[branding] banner remove warning:", error);
   }
 
-  const ok = await saveProfileData({
-    agency_banner_url: null
-  });
-
-  if (ok) {
+  if (await saveProfileData({ agency_banner_url: null })) {
     currentBannerPath = null;
     showBanner("");
-
-    const input = $("brand-banner");
-    if (input) input.value = "";
+    const input = $("brand-banner"); if (input) input.value = "";
   }
 
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = "Remove Banner";
-  }
-
+  if (btn) { btn.disabled = false; btn.textContent = "Remove Banner"; }
   updatePreviewFromFields();
 }
 
@@ -489,36 +393,23 @@ function wirePreviewInputs() {
     const el = $(id);
     if (!el) return;
 
-    const evt =
-      el.type === "checkbox" || el.tagName === "SELECT"
-        ? "change"
-        : "input";
-
+    const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(evt, updatePreviewFromFields);
   });
 }
 
 function wireSaveButton() {
   const btn = $("brand-save");
-  if (!btn) {
-    console.error("[branding] brand-save button not found");
-    return;
-  }
-
+  if (!btn) return;
   btn.addEventListener("click", saveBranding);
 }
 
 function wireLogoUpload() {
   const input = $("brand-logo");
-  if (!input) {
-    console.error("[branding] brand-logo input not found");
-    return;
-  }
-
+  if (!input) return;
   input.addEventListener("change", async () => {
-    const file = input.files && input.files[0] ? input.files[0] : null;
+    const file = input.files?.[0];
     if (!file) return;
-
     await uploadLogo(file);
   });
 }
@@ -526,23 +417,15 @@ function wireLogoUpload() {
 function wireLogoRemove() {
   const btn = $("brand-logo-remove");
   if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    await removeLogo();
-  });
+  btn.addEventListener("click", async () => { await removeLogo(); });
 }
 
 function wireBannerUpload() {
   const input = $("brand-banner");
-  if (!input) {
-    console.error("[branding] brand-banner input not found");
-    return;
-  }
-
+  if (!input) return;
   input.addEventListener("change", async () => {
-    const file = input.files && input.files[0] ? input.files[0] : null;
+    const file = input.files?.[0];
     if (!file) return;
-
     await uploadBanner(file);
   });
 }
@@ -550,18 +433,14 @@ function wireBannerUpload() {
 function wireBannerRemove() {
   const btn = $("brand-banner-remove");
   if (!btn) return;
-
-  btn.addEventListener("click", async () => {
-    await removeBanner();
-  });
+  btn.addEventListener("click", async () => { await removeBanner(); });
 }
 
 // ---------------------------
 // Init
 // ---------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  const ok = await getUser();
-  if (!ok) return;
+  if (!await getUser()) return;
 
   wirePreviewInputs();
   wireSaveButton();

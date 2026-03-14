@@ -708,96 +708,120 @@
       display:none;
     }
 
-    .preview-shell{
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(16,24,44,.55), rgba(10,15,26,.48));
-      padding: 16px;
-      margin-top: 12px;
-    }
+.preview-shell{
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(16,24,44,.55), rgba(10,15,26,.48));
+  padding: 16px;
+  margin-top: 12px;
+}
 
-    .preview-header{
-      display:flex;
-      align-items:center;
-      gap: 14px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      flex-wrap:wrap;
-    }
+/* Banner (used when header_style = banner) */
+.preview-banner{
+  width:100%;
+  height:110px;
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:14px;
+  display:none;
+}
 
-    .preview-logo-wrap{
-      min-width: 160px;
-      min-height: 40px;
-      display:flex;
-      align-items:center;
-    }
+.preview-banner img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
-    .preview-logo{
-      max-width: 160px;
-      max-height: 40px;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      display:none;
-    }
+/* Header layout */
+.preview-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding-bottom:12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  flex-wrap:nowrap;
+}
 
-    .preview-brand-copy{
-      display:flex;
-      flex-direction:column;
-      gap: 4px;
-      min-width: 220px;
-    }
+/* LEFT SIDE (company info) */
+.preview-brand-copy{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:220px;
+  flex:1;
+}
 
-    .preview-company{
-      font-size: 15px;
-      font-weight: 700;
-      color: rgba(255,255,255,.92);
-    }
+.preview-company{
+  font-size:16px;
+  font-weight:700;
+  color:rgba(255,255,255,.92);
+}
 
-    .preview-title{
-      font-size: 12px;
-      color: var(--accent);
-      font-weight: 700;
-      letter-spacing: .02em;
-      text-transform: uppercase;
-    }
+.preview-title{
+  font-size:12px;
+  color:var(--accent);
+  font-weight:700;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
 
-    .preview-footer{
-      padding-top: 12px;
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      gap: 16px;
-      font-size: 12px;
-      color: rgba(255,255,255,.72);
-      flex-wrap:wrap;
-    }
+/* RIGHT SIDE (square logo) */
+.preview-logo-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-shrink:0;
+  width:90px;
+  height:90px;
+}
 
-    .preview-footer-left{
-      display:flex;
-      flex-direction:column;
-      gap: 4px;
-    }
+.preview-logo{
+  max-width:90px;
+  max-height:90px;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+  display:none;
+}
 
-    .preview-footer-right{
-      margin-left:auto;
-      text-align:right;
-      display:flex;
-      align-items:flex-end;
-    }
+/* Footer */
+.preview-footer{
+  padding-top:12px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:16px;
+  font-size:12px;
+  color:rgba(255,255,255,.72);
+  flex-wrap:wrap;
+}
 
-    .preview-powered{
-      color: rgba(255,255,255,.58);
-      font-size: 12px;
-      font-weight: 600;
-      white-space:nowrap;
-    }
+.preview-footer-left{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
 
-    .preview-note{
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--muted2);
-    }
+.preview-footer-right{
+  margin-left:auto;
+  text-align:right;
+  display:flex;
+  align-items:flex-end;
+}
+
+.preview-powered{
+  color:rgba(255,255,255,.58);
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.preview-note{
+  margin-top:10px;
+  font-size:12px;
+  color:var(--muted2);
+}
 
     .brand-field select.brand-select{
   width:100%;
@@ -1199,10 +1223,20 @@
         <img id="preview-banner" alt="Banner preview" style="width:100%; max-height:120px; object-fit:cover; border-radius:12px; display:none;" />
       </div>
 
-      <div class="preview-header">
-        <div class="preview-logo-wrap">
-          <img id="preview-logo" class="preview-logo" alt="Report logo preview" />
-        </div>
+      <div class="preview-header" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+  <div class="preview-brand-copy" style="flex:1; display:flex; flex-direction:column; gap:4px;">
+    <div id="preview-company" class="preview-company">Your Company Name</div>
+    <div id="preview-title" class="preview-title">Website Report</div>
+    <div id="preview-header-contact" style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(255,255,255,.72);">
+      <div id="preview-website">yourcompany.com</div>
+      <div id="preview-email">hello@yourcompany.com</div>
+      <div id="preview-phone">+64 ...</div>
+    </div>
+  </div>
+  <div class="preview-logo-wrap" style="flex-shrink:0; width:100px; height:100px; display:flex; align-items:center; justify-content:center;">
+    <img id="preview-logo" class="preview-logo" style="max-width:100%; max-height:100%;" />
+  </div>
+</div>
 
         <div class="preview-brand-copy">
           <div id="preview-company" class="preview-company">Your Company Name</div>
