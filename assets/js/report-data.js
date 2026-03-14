@@ -312,19 +312,15 @@ function applyBrandingUI(branding) {
   var footerAgencyEmail = $("footerAgencyEmail");
   var footerAgencyPhone = $("footerAgencyPhone");
 
-  /* company name */
-  if (agencyName) {
-    agencyName.textContent = branding.agency_name
-      ? String(branding.agency_name)
-      : "Website Report";
-  }
+/* company name */
+if (agencyName && branding.agency_name) {
+  agencyName.textContent = String(branding.agency_name);
+}
 
   /* report subtitle */
-  if (agencyReportLabel) {
-    agencyReportLabel.textContent = branding.agency_report_title
-      ? String(branding.agency_report_title)
-      : "Website Report";
-  }
+if (agencyReportLabel && branding.agency_report_title) {
+  agencyReportLabel.textContent = String(branding.agency_report_title);
+}
 
   /* logo */
   if (agencyLogo && branding.agency_logo_url) {
