@@ -82,15 +82,16 @@
       letter-spacing: 0.02em;
       font-size: 18px;
     }
-    .brand-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
-#agencyLogo {
-  border-radius: 6px;
-}
+    .brand-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    #agencyLogo {
+      border-radius: 6px;
+    }
 
     .top-actions {
       display: flex;
@@ -110,6 +111,7 @@
       user-select: none;
       font-family: "Montserrat", system-ui, sans-serif;
     }
+
     .btn:hover { border-color: rgba(34,211,238,0.55); }
     .btn:active { transform: translateY(1px); }
 
@@ -235,10 +237,12 @@
       border-color: rgba(34, 197, 94, 0.35);
       background: linear-gradient(180deg, rgba(34,197,94,0.08), rgba(0,0,0,0.18));
     }
+
     .card.severity-medium {
       border-color: rgba(245, 158, 11, 0.45);
       background: linear-gradient(180deg, rgba(245,158,11,0.08), rgba(0,0,0,0.18));
     }
+
     .card.severity-high {
       border-color: rgba(239, 68, 68, 0.55);
       background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.18));
@@ -300,33 +304,33 @@
       gap: 10px;
     }
 
-    .finding-row{
-      display:grid;
-      grid-template-columns:160px 1fr;
-      gap:12px;
-      padding:6px 0;
+    .finding-row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      padding: 6px 0;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
 
     .finding-row:last-child { border-bottom: 0; }
 
-    .finding-label{
-      font-weight:700;
-      font-size:11px;
-      letter-spacing:.1em;
-      text-transform:uppercase;
-      color:var(--muted);
+    .finding-label {
+      font-weight: 700;
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
       padding-top: 2px;
     }
 
-    .finding-value{
+    .finding-value {
       color: var(--ink-soft);
       font-size: 13px;
       line-height: 1.5;
       overflow-wrap: anywhere;
       word-break: break-word;
-      display:flex;
-      align-items:flex-start;
+      display: flex;
+      align-items: flex-start;
     }
 
     @media (max-width: 520px) {
@@ -359,6 +363,7 @@
 
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
+
     .issue-title {
       flex: 1 1 auto;
       min-width: 0;
@@ -427,7 +432,7 @@
       overflow-wrap: anywhere;
     }
 
-    .kv .v{
+    .kv .v {
       color: var(--ink);
       font-weight: 600;
       font-size: 12px;
@@ -447,6 +452,7 @@
     }
 
     details.evidence-block { padding: 0; }
+
     details.evidence-block > summary {
       list-style: none;
       cursor: pointer;
@@ -460,7 +466,9 @@
       background: rgba(0,0,0,0.10);
       border: 1px solid var(--border-subtle);
     }
+
     details.evidence-block > summary::-webkit-details-marker { display: none; }
+
     details.evidence-block[open] > summary {
       border-bottom-left-radius: 0;
       border-bottom-right-radius: 0;
@@ -488,6 +496,7 @@
       all: unset;
       display: block;
     }
+
     #keyMetricsRoot details { margin: 0; }
     #keyMetricsRoot summary { cursor: default; }
 
@@ -686,6 +695,7 @@
 
     @media print {
       :root { color-scheme: light; }
+
       html, body {
         background: #ffffff !important;
         color: #0f172a !important;
@@ -744,6 +754,7 @@
       .evidence-block {
         transition: border-color 140ms ease-out, box-shadow 140ms ease-out, transform 140ms ease-out;
       }
+
       .evidence-block:hover {
         border-color: rgba(64, 220, 180, 0.28);
         box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
@@ -759,15 +770,15 @@
 
       <div class="top-card">
         <div class="top-row">
-        <div class="brand" id="reportBrand">
-  <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
-  <div class="brand-copy">
-    <div class="logo" id="agencyName">Website Report</div>
-    <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
-      Website Performance Report
-    </div>
-  </div>
-</div>
+          <div class="brand" id="reportBrand">
+            <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
+            <div class="brand-copy">
+              <div class="logo" id="agencyName">Website Report</div>
+              <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+                Website Performance Report
+              </div>
+            </div>
+          </div>
 
           <div class="top-actions">
             <button id="backToDashboard" class="btn">Back to dashboard</button>
@@ -776,24 +787,7 @@
           </div>
         </div>
 
-   <div class="meta-strip">
-  <div class="meta-cell">
-    <div class="k">Website</div>
-    <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
-  </div>
-
-  <div class="meta-cell">
-    <div class="k">Report ID</div>
-    <div class="v" id="reportId">—</div>
-  </div>
-
-  <div class="meta-cell">
-    <div class="k">Report Date</div>
-    <div class="v" id="reportDate">—</div>
-  </div>
-</div>
-
-        <div class="meta-strip" style="margin-top:10px;">
+        <div class="meta-strip" id="agencyMetaStrip" style="display:none; margin-top:14px;">
           <div class="meta-cell" id="agencyWebsiteWrap" style="display:none;">
             <div class="k">Agency Website</div>
             <div class="v" id="agencyWebsite"></div>
@@ -807,6 +801,23 @@
           <div class="meta-cell" id="agencyPhoneWrap" style="display:none;">
             <div class="k">Agency Phone</div>
             <div class="v" id="agencyPhone"></div>
+          </div>
+        </div>
+
+        <div class="meta-strip">
+          <div class="meta-cell">
+            <div class="k">Website</div>
+            <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report ID</div>
+            <div class="v" id="reportId">—</div>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report Date</div>
+            <div class="v" id="reportDate">—</div>
           </div>
         </div>
       </div>
@@ -999,12 +1010,12 @@
         </section>
       </main>
 
-    <div class="footer" id="reportFooter" style="display:none;">
-  <div id="footerAgencyName" style="font-weight:700; color:var(--ink); margin-bottom:6px;"></div>
-  <div id="footerAgencyWebsite" style="margin-bottom:4px;"></div>
-  <div id="footerAgencyEmail" style="margin-bottom:4px;"></div>
-  <div id="footerAgencyPhone"></div>
-</div>
+      <div class="footer" id="reportFooter" style="display:none;">
+        <div id="footerAgencyName" style="font-weight:700; color:var(--ink); margin-bottom:6px;"></div>
+        <div id="footerAgencyWebsite" style="margin-bottom:4px;"></div>
+        <div id="footerAgencyEmail" style="margin-bottom:4px;"></div>
+        <div id="footerAgencyPhone"></div>
+      </div>
     </div>
   </div>
 
@@ -1012,44 +1023,44 @@
   <script src="/assets/js/report-data.js"></script>
 
   <script>
-  (function () {
-    const refreshBtn = document.getElementById("refreshBtn");
-    const backBtn = document.getElementById("backToDashboard");
-    const pdfBtn = document.getElementById("downloadPdfBtn");
+    (function () {
+      const refreshBtn = document.getElementById("refreshBtn");
+      const backBtn = document.getElementById("backToDashboard");
+      const pdfBtn = document.getElementById("downloadPdfBtn");
 
-    const params = new URLSearchParams(window.location.search);
-    const from = (params.get("from") || "").toLowerCase();
-    const reportId = params.get("report_id") || "";
+      const params = new URLSearchParams(window.location.search);
+      const from = (params.get("from") || "").toLowerCase();
+      const reportId = params.get("report_id") || "";
 
-    const isHistory = from === "history";
-    const isPreview = reportId === "EXAMPLE-REPORT-001";
+      const isHistory = from === "history";
+      const isPreview = reportId === "EXAMPLE-REPORT-001";
 
-    try {
-      document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
-    } catch (_) {}
+      try {
+        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+      } catch (_) {}
 
-    if (isHistory) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
+      if (isHistory) {
+        if (refreshBtn) refreshBtn.style.display = "none";
+        if (backBtn) backBtn.style.display = "none";
+        if (pdfBtn) pdfBtn.style.display = "none";
+        return;
+      }
+
+      if (isPreview) {
+        if (refreshBtn) refreshBtn.style.display = "none";
+        if (backBtn) backBtn.style.display = "none";
+        if (pdfBtn) pdfBtn.style.display = "none";
+        return;
+      }
+
       if (pdfBtn) pdfBtn.style.display = "none";
-      return;
-    }
+      if (refreshBtn) refreshBtn.onclick = () => location.reload();
 
-    if (isPreview) {
-      if (refreshBtn) refreshBtn.style.display = "none";
-      if (backBtn) backBtn.style.display = "none";
-      if (pdfBtn) pdfBtn.style.display = "none";
-      return;
-    }
-
-    if (pdfBtn) pdfBtn.style.display = "none";
-    if (refreshBtn) refreshBtn.onclick = () => location.reload();
-
-    if (backBtn) {
-      backBtn.textContent = "Back to dashboard";
-      backBtn.onclick = () => (window.location.href = "/dashboard.html");
-    }
-  })();
+      if (backBtn) {
+        backBtn.textContent = "Back to dashboard";
+        backBtn.onclick = () => (window.location.href = "/dashboard.html");
+      }
+    })();
   </script>
 
   <script>
