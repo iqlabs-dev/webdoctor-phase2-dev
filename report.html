@@ -54,6 +54,26 @@
       gap: 18px;
     }
 
+    #backToDashboard {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background-color: #1d4ed8; /* blue tab color */
+    padding: 6px 12px;
+    border-radius: 6px 6px 0 0; /* rounded top corners only */
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    margin-bottom: -6px; /* pull it slightly over the card */
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+#backToDashboard:hover {
+    background-color: #2563eb; /* slightly brighter on hover */
+    transform: translateY(-1px);
+}
+
     .top-card {
       width: 100%;
       border-radius: var(--radius);
@@ -99,35 +119,13 @@
   border-radius: 6px;
 }
 
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
 
-  /* existing styles… */
-
-  #agencyLogo {
-    display: block;
-    max-width: 140px;
-    max-height: 140px;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    border-radius: 6px;
-  }
-
-  /* Top row layout */
-  .top-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  /* Premium back link hover */
- #backToDashboard:hover {
-  color: #1acfe1;
-  text-decoration: underline;
-}
-
- 
     .btn {
       border: 1px solid var(--border);
       background: rgba(0,0,0,0.22);
@@ -807,19 +805,20 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-<div class="top-card">
-  <!-- Premium Back link above everything -->
-  <a id="backToDashboard" href="/dashboard.html"
-     style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:500;letter-spacing:0.05em;display:inline-block;margin-bottom:8px;transition: color 0.2s ease;">
-    &larr; Back
-  </a>
+            <!-- Floating tab above the card -->
+      <a id="backToDashboard" href="/dashboard.html">Back to dashboard</a>
 
+<div class="top-card">
   <div class="top-row">
+    <!-- Left: Company info -->
     <div class="brand-copy">
       <div class="logo" id="agencyName">Website Report</div>
+
       <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
         Website Report
       </div>
+
+      <!-- Agency contact block -->
       <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
         <div id="agencyWebsiteLine" style="display:none;"></div>
         <div id="agencyEmailLine" style="display:none;"></div>
@@ -827,14 +826,17 @@
       </div>
     </div>
 
+    <!-- Right: Square logo -->
     <img id="agencyLogo" alt="Agency logo" style="display:none;">
+
   </div>
 
-  <!-- Report metadata -->
-  <div class="meta-strip">…</div>
-</div>
-
-
+  <!-- Top actions (buttons) -->
+  <div class="top-actions">
+    <button id="backToDashboard" class="btn" style="padding:6px 8px; font-size:12px;">Back to dashboard</button>
+    <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+    <!-- Refresh button removed -->
+  </div>
 
   <!-- Report metadata -->
   <div class="meta-strip">
