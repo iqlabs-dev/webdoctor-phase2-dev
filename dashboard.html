@@ -1123,7 +1123,44 @@
       <span class="meta">Used in your report header and footer</span>
     </div>
 
+    <div class="brand-grid">
+      <div class="brand-field">
+        <label for="brand-company">Company Name</label>
+        <input id="brand-company" type="text" placeholder="Your company name" />
+      </div>
 
+      <div class="brand-field">
+        <label for="brand-website">Website</label>
+        <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
+      </div>
+
+      <div class="brand-field">
+        <label for="brand-email">Email</label>
+        <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
+      </div>
+
+      <div class="brand-field">
+        <label for="brand-phone">Phone (optional)</label>
+        <input id="brand-phone" type="text" placeholder="+64 ..." />
+      </div>
+
+      <div class="brand-field full">
+        <label for="brand-accent">Accent Colour</label>
+        <input id="brand-accent" type="text" placeholder="#18D6C4" value="#18D6C4" />
+      </div>
+
+      <div class="brand-field">
+        <label for="brand-header-style">Header Style</label>
+        <select id="brand-header-style" class="brand-select">
+          <option value="compact">Compact</option>
+          <option value="banner">Banner</option>
+        </select>
+      </div>
+
+      <div class="brand-field">
+        <label for="brand-report-title">Report Title</label>
+        <input id="brand-report-title" type="text" placeholder="Website Report" />
+      </div>
 
       <div class="brand-field">
         <label class="brand-toggle">
@@ -1187,46 +1224,18 @@
     </div>
   </div>
 
-
+  <div class="card secondary">
+    <div class="h">
+      <h2>Preview</h2>
+      <span class="meta">How your branding will appear in reports</span>
+    </div>
 
     <div class="preview-shell">
       <div id="preview-banner-wrap" style="display:none; margin-bottom:14px;">
         <img id="preview-banner" alt="Banner preview" style="width:100%; max-height:120px; object-fit:cover; border-radius:12px; display:none;" />
       </div>
 
-<div class="preview-header">
-  <!-- LEFT SIDE: company info -->
-  <div class="preview-brand-copy">
-    <div id="preview-company" class="preview-company">Your Company Name</div>
-    <div id="preview-title" class="preview-title">Website Report</div>
-    <div id="preview-header-contact" style="display:flex; flex-direction:column; gap:4px; font-size:12px; color:rgba(255,255,255,.72);">
-      <div id="preview-website">yourcompany.com</div>
-      <div id="preview-email">hello@yourcompany.com</div>
-      <div id="preview-phone">+64 ...</div>
-    </div>
-  </div>
 
-  <!-- RIGHT SIDE: square logo -->
-  <div class="preview-logo-wrap">
-    <img id="preview-logo" class="preview-logo" alt="Report logo preview" />
-  </div>
-</div>
-
-  <div class="preview-logo-wrap" style="flex-shrink:0; width:100px; height:100px; display:flex; align-items:center; justify-content:center;">
-    <img id="preview-logo" class="preview-logo" style="max-width:100%; max-height:100%;" />
-  </div>
-</div>
-
-        <div class="preview-brand-copy">
-          <div id="preview-company" class="preview-company">Your Company Name</div>
-          <div id="preview-title" class="preview-title">Website Report</div>
-          <div id="preview-header-contact" style="display:flex; flex-direction:column; gap:4px; margin-top:8px; font-size:12px; color:rgba(255,255,255,.72);">
-            <div id="preview-website">yourcompany.com</div>
-            <div id="preview-email">hello@yourcompany.com</div>
-            <div id="preview-phone">+64 ...</div>
-          </div>
-        </div>
-      </div>
 
       <div class="preview-footer">
         <div id="preview-footer-left" class="preview-footer-left">
