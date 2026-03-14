@@ -261,6 +261,9 @@ export async function handler(event) {
     const scan = rows?.[0] || null;
     if (!scan) return json(404, { success: false, error: "Report not found" });
 
+   // -----------------------------
+    // Fetch branding including agency_report_title
+    // -----------------------------
     let branding = {
       agency_name: "",
       agency_website: "",
@@ -268,13 +271,14 @@ export async function handler(event) {
       agency_phone: "",
       agency_logo_url: "",
       agency_accent_color: "",
+      agency_report_title: "", // <-- include this
     };
 
     if (scan.user_id) {
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select(
-          "agency_name, agency_website, agency_email, agency_phone, agency_logo_url, agency_accent_color"
+          "agency_name, agency_website, agency_email, agency_phone, agency_logo_url, agency_accent_color, agency_report_title"
         )
         .eq("user_id", scan.user_id)
         .maybeSingle();
@@ -287,6 +291,7 @@ export async function handler(event) {
           agency_phone: profile.agency_phone || "",
           agency_logo_url: profile.agency_logo_url || "",
           agency_accent_color: profile.agency_accent_color || "",
+          agency_report_title: profile.agency_report_title || "",
         };
       }
     }
@@ -370,13 +375,15 @@ export async function handler(event) {
         created_at: scan.created_at,
       },
 
-      branding,
-      agency_name: branding.agency_name,
-      agency_website: branding.agency_website,
-      agency_email: branding.agency_email,
-      agency_phone: branding.agency_phone,
-      agency_logo_url: branding.agency_logo_url,
-      agency_accent_color: branding.agency_accent_color,
+branding,
+agency_name: branding.agency_name,
+agency_website: branding.agency_website,
+agency_email: branding.agency_email,
+agency_phone: branding.agency_phone,
+agency_logo_url: branding.agency_logo_url,
+agency_accent_color: branding.agency_accent_color,
+agency_report_title: branding.agency_report_title, // <-- add this line
+
 
       basic_checks,
       security_headers,
