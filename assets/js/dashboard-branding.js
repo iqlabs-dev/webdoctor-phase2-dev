@@ -55,19 +55,6 @@ function extractStoragePathFromPublicUrl(url) {
   }
 }
 
-function readFileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    try {
-      const reader = new FileReader();
-      reader.onload = (event) => resolve(event.target?.result || "");
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    } catch (err) {
-      reject(err);
-    }
-  });
-}
-
 // ---------------------------
 // Preview helpers
 // ---------------------------
@@ -96,6 +83,7 @@ function showBanner(src) {
   const reportPreview = $("preview-banner");
   const wrap = $("preview-banner-wrap");
   const empty = $("banner-preview-empty");
+  const headerStyle = safeHeaderStyle(textValue("brand-header-style"));
 
   if (boxPreview) {
     boxPreview.src = src || "";
@@ -108,7 +96,6 @@ function showBanner(src) {
   }
 
   if (wrap) {
-    const headerStyle = safeHeaderStyle(textValue("brand-header-style"));
     wrap.style.display = src && headerStyle === "banner" ? "block" : "none";
   }
 
@@ -117,9 +104,6 @@ function showBanner(src) {
   }
 }
 
-// ---------------------------
-// Main preview update
-// ---------------------------
 function updatePreviewFromFields() {
   const company = textValue("brand-company");
   const website = textValue("brand-website");
@@ -130,7 +114,7 @@ function updatePreviewFromFields() {
   const showHeaderContact = boolValue("brand-show-header-contact", true);
   const showFooterContact = boolValue("brand-show-footer-contact", true);
 
-  // Left info
+  // Update dashboard preview
   setText("preview-company", company || "Your Company Name");
   setText("preview-title", reportTitle);
   setText("preview-website", normaliseWebsite(website));
@@ -147,25 +131,11 @@ function updatePreviewFromFields() {
   const previewFooterLeft = $("preview-footer-left");
   if (previewFooterLeft) previewFooterLeft.style.display = showFooterContact ? "flex" : "none";
 
-  // -------------------------
-  // Banner vs Compact
-  // -------------------------
-  const previewBannerWrap = $("preview-banner-wrap");
-  const previewBanner = $("preview-banner");
   const previewLogoWrap = document.querySelector(".preview-logo-wrap");
+  if (previewLogoWrap) previewLogoWrap.style.display = headerStyle === "compact" ? "flex" : "none";
 
-  if (headerStyle === "banner") {
-    if (previewBannerWrap) previewBannerWrap.style.display = "block";
-    if (previewLogoWrap) previewLogoWrap.style.display = "none";
-
-    // Placeholder if no banner uploaded
-    if (previewBanner && !previewBanner.getAttribute("src")) {
-      previewBanner.src = "/assets/img/banner-placeholder.png";
-    }
-  } else {
-    if (previewBannerWrap) previewBannerWrap.style.display = "none";
-    if (previewLogoWrap) previewLogoWrap.style.display = "flex";
-  }
+  const previewBannerWrap = $("preview-banner-wrap");
+  if (previewBannerWrap) previewBannerWrap.style.display = headerStyle === "banner" && currentBannerPath ? "block" : "none";
 }
 
 // ---------------------------
@@ -243,8 +213,8 @@ async function loadBranding() {
   }
 
   if (data.agency_banner_url) {
-    showBanner(data.agency_banner_url);
-    currentBannerPath = extractStoragePathFromPublicUrl(data.agency_banner_url);
+    currentBannerPath = data.agency_banner_url;
+    showBanner(currentBannerPath);
   } else {
     showBanner("");
     currentBannerPath = null;
@@ -311,9 +281,7 @@ async function uploadAsset(file, type) {
   return { path, publicUrl };
 }
 
-// ---------------------------
 // Logo upload/remove
-// ---------------------------
 async function uploadLogo(file) {
   const result = await uploadAsset(file, "logo");
   if (!result) return;
@@ -343,16 +311,14 @@ async function removeLogo() {
   updatePreviewFromFields();
 }
 
-// ---------------------------
 // Banner upload/remove
-// ---------------------------
 async function uploadBanner(file) {
   const result = await uploadAsset(file, "banner");
   if (!result) return;
   if (!await saveProfileData({ agency_banner_url: result.publicUrl })) return;
 
-  currentBannerPath = result.path;
-  showBanner(result.publicUrl);
+  currentBannerPath = result.publicUrl;
+  showBanner(currentBannerPath);
   updatePreviewFromFields();
 }
 
@@ -393,7 +359,6 @@ function wirePreviewInputs() {
   ids.forEach((id) => {
     const el = $(id);
     if (!el) return;
-
     const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
     el.addEventListener(evt, updatePreviewFromFields);
   });
