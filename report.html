@@ -768,59 +768,60 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-      <div class="top-card">
-        <div class="top-row">
-          <div class="brand" id="reportBrand">
-            <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
-            <div class="brand-copy">
-              <div class="logo" id="agencyName">Website Report</div>
-              <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
-                Website Report
-              </div>
-            </div>
-          </div>
-
-          <div class="top-actions">
-            <button id="backToDashboard" class="btn">Back to dashboard</button>
-            <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
-            <button id="refreshBtn" class="btn">Refresh</button>
-          </div>
-        </div>
-
-        <div class="meta-strip" id="agencyMetaStrip" style="display:none; margin-top:14px;">
-          <div class="meta-cell" id="agencyWebsiteWrap" style="display:none;">
-            <div class="k">Agency Website</div>
-            <div class="v" id="agencyWebsite"></div>
-          </div>
-
-          <div class="meta-cell" id="agencyEmailWrap" style="display:none;">
-            <div class="k">Agency Email</div>
-            <div class="v" id="agencyEmail"></div>
-          </div>
-
-          <div class="meta-cell" id="agencyPhoneWrap" style="display:none;">
-            <div class="k">Agency Phone</div>
-            <div class="v" id="agencyPhone"></div>
-          </div>
-        </div>
-
-        <div class="meta-strip">
-          <div class="meta-cell">
-            <div class="k">Website</div>
-            <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
-          </div>
-
-          <div class="meta-cell">
-            <div class="k">Report ID</div>
-            <div class="v" id="reportId">—</div>
-          </div>
-
-          <div class="meta-cell">
-            <div class="k">Report Date</div>
-            <div class="v" id="reportDate">—</div>
-          </div>
+     <div class="top-card">
+  <div class="top-row">
+    <div class="brand" id="reportBrand">
+      <img id="agencyLogo" alt="Agency logo" style="display:none; max-height:42px; max-width:180px; width:auto; height:auto; object-fit:contain;">
+      <div class="brand-copy">
+        <div class="logo" id="agencyName">Website Report</div>
+        <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+          Website Report
         </div>
       </div>
+    </div>
+
+    <div class="top-actions">
+      <button id="backToDashboard" class="btn">Back to dashboard</button>
+      <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+      <button id="refreshBtn" class="btn">Refresh</button>
+    </div>
+  </div>
+
+  <div class="meta-strip" id="agencyMetaStrip" style="display:none; margin-top:14px;">
+    <div class="meta-cell" id="agencyWebsiteWrap" style="display:none;">
+      <div class="k">Agency Website</div>
+      <div class="v" id="agencyWebsite"></div>
+    </div>
+
+    <div class="meta-cell" id="agencyEmailWrap" style="display:none;">
+      <div class="k">Agency Email</div>
+      <div class="v" id="agencyEmail"></div>
+    </div>
+
+    <div class="meta-cell" id="agencyPhoneWrap" style="display:none;">
+      <div class="k">Agency Phone</div>
+      <div class="v" id="agencyPhone"></div>
+    </div>
+  </div>
+
+  <div class="meta-strip">
+    <div class="meta-cell">
+      <div class="k">Website</div>
+      <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
+    </div>
+
+    <div class="meta-cell">
+      <div class="k">Report ID</div>
+      <div class="v" id="reportId">—</div>
+    </div>
+
+    <div class="meta-cell">
+      <div class="k">Report Date</div>
+      <div class="v" id="reportDate">—</div>
+    </div>
+  </div>
+</div>
+
 
       <section id="loaderSection" class="loader-wrap">
         <div class="pulse" aria-hidden="true"></div>
@@ -1010,12 +1011,23 @@
         </section>
       </main>
 
-      <div class="footer" id="reportFooter" style="display:none;">
-        <div id="footerAgencyName" style="font-weight:700; color:var(--ink); margin-bottom:6px;"></div>
-        <div id="footerAgencyWebsite" style="margin-bottom:4px;"></div>
-        <div id="footerAgencyEmail" style="margin-bottom:4px;"></div>
-        <div id="footerAgencyPhone"></div>
+      <div
+        class="footer"
+        id="reportFooter"
+        style="display:none; margin-top:12px; justify-content:space-between; align-items:flex-end; gap:16px; text-align:left;"
+      >
+        <div>
+          <div id="footerAgencyName" style="font-weight:700; color:var(--ink); margin-bottom:6px;"></div>
+          <div id="footerAgencyWebsite" style="margin-bottom:4px;"></div>
+          <div id="footerAgencyEmail" style="margin-bottom:4px;"></div>
+          <div id="footerAgencyPhone"></div>
+        </div>
+
+        <div style="text-align:right; white-space:nowrap; color:rgba(229,240,255,0.60);">
+          Powered by iQWEB
+        </div>
       </div>
+
     </div>
   </div>
 
