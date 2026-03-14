@@ -276,21 +276,23 @@
   }
 
   function pickBranding(data) {
-    data = safeObj(data);
+  data = safeObj(data);
 
-    if (data.branding && typeof data.branding === "object") {
-      return safeObj(data.branding);
-    }
-
-    return {
-      agency_name: data.agency_name || "",
-      agency_website: data.agency_website || "",
-      agency_email: data.agency_email || "",
-      agency_phone: data.agency_phone || "",
-      agency_logo_url: data.agency_logo_url || "",
-      agency_accent_color: data.agency_accent_color || ""
-    };
+  if (data.branding && typeof data.branding === "object") {
+    return safeObj(data.branding);
   }
+
+  return {
+    agency_name: data.agency_name || "",
+    agency_website: data.agency_website || "",
+    agency_email: data.agency_email || "",
+    agency_phone: data.agency_phone || "",
+    agency_logo_url: data.agency_logo_url || "",
+    agency_accent_color: data.agency_accent_color || "",
+    agency_report_title: data.agency_report_title || ""  // <-- ADD THIS LINE
+  };
+}
+
 
 function applyBrandingUI(branding) {
   branding = safeObj(branding);
