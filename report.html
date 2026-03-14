@@ -54,25 +54,30 @@
       gap: 18px;
     }
 
-    #backToDashboard {
+#backToDashboard {
     display: inline-block;
     font-size: 12px;
     font-weight: 600;
-    color: #fff;
-    background-color: #1d4ed8; /* blue tab color */
-    padding: 6px 12px;
-    border-radius: 6px 6px 0 0; /* rounded top corners only */
-    text-decoration: none;
+    color: var(--ink); /* text color same as card */
+    background-color: rgba(255,255,255,0.04); /* matches card */
+    border: 1px solid rgba(255,255,255,0.08); /* subtle border */
+    padding: 4px 10px;          /* small tab */
+    border-radius: 6px 6px 0 0; /* rounded top corners */
+    margin-bottom: -18px;         /* drop so it touches the card */
+       margin-left: 15px;     /* shift slightly right */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* subtle shadow */
     letter-spacing: 0.05em;
-    margin-bottom: -6px; /* pull it slightly over the card */
-    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    text-decoration: none;
+    width: max-content;          /* only as wide as text */
+    text-align: left;            /* text flush left */
     transition: background 0.2s ease, transform 0.1s ease;
 }
 
 #backToDashboard:hover {
-    background-color: #2563eb; /* slightly brighter on hover */
+    background-color: rgba(255,255,255,0.06); /* slightly brighter on hover */
     transform: translateY(-1px);
 }
+
 
     .top-card {
       width: 100%;
