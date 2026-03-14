@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.4 — signup bootstrap + scans remaining + animated scan state");
+console.log("DASHBOARD JS v4.5 — stable dashboard flow + scan history + billing portal");
 
 let currentUserId = null;
 
@@ -12,6 +12,7 @@ window.currentReport = null;
 window.lastScanResult = null;
 window.currentProfile = null;
 window.currentUserEmail = null;
+window.currentUserId = null;
 
 // -----------------------------
 // Helpers
@@ -64,7 +65,7 @@ function goToReport(reportId) {
 }
 
 /**
- * Scan History → View + Download PDF (new tab)
+ * Scan History → View report (new tab)
  */
 function goToReportFromHistory(reportId) {
   const rid = normaliseReportId(reportId);
@@ -104,7 +105,7 @@ function toDateOrNull(v) {
     if (!v) return null;
     const d = new Date(v);
     return Number.isFinite(d.getTime()) ? d : null;
-  } catch {
+  } catch (_) {
     return null;
   }
 }
@@ -117,18 +118,21 @@ function fmtShortDate(d) {
       month: "short",
       day: "2-digit",
     });
-  } catch {
+  } catch (_) {
     return "";
   }
 }
 
+// -----------------------------
+// Checkout
+// -----------------------------
 async function startCheckout(priceKey) {
   try {
     const res = await fetch("/.netlify/functions/create-checkout-session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        priceKey: priceKey,
+        priceKey,
         user_id: window.currentUserId,
         email: window.currentUserEmail,
         url: window.location.origin,
@@ -141,13 +145,13 @@ async function startCheckout(priceKey) {
 
     if (!res.ok) {
       if (data && (data.code === "checkout_frozen" || data.code === "payments_disabled")) {
-        var title = data.title ? String(data.title) : "Checkout temporarily unavailable";
-        var message = data.message ? String(data.message) : "Checkout is paused. Please try again later.";
+        const title = data.title ? String(data.title) : "Checkout temporarily unavailable";
+        const message = data.message ? String(data.message) : "Checkout is paused. Please try again later.";
         alert(title + "\n\n" + message);
         return;
       }
 
-      var errMsg =
+      const errMsg =
         data && (data.error || data.message)
           ? (data.error || data.message)
           : "Unable to start checkout";
@@ -189,7 +193,7 @@ async function openStripePortal() {
       body: JSON.stringify({}),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data.url) {
       throw new Error(data.error || "Unable to open billing portal.");
@@ -197,7 +201,7 @@ async function openStripePortal() {
 
     window.location.href = data.url;
   } catch (err) {
-    alert(err.message || "Unable to open billing portal.");
+    throw err;
   }
 }
 
@@ -280,12 +284,15 @@ function updateUsageUI(profile) {
         access.banned ? "Account access disabled." : "Account temporarily frozen."
       }</div>`;
     }
+
     if (runScanBtn) {
       runScanBtn.disabled = true;
       runScanBtn.title = access.banned ? "Account access disabled." : "Account temporarily frozen.";
     }
+
     if (scansEl) scansEl.textContent = "0";
     if (freeChip) freeChip.style.display = "none";
+
     if (infoEl) {
       infoEl.textContent = access.banned
         ? "Account access disabled."
@@ -337,43 +344,41 @@ function updateUsageUI(profile) {
 
 // -----------------------------
 // Profile load (READ ONLY)
-// profiles: paid credits (user_id = auth.user.id)
-// user_flags: free scans + flags (user_id = auth.user.id)
 // -----------------------------
 async function refreshProfile() {
   if (!currentUserId) return null;
 
   try {
-    let ucRow = null;
+    let profilesRow = null;
     try {
-      const uc1 = await supabase
+      const res = await supabase
         .from("profiles")
         .select("credits")
         .eq("user_id", currentUserId)
         .maybeSingle();
 
-      if (!uc1.error && uc1.data) ucRow = uc1.data;
+      if (!res.error && res.data) profilesRow = res.data;
     } catch (_) {}
 
-    let ufRow = null;
+    let flagsRow = null;
     try {
-      const uf1 = await supabase
+      const res = await supabase
         .from("user_flags")
         .select("trial_scans_remaining,trial_expires_at,is_frozen,is_banned")
         .eq("user_id", currentUserId)
         .maybeSingle();
 
-      if (!uf1.error && uf1.data) ufRow = uf1.data;
+      if (!res.error && res.data) flagsRow = res.data;
     } catch (_) {}
 
     const merged = {
       user_id: currentUserId,
       email: window.currentUserEmail || "",
-      paid_credits: (ucRow && Number.isFinite(ucRow.credits)) ? ucRow.credits : 0,
-      free_scans: (ufRow && Number.isFinite(ufRow.trial_scans_remaining)) ? ufRow.trial_scans_remaining : 0,
-      free_expires_at: (ufRow && ufRow.trial_expires_at) ? ufRow.trial_expires_at : null,
-      is_frozen: !!(ufRow && ufRow.is_frozen),
-      is_banned: !!(ufRow && ufRow.is_banned),
+      paid_credits: profilesRow && Number.isFinite(profilesRow.credits) ? profilesRow.credits : 0,
+      free_scans: flagsRow && Number.isFinite(flagsRow.trial_scans_remaining) ? flagsRow.trial_scans_remaining : 0,
+      free_expires_at: flagsRow && flagsRow.trial_expires_at ? flagsRow.trial_expires_at : null,
+      is_frozen: !!(flagsRow && flagsRow.is_frozen),
+      is_banned: !!(flagsRow && flagsRow.is_banned),
     };
 
     window.currentProfile = merged;
@@ -389,7 +394,7 @@ async function refreshProfile() {
 
 async function generateNarrative(reportId, accessToken) {
   const headers = { "Content-Type": "application/json" };
-  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   const res = await fetch("/.netlify/functions/generate-narrative", {
     method: "POST",
@@ -400,7 +405,9 @@ async function generateNarrative(reportId, accessToken) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok || (data && data.success === false)) {
-    const msg = (data && (data.error || data.message)) || `generate-narrative failed (${res.status})`;
+    const msg =
+      (data && (data.error || data.message)) ||
+      `generate-narrative failed (${res.status})`;
     throw new Error(msg);
   }
 
@@ -456,7 +463,7 @@ function updateLatestScanCard(row, opts = {}) {
   };
 
   if (elView) {
-    elView.onclick = (e) => {
+    elView.onclick = function (e) {
       if (e && e.preventDefault) e.preventDefault();
       goToReport(row.report_id);
     };
@@ -473,9 +480,11 @@ function parseScoreQuery(q) {
   const s = String(q || "").trim();
   const m = s.match(/^(>=|<=|>|<|=)?\s*(\d{1,3})$/);
   if (!m) return null;
+
   const op = m[1] || "=";
   const n = Number(m[2]);
   if (!Number.isFinite(n)) return null;
+
   return { op, n };
 }
 
@@ -530,17 +539,19 @@ function applyHistoryFilter() {
 function wireHistorySearch() {
   const input = $("history-search");
   const clearBtn = $("history-clear");
+
   if (input) {
     input.addEventListener("input", applyHistoryFilter);
-    input.addEventListener("keydown", (e) => {
+    input.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         input.value = "";
         applyHistoryFilter();
       }
     });
   }
+
   if (clearBtn && input) {
-    clearBtn.addEventListener("click", () => {
+    clearBtn.addEventListener("click", function () {
       input.value = "";
       applyHistoryFilter();
       input.focus();
@@ -622,7 +633,7 @@ async function loadScanHistory() {
       a.className = "history-url";
       a.href = "#";
       a.textContent = row.url || "—";
-      a.addEventListener("click", (e) => {
+      a.addEventListener("click", function (e) {
         e.preventDefault();
         updateLatestScanCard(row, { setInput: true });
       });
@@ -648,7 +659,9 @@ async function loadScanHistory() {
       viewBtn.className = "btn-link";
       viewBtn.type = "button";
       viewBtn.textContent = "View Report";
-      viewBtn.onclick = () => goToReportFromHistory(row.report_id);
+      viewBtn.onclick = function () {
+        goToReportFromHistory(row.report_id);
+      };
       tdActions.appendChild(viewBtn);
 
       const copyBtn = document.createElement("button");
@@ -657,16 +670,17 @@ async function loadScanHistory() {
       copyBtn.style.marginLeft = "6px";
       copyBtn.textContent = "Copy Link";
 
-      copyBtn.onclick = async () => {
+      copyBtn.onclick = async function () {
         const rid = normaliseReportId(row.report_id);
         if (!rid) return;
 
-        const reportUrl = `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
+        const reportUrl =
+          `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
 
         try {
           await navigator.clipboard.writeText(reportUrl);
           copyBtn.textContent = "✓ Copied";
-          setTimeout(() => {
+          setTimeout(function () {
             copyBtn.textContent = "Copy Link";
           }, 2000);
         } catch (err) {
@@ -690,7 +704,7 @@ async function loadScanHistory() {
 // -----------------------------
 // MAIN
 // -----------------------------
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async function () {
   const statusEl = $("trial-info");
   const urlInput = $("site-url");
   const runBtn = $("run-scan");
@@ -719,20 +733,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function bindCheckout(btn, key) {
     if (!btn) return;
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
       startCheckout(key);
     });
   }
 
-bindCheckout($("btn-plan-starter"), "sub25");
-bindCheckout($("btn-plan-professional"), "sub100");
-bindCheckout($("btn-plan-agency"), "sub300");
+  bindCheckout($("btn-plan-starter"), "sub25");
+  bindCheckout($("btn-plan-professional"), "sub100");
+  bindCheckout($("btn-plan-agency"), "sub300");
 
-  const manageLink = document.getElementById("manage-subscription");
+  const manageLink = $("manage-subscription");
   if (manageLink) {
-    manageLink.addEventListener("click", async (e) => {
+    manageLink.addEventListener("click", async function (e) {
       e.preventDefault();
 
       if (manageLink.dataset.loading === "1") return;
@@ -763,7 +777,7 @@ bindCheckout($("btn-plan-agency"), "sub300");
   await refreshProfile();
   await loadScanHistory();
 
-  runBtn.addEventListener("click", async () => {
+  runBtn.addEventListener("click", async function () {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
       statusEl.textContent = "Enter a valid URL.";
@@ -780,7 +794,7 @@ bindCheckout($("btn-plan-agency"), "sub300");
     let dots = 0;
     statusEl.textContent = "Building report";
 
-    const dotTimer = setInterval(() => {
+    const dotTimer = setInterval(function () {
       dots = (dots + 1) % 4;
       statusEl.textContent = "Building report" + ".".repeat(dots);
     }, 400);
@@ -796,7 +810,10 @@ bindCheckout($("btn-plan-agency"), "sub300");
         throw new Error("Session expired. Please refresh and log in again.");
       }
 
-      const payload = { url: cleaned, email: window.currentUserEmail || null };
+      const payload = {
+        url: cleaned,
+        email: window.currentUserEmail || null,
+      };
 
       const res = await fetch("/.netlify/functions/run-scan", {
         method: "POST",
@@ -811,7 +828,10 @@ bindCheckout($("btn-plan-agency"), "sub300");
 
       if (!res.ok || !scanData || !scanData.success) {
         console.error("[RUN-SCAN] server error:", res.status, scanData);
-        throw new Error((scanData && (scanData.error || scanData.message)) || `Scan failed (${res.status})`);
+        throw new Error(
+          (scanData && (scanData.error || scanData.message)) ||
+          `Scan failed (${res.status})`
+        );
       }
 
       await loadScanHistory();
@@ -830,7 +850,7 @@ bindCheckout($("btn-plan-agency"), "sub300");
       showViewReportCTA();
 
       if (rid) {
-        generateNarrative(rid, accessToken).catch((e) => {
+        generateNarrative(rid, accessToken).catch(function (e) {
           console.warn("[GENERATE-NARRATIVE] failed:", (e && e.message) || e);
         });
       }
@@ -855,7 +875,7 @@ bindCheckout($("btn-plan-agency"), "sub300");
 
   if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
   if (logoutLink) {
-    logoutLink.addEventListener("click", (e) => {
+    logoutLink.addEventListener("click", function (e) {
       e.preventDefault();
       doLogout();
     });

@@ -799,6 +799,33 @@
       color: var(--muted2);
     }
 
+    .brand-field select.brand-select{
+  width:100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.18);
+  color: rgba(255,255,255,.92);
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.brand-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:44px;
+  color: rgba(255,255,255,.86);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.brand-toggle input{
+  width:auto;
+  margin:0;
+}
+
     @media (max-width: 920px){
       :root{ --sidebar-w: 210px; }
       .topbar{ padding: 12px 14px; }
@@ -1053,102 +1080,159 @@
           </div>
         </div>
 
-        <div id="view-branding" class="view">
-          <div class="card secondary">
-            <div class="h">
-              <h2>Company Details</h2>
-              <span class="meta">Used in your report header and footer</span>
-            </div>
+<div id="view-branding" class="view">
+  <div class="card secondary">
+    <div class="h">
+      <h2>Company Details</h2>
+      <span class="meta">Used in your report header and footer</span>
+    </div>
 
-            <div class="brand-grid">
-              <div class="brand-field">
-                <label for="brand-company">Company Name</label>
-                <input id="brand-company" type="text" placeholder="Your company name" />
-              </div>
+    <div class="brand-grid">
+      <div class="brand-field">
+        <label for="brand-company">Company Name</label>
+        <input id="brand-company" type="text" placeholder="Your company name" />
+      </div>
 
-              <div class="brand-field">
-                <label for="brand-website">Website</label>
-                <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
-              </div>
+      <div class="brand-field">
+        <label for="brand-website">Website</label>
+        <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
+      </div>
 
-              <div class="brand-field">
-                <label for="brand-email">Email</label>
-                <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
-              </div>
+      <div class="brand-field">
+        <label for="brand-email">Email</label>
+        <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
+      </div>
 
-              <div class="brand-field">
-                <label for="brand-phone">Phone (optional)</label>
-                <input id="brand-phone" type="text" placeholder="+64 ..." />
-              </div>
+      <div class="brand-field">
+        <label for="brand-phone">Phone (optional)</label>
+        <input id="brand-phone" type="text" placeholder="+64 ..." />
+      </div>
 
-              <div class="brand-field full">
-                <label for="brand-accent">Accent Colour</label>
-                <input id="brand-accent" type="text" placeholder="#18D6C4" value="#18D6C4" />
-              </div>
-            </div>
+      <div class="brand-field full">
+        <label for="brand-accent">Accent Colour</label>
+        <input id="brand-accent" type="text" placeholder="#18D6C4" value="#18D6C4" />
+      </div>
 
-            <div class="brand-actions">
-              <button id="brand-save" class="btn btn-primary" type="button">Save Branding</button>
-            </div>
-          </div>
+      <div class="brand-field">
+        <label for="brand-header-style">Header Style</label>
+        <select id="brand-header-style" class="brand-select">
+          <option value="compact">Compact</option>
+          <option value="banner">Banner</option>
+        </select>
+      </div>
 
-          <div class="card secondary">
-            <div class="h">
-              <h2>Logo</h2>
-              <span class="meta">Optional report branding</span>
-            </div>
+      <div class="brand-field">
+        <label for="brand-report-title">Report Title</label>
+        <input id="brand-report-title" type="text" placeholder="Website Report" />
+      </div>
 
-            <div class="scanhelp">
-              PNG or SVG recommended. Logos are scaled automatically to fit the report header.
-            </div>
+      <div class="brand-field">
+        <label class="brand-toggle">
+          <input id="brand-show-header-contact" type="checkbox" checked />
+          <span>Show contact details in header</span>
+        </label>
+      </div>
 
-            <div class="logo-upload-row">
-              <input id="brand-logo" type="file" accept="image/png,image/svg+xml" />
-              <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
-            </div>
+      <div class="brand-field">
+        <label class="brand-toggle">
+          <input id="brand-show-footer-contact" type="checkbox" checked />
+          <span>Show contact details in footer</span>
+        </label>
+      </div>
+    </div>
 
-            <div class="logo-preview-box">
-              <span id="logo-preview-empty" class="logo-preview-empty">No logo uploaded yet.</span>
-              <img id="brand-logo-preview" class="logo-preview-img" alt="Logo preview" />
-            </div>
-          </div>
+    <div class="brand-actions">
+      <button id="brand-save" class="btn btn-primary" type="button">Save Branding</button>
+    </div>
+  </div>
 
-          <div class="card secondary">
-            <div class="h">
-              <h2>Preview</h2>
-              <span class="meta">How your branding will appear in reports</span>
-            </div>
+  <div class="card secondary">
+    <div class="h">
+      <h2>Logo</h2>
+      <span class="meta">Small logo for compact header</span>
+    </div>
 
-            <div class="preview-shell">
-              <div class="preview-header">
-                <div class="preview-logo-wrap">
-                  <img id="preview-logo" class="preview-logo" alt="Report logo preview" />
-                </div>
+    <div class="scanhelp">
+      PNG or SVG recommended. This is used as the small logo beside company name.
+    </div>
 
-                <div class="preview-brand-copy">
-                  <div id="preview-company" class="preview-company">Your Company Name</div>
-                  <div id="preview-title" class="preview-title">Website Performance Report</div>
-                </div>
-              </div>
+    <div class="logo-upload-row">
+      <input id="brand-logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+      <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
+    </div>
 
-              <div class="preview-footer">
-                <div class="preview-footer-left">
-                  <div id="preview-website">yourcompany.com</div>
-                  <div id="preview-email">hello@yourcompany.com</div>
-                  <div id="preview-phone">+64 ...</div>
-                </div>
+    <div class="logo-preview-box">
+      <span id="logo-preview-empty" class="logo-preview-empty">No logo uploaded yet.</span>
+      <img id="brand-logo-preview" class="logo-preview-img" alt="Logo preview" />
+    </div>
+  </div>
 
-                <div class="preview-footer-right">
-                  <div class="preview-powered">Powered by iQWEB</div>
-                </div>
-              </div>
-            </div>
+  <div class="card secondary">
+    <div class="h">
+      <h2>Header Banner</h2>
+      <span class="meta">Optional full-width branded header</span>
+    </div>
 
-            <div class="preview-note">
-              This is a visual preview only for now. Save wiring can be added next.
-            </div>
+    <div class="scanhelp">
+      Use a wide branded image if you want the report header to feel more like a letterhead or agency cover strip.
+    </div>
+
+    <div class="logo-upload-row">
+      <input id="brand-banner" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+      <button id="brand-banner-remove" class="btn" type="button">Remove Banner</button>
+    </div>
+
+    <div class="logo-preview-box" style="min-height:110px;">
+      <span id="banner-preview-empty" class="logo-preview-empty">No banner uploaded yet.</span>
+      <img id="brand-banner-preview" class="logo-preview-img" alt="Banner preview" style="max-width:100%; max-height:96px; display:none;" />
+    </div>
+  </div>
+
+  <div class="card secondary">
+    <div class="h">
+      <h2>Preview</h2>
+      <span class="meta">How your branding will appear in reports</span>
+    </div>
+
+    <div class="preview-shell">
+      <div id="preview-banner-wrap" style="display:none; margin-bottom:14px;">
+        <img id="preview-banner" alt="Banner preview" style="width:100%; max-height:120px; object-fit:cover; border-radius:12px; display:none;" />
+      </div>
+
+      <div class="preview-header">
+        <div class="preview-logo-wrap">
+          <img id="preview-logo" class="preview-logo" alt="Report logo preview" />
+        </div>
+
+        <div class="preview-brand-copy">
+          <div id="preview-company" class="preview-company">Your Company Name</div>
+          <div id="preview-title" class="preview-title">Website Report</div>
+          <div id="preview-header-contact" style="display:flex; flex-direction:column; gap:4px; margin-top:8px; font-size:12px; color:rgba(255,255,255,.72);">
+            <div id="preview-website">yourcompany.com</div>
+            <div id="preview-email">hello@yourcompany.com</div>
+            <div id="preview-phone">+64 ...</div>
           </div>
         </div>
+      </div>
+
+      <div class="preview-footer">
+        <div id="preview-footer-left" class="preview-footer-left">
+          <div id="preview-footer-website">yourcompany.com</div>
+          <div id="preview-footer-email">hello@yourcompany.com</div>
+          <div id="preview-footer-phone">+64 ...</div>
+        </div>
+
+        <div class="preview-footer-right">
+          <div class="preview-powered">Powered by iQWEB</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-note">
+      This preview should match the report layout choices the user saves.
+    </div>
+  </div>
+</div>
 
         <footer class="footer">
           <div>© 2025 iQWEB – All rights reserved.</div>
