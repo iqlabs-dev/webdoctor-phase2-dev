@@ -128,10 +128,10 @@
   }
 
   /* Premium back link hover */
-  #backToDashboard:hover {
-    color: #1acfe1; /* brighter teal accent on hover */
-    text-decoration: underline;
-  }
+ #backToDashboard:hover {
+  color: #1acfe1;
+  text-decoration: underline;
+}
 
  
     .btn {
@@ -814,16 +814,18 @@
     <div class="shell-inner">
 
 <div class="top-card">
+  <!-- Premium Back link above everything -->
+  <a id="backToDashboard" href="/dashboard.html"
+     style="font-size:12px;color:var(--accent);text-decoration:none;font-weight:500;letter-spacing:0.05em;display:inline-block;margin-bottom:8px;transition: color 0.2s ease;">
+    &larr; Back
+  </a>
+
   <div class="top-row">
-    <!-- Left: Company info -->
     <div class="brand-copy">
       <div class="logo" id="agencyName">Website Report</div>
-
       <div id="agencyReportLabel" style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
         Website Report
       </div>
-
-      <!-- Agency contact block -->
       <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
         <div id="agencyWebsiteLine" style="display:none;"></div>
         <div id="agencyEmailLine" style="display:none;"></div>
@@ -833,23 +835,27 @@
 
     <!-- Right: Square logo -->
     <img id="agencyLogo" alt="Agency logo" style="display:none;">
-
   </div>
+
+  <!-- Report metadata -->
+  <div class="meta-strip">…</div>
+</div>
 
 <!-- Premium Top actions -->
 <div class="top-actions" style="margin-bottom:8px;">
-  <a id="backToDashboard" href="/dashboard.html"
-     style="
-       font-size:12px;
-       color: var(--accent);
-       text-decoration:none;
-       font-weight:500;
-       letter-spacing:0.05em;
-       display:inline-block;
-       transition: color 0.2s ease;
-     ">
-    ← Back to dashboard
-  </a>
+<a id="backToDashboard" href="/dashboard.html"
+   style="
+     font-size:12px;
+     color: var(--accent);
+     text-decoration:none;
+     font-weight:500;
+     letter-spacing:0.05em;
+     display:inline-block;
+     margin-bottom:8px;
+     transition: color 0.2s ease;
+   ">
+  &larr; Back
+</a>
   <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
 </div>
 
