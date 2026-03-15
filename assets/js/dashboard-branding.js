@@ -30,15 +30,6 @@ function setChecked(id, value) {
   if (el) el.checked = !!value;
 }
 
-function setText(id, value) {
-  const el = $(id);
-  if (el) el.textContent = value || "";
-}
-
-function normaliseWebsite(value) {
-  return String(value || "").trim() || "yourcompany.com";
-}
-
 function extractStoragePathFromPublicUrl(url) {
   try {
     const marker = "/storage/v1/object/public/branding-assets/";
@@ -51,11 +42,10 @@ function extractStoragePathFromPublicUrl(url) {
 }
 
 // ---------------------------
-// Preview helpers
+// Logo UI helpers
 // ---------------------------
 function showLogo(src) {
   const boxPreview = $("brand-logo-preview");
-  const reportPreview = $("preview-logo");
   const empty = $("logo-preview-empty");
 
   if (boxPreview) {
@@ -63,48 +53,8 @@ function showLogo(src) {
     boxPreview.style.display = src ? "block" : "none";
   }
 
-  if (reportPreview) {
-    reportPreview.src = src || "";
-    reportPreview.style.display = src ? "block" : "none";
-  }
-
   if (empty) {
     empty.style.display = src ? "none" : "inline";
-  }
-}
-
-function updatePreviewFromFields() {
-  const company = textValue("brand-company");
-  const website = textValue("brand-website");
-  const email = textValue("brand-email");
-  const phone = textValue("brand-phone");
-  const reportTitle = textValue("brand-report-title") || "Website Report";
-  const showHeaderContact = boolValue("brand-show-header-contact", true);
-  const showFooterContact = boolValue("brand-show-footer-contact", true);
-
-  setText("preview-company", company || "Your Company Name");
-  setText("preview-title", reportTitle);
-  setText("preview-website", normaliseWebsite(website));
-  setText("preview-email", email || "hello@yourcompany.com");
-  setText("preview-phone", phone || "+64 ...");
-
-  setText("preview-footer-website", normaliseWebsite(website));
-  setText("preview-footer-email", email || "hello@yourcompany.com");
-  setText("preview-footer-phone", phone || "+64 ...");
-
-  const previewHeaderContact = $("preview-header-contact");
-  if (previewHeaderContact) {
-    previewHeaderContact.style.display = showHeaderContact ? "flex" : "none";
-  }
-
-  const previewFooterLeft = $("preview-footer-left");
-  if (previewFooterLeft) {
-    previewFooterLeft.style.display = showFooterContact ? "flex" : "none";
-  }
-
-  const previewLogoWrap = document.querySelector(".preview-logo-wrap");
-  if (previewLogoWrap) {
-    previewLogoWrap.style.display = "flex";
   }
 }
 
@@ -173,7 +123,7 @@ async function loadBranding() {
   setValue("brand-website", data.agency_website || "");
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
-setValue("brand-report-title", data.agency_report_title || "");
+  setValue("brand-report-title", data.agency_report_title || "");
 
   setChecked("brand-show-header-contact", data.show_header_contact !== false);
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
@@ -186,8 +136,6 @@ setValue("brand-report-title", data.agency_report_title || "");
     showLogo("");
     currentLogoPath = null;
   }
-
-  updatePreviewFromFields();
 }
 
 // ---------------------------
@@ -195,30 +143,36 @@ setValue("brand-report-title", data.agency_report_title || "");
 // ---------------------------
 async function saveBranding() {
   const btn = $("brand-save");
+  const originalText = btn ? btn.textContent : "Save Branding";
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Saving...";
   }
 
-const payload = {
-  agency_name: textValue("brand-company"),
-  agency_website: textValue("brand-website"),
-  agency_email: textValue("brand-email"),
-  agency_phone: textValue("brand-phone"),
-  agency_report_title: textValue("brand-report-title"),
-  show_header_contact: boolValue("brand-show-header-contact", true),
-  show_footer_contact: boolValue("brand-show-footer-contact", true),
-  show_powered_by: boolValue("brand-show-powered", true)
-};
+  const payload = {
+    agency_name: textValue("brand-company"),
+    agency_website: textValue("brand-website"),
+    agency_email: textValue("brand-email"),
+    agency_phone: textValue("brand-phone"),
+    agency_report_title: textValue("brand-report-title"),
+    show_header_contact: boolValue("brand-show-header-contact", true),
+    show_footer_contact: boolValue("brand-show-footer-contact", true),
+    show_powered_by: boolValue("brand-show-powered", true)
+  };
 
   const ok = await saveProfileData(payload);
 
   if (btn) {
     btn.disabled = false;
-    btn.textContent = ok ? "Saved" : "Save Branding";
-  }
+    btn.textContent = ok ? "Saved" : originalText;
 
-  if (ok) updatePreviewFromFields();
+    if (ok) {
+      window.setTimeout(() => {
+        btn.textContent = originalText;
+      }, 1800);
+    }
+  }
 }
 
 // ---------------------------
@@ -252,15 +206,23 @@ async function uploadAsset(file) {
   return { path, publicUrl };
 }
 
-// Logo upload/remove
 async function uploadLogo(file) {
+  if (!file) return;
+
+  const maxBytes = 2 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    alert("Logo must be under 2MB.");
+    const input = $("brand-logo");
+    if (input) input.value = "";
+    return;
+  }
+
   const result = await uploadAsset(file);
   if (!result) return;
   if (!await saveProfileData({ agency_logo_url: result.publicUrl })) return;
 
   currentLogoPath = result.path;
   showLogo(result.publicUrl);
-  updatePreviewFromFields();
 }
 
 async function removeLogo() {
@@ -291,33 +253,11 @@ async function removeLogo() {
     btn.disabled = false;
     btn.textContent = "Remove Logo";
   }
-
-  updatePreviewFromFields();
 }
 
 // ---------------------------
 // Wiring
 // ---------------------------
-function wirePreviewInputs() {
-  const ids = [
-    "brand-company",
-    "brand-website",
-    "brand-email",
-    "brand-phone",
-    "brand-report-title",
-    "brand-show-header-contact",
-    "brand-show-footer-contact",
-    "brand-show-powered"
-  ];
-
-  ids.forEach((id) => {
-    const el = $(id);
-    if (!el) return;
-    const evt = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
-    el.addEventListener(evt, updatePreviewFromFields);
-  });
-}
-
 function wireSaveButton() {
   const btn = $("brand-save");
   if (!btn) return;
@@ -327,6 +267,7 @@ function wireSaveButton() {
 function wireLogoUpload() {
   const input = $("brand-logo");
   if (!input) return;
+
   input.addEventListener("change", async () => {
     const file = input.files?.[0];
     if (!file) return;
@@ -337,6 +278,7 @@ function wireLogoUpload() {
 function wireLogoRemove() {
   const btn = $("brand-logo-remove");
   if (!btn) return;
+
   btn.addEventListener("click", async () => {
     await removeLogo();
   });
@@ -348,11 +290,9 @@ function wireLogoRemove() {
 document.addEventListener("DOMContentLoaded", async () => {
   if (!await getUser()) return;
 
-  wirePreviewInputs();
   wireSaveButton();
   wireLogoUpload();
   wireLogoRemove();
 
   await loadBranding();
-  updatePreviewFromFields();
 });
