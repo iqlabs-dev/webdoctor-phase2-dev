@@ -739,6 +739,17 @@ async function loadScanHistory() {
       };
 
       tdActions.appendChild(copyBtn);
+
+      const pdfBtn = document.createElement("button");
+      pdfBtn.className = "btn-link";
+      pdfBtn.type = "button";
+      pdfBtn.style.marginLeft = "6px";
+      pdfBtn.textContent = "PDF";
+      pdfBtn.onclick = function () {
+        downloadReportPdf(row.report_id, pdfBtn);
+      };
+
+      tdActions.appendChild(pdfBtn);
       tr.appendChild(tdActions);
 
       tbody.appendChild(tr);
