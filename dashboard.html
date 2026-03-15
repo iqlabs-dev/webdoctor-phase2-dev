@@ -1125,13 +1125,13 @@
           'Dashboard';
       }
 
-      if (pageSubtitle) {
-        pageSubtitle.textContent =
-          viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
-          viewId === 'view-account' ? 'Identity and security.' :
-          viewId === 'view-branding' ? 'Company details, logo and report preview.' :
-          '';
-      }
+if (pageSubtitle) {
+  pageSubtitle.textContent =
+    viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
+    viewId === 'view-account' ? 'Identity and security.' :
+    viewId === 'view-branding' ? '' :
+    '';
+}
     }
 
     navItems.forEach(a => a.addEventListener('click', (e) => {
