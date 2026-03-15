@@ -218,13 +218,23 @@ function boolFrom(...vals) {
   return false;
 }
 
+function firstNonEmptyObject(...vals) {
+  for (const v of vals) {
+    if (v && typeof v === "object" && !Array.isArray(v) && Object.keys(v).length > 0) {
+      return v;
+    }
+  }
+  return {};
+}
+
 function normalizeBranding(raw) {
-  const branding =
-    safeObj(raw.branding) ||
-    safeObj(raw.white_label) ||
-    safeObj(raw.whiteLabel) ||
-    safeObj(raw.report_branding) ||
-    safeObj(raw.reportBranding);
+  const branding = firstNonEmptyObject(
+    raw.branding,
+    raw.white_label,
+    raw.whiteLabel,
+    raw.report_branding,
+    raw.reportBranding
+  );
 
   const companyName = firstNonEmpty(
     branding.company_name,
