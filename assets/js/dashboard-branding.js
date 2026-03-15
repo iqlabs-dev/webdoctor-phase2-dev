@@ -173,7 +173,7 @@ async function loadBranding() {
   setValue("brand-website", data.agency_website || "");
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
-  setValue("brand-report-title", data.agency_report_title || "Website Report");
+setValue("brand-report-title", data.agency_report_title || "");
 
   setChecked("brand-show-header-contact", data.show_header_contact !== false);
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
@@ -200,16 +200,16 @@ async function saveBranding() {
     btn.textContent = "Saving...";
   }
 
-  const payload = {
-    agency_name: textValue("brand-company"),
-    agency_website: textValue("brand-website"),
-    agency_email: textValue("brand-email"),
-    agency_phone: textValue("brand-phone"),
-    agency_report_title: textValue("brand-report-title") || "Website Report",
-    show_header_contact: boolValue("brand-show-header-contact", true),
-    show_footer_contact: boolValue("brand-show-footer-contact", true),
-    show_powered_by: boolValue("brand-show-powered", true)
-  };
+const payload = {
+  agency_name: textValue("brand-company"),
+  agency_website: textValue("brand-website"),
+  agency_email: textValue("brand-email"),
+  agency_phone: textValue("brand-phone"),
+  agency_report_title: textValue("brand-report-title"),
+  show_header_contact: boolValue("brand-show-header-contact", true),
+  show_footer_contact: boolValue("brand-show-footer-contact", true),
+  show_powered_by: boolValue("brand-show-powered", true)
+};
 
   const ok = await saveProfileData(payload);
 
