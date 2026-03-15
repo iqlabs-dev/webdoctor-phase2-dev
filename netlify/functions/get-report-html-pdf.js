@@ -1,11 +1,6 @@
 // netlify/functions/get-report-html-pdf.js
-// Produces printable HTML for DocRaptor.
-// Summary-only branded PDF:
-// - Header (logo/banner/company/report title)
-// - Meta row (website / report id / date)
-// - Key Findings
-// - Delivery Signals
-// - Footer (conditional branding / powered by)
+// Compact branded HTML for DocRaptor PDF
+// Goal: 1-page landscape summary that matches the on-screen report as closely as possible
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -53,7 +48,7 @@ exports.handler = async (event) => {
     let payload;
     try {
       payload = JSON.parse(payloadText || "{}");
-    } catch (e) {
+    } catch (_) {
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
@@ -113,7 +108,7 @@ exports.handler = async (event) => {
   <style>
     @page {
       size: A4 landscape;
-      margin: 12mm;
+      margin: 8mm;
     }
 
     * { box-sizing: border-box; }
@@ -126,9 +121,7 @@ exports.handler = async (event) => {
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    body {
-      padding: 0;
-    }
+    body { padding: 0; }
 
     .page {
       width: 100%;
@@ -137,7 +130,7 @@ exports.handler = async (event) => {
         radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
         linear-gradient(180deg, #071226 0%, #08142a 100%);
-      padding: 18px;
+      padding: 10px;
     }
 
     .report-shell {
@@ -153,16 +146,16 @@ exports.handler = async (event) => {
 
     .brand-panel {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 18px;
+      border-radius: 14px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(11, 26, 55, 0.96), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
-      margin-bottom: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+      margin-bottom: 10px;
     }
 
     .brand-banner {
       width: 100%;
-      height: 88px;
+      height: 56px;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -173,30 +166,30 @@ exports.handler = async (event) => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 18px;
-      padding: 18px 20px;
+      gap: 14px;
+      padding: 10px 14px;
     }
 
     .brand-left {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       min-width: 0;
       flex: 1;
     }
 
     .logo-wrap {
-      width: 72px;
-      height: 72px;
-      min-width: 72px;
-      border-radius: 16px;
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 12px;
       background: rgba(8, 16, 34, 0.72);
       border: 1px solid rgba(69, 102, 154, 0.30);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      padding: 8px;
+      padding: 6px;
     }
 
     .logo-wrap img {
@@ -211,60 +204,60 @@ exports.handler = async (event) => {
     }
 
     .company-name {
-      font-size: 26px;
-      line-height: 1.15;
+      font-size: 20px;
+      line-height: 1.1;
       font-weight: 800;
       letter-spacing: 0.02em;
       color: #ffffff;
-      margin: 0 0 6px;
+      margin: 0 0 3px;
     }
 
     .report-title {
-      font-size: 14px;
-      line-height: 1.35;
+      font-size: 11px;
+      line-height: 1.2;
       font-weight: 700;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: #86b6ff;
       margin: 0;
     }
 
     .brand-contact {
-      max-width: 340px;
+      max-width: 260px;
       text-align: right;
-      font-size: 12px;
-      line-height: 1.6;
+      font-size: 10px;
+      line-height: 1.45;
       color: #c8d8fb;
     }
 
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .meta-card {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 16px;
+      border-radius: 12px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 14px 16px;
-      min-height: 82px;
+      padding: 10px 12px;
+      min-height: 60px;
     }
 
     .meta-label {
-      font-size: 11px;
-      line-height: 1.2;
+      font-size: 9px;
+      line-height: 1.1;
       font-weight: 700;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: #8fb2ea;
-      margin-bottom: 10px;
+      margin-bottom: 7px;
     }
 
     .meta-value {
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 11px;
+      line-height: 1.35;
       font-weight: 700;
       color: #ffffff;
       word-break: break-word;
@@ -272,34 +265,34 @@ exports.handler = async (event) => {
 
     .section {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 18px;
+      border-radius: 14px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
-      margin-bottom: 16px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.20);
+      margin-bottom: 10px;
     }
 
     .section-head {
-      padding: 14px 18px;
+      padding: 10px 14px;
       border-bottom: 1px solid rgba(69, 102, 154, 0.28);
-      font-size: 12px;
-      line-height: 1.2;
+      font-size: 10px;
+      line-height: 1.1;
       font-weight: 800;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
       color: #ffffff;
     }
 
     .section-body {
-      padding: 12px 18px 16px;
+      padding: 8px 14px 10px;
     }
 
     .finding-row {
       display: grid;
-      grid-template-columns: 150px 1fr;
-      gap: 18px;
-      padding: 12px 0;
-      border-top: 1px solid rgba(69, 102, 154, 0.16);
+      grid-template-columns: 130px 1fr;
+      gap: 14px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(69, 102, 154, 0.14);
     }
 
     .finding-row:first-child {
@@ -307,40 +300,44 @@ exports.handler = async (event) => {
     }
 
     .finding-label {
-      font-size: 11px;
-      line-height: 1.25;
+      font-size: 9px;
+      line-height: 1.15;
       font-weight: 800;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #9bb9ea;
     }
 
     .finding-value {
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 10px;
+      line-height: 1.35;
       color: #eef4ff;
+    }
+
+    .overall-card {
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
+      border: 1px solid rgba(69, 102, 154, 0.34);
+      margin-bottom: 10px;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
 
     .signals-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-top: 12px;
+      gap: 10px;
     }
 
-    .signal-card,
-    .overall-card {
-      border-radius: 16px;
-      padding: 14px 16px 16px;
+    .signal-card {
+      border-radius: 12px;
+      padding: 10px 12px 11px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      min-height: 164px;
+      min-height: 88px;
       page-break-inside: avoid;
       break-inside: avoid;
-    }
-
-    .overall-card {
-      min-height: 0;
     }
 
     .signal-card.good {
@@ -358,14 +355,14 @@ exports.handler = async (event) => {
     .signal-top {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       align-items: flex-start;
-      margin-bottom: 10px;
+      margin-bottom: 7px;
     }
 
     .signal-name {
-      font-size: 12px;
-      line-height: 1.25;
+      font-size: 10px;
+      line-height: 1.15;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -373,7 +370,7 @@ exports.handler = async (event) => {
     }
 
     .signal-score {
-      font-size: 16px;
+      font-size: 11px;
       line-height: 1;
       font-weight: 800;
       color: #ffffff;
@@ -382,11 +379,11 @@ exports.handler = async (event) => {
 
     .score-bar {
       width: 100%;
-      height: 8px;
+      height: 6px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.10);
       overflow: hidden;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
@@ -397,27 +394,27 @@ exports.handler = async (event) => {
     }
 
     .signal-status {
-      font-size: 12px;
-      line-height: 1.35;
+      font-size: 9px;
+      line-height: 1.2;
       font-weight: 700;
       color: #dbe8ff;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .signal-copy {
-      font-size: 12px;
-      line-height: 1.5;
+      font-size: 9px;
+      line-height: 1.28;
       color: #d6e4ff;
     }
 
     .signal-badge {
       display: inline-block;
-      margin: 0 0 8px;
-      padding: 4px 10px;
+      margin: 0 0 6px;
+      padding: 3px 8px;
       border-radius: 999px;
       background: #ef5f56;
       color: #ffffff;
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -425,15 +422,15 @@ exports.handler = async (event) => {
 
     .footer-bar {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 16px;
+      border-radius: 12px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 12px 16px;
+      padding: 8px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
-      font-size: 11px;
-      line-height: 1.5;
+      gap: 12px;
+      font-size: 9px;
+      line-height: 1.3;
       color: #b9cbee;
     }
 
@@ -483,7 +480,7 @@ exports.handler = async (event) => {
               ? `<div class="brand-contact">${headerContactBits
                   .map((x) => escapeHtml(x))
                   .join("<br>")}</div>`
-              : `<div class="brand-contact muted">Summary Report</div>`
+              : `<div class="brand-contact muted">&nbsp;</div>`
           }
         </div>
       </div>
@@ -707,16 +704,7 @@ function deriveSignalNarrative(sig) {
     if (first && first.reason) return String(first.reason).trim();
   }
 
-  if (Array.isArray(sig?.observations) && sig.observations.length) {
-    const firstObs =
-      sig.observations.find((o) => o && o.label && o.value !== undefined) ||
-      sig.observations[0];
-    if (firstObs) {
-      return `${String(firstObs.label || "").trim()}: ${String(firstObs.value || "").trim()}`;
-    }
-  }
-
-  return "No narrative available for this section.";
+  return "";
 }
 
 function buildOverallNarrative(payload) {
@@ -754,7 +742,7 @@ function buildKeyFindings(payload, scores, deliverySignals) {
     .filter((x) => x.score !== null)
     .sort((a, b) => a.score - b.score)[1];
 
-  const impact = weakest
+  const impact = weakest && weakest.narrative
     ? weakest.narrative
     : "No material issue was surfaced in this scan.";
 
