@@ -844,6 +844,22 @@
   font-size: 13px;
   font-weight: 600;
 }
+.brand-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:44px;
+  color: rgba(255,255,255,.86);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.brand-toggles{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:14px;
+}
 
 .brand-toggle input{
   width:auto;
@@ -1123,58 +1139,54 @@
       <span class="meta">Used in your report header and footer</span>
     </div>
 
-    <div class="brand-grid">
-      <div class="brand-field">
-        <label for="brand-company">Company Name</label>
-        <input id="brand-company" type="text" placeholder="Your company name" />
-      </div>
+<div class="brand-grid">
+  <div class="brand-field">
+    <label for="brand-company">Company Name</label>
+    <input id="brand-company" type="text" placeholder="Your company name" />
+  </div>
 
-      <div class="brand-field">
-        <label for="brand-website">Website</label>
-        <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
-      </div>
+  <div class="brand-field">
+    <label for="brand-website">Website</label>
+    <input id="brand-website" type="text" placeholder="https://yourcompany.com" />
+  </div>
 
-      <div class="brand-field">
-        <label for="brand-email">Email</label>
-        <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
-      </div>
+  <div class="brand-field">
+    <label for="brand-email">Email</label>
+    <input id="brand-email" type="email" placeholder="hello@yourcompany.com" />
+  </div>
 
-      <div class="brand-field">
-        <label for="brand-phone">Phone (optional)</label>
-        <input id="brand-phone" type="text" placeholder="+64 ..." />
-      </div>
+  <div class="brand-field">
+    <label for="brand-phone">Phone (optional)</label>
+    <input id="brand-phone" type="text" placeholder="+64 ..." />
+  </div>
 
-      <div class="brand-field">
-        <label for="brand-report-title">Report Title</label>
-        <input id="brand-report-title" type="text" placeholder="Website Report" />
-      </div>
+  <div class="brand-field full">
+    <label for="brand-report-title">Report Title</label>
+    <input id="brand-report-title" type="text" placeholder="Website Report" />
+  </div>
+</div>
 
-      <div class="brand-field">
-        <label class="brand-toggle">
-          <input id="brand-show-header-contact" type="checkbox" checked />
-          <span>Show contact details in header</span>
-        </label>
-      </div>
+<!-- ADD TOGGLES HERE -->
+<div class="brand-toggles">
+  <label class="brand-toggle">
+    <input id="brand-show-header-contact" type="checkbox" checked />
+    <span>Show contact details in header</span>
+  </label>
 
-      <div class="brand-field">
-        <label class="brand-toggle">
-          <input id="brand-show-footer-contact" type="checkbox" checked />
-          <span>Show contact details in footer</span>
-        </label>
-      </div>
-    </div>
+  <label class="brand-toggle">
+    <input id="brand-show-footer-contact" type="checkbox" checked />
+    <span>Show contact details in footer</span>
+  </label>
 
-<div class="brand-field">
   <label class="brand-toggle">
     <input id="brand-show-powered" type="checkbox" checked />
     <span>Show "Powered by iQWEB" attribution</span>
   </label>
 </div>
 
-    <div class="brand-actions">
-      <button id="brand-save" class="btn btn-primary" type="button">Save Branding</button>
-    </div>
-  </div>
+<div class="brand-actions">
+  <button id="brand-save" class="btn btn-primary" type="button">Save Branding</button>
+</div>
 
   <div class="card secondary">
     <div class="h">
