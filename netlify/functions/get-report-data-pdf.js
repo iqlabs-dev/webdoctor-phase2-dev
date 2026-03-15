@@ -1,16 +1,16 @@
 // netlify/functions/get-report-data-pdf.js
 // Purpose: return a stable, PDF-ready payload for get-report-html-pdf.
-// It fetches your existing report JSON (from get-report-data) and normalizes it
-// so the PDF HTML renderer never breaks when fields are missing.
+// It fetches your existing full report JSON (from get-report-data) and normalizes it
+// for the summary-style branded PDF.
 //
-// FIX (2026-02-18):
-// - Always provide a deterministic "executive" summary if narrative lines are missing
-// - Normalize narrative/findings so PDF can render consistently
+// Notes:
+// - Keeps existing deterministic executive summary fallback
+// - Adds branding normalization for white-label PDF header/footer
+// - Tries multiple possible raw branding field names so older builds don't break
 
 const FETCH_TIMEOUT_MS = 20000;
 
 exports.handler = async (event) => {
-  // Preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 204,
@@ -31,14 +31,15 @@ exports.handler = async (event) => {
   try {
     const reportId = String(
       (event.queryStringParameters &&
-        (event.queryStringParameters.report_id || event.queryStringParameters.reportId)) ||
+        (event.queryStringParameters.report_id ||
+          event.queryStringParameters.reportId)) ||
         ""
     ).trim();
 
-    if (!reportId) return json(400, { success: false, error: "Missing report_id" });
+    if (!reportId) {
+      return json(400, { success: false, error: "Missing report_id" });
+    }
 
-    // IMPORTANT: This fetches your existing “full” report data endpoint.
-    // If your endpoint name is different, change ONLY this path.
     const siteUrl = process.env.URL || "https://iqweb.ai";
     const srcUrl =
       siteUrl +
@@ -46,6 +47,7 @@ exports.handler = async (event) => {
       encodeURIComponent(reportId);
 
     const rawText = await fetchTextWithTimeout(srcUrl, FETCH_TIMEOUT_MS);
+
     let raw;
     try {
       raw = JSON.parse(rawText || "{}");
@@ -64,39 +66,36 @@ exports.handler = async (event) => {
       });
     }
 
-    // ---- Normalize fields we expect for PDF ----
     const header = safeObj(raw.header);
     const scores = safeObj(raw.scores);
-
-    // Some builds used narrative, some used findings; we support both.
     const narrative = safeObj(raw.narrative);
     const findings = safeObj(raw.findings || raw.finding);
 
-    // Signals list comes in different names depending on earlier versions
     const deliverySignals =
       (Array.isArray(raw.delivery_signals) && raw.delivery_signals) ||
       (Array.isArray(raw.deliverySignals) && raw.deliverySignals) ||
       (Array.isArray(raw.signals) && raw.signals) ||
       [];
 
-    // Ensure evidence is renderable: prefer sig.observations, else convert sig.evidence object
     const normalizedSignals = deliverySignals.map((sig) => {
       const out = safeObj(sig);
+      const o = { ...out };
 
-      // clone
-      const o = Object.assign({}, out);
-
-      // Normalize label/id
       o.label = o.label || o.name || o.id || "Signal";
       o.id = o.id || o.label;
 
-      // Normalize score number-ish
-      if (typeof o.score === "undefined" && typeof o.value !== "undefined") o.score = o.value;
+      if (typeof o.score === "undefined" && typeof o.value !== "undefined") {
+        o.score = o.value;
+      }
 
-      // Normalize observations
       if (!Array.isArray(o.observations) || o.observations.length === 0) {
         const ev =
-          o.evidence && typeof o.evidence === "object" && !Array.isArray(o.evidence) ? o.evidence : null;
+          o.evidence &&
+          typeof o.evidence === "object" &&
+          !Array.isArray(o.evidence)
+            ? o.evidence
+            : null;
+
         if (ev) {
           o.observations = Object.keys(ev).map((k) => ({
             label: prettifyKey(k),
@@ -107,25 +106,29 @@ exports.handler = async (event) => {
         }
       }
 
-      // Normalize deductions list (used to derive Top Issues if needed)
       if (!Array.isArray(o.deductions)) o.deductions = [];
 
       return o;
     });
 
-    // top issues: use explicit field if present, otherwise derive from deductions (deterministic)
     const topIssues =
       (Array.isArray(raw.top_issues) && raw.top_issues) ||
       (Array.isArray(raw.topIssues) && raw.topIssues) ||
       deriveTopIssuesFromSignals(normalizedSignals);
 
-    // Final PDF payload (stable)
+    const branding = normalizeBranding(raw);
+
     const pdfPayload = {
       success: true,
       header: {
-        website: header.website || header.url || "",
-        report_id: header.report_id || reportId,
-        created_at: header.created_at || header.report_date || "",
+        website: header.website || header.url || raw.url || raw.website || "",
+        report_id: header.report_id || raw.report_id || reportId,
+        created_at:
+          header.created_at ||
+          header.report_date ||
+          raw.created_at ||
+          raw.report_date ||
+          "",
       },
       scores: {
         overall: scores.overall,
@@ -136,13 +139,13 @@ exports.handler = async (event) => {
         structure: scores.structure,
         accessibility: scores.accessibility,
       },
-      narrative: deepClone(narrative), // keep as-is but cloned so we can safely enrich
-      findings: deepClone(findings), // keep as-is
+      branding,
+      narrative: deepClone(narrative),
+      findings: deepClone(findings),
       delivery_signals: normalizedSignals,
       top_issues: topIssues,
     };
 
-    // ✅ Inject deterministic executive summary if narrative lines are missing
     ensureDeterministicExecutiveSummary(pdfPayload);
 
     return {
@@ -194,13 +197,133 @@ function numOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function str(v) {
+  return String(v || "").trim();
+}
+
+function firstNonEmpty(...vals) {
+  for (const v of vals) {
+    const s = str(v);
+    if (s) return s;
+  }
+  return "";
+}
+
+function boolFrom(...vals) {
+  for (const v of vals) {
+    if (typeof v === "boolean") return v;
+    if (v === 1 || v === "1" || v === "true") return true;
+    if (v === 0 || v === "0" || v === "false") return false;
+  }
+  return false;
+}
+
+function normalizeBranding(raw) {
+  const branding =
+    safeObj(raw.branding) ||
+    safeObj(raw.white_label) ||
+    safeObj(raw.whiteLabel) ||
+    safeObj(raw.report_branding) ||
+    safeObj(raw.reportBranding);
+
+  const companyName = firstNonEmpty(
+    branding.company_name,
+    branding.companyName,
+    branding.name,
+    raw.company_name,
+    raw.companyName
+  );
+
+  const companyWebsite = firstNonEmpty(
+    branding.website,
+    branding.company_website,
+    branding.companyWebsite
+  );
+
+  const companyEmail = firstNonEmpty(
+    branding.email,
+    branding.company_email,
+    branding.companyEmail
+  );
+
+  const companyPhone = firstNonEmpty(
+    branding.phone,
+    branding.company_phone,
+    branding.companyPhone
+  );
+
+  const reportTitle = firstNonEmpty(
+    branding.report_title,
+    branding.reportTitle,
+    branding.title,
+    "Website Report"
+  );
+
+  const logoUrl = firstNonEmpty(
+    branding.logo_url,
+    branding.logoUrl,
+    branding.logo,
+    branding.logo_path,
+    branding.logoPath
+  );
+
+  const bannerUrl = firstNonEmpty(
+    branding.banner_url,
+    branding.bannerUrl,
+    branding.banner,
+    branding.banner_path,
+    branding.bannerPath,
+    branding.header_image_url,
+    branding.headerImageUrl
+  );
+
+  const showHeaderContact = boolFrom(
+    branding.show_header_contact,
+    branding.showHeaderContact,
+    branding.show_contact_header,
+    branding.showContactHeader,
+    branding.header_show_contact,
+    branding.headerShowContact
+  );
+
+  const showFooterContact = boolFrom(
+    branding.show_footer_contact,
+    branding.showFooterContact,
+    branding.show_contact_footer,
+    branding.showContactFooter,
+    branding.footer_show_contact,
+    branding.footerShowContact
+  );
+
+  const showPoweredBy = boolFrom(
+    branding.show_powered_by,
+    branding.showPoweredBy,
+    branding.show_powered_by_iqweb,
+    branding.showPoweredByIqweb,
+    branding.show_attribution,
+    branding.showAttribution
+  );
+
+  return {
+    company_name: companyName,
+    website: companyWebsite,
+    email: companyEmail,
+    phone: companyPhone,
+    report_title: reportTitle || "Website Report",
+    logo_url: logoUrl,
+    banner_url: bannerUrl,
+    show_header_contact: showHeaderContact,
+    show_footer_contact: showFooterContact,
+    show_powered_by: showPoweredBy,
+  };
+}
+
 function ensureDeterministicExecutiveSummary(payload) {
   if (!payload || payload.success !== true) return;
 
   const n = safeObj(payload.narrative);
   const f = safeObj(payload.findings);
 
-  // existing lines?
   const existing =
     (n.overall && Array.isArray(n.overall.lines) && n.overall.lines.length) ||
     (n.executive && Array.isArray(n.executive.lines) && n.executive.lines.length) ||
@@ -227,16 +350,14 @@ function ensureDeterministicExecutiveSummary(payload) {
   const secondary = domains[1];
 
   const lines = [];
-
   if (overall !== null) lines.push(`Overall Delivery: ${overall}/100.`);
   if (primary) lines.push(`Primary Fix: ${primary.label} (${primary.score}/100).`);
   if (secondary) lines.push(`Secondary Fix: ${secondary.label} (${secondary.score}/100).`);
   lines.push("Re-scan after changes to confirm measurable improvement.");
 
-  // Write into payload.narrative in the format the PDF renderer already expects.
   payload.narrative = safeObj(payload.narrative);
-  payload.narrative.overall = { lines: lines };
-  payload.narrative.executive = { lines: lines };
+  payload.narrative.overall = { lines };
+  payload.narrative.executive = { lines };
 }
 
 function deriveTopIssuesFromSignals(signals) {
@@ -270,6 +391,7 @@ async function fetchTextWithTimeout(url, ms) {
       headers: { Accept: "application/json" },
       signal: controller.signal,
     });
+
     const txt = await resp.text().catch(() => "");
     if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
     if (!txt || txt.length < 2) throw new Error("Empty response from source report endpoint");
