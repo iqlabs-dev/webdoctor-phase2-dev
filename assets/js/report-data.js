@@ -402,65 +402,71 @@ function applyBrandingUI(branding) {
     agencyContactBlock.style.display = hasHeaderContact ? "block" : "none";
   }
 
-  // FOOTER CONTACT TOGGLE
-  var hasFooterContent = false;
+// FOOTER CONTACT TOGGLE
+var hasFooterContent = false;
 
+if (branding.show_footer_contact !== false) {
   if (footerAgencyName && branding.agency_name) {
     footerAgencyName.textContent = String(branding.agency_name);
+    footerAgencyName.style.display = "block";
     hasFooterContent = true;
   } else if (footerAgencyName) {
     footerAgencyName.textContent = "";
+    footerAgencyName.style.display = "none";
   }
 
-  if (branding.show_footer_contact !== false) {
-    if (footerAgencyWebsite && branding.agency_website) {
-      footerAgencyWebsite.textContent = String(branding.agency_website);
-      footerAgencyWebsite.style.display = "block";
-      hasFooterContent = true;
-    } else if (footerAgencyWebsite) {
-      footerAgencyWebsite.textContent = "";
-      footerAgencyWebsite.style.display = "none";
-    }
-
-    if (footerAgencyEmail && branding.agency_email) {
-      footerAgencyEmail.textContent = String(branding.agency_email);
-      footerAgencyEmail.style.display = "block";
-      hasFooterContent = true;
-    } else if (footerAgencyEmail) {
-      footerAgencyEmail.textContent = "";
-      footerAgencyEmail.style.display = "none";
-    }
-
-    if (footerAgencyPhone && branding.agency_phone) {
-      footerAgencyPhone.textContent = String(branding.agency_phone);
-      footerAgencyPhone.style.display = "block";
-      hasFooterContent = true;
-    } else if (footerAgencyPhone) {
-      footerAgencyPhone.textContent = "";
-      footerAgencyPhone.style.display = "none";
-    }
-  } else {
-    if (footerAgencyWebsite) {
-      footerAgencyWebsite.textContent = "";
-      footerAgencyWebsite.style.display = "none";
-    }
-    if (footerAgencyEmail) {
-      footerAgencyEmail.textContent = "";
-      footerAgencyEmail.style.display = "none";
-    }
-    if (footerAgencyPhone) {
-      footerAgencyPhone.textContent = "";
-      footerAgencyPhone.style.display = "none";
-    }
+  if (footerAgencyWebsite && branding.agency_website) {
+    footerAgencyWebsite.textContent = String(branding.agency_website);
+    footerAgencyWebsite.style.display = "block";
+    hasFooterContent = true;
+  } else if (footerAgencyWebsite) {
+    footerAgencyWebsite.textContent = "";
+    footerAgencyWebsite.style.display = "none";
   }
 
-  if (footer) {
-    footer.style.display = hasFooterContent ? "flex" : "none";
+  if (footerAgencyEmail && branding.agency_email) {
+    footerAgencyEmail.textContent = String(branding.agency_email);
+    footerAgencyEmail.style.display = "block";
+    hasFooterContent = true;
+  } else if (footerAgencyEmail) {
+    footerAgencyEmail.textContent = "";
+    footerAgencyEmail.style.display = "none";
   }
 
-  if (poweredBy) {
-    poweredBy.style.display = branding.show_powered_by === false ? "none" : "block";
+  if (footerAgencyPhone && branding.agency_phone) {
+    footerAgencyPhone.textContent = String(branding.agency_phone);
+    footerAgencyPhone.style.display = "block";
+    hasFooterContent = true;
+  } else if (footerAgencyPhone) {
+    footerAgencyPhone.textContent = "";
+    footerAgencyPhone.style.display = "none";
   }
+} else {
+  if (footerAgencyName) {
+    footerAgencyName.textContent = "";
+    footerAgencyName.style.display = "none";
+  }
+  if (footerAgencyWebsite) {
+    footerAgencyWebsite.textContent = "";
+    footerAgencyWebsite.style.display = "none";
+  }
+  if (footerAgencyEmail) {
+    footerAgencyEmail.textContent = "";
+    footerAgencyEmail.style.display = "none";
+  }
+  if (footerAgencyPhone) {
+    footerAgencyPhone.textContent = "";
+    footerAgencyPhone.style.display = "none";
+  }
+}
+
+if (footer) {
+  footer.style.display = (hasFooterContent || (branding.show_powered_by !== false)) ? "flex" : "none";
+}
+
+if (poweredBy) {
+  poweredBy.style.display = branding.show_powered_by === false ? "none" : "block";
+}
 }
 
   // -----------------------------
