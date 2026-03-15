@@ -261,8 +261,8 @@ export async function handler(event) {
     const scan = rows?.[0] || null;
     if (!scan) return json(404, { success: false, error: "Report not found" });
 
-   // -----------------------------
-    // Fetch branding including agency_report_title
+    // -----------------------------
+    // Fetch branding including report title + toggles
     // -----------------------------
     let branding = {
       agency_name: "",
@@ -271,14 +271,28 @@ export async function handler(event) {
       agency_phone: "",
       agency_logo_url: "",
       agency_accent_color: "",
-      agency_report_title: "", // <-- include this
+      agency_report_title: "",
+      show_header_contact: true,
+      show_footer_contact: true,
+      show_powered_by: true,
     };
 
     if (scan.user_id) {
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select(
-          "agency_name, agency_website, agency_email, agency_phone, agency_logo_url, agency_accent_color, agency_report_title"
+          `
+          agency_name,
+          agency_website,
+          agency_email,
+          agency_phone,
+          agency_logo_url,
+          agency_accent_color,
+          agency_report_title,
+          show_header_contact,
+          show_footer_contact,
+          show_powered_by
+          `
         )
         .eq("user_id", scan.user_id)
         .maybeSingle();
@@ -292,6 +306,9 @@ export async function handler(event) {
           agency_logo_url: profile.agency_logo_url || "",
           agency_accent_color: profile.agency_accent_color || "",
           agency_report_title: profile.agency_report_title || "",
+          show_header_contact: profile.show_header_contact !== false,
+          show_footer_contact: profile.show_footer_contact !== false,
+          show_powered_by: profile.show_powered_by !== false,
         };
       }
     }
@@ -375,15 +392,18 @@ export async function handler(event) {
         created_at: scan.created_at,
       },
 
-branding,
-agency_name: branding.agency_name,
-agency_website: branding.agency_website,
-agency_email: branding.agency_email,
-agency_phone: branding.agency_phone,
-agency_logo_url: branding.agency_logo_url,
-agency_accent_color: branding.agency_accent_color,
-agency_report_title: branding.agency_report_title, // <-- add this line
+      branding,
 
+      agency_name: branding.agency_name,
+      agency_website: branding.agency_website,
+      agency_email: branding.agency_email,
+      agency_phone: branding.agency_phone,
+      agency_logo_url: branding.agency_logo_url,
+      agency_accent_color: branding.agency_accent_color,
+      agency_report_title: branding.agency_report_title,
+      show_header_contact: branding.show_header_contact,
+      show_footer_contact: branding.show_footer_contact,
+      show_powered_by: branding.show_powered_by,
 
       basic_checks,
       security_headers,
