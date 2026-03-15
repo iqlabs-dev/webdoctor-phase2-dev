@@ -114,14 +114,13 @@
       gap: 4px;
     }
 
- #agencyLogo {
+#agencyLogo {
   display: block;
-  max-width: 140px;   /* larger thn previous 42px */
-  max-height: 140px;  /* larger than previous 42px */
+  max-width: 240px;
+  max-height: 90px;
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 6px;
 }
 
     .top-actions {
@@ -397,13 +396,17 @@
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
 
-    @media (max-width: 900px) {
-  #agencyLogo { max-width: 110px; max-height: 110px; }
+@media (max-width: 900px) {
+  #agencyLogo { max-width: 200px; max-height: 76px; }
 }
 
 @media (max-width: 700px) {
   .top-row { flex-direction: column; align-items: flex-start; }
-  #agencyLogo { margin-top: 12px; }
+  #agencyLogo {
+    margin-top: 12px;
+    max-width: 180px;
+    max-height: 68px;
+  }
 }
 
     .issue-title {
@@ -833,7 +836,7 @@
   </div>
 </div>
 
-    <!-- Right: Square logo -->
+   <!-- Right: Agency logo -->
     <img id="agencyLogo" alt="Agency logo" style="display:none;">
 
   </div>
