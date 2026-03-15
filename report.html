@@ -10,6 +10,7 @@
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
+
     body {
       font-family: "Montserrat", system-ui, sans-serif;
       background: radial-gradient(circle at top, #0b1730 0, #050814 60%, #020304 100%);
@@ -54,30 +55,29 @@
       gap: 18px;
     }
 
-#backToDashboard {
-    display: inline-block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ink); /* text color same as card */
-    background-color: rgba(255,255,255,0.04); /* matches card */
-    border: 1px solid rgba(255,255,255,0.08); /* subtle border */
-    padding: 4px 10px;          /* small tab */
-    border-radius: 6px 6px 0 0; /* rounded top corners */
-    margin-bottom: -18px;         /* drop so it touches the card */
-       margin-left: 15px;     /* shift slightly right */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* subtle shadow */
-    letter-spacing: 0.05em;
-    text-decoration: none;
-    width: max-content;          /* only as wide as text */
-    text-align: left;            /* text flush left */
-    transition: background 0.2s ease, transform 0.1s ease;
-}
+    #backToDashboard {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      background-color: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 4px 10px;
+      border-radius: 6px 6px 0 0;
+      margin-bottom: -18px;
+      margin-left: 15px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      letter-spacing: 0.05em;
+      text-decoration: none;
+      width: max-content;
+      text-align: left;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
 
-#backToDashboard:hover {
-    background-color: rgba(255,255,255,0.06); /* slightly brighter on hover */
-    transform: translateY(-1px);
-}
-
+    #backToDashboard:hover {
+      background-color: rgba(255,255,255,0.06);
+      transform: translateY(-1px);
+    }
 
     .top-card {
       width: 100%;
@@ -88,13 +88,13 @@
       padding: 16px 16px;
     }
 
-.top-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between; /* pushes logo right */
-  gap: 16px;
-  flex-wrap: wrap;
-}
+    .top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: nowrap;
+    }
 
     .brand {
       display: flex;
@@ -112,16 +112,37 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 0;
+      flex: 1 1 auto;
     }
 
-#agencyLogo {
-  display: block;
-  max-width: 240px;
-  max-height: 90px;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
+    .brand-copy .logo {
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      font-size: 18px;
+      line-height: 1.2;
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .logo-slot {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      min-width: 140px;
+      max-width: 320px;
+      margin-left: auto;
+    }
+
+    #agencyLogo {
+      display: block;
+      max-width: 320px;
+      max-height: 120px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
 
     .top-actions {
       display: flex;
@@ -184,8 +205,6 @@
     @media (max-width: 700px) {
       .meta-strip { grid-template-columns: 1fr; }
     }
-
-
 
     .overall-strip {
       display: flex;
@@ -396,18 +415,38 @@
     .issue { overflow: hidden; }
     .issue-top { align-items: flex-start; }
 
-@media (max-width: 900px) {
-  #agencyLogo { max-width: 200px; max-height: 76px; }
-}
+    @media (max-width: 900px) {
+      .logo-slot {
+        max-width: 240px;
+        min-width: 120px;
+      }
 
-@media (max-width: 700px) {
-  .top-row { flex-direction: column; align-items: flex-start; }
-  #agencyLogo {
-    margin-top: 12px;
-    max-width: 180px;
-    max-height: 68px;
-  }
-}
+      #agencyLogo {
+        max-width: 240px;
+        max-height: 90px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .top-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .logo-slot {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        margin-left: 0;
+        justify-content: flex-start;
+        margin-top: 12px;
+      }
+
+      #agencyLogo {
+        max-width: 220px;
+        max-height: 82px;
+      }
+    }
 
     .issue-title {
       flex: 1 1 auto;
@@ -813,59 +852,50 @@
   <div class="page-shell">
     <div class="shell-inner">
 
-            <!-- Floating tab above the card -->
       <a id="backToDashboard" href="/dashboard.html">Back to dashboard</a>
 
-<div class="top-card">
-  <div class="top-row">
-<!-- Left: Company info -->
-<div class="brand-copy">
-  <!-- Company name -->
-  <div class="logo" id="agencyName"></div>
+      <div class="top-card">
+        <div class="top-row">
+          <div class="brand-copy">
+            <div class="logo" id="agencyName"></div>
 
-  <!-- Report subtitle / title -->
-  <div id="agencyReportLabel"
-       style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
-  </div>
+            <div id="agencyReportLabel"
+                 style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+            </div>
 
-  <!-- Agency contact block (optional, hidden by default) -->
-  <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
-    <div id="agencyWebsiteLine" style="display:none;"></div>
-    <div id="agencyEmailLine" style="display:none;"></div>
-    <div id="agencyPhoneLine" style="display:none;"></div>
-  </div>
-</div>
+            <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+              <div id="agencyWebsiteLine" style="display:none;"></div>
+              <div id="agencyEmailLine" style="display:none;"></div>
+              <div id="agencyPhoneLine" style="display:none;"></div>
+            </div>
+          </div>
 
-   <!-- Right: Agency logo -->
-    <img id="agencyLogo" alt="Agency logo" style="display:none;">
+          <div class="logo-slot">
+            <img id="agencyLogo" alt="Agency logo" style="display:none;">
+          </div>
+        </div>
 
-  </div>
+        <div class="top-actions">
+          <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
+        </div>
 
-  <!-- Top actions (buttons) -->
-  <div class="top-actions">
-    <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
-    <!-- Refresh button removed -->
-  </div>
+        <div class="meta-strip">
+          <div class="meta-cell">
+            <div class="k">Website</div>
+            <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
+          </div>
 
-  <!-- Report metadata -->
-  <div class="meta-strip">
-    <div class="meta-cell">
-      <div class="k">Website</div>
-      <a class="v linkish" id="siteUrl" href="#" target="_blank" rel="noopener noreferrer">—</a>
-    </div>
+          <div class="meta-cell">
+            <div class="k">Report ID</div>
+            <div class="v" id="reportId">—</div>
+          </div>
 
-    <div class="meta-cell">
-      <div class="k">Report ID</div>
-      <div class="v" id="reportId">—</div>
-    </div>
-
-    <div class="meta-cell">
-      <div class="k">Report Date</div>
-      <div class="v" id="reportDate">—</div>
-    </div>
-  </div>
-</div>
-
+          <div class="meta-cell">
+            <div class="k">Report Date</div>
+            <div class="v" id="reportDate">—</div>
+          </div>
+        </div>
+      </div>
 
       <section id="loaderSection" class="loader-wrap">
         <div class="pulse" aria-hidden="true"></div>
@@ -1067,9 +1097,9 @@
           <div id="footerAgencyPhone"></div>
         </div>
 
-     <div id="powered-by" style="text-align:right; white-space:nowrap; color:rgba(229,240,255,0.60);">
-  Powered by iQWEB
-</div>
+        <div id="powered-by" style="text-align:right; white-space:nowrap; color:rgba(229,240,255,0.60);">
+          Powered by iQWEB
+        </div>
       </div>
 
     </div>
