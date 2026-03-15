@@ -158,7 +158,8 @@ async function loadBranding() {
       agency_logo_url,
       agency_report_title,
       show_header_contact,
-      show_footer_contact
+      show_footer_contact,
+      show_powered_by
     `)
     .eq("user_id", currentUserId)
     .single();
@@ -176,6 +177,7 @@ async function loadBranding() {
 
   setChecked("brand-show-header-contact", data.show_header_contact !== false);
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
+  setChecked("brand-show-powered", data.show_powered_by !== false);
 
   if (data.agency_logo_url) {
     showLogo(data.agency_logo_url);
@@ -205,7 +207,8 @@ async function saveBranding() {
     agency_phone: textValue("brand-phone"),
     agency_report_title: textValue("brand-report-title") || "Website Report",
     show_header_contact: boolValue("brand-show-header-contact", true),
-    show_footer_contact: boolValue("brand-show-footer-contact", true)
+    show_footer_contact: boolValue("brand-show-footer-contact", true),
+    show_powered_by: boolValue("brand-show-powered", true)
   };
 
   const ok = await saveProfileData(payload);
@@ -303,7 +306,8 @@ function wirePreviewInputs() {
     "brand-phone",
     "brand-report-title",
     "brand-show-header-contact",
-    "brand-show-footer-contact"
+    "brand-show-footer-contact",
+    "brand-show-powered"
   ];
 
   ids.forEach((id) => {

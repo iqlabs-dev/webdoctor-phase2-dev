@@ -282,15 +282,16 @@
     return safeObj(data.branding);
   }
 
-  return {
-    agency_name: data.agency_name || "",
-    agency_website: data.agency_website || "",
-    agency_email: data.agency_email || "",
-    agency_phone: data.agency_phone || "",
-    agency_logo_url: data.agency_logo_url || "",
-    agency_accent_color: data.agency_accent_color || "",
-    agency_report_title: data.agency_report_title || ""  // <-- ADD THIS LINE
-  };
+return {
+  agency_name: data.agency_name || "",
+  agency_website: data.agency_website || "",
+  agency_email: data.agency_email || "",
+  agency_phone: data.agency_phone || "",
+  agency_logo_url: data.agency_logo_url || "",
+  agency_accent_color: data.agency_accent_color || "",
+  agency_report_title: data.agency_report_title || "",
+  show_powered_by: data.show_powered_by
+};
 }
 
 
@@ -313,6 +314,7 @@ function applyBrandingUI(branding) {
   var footerAgencyWebsite = $("footerAgencyWebsite");
   var footerAgencyEmail = $("footerAgencyEmail");
   var footerAgencyPhone = $("footerAgencyPhone");
+  var poweredBy = $("powered-by");
 
 /* company name */
 if (agencyName && branding.agency_name) {
@@ -411,6 +413,9 @@ if (agencyReportLabel) {
   if (footer) {
     footer.style.display = hasFooterContent ? "flex" : "none";
   }
+  if (footer) {
+  footer.style.display = hasFooterContent ? "flex" : "none";
+}
 }
 
   // -----------------------------
