@@ -4,7 +4,7 @@ console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.5 — stable dashboard flow + scan history + billing portal");
+console.log("DASHBOARD JS v4.6 — stable dashboard flow + scan history + billing portal + PDF download");
 
 let currentUserId = null;
 
@@ -77,6 +77,56 @@ function goToReportFromHistory(reportId) {
   const url = `/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
   console.log("[NAV] history new-tab ->", url);
   window.open(url, "_blank", "noopener");
+}
+
+/**
+ * Download report PDF
+ */
+async function downloadReportPdf(reportId, buttonEl) {
+  const rid = normaliseReportId(reportId);
+  if (!rid) {
+    alert("Report ID not ready yet. Please refresh in a moment.");
+    return;
+  }
+
+  const btn = buttonEl || null;
+  const originalText = btn ? btn.textContent : "";
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+    }
+
+    const res = await fetch(
+      `/.netlify/functions/download-pdf?report_id=${encodeURIComponent(rid)}`
+    );
+
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(msg || `PDF generation failed (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${rid}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("[PDF] download failed:", err);
+    alert("Unable to generate PDF right now.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
 }
 
 function setUserUI(email) {
