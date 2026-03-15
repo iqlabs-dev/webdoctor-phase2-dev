@@ -6,9 +6,6 @@ const $ = (id) => document.getElementById(id);
 let currentUserId = null;
 let currentLogoPath = null;
 
-// ---------------------------
-// Small helpers
-// ---------------------------
 function textValue(id) {
   const el = $(id);
   return el ? String(el.value || "").trim() : "";
@@ -35,32 +32,26 @@ function extractStoragePathFromPublicUrl(url) {
     const marker = "/storage/v1/object/public/branding-assets/";
     const idx = String(url || "").indexOf(marker);
     if (idx === -1) return null;
-    return decodeURIComponent(String(url).slice(idx + marker.length));
+    const raw = String(url).slice(idx + marker.length).split("?")[0];
+    return decodeURIComponent(raw);
   } catch (err) {
     return null;
   }
 }
 
-// ---------------------------
-// Logo UI helpers
-// ---------------------------
-function showLogo(src) {
-  const boxPreview = $("brand-logo-preview");
+function updateLogoState(hasLogo) {
   const empty = $("logo-preview-empty");
-
-  if (boxPreview) {
-    boxPreview.src = src || "";
-    boxPreview.style.display = src ? "block" : "none";
-  }
+  const removeBtn = $("brand-logo-remove");
 
   if (empty) {
-    empty.style.display = src ? "none" : "inline";
+    empty.textContent = hasLogo ? "Logo uploaded." : "No logo uploaded yet.";
+  }
+
+  if (removeBtn) {
+    removeBtn.disabled = !hasLogo;
   }
 }
 
-// ---------------------------
-// Auth
-// ---------------------------
 async function getUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data || !data.user) {
@@ -72,9 +63,6 @@ async function getUser() {
   return true;
 }
 
-// ---------------------------
-// Save helpers
-// ---------------------------
 async function saveProfileData(payload) {
   if (!currentUserId) return false;
 
@@ -85,16 +73,13 @@ async function saveProfileData(payload) {
 
   if (error) {
     console.error("[branding] save failed:", error);
-    alert("Branding save failed.");
+    alert(error.message || "Branding save failed.");
     return false;
   }
 
   return true;
 }
 
-// ---------------------------
-// Load branding
-// ---------------------------
 async function loadBranding() {
   if (!currentUserId) return;
 
@@ -129,18 +114,13 @@ async function loadBranding() {
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
   setChecked("brand-show-powered", data.show_powered_by !== false);
 
-  if (data.agency_logo_url) {
-    showLogo(data.agency_logo_url);
-    currentLogoPath = extractStoragePathFromPublicUrl(data.agency_logo_url);
-  } else {
-    showLogo("");
-    currentLogoPath = null;
-  }
+  currentLogoPath = data.agency_logo_url
+    ? extractStoragePathFromPublicUrl(data.agency_logo_url)
+    : null;
+
+  updateLogoState(!!currentLogoPath);
 }
 
-// ---------------------------
-// Save branding
-// ---------------------------
 async function saveBranding() {
   const btn = $("brand-save");
   const originalText = btn ? btn.textContent : "Save Branding";
@@ -175,28 +155,51 @@ async function saveBranding() {
   }
 }
 
-// ---------------------------
-// Upload/remove helpers
-// ---------------------------
+function validateLogoFile(file) {
+  if (!file) return "No file selected.";
+
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/svg+xml"
+  ];
+
+  if (!allowedTypes.includes(file.type)) {
+    return "Allowed formats: PNG, JPG, WEBP, SVG.";
+  }
+
+  const maxBytes = 2 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return "Logo must be under 2MB.";
+  }
+
+  return "";
+}
+
 async function uploadAsset(file) {
   if (!file || !currentUserId) return null;
 
   const ext = (file.name.split(".").pop() || "png").toLowerCase();
   const safeExt = ["png", "jpg", "jpeg", "webp", "svg"].includes(ext) ? ext : "png";
-  const path = `logos/${currentUserId}/logo.${safeExt}`;
+  const path = `logos/${currentUserId}/logo-${Date.now()}.${safeExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from("branding-assets")
-    .upload(path, file, { upsert: true });
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type || undefined,
+      cacheControl: "3600"
+    });
 
   if (uploadError) {
     console.error("[branding] logo upload failed:", uploadError);
-    alert("Logo upload failed.");
+    alert(uploadError.message || "Logo upload failed.");
     return null;
   }
 
   const { data } = supabase.storage.from("branding-assets").getPublicUrl(path);
-  const publicUrl = data?.publicUrl || "";
+  const publicUrl = data?.publicUrl ? `${data.publicUrl}?v=${Date.now()}` : "";
 
   if (!publicUrl) {
     alert("Logo uploaded, but URL could not be created.");
@@ -207,26 +210,38 @@ async function uploadAsset(file) {
 }
 
 async function uploadLogo(file) {
-  if (!file) return;
-
-  const maxBytes = 2 * 1024 * 1024;
-  if (file.size > maxBytes) {
-    alert("Logo must be under 2MB.");
-    const input = $("brand-logo");
+  const input = $("brand-logo");
+  const errorText = validateLogoFile(file);
+  if (errorText) {
+    alert(errorText);
     if (input) input.value = "";
     return;
   }
 
   const result = await uploadAsset(file);
   if (!result) return;
-  if (!await saveProfileData({ agency_logo_url: result.publicUrl })) return;
+
+  if (currentLogoPath && currentLogoPath !== result.path) {
+    try {
+      await supabase.storage.from("branding-assets").remove([currentLogoPath]);
+    } catch (err) {
+      console.warn("[branding] old logo cleanup warning:", err);
+    }
+  }
+
+  const saved = await saveProfileData({ agency_logo_url: result.publicUrl });
+  if (!saved) return;
 
   currentLogoPath = result.path;
-  showLogo(result.publicUrl);
+  updateLogoState(true);
+
+  if (input) input.value = "";
 }
 
 async function removeLogo() {
   const btn = $("brand-logo-remove");
+  const input = $("brand-logo");
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = "Removing...";
@@ -242,10 +257,10 @@ async function removeLogo() {
     }
   }
 
-  if (await saveProfileData({ agency_logo_url: null })) {
+  const ok = await saveProfileData({ agency_logo_url: null });
+  if (ok) {
     currentLogoPath = null;
-    showLogo("");
-    const input = $("brand-logo");
+    updateLogoState(false);
     if (input) input.value = "";
   }
 
@@ -255,9 +270,6 @@ async function removeLogo() {
   }
 }
 
-// ---------------------------
-// Wiring
-// ---------------------------
 function wireSaveButton() {
   const btn = $("brand-save");
   if (!btn) return;
@@ -284,9 +296,6 @@ function wireLogoRemove() {
   });
 }
 
-// ---------------------------
-// Init
-// ---------------------------
 document.addEventListener("DOMContentLoaded", async () => {
   if (!await getUser()) return;
 

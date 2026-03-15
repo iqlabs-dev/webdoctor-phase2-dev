@@ -672,30 +672,10 @@
       margin-top: 10px;
     }
 
-    .logo-preview-box{
-      min-height: 72px;
-      border: 1px dashed rgba(255,255,255,.12);
-      border-radius: 14px;
-      background: rgba(255,255,255,.02);
-      padding: 14px;
-      display:flex;
-      align-items:center;
-      justify-content:flex-start;
-      margin-top: 14px;
-    }
-
-    .logo-preview-empty{
+    .logo-upload-status{
+      margin-top: 12px;
       font-size: 12px;
       color: var(--muted2);
-    }
-
-    .logo-preview-img{
-      max-width: 160px;
-      max-height: 40px;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      display:none;
     }
 
     .brand-toggle{
@@ -1078,10 +1058,7 @@
                 <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
               </div>
 
-              <div class="logo-preview-box">
-                <span id="logo-preview-empty" class="logo-preview-empty">No logo uploaded yet.</span>
-                <img id="brand-logo-preview" class="logo-preview-img" alt="Logo preview" />
-              </div>
+              <div id="logo-preview-empty" class="logo-upload-status">No logo uploaded yet.</div>
             </div>
 
             <div class="branding-savebar">
@@ -1158,56 +1135,24 @@ if (pageSubtitle) {
       closeContact();
     });
 
-    const brandCompany = $('#brand-company');
-    const brandWebsite = $('#brand-website');
-    const brandEmail = $('#brand-email');
-    const brandPhone = $('#brand-phone');
     const brandLogo = $('#brand-logo');
-    const brandLogoPreview = $('#brand-logo-preview');
     const logoPreviewEmpty = $('#logo-preview-empty');
     const brandLogoRemove = $('#brand-logo-remove');
 
-    function updateBrandPreview(){
-      return;
-    }
-
     if (brandLogo) {
-      brandLogo.addEventListener('change', (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const src = event.target?.result;
-          if (!src) return;
-
-          if (brandLogoPreview) {
-            brandLogoPreview.src = src;
-            brandLogoPreview.style.display = 'block';
-          }
-
-          if (logoPreviewEmpty) {
-            logoPreviewEmpty.style.display = 'none';
-          }
-        };
-        reader.readAsDataURL(file);
+      brandLogo.addEventListener('change', () => {
+        if (logoPreviewEmpty && brandLogo.files?.[0]) {
+          logoPreviewEmpty.textContent = 'Uploading...';
+        }
       });
     }
 
     if (brandLogoRemove) {
       brandLogoRemove.addEventListener('click', () => {
-        if (brandLogo) brandLogo.value = '';
-        if (brandLogoPreview) {
-          brandLogoPreview.src = '';
-          brandLogoPreview.style.display = 'none';
-        }
-        if (logoPreviewEmpty) {
-          logoPreviewEmpty.style.display = 'inline';
-        }
+        if (logoPreviewEmpty) logoPreviewEmpty.textContent = 'No logo uploaded yet.';
       });
     }
 
-    updateBrandPreview();
   </script>
 </body>
 </html>
