@@ -518,7 +518,45 @@ body {
   size: A4;
   margin: 16mm;
 }
+/* ---------- PDF GRID FIX FOR DOCRAPTOR ---------- */
 
+.metrics-grid,
+.cards-grid,
+.delivery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* force 2 column layout */
+.metrics-grid > *,
+.cards-grid > *,
+.delivery-grid > * {
+  width: calc(50% - 8px);
+}
+
+/* prevent cards splitting across pages */
+.signal-card,
+.metric-card,
+.delivery-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* keep header together */
+.report-header {
+  page-break-after: avoid;
+}
+
+/* keep footer with last section */
+.report-footer {
+  page-break-before: avoid;
+}
+
+/* slightly tighter text for PDF */
+.signal-card p {
+  line-height: 1.3;
+}
 </style>
 </head>
 <body>
