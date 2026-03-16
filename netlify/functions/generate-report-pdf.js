@@ -61,9 +61,9 @@ export async function handler(event) {
       };
     }
 
-    const siteUrl = process.env.URL || "https://iqweb.ai";
+    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
     const htmlURL =
-      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(report_id)}`;
+      `${siteUrl}/report_pdf.html?report_id=${encodeURIComponent(report_id)}`;
 
     const response = await fetch("https://docraptor.com/docs", {
       method: "POST",

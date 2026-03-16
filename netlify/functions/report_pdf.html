@@ -2,94 +2,690 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>iQWEB Website Report (PDF)</title>
+  <title>iQWEB Website Report — PDF Summary</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- PDF polyfills for DocRaptor/Prince -->
+  <script>
+  (function () {
+    if (typeof Promise !== "function") {
+      function PolyPromise(fn) {
+        var state = "pending", value, handlers = [];
+        function fulfill(r){ state="fulfilled"; value=r; handlers.slice().forEach(handle); handlers=[]; }
+        function reject(e){ state="rejected"; value=e; handlers.slice().forEach(handle); handlers=[]; }
+        function resolve(r){
+          try{
+            if (r===this) throw new TypeError("Promise self-resolution");
+            if (r && (typeof r==="object" || typeof r==="function")) {
+              var then = r.then;
+              if (typeof then==="function") return then.call(r, resolve, reject);
+            }
+            fulfill(r);
+          }catch(e){ reject(e); }
+        }
+        function handle(h){
+          if(state==="pending"){ handlers.push(h); return; }
+          var cb = state==="fulfilled" ? h.onFulfilled : h.onRejected;
+          if(!cb){ (state==="fulfilled"?h.resolve:h.reject)(value); return; }
+          try{ h.resolve(cb(value)); }catch(e){ h.reject(e); }
+        }
+        this.then=function(a,b){ return new PolyPromise(function(res,rej){ handle({onFulfilled: typeof a==="function"?a:null, onRejected: typeof b==="function"?b:null, resolve:res, reject:rej}); }); };
+        this.catch=function(b){ return this.then(null,b); };
+        try{ fn(resolve,reject); }catch(e){ reject(e); }
+      }
+      PolyPromise.resolve=function(v){ return new PolyPromise(function(res){ res(v); }); };
+      PolyPromise.reject=function(e){ return new PolyPromise(function(_,rej){ rej(e); }); };
+      PolyPromise.all=function(arr){
+        return new PolyPromise(function(resolve,reject){
+          if(!arr||!arr.length) return resolve([]);
+          var out=new Array(arr.length), remaining=arr.length;
+          for(var i=0;i<arr.length;i++)(function(i){
+            PolyPromise.resolve(arr[i]).then(function(v){ out[i]=v; remaining--; if(remaining===0) resolve(out); }, reject);
+          })(i);
+        });
+      };
+      window.Promise = PolyPromise;
+    }
+
+    if (typeof window.fetch !== "function") {
+      function Response(text, opts){
+        opts=opts||{};
+        this._text=text||"";
+        this.status=opts.status||200;
+        this.ok=this.status>=200 && this.status<300;
+        this.statusText=opts.statusText||"";
+      }
+      Response.prototype.text=function(){ return Promise.resolve(this._text); };
+      Response.prototype.json=function(){ try{ return Promise.resolve(JSON.parse(this._text||"{}")); }catch(e){ return Promise.reject(e);} };
+
+      window.fetch=function(url, opts){
+        opts=opts||{};
+        return new Promise(function(resolve, reject){
+          try{
+            var xhr=new XMLHttpRequest();
+            xhr.open(opts.method||"GET", url, true);
+            var headers=opts.headers||{};
+            for(var k in headers) if(Object.prototype.hasOwnProperty.call(headers,k)) xhr.setRequestHeader(k, headers[k]);
+            xhr.onload=function(){ resolve(new Response(xhr.responseText, {status:xhr.status, statusText:xhr.statusText})); };
+            xhr.onerror=function(){ reject(new TypeError("Network request failed")); };
+            xhr.send(opts.body||null);
+          }catch(e){ reject(e); }
+        });
+      };
+    }
+  })();
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <style>
-    /* TEXT-FIRST / PRINT-FIRST (no fancy cards yet) */
-    @page { size: A4; margin: 14mm; }
     * { box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; }
-    .muted { color: #666; }
-    .small { font-size: 10px; }
-    h1 { font-size: 18px; margin: 0 0 6px; }
-    h2 { font-size: 13px; margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd; }
-    h3 { font-size: 12px; margin: 14px 0 6px; }
-    p, li { font-size: 10.5px; line-height: 1.35; margin: 6px 0; }
-    ul { margin: 6px 0 6px 18px; padding: 0; }
-    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-    .brand { font-weight: 700; font-size: 14px; }
-    .meta { text-align: right; font-size: 10px; line-height: 1.35; }
-    hr { border: 0; border-top: 1px solid #ddd; margin: 12px 0; }
-    .section-note { margin-top: 2px; }
-    .page-break { page-break-before: always; }
-    .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #eee; display: flex; justify-content: space-between; font-size: 9px; color: #666; }
-    /* Make long words/URLs wrap */
-    .wrap { word-break: break-word; overflow-wrap: anywhere; }
+    html, body { margin: 0; padding: 0; }
+
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #020304;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --good: #22c55e;
+      --warn: #f59e0b;
+      --bad: #ef4444;
+      --card: rgba(255,255,255,0.06);
+      --card-2: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.10);
+      --border-subtle: rgba(255,255,255,0.08);
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+      --radius: 18px;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, #050814 60%, #020304 100%);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      padding: 4px 0 20px;
+    }
+
+    .page-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .shell-inner {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .top-card {
+      width: 100%;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(34,211,238,0.12), rgba(255,255,255,0.03));
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow);
+      padding: 16px 16px;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: 0.02em;
+      margin: 0;
+    }
+
+    .brand-subtitle {
+      color: var(--ink-soft);
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+
+    .brand-contact {
+      margin-top: 8px;
+      color: var(--ink);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .brand-logo img {
+      max-width: 120px;
+      max-height: 120px;
+      display: block;
+      object-fit: contain;
+    }
+
+    .meta-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .meta-cell {
+      background: rgba(0,0,0,0.22);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .meta-cell .k {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .meta-cell .v {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .section {
+      border-radius: var(--radius);
+      border: 1px solid var(--border-subtle);
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .section-body {
+      padding: 0;
+    }
+
+    .key-findings-table {
+      width: 100%;
+      display: grid;
+    }
+
+    .kf-row {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 18px;
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .kf-row:first-child {
+      border-top: 0;
+    }
+
+    .kf-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .kf-value {
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .overall-strip {
+      margin: 14px 16px 12px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.18);
+    }
+
+    .overall-strip-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .overall-strip-title {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .overall-strip-score {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .overall-strip-note {
+      margin: 10px 0 0;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--ink-soft);
+    }
+
+    .bar {
+      height: 8px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar > div {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #29d3f1 0%, #3ac364 100%);
+      width: 0%;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 0 16px 16px;
+    }
+
+    .signal-card {
+      border-radius: 18px;
+      padding: 14px 14px 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: linear-gradient(180deg, rgba(0,0,0,0.14), rgba(255,255,255,0.02));
+      min-height: 190px;
+      position: relative;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .signal-card.good { border-color: rgba(34,197,94,0.55); }
+    .signal-card.warn { border-color: rgba(245,158,11,0.60); }
+    .signal-card.bad  { border-color: rgba(239,68,68,0.60); }
+
+    .signal-badge {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #ff6b5d;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .signal-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .signal-name {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+
+    .signal-score {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .score-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #29d3f1 0%, #3ac364 100%);
+      width: 0%;
+    }
+
+    .signal-status {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .signal-copy {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink);
+    }
+
+    .footer {
+      margin-top: 6px;
+      padding: 14px 4px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.55);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .loader-wrap {
+      width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-subtle);
+      background: rgba(255,255,255,0.04);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+
+    .pulse {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--accent);
+      animation: pulse 1.3s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(.9); opacity: .55; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(.9); opacity: .55; }
+    }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .meta-strip { grid-template-columns: 1fr; }
+      .kf-row { grid-template-columns: 1fr; gap: 8px; }
+      .top-row { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+
+      .page-shell,
+      .shell-inner {
+        max-width: 100%;
+        gap: 12px;
+      }
+
+      .section,
+      .top-card,
+      .signal-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
   </style>
 </head>
 
 <body>
+  <div class="page-shell">
+    <div class="shell-inner">
 
-  <!-- HEADER -->
-  <div class="topbar">
-    <div>
-      <div class="brand">iQWEB</div>
-      <div class="muted small">Powered by Λ i Q™</div>
-    </div>
-    <div class="meta">
-      <div><strong>Website:</strong> <span class="wrap">{{website_url}}</span></div>
-      <div><strong>Report ID:</strong> {{report_id}}</div>
-      <div><strong>Report Date:</strong> {{report_date}}</div>
+      <div class="top-card">
+        <div class="top-row">
+          <div class="brand-block">
+            <div class="brand-title" id="pdfBrandTitle">iQWEB</div>
+            <div class="brand-subtitle" id="pdfBrandSubtitle">Website Report</div>
+            <div class="brand-contact" id="pdfBrandContact"></div>
+          </div>
+
+          <div class="brand-logo" id="pdfBrandLogo"></div>
+        </div>
+
+        <div class="meta-strip">
+          <div class="meta-cell">
+            <div class="k">Website</div>
+            <div class="v" id="siteUrl">—</div>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report ID</div>
+            <div class="v" id="reportId">—</div>
+          </div>
+
+          <div class="meta-cell">
+            <div class="k">Report Date</div>
+            <div class="v" id="reportDate">—</div>
+          </div>
+        </div>
+      </div>
+
+      <section id="loaderSection" class="loader-wrap">
+        <div class="pulse" aria-hidden="true"></div>
+        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
+        <div id="loaderStatus" class="muted" style="font-size:12px;">
+          Fetching scan data and rendering summary signals.
+        </div>
+      </section>
+
+      <main id="reportRoot" style="display:none;">
+        <section class="section" id="keyFindingsSection">
+          <div class="section-head">
+            <h2 class="section-title">Key Findings</h2>
+          </div>
+          <div class="section-body">
+            <div class="key-findings-table" id="keyFindingsTable"></div>
+          </div>
+        </section>
+
+        <section class="section" id="deliverySignalsSection">
+          <div class="section-head">
+            <h2 class="section-title">Delivery Signals</h2>
+          </div>
+
+          <div class="section-body">
+            <div class="overall-strip">
+              <div class="overall-strip-top">
+                <h3 class="overall-strip-title" id="overallLabel">Overall Delivery Score</h3>
+                <div class="overall-strip-score" id="overallPill">—</div>
+              </div>
+
+              <div class="bar">
+                <div id="overallBar"></div>
+              </div>
+
+              <p class="overall-strip-note" id="overallNote"></p>
+            </div>
+
+            <div id="signalsGrid" class="grid"></div>
+          </div>
+        </section>
+      </main>
+
+      <div class="footer">
+        <div id="pdfFooterLeft">© 2025 iQWEB – All rights reserved.</div>
+        <div id="pdfFooterRight"></div>
+      </div>
     </div>
   </div>
 
-  <hr />
+  <script src="/assets/js/report-data.js"></script>
 
-  <!-- EXECUTIVE NARRATIVE -->
-  <h2>Executive Narrative</h2>
-  {{executive_narrative}}
+  <script>
+    window.__IQWEB_REPORT_READY = false;
+    window.docraptorJavaScriptFinished = function () {
+      return window.__IQWEB_REPORT_READY === true;
+    };
 
-  <!-- DELIVERY SIGNALS -->
-  <h2>Delivery Signals</h2>
-  <p class="muted section-note small">{{overall_delivery_note}}</p>
-  <p><strong>Overall Delivery Score:</strong> {{overall_score}} / 100</p>
+    function safeText(v) {
+      return String(v == null ? "" : v);
+    }
 
-  <!-- This block is server-rendered HTML (per-signal name, score, and narrative lines) -->
-  {{delivery_signals}}
+    function setBrandingFromPage() {
+      try {
+        var headerTitle = document.querySelector(".brand-title, .company-name, .report-brand-title");
+        var headerSubtitle = document.querySelector(".brand-subtitle, .report-title, .report-brand-subtitle");
+        var headerContact = document.querySelector(".brand-contact, .report-brand-contact");
+        var headerLogoImg = document.querySelector(".brand-logo img, .logo-wrap img, .report-brand-logo img");
 
-  <!-- SIGNAL EVIDENCE (NEW PAGE) -->
-  <div class="page-break"></div>
-  <h2>Signal Evidence</h2>
-  <p class="muted small">Evidence below shows measurable observations captured during this scan (values are not guessed).</p>
+        if (headerTitle && document.getElementById("pdfBrandTitle")) {
+          document.getElementById("pdfBrandTitle").textContent = headerTitle.textContent.trim() || "iQWEB";
+        }
 
-  <!-- This block is server-rendered HTML (observations tables + issues list per signal) -->
-  {{signal_evidence}}
+        if (headerSubtitle && document.getElementById("pdfBrandSubtitle")) {
+          document.getElementById("pdfBrandSubtitle").textContent = headerSubtitle.textContent.trim() || "Website Report";
+        }
 
-  <!-- INSIGHT METRICS -->
-  <div class="page-break"></div>
-  <h2>Key Insight Metrics</h2>
-  <p><strong>Strength:</strong> {{insight_strength}}</p>
-  <p><strong>Risk:</strong> {{insight_risk}}</p>
-  <p><strong>Focus:</strong> {{insight_focus}}</p>
-  <p><strong>Next:</strong> {{insight_next}}</p>
+        if (headerContact && document.getElementById("pdfBrandContact")) {
+          document.getElementById("pdfBrandContact").innerHTML = headerContact.innerHTML;
+        }
 
-  <!-- TOP ISSUES -->
-  <h2>Top Issues Detected</h2>
-  {{top_issues}}
+        if (headerLogoImg && document.getElementById("pdfBrandLogo")) {
+          document.getElementById("pdfBrandLogo").innerHTML =
+            '<img src="' + headerLogoImg.src + '" alt="Logo">';
+        }
+      } catch (_) {}
+    }
 
-  <!-- FIX SEQUENCE -->
-  <h2>Recommended Fix Sequence</h2>
-  <p>{{fix_sequence_summary}}</p>
-  {{fix_sequence_list}}
+    function buildKeyFindingsFromLivePage() {
+      var target = document.getElementById("keyFindingsTable");
+      if (!target) return;
 
-  <!-- FINAL NOTES -->
-  <h2>Final Notes</h2>
-  {{final_notes}}
+      var sourceRows = document.querySelectorAll(
+        "#fixFirstBlock .finding-row, #keyFindingsSection .finding-row, .finding-row"
+      );
 
-  <div class="footer">
-    <div>© 2025 iQWEB — All rights reserved.</div>
-    <div>{{report_id}}</div>
-  </div>
+      if (!sourceRows.length) {
+        target.innerHTML = "";
+        return;
+      }
 
+      target.innerHTML = "";
+      sourceRows.forEach(function (row) {
+        var labelEl = row.querySelector(".finding-label");
+        var valueEl = row.querySelector(".finding-value");
+
+        if (!labelEl || !valueEl) return;
+
+        var wrap = document.createElement("div");
+        wrap.className = "kf-row";
+        wrap.innerHTML =
+          '<div class="kf-label">' + labelEl.innerHTML + '</div>' +
+          '<div class="kf-value">' + valueEl.innerHTML + '</div>';
+        target.appendChild(wrap);
+      });
+    }
+
+    function trimToSummaryMode() {
+      var idsToRemove = [
+        "executiveNarrativeSection",
+        "signalEvidenceSection",
+        "keyInsightsSection",
+        "topIssuesSection",
+        "fixSequenceSection",
+        "finalNotesSection",
+        "fixFirstBlock"
+      ];
+
+      idsToRemove.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.remove();
+      });
+
+      var narrativeText = document.getElementById("narrativeText");
+      if (narrativeText && narrativeText.closest(".section")) {
+        narrativeText.closest(".section").remove();
+      }
+
+      buildKeyFindingsFromLivePage();
+      setBrandingFromPage();
+
+      var reportId = document.getElementById("reportId");
+      var footerRight = document.getElementById("pdfFooterRight");
+      if (reportId && footerRight) {
+        footerRight.textContent = reportId.textContent.trim();
+      }
+    }
+
+    (function waitForReportReady() {
+      var reportRoot = document.getElementById("reportRoot");
+      var loader = document.getElementById("loaderSection");
+      var signals = document.getElementById("signalsGrid");
+
+      var loaderHidden =
+        loader &&
+        (loader.style.display === "none" || getComputedStyle(loader).display === "none");
+
+      var reportVisible =
+        reportRoot &&
+        (reportRoot.style.display !== "none" && getComputedStyle(reportRoot).display !== "none");
+
+      var hasSignals =
+        signals && signals.children && signals.children.length > 0;
+
+      if (loaderHidden && reportVisible && hasSignals) {
+        trimToSummaryMode();
+        window.__IQWEB_REPORT_READY = true;
+        return;
+      }
+
+      setTimeout(waitForReportReady, 150);
+    })();
+
+    setTimeout(function () {
+      try { trimToSummaryMode(); } catch (_) {}
+      if (!window.__IQWEB_REPORT_READY) window.__IQWEB_REPORT_READY = true;
+    }, 30000);
+  </script>
 </body>
 </html>
