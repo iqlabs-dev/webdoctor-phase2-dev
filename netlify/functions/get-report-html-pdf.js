@@ -419,37 +419,45 @@ exports.handler = async (event) => {
       white-space: pre-line;
     }
 
-    .signal-badge {
-      display: inline-block;
-      margin: 0 0 8px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: #ef5f56;
-      color: #ffffff;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+   .signal-badge {
+  display: inline-block;
+  margin: -4px 0 5px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #ef5f56;
+  color: #ffffff;
+  font-size: 10px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: top;
+}
 
-    .footer-bar {
-      border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 16px;
-      background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      font-size: 11px;
-      line-height: 1.5;
-      color: #b9cbee;
-    }
+  .footer-bar {
+  border: 1px solid rgba(69, 102, 154, 0.45);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
+  padding: 12px 16px;
 
-    .footer-left,
-    .footer-right {
-      min-width: 0;
-    }
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  flex-wrap: wrap;
+
+  gap: 16px;
+
+  font-size: 11px;
+  line-height: 1.5;
+  color: #b9cbee;
+}
+
+  .footer-left,
+.footer-right {
+  min-width: 0;
+  flex: 1;
+}
 
     .footer-right {
       text-align: right;
