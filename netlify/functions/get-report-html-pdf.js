@@ -42,11 +42,11 @@ exports.handler = async (event) => {
       };
     }
 
-const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
-const dataUrl =
-  siteUrl +
-  "/.netlify/functions/get-report-data?report_id=" +
-  encodeURIComponent(reportId);
+    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
+    const dataUrl =
+      siteUrl +
+      "/.netlify/functions/get-report-data?report_id=" +
+      encodeURIComponent(reportId);
 
     const payloadText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
 
@@ -57,7 +57,7 @@ const dataUrl =
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
-        body: "get-report-data-pdf returned non-JSON",
+        body: "get-report-data returned non-JSON",
       };
     }
 
@@ -65,7 +65,7 @@ const dataUrl =
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
-        body: "get-report-data-pdf returned success=false",
+        body: "get-report-data returned success=false",
       };
     }
 
@@ -80,27 +80,30 @@ const dataUrl =
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
- 
-const companyName = branding.agency_name || "iQWEB";
-const reportTitle = branding.agency_report_title || "Website Report";
-const logoUrl = branding.agency_logo_url || "";
-const bannerUrl = branding.agency_banner_url || "";
-const showHeaderContact = branding.show_header_contact !== false;
-const showFooterContact = branding.show_footer_contact !== false;
-const showPoweredBy = branding.show_powered_by !== false;
+    const companyName = branding.agency_name || "iQWEB";
+    const reportTitle = branding.agency_report_title || "Website Report";
+    const logoUrl = branding.agency_logo_url || "";
+    const bannerUrl = branding.agency_banner_url || "";
+    const showHeaderContact = branding.show_header_contact !== false;
+    const showFooterContact = branding.show_footer_contact !== false;
+    const showPoweredBy = branding.show_powered_by !== false;
 
-const headerContactBits = [
-  branding.agency_website || "",
-  branding.agency_email || "",
-  branding.agency_phone || "",
-].filter(Boolean);
+    const headerContactBits = [
+      branding.agency_website || "",
+      branding.agency_email || "",
+      branding.agency_phone || "",
+    ].filter(Boolean);
 
-const footerContactBits = [
-  companyName || "",
-  branding.agency_website || "",
-  branding.agency_email || "",
-  branding.agency_phone || "",
-].filter(Boolean);
+    const footerContactBits = [
+      companyName || "",
+      branding.agency_website || "",
+      branding.agency_email || "",
+      branding.agency_phone || "",
+    ].filter(Boolean);
+
+    const keyFindings = buildKeyFindings(payload, scores, deliverySignals);
+    const overallCard = renderOverallCard(scores, payload);
+    const signalCards = buildSignalCardsHtml(deliverySignals, scores);
 
     const html = `<!doctype html>
 <html lang="en">
@@ -842,7 +845,7 @@ async function fetchTextWithTimeout(url, ms) {
 
     const txt = await resp.text().catch(() => "");
     if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
-    if (!txt || txt.length < 2) throw new Error("Empty response from get-report-data-pdf");
+    if (!txt || txt.length < 2) throw new Error("Empty response from get-report-data");
     return txt;
   } catch (e) {
     if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
