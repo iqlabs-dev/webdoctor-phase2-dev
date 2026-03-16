@@ -879,19 +879,14 @@ function fallbackSignalNarrative(sig, score) {
 }
 
 function buildOverallNarrative(payload) {
-  const n = payload?.narrative || {};
-  const f = payload?.findings || {};
-  const candidates = [
-    n?.overall?.lines,
-    n?.executive?.lines,
-    f?.overall?.lines,
-    f?.executive?.lines,
-  ];
+  const directOverallSummary = String(payload?.overall_summary || "").trim();
+  if (directOverallSummary) {
+    return directOverallSummary;
+  }
 
-  for (const c of candidates) {
-    if (Array.isArray(c) && c.length) {
-      return c.map((x) => String(x || "").trim()).filter(Boolean).join(" ");
-    }
+  const narrativeOverallSummary = String(payload?.narrative?.overall_summary || "").trim();
+  if (narrativeOverallSummary) {
+    return narrativeOverallSummary;
   }
 
   return "Overall delivery is based on deterministic checks only and does not measure brand or content effectiveness.";
