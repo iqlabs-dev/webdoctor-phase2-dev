@@ -1,6 +1,7 @@
 // netlify/functions/get-report-html-pdf.js
-// Compact branded HTML for DocRaptor PDF
-// Goal: 1-page landscape summary that matches the on-screen report as closely as possible
+// Summary-style branded HTML for DocRaptor PDF
+// Clean 2-page layout: page 1 = header/meta/key findings/overall score
+// page 2 = delivery signal cards
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -84,6 +85,7 @@ exports.handler = async (event) => {
     const showPoweredBy = !!branding.show_powered_by;
 
     const keyFindings = buildKeyFindings(payload, scores, deliverySignals);
+    const overallCardHtml = renderOverallCard(scores, payload);
     const signalCards = buildSignalCardsHtml(deliverySignals, scores, payload);
 
     const headerContactBits = [
@@ -108,7 +110,7 @@ exports.handler = async (event) => {
   <style>
     @page {
       size: A4 landscape;
-      margin: 8mm;
+      margin: 10mm;
     }
 
     * { box-sizing: border-box; }
@@ -130,7 +132,12 @@ exports.handler = async (event) => {
         radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
         linear-gradient(180deg, #071226 0%, #08142a 100%);
-      padding: 10px;
+      padding: 12px;
+    }
+
+    .page-break {
+      page-break-after: always;
+      break-after: page;
     }
 
     .report-shell {
@@ -150,7 +157,7 @@ exports.handler = async (event) => {
       overflow: hidden;
       background: linear-gradient(180deg, rgba(11, 26, 55, 0.96), rgba(8, 20, 42, 0.98));
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .brand-banner {
@@ -167,7 +174,7 @@ exports.handler = async (event) => {
       justify-content: space-between;
       align-items: center;
       gap: 14px;
-      padding: 10px 14px;
+      padding: 12px 14px;
     }
 
     .brand-left {
@@ -234,7 +241,7 @@ exports.handler = async (event) => {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .meta-card {
@@ -269,7 +276,7 @@ exports.handler = async (event) => {
       overflow: hidden;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
       box-shadow: 0 8px 20px rgba(0, 0, 0, 0.20);
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
 
     .section-head {
@@ -316,10 +323,9 @@ exports.handler = async (event) => {
 
     .overall-card {
       border-radius: 12px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      margin-bottom: 10px;
       page-break-inside: avoid;
       break-inside: avoid;
     }
@@ -335,7 +341,7 @@ exports.handler = async (event) => {
       padding: 10px 12px 11px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      min-height: 88px;
+      min-height: 90px;
       page-break-inside: avoid;
       break-inside: avoid;
     }
@@ -432,6 +438,7 @@ exports.handler = async (event) => {
       font-size: 9px;
       line-height: 1.3;
       color: #b9cbee;
+      margin-top: 12px;
     }
 
     .footer-left,
@@ -449,7 +456,7 @@ exports.handler = async (event) => {
   </style>
 </head>
 <body>
-  <div class="page">
+  <div class="page page-break">
     <div class="report-shell">
 
       <div class="brand-panel">
@@ -520,8 +527,19 @@ exports.handler = async (event) => {
         <div class="section-head">Delivery Signals</div>
         <div class="section-body">
           <div class="overall-card">
-            ${renderOverallCard(scores, payload)}
+            ${overallCardHtml}
           </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="report-shell">
+      <div class="section">
+        <div class="section-head">Delivery Signals</div>
+        <div class="section-body">
           <div class="signals-grid">
             ${signalCards}
           </div>
@@ -540,7 +558,6 @@ exports.handler = async (event) => {
           ${showPoweredBy ? "Powered by iQWEB" : "&nbsp;"}
         </div>
       </div>
-
     </div>
   </div>
 </body>
