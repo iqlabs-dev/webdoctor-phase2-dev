@@ -1,7 +1,11 @@
 // netlify/functions/get-report-html-pdf.js
-// Summary-style branded HTML for DocRaptor PDF
-// Clean 2-page layout: page 1 = header/meta/key findings/overall score
-// page 2 = delivery signal cards
+// Branded summary PDF HTML for DocRaptor
+// Output:
+// - Header with branding
+// - Website / Report ID / Report Date
+// - Key Findings
+// - Delivery Signals
+// - Footer
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -38,7 +42,7 @@ exports.handler = async (event) => {
       };
     }
 
-    const siteUrl = process.env.URL || "https://iqweb.ai";
+    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
     const dataUrl =
       siteUrl +
       "/.netlify/functions/get-report-data-pdf?report_id=" +
@@ -76,7 +80,7 @@ exports.handler = async (event) => {
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
-    const companyName = branding.company_name || "";
+    const companyName = branding.company_name || "iQWEB";
     const reportTitle = branding.report_title || "Website Report";
     const logoUrl = branding.logo_url || "";
     const bannerUrl = branding.banner_url || "";
@@ -85,8 +89,8 @@ exports.handler = async (event) => {
     const showPoweredBy = !!branding.show_powered_by;
 
     const keyFindings = buildKeyFindings(payload, scores, deliverySignals);
-    const overallCardHtml = renderOverallCard(scores, payload);
-    const signalCards = buildSignalCardsHtml(deliverySignals, scores, payload);
+    const overallCard = renderOverallCard(scores, payload);
+    const signalCards = buildSignalCardsHtml(deliverySignals, scores);
 
     const headerContactBits = [
       branding.website || "",
@@ -123,7 +127,9 @@ exports.handler = async (event) => {
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    body { padding: 0; }
+    body {
+      padding: 0;
+    }
 
     .page {
       width: 100%;
@@ -132,12 +138,7 @@ exports.handler = async (event) => {
         radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
         linear-gradient(180deg, #071226 0%, #08142a 100%);
-      padding: 12px;
-    }
-
-    .page-break {
-      page-break-after: always;
-      break-after: page;
+      padding: 14px;
     }
 
     .report-shell {
@@ -145,24 +146,18 @@ exports.handler = async (event) => {
       max-width: 100%;
     }
 
-    .brand-panel,
-    .section,
-    .meta-grid {
-      width: 100%;
-    }
-
-    .brand-panel {
+    .top-card {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 14px;
+      border-radius: 18px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(11, 26, 55, 0.96), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
-      margin-bottom: 12px;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+      margin-bottom: 16px;
     }
 
     .brand-banner {
       width: 100%;
-      height: 56px;
+      height: 72px;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -172,37 +167,17 @@ exports.handler = async (event) => {
     .brand-inner {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      gap: 14px;
-      padding: 12px 14px;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 16px 16px 12px;
     }
 
     .brand-left {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-      flex: 1;
-    }
-
-    .logo-wrap {
-      width: 48px;
-      height: 48px;
-      min-width: 48px;
-      border-radius: 12px;
-      background: rgba(8, 16, 34, 0.72);
-      border: 1px solid rgba(69, 102, 154, 0.30);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      padding: 6px;
-    }
-
-    .logo-wrap img {
-      max-width: 100%;
-      max-height: 100%;
-      display: block;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      width: 100%;
     }
 
     .brand-copy {
@@ -211,60 +186,71 @@ exports.handler = async (event) => {
     }
 
     .company-name {
-      font-size: 20px;
-      line-height: 1.1;
+      font-size: 18px;
+      line-height: 1.15;
       font-weight: 800;
       letter-spacing: 0.02em;
       color: #ffffff;
-      margin: 0 0 3px;
+      margin: 0 0 4px;
     }
 
     .report-title {
-      font-size: 11px;
-      line-height: 1.2;
+      font-size: 12px;
+      line-height: 1.35;
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: #86b6ff;
-      margin: 0;
+      margin: 0 0 10px;
     }
 
     .brand-contact {
-      max-width: 260px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #dbe7ff;
+    }
+
+    .brand-logo {
+      width: 120px;
+      min-width: 120px;
       text-align: right;
-      font-size: 10px;
-      line-height: 1.45;
-      color: #c8d8fb;
+    }
+
+    .brand-logo img {
+      max-width: 120px;
+      max-height: 120px;
+      display: inline-block;
+      object-fit: contain;
     }
 
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 12px;
+      gap: 12px;
+      padding: 0 16px 16px;
     }
 
     .meta-card {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 12px;
+      border-radius: 14px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 10px 12px;
-      min-height: 60px;
+      padding: 12px 14px;
+      min-height: 68px;
     }
 
     .meta-label {
-      font-size: 9px;
-      line-height: 1.1;
+      font-size: 11px;
+      line-height: 1.2;
       font-weight: 700;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #8fb2ea;
-      margin-bottom: 7px;
+      margin-bottom: 8px;
     }
 
     .meta-value {
-      font-size: 11px;
-      line-height: 1.35;
+      font-size: 14px;
+      line-height: 1.45;
       font-weight: 700;
       color: #ffffff;
       word-break: break-word;
@@ -272,34 +258,34 @@ exports.handler = async (event) => {
 
     .section {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 14px;
+      border-radius: 18px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.20);
-      margin-bottom: 12px;
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
+      margin-bottom: 16px;
     }
 
     .section-head {
-      padding: 10px 14px;
+      padding: 14px 18px;
       border-bottom: 1px solid rgba(69, 102, 154, 0.28);
-      font-size: 10px;
-      line-height: 1.1;
+      font-size: 12px;
+      line-height: 1.2;
       font-weight: 800;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #ffffff;
     }
 
     .section-body {
-      padding: 8px 14px 10px;
+      padding: 0;
     }
 
     .finding-row {
       display: grid;
-      grid-template-columns: 130px 1fr;
-      gap: 14px;
-      padding: 8px 0;
-      border-top: 1px solid rgba(69, 102, 154, 0.14);
+      grid-template-columns: 160px 1fr;
+      gap: 16px;
+      padding: 14px 18px;
+      border-top: 1px solid rgba(69, 102, 154, 0.16);
     }
 
     .finding-row:first-child {
@@ -307,23 +293,24 @@ exports.handler = async (event) => {
     }
 
     .finding-label {
-      font-size: 9px;
-      line-height: 1.15;
+      font-size: 11px;
+      line-height: 1.25;
       font-weight: 800;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       color: #9bb9ea;
     }
 
     .finding-value {
-      font-size: 10px;
-      line-height: 1.35;
+      font-size: 13px;
+      line-height: 1.5;
       color: #eef4ff;
     }
 
     .overall-card {
-      border-radius: 12px;
-      padding: 12px 14px;
+      margin: 14px 18px 12px;
+      border-radius: 16px;
+      padding: 14px 16px 16px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
       page-break-inside: avoid;
@@ -333,17 +320,19 @@ exports.handler = async (event) => {
     .signals-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 12px;
+      padding: 0 18px 18px;
     }
 
     .signal-card {
-      border-radius: 12px;
-      padding: 10px 12px 11px;
+      border-radius: 16px;
+      padding: 14px 16px 16px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      min-height: 90px;
+      min-height: 180px;
       page-break-inside: avoid;
       break-inside: avoid;
+      position: relative;
     }
 
     .signal-card.good {
@@ -361,14 +350,14 @@ exports.handler = async (event) => {
     .signal-top {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
       align-items: flex-start;
-      margin-bottom: 7px;
+      margin-bottom: 10px;
     }
 
     .signal-name {
-      font-size: 10px;
-      line-height: 1.15;
+      font-size: 12px;
+      line-height: 1.25;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -376,7 +365,7 @@ exports.handler = async (event) => {
     }
 
     .signal-score {
-      font-size: 11px;
+      font-size: 16px;
       line-height: 1;
       font-weight: 800;
       color: #ffffff;
@@ -385,11 +374,11 @@ exports.handler = async (event) => {
 
     .score-bar {
       width: 100%;
-      height: 6px;
+      height: 8px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.10);
       overflow: hidden;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
@@ -400,27 +389,27 @@ exports.handler = async (event) => {
     }
 
     .signal-status {
-      font-size: 9px;
-      line-height: 1.2;
+      font-size: 12px;
+      line-height: 1.35;
       font-weight: 700;
       color: #dbe8ff;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .signal-copy {
-      font-size: 9px;
-      line-height: 1.28;
+      font-size: 12px;
+      line-height: 1.5;
       color: #d6e4ff;
     }
 
     .signal-badge {
       display: inline-block;
-      margin: 0 0 6px;
-      padding: 3px 8px;
+      margin: 0 0 8px;
+      padding: 4px 10px;
       border-radius: 999px;
       background: #ef5f56;
       color: #ffffff;
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -428,17 +417,16 @@ exports.handler = async (event) => {
 
     .footer-bar {
       border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 12px;
+      border-radius: 16px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 8px 12px;
+      padding: 12px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      font-size: 9px;
-      line-height: 1.3;
+      gap: 16px;
+      font-size: 11px;
+      line-height: 1.5;
       color: #b9cbee;
-      margin-top: 12px;
     }
 
     .footer-left,
@@ -456,10 +444,10 @@ exports.handler = async (event) => {
   </style>
 </head>
 <body>
-  <div class="page page-break">
+  <div class="page">
     <div class="report-shell">
 
-      <div class="brand-panel">
+      <div class="top-card">
         ${
           bannerUrl
             ? `<div class="brand-banner" style="background-image:url('${escapeAttr(
@@ -467,43 +455,44 @@ exports.handler = async (event) => {
               )}');"></div>`
             : ""
         }
+
         <div class="brand-inner">
           <div class="brand-left">
-            ${
-              logoUrl
-                ? `<div class="logo-wrap"><img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(
-                    companyName || "Logo"
-                  )}" /></div>`
-                : ""
-            }
             <div class="brand-copy">
-              <div class="company-name">${escapeHtml(companyName || "iQWEB")}</div>
-              <div class="report-title">${escapeHtml(reportTitle || "Website Report")}</div>
+              <div class="company-name">${escapeHtml(companyName)}</div>
+              <div class="report-title">${escapeHtml(reportTitle)}</div>
+              ${
+                showHeaderContact && headerContactBits.length
+                  ? `<div class="brand-contact">${headerContactBits.map(escapeHtml).join("<br>")}</div>`
+                  : `<div class="brand-contact muted">&nbsp;</div>`
+              }
+            </div>
+
+            <div class="brand-logo">
+              ${
+                logoUrl
+                  ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(companyName || "Logo")}" />`
+                  : ""
+              }
             </div>
           </div>
+        </div>
 
-          ${
-            showHeaderContact && headerContactBits.length
-              ? `<div class="brand-contact">${headerContactBits
-                  .map((x) => escapeHtml(x))
-                  .join("<br>")}</div>`
-              : `<div class="brand-contact muted">&nbsp;</div>`
-          }
-        </div>
-      </div>
+        <div class="meta-grid">
+          <div class="meta-card">
+            <div class="meta-label">Website</div>
+            <div class="meta-value">${escapeHtml(website)}</div>
+          </div>
 
-      <div class="meta-grid">
-        <div class="meta-card">
-          <div class="meta-label">Website</div>
-          <div class="meta-value">${escapeHtml(website)}</div>
-        </div>
-        <div class="meta-card">
-          <div class="meta-label">Report ID</div>
-          <div class="meta-value">${escapeHtml(rid)}</div>
-        </div>
-        <div class="meta-card">
-          <div class="meta-label">Report Date</div>
-          <div class="meta-value">${escapeHtml(createdAt)}</div>
+          <div class="meta-card">
+            <div class="meta-label">Report ID</div>
+            <div class="meta-value">${escapeHtml(rid)}</div>
+          </div>
+
+          <div class="meta-card">
+            <div class="meta-label">Report Date</div>
+            <div class="meta-value">${escapeHtml(createdAt)}</div>
+          </div>
         </div>
       </div>
 
@@ -513,11 +502,11 @@ exports.handler = async (event) => {
           ${keyFindings
             .map(
               (row) => `
-              <div class="finding-row">
-                <div class="finding-label">${escapeHtml(row.label)}</div>
-                <div class="finding-value">${escapeHtml(row.value)}</div>
-              </div>
-            `
+                <div class="finding-row">
+                  <div class="finding-label">${escapeHtml(row.label)}</div>
+                  <div class="finding-value">${escapeHtml(row.value)}</div>
+                </div>
+              `
             )
             .join("")}
         </div>
@@ -527,19 +516,9 @@ exports.handler = async (event) => {
         <div class="section-head">Delivery Signals</div>
         <div class="section-body">
           <div class="overall-card">
-            ${overallCardHtml}
+            ${overallCard}
           </div>
-        </div>
-      </div>
 
-    </div>
-  </div>
-
-  <div class="page">
-    <div class="report-shell">
-      <div class="section">
-        <div class="section-head">Delivery Signals</div>
-        <div class="section-body">
           <div class="signals-grid">
             ${signalCards}
           </div>
@@ -550,7 +529,7 @@ exports.handler = async (event) => {
         <div class="footer-left">
           ${
             showFooterContact && footerContactBits.length
-              ? footerContactBits.map((x) => escapeHtml(x)).join(" • ")
+              ? footerContactBits.map(escapeHtml).join(" • ")
               : "&nbsp;"
           }
         </div>
@@ -558,6 +537,7 @@ exports.handler = async (event) => {
           ${showPoweredBy ? "Powered by iQWEB" : "&nbsp;"}
         </div>
       </div>
+
     </div>
   </div>
 </body>
@@ -608,6 +588,11 @@ function safeNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function clampScore(score) {
+  if (score === null) return 0;
+  return Math.max(0, Math.min(100, Number(score) || 0));
+}
+
 function formatDisplayDate(v) {
   const s = String(v || "").trim();
   if (!s) return "";
@@ -622,18 +607,8 @@ function formatDisplayDate(v) {
 
 function monthName(idx) {
   return [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "Jan","Feb","Mar","Apr","May","Jun",
+    "Jul","Aug","Sep","Oct","Nov","Dec"
   ][idx] || "";
 }
 
@@ -650,11 +625,6 @@ function scoreClass(score) {
   if (score >= 90) return "good";
   if (score >= 60) return "warn";
   return "bad";
-}
-
-function clampScore(score) {
-  if (score === null) return 0;
-  return Math.max(0, Math.min(100, Number(score) || 0));
 }
 
 function labelToKey(label) {
@@ -703,8 +673,8 @@ function orderedSignals(deliverySignals, scores) {
     return {
       label: titleCaseSignal(key),
       score: scores[key],
-      narrative: "",
       summary: "",
+      narrative: "",
       note: "",
       deductions: [],
       observations: [],
@@ -719,6 +689,15 @@ function deriveSignalNarrative(sig) {
   if (Array.isArray(sig?.deductions) && sig.deductions.length) {
     const first = sig.deductions.find((d) => d && d.reason) || sig.deductions[0];
     if (first && first.reason) return String(first.reason).trim();
+  }
+
+  if (Array.isArray(sig?.observations) && sig.observations.length) {
+    const firstObs =
+      sig.observations.find((o) => o && o.label && o.value !== undefined) ||
+      sig.observations[0];
+    if (firstObs) {
+      return `${String(firstObs.label || "").trim()}: ${String(firstObs.value || "").trim()}`;
+    }
   }
 
   return "";
@@ -755,10 +734,6 @@ function buildKeyFindings(payload, scores, deliverySignals) {
     .filter((x) => x.score !== null)
     .sort((a, b) => a.score - b.score)[0];
 
-  const secondWeakest = [...ordered]
-    .filter((x) => x.score !== null)
-    .sort((a, b) => a.score - b.score)[1];
-
   const impact = weakest && weakest.narrative
     ? weakest.narrative
     : "No material issue was surfaced in this scan.";
@@ -767,8 +742,8 @@ function buildKeyFindings(payload, scores, deliverySignals) {
     ? `Address ${weakest.label.toLowerCase()} first, then re-scan to confirm the change is detected.`
     : "Review the lowest scoring area first, then re-scan.";
 
-  const nextStep = secondWeakest
-    ? `After ${weakest.label.toLowerCase()}, move to ${secondWeakest.label.toLowerCase()} and validate the updated baseline.`
+  const nextStep = weakest
+    ? `Implement the missing fixes and re-run the scan to confirm protections are detected.`
     : "Implement the highest-priority fix and re-run the scan.";
 
   return [
