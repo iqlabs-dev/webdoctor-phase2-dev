@@ -128,49 +128,52 @@ exports.handler = async (event) => {
   <title>${escapeHtml(reportTitle)} — ${escapeHtml(rid)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    @page {
-      size: A4 landscape;
-      margin: 10mm;
-    }
+   
+@page {
+  size: A4 landscape;
+  margin: 4mm;
+}
 
-    * { box-sizing: border-box; }
+* { box-sizing: border-box; }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #061122;
-      color: #e8eefc;
-      font-family: Arial, Helvetica, sans-serif;
-    }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #061122;
+  color: #e8eefc;
+  font-family: Arial, Helvetica, sans-serif;
+}
 
-    body {
-      padding: 0;
-    }
+/* Full-page canvas */
+.page {
+  width: 100%;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
+    linear-gradient(180deg, #071226 0%, #08142a 100%);
+  padding: 6px;
+}
 
-    .page {
-      width: 100%;
-      min-height: 100%;
-      background:
-        radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
-        radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
-        linear-gradient(180deg, #071226 0%, #08142a 100%);
-      padding: 14px;
-    }
+/* Report wrapper */
+.report-shell {
+  width: 100%;
+  max-width: 100%;
+}
 
-    .report-shell {
-      width: 100%;
-      max-width: 100%;
-    }
-
-    .top-card {
-      border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 18px;
-      overflow: hidden;
-      background: linear-gradient(180deg, rgba(11, 26, 55, 0.96), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
-      margin-bottom: 16px;
-    }
-
+/* Top header card */
+.top-card {
+  border: 1px solid rgba(69, 102, 154, 0.45);
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 26, 55, 0.96),
+    rgba(8, 20, 42, 0.98)
+  );
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  margin-bottom: 16px;
+}
     .brand-banner {
       width: 100%;
       height: 72px;
