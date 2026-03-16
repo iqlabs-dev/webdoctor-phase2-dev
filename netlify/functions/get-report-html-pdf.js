@@ -765,80 +765,62 @@ function getNarrativeSignalLines(payload, key) {
 }
 
 function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
+
   if (!sig || typeof sig !== "object") return "";
 
   const key = labelToKey(sig.label || sig.id || "");
+  const score = safeNumber(sig.score);
 
-  const narrativeLines = getNarrativeSignalLines(payload, key);
-  if (narrativeLines.length) return narrativeLines.join(" ");
-
-  const summary = String(sig.summary || sig.narrative || sig.note || "").trim();
-  if (summary) return summary;
-
-  const missing = collectMissingEvidence(sig);
-
-  if (key === "security") {
-    if (missing.length) {
-      return (
-        "Missing: " +
-        missing.slice(0, 4).join(", ") +
-        (missing.length > 4 ? "…" : "") +
-        ". Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals."
-      );
+  // PERFORMANCE
+  if (key === "performance") {
+    if (score >= 90) {
+      return "Baseline stable — no measurable blockers detected in this scan.";
     }
-    return "Trust and browser hardening signals are incomplete and should be corrected first.";
+    return "Page loading performance can be improved by reducing document weight and render-blocking work.";
   }
 
-  if (key === "seo") {
-    if (missing.length) {
-      return (
-        "Missing: " +
-        missing.slice(0, 3).join(", ") +
-        (missing.length > 3 ? "…" : "") +
-        ". Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines."
-      );
+  // MOBILE
+  if (key === "mobile") {
+    if (score >= 90) {
+      return "Baseline stable — no measurable blockers detected in this scan.";
     }
+    return "Mobile rendering stability and responsiveness can be improved.";
+  }
+
+  // SEO
+  if (key === "seo") {
+    const missing = collectMissingEvidence(sig);
+
+    if (missing.length) {
+      return `Missing: ${missing.join(", ")}. Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.`;
+    }
+
     return "Core SEO foundations are incomplete and should be restored before deeper optimisation work.";
   }
 
+  // SECURITY
+  if (key === "security") {
+    const missing = collectMissingEvidence(sig);
+
+    if (missing.length) {
+      return `Missing: ${missing.join(", ")}. Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.`;
+    }
+
+    return "Trust and browser hardening signals are incomplete and should be corrected first.";
+  }
+
+  // STRUCTURE
   if (key === "structure") {
     return "This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty. Correct the document structure by ensuring a single primary heading (H1) is present and that semantic HTML tags are used consistently.";
   }
 
-  if (key === "performance") {
-    const htmlBytes = safeNumber(
-      sig?.evidence?.html_bytes ??
-      basicChecks?.html_bytes
-    );
-    if (htmlBytes !== null) {
-      return `Baseline stable — no measurable blockers detected in this scan.`;
-    }
-    return "Baseline stable — no measurable blockers detected in this scan.";
-  }
-
-  if (key === "mobile") {
-    return "Baseline stable — no measurable blockers detected in this scan.";
-  }
-
+  // ACCESSIBILITY
   if (key === "accessibility") {
-    if ((scoreLabel(safeNumber(sig?.score)) === "Strong")) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
+    if (score >= 90) {
+      return "No significant issues were flagged for this signal in this scan.";
     }
-    if (missing.length) {
-      return (
-        "Missing: " +
-        missing.slice(0, 3).join(", ") +
-        (missing.length > 3 ? "…" : "") +
-        ". Resolve accessibility basics such as alt text, labels, and language declarations, then re-scan."
-      );
-    }
-    return "Accessibility foundations are incomplete and should be reviewed.";
-  }
 
-  if (Array.isArray(sig.deductions) && sig.deductions.length) {
-    const firstDeduction =
-      sig.deductions.find((d) => d && isNonEmptyString(d.reason)) || sig.deductions[0];
-    if (firstDeduction && firstDeduction.reason) return String(firstDeduction.reason).trim();
+    return "Accessibility foundations are incomplete and should be reviewed.";
   }
 
   return "";
