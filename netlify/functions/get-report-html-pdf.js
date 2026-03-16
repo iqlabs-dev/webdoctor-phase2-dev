@@ -341,6 +341,10 @@ exports.handler = async (event) => {
     }
 
     .signal-card {
+  position: relative;
+}
+
+    .signal-card {
       border-radius: 16px;
       padding: 14px 16px 16px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
@@ -419,21 +423,23 @@ exports.handler = async (event) => {
       white-space: pre-line;
     }
 
-   .signal-badge {
-  display: inline-block;
-  margin: -4px 0 5px;
-  padding: 2px 10px;
+.signal-badge {
+  position: absolute;
+  top: -10px;
+  left: 14px;
+
+  padding: 3px 10px;
+
   border-radius: 999px;
   background: #ef5f56;
   color: #ffffff;
+
   font-size: 10px;
-  line-height: 1.15;
+  line-height: 1;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  vertical-align: top;
 }
-
   .footer-bar {
   border: 1px solid rgba(69, 102, 154, 0.45);
   border-radius: 16px;
