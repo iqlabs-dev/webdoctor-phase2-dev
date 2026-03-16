@@ -156,7 +156,7 @@ exports.handler = async (event) => {
         radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
         radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
         linear-gradient(180deg, #071226 0%, #08142a 100%);
-      padding: 6px;
+      padding: 4px;
     }
 
     .report-shell {
@@ -174,14 +174,14 @@ exports.handler = async (event) => {
         rgba(8, 20, 42, 0.98)
       );
       box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       page-break-inside: avoid;
       break-inside: avoid;
     }
 
     .brand-banner {
       width: 100%;
-      height: 72px;
+      height: 64px;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -192,15 +192,15 @@ exports.handler = async (event) => {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 20px;
-      padding: 16px 16px 12px;
+      gap: 18px;
+      padding: 14px 14px 10px;
     }
 
     .brand-left {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 20px;
+      gap: 18px;
       width: 100%;
     }
 
@@ -210,7 +210,7 @@ exports.handler = async (event) => {
     }
 
     .company-name {
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.15;
       font-weight: 800;
       letter-spacing: 0.02em;
@@ -219,30 +219,30 @@ exports.handler = async (event) => {
     }
 
     .report-title {
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.35;
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: #86b6ff;
-      margin: 0 0 10px;
+      margin: 0 0 8px;
     }
 
     .brand-contact {
-      font-size: 12px;
-      line-height: 1.55;
+      font-size: 11px;
+      line-height: 1.5;
       color: #dbe7ff;
     }
 
     .brand-logo {
-      width: 120px;
-      min-width: 120px;
+      width: 108px;
+      min-width: 108px;
       text-align: right;
     }
 
     .brand-logo img {
-      max-width: 120px;
-      max-height: 120px;
+      max-width: 108px;
+      max-height: 108px;
       display: inline-block;
       object-fit: contain;
     }
@@ -250,31 +250,31 @@ exports.handler = async (event) => {
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      padding: 0 16px 16px;
+      gap: 10px;
+      padding: 0 14px 14px;
     }
 
     .meta-card {
       border: 1px solid rgba(69, 102, 154, 0.45);
       border-radius: 14px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 12px 14px;
-      min-height: 68px;
+      padding: 10px 12px;
+      min-height: 58px;
     }
 
     .meta-label {
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1.2;
       font-weight: 700;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: #8fb2ea;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .meta-value {
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 13px;
+      line-height: 1.4;
       font-weight: 700;
       color: #ffffff;
       word-break: break-word;
@@ -286,14 +286,14 @@ exports.handler = async (event) => {
       overflow: hidden;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
       box-shadow: 0 12px 34px rgba(0, 0, 0, 0.22);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       page-break-inside: auto;
     }
 
     .section-head {
-      padding: 14px 18px;
+      padding: 12px 16px;
       border-bottom: 1px solid rgba(69, 102, 154, 0.28);
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.2;
       font-weight: 800;
       letter-spacing: 0.16em;
@@ -307,9 +307,9 @@ exports.handler = async (event) => {
 
     .finding-row {
       display: grid;
-      grid-template-columns: 160px 1fr;
-      gap: 16px;
-      padding: 14px 18px;
+      grid-template-columns: 145px 1fr;
+      gap: 14px;
+      padding: 11px 16px;
       border-top: 1px solid rgba(69, 102, 154, 0.16);
       page-break-inside: avoid;
     }
@@ -319,7 +319,7 @@ exports.handler = async (event) => {
     }
 
     .finding-label {
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1.25;
       font-weight: 800;
       letter-spacing: 0.14em;
@@ -328,15 +328,15 @@ exports.handler = async (event) => {
     }
 
     .finding-value {
-      font-size: 13px;
-      line-height: 1.45;
+      font-size: 12px;
+      line-height: 1.4;
       color: #eef4ff;
     }
 
     .overall-card {
-      margin: 14px 18px 12px;
+      margin: 12px 16px 10px;
       border-radius: 16px;
-      padding: 14px 16px 16px;
+      padding: 12px 14px 14px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
       page-break-inside: avoid;
@@ -345,17 +345,17 @@ exports.handler = async (event) => {
 
     .signals-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      padding: 0 18px 18px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 0 16px 16px;
     }
 
     .signal-card {
       border-radius: 16px;
-      padding: 14px 16px 16px;
+      padding: 12px 14px 14px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      min-height: 160px;
+      min-height: 132px;
       page-break-inside: avoid;
       break-inside: avoid;
       position: relative;
@@ -377,14 +377,14 @@ exports.handler = async (event) => {
     .signal-top {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
       align-items: flex-start;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .signal-name {
-      font-size: 12px;
-      line-height: 1.25;
+      font-size: 11px;
+      line-height: 1.2;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -392,7 +392,7 @@ exports.handler = async (event) => {
     }
 
     .signal-score {
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1;
       font-weight: 800;
       color: #ffffff;
@@ -401,11 +401,11 @@ exports.handler = async (event) => {
 
     .score-bar {
       width: 100%;
-      height: 8px;
+      height: 7px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.10);
       overflow: hidden;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
@@ -416,16 +416,16 @@ exports.handler = async (event) => {
     }
 
     .signal-status {
-      font-size: 12px;
-      line-height: 1.35;
+      font-size: 11px;
+      line-height: 1.3;
       font-weight: 700;
       color: #dbe8ff;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .signal-copy {
-      font-size: 12px;
-      line-height: 1.42;
+      font-size: 11px;
+      line-height: 1.32;
       color: #d6e4ff;
       white-space: pre-line;
       word-break: break-word;
@@ -451,14 +451,14 @@ exports.handler = async (event) => {
       border: 1px solid rgba(69, 102, 154, 0.45);
       border-radius: 16px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 12px 16px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       flex-wrap: wrap;
-      gap: 16px;
-      font-size: 11px;
-      line-height: 1.5;
+      gap: 12px;
+      font-size: 10px;
+      line-height: 1.45;
       color: #b9cbee;
       page-break-before: avoid;
     }
@@ -717,10 +717,6 @@ function orderedSignals(deliverySignals, scores) {
       evidence: {},
     };
   });
-}
-
-function isNonEmptyString(v) {
-  return typeof v === "string" && v.trim().length > 0;
 }
 
 function boolIsMissing(key, value) {
