@@ -42,11 +42,11 @@ exports.handler = async (event) => {
       };
     }
 
-    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
-    const dataUrl =
-      siteUrl +
-      "/.netlify/functions/get-report-data-pdf?report_id=" +
-      encodeURIComponent(reportId);
+const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
+const dataUrl =
+  siteUrl +
+  "/.netlify/functions/get-report-data?report_id=" +
+  encodeURIComponent(reportId);
 
     const payloadText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
 
@@ -80,30 +80,27 @@ exports.handler = async (event) => {
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
-    const companyName = branding.company_name || "iQWEB";
-    const reportTitle = branding.report_title || "Website Report";
-    const logoUrl = branding.logo_url || "";
-    const bannerUrl = branding.banner_url || "";
-    const showHeaderContact = !!branding.show_header_contact;
-    const showFooterContact = !!branding.show_footer_contact;
-    const showPoweredBy = !!branding.show_powered_by;
+ 
+const companyName = branding.agency_name || "iQWEB";
+const reportTitle = branding.agency_report_title || "Website Report";
+const logoUrl = branding.agency_logo_url || "";
+const bannerUrl = branding.agency_banner_url || "";
+const showHeaderContact = branding.show_header_contact !== false;
+const showFooterContact = branding.show_footer_contact !== false;
+const showPoweredBy = branding.show_powered_by !== false;
 
-    const keyFindings = buildKeyFindings(payload, scores, deliverySignals);
-    const overallCard = renderOverallCard(scores, payload);
-    const signalCards = buildSignalCardsHtml(deliverySignals, scores);
+const headerContactBits = [
+  branding.agency_website || "",
+  branding.agency_email || "",
+  branding.agency_phone || "",
+].filter(Boolean);
 
-    const headerContactBits = [
-      branding.website || "",
-      branding.email || "",
-      branding.phone || "",
-    ].filter(Boolean);
-
-    const footerContactBits = [
-      companyName || "",
-      branding.website || "",
-      branding.email || "",
-      branding.phone || "",
-    ].filter(Boolean);
+const footerContactBits = [
+  companyName || "",
+  branding.agency_website || "",
+  branding.agency_email || "",
+  branding.agency_phone || "",
+].filter(Boolean);
 
     const html = `<!doctype html>
 <html lang="en">
@@ -683,24 +680,39 @@ function orderedSignals(deliverySignals, scores) {
 }
 
 function deriveSignalNarrative(sig) {
-  const summary = String(sig?.summary || sig?.narrative || sig?.note || "").trim();
+  if (!sig || typeof sig !== "object") return "";
+
+  // Prefer summary > narrative > note
+  const summary = String(sig.summary || sig.narrative || sig.note || "").trim();
   if (summary) return summary;
 
-  if (Array.isArray(sig?.deductions) && sig.deductions.length) {
-    const first = sig.deductions.find((d) => d && d.reason) || sig.deductions[0];
-    if (first && first.reason) return String(first.reason).trim();
+  // Check deductions for first meaningful reason
+  if (Array.isArray(sig.deductions) && sig.deductions.length) {
+    const firstDeduction = sig.deductions.find(d => d && isNonEmptyString(d.reason)) || sig.deductions[0];
+    if (firstDeduction && firstDeduction.reason) return String(firstDeduction.reason).trim();
   }
 
-  if (Array.isArray(sig?.observations) && sig.observations.length) {
-    const firstObs =
-      sig.observations.find((o) => o && o.label && o.value !== undefined) ||
-      sig.observations[0];
+  // Use first observation that has label & value
+  if (Array.isArray(sig.observations) && sig.observations.length) {
+    const firstObs = sig.observations.find(o => o && isNonEmptyString(o.label) && o.value != null) || sig.observations[0];
     if (firstObs) {
-      return `${String(firstObs.label || "").trim()}: ${String(firstObs.value || "").trim()}`;
+      const label = String(firstObs.label || "").trim();
+      let value = firstObs.value;
+
+      // Convert boolean / numeric to readable string
+      if (typeof value === "boolean") value = value ? "Yes" : "No";
+      else if (typeof value === "number") value = String(value);
+
+      return `${label}: ${value}`;
     }
   }
 
   return "";
+}
+
+// Helper
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
 }
 
 function buildOverallNarrative(payload) {
