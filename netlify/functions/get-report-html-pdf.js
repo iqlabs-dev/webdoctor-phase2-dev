@@ -765,7 +765,6 @@ function getNarrativeSignalLines(payload, key) {
 }
 
 function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
-
   if (!sig || typeof sig !== "object") return "";
 
   const key = labelToKey(sig.label || sig.id || "");
@@ -817,9 +816,8 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
   // ACCESSIBILITY
   if (key === "accessibility") {
     if (score >= 90) {
-      return "No significant issues were flagged for this signal in this scan.";
+      return "Baseline stable — no measurable blockers detected in this scan.";
     }
-
     return "Accessibility foundations are incomplete and should be reviewed.";
   }
 
