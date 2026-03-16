@@ -10,7 +10,7 @@ function json(statusCode, obj) {
 }
 
 function getBaseUrl(event) {
-  if (process.env.URL) return process.env.URL;
+  if (process.env.URL) return process.env.URL.replace(/\/+$/, "");
   const proto = event.headers["x-forwarded-proto"] || "https";
   const host = event.headers.host;
   return `${proto}://${host}`;
@@ -22,7 +22,12 @@ export const handler = async (event) => {
       return json(405, { success: false, error: "Method not allowed" });
     }
 
-    const reportId = String(event.queryStringParameters?.report_id || "").trim();
+    const reportId = String(
+      event.queryStringParameters?.report_id ||
+      event.queryStringParameters?.reportId ||
+      ""
+    ).trim();
+
     if (!reportId) {
       return json(400, { success: false, error: "Missing report_id" });
     }
@@ -33,18 +38,23 @@ export const handler = async (event) => {
       `${baseUrl}/.netlify/functions/generate-report-pdf?report_id=${encodeURIComponent(reportId)}`,
       {
         method: "GET",
-        headers: { Accept: "application/pdf, application/json" },
+        headers: { Accept: "application/pdf,application/json,text/plain,*/*" },
       }
     );
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("[download-pdf] generate-report-pdf failed:", res.status, txt);
-      return json(502, {
-        success: false,
-        error: "Failed to generate PDF",
-        details: txt || `HTTP ${res.status}`,
-      });
+
+      return {
+        statusCode: 502,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          success: false,
+          error: "Failed to generate PDF",
+          details: txt || `generate-report-pdf returned ${res.status}`,
+        }),
+      };
     }
 
     const pdfBuffer = Buffer.from(await res.arrayBuffer());
@@ -63,7 +73,8 @@ export const handler = async (event) => {
     console.error("[download-pdf] error:", err);
     return json(500, {
       success: false,
-      error: err?.message || "Unexpected server error",
+      error: "Unexpected server error",
+      details: err?.message || String(err),
     });
   }
 };
