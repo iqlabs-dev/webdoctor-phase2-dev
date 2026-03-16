@@ -307,6 +307,80 @@ function pickBranding(data) {
   };
 }
 
+function pickCommentary(data) {
+  data = safeObj(data);
+  if (data.commentary && typeof data.commentary === "object") {
+    return {
+      title: String(data.commentary.title || "").trim(),
+      body: String(data.commentary.body || "").trim(),
+      signoff: String(data.commentary.signoff || "").trim()
+    };
+  }
+  return {
+    title: String(data.agency_commentary_title || "").trim(),
+    body: String(data.agency_commentary_body || "").trim(),
+    signoff: String(data.agency_commentary_signoff || "").trim()
+  };
+}
+
+function hasCommentary(commentary) {
+  commentary = safeObj(commentary);
+  return !!(
+    String(commentary.title || "").trim() ||
+    String(commentary.body || "").trim() ||
+    String(commentary.signoff || "").trim()
+  );
+}
+
+function applyCommentaryUI(commentary) {
+  commentary = safeObj(commentary);
+
+  var section = $("agencyCommentarySection");
+  var titleEl = $("commentaryTitle");
+  var bodyEl = $("commentaryBody");
+  var signoffEl = $("commentarySignoff");
+
+  if (!section || !bodyEl) return;
+
+  if (!hasCommentary(commentary)) {
+    section.style.display = "none";
+    if (titleEl) {
+      titleEl.textContent = "";
+      titleEl.style.display = "none";
+    }
+    bodyEl.textContent = "";
+    if (signoffEl) {
+      signoffEl.textContent = "";
+      signoffEl.style.display = "none";
+    }
+    return;
+  }
+
+  section.style.display = "block";
+
+  if (titleEl) {
+    if (commentary.title) {
+      titleEl.textContent = commentary.title;
+      titleEl.style.display = "block";
+    } else {
+      titleEl.textContent = "";
+      titleEl.style.display = "none";
+    }
+  }
+
+  bodyEl.textContent = commentary.body || "";
+
+  if (signoffEl) {
+    if (commentary.signoff) {
+      signoffEl.textContent = commentary.signoff;
+      signoffEl.style.display = "block";
+    } else {
+      signoffEl.textContent = "";
+      signoffEl.style.display = "none";
+    }
+  }
+}
+
 function applyBrandingUI(branding) {
   branding = safeObj(branding);
 
@@ -1715,8 +1789,10 @@ var summary = ""
     var scores = pickScores(data);
     var signals = pickSignals(data);
     var branding = pickBranding(data);
+    var commentary = pickCommentary(data);
 
     applyBrandingUI(branding);
+    applyCommentaryUI(commentary);
 
     setHeaderUI(header);
 

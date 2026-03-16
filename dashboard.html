@@ -1084,6 +1084,62 @@
               <div id="logo-preview-empty" class="logo-upload-status">No logo uploaded yet.</div>
             </div>
 
+            <div class="card secondary" style="margin-top:22px;">
+              <div class="h">
+                <h2>Agency Commentary</h2>
+                <span class="meta">Shared templates + per-report commentary</span>
+              </div>
+
+              <div class="scanhelp" style="margin-bottom:12px;">
+                Commentary is saved to the selected report in the account database. Templates are shared across the agency account.
+              </div>
+
+              <div class="brand-grid">
+                <div class="brand-field">
+                  <label for="commentary-template-select">Template</label>
+                  <select id="commentary-template-select" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.18); color:rgba(255,255,255,.92); outline:none; font-size:13px; font-family:inherit;">
+                    <option value="">No template selected</option>
+                  </select>
+                </div>
+
+                <div class="brand-field">
+                  <label for="commentary-template-name">Template Name</label>
+                  <input id="commentary-template-name" type="text" placeholder="Monthly Client Update" />
+                </div>
+
+                <div class="brand-field full">
+                  <label for="commentary-target-report">Selected Report</label>
+                  <input id="commentary-target-report" type="text" value="No report selected" readonly />
+                </div>
+
+                <div class="brand-field full">
+                  <label for="commentary-title">Commentary Title (optional)</label>
+                  <input id="commentary-title" type="text" placeholder="Agency Commentary" />
+                </div>
+
+                <div class="brand-field full">
+                  <label for="commentary-body">Commentary Body</label>
+                  <textarea id="commentary-body" rows="6" style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:rgba(0,0,0,.18); color:rgba(255,255,255,.92); outline:none; font-size:13px; font-family:inherit; resize:vertical;" placeholder="Add commentary for this report. Leave blank to collapse the section in the web report and PDF."></textarea>
+                </div>
+
+                <div class="brand-field full">
+                  <label for="commentary-signoff">Sign-off (optional)</label>
+                  <input id="commentary-signoff" type="text" placeholder="— Acme Digital" />
+                </div>
+              </div>
+
+              <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button id="commentary-load-template" class="btn" type="button">Load Template</button>
+                <button id="commentary-save-template" class="btn" type="button">Save New Template</button>
+                <button id="commentary-update-template" class="btn" type="button">Update Template</button>
+                <button id="commentary-delete-template" class="btn" type="button">Delete Template</button>
+                <button id="commentary-clear" class="btn" type="button">Clear</button>
+                <button id="commentary-save-report" class="btn btn-primary" type="button">Save Commentary to Report</button>
+              </div>
+
+              <div id="commentary-status" class="logo-upload-status" style="margin-top:12px;">Select a report from Latest Scan or Scan History to load and save commentary.</div>
+            </div>
+
             <div class="branding-savebar">
           
 

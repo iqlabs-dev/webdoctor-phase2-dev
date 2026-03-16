@@ -384,6 +384,45 @@
       align-items: flex-start;
     }
 
+    .commentary-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .commentary-card {
+      background: linear-gradient(180deg, rgba(34,211,238,0.08), rgba(255,255,255,0.02));
+      border: 1px solid rgba(34,211,238,0.18);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .commentary-title {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .commentary-body {
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.65;
+      white-space: pre-line;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .commentary-signoff {
+      margin-top: 12px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      white-space: pre-line;
+    }
+
     @media (max-width: 520px) {
       .finding-row { grid-template-columns: 1fr; gap: 6px; }
       .finding-label { padding-top: 0; }
@@ -905,7 +944,22 @@
         </div>
       </section>
 
-      <main id="reportRoot" style="display:none;">
+            <main id="reportRoot" style="display:none;">
+        <section class="section" id="agencyCommentarySection" style="display:none;">
+          <div class="section-head">
+            <h2 class="section-title">Agency Commentary</h2>
+          </div>
+          <div class="section-body">
+            <div class="commentary-wrap">
+              <div class="commentary-card">
+                <h3 class="commentary-title" id="commentaryTitle" style="display:none;"></h3>
+                <div class="commentary-body" id="commentaryBody"></div>
+                <div class="commentary-signoff" id="commentarySignoff" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Key Findings</h2>

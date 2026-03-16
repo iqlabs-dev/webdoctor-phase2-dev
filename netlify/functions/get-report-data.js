@@ -240,7 +240,7 @@ export async function handler(event) {
 
     let q = supabase
       .from("scan_results")
-      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative")
+      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative, agency_commentary_title, agency_commentary_body, agency_commentary_signoff")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -416,6 +416,11 @@ export async function handler(event) {
       findings,
       fix_plan,
       narrative,
+      commentary: {
+        title: scan.agency_commentary_title || "",
+        body: scan.agency_commentary_body || "",
+        signoff: scan.agency_commentary_signoff || "",
+      },
 
       narrative_status,
       narrative_attempts: null,

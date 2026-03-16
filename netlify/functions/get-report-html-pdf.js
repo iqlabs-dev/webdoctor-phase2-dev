@@ -73,6 +73,7 @@ exports.handler = async (event) => {
     const header = payload.header || {};
     const scores = payload.scores || {};
     const branding = payload.branding || {};
+    const commentary = payload.commentary || {};
     const deliverySignals = Array.isArray(payload.delivery_signals)
       ? payload.delivery_signals
       : [];
@@ -273,6 +274,43 @@ html, body {
       font-weight: 700;
       color: #ffffff;
       word-break: break-word;
+    }
+
+    .commentary-card {
+      margin: 14px 18px 18px;
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.10), rgba(8, 20, 42, 0.98));
+      border: 1px solid rgba(34, 211, 238, 0.22);
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .commentary-title {
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin: 0 0 10px;
+    }
+
+    .commentary-body {
+      font-size: 13px;
+      line-height: 1.65;
+      color: #eef4ff;
+      white-space: pre-line;
+      word-break: break-word;
+    }
+
+    .commentary-signoff {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: pre-line;
     }
 
     .section {
@@ -636,6 +674,8 @@ body {
         </div>
       </div>
 
+      ${renderCommentarySection(commentary)}
+
       <div class="section">
         <div class="section-head">Key Findings</div>
         <div class="section-body">
@@ -750,6 +790,36 @@ function monthName(idx) {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   ][idx] || "";
+}
+
+function hasCommentary(commentary) {
+  const c = commentary && typeof commentary === "object" ? commentary : {};
+  return !!(
+    String(c.title || "").trim() ||
+    String(c.body || "").trim() ||
+    String(c.signoff || "").trim()
+  );
+}
+
+function renderCommentarySection(commentary) {
+  const c = commentary && typeof commentary === "object" ? commentary : {};
+  if (!hasCommentary(c)) return "";
+
+  const title = String(c.title || "").trim();
+  const body = String(c.body || "").trim();
+  const signoff = String(c.signoff || "").trim();
+
+  return `
+      <div class="section">
+        <div class="section-head">Agency Commentary</div>
+        <div class="section-body">
+          <div class="commentary-card">
+            ${title ? `<div class="commentary-title">${escapeHtml(title)}</div>` : ""}
+            <div class="commentary-body">${escapeHtml(body)}</div>
+            ${signoff ? `<div class="commentary-signoff">${escapeHtml(signoff)}</div>` : ""}
+          </div>
+        </div>
+      </div>`;
 }
 
 function scoreLabel(score) {
