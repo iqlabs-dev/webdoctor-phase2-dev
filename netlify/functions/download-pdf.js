@@ -22,7 +22,7 @@ export const handler = async (event) => {
       return json(405, { success: false, error: "Method not allowed" });
     }
 
-    const reportId = event.queryStringParameters?.report_id || "";
+    const reportId = String(event.queryStringParameters?.report_id || "").trim();
     if (!reportId) {
       return json(400, { success: false, error: "Missing report_id" });
     }
@@ -30,18 +30,21 @@ export const handler = async (event) => {
     const baseUrl = getBaseUrl(event);
 
     const res = await fetch(
-      `${baseUrl}/.netlify/functions/generate-report-pdf`,
+      `${baseUrl}/.netlify/functions/generate-report-pdf?report_id=${encodeURIComponent(reportId)}`,
       {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ report_id: reportId }), // ✅ FIX
+        method: "GET",
+        headers: { Accept: "application/pdf, application/json" },
       }
     );
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("[download-pdf] generate-report-pdf failed:", res.status, txt);
-      return json(502, { success: false, error: "Failed to generate PDF" });
+      return json(502, {
+        success: false,
+        error: "Failed to generate PDF",
+        details: txt || `HTTP ${res.status}`,
+      });
     }
 
     const pdfBuffer = Buffer.from(await res.arrayBuffer());
@@ -58,6 +61,9 @@ export const handler = async (event) => {
     };
   } catch (err) {
     console.error("[download-pdf] error:", err);
-    return json(500, { success: false, error: "Unexpected server error" });
+    return json(500, {
+      success: false,
+      error: err?.message || "Unexpected server error",
+    });
   }
 };
