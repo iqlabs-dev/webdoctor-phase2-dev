@@ -343,6 +343,32 @@ html, body {
       padding: 0 18px 18px;
     }
 
+    /* Make all signal cards the same height */
+.signal-card {
+  height: 190px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Allow the header/score area to stay fixed */
+.signal-card-header {
+  flex: 0 0 auto;
+}
+
+/* Text area fills remaining space */
+.signal-card-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+/* Clamp narrative text so it doesn't stretch the card */
+.signal-card-body p {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
     .signal-card {
   position: relative;
 }
