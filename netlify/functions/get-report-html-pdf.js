@@ -472,7 +472,54 @@ exports.handler = async (event) => {
     .muted {
       color: #8fb2ea;
     }
-  </style>
+ <style>
+
+/* existing report CSS */
+.report-container { ... }
+.signal-card { ... }
+.metrics-grid { ... }
+
+
+/* ---------- PDF LAYOUT FIXES ---------- */
+
+.signal-card,
+.metric-card,
+.finding-card {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.section,
+.key-findings,
+.delivery-signals {
+  page-break-inside: avoid;
+}
+
+.cards-grid,
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+body {
+  page-break-inside: auto;
+}
+
+.report-header {
+  page-break-after: avoid;
+}
+
+.report-footer {
+  page-break-before: avoid;
+}
+
+@page {
+  size: A4;
+  margin: 16mm;
+}
+
+</style>
 </head>
 <body>
   <div class="page">
