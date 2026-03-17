@@ -307,80 +307,6 @@ function pickBranding(data) {
   };
 }
 
-function pickCommentary(data) {
-  data = safeObj(data);
-  if (data.commentary && typeof data.commentary === "object") {
-    return {
-      title: String(data.commentary.title || "").trim(),
-      body: String(data.commentary.body || "").trim(),
-      signoff: String(data.commentary.signoff || "").trim()
-    };
-  }
-  return {
-    title: String(data.agency_commentary_title || "").trim(),
-    body: String(data.agency_commentary_body || "").trim(),
-    signoff: String(data.agency_commentary_signoff || "").trim()
-  };
-}
-
-function hasCommentary(commentary) {
-  commentary = safeObj(commentary);
-  return !!(
-    String(commentary.title || "").trim() ||
-    String(commentary.body || "").trim() ||
-    String(commentary.signoff || "").trim()
-  );
-}
-
-function applyCommentaryUI(commentary) {
-  commentary = safeObj(commentary);
-
-  var section = $("agencyCommentarySection");
-  var titleEl = $("commentaryTitle");
-  var bodyEl = $("commentaryBody");
-  var signoffEl = $("commentarySignoff");
-
-  if (!section || !bodyEl) return;
-
-  if (!hasCommentary(commentary)) {
-    section.style.display = "none";
-    if (titleEl) {
-      titleEl.textContent = "";
-      titleEl.style.display = "none";
-    }
-    bodyEl.textContent = "";
-    if (signoffEl) {
-      signoffEl.textContent = "";
-      signoffEl.style.display = "none";
-    }
-    return;
-  }
-
-  section.style.display = "block";
-
-  if (titleEl) {
-    if (commentary.title) {
-      titleEl.textContent = commentary.title;
-      titleEl.style.display = "block";
-    } else {
-      titleEl.textContent = "";
-      titleEl.style.display = "none";
-    }
-  }
-
-  bodyEl.textContent = commentary.body || "";
-
-  if (signoffEl) {
-    if (commentary.signoff) {
-      signoffEl.textContent = commentary.signoff;
-      signoffEl.style.display = "block";
-    } else {
-      signoffEl.textContent = "";
-      signoffEl.style.display = "none";
-    }
-  }
-}
-
 function applyBrandingUI(branding) {
   branding = safeObj(branding);
 
@@ -762,16 +688,43 @@ if (poweredBy) {
     return true;
   }
 
-  function computePrimaryConstraint(scores, signals) {
-    scores = safeObj(scores);
-    signals = asArray(signals);
+function computePrimaryConstraint(scores, signals, data) {
+  scores = safeObj(scores);
+  signals = asArray(signals);
+  data = safeObj(data);
 
-    var model = window.IQWEB_SCORE_MODEL || null;
+  var metrics = safeObj(data.metrics);
+  var platformControl =
+    metrics.platform_control ||
+    (metrics.platform && metrics.platform.controlLevel) ||
+    "full";
 
-    if (model && typeof model.pickPrimarySignal === "function") {
-      var picked = model.pickPrimarySignal(signals);
+  var model = window.IQWEB_SCORE_MODEL || null;
 
-      if (picked && picked.key) {
+  function domainHasMeasuredSignal(domainKey) {
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      if (domainKeyFromSignal(sig) !== domainKey) continue;
+      var sc = asInt(sig.score, 0);
+      if (isUnmeasuredSignal(sig, sc)) continue;
+      return true;
+    }
+    return false;
+  }
+
+  var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+
+  // On limited-control platforms, don't let Security become the primary constraint
+  // unless there is literally nothing else measurable.
+  if (platformControl === "limited") {
+    domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
+  }
+
+  if (model && typeof model.pickPrimarySignal === "function") {
+    var picked = model.pickPrimarySignal(signals);
+
+    if (picked && picked.key) {
+      if (!(platformControl === "limited" && picked.key === "security")) {
         return {
           key: picked.key,
           score: picked.score,
@@ -780,49 +733,38 @@ if (poweredBy) {
         };
       }
     }
-
-    function domainHasMeasuredSignal(domainKey) {
-      for (var i = 0; i < signals.length; i++) {
-        var sig = safeObj(signals[i]);
-        if (domainKeyFromSignal(sig) !== domainKey) continue;
-        var sc = asInt(sig.score, 0);
-        if (isUnmeasuredSignal(sig, sc)) continue;
-        return true;
-      }
-      return false;
-    }
-
-    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-    var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
-
-    for (var i = 0; i < domains.length; i++) {
-      var dk = domains[i];
-      if (!domainHasMeasuredSignal(dk)) continue;
-
-      var s = scoreFor(scores, dk);
-      if (s === null) continue;
-
-      var w = WEIGHTS[dk] || 0;
-      var pts = deficitWeightedPoints(s, w);
-      if (pts >= 3 && pts > best.pts) {
-        best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
-      }
-    }
-
-    if (best.key) {
-      for (var a = 0; a < signals.length; a++) {
-        var sigA = safeObj(signals[a]);
-        if (domainKeyFromSignal(sigA) !== best.key) continue;
-        var scA = asInt(sigA.score, 0);
-        if (isUnmeasuredSignal(sigA, scA)) continue;
-        best.idx = a;
-        break;
-      }
-      return best;
-    }
-
-    return { key: "", pts: 0, score: 0, weight: 0, idx: -1, flagged: false };
   }
+
+  var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
+
+  for (var i = 0; i < domains.length; i++) {
+    var dk = domains[i];
+    if (!domainHasMeasuredSignal(dk)) continue;
+
+    var s = scoreFor(scores, dk);
+    if (s === null) continue;
+
+    var w = WEIGHTS[dk] || 0;
+    var pts = deficitWeightedPoints(s, w);
+    if (pts >= 3 && pts > best.pts) {
+      best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
+    }
+  }
+
+  if (best.key) {
+    for (var a = 0; a < signals.length; a++) {
+      var sigA = safeObj(signals[a]);
+      if (domainKeyFromSignal(sigA) !== best.key) continue;
+      var scA = asInt(sigA.score, 0);
+      if (isUnmeasuredSignal(sigA, scA)) continue;
+      best.idx = a;
+      break;
+    }
+    return best;
+  }
+
+  return { key: "", pts: 0, score: 0, weight: 0, idx: -1, flagged: false };
+}
 
   // -----------------------------
   // Specific “missing signal” wording
@@ -1789,10 +1731,8 @@ var summary = ""
     var scores = pickScores(data);
     var signals = pickSignals(data);
     var branding = pickBranding(data);
-    var commentary = pickCommentary(data);
 
     applyBrandingUI(branding);
-    applyCommentaryUI(commentary);
 
     setHeaderUI(header);
 
@@ -1801,7 +1741,7 @@ var summary = ""
 
     showReport();
 
-    var primary = computePrimaryConstraint(scores, signals);
+ var primary = computePrimaryConstraint(scores, signals, data);
 
     renderExecutiveSummary(data, primary);
     renderSignalsGrid(signals, scores, primary);
