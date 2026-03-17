@@ -1632,13 +1632,12 @@ exports.handler = async (event) => {
     // ---------------------------------------------
     // Debug Logging
     // ---------------------------------------------
-    console.log("[run-scan] PSI state", {
-      enabled: psiEnabled,
-      strategies: psiStrategies,
-      include_lighthouse: body.include_lighthouse,
-      timeout_ms: PSI_TIMEOUT_MS,
-      platform,
-    });
+  console.log("[run-scan] PSI state", {
+  enabled: psiEnabled,
+  strategies: psiStrategies,
+  include_lighthouse: body.include_lighthouse,
+  timeout_ms: PSI_TIMEOUT_MS,
+});
 // ---------------------------------------------
 // Auth OR anonymous demo
 // ---------------------------------------------
