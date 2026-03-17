@@ -382,11 +382,11 @@
       animation-delay: 220ms;
     }
 
- .hero-scan-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+.hero-scan-form {
+  display: flex;
+  align-items: stretch;
   gap: 10px;
-  align-items: center;
+  width: 100%;
   padding: 10px;
   border-radius: 18px;
   border: 1px solid rgba(34,211,238,0.24);
@@ -396,67 +396,82 @@
   box-shadow:
     0 12px 28px rgba(0,0,0,0.28),
     inset 0 0 0 1px rgba(255,255,255,0.02);
-  cursor: text;
 }
 
-    .hero-scan-input {
-      width: 100%;
-      min-height: 48px;
-      border: 0;
-      background: transparent;
-      color: var(--ink);
-      font-family: inherit;
-      font-size: 1rem;
-      font-weight: 500;
-      padding: 0 10px;
-      outline: none;
-      box-shadow: none;
-    }
+.hero-scan-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0 16px;
+  outline: none;
+  box-shadow: none;
+  display: block;
+  position: relative;
+  z-index: 1;
+}
 
-    .hero-scan-input::placeholder {
-      color: rgba(192,207,235,0.50);
-    }
+.hero-scan-input::placeholder {
+  color: rgba(192,207,235,0.50);
+}
 
-    .hero-scan-button {
-      min-height: 46px;
-      padding: 0 24px;
-      border-radius: 12px;
-      border: 1px solid rgba(34,211,238,0.68);
-      background:
-        radial-gradient(circle at top, rgba(34,211,238,0.22), rgba(2,6,23,1));
-      color: #e6fbff;
-      font-family: inherit;
-      font-size: 0.86rem;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      cursor: pointer;
-      white-space: nowrap;
-      box-shadow:
-        0 0 16px rgba(34,211,238,0.30),
-        0 10px 24px rgba(15,23,42,0.70);
-      transition:
-        transform 0.16s ease,
-        border-color 0.16s ease,
-        box-shadow 0.16s ease,
-        color 0.16s ease,
-        background 0.16s ease;
-    }
+.hero-scan-button {
+  flex: 0 0 auto;
+  height: 48px;
+  min-width: 200px;
+  padding: 0 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(34,211,238,0.68);
+  background:
+    radial-gradient(circle at top, rgba(34,211,238,0.22), rgba(2,6,23,1));
+  color: #e6fbff;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    0 0 16px rgba(34,211,238,0.30),
+    0 10px 24px rgba(15,23,42,0.70);
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    background 0.16s ease;
 
-    .hero-scan-button:hover,
-    .hero-scan-button:hover:not(:disabled) {
-      transform: translateY(-1px);
-      border-color: rgba(34,211,238,0.92);
-      box-shadow:
-        0 0 22px rgba(34,211,238,0.42),
-        0 12px 30px rgba(15,23,42,0.84);
-      color: #ffffff;
-    }
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-    .hero-scan-button:disabled {
-      opacity: 0.68;
-      cursor: wait;
-    }
+  position: relative;
+  z-index: 2;
+
+  pointer-events: auto;
+}
+
+.hero-scan-button:hover,
+.hero-scan-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(34,211,238,0.92);
+  box-shadow:
+    0 0 22px rgba(34,211,238,0.42),
+    0 12px 30px rgba(15,23,42,0.84);
+  color: #ffffff;
+}
+
+.hero-scan-button:disabled {
+  opacity: 0.68;
+  cursor: wait;
+}
 
     .hero-scan-meta {
       margin-top: 12px;
@@ -2343,16 +2358,15 @@
     const input = document.getElementById("heroScanInput");
     const button = document.getElementById("heroScanButton");
     const status = document.getElementById("heroScanStatus");
+    const shell = document.querySelector(".hero-scan-shell");
 
   if (form && input && button && status) {
-   form.addEventListener("click", (e) => {
-  const isInput = e.target === input;
-  const isButton = button.contains(e.target);
-
-  if (!isInput && !isButton) {
-    input.focus();
-  }
-});
+      if (shell) {
+        shell.addEventListener("click", (e) => {
+          if (e.target === input || button.contains(e.target)) return;
+          input.focus();
+        });
+      }
 
       const setStatus = (message, type = "", ctaHtml = "") => {
         status.innerHTML = "";
