@@ -1284,22 +1284,27 @@ function renderSignalsGrid(signals, scores, primary) {
   for (var i = 0; i < signals.length; i++) {
     var sig = safeObj(signals[i]);
 
-    var label = String(sig.label || sig.id || "Signal");
-    var rawScore = asInt(sig.score, 0);
+var label = String(sig.label || sig.id || "Signal");
+var rawScore = asInt(sig.score, 0);
 
-    var unmeasured = isUnmeasuredSignal(sig, rawScore);
-    var score = unmeasured ? null : rawScore;
+var unmeasured = isUnmeasuredSignal(sig, rawScore);
+var score = unmeasured ? null : rawScore;
 
-    var key = domainKeyFromSignal(sig);
+var key = domainKeyFromSignal(sig);
 
-    var platformControl =
-      (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
-      ((window.__IQWEB_LAST_DATA &&
-        window.__IQWEB_LAST_DATA.platform &&
-        window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
-      "full";
+var platformControl =
+  (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+  ((window.__IQWEB_LAST_DATA &&
+    window.__IQWEB_LAST_DATA.platform &&
+    window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+  "full";
 
-    var platformManaged = (platformControl === "limited" && key === "security");
+var platformManaged = (platformControl === "limited" && key === "security");
+
+if (platformManaged) {
+  score = Math.max(score || 0, 90);
+  unmeasured = false;
+}
 
     var flagged = hasFlags(sig);
     var isPrimary = !!(key && primary && primary.key && key === primary.key);
