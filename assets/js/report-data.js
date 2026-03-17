@@ -1297,7 +1297,10 @@ for (var i = 0; i < domains.length; i++) {
       var lines = [];
       lines.push(headline);
 
-      if (unmeasured && !flagged) {
+      if (platformManaged) {
+        lines.push("Security headers and infrastructure are primarily controlled by the detected platform.");
+        lines.push("Because these elements are outside direct control, they are not used to penalise your score or drive the primary constraint.");
+      } else if (unmeasured && !flagged) {
         lines.push("Not measured in this scan — no evidence returned for this signal.");
       } else {
         var allowEvidence = (flagged || (score !== null && score < 90));
@@ -1317,7 +1320,7 @@ for (var i = 0; i < domains.length; i++) {
         }
       }
 
-      var lever = recommendedFixForKey(key);
+      var lever = platformManaged ? "" : recommendedFixForKey(key);
       if (lever && score !== null && score < 90) {
         lever = getRecommendation(score, lever);
         lines.push(lever);
@@ -1329,7 +1332,7 @@ for (var i = 0; i < domains.length; i++) {
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-     var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
+      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
 
       card.innerHTML =
         badgeHtml +
@@ -1366,17 +1369,29 @@ for (var i = 0; i < domains.length; i++) {
       );
     }
 
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
-      var rawScore = asInt(sig.score, 0);
-      var unmeasured = isUnmeasuredSignal(sig, rawScore);
-      var score = unmeasured ? null : rawScore;
+for (var i = 0; i < signals.length; i++) {
+  var sig = safeObj(signals[i]);
+  var label = String(sig.label || sig.id || "Signal");
 
-      var issues = asArray(sig.issues);
-      var obs = asArray(sig.observations);
-      var deds = asArray(sig.deductions);
-      var evidence = safeObj(sig.evidence);
+  var key = domainKeyFromSignal(sig);
+
+  var platformControl =
+    (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+    ((window.__IQWEB_LAST_DATA &&
+      window.__IQWEB_LAST_DATA.platform &&
+      window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+    "full";
+
+var platformManaged = (platformControl === "limited" && key === "security");
+
+  var rawScore = asInt(sig.score, 0);
+  var unmeasured = isUnmeasuredSignal(sig, rawScore);
+  var score = unmeasured ? null : rawScore;
+
+  var issues = asArray(sig.issues);
+  var obs = asArray(sig.observations);
+  var deds = asArray(sig.deductions);
+  var evidence = safeObj(sig.evidence);
 
       var det = document.createElement("details");
       det.className = "evidence-block";
@@ -1389,6 +1404,18 @@ var summary = ""
   + "</summary>";
 
       var body = '<div class="acc-body">';
+
+      if (platformManaged) {
+  body += "<div class='evidence-title'>Platform-managed baseline</div>";
+  body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>";
+  body += "Security headers and infrastructure are managed by the hosting platform, so this signal is treated as platform-managed rather than a direct implementation issue.";
+  body += "</div>";
+  body += "</div>";
+
+  det.innerHTML = summary + body;
+  root.appendChild(det);
+  continue;
+}
 
       if (unmeasured) {
         body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>This signal was not measured in this scan (no evidence returned).</div>";
