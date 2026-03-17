@@ -941,6 +941,17 @@ for (var i = 0; i < domains.length; i++) {
     }
 
     if (domainKey === "security") {
+      if (extras && extras.platformManaged) {
+        return {
+          impact:
+            "Security configuration and infrastructure are managed by the hosting platform. Direct control over headers and policies may be limited, and no immediate action is required.",
+          fix:
+            "No direct action required. This signal is shown for context and interpreted as platform-managed rather than a direct implementation issue.",
+          next:
+            "Focus on the next highest actionable constraint and re-scan after measurable changes."
+        };
+      }
+
       return {
         impact:
           "Security and trust headers are currently incomplete." +
@@ -1077,8 +1088,9 @@ for (var i = 0; i < domains.length; i++) {
     setText(cEl, domainLabel);
 
     var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
-    var extras = {
-      mobileLcpSeconds: lcpSecondsFromPsi()
+     var extras = {
+      mobileLcpSeconds: lcpSecondsFromPsi(),
+      platformManaged: String(data.platform_control || "").toLowerCase() === "limited"
     };
 
     var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);

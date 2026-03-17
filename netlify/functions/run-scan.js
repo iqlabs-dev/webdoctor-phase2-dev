@@ -823,9 +823,7 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
   };
 }
 
-// ---------------------------------------------
-// Security scoring
-// ---------------------------------------------
+
 // ---------------------------------------------
 // Security scoring (Platform-aware)
 // ---------------------------------------------
@@ -849,10 +847,48 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   const issues = [];
 
   const httpsOk = headers.https === true;
+  const isLimited = policy.controlLevel === "limited";
 
-  // ---------------------------------------------
-  // HTTPS (ALWAYS strict)
-  // ---------------------------------------------
+  // Limited-control platforms:
+  // treat security as platform-managed, not a direct implementation defect.
+  if (isLimited) {
+   let score = 90;
+
+    if (httpsOk) score += 5;
+    if (headers.hsts) score += 2;
+    if (headers.content_security_policy) score += 2;
+    if (headers.x_frame_options) score += 2;
+    if (headers.x_content_type_options) score += 2;
+    if (headers.referrer_policy) score += 1;
+    if (headers.permissions_policy) score += 1;
+
+score = clamp(score, 90, 96);
+
+    issues.push({
+      id: "sec_platform_managed",
+      title: "Security & Trust: Platform-managed baseline",
+      severity: "info",
+      impact:
+        "Security configuration and infrastructure are managed by the hosting platform. Direct control over headers and policies may be limited, and no immediate action is required.",
+      evidence: {
+        platform_key: platform.key || "unknown",
+        platform_label: platform.label || "Managed Platform",
+        platform_control: policy.controlLevel,
+      },
+    });
+
+    return {
+      score,
+      base_score,
+      deductions,
+      issues,
+      penalty_points: 0,
+      platform_control: policy.controlLevel,
+      platform_managed: true,
+    };
+  }
+
+  // Full / partial control platforms
   if (!httpsOk) {
     deductions.push({
       points: weights.https,
@@ -870,9 +906,6 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
     });
   }
 
-  // ---------------------------------------------
-  // Helper for platform-aware penalties
-  // ---------------------------------------------
   function penalise(condition, weight, code, label) {
     if (!condition) {
       const adjusted = Math.round(weight * policy.penaltyMultiplier);
@@ -892,9 +925,6 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
     }
   }
 
-  // ---------------------------------------------
-  // Header checks (platform-aware)
-  // ---------------------------------------------
   penalise(headers.hsts, weights.hsts, "sec_hsts_not_observed", "HSTS");
   penalise(headers.content_security_policy, weights.csp, "sec_csp_not_observed", "CSP");
   penalise(headers.x_frame_options, weights.x_frame_options, "sec_xfo_not_observed", "X-Frame-Options");
@@ -902,9 +932,6 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   penalise(headers.referrer_policy, weights.referrer_policy, "sec_referrer_policy_not_observed", "Referrer-Policy");
   penalise(headers.permissions_policy, weights.permissions_policy, "sec_permissions_policy_not_observed", "Permissions-Policy");
 
-  // ---------------------------------------------
-  // Score calculation (unchanged logic)
-  // ---------------------------------------------
   let score = 0;
 
   if (httpsOk) score += weights.https;
@@ -928,7 +955,8 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
     deductions,
     issues,
     penalty_points,
-    platform_control: policy.controlLevel, // 👈 key addition
+    platform_control: policy.controlLevel,
+    platform_managed: false,
   };
 }
 
@@ -1217,7 +1245,7 @@ function buildScores(url, html, res, isHtml, psi, platform = { key: "unknown" })
   const mobilePack = scoreMobileFromBasic(basic, isHtml, psi);
   const mobile = mobilePack.score;
 
-  const secPack = scoreSecurityFromHeaders(headers);
+const secPack = scoreSecurityFromHeaders(headers, platform);
   const security = secPack.score;
 
   const accPack = scoreAccessibilityFromBasic(basic, isHtml);
@@ -2054,16 +2082,21 @@ const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
 
 const metrics = {
   platform,
+  platform_control: platform.controlLevel, // 👈 ADD THIS LINE
+
   scores,
   psi,                 // ✅ keep the real PSI results
   flags: derivedFlags,
   delivery_signals,
+
   basic_checks: {
     ...basic,
     http_status: res.status,
     content_type: contentType || null,
   },
+
   security_headers: headers,
+
   human_signals: {
     clarity_cognitive_load: human.clarity,
     trust_credibility: human.trust,
@@ -2071,6 +2104,7 @@ const metrics = {
     maintenance_hygiene: human.maintenance,
     freshness_signals: human.freshness,
   },
+
   explanations: notes,
 };
 
