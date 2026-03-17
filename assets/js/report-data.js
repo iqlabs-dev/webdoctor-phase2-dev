@@ -693,11 +693,13 @@ function computePrimaryConstraint(scores, signals, data) {
   signals = asArray(signals);
   data = safeObj(data);
 
-  var metrics = safeObj(data.metrics);
-  var platformControl =
-    metrics.platform_control ||
-    (metrics.platform && metrics.platform.controlLevel) ||
-    "full";
+var metrics = safeObj(data.metrics);
+var platformControl =
+  data.platform_control ||
+  (data.platform && data.platform.controlLevel) ||
+  metrics.platform_control ||
+  (metrics.platform && metrics.platform.controlLevel) ||
+  "full";
 
   var model = window.IQWEB_SCORE_MODEL || null;
 
