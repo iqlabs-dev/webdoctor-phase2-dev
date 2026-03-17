@@ -1,4 +1,4 @@
-// /.netlify/functions/psi-worker-background.js
+// /.netlify/function/psi-worker-background.js
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
