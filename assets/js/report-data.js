@@ -1607,50 +1607,62 @@ var summary = ""
       return label + ": Missing baseline inputs for this signal.";
     }
 
-    function collectFromSignal(sig, out) {
-      sig = safeObj(sig);
-      var label = String(sig.label || sig.id || "Signal");
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
+  function collectFromSignal(sig, out) {
+  sig = safeObj(sig);
 
-      for (var j = 0; j < issues.length; j++) {
-        var it = safeObj(issues[j]);
-        var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
-        if (!rawTitle) continue;
+  var key = domainKeyFromSignal(sig);
+  var platformControl =
+    (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+    ((window.__IQWEB_LAST_DATA &&
+      window.__IQWEB_LAST_DATA.platform &&
+      window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+    "full";
 
-        var title = normaliseRequiredMissing(label, sig, rawTitle);
+  var platformManaged = (platformControl === "limited" && key === "security");
+  if (platformManaged) return;
 
-        out.push({
-          title: title,
-          sev: String(it.severity || "MONITOR").toUpperCase(),
-          why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-          _rank: sevRank(it.severity || "MONITOR")
-        });
-      }
+  var label = String(sig.label || sig.id || "Signal");
+  var issues = asArray(sig.issues);
+  var deds = asArray(sig.deductions);
 
-      for (var m = 0; m < deds.length; m++) {
-        var dd = safeObj(deds[m]);
-        var pts = num(dd.points);
-        var rawReason = String(dd.reason || dd.code || "").trim();
-        if (!rawReason) continue;
+  for (var j = 0; j < issues.length; j++) {
+    var it = safeObj(issues[j]);
+    var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
+    if (!rawTitle) continue;
 
-        if (pts !== null && pts < 2) continue;
+    var title = normaliseRequiredMissing(label, sig, rawTitle);
 
-        var reason = rawReason;
-        if (/required signal missing/i.test(reason)) {
-          var spec2 = "";
-          try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
-          reason = spec2 || "Missing baseline inputs for this signal.";
-        }
+    out.push({
+      title: title,
+      sev: String(it.severity || "MONITOR").toUpperCase(),
+      why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+      _rank: sevRank(it.severity || "MONITOR")
+    });
+  }
 
-        out.push({
-          title: label + ": " + reason,
-          sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
-          why: "A measured deduction was applied from scan evidence.",
-          _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
-        });
-      }
+  for (var m = 0; m < deds.length; m++) {
+    var dd = safeObj(deds[m]);
+    var pts = num(dd.points);
+    var rawReason = String(dd.reason || dd.code || "").trim();
+    if (!rawReason) continue;
+
+    if (pts !== null && pts < 2) continue;
+
+    var reason = rawReason;
+    if (/required signal missing/i.test(reason)) {
+      var spec2 = "";
+      try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
+      reason = spec2 || "Missing baseline inputs for this signal.";
     }
+
+    out.push({
+      title: label + ": " + reason,
+      sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
+      why: "A measured deduction was applied from scan evidence.",
+      _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
+    });
+  }
+}
 
     var all = [];
     var primaryOnly = [];
