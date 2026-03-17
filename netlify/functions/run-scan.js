@@ -1,3 +1,6 @@
+const { detectPlatform } = require("../../utils/platform-detection");
+console.log("Platform detection loaded");
+
 // ---------------------------------------------
 // PSI (PageSpeed Insights) config
 // ---------------------------------------------
@@ -25,6 +28,8 @@ async function fetchPSI(url, strategy = "desktop") {
     strategy,
     key: PSI_API_KEY,
   });
+
+  
 
   // Ask for the categories we map into iQWEB signals.
   // Note: PSI supports multiple category params.
