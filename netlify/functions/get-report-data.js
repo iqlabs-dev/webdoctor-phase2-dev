@@ -280,8 +280,7 @@ export async function handler(event) {
     if (scan.user_id) {
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select(
-          `
+        .select(`
           agency_name,
           agency_website,
           agency_email,
@@ -292,8 +291,7 @@ export async function handler(event) {
           show_header_contact,
           show_footer_contact,
           show_powered_by
-          `
-        )
+        `)
         .eq("user_id", scan.user_id)
         .maybeSingle();
 
@@ -314,11 +312,12 @@ export async function handler(event) {
     }
 
     const metrics = safeObj(scan.metrics);
+
     const platform = safeObj(metrics.platform);
-const platform_control =
-  metrics.platform_control ||
-  platform.controlLevel ||
-  "full";
+    const platform_control =
+      metrics.platform_control ||
+      platform.controlLevel ||
+      "full";
 
     const basic_checks = safeObj(metrics.basic_checks);
     const security_headers = safeObj(metrics.security_headers);
@@ -410,15 +409,15 @@ const platform_control =
       show_footer_contact: branding.show_footer_contact,
       show_powered_by: branding.show_powered_by,
 
-   basic_checks,
-security_headers,
-psi,
-platform,
-platform_control,
+      basic_checks,
+      security_headers,
+      psi,
+      platform,
+      platform_control,
 
-scores,
-overall_summary,
-delivery_signals,
+      scores,
+      overall_summary,
+      delivery_signals,
       key_metrics,
       findings,
       fix_plan,
