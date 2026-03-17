@@ -1,5 +1,5 @@
 const detectPlatform = require("../../utils/platform-detection");
-console.log("Platform detection loaded");
+console.log("🔥 PLATFORM DETECTION ACTIVE 🔥");
 
 // ---------------------------------------------
 // PSI (PageSpeed Insights) confg
