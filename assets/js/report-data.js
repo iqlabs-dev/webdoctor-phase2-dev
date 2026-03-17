@@ -1111,241 +1111,119 @@ for (var i = 0; i < domains.length; i++) {
     setText(nEl, narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.");
   }
 
-  // -----------------------------
-  // Delivery signal cards
-  // -----------------------------
-  function renderSignalsGrid(signals, scores, primary) {
-    var grid = $("signalsGrid");
-    if (!grid) return;
+ 
+// -----------------------------
+// Delivery signal cards
+// -----------------------------
+function renderSignalsGrid(signals, scores, primary) {
+  var grid = $("signalsGrid");
+  if (!grid) return;
 
-    signals = asArray(signals);
-    scores = safeObj(scores);
-    grid.innerHTML = "";
+  signals = asArray(signals);
+  scores = safeObj(scores);
+  grid.innerHTML = "";
 
-    try {
-      if (!document.getElementById("iqweb-primary-badge-style")) {
-        var st = document.createElement("style");
-        st.id = "iqweb-primary-badge-style";
-        st.type = "text/css";
-        st.appendChild(document.createTextNode(
-          ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
-          ".card{position:relative;}"+
-          ".severity-na{opacity:.92;}"+
-          ".severity-na .bar>div{width:0 !important;}"
-        ));
-        document.head.appendChild(st);
+  try {
+    if (!document.getElementById("iqweb-primary-badge-style")) {
+      var st = document.createElement("style");
+      st.id = "iqweb-primary-badge-style";
+      st.type = "text/css";
+      st.appendChild(document.createTextNode(
+        ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
+        ".card{position:relative;}"+
+        ".severity-na{opacity:.92;}"+
+        ".severity-na .bar>div{width:0 !important;}"
+      ));
+      document.head.appendChild(st);
+    }
+  } catch (e) {}
+
+  function isStrong(score) { return asInt(score, 0) >= 90; }
+
+  for (var i = 0; i < signals.length; i++) {
+    var sig = safeObj(signals[i]);
+
+    var label = String(sig.label || sig.id || "Signal");
+    var rawScore = asInt(sig.score, 0);
+
+    var unmeasured = isUnmeasuredSignal(sig, rawScore);
+    var score = unmeasured ? null : rawScore;
+
+    var key = domainKeyFromSignal(sig);
+
+    // ✅ FIX: define platformManaged properly
+    var platformControl =
+      (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+      ((window.__IQWEB_LAST_DATA &&
+        window.__IQWEB_LAST_DATA.platform &&
+        window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+      "full";
+
+    var platformManaged = (platformControl === "limited" && key === "security");
+
+    var flagged = hasFlags(sig);
+    var isPrimary = !!(key && primary && primary.key && key === primary.key);
+
+    var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
+    var lines = [];
+    lines.push(headline);
+
+    // ✅ PLATFORM-MANAGED LOGIC
+    if (platformManaged) {
+      lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
+      lines.push("These elements sit outside direct site-level control and are treated as platform-managed context, not an actionable issue.");
+    } 
+    else if (unmeasured && !flagged) {
+      lines.push("Not measured in this scan — no evidence returned for this signal.");
+    } 
+    else {
+      var allowEvidence = (flagged || (score !== null && score < 90));
+      var because = pickExplainLine(sig, allowEvidence);
+      var emptyButLow = (score !== null && !flagged && !because && score < 70);
+
+      if (flagged) {
+        lines.push(because ? because : "Review the items flagged below.");
+      } 
+      else if (emptyButLow) {
+        lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
+      } 
+      else {
+        if (score !== null && isStrong(score)) {
+          lines.push("Baseline stable — no measurable blockers detected in this scan.");
+        } 
+        else if (score !== null && score < 90) {
+          lines.push(because ? because : "Structural signals indicate measurable drag.");
+        }
       }
-    } catch (e) {}
-
-    function isStrong(score) { return asInt(score, 0) >= 90; }
-
-    function prettyEvidenceText(key, value) {
-      var k = String(key || "");
-      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-      if (!label) label = "Requirement";
-
-      var lk = k.toLowerCase();
-
-      if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
-        label = "HTML lang attribute";
-      } else if (lk.indexOf("title") !== -1) {
-        label = "Page title (<title>)";
-      } else if (lk.indexOf("viewport") !== -1) {
-        label = "Viewport meta tag";
-      } else if (lk.indexOf("canonical") !== -1) {
-        label = "Canonical link";
-      } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
-        label = "Indexability controls";
-      } else if (lk.indexOf("referrer") !== -1) {
-        label = "Referrer-Policy header";
-      } else if (lk.indexOf("permissions") !== -1) {
-        label = "Permissions-Policy header";
-      } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
-        label = "X-Frame-Options header";
-      } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
-        label = "X-Content-Type-Options header";
-      } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
-        label = "Content-Security-Policy header";
-      } else if (lk.indexOf("hsts") !== -1) {
-        label = "HSTS header";
-      }
-
-      if (typeof value === "boolean") {
-        if (lk.indexOf("missing") !== -1 && value === true) {
-          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
-          return label + " is missing.";
-        }
-
-        if (value === false) {
-          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-          if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
-          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
-          return label + " is missing or incorrectly configured.";
-        }
-      }
-
-      var nv = num(value);
-      if (nv !== null) {
-        if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
-          var kb = Math.round(nv / 1024);
-          return "HTML payload exceeds baseline (" + kb + "KB).";
-        }
-        if (lk.indexOf("lcp") !== -1) {
-          var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
-          return "Largest Contentful Paint exceeds target (" + sec + "s).";
-        }
-        if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
-          return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
-        }
-        if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
-          return label + " is below baseline (" + nv + ").";
-        }
-        return label + " is outside baseline (" + nv + ").";
-      }
-
-      return label + " needs attention.";
     }
 
-    function normalizeExplainLine(text, sig) {
-      var t = String(text || "").trim();
-      if (!t) return "";
-
-      if (/required signal missing/i.test(t)) {
-        var spec = specificMissingSignals(sig);
-        if (spec) return spec;
-
-        var dk = domainKeyFromSignal(sig);
-        if (dk === "security") return "Required security headers are missing or not detected.";
-        if (dk === "seo") return "Core SEO signals such as indexability or metadata could not be confirmed.";
-        if (dk === "structure") return "Required structural tags were not detected.";
-        if (dk === "accessibility") return "Required accessibility signals were not detected.";
-        return "Required baseline signals were not detected.";
-      }
-
-      return t;
+    // ✅ No recommendations for platform-managed
+    var lever = platformManaged ? "" : recommendedFixForKey(key);
+    if (lever && score !== null && score < 90) {
+      lever = getRecommendation(score, lever);
+      lines.push(lever);
     }
 
-    function pickExplainLine(sig, allowEvidence) {
-      var issues = asArray(sig.issues);
-      if (issues.length) {
-        var it = safeObj(issues[0]);
-        var t = String(it.title || it.id || "").trim();
-        t = normalizeExplainLine(t, sig);
+    var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+    var severityClass = severityClassFromModel(score, unmeasured);
 
-        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "");
+    var card = document.createElement("div");
+    card.className = "card " + severityClass;
 
-        if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
-        else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
-        else if (/missing h1/i.test(t) || /missing h1 heading/i.test(t) || /h1 present is missing/i.test(t)) t = "Primary heading (H1) is missing or incorrectly configured.";
-        else if (/canonical link missing/i.test(t)) t = "Canonical link is missing.";
-        else if (/viewport meta tag/i.test(t) && /not satisfied/i.test(t)) t = "Viewport meta tag is missing or incorrectly configured.";
-        else if (/html lang/i.test(t) && /missing/i.test(t)) t = "HTML lang attribute is missing.";
-        else if (/required seo baseline signals were not detected/i.test(t)) t = "Core SEO signals such as indexability and metadata could not be confirmed.";
+    var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
 
-        if (t) return t;
-      }
+    card.innerHTML =
+      badgeHtml +
+      '<div class="card-top">' +
+        "<h3>" + escapeHtml(label) + "</h3>" +
+        '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+      "</div>" +
+      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+      '<div class="summary">' + summaryHtml + "</div>";
 
-      var deds = asArray(sig.deductions);
-      if (deds.length) {
-        var dd = safeObj(deds[0]);
-        var r = String(dd.reason || dd.code || "").trim();
-        r = normalizeExplainLine(r, sig);
-        if (/required seo baseline signals were not detected/i.test(r)) r = "Core SEO signals such as indexability and metadata could not be confirmed.";
-        if (r) return r;
-      }
-
-      if (allowEvidence) {
-        var ev = safeObj(sig.evidence);
-        var keys = Object.keys(ev || {});
-        for (var i = 0; i < keys.length; i++) {
-          var k = keys[i];
-          var v = ev[k];
-          if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
-        }
-      }
-
-      return "";
-    }
-
-    function getRecommendation(score, text) {
-      var s = asInt(score, 0);
-      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
-      return text;
-    }
-
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-
-      var label = String(sig.label || sig.id || "Signal");
-      var rawScore = asInt(sig.score, 0);
-
-      var unmeasured = isUnmeasuredSignal(sig, rawScore);
-      var score = unmeasured ? null : rawScore;
-
-      var key = domainKeyFromSignal(sig);
-      var flagged = hasFlags(sig);
-      var isPrimary = !!(key && primary && primary.key && key === primary.key);
-
-      var headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
-      var lines = [];
-      lines.push(headline);
-
-      if (platformManaged) {
-        lines.push("Security headers and infrastructure are primarily controlled by the detected platform.");
-        lines.push("Because these elements are outside direct control, they are not used to penalise your score or drive the primary constraint.");
-      } else if (unmeasured && !flagged) {
-        lines.push("Not measured in this scan — no evidence returned for this signal.");
-      } else {
-        var allowEvidence = (flagged || (score !== null && score < 90));
-        var because = pickExplainLine(sig, allowEvidence);
-        var emptyButLow = (score !== null && !flagged && !because && score < 70);
-
-        if (flagged) {
-          lines.push(because ? because : "Review the items flagged below.");
-        } else if (emptyButLow) {
-          lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
-        } else {
-          if (score !== null && isStrong(score)) {
-            lines.push("Baseline stable — no measurable blockers detected in this scan.");
-          } else if (score !== null && score < 90) {
-            lines.push(because ? because : "Structural signals indicate measurable drag.");
-          }
-        }
-      }
-
-      var lever = platformManaged ? "" : recommendedFixForKey(key);
-      if (lever && score !== null && score < 90) {
-        lever = getRecommendation(score, lever);
-        lines.push(lever);
-      }
-
-      var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-      var severityClass = severityClassFromModel(score, unmeasured);
-
-      var card = document.createElement("div");
-      card.className = "card " + severityClass;
-
-      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
-
-      card.innerHTML =
-        badgeHtml +
-        '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-        "</div>" +
-        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-        '<div class="summary">' + summaryHtml + "</div>";
-
-      grid.appendChild(card);
-    }
+    grid.appendChild(card);
   }
+}
 
   // -----------------------------
   // Signal Evidence
