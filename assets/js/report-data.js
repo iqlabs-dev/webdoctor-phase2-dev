@@ -711,13 +711,21 @@ function computePrimaryConstraint(scores, signals, data) {
     return false;
   }
 
-  var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+var nonSecurityMeasured = false;
 
-  // On limited-control platforms, don't let Security become the primary constraint
-  // unless there is literally nothing else measurable.
-  if (platformControl === "limited") {
-    domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
+if (platformControl === "limited") {
+  domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
+
+  for (var z = 0; z < domains.length; z++) {
+    var testKey = domains[z];
+    if (testKey === "security") continue;
+    if (domainHasMeasuredSignal(testKey)) {
+      nonSecurityMeasured = true;
+      break;
+    }
   }
+}
 
   if (model && typeof model.pickPrimarySignal === "function") {
     var picked = model.pickPrimarySignal(signals);
@@ -736,19 +744,24 @@ function computePrimaryConstraint(scores, signals, data) {
 
   var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
 
-  for (var i = 0; i < domains.length; i++) {
-    var dk = domains[i];
-    if (!domainHasMeasuredSignal(dk)) continue;
+for (var i = 0; i < domains.length; i++) {
+  var dk = domains[i];
 
-    var s = scoreFor(scores, dk);
-    if (s === null) continue;
-
-    var w = WEIGHTS[dk] || 0;
-    var pts = deficitWeightedPoints(s, w);
-    if (pts >= 3 && pts > best.pts) {
-      best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
-    }
+  if (platformControl === "limited" && dk === "security" && nonSecurityMeasured) {
+    continue;
   }
+
+  if (!domainHasMeasuredSignal(dk)) continue;
+
+  var s = scoreFor(scores, dk);
+  if (s === null) continue;
+
+  var w = WEIGHTS[dk] || 0;
+  var pts = deficitWeightedPoints(s, w);
+  if (pts >= 3 && pts > best.pts) {
+    best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
+  }
+}
 
   if (best.key) {
     for (var a = 0; a < signals.length; a++) {
