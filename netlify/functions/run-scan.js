@@ -825,7 +825,7 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 
 
 // ---------------------------------------------
-// Security scoring (Platform-aware)
+// Security scring (Platform-aware)
 // ---------------------------------------------
 function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   const { getPlatformPolicy } = require("../../utils/platform-policy");
@@ -2032,24 +2032,20 @@ if (!isAnonymous) {
 const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
 // ---------------------------------------------
-// Platform Detection (CORRECT PLACEMENT)
+// Platform Detection
 // ---------------------------------------------
 let platform = {
   key: "unknown",
   label: "Unknown",
   controlLevel: "full",
   confidence: "low",
+  matchedBy: []
 };
 
 try {
   platform = detectPlatform({
     html,
-    headers: {
-      server: res.headers.get("server") || "",
-      "x-powered-by": res.headers.get("x-powered-by") || "",
-      "x-nf-request-id": res.headers.get("x-nf-request-id") || "",
-      "x-vercel-id": res.headers.get("x-vercel-id") || "",
-    },
+    headers: res.headers,
     finalUrl: res.url || url,
   });
 

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="iQWEB delivers website performance, SEO, accessibility and security diagnostics — turning PSI, Core Web Vitals and technical signals into prioritised, client-ready reports for agencies and developers.">
 
-  <!-- Favicons -->
+  <!-- Favcons -->
   <link rel="icon" href="/favicon.ico?v=1" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=1">
@@ -945,6 +945,87 @@
 
     .signal-metrics { white-space: nowrap; }
 
+.iq-platform-strip {
+  margin-top: -50px;
+
+  /* KEY FIX ↓ */
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
+
+  border-radius: 18px;
+  padding: 18px 22px 20px;
+
+  background:
+    radial-gradient(900px 260px at 12% 0%, rgba(34,211,238,0.08), transparent 52%),
+    linear-gradient(180deg, rgba(8,12,24,0.94), rgba(5,9,20,0.96));
+
+  border: 1px solid rgba(34,211,238,0.18);
+
+  box-shadow:
+    0 18px 40px rgba(0,0,0,0.30),
+    inset 0 0 0 1px rgba(255,255,255,0.02);
+
+  backdrop-filter: blur(10px);
+}
+
+    .iq-platform-strip-title {
+      margin: 0 0 10px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-align: center;
+    }
+
+    .iq-platform-strip-text {
+      margin: 0 auto;
+      max-width: 860px;
+      text-align: center;
+      font-size: 0.86rem;
+      line-height: 1.72;
+      color: rgba(229,240,255,0.84);
+    }
+
+    .iq-platform-strip-text strong {
+      color: #eaf8ff;
+      font-weight: 700;
+    }
+
+    .iq-platform-supported {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 0.79rem;
+      line-height: 1.6;
+      color: rgba(192,207,235,0.76);
+    }
+
+    .iq-platform-supported strong {
+      color: #d8f9ff;
+      font-weight: 700;
+    }
+
+    @media (max-width: 720px) {
+      .iq-platform-strip {
+        padding: 18px 16px 20px;
+      }
+
+      .iq-platform-strip-title {
+        font-size: 0.76rem;
+        letter-spacing: 0.14em;
+      }
+
+      .iq-platform-strip-text {
+        font-size: 0.82rem;
+        line-height: 1.68;
+      }
+
+      .iq-platform-supported {
+        font-size: 0.75rem;
+      }
+    }
+
     /* WORKFLOW */
     #how.section { margin-top: 78px; margin-bottom: 18px; }
 
@@ -1858,6 +1939,20 @@
           </section>
         </section>
       </main>
+
+                      <div class="iq-platform-strip">
+                  <h3 class="iq-platform-strip-title">Platform-Aware Scoring</h3>
+
+                  <p class="iq-platform-strip-text">
+                    iQWEB detects when a site is built on a managed platform and adjusts scoring to reflect what is actually within developer control.
+                    Infrastructure elements such as <strong>hosting, security headers, and server configuration</strong> may be controlled by the platform rather than the site owner.
+                    These signals are interpreted in context and are <strong>not treated as direct actionable issues</strong>.
+                  </p>
+
+                  <div class="iq-platform-supported">
+                    <strong>Supported platforms:</strong> Webflow · Shopify · Wix · Squarespace · WordPress · Framer · Ghost
+                  </div>
+                </div>
 
       <!-- HOW IT WORKS / WORKFLOW -->
       <section class="section" id="how">

@@ -1,47 +1,76 @@
-function getPlatformPolicy(platform) {
-  const key = platform?.key || "unknown";
+// /utils/platfrm-policy.js
 
-  // Default = full control (strict scoring)
-  let controlLevel = "full";
+const PLATFORM_POLICIES = {
+  webflow: {
+    controlLevel: "limited",
+    securityManaged: true,
+    scoreFloor: 95,
+    penaltyMultiplier: 0,
+    messaging: "platform_managed"
+  },
 
-  if ([
-    "webflow",
-    "shopify",
-    "wix",
-    "squarespace",
-    "framer",
-    "carrd",
-  ].includes(key)) {
-    controlLevel = "limited";
+  shopify: {
+    controlLevel: "limited",
+    securityManaged: true,
+    scoreFloor: 95,
+    penaltyMultiplier: 0,
+    messaging: "platform_managed"
+  },
+
+  wix: {
+    controlLevel: "limited",
+    securityManaged: true,
+    scoreFloor: 95,
+    penaltyMultiplier: 0,
+    messaging: "platform_managed"
+  },
+
+  squarespace: {
+    controlLevel: "limited",
+    securityManaged: true,
+    scoreFloor: 95,
+    penaltyMultiplier: 0,
+    messaging: "platform_managed"
+  },
+
+  framer: {
+    controlLevel: "limited",
+    securityManaged: true,
+    scoreFloor: 95,
+    penaltyMultiplier: 0,
+    messaging: "platform_managed"
+  },
+
+  wordpress: {
+    controlLevel: "full",
+    securityManaged: false,
+    scoreFloor: null,
+    penaltyMultiplier: 1,
+    messaging: "direct"
+  },
+
+  ghost: {
+    controlLevel: "full",
+    securityManaged: false,
+    scoreFloor: null,
+    penaltyMultiplier: 1,
+    messaging: "direct"
+  },
+
+  unknown: {
+    controlLevel: "full",
+    securityManaged: false,
+    scoreFloor: null,
+    penaltyMultiplier: 1,
+    messaging: "direct"
   }
+};
 
-  if ([
-    "wordpress",
-    "ghost",
-    "hubspot",
-    "duda",
-    "bubble",
-  ].includes(key)) {
-    controlLevel = "partial";
-  }
-
-  return {
-    controlLevel,
-
-    // How much to reduce penalties
-    penaltyMultiplier:
-      controlLevel === "limited" ? 0.3 :
-      controlLevel === "partial" ? 0.6 :
-      1,
-
-    // Messaging tone
-    messaging:
-      controlLevel === "limited"
-        ? "platform_managed"
-        : controlLevel === "partial"
-        ? "partially_managed"
-        : "fully_controllable",
-  };
+function getPlatformPolicy(platformKey) {
+  return (
+    PLATFORM_POLICIES[String(platformKey || "").toLowerCase()] ||
+    PLATFORM_POLICIES.unknown
+  );
 }
 
 module.exports = { getPlatformPolicy };
