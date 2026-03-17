@@ -240,7 +240,7 @@ export async function handler(event) {
 
     let q = supabase
       .from("scan_results")
-      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative, agency_commentary_title, agency_commentary_body, agency_commentary_signoff")
+      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -314,6 +314,11 @@ export async function handler(event) {
     }
 
     const metrics = safeObj(scan.metrics);
+    const platform = safeObj(metrics.platform);
+const platform_control =
+  metrics.platform_control ||
+  platform.controlLevel ||
+  "full";
 
     const basic_checks = safeObj(metrics.basic_checks);
     const security_headers = safeObj(metrics.security_headers);
@@ -405,22 +410,19 @@ export async function handler(event) {
       show_footer_contact: branding.show_footer_contact,
       show_powered_by: branding.show_powered_by,
 
-      basic_checks,
-      security_headers,
-      psi,
+   basic_checks,
+security_headers,
+psi,
+platform,
+platform_control,
 
-      scores,
-      overall_summary,
-      delivery_signals,
+scores,
+overall_summary,
+delivery_signals,
       key_metrics,
       findings,
       fix_plan,
       narrative,
-      commentary: {
-        title: scan.agency_commentary_title || "",
-        body: scan.agency_commentary_body || "",
-        signoff: scan.agency_commentary_signoff || "",
-      },
 
       narrative_status,
       narrative_attempts: null,
