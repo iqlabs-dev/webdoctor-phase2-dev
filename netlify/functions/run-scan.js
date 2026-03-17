@@ -1,4 +1,4 @@
-const { detectPlatform } = require("../../utils/platform-detection");
+const detectPlatform = require("../../utils/platform-detection");
 console.log("Platform detection loaded");
 
 // ---------------------------------------------
@@ -1629,14 +1629,28 @@ exports.handler = async (event) => {
     const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
 
-    // ✅ SAFE LOG — psiStrategies EXISTS HERE
-console.log("[run-scan] PSI state", {
-  enabled: psiEnabled,
-  strategies: psiStrategies,
-  include_lighthouse: body.include_lighthouse,
-  timeout_ms: PSI_TIMEOUT_MS,
-});
+    // ---------------------------------------------
+    // Platform Detection (NEW)
+    // ---------------------------------------------
+    let platform = "unknown";
 
+    try {
+      platform = await detectPlatform(url);
+      console.log("[run-scan] detected platform:", platform);
+    } catch (err) {
+      console.log("[run-scan] platform detection failed:", err.message || err);
+    }
+
+    // ---------------------------------------------
+    // Debug Logging
+    // ---------------------------------------------
+    console.log("[run-scan] PSI state", {
+      enabled: psiEnabled,
+      strategies: psiStrategies,
+      include_lighthouse: body.include_lighthouse,
+      timeout_ms: PSI_TIMEOUT_MS,
+      platform,
+    });
 // ---------------------------------------------
 // Auth OR anonymous demo
 // ---------------------------------------------
