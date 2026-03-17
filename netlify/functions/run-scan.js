@@ -2,7 +2,7 @@ const { detectPlatform } = require("../../utils/platform-detection");
 console.log("Platform detection loaded");
 
 // ---------------------------------------------
-// PSI (PageSpeed Insights) config
+// PSI (PageSpeed Insights) confg
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
 

@@ -1,4 +1,4 @@
-// utils/platform-detection.js
+// utils/platform-detction.js
 
 function detectPlatform({ html = "", headers = {}, finalUrl = "" } = {}) {
   const source = String(html || "");
