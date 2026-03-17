@@ -1,6 +1,8 @@
 const { detectPlatform } = require("../../utils/platform-detection");
+const { getPlatformPolicy } = require("../../utils/platform-policy");
+
 // ---------------------------------------------
-// PSI (PageSpeed Insights) confg
+// PSI (PageSpeed Insights) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
 
@@ -824,7 +826,13 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 // ---------------------------------------------
 // Security scoring
 // ---------------------------------------------
-function scoreSecurityFromHeaders(headers) {
+// ---------------------------------------------
+// Security scoring (Platform-aware)
+// ---------------------------------------------
+function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
+  const { getPlatformPolicy } = require("../../utils/platform-policy");
+  const policy = getPlatformPolicy(platform);
+
   const base_score = 100;
 
   const weights = {
@@ -842,12 +850,16 @@ function scoreSecurityFromHeaders(headers) {
 
   const httpsOk = headers.https === true;
 
+  // ---------------------------------------------
+  // HTTPS (ALWAYS strict)
+  // ---------------------------------------------
   if (!httpsOk) {
     deductions.push({
       points: weights.https,
       reason: "Missing HTTPS (scheme is not https://).",
       code: "sec_https_not_confirmed",
     });
+
     issues.push({
       id: "sec_https_not_confirmed",
       title: "Security & Trust: HTTPS not confirmed",
@@ -858,14 +870,43 @@ function scoreSecurityFromHeaders(headers) {
     });
   }
 
-  if (!headers.hsts) deductions.push({ points: weights.hsts, reason: "Missing: HSTS Present", code: "sec_hsts_not_observed" });
-  if (!headers.content_security_policy) deductions.push({ points: weights.csp, reason: "Missing: CSP Present", code: "sec_csp_not_observed" });
-  if (!headers.x_frame_options) deductions.push({ points: weights.x_frame_options, reason: "Missing: X-Frame-Options Present", code: "sec_xfo_not_observed" });
-  if (!headers.x_content_type_options) deductions.push({ points: weights.x_content_type_options, reason: "Missing: X-Content-Type-Options Present", code: "sec_xcto_not_observed" });
-  if (!headers.referrer_policy) deductions.push({ points: weights.referrer_policy, reason: "Missing: Referrer-Policy Present", code: "sec_referrer_policy_not_observed" });
-  if (!headers.permissions_policy) deductions.push({ points: weights.permissions_policy, reason: "Missing: Permissions-Policy Present", code: "sec_permissions_policy_not_observed" });
+  // ---------------------------------------------
+  // Helper for platform-aware penalties
+  // ---------------------------------------------
+  function penalise(condition, weight, code, label) {
+    if (!condition) {
+      const adjusted = Math.round(weight * policy.penaltyMultiplier);
 
+      if (adjusted > 0) {
+        deductions.push({
+          points: adjusted,
+          reason:
+            policy.messaging === "platform_managed"
+              ? `${label} not observed (may be platform-managed)`
+              : policy.messaging === "partially_managed"
+              ? `${label} not observed (may depend on hosting/platform)`
+              : `Missing: ${label}`,
+          code,
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------
+  // Header checks (platform-aware)
+  // ---------------------------------------------
+  penalise(headers.hsts, weights.hsts, "sec_hsts_not_observed", "HSTS");
+  penalise(headers.content_security_policy, weights.csp, "sec_csp_not_observed", "CSP");
+  penalise(headers.x_frame_options, weights.x_frame_options, "sec_xfo_not_observed", "X-Frame-Options");
+  penalise(headers.x_content_type_options, weights.x_content_type_options, "sec_xcto_not_observed", "X-Content-Type-Options");
+  penalise(headers.referrer_policy, weights.referrer_policy, "sec_referrer_policy_not_observed", "Referrer-Policy");
+  penalise(headers.permissions_policy, weights.permissions_policy, "sec_permissions_policy_not_observed", "Permissions-Policy");
+
+  // ---------------------------------------------
+  // Score calculation (unchanged logic)
+  // ---------------------------------------------
   let score = 0;
+
   if (httpsOk) score += weights.https;
   if (headers.hsts) score += weights.hsts;
   if (headers.content_security_policy) score += weights.csp;
@@ -875,9 +916,20 @@ function scoreSecurityFromHeaders(headers) {
   if (headers.permissions_policy) score += weights.permissions_policy;
 
   score = clamp(score, 0, 100);
-  const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
 
-  return { score, base_score, deductions, issues, penalty_points };
+  const penalty_points = deductions.reduce(
+    (sum, d) => sum + (Number(d.points) || 0),
+    0
+  );
+
+  return {
+    score,
+    base_score,
+    deductions,
+    issues,
+    penalty_points,
+    platform_control: policy.controlLevel, // 👈 key addition
+  };
 }
 
 // ---------------------------------------------
