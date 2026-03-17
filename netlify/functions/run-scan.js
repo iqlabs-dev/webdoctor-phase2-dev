@@ -1,6 +1,4 @@
-const detectPlatform = require("../../utils/platform-detection");
-console.log("🔥 PLATFORM DETECTION ACTIVE 🔥");
-
+const { detectPlatform } = require("../../utils/platform-detection");
 // ---------------------------------------------
 // PSI (PageSpeed Insights) confg
 // ---------------------------------------------
@@ -1092,7 +1090,7 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 // ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
-function buildScores(url, html, res, isHtml, psi) {
+function buildScores(url, html, res, isHtml, psi, platform = { key: "unknown" }) {
   const basic = isHtml
     ? basicHtmlSignals(html, url)
     : {
@@ -1629,17 +1627,7 @@ exports.handler = async (event) => {
     const psiEnabled = !!PSI_API_KEY && body.include_lighthouse !== false;
     const psiStrategies = psiEnabled ? PSI_STRATEGIES : [];
 
-    // ---------------------------------------------
-    // Platform Detection (NEW)
-    // ---------------------------------------------
-    let platform = "unknown";
 
-    try {
-      platform = await detectPlatform(url);
-      console.log("[run-scan] detected platform:", platform);
-    } catch (err) {
-      console.log("[run-scan] platform detection failed:", err.message || err);
-    }
 
     // ---------------------------------------------
     // Debug Logging
@@ -1959,17 +1947,49 @@ if (!isAnonymous) {
   body._consumedFrom = "anonymous-demo";
 }
 
-    // ---------------------------------------------
-    // Run scan
-    // ---------------------------------------------
-    const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
+// ---------------------------------------------
+// Run scan
+// ---------------------------------------------
+const { res, text: html, contentType, isHtml } = await fetchWithTimeout(url, 30000);
 
-    const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
-      url,
-      html,
-      res,
-      isHtml
-    );
+// ---------------------------------------------
+// Platform Detection (CORRECT PLACEMENT)
+// ---------------------------------------------
+let platform = {
+  key: "unknown",
+  label: "Unknown",
+  controlLevel: "full",
+  confidence: "low",
+};
+
+try {
+  platform = detectPlatform({
+    html,
+    headers: {
+      server: res.headers.get("server") || "",
+      "x-powered-by": res.headers.get("x-powered-by") || "",
+      "x-nf-request-id": res.headers.get("x-nf-request-id") || "",
+      "x-vercel-id": res.headers.get("x-vercel-id") || "",
+    },
+    finalUrl: res.url || url,
+  });
+
+  console.log("[run-scan] detected platform:", platform);
+} catch (err) {
+  console.log("[run-scan] platform detection failed:", err.message || err);
+}
+
+// ---------------------------------------------
+// Build scores (NOW includes platform)
+// ---------------------------------------------
+const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+  url,
+  html,
+  res,
+  isHtml,
+  psi,
+  platform
+);
 
     // ---------------------------------------------
 // Lighthouse + flag engine (Stage 1–2)
@@ -1982,6 +2002,7 @@ if (!isAnonymous) {
     });
 
 const metrics = {
+  platform,
   scores,
   psi,                 // ✅ keep the real PSI results
   flags: derivedFlags,
