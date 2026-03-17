@@ -108,6 +108,30 @@ function hostFromUrl(url) {
   }
 }
 
+function getPlatformInfo(metrics) {
+  var m = safeObj(metrics);
+  var platform = safeObj(m.platform);
+
+  var key = String(platform.key || m.platform_key || "unknown").toLowerCase();
+  var label = String(platform.label || key || "Unknown");
+  var controlLevel = String(
+    m.platform_control ||
+    platform.controlLevel ||
+    "full"
+  ).toLowerCase();
+
+  return {
+    key: key || "unknown",
+    label: label || "Unknown",
+    controlLevel: controlLevel || "full",
+  };
+}
+
+function isLimitedPlatformControl(platformInfo) {
+  var p = safeObj(platformInfo);
+  return p.controlLevel === "limited";
+}
+
 /* -------------------------------------------------- */
 /* Evidence snapshot                                   */
 /* -------------------------------------------------- */
@@ -172,7 +196,12 @@ function pickEvidenceSnapshot(metrics) {
   // Security header gap (optional)
   const sec = findDeliverySignal(m, "security");
   const secEv = safeObj(sec && sec.evidence);
-  const missingSecurityHeaders = (secEv.missing_count != null) ? secEv.missing_count : undefined;
+  const missingSecurityHeaders =
+    (secEv.missing_count != null)
+      ? secEv.missing_count
+      : undefined;
+
+  const platformInfo = getPlatformInfo(m);
 
   // Scores (if present)
   const scores = {
@@ -213,6 +242,9 @@ function pickEvidenceSnapshot(metrics) {
     images_total: imagesTotal,
     html_lang_missing: htmlLangMissing,
     missing_security_headers: missingSecurityHeaders,
+    platform_key: platformInfo.key,
+    platform_label: platformInfo.label,
+    platform_control: platformInfo.controlLevel,
     scores: scores,
   };
 }
@@ -227,6 +259,8 @@ function buildSignalNarratives(metrics, allowDegraded) {
   var m = safeObj(metrics);
   var psi = safeObj(m.psi);
   var psiEnabled = psi.enabled !== false;
+  var platformInfo = getPlatformInfo(m);
+  var limitedPlatform = isLimitedPlatformControl(platformInfo);
 
   var hasMobile = !!(psi.mobile && hasFactsBlock(psi.mobile.facts));
   var hasDesktop = !!(psi.desktop && hasFactsBlock(psi.desktop.facts));
@@ -345,6 +379,14 @@ function buildSignalNarratives(metrics, allowDegraded) {
     var ev = safeObj(sig.evidence);
     var lines = [];
 
+    if (limitedPlatform) {
+      lines.push(platformInfo.label + " detected.");
+      lines.push("Some security headers and server-level trust controls are managed at the platform level.");
+      lines.push("This signal is shown for context and is not treated as the primary constraint.");
+      out.security = { lines: lines.slice(0, 3) };
+      return;
+    }
+
     if (ev.missing_count != null && Number(ev.missing_count) > 0) {
       lines.push("Baseline hardening gaps remain (" + Number(ev.missing_count) + " headers missing).");
     }
@@ -415,6 +457,8 @@ function choosePrimaryConstraint(e) {
     TBT: 300,    // ms
     TTFB: 800    // ms
   };
+
+  var limitedPlatform = String(e.platform_control || "full").toLowerCase() === "limited";
 
   // --------------------------------------------------
   // Decision hierarchy overrides (v1)
@@ -489,8 +533,13 @@ function choosePrimaryConstraint(e) {
   var TRUST_HEADERS_SEVERE = 4;
   var TRUST_SCORE_SEVERE = 40;
 
-  if ((isFinite(missingHeaders) && missingHeaders >= TRUST_HEADERS_SEVERE) ||
-      (isFinite(secScore) && secScore <= TRUST_SCORE_SEVERE)) {
+  if (
+    !limitedPlatform &&
+    (
+      (isFinite(missingHeaders) && missingHeaders >= TRUST_HEADERS_SEVERE) ||
+      (isFinite(secScore) && secScore <= TRUST_SCORE_SEVERE)
+    )
+  ) {
     if (isFinite(secScore)) {
       return {
         key: "security_score",
@@ -537,6 +586,9 @@ function choosePrimaryConstraint(e) {
   function pushScore(key, label, scoreRaw) {
     var s = Number(scoreRaw);
     if (!isFinite(s)) return;
+
+    // On limited-control platforms, security should not become primary.
+    if (limitedPlatform && key === "security_score") return;
 
     // Only consider as "primary" if it’s low enough to matter.
     var CONCERN_BELOW = 90;
@@ -629,6 +681,8 @@ function buildManifestationLine(primary, host) {
 function buildExecNarrative5(metrics, evidence, url) {
   var host = hostFromUrl(url);
   var e = safeObj(evidence);
+  var limitedPlatform = String(e.platform_control || "full").toLowerCase() === "limited";
+  var platformLabel = String(e.platform_label || "the platform");
 
   var primary = choosePrimaryConstraint(e);
 
@@ -708,7 +762,9 @@ function buildExecNarrative5(metrics, evidence, url) {
   // ---- S4: Counterbalance + secondaries (no praise, just “not the main issue”) ----
   var counterParts = [];
 
-  if (e.images_with_alt != null && e.images_total != null) {
+  if (limitedPlatform) {
+    counterParts.push("This is not treated as a server-hardening failure because " + platformLabel + " manages part of the security baseline");
+  } else if (e.images_with_alt != null && e.images_total != null) {
     counterParts.push("This is not an accessibility-basics failure (" + e.images_with_alt + "/" + e.images_total + " images include alt text)");
   } else if (e.https_active === true) {
     counterParts.push("This is not a transport security failure (HTTPS is active)");
@@ -717,7 +773,9 @@ function buildExecNarrative5(metrics, evidence, url) {
   var secondaryParts = [];
   if (e.canonical_present === false) secondaryParts.push("missing canonical");
   if (e.h1_present === false) secondaryParts.push("missing H1");
-  if (e.missing_security_headers != null && Number(e.missing_security_headers) > 0) secondaryParts.push(String(Number(e.missing_security_headers)) + " security headers missing");
+  if (!limitedPlatform && e.missing_security_headers != null && Number(e.missing_security_headers) > 0) {
+    secondaryParts.push(String(Number(e.missing_security_headers)) + " security headers missing");
+  }
   if (e.html_lang_missing === true) secondaryParts.push("missing <html lang>");
 
   var s4 = "";
@@ -758,7 +816,7 @@ function buildExecNarrative5(metrics, evidence, url) {
   }
 
   // Add sensible secondaries (only if evidenced)
-  if (e.missing_security_headers != null && Number(e.missing_security_headers) > 0 && (!primary || primary.key !== "security_score")) {
+  if (!limitedPlatform && e.missing_security_headers != null && Number(e.missing_security_headers) > 0 && (!primary || primary.key !== "security_score")) {
     order.push("close trust hardening gaps (" + Number(e.missing_security_headers) + " headers)");
   }
   if ((e.canonical_present === false || e.h1_present === false) && (!primary || primary.key !== "seo_score")) {
@@ -868,7 +926,7 @@ export async function handler(event) {
         _updated_at: nowISO(),
         degraded: !!allowDegraded,
         generated_at: nowISO(),
-        source: "deterministic_exec_v4_primary_across_scores_plus_quiet_signals_v1",
+        source: "deterministic_exec_v4_platform_aware_primary_plus_quiet_signals_v1",
         primary_constraint: primary ? {
           key: primary.key,
           label: primary.label,
@@ -892,7 +950,7 @@ export async function handler(event) {
         _meta: {
           site_host: String(row.url || ""),
           generated_at: nowISO(),
-          schema_version: "exec_north_star_v4_primary_across_scores_plus_quiet_signals_v1",
+          schema_version: "exec_north_star_v4_platform_aware_primary_plus_quiet_signals_v1",
           evidence_snapshot: evidence_snapshot,
         },
         title: "Executive Narrative (Locked 5-Sentence Scaffold)",
