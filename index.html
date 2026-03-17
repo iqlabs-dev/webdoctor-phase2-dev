@@ -2354,21 +2354,37 @@
   <script type="module">
     import { runScan, normaliseUrl } from "/assets/js/scan.js";
 
-    const form = document.getElementById("heroScanForm");
-    const input = document.getElementById("heroScanInput");
-    const button = document.getElementById("heroScanButton");
-    const status = document.getElementById("heroScanStatus");
-    const shell = document.querySelector(".hero-scan-shell");
+const form = document.getElementById("heroScanForm");
+const input = document.getElementById("heroScanInput");
+const button = document.getElementById("heroScanButton");
+const status = document.getElementById("heroScanStatus");
+const shell = document.querySelector(".hero-scan-shell");
 
-  if (form && input && button && status) {
-      if (shell) {
-        shell.addEventListener("click", (e) => {
-          if (e.target === input || button.contains(e.target)) return;
-          input.focus();
-        });
-      }
+if (form && input && button && status) {
 
-      const setStatus = (message, type = "", ctaHtml = "") => {
+  // Click anywhere in the bar → focus input (but never break button)
+  if (shell) {
+    shell.addEventListener("click", (e) => {
+      if (button.contains(e.target)) return;
+      if (e.target === input) return;
+      input.focus();
+    });
+  }
+
+  // Optional: auto-focus on page load (nice UX)
+  setTimeout(() => {
+    input.focus();
+  }, 200);
+
+  // Optional: press Enter anywhere triggers scan (extra safe)
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  const setStatus = (message, type = "", ctaHtml = "") => {
         status.innerHTML = "";
         status.className = "hero-scan-status";
 
