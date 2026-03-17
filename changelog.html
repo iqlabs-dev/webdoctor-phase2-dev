@@ -602,3 +602,20 @@
     </ul>
   </div>
 </div>
+<div class="timeline-item">
+  <div class="timeline-date">v1.6 · Mar 2026</div>
+  <div class="timeline-body">
+    <h3>Platform-aware diagnostics and security clarity improvements</h3>
+    <p>Improved how iQWEB handles platform-managed environments (such as hosted builders and managed infrastructure) to remove misleading security warnings and ensure reports reflect what is actually actionable.</p>
+
+    <ul>
+      <li>Platform-managed security signals are no longer treated as actionable issues</li>
+      <li>Security headers controlled by hosting platforms are clearly labelled as <strong>platform-managed</strong></li>
+      <li>Security scoring is normalised to prevent false negatives in hosted environments</li>
+      <li>Security signals are excluded from Top Issues and primary constraint selection when not actionable</li>
+      <li>Signal Evidence now reflects platform-managed context instead of implying missing implementation</li>
+      <li>Key Insights exclude platform-controlled signals to maintain actionable recommendations</li>
+      <li>Overall report consistency improved to reduce contradictory or confusing outputs</li>
+    </ul>
+  </div>
+</div>

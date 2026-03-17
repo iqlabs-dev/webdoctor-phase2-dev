@@ -1302,7 +1302,7 @@ var platformControl =
 var platformManaged = (platformControl === "limited" && key === "security");
 
 if (platformManaged) {
-  score = Math.max(score || 0, 90);
+  score = 95;
   unmeasured = false;
 }
 
