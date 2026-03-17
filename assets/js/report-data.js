@@ -1725,7 +1725,7 @@ var summary = ""
   // -----------------------------
   function renderAll(data) {
     data = safeObj(data);
-
+window.__IQWEB_LAST_DATA = data; // 👈 ADD THIS
     var header = pickHeader(data);
     var scores = pickScores(data);
     var signals = pickSignals(data);
