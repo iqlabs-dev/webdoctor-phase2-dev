@@ -11,13 +11,13 @@ const BRAND_DEFAULTS = {
   agency_website: "",
   agency_email: "",
   agency_phone: "",
-  agency_report_title: "Monthly Report",
+agency_report_title: "",
 
   agency_header_bg: "#0B1730",
   agency_header_text_color: "#FFFFFF",
   agency_text_color: "#E5F0FF",
   agency_accent_color: "#18D6C4",
-  agency_page_bg: "#FFFFFF",
+agency_page_bg: "#050814",
 
   show_header_contact: true,
   show_footer_contact: true,
@@ -164,7 +164,7 @@ async function loadBranding() {
   setValue("brand-website", data.agency_website || "");
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
-  setValue("brand-report-title", data.agency_report_title || BRAND_DEFAULTS.agency_report_title);
+setValue("brand-report-title", data.agency_report_title || "");
 
   setColorValue("headerBg", data.agency_header_bg, BRAND_DEFAULTS.agency_header_bg);
   setColorValue("headerText", data.agency_header_text_color, BRAND_DEFAULTS.agency_header_text_color);
@@ -197,7 +197,7 @@ async function saveBranding() {
     agency_website: textValue("brand-website"),
     agency_email: textValue("brand-email"),
     agency_phone: textValue("brand-phone"),
-    agency_report_title: textValue("brand-report-title") || BRAND_DEFAULTS.agency_report_title,
+    agency_report_title: textValue("brand-report-title"),
 
     agency_header_bg: colorValue("headerBg", BRAND_DEFAULTS.agency_header_bg),
     agency_header_text_color: colorValue("headerText", BRAND_DEFAULTS.agency_header_text_color),
