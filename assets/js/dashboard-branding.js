@@ -11,6 +11,13 @@ function textValue(id) {
   return el ? String(el.value || "").trim() : "";
 }
 
+function colorValue(id, fallback) {
+  const el = $(id);
+  if (!el) return fallback;
+  const value = String(el.value || "").trim();
+  return value || fallback;
+}
+
 function boolValue(id, fallback) {
   const el = $(id);
   if (!el) return !!fallback;
@@ -20,6 +27,12 @@ function boolValue(id, fallback) {
 function setValue(id, value) {
   const el = $(id);
   if (el) el.value = value || "";
+}
+
+function setColorValue(id, value, fallback) {
+  const el = $(id);
+  if (!el) return;
+  el.value = value || fallback;
 }
 
 function setChecked(id, value) {
@@ -92,6 +105,10 @@ async function loadBranding() {
       agency_phone,
       agency_logo_url,
       agency_report_title,
+      agency_header_bg,
+      agency_header_text_color,
+      agency_accent_color,
+      agency_page_bg,
       show_header_contact,
       show_footer_contact,
       show_powered_by
@@ -109,6 +126,11 @@ async function loadBranding() {
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
   setValue("brand-report-title", data.agency_report_title || "");
+
+  setColorValue("headerBg", data.agency_header_bg, "#0B1730");
+  setColorValue("headerText", data.agency_header_text_color, "#FFFFFF");
+  setColorValue("accent", data.agency_accent_color, "#18D6C4");
+  setColorValue("pageBg", data.agency_page_bg, "#FFFFFF");
 
   setChecked("brand-show-header-contact", data.show_header_contact !== false);
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
@@ -136,6 +158,12 @@ async function saveBranding() {
     agency_email: textValue("brand-email"),
     agency_phone: textValue("brand-phone"),
     agency_report_title: textValue("brand-report-title"),
+
+    agency_header_bg: colorValue("headerBg", "#0B1730"),
+    agency_header_text_color: colorValue("headerText", "#FFFFFF"),
+    agency_accent_color: colorValue("accent", "#18D6C4"),
+    agency_page_bg: colorValue("pageBg", "#FFFFFF"),
+
     show_header_contact: boolValue("brand-show-header-contact", true),
     show_footer_contact: boolValue("brand-show-footer-contact", true),
     show_powered_by: boolValue("brand-show-powered", true)
