@@ -324,7 +324,7 @@ const signalTable = buildSignalTableHtml(
     }
 
     .section-head {
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-bottom: 1px solid rgba(69, 102, 154, 0.24);
       font-size: 10px;
       line-height: 1.15;
@@ -441,7 +441,7 @@ const signalTable = buildSignalTableHtml(
 }
 
 .signals-table-wrap {
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
 }
 
 .signals-table {
@@ -454,11 +454,12 @@ const signalTable = buildSignalTableHtml(
 .signals-table td {
   width: 33.333%;
   vertical-align: top;
+  height: 110px;
 }
 
 .signal-card {
-  height: 122px;
-  min-height: 122px;
+  height: 110px;
+  min-height: 110px;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -536,8 +537,8 @@ const signalTable = buildSignalTableHtml(
 }
 
 .signal-copy {
-  font-size: 8px;
-  line-height: 1.15;
+  font-size: 7.6px;
+  line-height: 1.1;
   color: ${escapeHtml(brandText)};
   white-space: normal;
   flex: 1 1 auto;
