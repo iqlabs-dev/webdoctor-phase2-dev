@@ -275,199 +275,230 @@
     return {};
   }
 
-function pickBranding(data) {
-  data = safeObj(data);
+  function pickBranding(data) {
+    data = safeObj(data);
 
-  if (data.branding && typeof data.branding === "object") {
+    if (data.branding && typeof data.branding === "object") {
+      return {
+        agency_name: data.branding.agency_name || "",
+        agency_website: data.branding.agency_website || "",
+        agency_email: data.branding.agency_email || "",
+        agency_phone: data.branding.agency_phone || "",
+        agency_logo_url: data.branding.agency_logo_url || "",
+        agency_header_bg: data.branding.agency_header_bg || "",
+        agency_header_text_color: data.branding.agency_header_text_color || "",
+        agency_accent_color: data.branding.agency_accent_color || "",
+        agency_page_bg: data.branding.agency_page_bg || "",
+        agency_report_title: data.branding.agency_report_title || "",
+        show_header_contact: data.branding.show_header_contact !== false,
+        show_footer_contact: data.branding.show_footer_contact !== false,
+        show_powered_by: data.branding.show_powered_by !== false
+      };
+    }
+
     return {
-      agency_name: data.branding.agency_name || "",
-      agency_website: data.branding.agency_website || "",
-      agency_email: data.branding.agency_email || "",
-      agency_phone: data.branding.agency_phone || "",
-      agency_logo_url: data.branding.agency_logo_url || "",
-      agency_accent_color: data.branding.agency_accent_color || "",
-      agency_report_title: data.branding.agency_report_title || "",
-      show_header_contact: data.branding.show_header_contact !== false,
-      show_footer_contact: data.branding.show_footer_contact !== false,
-      show_powered_by: data.branding.show_powered_by !== false
+      agency_name: data.agency_name || "",
+      agency_website: data.agency_website || "",
+      agency_email: data.agency_email || "",
+      agency_phone: data.agency_phone || "",
+      agency_logo_url: data.agency_logo_url || "",
+      agency_header_bg: data.agency_header_bg || "",
+      agency_header_text_color: data.agency_header_text_color || "",
+      agency_accent_color: data.agency_accent_color || "",
+      agency_page_bg: data.agency_page_bg || "",
+      agency_report_title: data.agency_report_title || "",
+      show_header_contact: data.show_header_contact !== false,
+      show_footer_contact: data.show_footer_contact !== false,
+      show_powered_by: data.show_powered_by !== false
     };
   }
 
-  return {
-    agency_name: data.agency_name || "",
-    agency_website: data.agency_website || "",
-    agency_email: data.agency_email || "",
-    agency_phone: data.agency_phone || "",
-    agency_logo_url: data.agency_logo_url || "",
-    agency_accent_color: data.agency_accent_color || "",
-    agency_report_title: data.agency_report_title || "",
-    show_header_contact: data.show_header_contact !== false,
-    show_footer_contact: data.show_footer_contact !== false,
-    show_powered_by: data.show_powered_by !== false
-  };
-}
+  function applyBrandingUI(branding) {
+    branding = safeObj(branding);
 
-function applyBrandingUI(branding) {
-  branding = safeObj(branding);
+    var agencyName = $("agencyName");
+    var agencyLogo = $("agencyLogo");
+    var agencyReportLabel = $("agencyReportLabel");
 
-  var agencyName = $("agencyName");
-  var agencyLogo = $("agencyLogo");
-  var agencyReportLabel = $("agencyReportLabel");
+    var agencyContactBlock = $("agencyContactBlock");
+    var agencyWebsiteLine = $("agencyWebsiteLine");
+    var agencyEmailLine = $("agencyEmailLine");
+    var agencyPhoneLine = $("agencyPhoneLine");
 
-  var agencyContactBlock = $("agencyContactBlock");
-  var agencyWebsiteLine = $("agencyWebsiteLine");
-  var agencyEmailLine = $("agencyEmailLine");
-  var agencyPhoneLine = $("agencyPhoneLine");
+    var footer = $("reportFooter");
+    var footerAgencyName = $("footerAgencyName");
+    var footerAgencyWebsite = $("footerAgencyWebsite");
+    var footerAgencyEmail = $("footerAgencyEmail");
+    var footerAgencyPhone = $("footerAgencyPhone");
+    var poweredBy = $("powered-by");
 
-  var footer = $("reportFooter");
-  var footerAgencyName = $("footerAgencyName");
-  var footerAgencyWebsite = $("footerAgencyWebsite");
-  var footerAgencyEmail = $("footerAgencyEmail");
-  var footerAgencyPhone = $("footerAgencyPhone");
-  var poweredBy = $("powered-by");
+    var topCard = document.querySelector(".top-card");
 
-  if (agencyName) {
-    agencyName.textContent = branding.agency_name ? String(branding.agency_name) : "";
-  }
+    var headerBg = branding.agency_header_bg || "";
+    var headerText = branding.agency_header_text_color || "";
+    var accent = branding.agency_accent_color || "";
+    var pageBg = branding.agency_page_bg || "";
 
-  if (agencyReportLabel) {
-    agencyReportLabel.textContent = branding.agency_report_title
-      ? String(branding.agency_report_title)
-      : "";
-  }
+    if (agencyName) {
+      agencyName.textContent = branding.agency_name ? String(branding.agency_name) : "";
+    }
 
-  if (agencyLogo) {
-    if (branding.agency_logo_url) {
-      agencyLogo.src = String(branding.agency_logo_url);
-      agencyLogo.style.display = "block";
+    if (agencyReportLabel) {
+      agencyReportLabel.textContent = branding.agency_report_title
+        ? String(branding.agency_report_title)
+        : "";
+    }
+
+    if (agencyLogo) {
+      if (branding.agency_logo_url) {
+        agencyLogo.src = String(branding.agency_logo_url);
+        agencyLogo.style.display = "block";
+      } else {
+        agencyLogo.removeAttribute("src");
+        agencyLogo.style.display = "none";
+      }
+    }
+
+    if (headerBg) {
+      document.documentElement.style.setProperty("--report-header-bg", String(headerBg));
+      if (topCard) topCard.style.background = String(headerBg);
+    }
+
+    if (headerText) {
+      document.documentElement.style.setProperty("--report-header-text", String(headerText));
+
+      if (topCard) {
+        topCard.style.color = String(headerText);
+      }
+      if (agencyName) agencyName.style.color = String(headerText);
+      if (agencyReportLabel) agencyReportLabel.style.color = String(headerText);
+      if (agencyContactBlock) agencyContactBlock.style.color = String(headerText);
+    }
+
+    if (accent) {
+      document.documentElement.style.setProperty("--accent", String(accent));
+    }
+
+    if (pageBg) {
+      document.documentElement.style.setProperty("--report-page-bg", String(pageBg));
+      document.body.style.background = String(pageBg);
+    }
+
+    // HEADER CONTACT TOGGLE
+    var hasHeaderContact = false;
+
+    if (branding.show_header_contact !== false) {
+      if (agencyWebsiteLine && branding.agency_website) {
+        agencyWebsiteLine.textContent = String(branding.agency_website);
+        agencyWebsiteLine.style.display = "block";
+        hasHeaderContact = true;
+      } else if (agencyWebsiteLine) {
+        agencyWebsiteLine.textContent = "";
+        agencyWebsiteLine.style.display = "none";
+      }
+
+      if (agencyEmailLine && branding.agency_email) {
+        agencyEmailLine.textContent = String(branding.agency_email);
+        agencyEmailLine.style.display = "block";
+        hasHeaderContact = true;
+      } else if (agencyEmailLine) {
+        agencyEmailLine.textContent = "";
+        agencyEmailLine.style.display = "none";
+      }
+
+      if (agencyPhoneLine && branding.agency_phone) {
+        agencyPhoneLine.textContent = String(branding.agency_phone);
+        agencyPhoneLine.style.display = "block";
+        hasHeaderContact = true;
+      } else if (agencyPhoneLine) {
+        agencyPhoneLine.textContent = "";
+        agencyPhoneLine.style.display = "none";
+      }
     } else {
-      agencyLogo.removeAttribute("src");
-      agencyLogo.style.display = "none";
-    }
-  }
-
-  if (branding.agency_accent_color) {
-    document.documentElement.style.setProperty(
-      "--accent",
-      String(branding.agency_accent_color)
-    );
-  }
-
-  // HEADER CONTACT TOGGLE
-  var hasHeaderContact = false;
-
-  if (branding.show_header_contact !== false) {
-    if (agencyWebsiteLine && branding.agency_website) {
-      agencyWebsiteLine.textContent = String(branding.agency_website);
-      agencyWebsiteLine.style.display = "block";
-      hasHeaderContact = true;
-    } else if (agencyWebsiteLine) {
-      agencyWebsiteLine.textContent = "";
-      agencyWebsiteLine.style.display = "none";
+      if (agencyWebsiteLine) {
+        agencyWebsiteLine.textContent = "";
+        agencyWebsiteLine.style.display = "none";
+      }
+      if (agencyEmailLine) {
+        agencyEmailLine.textContent = "";
+        agencyEmailLine.style.display = "none";
+      }
+      if (agencyPhoneLine) {
+        agencyPhoneLine.textContent = "";
+        agencyPhoneLine.style.display = "none";
+      }
     }
 
-    if (agencyEmailLine && branding.agency_email) {
-      agencyEmailLine.textContent = String(branding.agency_email);
-      agencyEmailLine.style.display = "block";
-      hasHeaderContact = true;
-    } else if (agencyEmailLine) {
-      agencyEmailLine.textContent = "";
-      agencyEmailLine.style.display = "none";
+    if (agencyContactBlock) {
+      agencyContactBlock.style.display = hasHeaderContact ? "block" : "none";
     }
 
-    if (agencyPhoneLine && branding.agency_phone) {
-      agencyPhoneLine.textContent = String(branding.agency_phone);
-      agencyPhoneLine.style.display = "block";
-      hasHeaderContact = true;
-    } else if (agencyPhoneLine) {
-      agencyPhoneLine.textContent = "";
-      agencyPhoneLine.style.display = "none";
+    // FOOTER CONTACT TOGGLE
+    var hasFooterContent = false;
+
+    if (branding.show_footer_contact !== false) {
+      if (footerAgencyName && branding.agency_name) {
+        footerAgencyName.textContent = String(branding.agency_name);
+        footerAgencyName.style.display = "block";
+        hasFooterContent = true;
+      } else if (footerAgencyName) {
+        footerAgencyName.textContent = "";
+        footerAgencyName.style.display = "none";
+      }
+
+      if (footerAgencyWebsite && branding.agency_website) {
+        footerAgencyWebsite.textContent = String(branding.agency_website);
+        footerAgencyWebsite.style.display = "block";
+        hasFooterContent = true;
+      } else if (footerAgencyWebsite) {
+        footerAgencyWebsite.textContent = "";
+        footerAgencyWebsite.style.display = "none";
+      }
+
+      if (footerAgencyEmail && branding.agency_email) {
+        footerAgencyEmail.textContent = String(branding.agency_email);
+        footerAgencyEmail.style.display = "block";
+        hasFooterContent = true;
+      } else if (footerAgencyEmail) {
+        footerAgencyEmail.textContent = "";
+        footerAgencyEmail.style.display = "none";
+      }
+
+      if (footerAgencyPhone && branding.agency_phone) {
+        footerAgencyPhone.textContent = String(branding.agency_phone);
+        footerAgencyPhone.style.display = "block";
+        hasFooterContent = true;
+      } else if (footerAgencyPhone) {
+        footerAgencyPhone.textContent = "";
+        footerAgencyPhone.style.display = "none";
+      }
+    } else {
+      if (footerAgencyName) {
+        footerAgencyName.textContent = "";
+        footerAgencyName.style.display = "none";
+      }
+      if (footerAgencyWebsite) {
+        footerAgencyWebsite.textContent = "";
+        footerAgencyWebsite.style.display = "none";
+      }
+      if (footerAgencyEmail) {
+        footerAgencyEmail.textContent = "";
+        footerAgencyEmail.style.display = "none";
+      }
+      if (footerAgencyPhone) {
+        footerAgencyPhone.textContent = "";
+        footerAgencyPhone.style.display = "none";
+      }
     }
-  } else {
-    if (agencyWebsiteLine) {
-      agencyWebsiteLine.textContent = "";
-      agencyWebsiteLine.style.display = "none";
+
+    if (footer) {
+      footer.style.display = (hasFooterContent || (branding.show_powered_by !== false)) ? "flex" : "none";
     }
-    if (agencyEmailLine) {
-      agencyEmailLine.textContent = "";
-      agencyEmailLine.style.display = "none";
-    }
-    if (agencyPhoneLine) {
-      agencyPhoneLine.textContent = "";
-      agencyPhoneLine.style.display = "none";
+
+    if (poweredBy) {
+      poweredBy.style.display = branding.show_powered_by === false ? "none" : "block";
     }
   }
-
-  if (agencyContactBlock) {
-    agencyContactBlock.style.display = hasHeaderContact ? "block" : "none";
-  }
-
-// FOOTER CONTACT TOGGLE
-var hasFooterContent = false;
-
-if (branding.show_footer_contact !== false) {
-  if (footerAgencyName && branding.agency_name) {
-    footerAgencyName.textContent = String(branding.agency_name);
-    footerAgencyName.style.display = "block";
-    hasFooterContent = true;
-  } else if (footerAgencyName) {
-    footerAgencyName.textContent = "";
-    footerAgencyName.style.display = "none";
-  }
-
-  if (footerAgencyWebsite && branding.agency_website) {
-    footerAgencyWebsite.textContent = String(branding.agency_website);
-    footerAgencyWebsite.style.display = "block";
-    hasFooterContent = true;
-  } else if (footerAgencyWebsite) {
-    footerAgencyWebsite.textContent = "";
-    footerAgencyWebsite.style.display = "none";
-  }
-
-  if (footerAgencyEmail && branding.agency_email) {
-    footerAgencyEmail.textContent = String(branding.agency_email);
-    footerAgencyEmail.style.display = "block";
-    hasFooterContent = true;
-  } else if (footerAgencyEmail) {
-    footerAgencyEmail.textContent = "";
-    footerAgencyEmail.style.display = "none";
-  }
-
-  if (footerAgencyPhone && branding.agency_phone) {
-    footerAgencyPhone.textContent = String(branding.agency_phone);
-    footerAgencyPhone.style.display = "block";
-    hasFooterContent = true;
-  } else if (footerAgencyPhone) {
-    footerAgencyPhone.textContent = "";
-    footerAgencyPhone.style.display = "none";
-  }
-} else {
-  if (footerAgencyName) {
-    footerAgencyName.textContent = "";
-    footerAgencyName.style.display = "none";
-  }
-  if (footerAgencyWebsite) {
-    footerAgencyWebsite.textContent = "";
-    footerAgencyWebsite.style.display = "none";
-  }
-  if (footerAgencyEmail) {
-    footerAgencyEmail.textContent = "";
-    footerAgencyEmail.style.display = "none";
-  }
-  if (footerAgencyPhone) {
-    footerAgencyPhone.textContent = "";
-    footerAgencyPhone.style.display = "none";
-  }
-}
-
-if (footer) {
-  footer.style.display = (hasFooterContent || (branding.show_powered_by !== false)) ? "flex" : "none";
-}
-
-if (poweredBy) {
-  poweredBy.style.display = branding.show_powered_by === false ? "none" : "block";
-}
-}
 
   // -----------------------------
   // DOM actions
@@ -688,95 +719,95 @@ if (poweredBy) {
     return true;
   }
 
-function computePrimaryConstraint(scores, signals, data) {
-  scores = safeObj(scores);
-  signals = asArray(signals);
-  data = safeObj(data);
+  function computePrimaryConstraint(scores, signals, data) {
+    scores = safeObj(scores);
+    signals = asArray(signals);
+    data = safeObj(data);
 
-  var platformControl =
-    data.platform_control ||
-    (data.platform && data.platform.controlLevel) ||
-    "full";
+    var platformControl =
+      data.platform_control ||
+      (data.platform && data.platform.controlLevel) ||
+      "full";
 
-  var model = window.IQWEB_SCORE_MODEL || null;
+    var model = window.IQWEB_SCORE_MODEL || null;
 
-  function domainHasMeasuredSignal(domainKey) {
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      if (domainKeyFromSignal(sig) !== domainKey) continue;
-      var sc = asInt(sig.score, 0);
-      if (isUnmeasuredSignal(sig, sc)) continue;
-      return true;
+    function domainHasMeasuredSignal(domainKey) {
+      for (var i = 0; i < signals.length; i++) {
+        var sig = safeObj(signals[i]);
+        if (domainKeyFromSignal(sig) !== domainKey) continue;
+        var sc = asInt(sig.score, 0);
+        if (isUnmeasuredSignal(sig, sc)) continue;
+        return true;
+      }
+      return false;
     }
-    return false;
-  }
 
-var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
-var nonSecurityMeasured = false;
+    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var nonSecurityMeasured = false;
 
-if (platformControl === "limited") {
-  domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
+    if (platformControl === "limited") {
+      domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
 
-  for (var z = 0; z < domains.length; z++) {
-    var testKey = domains[z];
-    if (testKey === "security") continue;
-    if (domainHasMeasuredSignal(testKey)) {
-      nonSecurityMeasured = true;
-      break;
-    }
-  }
-}
-
-  if (model && typeof model.pickPrimarySignal === "function") {
-    var picked = model.pickPrimarySignal(signals);
-
-    if (picked && picked.key) {
-      if (!(platformControl === "limited" && picked.key === "security")) {
-        return {
-          key: picked.key,
-          score: picked.score,
-          idx: picked.index,
-          flagged: true
-        };
+      for (var z = 0; z < domains.length; z++) {
+        var testKey = domains[z];
+        if (testKey === "security") continue;
+        if (domainHasMeasuredSignal(testKey)) {
+          nonSecurityMeasured = true;
+          break;
+        }
       }
     }
-  }
 
-  var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
+    if (model && typeof model.pickPrimarySignal === "function") {
+      var picked = model.pickPrimarySignal(signals);
 
-for (var i = 0; i < domains.length; i++) {
-  var dk = domains[i];
-
-  if (platformControl === "limited" && dk === "security" && nonSecurityMeasured) {
-    continue;
-  }
-
-  if (!domainHasMeasuredSignal(dk)) continue;
-
-  var s = scoreFor(scores, dk);
-  if (s === null) continue;
-
-  var w = WEIGHTS[dk] || 0;
-  var pts = deficitWeightedPoints(s, w);
-  if (pts >= 3 && pts > best.pts) {
-    best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
-  }
-}
-
-  if (best.key) {
-    for (var a = 0; a < signals.length; a++) {
-      var sigA = safeObj(signals[a]);
-      if (domainKeyFromSignal(sigA) !== best.key) continue;
-      var scA = asInt(sigA.score, 0);
-      if (isUnmeasuredSignal(sigA, scA)) continue;
-      best.idx = a;
-      break;
+      if (picked && picked.key) {
+        if (!(platformControl === "limited" && picked.key === "security")) {
+          return {
+            key: picked.key,
+            score: picked.score,
+            idx: picked.index,
+            flagged: true
+          };
+        }
+      }
     }
-    return best;
-  }
 
-  return { key: "", pts: 0, score: 0, weight: 0, idx: -1, flagged: false };
-}
+    var best = { key: "", pts: -1, score: 0, weight: 0, idx: -1, flagged: false };
+
+    for (var i = 0; i < domains.length; i++) {
+      var dk = domains[i];
+
+      if (platformControl === "limited" && dk === "security" && nonSecurityMeasured) {
+        continue;
+      }
+
+      if (!domainHasMeasuredSignal(dk)) continue;
+
+      var s = scoreFor(scores, dk);
+      if (s === null) continue;
+
+      var w = WEIGHTS[dk] || 0;
+      var pts = deficitWeightedPoints(s, w);
+      if (pts >= 3 && pts > best.pts) {
+        best = { key: dk, pts: pts, score: s, weight: w, idx: -1, flagged: false };
+      }
+    }
+
+    if (best.key) {
+      for (var a = 0; a < signals.length; a++) {
+        var sigA = safeObj(signals[a]);
+        if (domainKeyFromSignal(sigA) !== best.key) continue;
+        var scA = asInt(sigA.score, 0);
+        if (isUnmeasuredSignal(sigA, scA)) continue;
+        best.idx = a;
+        break;
+      }
+      return best;
+    }
+
+    return { key: "", pts: 0, score: 0, weight: 0, idx: -1, flagged: false };
+  }
 
   // -----------------------------
   // Specific “missing signal” wording
@@ -963,16 +994,16 @@ for (var i = 0; i < domains.length; i++) {
       };
     }
 
- if (domainKey === "structure") {
-  return {
-    impact:
-      "Page structure and semantic markup are incomplete. Core document structure signals such as headings, landmarks, and semantic HTML elements help engines and assistive tools interpret page content correctly.",
-    fix:
-      "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
-    next:
-      "Make one structural pass, then re-run the scan to validate the improvement."
-  };
-}
+    if (domainKey === "structure") {
+      return {
+        impact:
+          "Page structure and semantic markup are incomplete. Core document structure signals such as headings, landmarks, and semantic HTML elements help engines and assistive tools interpret page content correctly.",
+        fix:
+          "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
+        next:
+          "Make one structural pass, then re-run the scan to validate the improvement."
+      };
+    }
 
     if (domainKey === "accessibility") {
       return {
@@ -1088,7 +1119,7 @@ for (var i = 0; i < domains.length; i++) {
     setText(cEl, domainLabel);
 
     var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
-     var extras = {
+    var extras = {
       mobileLcpSeconds: lcpSecondsFromPsi(),
       platformManaged: String(data.platform_control || "").toLowerCase() === "limited"
     };
@@ -1111,263 +1142,262 @@ for (var i = 0; i < domains.length; i++) {
     setText(nEl, narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.");
   }
 
- 
-// -----------------------------
-// Delivery signal cards
-// -----------------------------
-function renderSignalsGrid(signals, scores, primary) {
-  var grid = $("signalsGrid");
-  if (!grid) return;
+  // -----------------------------
+  // Delivery signal cards
+  // -----------------------------
+  function renderSignalsGrid(signals, scores, primary) {
+    var grid = $("signalsGrid");
+    if (!grid) return;
 
-  signals = asArray(signals);
-  scores = safeObj(scores);
-  grid.innerHTML = "";
+    signals = asArray(signals);
+    scores = safeObj(scores);
+    grid.innerHTML = "";
 
-  try {
-    if (!document.getElementById("iqweb-primary-badge-style")) {
-      var st = document.createElement("style");
-      st.id = "iqweb-primary-badge-style";
-      st.type = "text/css";
-      st.appendChild(document.createTextNode(
-        ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
-        ".card{position:relative;}"+
-        ".severity-na{opacity:.92;}"+
-        ".severity-na .bar>div{width:0 !important;}"
-      ));
-      document.head.appendChild(st);
-    }
-  } catch (e) {}
+    try {
+      if (!document.getElementById("iqweb-primary-badge-style")) {
+        var st = document.createElement("style");
+        st.id = "iqweb-primary-badge-style";
+        st.type = "text/css";
+        st.appendChild(document.createTextNode(
+          ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
+          ".card{position:relative;}"+
+          ".severity-na{opacity:.92;}"+
+          ".severity-na .bar>div{width:0 !important;}"
+        ));
+        document.head.appendChild(st);
+      }
+    } catch (e) {}
 
-  function isStrong(score) { return asInt(score, 0) >= 90; }
+    function isStrong(score) { return asInt(score, 0) >= 90; }
 
-  function prettyEvidenceText(key, value) {
-    var k = String(key || "");
-    var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!label) label = "Requirement";
+    function prettyEvidenceText(key, value) {
+      var k = String(key || "");
+      var label = k.replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+      if (!label) label = "Requirement";
 
-    var lk = k.toLowerCase();
+      var lk = k.toLowerCase();
 
-    if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
-      label = "HTML lang attribute";
-    } else if (lk.indexOf("title") !== -1) {
-      label = "Page title (<title>)";
-    } else if (lk.indexOf("viewport") !== -1) {
-      label = "Viewport meta tag";
-    } else if (lk.indexOf("canonical") !== -1) {
-      label = "Canonical link";
-    } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
-      label = "Indexability controls";
-    } else if (lk.indexOf("referrer") !== -1) {
-      label = "Referrer-Policy header";
-    } else if (lk.indexOf("permissions") !== -1) {
-      label = "Permissions-Policy header";
-    } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
-      label = "X-Frame-Options header";
-    } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
-      label = "X-Content-Type-Options header";
-    } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
-      label = "Content-Security-Policy header";
-    } else if (lk.indexOf("hsts") !== -1) {
-      label = "HSTS header";
-    }
-
-    if (typeof value === "boolean") {
-      if (lk.indexOf("missing") !== -1 && value === true) {
-        if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-        if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-        if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-        if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-        if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
-        return label + " is missing.";
+      if (lk === "html_lang_present" || lk === "html_lang" || lk.indexOf("html lang") !== -1) {
+        label = "HTML lang attribute";
+      } else if (lk.indexOf("title") !== -1) {
+        label = "Page title (<title>)";
+      } else if (lk.indexOf("viewport") !== -1) {
+        label = "Viewport meta tag";
+      } else if (lk.indexOf("canonical") !== -1) {
+        label = "Canonical link";
+      } else if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) {
+        label = "Indexability controls";
+      } else if (lk.indexOf("referrer") !== -1) {
+        label = "Referrer-Policy header";
+      } else if (lk.indexOf("permissions") !== -1) {
+        label = "Permissions-Policy header";
+      } else if (lk.indexOf("x_frame_options") !== -1 || lk.indexOf("x-frame-options") !== -1) {
+        label = "X-Frame-Options header";
+      } else if (lk.indexOf("x_content_type_options") !== -1 || lk.indexOf("x-content-type-options") !== -1) {
+        label = "X-Content-Type-Options header";
+      } else if (lk.indexOf("content_security_policy") !== -1 || lk.indexOf("content-security-policy") !== -1 || lk === "csp") {
+        label = "Content-Security-Policy header";
+      } else if (lk.indexOf("hsts") !== -1) {
+        label = "HSTS header";
       }
 
-      if (value === false) {
-        if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
-        if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
-        if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
-        if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
-        if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
-        if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
-        return label + " is missing or incorrectly configured.";
-      }
-    }
+      if (typeof value === "boolean") {
+        if (lk.indexOf("missing") !== -1 && value === true) {
+          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
+          return label + " is missing.";
+        }
 
-    var nv = num(value);
-    if (nv !== null) {
-      if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
-        var kb = Math.round(nv / 1024);
-        return "HTML payload exceeds baseline (" + kb + "KB).";
-      }
-      if (lk.indexOf("lcp") !== -1) {
-        var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
-        return "Largest Contentful Paint exceeds target (" + sec + "s).";
-      }
-      if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
-        return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
-      }
-      if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
-        return label + " is below baseline (" + nv + ").";
-      }
-      return label + " is outside baseline (" + nv + ").";
-    }
-
-    return label + " needs attention.";
-  }
-
-  function normalizeExplainLine(text, sig) {
-    var t = String(text || "").trim();
-    if (!t) return "";
-
-    if (/required signal missing/i.test(t)) {
-      var spec = specificMissingSignals(sig);
-      if (spec) return spec;
-
-      var dk = domainKeyFromSignal(sig);
-      if (dk === "security") return "Required security headers are missing or not detected.";
-      if (dk === "seo") return "Core SEO signals such as indexability or metadata could not be confirmed.";
-      if (dk === "structure") return "Required structural tags were not detected.";
-      if (dk === "accessibility") return "Required accessibility signals were not detected.";
-      return "Required baseline signals were not detected.";
-    }
-
-    return t;
-  }
-
-  function pickExplainLine(sig, allowEvidence) {
-    var issues = asArray(sig.issues);
-    if (issues.length) {
-      var it = safeObj(issues[0]);
-      var t = String(it.title || it.id || "").trim();
-      t = normalizeExplainLine(t, sig);
-
-      t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "");
-
-      if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
-      else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
-      else if (/missing h1/i.test(t) || /missing h1 heading/i.test(t) || /h1 present is missing/i.test(t)) t = "Primary heading (H1) is missing or incorrectly configured.";
-      else if (/canonical link missing/i.test(t)) t = "Canonical link is missing.";
-      else if (/viewport meta tag/i.test(t) && /not satisfied/i.test(t)) t = "Viewport meta tag is missing or incorrectly configured.";
-      else if (/html lang/i.test(t) && /missing/i.test(t)) t = "HTML lang attribute is missing.";
-      else if (/required seo baseline signals were not detected/i.test(t)) t = "Core SEO signals such as indexability and metadata could not be confirmed.";
-
-      if (t) return t;
-    }
-
-    var deds = asArray(sig.deductions);
-    if (deds.length) {
-      var dd = safeObj(deds[0]);
-      var r = String(dd.reason || dd.code || "").trim();
-      r = normalizeExplainLine(r, sig);
-      if (/required seo baseline signals were not detected/i.test(r)) r = "Core SEO signals such as indexability and metadata could not be confirmed.";
-      if (r) return r;
-    }
-
-    if (allowEvidence) {
-      var ev = safeObj(sig.evidence);
-      var keys = Object.keys(ev || {});
-      for (var i = 0; i < keys.length; i++) {
-        var k = keys[i];
-        var v = ev[k];
-        if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
-      }
-    }
-
-    return "";
-  }
-
-  function getRecommendation(score, text) {
-    var s = asInt(score, 0);
-    if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
-    return text;
-  }
-
-  for (var i = 0; i < signals.length; i++) {
-    var sig = safeObj(signals[i]);
-
-var label = String(sig.label || sig.id || "Signal");
-var rawScore = asInt(sig.score, 0);
-
-var unmeasured = isUnmeasuredSignal(sig, rawScore);
-var score = unmeasured ? null : rawScore;
-
-var key = domainKeyFromSignal(sig);
-
-var platformControl =
-  (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
-  ((window.__IQWEB_LAST_DATA &&
-    window.__IQWEB_LAST_DATA.platform &&
-    window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
-  "full";
-
-var platformManaged = (platformControl === "limited" && key === "security");
-
-if (platformManaged) {
-  score = 95;
-  unmeasured = false;
-}
-
-    var flagged = hasFlags(sig);
-    var isPrimary = !!(key && primary && primary.key && key === primary.key);
-
-    var headline;
-    if (platformManaged) {
-      headline = "Platform Managed";
-    } else {
-      headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
-    }
-
-    var lines = [];
-    lines.push(headline);
-
-    if (platformManaged) {
-      lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
-      lines.push("These elements sit outside direct site-level control, so this signal is treated as platform-managed context rather than an actionable issue.");
-    } else if (unmeasured && !flagged) {
-      lines.push("Not measured in this scan — no evidence returned for this signal.");
-    } else {
-      var allowEvidence = (flagged || (score !== null && score < 90));
-      var because = pickExplainLine(sig, allowEvidence);
-      var emptyButLow = (score !== null && !flagged && !because && score < 70);
-
-      if (flagged) {
-        lines.push(because ? because : "Review the items flagged below.");
-      } else if (emptyButLow) {
-        lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
-      } else {
-        if (score !== null && isStrong(score)) {
-          lines.push("Baseline stable — no measurable blockers detected in this scan.");
-        } else if (score !== null && score < 90) {
-          lines.push(because ? because : "Structural signals indicate measurable drag.");
+        if (value === false) {
+          if (lk.indexOf("viewport") !== -1) return "Viewport meta tag is missing or incorrectly configured.";
+          if (lk.indexOf("title") !== -1) return "Page title (<title>) is missing.";
+          if (lk.indexOf("canonical") !== -1) return "Canonical link is missing.";
+          if (lk.indexOf("robots") !== -1 || lk.indexOf("index") !== -1) return "Indexability controls are missing or incorrectly configured.";
+          if (lk.indexOf("html_lang") !== -1 || lk.indexOf("html lang") !== -1) return "HTML lang attribute is missing.";
+          if (lk.indexOf("h1") !== -1) return "Primary heading (H1) is missing or incorrectly configured.";
+          return label + " is missing or incorrectly configured.";
         }
       }
+
+      var nv = num(value);
+      if (nv !== null) {
+        if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
+          var kb = Math.round(nv / 1024);
+          return "HTML payload exceeds baseline (" + kb + "KB).";
+        }
+        if (lk.indexOf("lcp") !== -1) {
+          var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
+          return "Largest Contentful Paint exceeds target (" + sec + "s).";
+        }
+        if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
+          return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
+        }
+        if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
+          return label + " is below baseline (" + nv + ").";
+        }
+        return label + " is outside baseline (" + nv + ").";
+      }
+
+      return label + " needs attention.";
     }
 
-    var lever = platformManaged ? "" : recommendedFixForKey(key);
-    if (lever && score !== null && score < 90) {
-      lever = getRecommendation(score, lever);
-      lines.push(lever);
+    function normalizeExplainLine(text, sig) {
+      var t = String(text || "").trim();
+      if (!t) return "";
+
+      if (/required signal missing/i.test(t)) {
+        var spec = specificMissingSignals(sig);
+        if (spec) return spec;
+
+        var dk = domainKeyFromSignal(sig);
+        if (dk === "security") return "Required security headers are missing or not detected.";
+        if (dk === "seo") return "Core SEO signals such as indexability or metadata could not be confirmed.";
+        if (dk === "structure") return "Required structural tags were not detected.";
+        if (dk === "accessibility") return "Required accessibility signals were not detected.";
+        return "Required baseline signals were not detected.";
+      }
+
+      return t;
     }
 
-    var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
-    var severityClass = severityClassFromModel(score, unmeasured);
+    function pickExplainLine(sig, allowEvidence) {
+      var issues = asArray(sig.issues);
+      if (issues.length) {
+        var it = safeObj(issues[0]);
+        var t = String(it.title || it.id || "").trim();
+        t = normalizeExplainLine(t, sig);
 
-    var card = document.createElement("div");
-    card.className = "card " + severityClass;
+        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "");
 
-    var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
+        if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
+        else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
+        else if (/missing h1/i.test(t) || /missing h1 heading/i.test(t) || /h1 present is missing/i.test(t)) t = "Primary heading (H1) is missing or incorrectly configured.";
+        else if (/canonical link missing/i.test(t)) t = "Canonical link is missing.";
+        else if (/viewport meta tag/i.test(t) && /not satisfied/i.test(t)) t = "Viewport meta tag is missing or incorrectly configured.";
+        else if (/html lang/i.test(t) && /missing/i.test(t)) t = "HTML lang attribute is missing.";
+        else if (/required seo baseline signals were not detected/i.test(t)) t = "Core SEO signals such as indexability and metadata could not be confirmed.";
 
-    card.innerHTML =
-      badgeHtml +
-      '<div class="card-top">' +
-        "<h3>" + escapeHtml(label) + "</h3>" +
-        '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-      "</div>" +
-      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-      '<div class="summary">' + summaryHtml + "</div>";
+        if (t) return t;
+      }
 
-    grid.appendChild(card);
+      var deds = asArray(sig.deductions);
+      if (deds.length) {
+        var dd = safeObj(deds[0]);
+        var r = String(dd.reason || dd.code || "").trim();
+        r = normalizeExplainLine(r, sig);
+        if (/required seo baseline signals were not detected/i.test(r)) r = "Core SEO signals such as indexability and metadata could not be confirmed.";
+        if (r) return r;
+      }
+
+      if (allowEvidence) {
+        var ev = safeObj(sig.evidence);
+        var keys = Object.keys(ev || {});
+        for (var i = 0; i < keys.length; i++) {
+          var k = keys[i];
+          var v = ev[k];
+          if (isMeaningfulFail(k, v)) return prettyEvidenceText(k, v);
+        }
+      }
+
+      return "";
+    }
+
+    function getRecommendation(score, text) {
+      var s = asInt(score, 0);
+      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+      return text;
+    }
+
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+
+      var label = String(sig.label || sig.id || "Signal");
+      var rawScore = asInt(sig.score, 0);
+
+      var unmeasured = isUnmeasuredSignal(sig, rawScore);
+      var score = unmeasured ? null : rawScore;
+
+      var key = domainKeyFromSignal(sig);
+
+      var platformControl =
+        (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+        ((window.__IQWEB_LAST_DATA &&
+          window.__IQWEB_LAST_DATA.platform &&
+          window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+        "full";
+
+      var platformManaged = (platformControl === "limited" && key === "security");
+
+      if (platformManaged) {
+        score = 95;
+        unmeasured = false;
+      }
+
+      var flagged = hasFlags(sig);
+      var isPrimary = !!(key && primary && primary.key && key === primary.key);
+
+      var headline;
+      if (platformManaged) {
+        headline = "Platform Managed";
+      } else {
+        headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
+      }
+
+      var lines = [];
+      lines.push(headline);
+
+      if (platformManaged) {
+        lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
+        lines.push("These elements sit outside direct site-level control, so this signal is treated as platform-managed context rather than an actionable issue.");
+      } else if (unmeasured && !flagged) {
+        lines.push("Not measured in this scan — no evidence returned for this signal.");
+      } else {
+        var allowEvidence = (flagged || (score !== null && score < 90));
+        var because = pickExplainLine(sig, allowEvidence);
+        var emptyButLow = (score !== null && !flagged && !because && score < 70);
+
+        if (flagged) {
+          lines.push(because ? because : "Review the items flagged below.");
+        } else if (emptyButLow) {
+          lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
+        } else {
+          if (score !== null && isStrong(score)) {
+            lines.push("Baseline stable — no measurable blockers detected in this scan.");
+          } else if (score !== null && score < 90) {
+            lines.push(because ? because : "Structural signals indicate measurable drag.");
+          }
+        }
+      }
+
+      var lever = platformManaged ? "" : recommendedFixForKey(key);
+      if (lever && score !== null && score < 90) {
+        lever = getRecommendation(score, lever);
+        lines.push(lever);
+      }
+
+      var summaryHtml = escapeHtml(lines.join("\n")).replace(/\n/g, "<br>");
+      var severityClass = severityClassFromModel(score, unmeasured);
+
+      var card = document.createElement("div");
+      card.className = "card " + severityClass;
+
+      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
+
+      card.innerHTML =
+        badgeHtml +
+        '<div class="card-top">' +
+          "<h3>" + escapeHtml(label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+        "</div>" +
+        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+        '<div class="summary">' + summaryHtml + "</div>";
+
+      grid.appendChild(card);
+    }
   }
-}
 
   // -----------------------------
   // Signal Evidence
@@ -1391,53 +1421,53 @@ if (platformManaged) {
       );
     }
 
-for (var i = 0; i < signals.length; i++) {
-  var sig = safeObj(signals[i]);
-  var label = String(sig.label || sig.id || "Signal");
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var label = String(sig.label || sig.id || "Signal");
 
-  var key = domainKeyFromSignal(sig);
+      var key = domainKeyFromSignal(sig);
 
-  var platformControl =
-    (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
-    ((window.__IQWEB_LAST_DATA &&
-      window.__IQWEB_LAST_DATA.platform &&
-      window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
-    "full";
+      var platformControl =
+        (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+        ((window.__IQWEB_LAST_DATA &&
+          window.__IQWEB_LAST_DATA.platform &&
+          window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+        "full";
 
-var platformManaged = (platformControl === "limited" && key === "security");
+      var platformManaged = (platformControl === "limited" && key === "security");
 
-  var rawScore = asInt(sig.score, 0);
-  var unmeasured = isUnmeasuredSignal(sig, rawScore);
-  var score = unmeasured ? null : rawScore;
+      var rawScore = asInt(sig.score, 0);
+      var unmeasured = isUnmeasuredSignal(sig, rawScore);
+      var score = unmeasured ? null : rawScore;
 
-  var issues = asArray(sig.issues);
-  var obs = asArray(sig.observations);
-  var deds = asArray(sig.deductions);
-  var evidence = safeObj(sig.evidence);
+      var issues = asArray(sig.issues);
+      var obs = asArray(sig.observations);
+      var deds = asArray(sig.deductions);
+      var evidence = safeObj(sig.evidence);
 
       var det = document.createElement("details");
       det.className = "evidence-block";
       det.open = false;
 
-var summary = ""
-  + "<summary>"
-  + '<div class="acc-title">' + escapeHtml(label) + '</div>'
-  + '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '/100</div>'
-  + "</summary>";
+      var summary = ""
+        + "<summary>"
+        + '<div class="acc-title">' + escapeHtml(label) + '</div>'
+        + '<div class="acc-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '/100</div>'
+        + "</summary>";
 
       var body = '<div class="acc-body">';
 
       if (platformManaged) {
-  body += "<div class='evidence-title'>Platform-managed baseline</div>";
-  body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>";
-  body += "Security headers and infrastructure are managed by the hosting platform, so this signal is treated as platform-managed rather than a direct implementation issue.";
-  body += "</div>";
-  body += "</div>";
+        body += "<div class='evidence-title'>Platform-managed baseline</div>";
+        body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>";
+        body += "Security headers and infrastructure are managed by the hosting platform, so this signal is treated as platform-managed rather than a direct implementation issue.";
+        body += "</div>";
+        body += "</div>";
 
-  det.innerHTML = summary + body;
-  root.appendChild(det);
-  continue;
-}
+        det.innerHTML = summary + body;
+        root.appendChild(det);
+        continue;
+      }
 
       if (unmeasured) {
         body += "<div class='muted' style='font-size:12px; margin-bottom:10px;'>This signal was not measured in this scan (no evidence returned).</div>";
@@ -1612,62 +1642,62 @@ var summary = ""
       return label + ": Missing baseline inputs for this signal.";
     }
 
-  function collectFromSignal(sig, out) {
-  sig = safeObj(sig);
+    function collectFromSignal(sig, out) {
+      sig = safeObj(sig);
 
-  var key = domainKeyFromSignal(sig);
-  var platformControl =
-    (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
-    ((window.__IQWEB_LAST_DATA &&
-      window.__IQWEB_LAST_DATA.platform &&
-      window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
-    "full";
+      var key = domainKeyFromSignal(sig);
+      var platformControl =
+        (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
+        ((window.__IQWEB_LAST_DATA &&
+          window.__IQWEB_LAST_DATA.platform &&
+          window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
+        "full";
 
-  var platformManaged = (platformControl === "limited" && key === "security");
-  if (platformManaged) return;
+      var platformManaged = (platformControl === "limited" && key === "security");
+      if (platformManaged) return;
 
-  var label = String(sig.label || sig.id || "Signal");
-  var issues = asArray(sig.issues);
-  var deds = asArray(sig.deductions);
+      var label = String(sig.label || sig.id || "Signal");
+      var issues = asArray(sig.issues);
+      var deds = asArray(sig.deductions);
 
-  for (var j = 0; j < issues.length; j++) {
-    var it = safeObj(issues[j]);
-    var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
-    if (!rawTitle) continue;
+      for (var j = 0; j < issues.length; j++) {
+        var it = safeObj(issues[j]);
+        var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
+        if (!rawTitle) continue;
 
-    var title = normaliseRequiredMissing(label, sig, rawTitle);
+        var title = normaliseRequiredMissing(label, sig, rawTitle);
 
-    out.push({
-      title: title,
-      sev: String(it.severity || "MONITOR").toUpperCase(),
-      why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-      _rank: sevRank(it.severity || "MONITOR")
-    });
-  }
+        out.push({
+          title: title,
+          sev: String(it.severity || "MONITOR").toUpperCase(),
+          why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+          _rank: sevRank(it.severity || "MONITOR")
+        });
+      }
 
-  for (var m = 0; m < deds.length; m++) {
-    var dd = safeObj(deds[m]);
-    var pts = num(dd.points);
-    var rawReason = String(dd.reason || dd.code || "").trim();
-    if (!rawReason) continue;
+      for (var m = 0; m < deds.length; m++) {
+        var dd = safeObj(deds[m]);
+        var pts = num(dd.points);
+        var rawReason = String(dd.reason || dd.code || "").trim();
+        if (!rawReason) continue;
 
-    if (pts !== null && pts < 2) continue;
+        if (pts !== null && pts < 2) continue;
 
-    var reason = rawReason;
-    if (/required signal missing/i.test(reason)) {
-      var spec2 = "";
-      try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
-      reason = spec2 || "Missing baseline inputs for this signal.";
+        var reason = rawReason;
+        if (/required signal missing/i.test(reason)) {
+          var spec2 = "";
+          try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
+          reason = spec2 || "Missing baseline inputs for this signal.";
+        }
+
+        out.push({
+          title: label + ": " + reason,
+          sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
+          why: "A measured deduction was applied from scan evidence.",
+          _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
+        });
+      }
     }
-
-    out.push({
-      title: label + ": " + reason,
-      sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
-      why: "A measured deduction was applied from scan evidence.",
-      _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
-    });
-  }
-}
 
     var all = [];
     var primaryOnly = [];
@@ -1811,7 +1841,8 @@ var summary = ""
   // -----------------------------
   function renderAll(data) {
     data = safeObj(data);
-window.__IQWEB_LAST_DATA = data; // 👈 ADD THIS
+    window.__IQWEB_LAST_DATA = data;
+
     var header = pickHeader(data);
     var scores = pickScores(data);
     var signals = pickSignals(data);
@@ -1826,7 +1857,7 @@ window.__IQWEB_LAST_DATA = data; // 👈 ADD THIS
 
     showReport();
 
- var primary = computePrimaryConstraint(scores, signals, data);
+    var primary = computePrimaryConstraint(scores, signals, data);
 
     renderExecutiveSummary(data, primary);
     renderSignalsGrid(signals, scores, primary);
