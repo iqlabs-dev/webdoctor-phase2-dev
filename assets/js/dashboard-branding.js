@@ -84,10 +84,6 @@ function updateLogoState(hasLogo) {
 }
 
 function applyDefaultsToForm() {
-  setValue("brand-company", BRAND_DEFAULTS.agency_name);
-  setValue("brand-website", BRAND_DEFAULTS.agency_website);
-  setValue("brand-email", BRAND_DEFAULTS.agency_email);
-  setValue("brand-phone", BRAND_DEFAULTS.agency_phone);
   setValue("brand-report-title", BRAND_DEFAULTS.agency_report_title);
 
   setColorValue("headerBg", BRAND_DEFAULTS.agency_header_bg, BRAND_DEFAULTS.agency_header_bg);
