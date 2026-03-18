@@ -2,10 +2,8 @@
 // Branded summary PDF HTML for DocRaptor
 // Uses saved report data from get-report-data
 // Output:
-// - Header with branding
-// - Website / Report ID / Report Date
-// - Key Findings
-// - Delivery Signals
+// - Page 1: Header + Key Findings + Overall Delivery
+// - Page 2: Delivery Signals in 3x2 landscape grid
 // - Footer
 
 const FETCH_TIMEOUT_MS = 20000;
@@ -118,6 +116,7 @@ exports.handler = async (event) => {
       basicChecks,
       securityHeaders
     );
+
     const overallCard = renderOverallCard(scores, payload);
     const signalCards = buildSignalCardsHtml(
       payload,
@@ -126,6 +125,21 @@ exports.handler = async (event) => {
       basicChecks,
       securityHeaders
     );
+
+    const footerHtml = `
+      <div class="footer-bar">
+        <div class="footer-left">
+          ${
+            showFooterContact && footerContactBits.length
+              ? footerContactBits.map(escapeHtml).join(" • ")
+              : "&nbsp;"
+          }
+        </div>
+        <div class="footer-right">
+          ${showPoweredBy ? "Powered by iQWEB" : "&nbsp;"}
+        </div>
+      </div>
+    `;
 
     const html = `<!doctype html>
 <html lang="en">
@@ -136,7 +150,7 @@ exports.handler = async (event) => {
   <style>
     @page {
       size: A4 landscape;
-      margin: 4mm;
+      margin: 5mm;
     }
 
     * { box-sizing: border-box; }
@@ -150,44 +164,49 @@ exports.handler = async (event) => {
     }
 
     body {
-      page-break-inside: auto;
+      font-size: 11px;
+      line-height: 1.35;
     }
 
-    .page {
+    .pdf-page {
       width: 100%;
-      min-height: 100vh;
+      min-height: 100%;
       background: ${escapeHtml(brandPageBg)};
-      padding: 6px;
+      page-break-after: always;
+      padding: 4px;
     }
 
-    .report-shell {
+    .pdf-page:last-child {
+      page-break-after: auto;
+    }
+
+    .page-shell {
       width: 100%;
-      max-width: 100%;
     }
 
     .top-card,
     .section,
-    .footer-bar,
     .overall-card,
     .signal-card,
+    .footer-bar,
     .finding-row {
-      page-break-inside: avoid;
       break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .top-card {
-      border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 18px;
+      border: 1px solid rgba(69, 102, 154, 0.42);
+      border-radius: 16px;
       overflow: hidden;
       background: ${escapeHtml(brandHeaderBg)};
       color: ${escapeHtml(brandHeaderText)};
-      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
-      margin-bottom: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.20);
+      margin-bottom: 10px;
     }
 
     .brand-banner {
       width: 100%;
-      height: 56px;
+      height: 52px;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
@@ -198,7 +217,7 @@ exports.handler = async (event) => {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 14px;
+      gap: 12px;
       padding: 12px 14px 8px;
     }
 
@@ -206,7 +225,7 @@ exports.handler = async (event) => {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 14px;
+      gap: 12px;
       width: 100%;
     }
 
@@ -217,7 +236,7 @@ exports.handler = async (event) => {
 
     .company-name {
       font-size: 18px;
-      line-height: 1.1;
+      line-height: 1.05;
       font-weight: 800;
       letter-spacing: 0.02em;
       color: ${escapeHtml(brandHeaderText)};
@@ -226,7 +245,7 @@ exports.handler = async (event) => {
 
     .report-title {
       font-size: 11px;
-      line-height: 1.3;
+      line-height: 1.2;
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -236,21 +255,21 @@ exports.handler = async (event) => {
     }
 
     .brand-contact {
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1.45;
       color: ${escapeHtml(brandHeaderText)};
       opacity: 0.82;
     }
 
     .brand-logo {
-      width: 92px;
-      min-width: 92px;
+      width: 86px;
+      min-width: 86px;
       text-align: right;
     }
 
     .brand-logo img {
-      max-width: 92px;
-      max-height: 92px;
+      max-width: 86px;
+      max-height: 86px;
       display: inline-block;
       object-fit: contain;
     }
@@ -258,51 +277,57 @@ exports.handler = async (event) => {
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      gap: 8px;
       padding: 0 14px 12px;
     }
 
     .meta-card {
-      border: 1px solid rgba(69, 102, 154, 0.45);
+      border: 1px solid rgba(69, 102, 154, 0.42);
       border-radius: 12px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 10px 12px;
-      min-height: 56px;
+      padding: 9px 11px;
+      min-height: 52px;
     }
 
     .meta-label {
-      font-size: 10px;
-      line-height: 1.2;
+      font-size: 9px;
+      line-height: 1.15;
       font-weight: 700;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: ${escapeHtml(brandHeaderText)};
       opacity: 0.78;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .meta-value {
-      font-size: 13px;
-      line-height: 1.35;
+      font-size: 12px;
+      line-height: 1.25;
       font-weight: 700;
       color: ${escapeHtml(brandHeaderText)};
       word-break: break-word;
     }
 
+    .intro-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
     .section {
-      border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 16px;
+      border: 1px solid rgba(69, 102, 154, 0.42);
+      border-radius: 14px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-      margin-bottom: 12px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.16);
     }
 
     .section-head {
-      padding: 11px 14px;
-      border-bottom: 1px solid rgba(69, 102, 154, 0.28);
-      font-size: 11px;
-      line-height: 1.2;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(69, 102, 154, 0.24);
+      font-size: 10px;
+      line-height: 1.15;
       font-weight: 800;
       letter-spacing: 0.16em;
       text-transform: uppercase;
@@ -315,10 +340,10 @@ exports.handler = async (event) => {
 
     .finding-row {
       display: grid;
-      grid-template-columns: 145px 1fr;
-      gap: 12px;
-      padding: 10px 14px;
-      border-top: 1px solid rgba(69, 102, 154, 0.16);
+      grid-template-columns: 130px 1fr;
+      gap: 10px;
+      padding: 9px 12px;
+      border-top: 1px solid rgba(69, 102, 154, 0.14);
     }
 
     .finding-row:first-child {
@@ -326,45 +351,111 @@ exports.handler = async (event) => {
     }
 
     .finding-label {
-      font-size: 10px;
-      line-height: 1.2;
+      font-size: 9px;
+      line-height: 1.15;
       font-weight: 800;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: ${escapeHtml(brandText)};
-      opacity: 0.8;
+      opacity: 0.82;
     }
 
     .finding-value {
-      font-size: 11px;
-      line-height: 1.35;
+      font-size: 10px;
+      line-height: 1.28;
       color: ${escapeHtml(brandText)};
     }
 
     .overall-card {
-      margin: 10px 14px 10px;
-      border-radius: 14px;
-      padding: 10px 12px 12px;
-      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-      border: 1px solid rgba(69, 102, 154, 0.34);
+      margin: 0;
+      border-radius: 0;
+      padding: 12px;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .signal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 8px;
+      flex: 0 0 auto;
+    }
+
+    .signal-name {
+      font-size: 9px;
+      line-height: 1.15;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: ${escapeHtml(brandText)};
+    }
+
+    .signal-score {
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 800;
+      color: ${escapeHtml(brandText)};
+      white-space: nowrap;
+    }
+
+    .score-bar {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      flex: 0 0 auto;
+    }
+
+    .score-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: ${escapeHtml(brandAccent)};
+    }
+
+    .signal-status {
+      font-size: 9px;
+      line-height: 1.15;
+      font-weight: 700;
+      color: ${escapeHtml(brandText)};
+      margin-bottom: 4px;
+      flex: 0 0 auto;
+    }
+
+    .signal-copy {
+      font-size: 9px;
+      line-height: 1.22;
+      color: ${escapeHtml(brandText)};
+      white-space: pre-line;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    .signals-section {
+      margin-bottom: 10px;
     }
 
     .signals-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      padding: 0 14px 14px;
+      gap: 9px;
+      padding: 10px 12px 12px;
     }
 
     .signal-card {
-      height: 150px;
+      height: 138px;
+      min-height: 138px;
       display: flex;
       flex-direction: column;
-      border-radius: 14px;
-      padding: 10px 12px 12px;
+      border-radius: 13px;
+      padding: 10px 11px 11px;
       background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
       border: 1px solid rgba(69, 102, 154, 0.34);
-      min-height: 150px;
       position: relative;
       overflow: hidden;
     }
@@ -381,76 +472,15 @@ exports.handler = async (event) => {
       border-color: rgba(238, 95, 86, 0.66);
     }
 
-    .signal-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-      margin-bottom: 8px;
-      flex: 0 0 auto;
-    }
-
-    .signal-name {
-      font-size: 10px;
-      line-height: 1.2;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandText)};
-    }
-
-    .signal-score {
-      font-size: 13px;
-      line-height: 1;
-      font-weight: 800;
-      color: ${escapeHtml(brandText)};
-      white-space: nowrap;
-    }
-
-    .score-bar {
-      width: 100%;
-      height: 7px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.10);
-      overflow: hidden;
-      margin-bottom: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      flex: 0 0 auto;
-    }
-
-    .score-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: ${escapeHtml(brandAccent)};
-    }
-
-    .signal-status {
-      font-size: 10px;
-      line-height: 1.2;
-      font-weight: 700;
-      color: ${escapeHtml(brandText)};
-      margin-bottom: 4px;
-      flex: 0 0 auto;
-    }
-
-    .signal-copy {
-      font-size: 10px;
-      line-height: 1.3;
-      color: ${escapeHtml(brandText)};
-      white-space: pre-line;
-      flex: 1 1 auto;
-      overflow: hidden;
-    }
-
     .signal-badge {
       position: absolute;
-      top: -10px;
-      left: 14px;
-      padding: 3px 10px;
+      top: -9px;
+      left: 12px;
+      padding: 3px 9px;
       border-radius: 999px;
       background: #ef5f56;
       color: #ffffff;
-      font-size: 10px;
+      font-size: 9px;
       line-height: 1;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -458,18 +488,18 @@ exports.handler = async (event) => {
     }
 
     .footer-bar {
-      border: 1px solid rgba(69, 102, 154, 0.45);
-      border-radius: 16px;
+      border: 1px solid rgba(69, 102, 154, 0.42);
+      border-radius: 14px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 10px 14px;
+      padding: 9px 12px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 12px;
-      font-size: 10px;
-      line-height: 1.4;
+      gap: 10px;
+      font-size: 9px;
+      line-height: 1.3;
       color: ${escapeHtml(brandText)};
+      flex-wrap: wrap;
     }
 
     .footer-left,
@@ -489,8 +519,9 @@ exports.handler = async (event) => {
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="report-shell">
+
+  <div class="pdf-page">
+    <div class="page-shell">
 
       <div class="top-card">
         ${
@@ -541,50 +572,55 @@ exports.handler = async (event) => {
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-head">Key Findings</div>
-        <div class="section-body">
-          ${keyFindings
-            .map(
-              (row) => `
-                <div class="finding-row">
-                  <div class="finding-label">${escapeHtml(row.label)}</div>
-                  <div class="finding-value">${escapeHtml(row.value)}</div>
-                </div>
-              `
-            )
-            .join("")}
+      <div class="intro-grid">
+        <div class="section">
+          <div class="section-head">Key Findings</div>
+          <div class="section-body">
+            ${keyFindings
+              .map(
+                (row) => `
+                  <div class="finding-row">
+                    <div class="finding-label">${escapeHtml(row.label)}</div>
+                    <div class="finding-value">${escapeHtml(row.value)}</div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">Overall Delivery</div>
+          <div class="section-body">
+            <div class="overall-card">
+              ${overallCard}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="section">
+      ${footerHtml}
+
+    </div>
+  </div>
+
+  <div class="pdf-page">
+    <div class="page-shell">
+
+      <div class="section signals-section">
         <div class="section-head">Delivery Signals</div>
         <div class="section-body">
-          <div class="overall-card">
-            ${overallCard}
-          </div>
-
           <div class="signals-grid">
             ${signalCards}
           </div>
         </div>
       </div>
 
-      <div class="footer-bar">
-        <div class="footer-left">
-          ${
-            showFooterContact && footerContactBits.length
-              ? footerContactBits.map(escapeHtml).join(" • ")
-              : "&nbsp;"
-          }
-        </div>
-        <div class="footer-right">
-          ${showPoweredBy ? "Powered by iQWEB" : "&nbsp;"}
-        </div>
-      </div>
+      ${footerHtml}
 
     </div>
   </div>
+
 </body>
 </html>`;
 
@@ -894,7 +930,6 @@ function getPrimarySignal(deliverySignals, scores) {
 
 function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
   const basic = basicChecks || {};
-  const headers = securityHeaders || {};
 
   if (domainKey === "security") {
     return {
