@@ -467,7 +467,7 @@ const signalTable = buildSignalTableHtml(
   background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
   border: 1px solid rgba(69, 102, 154, 0.34);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   page-break-inside: avoid;
   break-inside: avoid;
 }
