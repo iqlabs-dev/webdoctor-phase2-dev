@@ -178,6 +178,7 @@
     }
 
     .topbar{
+      position: relative;
       height: 62px;
       display:flex;
       align-items:center;
@@ -218,24 +219,20 @@
       color: var(--muted);
       font-size: 12px;
     }
-    .topbar{
-  position: relative;
-}
 
-.topbar-center-note{
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 12px;
-  color: rgba(255,255,255,.72);
-  padding: 7px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 184, 77, .20);
-  background: rgba(255, 184, 77, .08);
-  white-space: nowrap;
-}
+    .topbar-center-note{
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      color: rgba(255,255,255,.72);
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 184, 77, .20);
+      background: rgba(255, 184, 77, .08);
+      white-space: nowrap;
+    }
 
     .chip{
       display:inline-flex;
@@ -718,13 +715,120 @@
       margin-top:18px;
     }
 
-   .branding-savebar{
-  margin-top:26px;
-  padding-top:18px;
-  border-top:1px solid rgba(255,255,255,.06);
-  display:flex;
-  justify-content:flex-start;
-}
+    .branding-layout{
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+    }
+
+    .branding-section{
+      border:1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .branding-section .h{
+      margin-bottom: 14px;
+    }
+
+    .branding-section .h h2{
+      font-size: 14px;
+    }
+
+    .branding-section .meta{
+      color: rgba(255,255,255,.52);
+      font-size: 12px;
+    }
+
+    .color-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 6px;
+    }
+
+    .color-field{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 14px;
+      min-height: 56px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.14);
+    }
+
+    .color-field-info{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      min-width:0;
+    }
+
+    .color-field-label{
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,.9);
+    }
+
+    .color-field-help{
+      font-size: 11px;
+      color: rgba(255,255,255,.48);
+      line-height: 1.35;
+    }
+
+    .color-field input[type="color"]{
+      width: 48px;
+      min-width: 48px;
+      height: 34px;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .branding-savebar{
+      margin-top:4px;
+      padding-top:4px;
+      border-top:none;
+      display:flex;
+      justify-content:flex-start;
+    }
+
+    .branding-actions{
+      margin-top: 4px;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+
+    .branding-secondary-btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.88);
+      padding: 10px 16px;
+      min-width: 150px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor:pointer;
+      transition: background .18s ease, border-color .18s ease, transform .12s ease;
+    }
+
+    .branding-secondary-btn:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.18);
+      transform: translateY(-1px);
+    }
+
+    .branding-secondary-btn:active{
+      transform: translateY(0);
+    }
 
     .branding-savebar-note{
       margin:0;
@@ -767,11 +871,19 @@
       box-shadow:none;
     }
 
+    .branding-preview-note{
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.54);
+      line-height: 1.45;
+    }
+
     @media (max-width: 920px){
       :root{ --sidebar-w: 210px; }
       .topbar{ padding: 12px 14px; }
       .wrap{ padding: 14px; }
       .brand-grid{ grid-template-columns: 1fr; }
+      .color-grid{ grid-template-columns: 1fr; }
     }
 
     @media (max-width: 760px){
@@ -859,19 +971,17 @@
     </aside>
 
     <section class="main">
-   <header class="topbar">
-  <div class="left">
-    <div class="title" id="page-title">Dashboard</div>
-    <div class="sub" id="page-subtitle"></div>
-  </div>
+      <header class="topbar">
+        <div class="left">
+          <div class="title" id="page-title">Dashboard</div>
+          <div class="sub" id="page-subtitle"></div>
+        </div>
 
-
-
-  <div class="right">
-    <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
-    <span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
-  </div>
-</header>
+        <div class="right">
+          <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
+          <span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
+        </div>
+      </header>
 
       <div class="wrap">
         <div id="view-dashboard" class="view active">
@@ -1016,105 +1126,149 @@
 
         <div id="view-branding" class="view">
           <div class="card secondary">
-            <div class="h">
-              <h2>Company Details</h2>
-            </div>
+            <div class="branding-layout">
 
-            <div class="brand-grid">
-              <div class="brand-field">
-                <label for="brand-company">Company Name</label>
-                <input id="brand-company" type="text"/>
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Company Details</h2>
+                  <span class="meta">Shown on your branded report header and footer</span>
+                </div>
+
+                <div class="brand-grid">
+                  <div class="brand-field">
+                    <label for="brand-company">Company Name</label>
+                    <input id="brand-company" type="text" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-website">Website</label>
+                    <input id="brand-website" type="text" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-email">Email</label>
+                    <input id="brand-email" type="email" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-phone">Phone (optional)</label>
+                    <input id="brand-phone" type="text" />
+                  </div>
+
+                  <div class="brand-field full">
+                    <label for="brand-report-title">Report Title</label>
+                    <input id="brand-report-title" type="text" />
+                  </div>
+                </div>
               </div>
 
-              <div class="brand-field">
-   <label for="brand-website">Website</label>
-<input id="brand-website" type="text" />
-</div>
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Display Options</h2>
+                  <span class="meta">Control what appears on exported reports</span>
+                </div>
 
-<div class="brand-field">
-<label for="brand-email">Email</label>
-<input id="brand-email" type="email" />
-</div>
+                <div class="brand-toggles" style="margin-top:0;">
+                  <label class="brand-toggle">
+                    <input id="brand-show-header-contact" type="checkbox" checked />
+                    <span>Show contact details in header</span>
+                  </label>
 
-<div class="brand-field">
-<label for="brand-phone">Phone (optional)</label>
-<input id="brand-phone" type="text" />
-</div>
+                  <label class="brand-toggle">
+                    <input id="brand-show-footer-contact" type="checkbox" checked />
+                    <span>Show contact details in footer</span>
+                  </label>
 
-              <div class="brand-field full">
-                <label for="brand-report-title">Report Title</label>
-                <input id="brand-report-title" type="text" />
-              </div>
-            </div>
-
-            <div class="brand-toggles">
-              <label class="brand-toggle">
-                <input id="brand-show-header-contact" type="checkbox" checked />
-                <span>Show contact details in header</span>
-              </label>
-
-              <label class="brand-toggle">
-                <input id="brand-show-footer-contact" type="checkbox" checked />
-                <span>Show contact details in footer</span>
-              </label>
-
-              <label class="brand-toggle">
-                <input id="brand-show-powered" type="checkbox" checked />
-                <span>Show "Powered by iQWEB" attribution</span>
-              </label>
-            </div>
-
-            <div class="card secondary" style="margin-top:22px;">
-              <div class="h">
-                <h2>Logo</h2>
-              
+                  <label class="brand-toggle">
+                    <input id="brand-show-powered" type="checkbox" checked />
+                    <span>Show "Powered by iQWEB" attribution</span>
+                  </label>
+                </div>
               </div>
 
-              <div class="scanhelp">
-                PNG, JPG, WEBP or SVG • Max file size 2MB
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Logo</h2>
+                  <span class="meta">Optional logo shown in the report header</span>
+                </div>
+
+                <div class="scanhelp" style="margin-top:0;">
+                  PNG, JPG, WEBP or SVG • Max file size 2MB
+                </div>
+
+                <div class="logo-upload-row">
+                  <input id="brand-logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+                  <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
+                </div>
+
+                <div id="logo-preview-empty" class="logo-upload-status">No logo uploaded yet.</div>
               </div>
 
-              <div class="logo-upload-row">
-                <input id="brand-logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-                <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Report Colours</h2>
+                  <span class="meta">Applies to on-screen reports and PDF exports</span>
+                </div>
+
+                <div class="color-grid">
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Header Background</div>
+                      <div class="color-field-help">Top banner background behind company name and logo</div>
+                    </div>
+                    <input type="color" id="headerBg" value="#0B1730">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Header Text</div>
+                      <div class="color-field-help">Company name, report title and header labels</div>
+                    </div>
+                    <input type="color" id="headerText" value="#FFFFFF">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Body Text</div>
+                      <div class="color-field-help">Section headings, labels and report content text</div>
+                    </div>
+                    <input type="color" id="textColor" value="#E5F0FF">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Accent Colour</div>
+                      <div class="color-field-help">Progress bars and highlight accents</div>
+                    </div>
+                    <input type="color" id="accent" value="#18D6C4">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Page Background</div>
+                      <div class="color-field-help">Main page background behind report sections</div>
+                    </div>
+                    <input type="color" id="pageBg" value="#FFFFFF">
+                  </div>
+                </div>
+
+                <div class="branding-preview-note">
+                  Changes are saved to your account and applied to future live reports and PDF exports.
+                </div>
               </div>
 
-              <div id="logo-preview-empty" class="logo-upload-status">No logo uploaded yet.</div>
-            </div>
+              <div class="branding-savebar">
+                <div class="branding-actions">
+                  <button id="brand-save" class="branding-save-btn" type="button">
+                    Save Branding
+                  </button>
 
-            <h3 style="margin-top:20px;">Report Colours</h3>
+                  <button id="brand-reset-defaults" class="branding-secondary-btn" type="button">
+                    Restore Defaults
+                  </button>
+                </div>
+              </div>
 
-<div class="form-row">
-  <label for="headerBg">Header Background</label>
-  <input type="color" id="headerBg" value="#0B1730">
-</div>
-
-<div class="form-row">
-  <label for="headerText">Header Text</label>
-  <input type="color" id="headerText" value="#FFFFFF">
-</div>
-
-<div class="form-row">
-  <label for="textColor">Body Text</label>
-  <input type="color" id="textColor" value="#E5F0FF">
-</div>
-
-<div class="form-row">
-  <label for="accent">Accent Colour</label>
-  <input type="color" id="accent" value="#18D6C4">
-</div>
-
-<div class="form-row">
-  <label for="pageBg">Page Background</label>
-  <input type="color" id="pageBg" value="#FFFFFF">
-</div>
-
-            <div class="branding-savebar">
-          
-
-              <button id="brand-save" class="branding-save-btn" type="button">
-                Save Branding
-              </button>
             </div>
           </div>
         </div>
@@ -1122,7 +1276,7 @@
     </section>
   </div>
 
- <script type="module" src="/assets/js/dashboard.js?v=46"></script>
+  <script type="module" src="/assets/js/dashboard.js?v=46"></script>
   <script type="module" src="/assets/js/dashboard-branding.js"></script>
 
   <script type="module">
@@ -1145,13 +1299,13 @@
           'Dashboard';
       }
 
-if (pageSubtitle) {
-  pageSubtitle.textContent =
-    viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
-    viewId === 'view-account' ? 'Identity and security.' :
-    viewId === 'view-branding' ? '' :
-    '';
-}
+      if (pageSubtitle) {
+        pageSubtitle.textContent =
+          viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
+          viewId === 'view-account' ? 'Identity and security.' :
+          viewId === 'view-branding' ? '' :
+          '';
+      }
     }
 
     navItems.forEach(a => a.addEventListener('click', (e) => {
@@ -1200,7 +1354,6 @@ if (pageSubtitle) {
         if (logoPreviewEmpty) logoPreviewEmpty.textContent = 'No logo uploaded yet.';
       });
     }
-
   </script>
 </body>
 </html>

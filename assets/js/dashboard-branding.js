@@ -6,6 +6,24 @@ const $ = (id) => document.getElementById(id);
 let currentUserId = null;
 let currentLogoPath = null;
 
+const BRAND_DEFAULTS = {
+  agency_name: "",
+  agency_website: "",
+  agency_email: "",
+  agency_phone: "",
+  agency_report_title: "Monthly Report",
+
+  agency_header_bg: "#0B1730",
+  agency_header_text_color: "#FFFFFF",
+  agency_text_color: "#E5F0FF",
+  agency_accent_color: "#18D6C4",
+  agency_page_bg: "#FFFFFF",
+
+  show_header_contact: true,
+  show_footer_contact: true,
+  show_powered_by: true
+};
+
 function textValue(id) {
   const el = $(id);
   return el ? String(el.value || "").trim() : "";
@@ -65,6 +83,24 @@ function updateLogoState(hasLogo) {
   }
 }
 
+function applyDefaultsToForm() {
+  setValue("brand-company", BRAND_DEFAULTS.agency_name);
+  setValue("brand-website", BRAND_DEFAULTS.agency_website);
+  setValue("brand-email", BRAND_DEFAULTS.agency_email);
+  setValue("brand-phone", BRAND_DEFAULTS.agency_phone);
+  setValue("brand-report-title", BRAND_DEFAULTS.agency_report_title);
+
+  setColorValue("headerBg", BRAND_DEFAULTS.agency_header_bg, BRAND_DEFAULTS.agency_header_bg);
+  setColorValue("headerText", BRAND_DEFAULTS.agency_header_text_color, BRAND_DEFAULTS.agency_header_text_color);
+  setColorValue("textColor", BRAND_DEFAULTS.agency_text_color, BRAND_DEFAULTS.agency_text_color);
+  setColorValue("accent", BRAND_DEFAULTS.agency_accent_color, BRAND_DEFAULTS.agency_accent_color);
+  setColorValue("pageBg", BRAND_DEFAULTS.agency_page_bg, BRAND_DEFAULTS.agency_page_bg);
+
+  setChecked("brand-show-header-contact", BRAND_DEFAULTS.show_header_contact);
+  setChecked("brand-show-footer-contact", BRAND_DEFAULTS.show_footer_contact);
+  setChecked("brand-show-powered", BRAND_DEFAULTS.show_powered_by);
+}
+
 async function getUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data || !data.user) {
@@ -119,6 +155,8 @@ async function loadBranding() {
 
   if (error || !data) {
     console.error("[branding] load failed:", error);
+    applyDefaultsToForm();
+    updateLogoState(false);
     return;
   }
 
@@ -126,13 +164,13 @@ async function loadBranding() {
   setValue("brand-website", data.agency_website || "");
   setValue("brand-email", data.agency_email || "");
   setValue("brand-phone", data.agency_phone || "");
-  setValue("brand-report-title", data.agency_report_title || "");
+  setValue("brand-report-title", data.agency_report_title || BRAND_DEFAULTS.agency_report_title);
 
-  setColorValue("headerBg", data.agency_header_bg, "#0B1730");
-  setColorValue("headerText", data.agency_header_text_color, "#FFFFFF");
-  setColorValue("textColor", data.agency_text_color, "#E5F0FF");
-  setColorValue("accent", data.agency_accent_color, "#18D6C4");
-  setColorValue("pageBg", data.agency_page_bg, "#FFFFFF");
+  setColorValue("headerBg", data.agency_header_bg, BRAND_DEFAULTS.agency_header_bg);
+  setColorValue("headerText", data.agency_header_text_color, BRAND_DEFAULTS.agency_header_text_color);
+  setColorValue("textColor", data.agency_text_color, BRAND_DEFAULTS.agency_text_color);
+  setColorValue("accent", data.agency_accent_color, BRAND_DEFAULTS.agency_accent_color);
+  setColorValue("pageBg", data.agency_page_bg, BRAND_DEFAULTS.agency_page_bg);
 
   setChecked("brand-show-header-contact", data.show_header_contact !== false);
   setChecked("brand-show-footer-contact", data.show_footer_contact !== false);
@@ -159,17 +197,17 @@ async function saveBranding() {
     agency_website: textValue("brand-website"),
     agency_email: textValue("brand-email"),
     agency_phone: textValue("brand-phone"),
-    agency_report_title: textValue("brand-report-title"),
+    agency_report_title: textValue("brand-report-title") || BRAND_DEFAULTS.agency_report_title,
 
-    agency_header_bg: colorValue("headerBg", "#0B1730"),
-    agency_header_text_color: colorValue("headerText", "#FFFFFF"),
-    agency_text_color: colorValue("textColor", "#E5F0FF"),
-    agency_accent_color: colorValue("accent", "#18D6C4"),
-    agency_page_bg: colorValue("pageBg", "#FFFFFF"),
+    agency_header_bg: colorValue("headerBg", BRAND_DEFAULTS.agency_header_bg),
+    agency_header_text_color: colorValue("headerText", BRAND_DEFAULTS.agency_header_text_color),
+    agency_text_color: colorValue("textColor", BRAND_DEFAULTS.agency_text_color),
+    agency_accent_color: colorValue("accent", BRAND_DEFAULTS.agency_accent_color),
+    agency_page_bg: colorValue("pageBg", BRAND_DEFAULTS.agency_page_bg),
 
-    show_header_contact: boolValue("brand-show-header-contact", true),
-    show_footer_contact: boolValue("brand-show-footer-contact", true),
-    show_powered_by: boolValue("brand-show-powered", true)
+    show_header_contact: boolValue("brand-show-header-contact", BRAND_DEFAULTS.show_header_contact),
+    show_footer_contact: boolValue("brand-show-footer-contact", BRAND_DEFAULTS.show_footer_contact),
+    show_powered_by: boolValue("brand-show-powered", BRAND_DEFAULTS.show_powered_by)
   };
 
   const ok = await saveProfileData(payload);
@@ -327,12 +365,22 @@ function wireLogoRemove() {
   });
 }
 
+function wireRestoreDefaults() {
+  const btn = $("brand-reset-defaults");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    applyDefaultsToForm();
+  });
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (!await getUser()) return;
 
   wireSaveButton();
   wireLogoUpload();
   wireLogoRemove();
+  wireRestoreDefaults();
 
   await loadBranding();
 });
