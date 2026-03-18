@@ -118,13 +118,13 @@ exports.handler = async (event) => {
     );
 
     const overallCard = renderOverallCard(scores, payload);
-const signalTable = buildSignalTableHtml(
-  payload,
-  deliverySignals,
-  scores,
-  basicChecks,
-  securityHeaders
-);
+    const signalTable = buildSignalTableHtml(
+      payload,
+      deliverySignals,
+      scores,
+      basicChecks,
+      securityHeaders
+    );
 
     const footerHtml = `
       <div class="footer-bar">
@@ -285,27 +285,30 @@ const signalTable = buildSignalTableHtml(
       border: 1px solid rgba(69, 102, 154, 0.42);
       border-radius: 12px;
       background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 9px 11px;
-      min-height: 52px;
+      padding: 10px 12px;
+      min-height: 56px;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     .meta-label {
-      font-size: 9px;
-      line-height: 1.15;
+      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.16em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: ${escapeHtml(brandHeaderText)};
-      opacity: 0.78;
-      margin-bottom: 5px;
+      opacity: 0.95;
+      margin-bottom: 6px;
+      line-height: 1.15;
     }
 
     .meta-value {
-      font-size: 12px;
-      line-height: 1.25;
+      font-size: 14px;
       font-weight: 700;
       color: ${escapeHtml(brandHeaderText)};
+      letter-spacing: 0.02em;
       word-break: break-word;
+      line-height: 1.25;
     }
 
     .intro-grid {
@@ -436,129 +439,133 @@ const signalTable = buildSignalTableHtml(
       overflow: hidden;
     }
 
-.signals-section {
-  margin-bottom: 10px;
-}
+    .signals-section {
+      margin-bottom: 10px;
+    }
 
-.signals-table-wrap {
-  padding: 8px 10px 10px;
-}
+    .signals-table-wrap {
+      padding: 12px 10px 10px;
+    }
 
-.signals-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 8px;
-  table-layout: fixed;
-}
+    .signals-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 8px 10px;
+      table-layout: fixed;
+    }
 
-.signals-table td {
-  width: 33.333%;
-  vertical-align: top;
-  height: 110px;
-}
+    .signals-table td {
+      width: 33.333%;
+      vertical-align: top;
+      height: 122px;
+      padding-top: 2px;
+    }
 
-.signal-card {
-  height: 110px;
-  min-height: 110px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 12px;
-  padding: 9px 10px 10px;
-  background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-  border: 1px solid rgba(69, 102, 154, 0.34);
-  position: relative;
-  overflow: visible;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
+    .signal-card {
+      height: 112px;
+      min-height: 112px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 12px;
+      padding: 10px 10px 10px;
+      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
+      border: 1px solid rgba(69, 102, 154, 0.34);
+      position: relative;
+      overflow: visible;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
 
-.signal-card.good {
-  border-color: rgba(28, 198, 115, 0.55);
-}
+    .signal-card.good {
+      border-color: rgba(28, 198, 115, 0.55);
+    }
 
-.signal-card.warn {
-  border-color: rgba(233, 168, 43, 0.62);
-}
+    .signal-card.warn {
+      border-color: rgba(233, 168, 43, 0.62);
+    }
 
-.signal-card.bad {
-  border-color: rgba(238, 95, 86, 0.66);
-}
+    .signal-card.bad {
+      border-color: rgba(238, 95, 86, 0.66);
+    }
 
-.signal-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  align-items: flex-start;
-  margin-bottom: 6px;
-  flex: 0 0 auto;
-}
+    .signal-card .signal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 6px;
+      flex: 0 0 auto;
+    }
 
-.signal-name {
-  font-size: 9px;
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: ${escapeHtml(brandText)};
-}
+    .signal-card .signal-name {
+      font-size: 9px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: ${escapeHtml(brandText)};
+    }
 
-.signal-score {
-  font-size: 12px;
-  line-height: 1;
-  font-weight: 800;
-  color: ${escapeHtml(brandText)};
-  white-space: nowrap;
-}
+    .signal-card .signal-score {
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 800;
+      color: ${escapeHtml(brandText)};
+      white-space: nowrap;
+    }
 
-.score-bar {
-  width: 100%;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.10);
-  overflow: hidden;
-  margin-bottom: 6px;
-  border: 1px solid rgba(255,255,255,0.05);
-  flex: 0 0 auto;
-}
+    .signal-card .score-bar {
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      overflow: hidden;
+      margin-bottom: 6px;
+      border: 1px solid rgba(255,255,255,0.05);
+      flex: 0 0 auto;
+    }
 
-.score-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: ${escapeHtml(brandAccent)};
-}
+    .signal-card .score-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: ${escapeHtml(brandAccent)};
+    }
 
-.signal-status {
-  font-size: 8px;
-  line-height: 1.1;
-  font-weight: 700;
-  color: ${escapeHtml(brandText)};
-  margin-bottom: 3px;
-  flex: 0 0 auto;
-}
+    .signal-card .signal-status {
+      font-size: 8px;
+      line-height: 1.1;
+      font-weight: 700;
+      color: ${escapeHtml(brandText)};
+      margin-bottom: 3px;
+      flex: 0 0 auto;
+    }
 
-.signal-copy {
-  font-size: 7.6px;
-  line-height: 1.1;
-  color: ${escapeHtml(brandText)};
-  white-space: normal;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
+    .signal-card .signal-copy {
+      font-size: 7.6px;
+      line-height: 1.1;
+      color: ${escapeHtml(brandText)};
+      white-space: normal;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
 
-.signal-badge {
-  position: absolute;
-  top: -8px;
-  left: 10px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #ef5f56;
-  color: #ffffff;
-  font-size: 8px;
-  line-height: 1;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+    .signal-badge {
+      position: absolute;
+      top: -9px;
+      left: 10px;
+      z-index: 3;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #ef5f56;
+      color: #ffffff;
+      font-size: 8px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
     .footer-bar {
       border: 1px solid rgba(69, 102, 154, 0.42);
       border-radius: 14px;
@@ -678,17 +685,14 @@ const signalTable = buildSignalTableHtml(
 
   <div class="pdf-page">
     <div class="page-shell">
-
-<div class="section signals-section">
-  <div class="section-head">Delivery Signals</div>
-  <div class="section-body">
-    ${signalTable}
-  </div>
-</div>
+      <div class="section signals-section">
+        <div class="section-head">Delivery Signals</div>
+        <div class="section-body">
+          ${signalTable}
+        </div>
       </div>
 
       ${footerHtml}
-
     </div>
   </div>
 
@@ -1126,42 +1130,6 @@ function renderOverallCard(scores, payload) {
   `;
 }
 
-function buildSignalCardsHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
-  const primary = getPrimarySignal(deliverySignals, scores);
-
-  return orderedSignals(deliverySignals, scores)
-    .map((sig) => {
-      const score = safeNumber(sig?.score);
-      const label = titleCaseSignal(sig?.label || sig?.id || "Signal");
-      const narrative =
-        deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) ||
-        fallbackSignalNarrative(sig, score);
-      const status = scoreLabel(score);
-      const klass = scoreClass(score);
-      const key = labelToKey(sig?.label || sig?.id || "");
-
-      const primaryBadge =
-        primary && primary.key && primary.key === key
-          ? `<div class="signal-badge">Primary Constraint</div>`
-          : "";
-
-      return `
-        <div class="signal-card ${klass}">
-          ${primaryBadge}
-          <div class="signal-top">
-            <div class="signal-name">${escapeHtml(label)}</div>
-            <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
-          </div>
-          <div class="score-bar">
-            <div class="score-fill" style="width:${clampScore(score)}%;"></div>
-          </div>
-          <div class="signal-status">${escapeHtml(status)}</div>
-          <div class="signal-copy">${escapeHtml(narrative)}</div>
-        </div>
-      `;
-    })
-    .join("");
-}
 function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
   const primary = getPrimarySignal(deliverySignals, scores);
 
