@@ -11,14 +11,6 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
 
-    body {
-      font-family: "Montserrat", system-ui, sans-serif;
-      background: radial-gradient(circle at top, #0b1730 0, #050814 60%, #020304 100%);
-      color: #e5f0ff;
-      -webkit-font-smoothing: antialiased;
-      padding: 22px 12px 40px;
-    }
-
     :root {
       --bg-top: #050814;
       --bg-mid: #050b19;
@@ -36,6 +28,18 @@
       --border-subtle: rgba(255,255,255,0.08);
       --shadow: 0 10px 30px rgba(0,0,0,0.35);
       --radius: 18px;
+
+      --report-header-bg: #0B1730;
+      --report-header-text: #FFFFFF;
+      --report-page-bg: #070A10;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, sans-serif;
+      background: var(--report-page-bg);
+      color: #e5f0ff;
+      -webkit-font-smoothing: antialiased;
+      padding: 22px 12px 40px;
     }
 
     .page-shell {
@@ -82,7 +86,8 @@
     .top-card {
       width: 100%;
       border-radius: var(--radius);
-      background: linear-gradient(180deg, rgba(34,211,238,0.12), rgba(255,255,255,0.03));
+      background: var(--report-header-bg);
+      color: var(--report-header-text);
       border: 1px solid var(--border-subtle);
       box-shadow: var(--shadow);
       padding: 16px 16px;
@@ -123,6 +128,7 @@
       line-height: 1.2;
       min-width: 0;
       overflow-wrap: anywhere;
+      color: var(--report-header-text);
     }
 
     .logo-slot {
@@ -152,9 +158,9 @@
     }
 
     .btn {
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255,255,255,0.14);
       background: rgba(0,0,0,0.22);
-      color: var(--ink);
+      color: var(--report-header-text);
       border-radius: 12px;
       padding: 10px 12px;
       font-weight: 600;
@@ -163,7 +169,7 @@
       font-family: "Montserrat", system-ui, sans-serif;
     }
 
-    .btn:hover { border-color: rgba(34,211,238,0.55); }
+    .btn:hover { border-color: var(--accent); }
     .btn:active { transform: translateY(1px); }
 
     .meta-strip {
@@ -181,7 +187,7 @@
     }
 
     .meta-cell .k {
-      color: var(--muted);
+      color: rgba(255,255,255,0.72);
       font-size: 11px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -191,7 +197,7 @@
     .meta-cell .v {
       font-weight: 600;
       font-size: 13px;
-      color: var(--ink);
+      color: var(--report-header-text);
       overflow-wrap: anywhere;
       text-decoration: none;
     }
@@ -335,7 +341,7 @@
       height: 100%;
       width: 0%;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(34,211,238,0.9), rgba(34,197,94,0.9));
+      background: linear-gradient(90deg, var(--accent), rgba(34,197,94,0.9));
       transition: width 600ms ease;
     }
 
@@ -382,45 +388,6 @@
       word-break: break-word;
       display: flex;
       align-items: flex-start;
-    }
-
-    .commentary-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .commentary-card {
-      background: linear-gradient(180deg, rgba(34,211,238,0.08), rgba(255,255,255,0.02));
-      border: 1px solid rgba(34,211,238,0.18);
-      border-radius: 16px;
-      padding: 16px;
-    }
-
-    .commentary-title {
-      margin: 0 0 10px 0;
-      font-size: 12px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--ink);
-      font-weight: 800;
-    }
-
-    .commentary-body {
-      color: var(--ink-soft);
-      font-size: 13px;
-      line-height: 1.65;
-      white-space: pre-line;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-
-    .commentary-signoff {
-      margin-top: 12px;
-      color: var(--ink);
-      font-size: 13px;
-      font-weight: 600;
-      white-space: pre-line;
     }
 
     @media (max-width: 520px) {
@@ -649,7 +616,7 @@
       font-size: 11px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
-      color: rgba(34,211,238,0.95);
+      color: var(--accent);
       padding-top: 2px;
       min-width: 92px;
     }
@@ -899,10 +866,10 @@
             <div class="logo" id="agencyName"></div>
 
             <div id="agencyReportLabel"
-                 style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--ink-soft);">
+                 style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:rgba(255,255,255,0.78);">
             </div>
 
-            <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--ink-soft);">
+            <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:rgba(255,255,255,0.78);">
               <div id="agencyWebsiteLine" style="display:none;"></div>
               <div id="agencyEmailLine" style="display:none;"></div>
               <div id="agencyPhoneLine" style="display:none;"></div>
@@ -944,22 +911,7 @@
         </div>
       </section>
 
-            <main id="reportRoot" style="display:none;">
-        <section class="section" id="agencyCommentarySection" style="display:none;">
-          <div class="section-head">
-            <h2 class="section-title">Agency Commentary</h2>
-          </div>
-          <div class="section-body">
-            <div class="commentary-wrap">
-              <div class="commentary-card">
-                <h3 class="commentary-title" id="commentaryTitle" style="display:none;"></h3>
-                <div class="commentary-body" id="commentaryBody"></div>
-                <div class="commentary-signoff" id="commentarySignoff" style="display:none;"></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
+      <main id="reportRoot" style="display:none;">
         <section class="section" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Key Findings</h2>
@@ -1164,19 +1116,41 @@
 
   <script>
     (function () {
-      const refreshBtn = document.getElementById("refreshBtn");
-      const backBtn = document.getElementById("backToDashboard");
-      const pdfBtn = document.getElementById("downloadPdfBtn");
+      function applyBranding(branding) {
+        if (!branding || typeof branding !== "object") return;
 
-      const params = new URLSearchParams(window.location.search);
-      const from = (params.get("from") || "").toLowerCase();
-      const reportId = params.get("report_id") || "";
+        var headerBg = branding.headerBg || branding.agency_header_bg || "#0B1730";
+        var headerText = branding.headerText || branding.agency_header_text_color || "#FFFFFF";
+        var accent = branding.accent || branding.agency_accent_color || "#22d3ee";
+        var pageBg = branding.pageBg || branding.agency_page_bg || "#070A10";
 
-      const isHistory = from === "history";
-      const isPreview = reportId === "EXAMPLE-REPORT-001";
+        document.documentElement.style.setProperty("--report-header-bg", headerBg);
+        document.documentElement.style.setProperty("--report-header-text", headerText);
+        document.documentElement.style.setProperty("--accent", accent);
+        document.documentElement.style.setProperty("--report-page-bg", pageBg);
+      }
+
+      window.__IQWEB_APPLY_BRANDING = applyBranding;
 
       try {
-        document.querySelectorAll("details.evidence-block").forEach(d => (d.open = false));
+        if (window.__IQWEB_REPORT_DATA && window.__IQWEB_REPORT_DATA.branding) {
+          applyBranding(window.__IQWEB_REPORT_DATA.branding);
+        }
+      } catch (_) {}
+
+      var refreshBtn = document.getElementById("refreshBtn");
+      var backBtn = document.getElementById("backToDashboard");
+      var pdfBtn = document.getElementById("downloadPdfBtn");
+
+      var params = new URLSearchParams(window.location.search);
+      var from = (params.get("from") || "").toLowerCase();
+      var reportId = params.get("report_id") || "";
+
+      var isHistory = from === "history";
+      var isPreview = reportId === "EXAMPLE-REPORT-001";
+
+      try {
+        document.querySelectorAll("details.evidence-block").forEach(function (d) { d.open = false; });
       } catch (_) {}
 
       if (isHistory) {
@@ -1194,11 +1168,11 @@
       }
 
       if (pdfBtn) pdfBtn.style.display = "none";
-      if (refreshBtn) refreshBtn.onclick = () => location.reload();
+      if (refreshBtn) refreshBtn.onclick = function () { location.reload(); };
 
       if (backBtn) {
         backBtn.textContent = "Back to dashboard";
-        backBtn.onclick = () => (window.location.href = "/dashboard.html");
+        backBtn.onclick = function () { window.location.href = "/dashboard.html"; };
       }
     })();
   </script>
