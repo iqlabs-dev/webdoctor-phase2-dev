@@ -186,13 +186,14 @@
       padding: 10px 12px;
     }
 
-    .meta-cell .k {
-      color: rgba(255,255,255,0.72);
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
+ .meta-cell .k {
+  color: var(--report-header-text);
+  opacity: 0.78;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
 
     .meta-cell .v {
       font-weight: 600;
@@ -865,13 +866,11 @@
           <div class="brand-copy">
             <div class="logo" id="agencyName"></div>
 
-            <div id="agencyReportLabel"
-                 style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:rgba(255,255,255,0.78);">
-            </div>
+        <div id="agencyReportLabel"
+     style="font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--report-header-text); opacity:.78;">
+</div>
 
-            <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:rgba(255,255,255,0.78);">
-              <div id="agencyWebsiteLine" style="display:none;"></div>
-              <div id="agencyEmailLine" style="display:none;"></div>
+           <div id="agencyContactBlock" style="display:none; margin-top:10px; font-size:12px; line-height:1.6; color:var(--report-header-text); opacity:.78;">
               <div id="agencyPhoneLine" style="display:none;"></div>
             </div>
           </div>
