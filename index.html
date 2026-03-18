@@ -275,13 +275,18 @@
  
 .nav-cta-sub {
   max-width: var(--max-width);
-  margin: 6px auto 0;
+  margin: 4px auto 0;
   padding: 0 18px;
-  text-align: right;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
 }
+
+.nav-cta-sub span {
+  transform: translateX(-22px);
+  font-size: 13px;
+  color: #22d3ee;
+  text-shadow: 0 0 6px rgba(34, 211, 238, 0.6);
+}r
 
     @media (max-width: 640px) {
       .hero-shell {
@@ -1783,9 +1788,9 @@
 
               </header>
 
-      <div class="nav-cta-sub">
-        Full Dashboard Access Included
-      </div>
+    <div class="nav-cta-sub">
+  <span>Full Dashboard Access Included</span>
+</div>
 
     
       <!-- HERO -->
