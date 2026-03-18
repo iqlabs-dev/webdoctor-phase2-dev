@@ -73,7 +73,6 @@ exports.handler = async (event) => {
     const header = payload.header || {};
     const scores = payload.scores || {};
     const branding = payload.branding || {};
-    const commentary = payload.commentary || {};
     const deliverySignals = Array.isArray(payload.delivery_signals)
       ? payload.delivery_signals
       : [];
@@ -85,13 +84,20 @@ exports.handler = async (event) => {
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
-    const companyName = branding.agency_name || "iQWEB";
-    const reportTitle = branding.agency_report_title || "Website Report";
-    const logoUrl = branding.agency_logo_url || "";
-    const bannerUrl = branding.agency_banner_url || "";
-    const showHeaderContact = branding.show_header_contact !== false;
-    const showFooterContact = branding.show_footer_contact !== false;
-    const showPoweredBy = branding.show_powered_by !== false;
+const companyName = branding.agency_name || "iQWEB";
+const reportTitle = branding.agency_report_title || "Website Report";
+const logoUrl = branding.agency_logo_url || "";
+const bannerUrl = branding.agency_banner_url || "";
+
+const brandHeaderBg = branding.agency_header_bg || "#0B1730";
+const brandHeaderText = branding.agency_header_text_color || "#FFFFFF";
+const brandText = branding.agency_text_color || "#E5F0FF";
+const brandAccent = branding.agency_accent_color || "#18D6C4";
+const brandPageBg = branding.agency_page_bg || "#061122";
+
+const showHeaderContact = branding.show_header_contact !== false;
+const showFooterContact = branding.show_footer_contact !== false;
+const showPoweredBy = branding.show_powered_by !== false;
 
     const headerContactBits = [
       branding.agency_website || "",
@@ -140,8 +146,8 @@ exports.handler = async (event) => {
 html, body {
   margin: 0;
   padding: 0;
-  background: #061122;
-  color: #e8eefc;
+  background: ${escapeHtml(brandPageBg)};
+  color: ${escapeHtml(brandText)};
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -149,10 +155,7 @@ html, body {
 .page {
   width: 100%;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(26, 84, 163, 0.18), transparent 34%),
-    radial-gradient(circle at top right, rgba(9, 212, 188, 0.10), transparent 28%),
-    linear-gradient(180deg, #071226 0%, #08142a 100%);
+  background: ${escapeHtml(brandPageBg)};
   padding: 6px;
 }
 
@@ -167,11 +170,8 @@ html, body {
   border: 1px solid rgba(69, 102, 154, 0.45);
   border-radius: 18px;
   overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    rgba(11, 26, 55, 0.96),
-    rgba(8, 20, 42, 0.98)
-  );
+  background: ${escapeHtml(brandHeaderBg)};
+  color: ${escapeHtml(brandHeaderText)};
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
   margin-bottom: 16px;
 }
@@ -205,30 +205,32 @@ html, body {
       flex: 1;
     }
 
-    .company-name {
-      font-size: 18px;
-      line-height: 1.15;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      color: #ffffff;
-      margin: 0 0 4px;
-    }
+.company-name {
+  font-size: 18px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: ${escapeHtml(brandHeaderText)};
+  margin: 0 0 4px;
+}
 
-    .report-title {
-      font-size: 12px;
-      line-height: 1.35;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #86b6ff;
-      margin: 0 0 10px;
-    }
+.report-title {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandHeaderText)};
+  opacity: 0.78;
+  margin: 0 0 10px;
+}
 
-    .brand-contact {
-      font-size: 12px;
-      line-height: 1.55;
-      color: #dbe7ff;
-    }
+.brand-contact {
+  font-size: 12px;
+  line-height: 1.55;
+  color: ${escapeHtml(brandHeaderText)};
+  opacity: 0.82;
+}
 
     .brand-logo {
       width: 120px;
@@ -258,60 +260,24 @@ html, body {
       min-height: 68px;
     }
 
-    .meta-label {
-      font-size: 11px;
-      line-height: 1.2;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #8fb2ea;
-      margin-bottom: 8px;
-    }
+ .meta-label {
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandHeaderText)};
+  opacity: 0.78;
+  margin-bottom: 8px;
+}
 
-    .meta-value {
-      font-size: 14px;
-      line-height: 1.45;
-      font-weight: 700;
-      color: #ffffff;
-      word-break: break-word;
-    }
-
-    .commentary-card {
-      margin: 14px 18px 18px;
-      border-radius: 16px;
-      padding: 16px 18px;
-      background: linear-gradient(180deg, rgba(34, 211, 238, 0.10), rgba(8, 20, 42, 0.98));
-      border: 1px solid rgba(34, 211, 238, 0.22);
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
-
-    .commentary-title {
-      font-size: 11px;
-      line-height: 1.2;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #ffffff;
-      margin: 0 0 10px;
-    }
-
-    .commentary-body {
-      font-size: 13px;
-      line-height: 1.65;
-      color: #eef4ff;
-      white-space: pre-line;
-      word-break: break-word;
-    }
-
-    .commentary-signoff {
-      margin-top: 12px;
-      font-size: 13px;
-      line-height: 1.5;
-      font-weight: 700;
-      color: #ffffff;
-      white-space: pre-line;
-    }
+.meta-value {
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: ${escapeHtml(brandHeaderText)};
+  word-break: break-word;
+}
 
     .section {
       border: 1px solid rgba(69, 102, 154, 0.45);
@@ -322,16 +288,16 @@ html, body {
       margin-bottom: 16px;
     }
 
-    .section-head {
-      padding: 14px 18px;
-      border-bottom: 1px solid rgba(69, 102, 154, 0.28);
-      font-size: 12px;
-      line-height: 1.2;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #ffffff;
-    }
+.section-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(69, 102, 154, 0.28);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandText)};
+}
 
     .section-body {
       padding: 0;
@@ -349,20 +315,21 @@ html, body {
       border-top: 0;
     }
 
-    .finding-label {
-      font-size: 11px;
-      line-height: 1.25;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #9bb9ea;
-    }
+ .finding-label {
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandText)};
+  opacity: 0.8;
+}
 
-    .finding-value {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #eef4ff;
-    }
+.finding-value {
+  font-size: 13px;
+  line-height: 1.5;
+  color: ${escapeHtml(brandText)};
+}
 
     .overall-card {
       margin: 14px 18px 12px;
@@ -442,22 +409,22 @@ html, body {
       margin-bottom: 10px;
     }
 
-    .signal-name {
-      font-size: 12px;
-      line-height: 1.25;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #ffffff;
-    }
+.signal-name {
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandText)};
+}
 
-    .signal-score {
-      font-size: 16px;
-      line-height: 1;
-      font-weight: 800;
-      color: #ffffff;
-      white-space: nowrap;
-    }
+.signal-score {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  color: ${escapeHtml(brandText)};
+  white-space: nowrap;
+}
 
     .score-bar {
       width: 100%;
@@ -469,26 +436,26 @@ html, body {
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    .score-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: linear-gradient(90deg, #29d3f1 0%, #3ac364 100%);
-    }
+.score-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: ${escapeHtml(brandAccent)};
+}
 
-    .signal-status {
-      font-size: 12px;
-      line-height: 1.35;
-      font-weight: 700;
-      color: #dbe8ff;
-      margin-bottom: 6px;
-    }
+ .signal-status {
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: ${escapeHtml(brandText)};
+  margin-bottom: 6px;
+}
 
-    .signal-copy {
-      font-size: 12px;
-      line-height: 1.5;
-      color: #d6e4ff;
-      white-space: pre-line;
-    }
+.signal-copy {
+  font-size: 12px;
+  line-height: 1.5;
+  color: ${escapeHtml(brandText)};
+  white-space: pre-line;
+}
 
 .signal-badge {
   position: absolute;
@@ -507,7 +474,7 @@ html, body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-  .footer-bar {
+.footer-bar {
   border: 1px solid rgba(69, 102, 154, 0.45);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
@@ -523,7 +490,7 @@ html, body {
 
   font-size: 11px;
   line-height: 1.5;
-  color: #b9cbee;
+  color: ${escapeHtml(brandText)};
 }
 
   .footer-left,
@@ -536,9 +503,10 @@ html, body {
       text-align: right;
     }
 
-    .muted {
-      color: #8fb2ea;
-    }
+.muted {
+  color: ${escapeHtml(brandText)};
+  opacity: 0.78;
+}
  <style>
 
 
@@ -674,8 +642,6 @@ body {
         </div>
       </div>
 
-      ${renderCommentarySection(commentary)}
-
       <div class="section">
         <div class="section-head">Key Findings</div>
         <div class="section-body">
@@ -790,36 +756,6 @@ function monthName(idx) {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
   ][idx] || "";
-}
-
-function hasCommentary(commentary) {
-  const c = commentary && typeof commentary === "object" ? commentary : {};
-  return !!(
-    String(c.title || "").trim() ||
-    String(c.body || "").trim() ||
-    String(c.signoff || "").trim()
-  );
-}
-
-function renderCommentarySection(commentary) {
-  const c = commentary && typeof commentary === "object" ? commentary : {};
-  if (!hasCommentary(c)) return "";
-
-  const title = String(c.title || "").trim();
-  const body = String(c.body || "").trim();
-  const signoff = String(c.signoff || "").trim();
-
-  return `
-      <div class="section">
-        <div class="section-head">Agency Commentary</div>
-        <div class="section-body">
-          <div class="commentary-card">
-            ${title ? `<div class="commentary-title">${escapeHtml(title)}</div>` : ""}
-            <div class="commentary-body">${escapeHtml(body)}</div>
-            ${signoff ? `<div class="commentary-signoff">${escapeHtml(signoff)}</div>` : ""}
-          </div>
-        </div>
-      </div>`;
 }
 
 function scoreLabel(score) {
