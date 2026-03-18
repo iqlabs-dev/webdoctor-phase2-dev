@@ -1336,16 +1336,33 @@
       min-height: 2.4em;
     }
 
-    .pricing-bullets {
-      margin: 2px 0 0;
-      padding-left: 18px;
-      color: rgba(192, 207, 235, 0.78);
+        .pricing-bullets {
+      list-style: none;
+      margin: 8px 0 0;
+      padding: 0;
+      color: rgba(192, 207, 235, 0.82);
       font-size: 0.82rem;
       line-height: 1.62;
+      display: grid;
+      gap: 8px;
     }
 
     .pricing-bullets li {
-      margin: 0 0 7px 0;
+      position: relative;
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .pricing-bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.78em;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(141, 243, 255, 0.9);
+      transform: translateY(-50%);
     }
 
     .pricing-bullets strong {
@@ -2036,15 +2053,17 @@
             <div class="pricing-price">$39 / month</div>
             <div class="pricing-meta-extra">For freelancers and small client workloads</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>25 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-               <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-                <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
-            </ul>
+<ul class="pricing-bullets">
+  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+  <li><strong>Up to 25 reports per month</strong></li>
+  <li>Full Website Diagnostics</li>
+  <li>Full White-Label Branding</li>
+  <li>Custom Brand Colours (Report + PDF)</li>
+  <li>PDF Download Included</li>
+  <li>Client-Ready Shareable Reports</li>
+  <li>No Automatic Overage Charges</li>
+  <li>Report Allowance Resets Monthly</li>
+</ul>
 
             <button class="pricing-cta" data-plan="sub10">Get Started</button>
           </div>
@@ -2054,15 +2073,17 @@
             <div class="pricing-price">$99 / month</div>
             <div class="pricing-meta-extra">For agencies running regular client audits</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>100 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-               <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-                <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
-            </ul>
+<ul class="pricing-bullets">
+  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+  <li><strong>Up to 100 reports per month</strong></li>
+  <li>Full Website Diagnostics</li>
+  <li>Full White-Label Branding</li>
+  <li>Custom Brand Colours (Report + PDF)</li>
+  <li>PDF Download Included</li>
+  <li>Client-Ready Shareable Reports</li>
+  <li>No Automatic Overage Charges</li>
+  <li>Report Allowance Resets Monthly</li>
+</ul>
 
             <button class="pricing-cta" data-plan="sub50">Get Started</button>
           </div>
@@ -2072,15 +2093,17 @@
             <div class="pricing-price">$199 / month</div>
             <div class="pricing-meta-extra">For teams managing multiple client sites</div>
 
-            <ul class="pricing-bullets">
-              <li>Up to <strong>300 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-               <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-                <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
-            </ul>
+<ul class="pricing-bullets">
+  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+  <li><strong>Up to 300 reports per month</strong></li>
+  <li>Full Website Diagnostics</li>
+  <li>Full White-Label Branding</li>
+  <li>Custom Brand Colours (Report + PDF)</li>
+  <li>PDF Download Included</li>
+  <li>Client-Ready Shareable Reports</li>
+  <li>No Automatic Overage Charges</li>
+  <li>Report Allowance Resets Monthly</li>
+</ul>
 
             <button class="pricing-cta" data-plan="sub100">Get Started</button>
           </div>
