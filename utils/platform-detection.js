@@ -133,6 +133,7 @@ function detectSquarespace(ctx) {
 function detectWordPress(ctx) {
   const html = ctx.html;
   const url = ctx.url;
+  const headers = ctx.headersText;
   const matches = [];
 
   if (hasAny(html, [
@@ -141,12 +142,17 @@ function detectWordPress(ctx) {
     "/wp-json/",
     'content="wordpress"',
     "wp-content",
-    "wp-includes"
+    "wp-includes",
+    "wp-embed.min.js",
+    "wp-block-library"
   ])) {
     matches.push("html:wordpress");
   }
   if (hasAny(url, ["/wp-content/", "/wp-json/"])) {
     matches.push("url:wordpress");
+  }
+  if (hasAny(headers, ["x-pingback", "link"])) {
+    matches.push("header:wordpress");
   }
 
   if (!matches.length) return null;
@@ -154,7 +160,7 @@ function detectWordPress(ctx) {
   return {
     key: "wordpress",
     label: "WordPress",
-    controlLevel: "full",
+    controlLevel: "partial",
     confidence: matches.length >= 2 ? "high" : "medium",
     matchedBy: matches
   };
@@ -169,7 +175,9 @@ function detectFramer(ctx) {
     "framerusercontent.com",
     "framer.website",
     'content="framer"',
-    "data-framer-name"
+    "data-framer-name",
+    "data-framer-page",
+    "framer-motion"
   ])) {
     matches.push("html:framer");
   }
@@ -182,7 +190,7 @@ function detectFramer(ctx) {
   return {
     key: "framer",
     label: "Framer",
-    controlLevel: "limited",
+    controlLevel: "partial",
     confidence: matches.length >= 2 ? "high" : "medium",
     matchedBy: matches
   };
@@ -198,7 +206,8 @@ function detectGhost(ctx) {
     'content="ghost"',
     "/ghost/",
     "ghost.min.js",
-    "casper"
+    "casper",
+    "ghost.io"
   ])) {
     matches.push("html:ghost");
   }
@@ -214,7 +223,7 @@ function detectGhost(ctx) {
   return {
     key: "ghost",
     label: "Ghost",
-    controlLevel: "full",
+    controlLevel: "partial",
     confidence: matches.length >= 2 ? "high" : "medium",
     matchedBy: matches
   };

@@ -129,7 +129,8 @@ function getPlatformInfo(metrics) {
 
 function isLimitedPlatformControl(platformInfo) {
   var p = safeObj(platformInfo);
-  return p.controlLevel === "limited";
+  var level = String(p.controlLevel || "").toLowerCase();
+  return level === "limited" || level === "partial";
 }
 
 /* -------------------------------------------------- */
@@ -458,7 +459,8 @@ function choosePrimaryConstraint(e) {
     TTFB: 800    // ms
   };
 
-  var limitedPlatform = String(e.platform_control || "full").toLowerCase() === "limited";
+var platformControl = String(e.platform_control || "full").toLowerCase();
+var limitedPlatform = platformControl === "limited" || platformControl === "partial";
 
   // --------------------------------------------------
   // Decision hierarchy overrides (v1)
@@ -681,7 +683,8 @@ function buildManifestationLine(primary, host) {
 function buildExecNarrative5(metrics, evidence, url) {
   var host = hostFromUrl(url);
   var e = safeObj(evidence);
-  var limitedPlatform = String(e.platform_control || "full").toLowerCase() === "limited";
+ var platformControl = String(e.platform_control || "full").toLowerCase();
+var limitedPlatform = platformControl === "limited" || platformControl === "partial";
   var platformLabel = String(e.platform_label || "the platform");
 
   var primary = choosePrimaryConstraint(e);
