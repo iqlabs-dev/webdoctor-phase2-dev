@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="iQWEB delivers website performance, SEO, accessibility and security diagnostics — turning PSI, Core Web Vitals and technical signals into prioritised, client-ready reports for agencies and developers.">
 
-  <!-- Favcons -->
+  <!-- Favicons -->
   <link rel="icon" href="/favicon.ico?v=1" sizes="any">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
   <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=1">
@@ -233,6 +233,24 @@
       text-decoration: none;
     }
 
+    .nav-cta-sub {
+      max-width: var(--max-width);
+      margin: 6px auto 0;
+      padding: 0 18px;
+      display: flex;
+      justify-content: flex-end;
+      position: relative;
+      z-index: 20;
+    }
+
+    .nav-cta-sub span {
+      transform: translateX(-24px);
+      font-size: 13px;
+      color: rgba(103, 232, 249, 0.85);
+      opacity: 1;
+      text-shadow: none;
+    }
+
     @media (max-width: 860px) {
       .shell-inner {
         padding-inline: 16px;
@@ -271,26 +289,16 @@
         font-size: 0.68rem;
         letter-spacing: 0.12em;
       }
-    }
- 
-.nav-cta-sub {
-  max-width: var(--max-width);
-  margin: 4px auto 0;
-  margin-top: 2px;
-  padding: 0 18px;
-  display: flex;
-  justify-content: flex-end;
-  position: relative;
-  z-index: 20;
-}
 
-.nav-cta-sub span {
-  transform: translateX(-31px);
-  font-size: 12px;
-  color: #b4ecf3;
-  opacity: 1;
-  text-shadow: none;
-}
+      .nav-cta-sub {
+        padding: 0 12px;
+      }
+
+      .nav-cta-sub span {
+        transform: translateX(0);
+        font-size: 12px;
+      }
+    }
 
     @media (max-width: 640px) {
       .hero-shell {
@@ -401,96 +409,93 @@
       animation-delay: 220ms;
     }
 
-.hero-scan-form {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
-  padding: 10px;
-  border-radius: 18px;
-  border: 1px solid rgba(34,211,238,0.24);
-  background:
-    radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
-    rgba(8,14,28,0.78);
-  box-shadow:
-    0 12px 28px rgba(0,0,0,0.28),
-    inset 0 0 0 1px rgba(255,255,255,0.02);
-}
+    .hero-scan-form {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 18px;
+      border: 1px solid rgba(34,211,238,0.24);
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
+        rgba(8,14,28,0.78);
+      box-shadow:
+        0 12px 28px rgba(0,0,0,0.28),
+        inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
 
-.hero-scan-input {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  height: 48px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  padding: 0 16px;
-  outline: none;
-  box-shadow: none;
-  display: block;
-  position: relative;
-  z-index: 1;
-}
+    .hero-scan-input {
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      height: 48px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 500;
+      padding: 0 16px;
+      outline: none;
+      box-shadow: none;
+      display: block;
+      position: relative;
+      z-index: 1;
+    }
 
-.hero-scan-input::placeholder {
-  color: rgba(192,207,235,0.50);
-}
+    .hero-scan-input::placeholder {
+      color: rgba(192,207,235,0.50);
+    }
 
-.hero-scan-button {
-  flex: 0 0 auto;
-  height: 48px;
-  min-width: 200px;
-  padding: 0 24px;
-  border-radius: 12px;
-  border: 1px solid rgba(34,211,238,0.68);
-  background:
-    radial-gradient(circle at top, rgba(34,211,238,0.22), rgba(2,6,23,1));
-  color: #e6fbff;
-  font-family: inherit;
-  font-size: 0.86rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow:
-    0 0 16px rgba(34,211,238,0.30),
-    0 10px 24px rgba(15,23,42,0.70);
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease,
-    color 0.16s ease,
-    background 0.16s ease;
+    .hero-scan-button {
+      flex: 0 0 auto;
+      height: 48px;
+      min-width: 200px;
+      padding: 0 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(34,211,238,0.68);
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.22), rgba(2,6,23,1));
+      color: #e6fbff;
+      font-family: inherit;
+      font-size: 0.86rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow:
+        0 0 16px rgba(34,211,238,0.30),
+        0 10px 24px rgba(15,23,42,0.70);
+      transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        color 0.16s ease,
+        background 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+      pointer-events: auto;
+    }
 
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+    .hero-scan-button:hover,
+    .hero-scan-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(34,211,238,0.92);
+      box-shadow:
+        0 0 22px rgba(34,211,238,0.42),
+        0 12px 30px rgba(15,23,42,0.84);
+      color: #ffffff;
+    }
 
-  position: relative;
-  z-index: 2;
-
-  pointer-events: auto;
-}
-
-.hero-scan-button:hover,
-.hero-scan-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(34,211,238,0.92);
-  box-shadow:
-    0 0 22px rgba(34,211,238,0.42),
-    0 12px 30px rgba(15,23,42,0.84);
-  color: #ffffff;
-}
-
-.hero-scan-button:disabled {
-  opacity: 0.68;
-  cursor: wait;
-}
+    .hero-scan-button:disabled {
+      opacity: 0.68;
+      cursor: wait;
+    }
 
     .hero-scan-meta {
       margin-top: 12px;
@@ -656,13 +661,13 @@
       border-radius: 20px;
     }
 
- .sample-reports-title {
-  font-size: 1.18rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  margin: 100px 0 26px;
-  color: #e6f3ff;
-}
+    .sample-reports-title {
+      font-size: 1.18rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      margin: 100px 0 26px;
+      color: #e6f3ff;
+    }
 
     .sample-reports-grid {
       display: grid;
@@ -980,29 +985,22 @@
 
     .signal-metrics { white-space: nowrap; }
 
-.iq-platform-strip {
-  margin-top: -50px;
-
-  /* KEY FIX ↓ */
-  max-width: 980px;
-  margin-left: auto;
-  margin-right: auto;
-
-  border-radius: 18px;
-  padding: 18px 22px 20px;
-
-  background:
-    radial-gradient(900px 260px at 12% 0%, rgba(34,211,238,0.08), transparent 52%),
-    linear-gradient(180deg, rgba(8,12,24,0.94), rgba(5,9,20,0.96));
-
-  border: 1px solid rgba(34,211,238,0.18);
-
-  box-shadow:
-    0 18px 40px rgba(0,0,0,0.30),
-    inset 0 0 0 1px rgba(255,255,255,0.02);
-
-  backdrop-filter: blur(10px);
-}
+    .iq-platform-strip {
+      margin-top: -50px;
+      max-width: 980px;
+      margin-left: auto;
+      margin-right: auto;
+      border-radius: 18px;
+      padding: 18px 22px 20px;
+      background:
+        radial-gradient(900px 260px at 12% 0%, rgba(34,211,238,0.08), transparent 52%),
+        linear-gradient(180deg, rgba(8,12,24,0.94), rgba(5,9,20,0.96));
+      border: 1px solid rgba(34,211,238,0.18);
+      box-shadow:
+        0 18px 40px rgba(0,0,0,0.30),
+        inset 0 0 0 1px rgba(255,255,255,0.02);
+      backdrop-filter: blur(10px);
+    }
 
     .iq-platform-strip-title {
       margin: 0 0 10px;
@@ -1355,7 +1353,7 @@
       min-height: 2.4em;
     }
 
-        .pricing-bullets {
+    .pricing-bullets {
       list-style: none;
       margin: 8px 0 0;
       padding: 0;
@@ -1688,71 +1686,124 @@
       margin-top: 4px;
     }
 
-/* Thank You / Contributors */
-.contributors {
-  margin-top: 72px;
-  padding-top: 28px;
-  padding-bottom: 120px;
-  text-align: center;
-  border-top: 1px solid rgba(255,255,255,0.08);
-}
+    /* Thank You / Contributors */
+    .contributors {
+      margin-top: 72px;
+      padding-top: 28px;
+      padding-bottom: 120px;
+      text-align: center;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
 
-.contributors h3 {
-  font-size: 18px; /* smaller */
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: #ffffff; /* brighter */
-  margin: 0 0 12px;
-}
+    .contributors h3 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+      margin: 0 0 12px;
+      opacity: 0;
+      transform: translateY(10px);
+    }
 
-.contributors-sub {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--muted);
-  margin: 0 auto 18px;
-  max-width: 560px;
-}
+    .contributors-sub {
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--muted);
+      margin: 0 auto 18px;
+      max-width: 560px;
+      opacity: 0;
+      transform: translateY(10px);
+    }
 
-.contributors-label {
-  margin-top: 2px;
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #ffffff;
-  opacity: 1;
-  text-shadow: 0 0 6px rgba(255,255,255,0.25);
-}
+    .contributors-label {
+      margin-top: 2px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 6px rgba(255,255,255,0.25);
+      opacity: 0;
+      transform: translateY(10px);
+    }
 
-.contributors-list {
-  margin-top: 12px;
-}
+    .contributors-list {
+      margin-top: 12px;
+    }
 
-.contributor {
-  line-height: 1.6;
-}
+    .contributor {
+      line-height: 1.6;
+    }
 
-.contributor .name {
-  display: block;
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--ink);
-}
+    .contributor .name {
+      display: block;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--ink);
+      opacity: 0;
+      transform: translateY(10px);
+    }
 
-.contributor a {
-  display: inline-block;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--accent);
-  text-decoration: none;
-}
+    .contributor a {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--accent);
+      text-decoration: none;
+      opacity: 0;
+      transform: translateY(10px);
+    }
 
-.contributor a:hover {
-  text-decoration: underline;
-}
+    .contributor a:hover {
+      text-decoration: underline;
+    }
 
+    @keyframes contributorFadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
 
+    .contributors.is-revealed h3 {
+      animation: contributorFadeUp 650ms ease forwards;
+      animation-delay: 0.05s;
+    }
 
+    .contributors.is-revealed .contributors-sub {
+      animation: contributorFadeUp 650ms ease forwards;
+      animation-delay: 0.2s;
+    }
 
+    .contributors.is-revealed .contributors-label {
+      animation: contributorFadeUp 650ms ease forwards;
+      animation-delay: 0.4s;
+    }
+
+    .contributors.is-revealed .contributor .name {
+      animation: contributorFadeUp 650ms ease forwards;
+      animation-delay: 0.6s;
+    }
+
+    .contributors.is-revealed .contributor a {
+      animation: contributorFadeUp 650ms ease forwards;
+      animation-delay: 0.8s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .contributors h3,
+      .contributors-sub,
+      .contributors-label,
+      .contributor .name,
+      .contributor a {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+      }
+    }
 
     /* FOOTER */
     .wd-footer {
@@ -1853,14 +1904,12 @@
             </svg>
           </a>
         </div>
+      </header>
 
-              </header>
+      <div class="nav-cta-sub">
+        <span>Full Dashboard Access Included</span>
+      </div>
 
-    <div class="nav-cta-sub">
-  <span>Full Dashboard Access Included</span>
-</div>
-
-    
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
@@ -2062,19 +2111,19 @@
         </section>
       </main>
 
-                      <div class="iq-platform-strip">
-                  <h3 class="iq-platform-strip-title">Platform-Aware Scoring</h3>
+      <div class="iq-platform-strip">
+        <h3 class="iq-platform-strip-title">Platform-Aware Scoring</h3>
 
-                  <p class="iq-platform-strip-text">
-                    iQWEB detects when a site is built on a managed platform and adjusts scoring to reflect what is actually within developer control.
-                    Infrastructure elements such as <strong>hosting, security headers, and server configuration</strong> may be controlled by the platform rather than the site owner.
-                    These signals are interpreted in context and are <strong>not treated as direct actionable issues</strong>.
-                  </p>
+        <p class="iq-platform-strip-text">
+          iQWEB detects when a site is built on a managed platform and adjusts scoring to reflect what is actually within developer control.
+          Infrastructure elements such as <strong>hosting, security headers, and server configuration</strong> may be controlled by the platform rather than the site owner.
+          These signals are interpreted in context and are <strong>not treated as direct actionable issues</strong>.
+        </p>
 
-                  <div class="iq-platform-supported">
-                    <strong>Supported platforms:</strong> Webflow · Shopify · Wix · Squarespace  
-                  </div>
-                </div>
+        <div class="iq-platform-supported">
+          <strong>Supported platforms:</strong> Webflow · Shopify · Wix · Squarespace
+        </div>
+      </div>
 
       <!-- HOW IT WORKS / WORKFLOW -->
       <section class="section" id="how">
@@ -2142,17 +2191,17 @@
             <div class="pricing-price">$39 / month</div>
             <div class="pricing-meta-extra">For freelancers and small client workloads</div>
 
-<ul class="pricing-bullets">
-  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
-  <li><strong>Up to 25 reports per month</strong></li>
-  <li>Full Website Diagnostics</li>
-  <li>Full White-Label Branding</li>
-  <li>Custom Brand Colours (Report + PDF)</li>
-  <li>PDF Download Included</li>
-  <li>Client-Ready Shareable Reports</li>
-  <li>No Automatic Overage Charges</li>
-  <li>Report Allowance Resets Monthly</li>
-</ul>
+            <ul class="pricing-bullets">
+              <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+              <li><strong>Up to 25 reports per month</strong></li>
+              <li>Full Website Diagnostics</li>
+              <li>Full White-Label Branding</li>
+              <li>Custom Brand Colours (Report + PDF)</li>
+              <li>PDF Download Included</li>
+              <li>Client-Ready Shareable Reports</li>
+              <li>No Automatic Overage Charges</li>
+              <li>Report Allowance Resets Monthly</li>
+            </ul>
 
             <button class="pricing-cta" data-plan="sub10">Get Started</button>
           </div>
@@ -2162,17 +2211,17 @@
             <div class="pricing-price">$99 / month</div>
             <div class="pricing-meta-extra">For agencies running regular client audits</div>
 
-<ul class="pricing-bullets">
-  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
-  <li><strong>Up to 100 reports per month</strong></li>
-  <li>Full Website Diagnostics</li>
-  <li>Full White-Label Branding</li>
-  <li>Custom Brand Colours (Report + PDF)</li>
-  <li>PDF Download Included</li>
-  <li>Client-Ready Shareable Reports</li>
-  <li>No Automatic Overage Charges</li>
-  <li>Report Allowance Resets Monthly</li>
-</ul>
+            <ul class="pricing-bullets">
+              <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+              <li><strong>Up to 100 reports per month</strong></li>
+              <li>Full Website Diagnostics</li>
+              <li>Full White-Label Branding</li>
+              <li>Custom Brand Colours (Report + PDF)</li>
+              <li>PDF Download Included</li>
+              <li>Client-Ready Shareable Reports</li>
+              <li>No Automatic Overage Charges</li>
+              <li>Report Allowance Resets Monthly</li>
+            </ul>
 
             <button class="pricing-cta" data-plan="sub50">Get Started</button>
           </div>
@@ -2182,17 +2231,17 @@
             <div class="pricing-price">$199 / month</div>
             <div class="pricing-meta-extra">For teams managing multiple client sites</div>
 
-<ul class="pricing-bullets">
-  <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
-  <li><strong>Up to 300 reports per month</strong></li>
-  <li>Full Website Diagnostics</li>
-  <li>Full White-Label Branding</li>
-  <li>Custom Brand Colours (Report + PDF)</li>
-  <li>PDF Download Included</li>
-  <li>Client-Ready Shareable Reports</li>
-  <li>No Automatic Overage Charges</li>
-  <li>Report Allowance Resets Monthly</li>
-</ul>
+            <ul class="pricing-bullets">
+              <li><strong>Designed for client proposals &amp; monthly reporting</strong></li>
+              <li><strong>Up to 300 reports per month</strong></li>
+              <li>Full Website Diagnostics</li>
+              <li>Full White-Label Branding</li>
+              <li>Custom Brand Colours (Report + PDF)</li>
+              <li>PDF Download Included</li>
+              <li>Client-Ready Shareable Reports</li>
+              <li>No Automatic Overage Charges</li>
+              <li>Report Allowance Resets Monthly</li>
+            </ul>
 
             <button class="pricing-cta" data-plan="sub100">Get Started</button>
           </div>
@@ -2281,31 +2330,23 @@
         </div>
       </section>
 
+      <div class="contributors">
+        <h3>Built with Early Agency Feedback</h3>
+        <p class="contributors-sub">
+          Feedback from real agencies working with clients daily, helping shape how iQWEB performs in real-world environments.
+        </p>
 
-<div class="contributors">
+        <div class="contributors-label">Special Thanks To</div>
 
-  <h3>Built with Early Agency Feedback</h3>
-  <p class="contributors-sub">
-    Feedback from real agencies working with clients daily, helping shape how iQWEB performs in real-world environments.
-  </p>
-
-  <div class="contributors-label">Special Thanks To</div>
-
-  <div class="contributors-list">
-    <div class="contributor">
-      <span class="name">South End Design Studio</span>
-      <a href="https://southenddesignstudio.com" target="_blank">
-        southenddesignstudio.com
-      </a>
-    </div>
-  </div>
-
-</div>
-
-
-
-
-
+        <div class="contributors-list">
+          <div class="contributor">
+            <span class="name">South End Design Studio</span>
+            <a href="https://southenddesignstudio.com" target="_blank" rel="noopener">
+              southenddesignstudio.com
+            </a>
+          </div>
+        </div>
+      </div>
 
       <!-- FOOTER -->
       <footer class="wd-footer">
@@ -2317,7 +2358,6 @@
 
           <div class="wd-footer-center">
             <div class="wd-footer-links">
-
               <a href="/">Home</a>
               <a href="/#pricing">Pricing</a>
               <a href="/trust.html">Trust</a>
@@ -2332,7 +2372,6 @@
               <a href="/website-diagnostics-explained.html">Website Diagnostics Guide</a>
 
               <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
-
             </div>
           </div>
 
@@ -2481,42 +2520,63 @@
       const row = pricing.querySelector(".pricing-row") || pricing;
       pricingObserver.observe(row);
     })();
+
+    (function () {
+      const contributors = document.querySelector(".contributors");
+      if (!contributors) return;
+
+      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReduced) {
+        contributors.classList.add("is-revealed");
+        return;
+      }
+
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            contributors.classList.add("is-revealed");
+            io.disconnect();
+          }
+        });
+      }, {
+        threshold: 0.15,
+        rootMargin: "0px 0px -40px 0px"
+      });
+
+      io.observe(contributors);
+    })();
   </script>
 
   <script type="module">
     import { runScan, normaliseUrl } from "/assets/js/scan.js";
 
-const form = document.getElementById("heroScanForm");
-const input = document.getElementById("heroScanInput");
-const button = document.getElementById("heroScanButton");
-const status = document.getElementById("heroScanStatus");
-const shell = document.querySelector(".hero-scan-shell");
+    const form = document.getElementById("heroScanForm");
+    const input = document.getElementById("heroScanInput");
+    const button = document.getElementById("heroScanButton");
+    const status = document.getElementById("heroScanStatus");
+    const shell = document.querySelector(".hero-scan-shell");
 
-if (form && input && button && status) {
+    if (form && input && button && status) {
+      if (shell) {
+        shell.addEventListener("click", (e) => {
+          if (button.contains(e.target)) return;
+          if (e.target === input) return;
+          input.focus();
+        });
+      }
 
-  // Click anywhere in the bar → focus input (but never break button)
-  if (shell) {
-    shell.addEventListener("click", (e) => {
-      if (button.contains(e.target)) return;
-      if (e.target === input) return;
-      input.focus();
-    });
-  }
+      setTimeout(() => {
+        input.focus();
+      }, 200);
 
-  // Optional: auto-focus on page load (nice UX)
-  setTimeout(() => {
-    input.focus();
-  }, 200);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      });
 
-  // Optional: press Enter anywhere triggers scan (extra safe)
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      form.requestSubmit();
-    }
-  });
-
-  const setStatus = (message, type = "", ctaHtml = "") => {
+      const setStatus = (message, type = "", ctaHtml = "") => {
         status.innerHTML = "";
         status.className = "hero-scan-status";
 
