@@ -118,13 +118,13 @@ exports.handler = async (event) => {
     );
 
     const overallCard = renderOverallCard(scores, payload);
-    const signalCards = buildSignalCardsHtml(
-      payload,
-      deliverySignals,
-      scores,
-      basicChecks,
-      securityHeaders
-    );
+const signalTable = buildSignalTableHtml(
+  payload,
+  deliverySignals,
+  scores,
+  basicChecks,
+  securityHeaders
+);
 
     const footerHtml = `
       <div class="footer-bar">
@@ -436,57 +436,128 @@ exports.handler = async (event) => {
       overflow: hidden;
     }
 
-    .signals-section {
-      margin-bottom: 10px;
-    }
+.signals-section {
+  margin-bottom: 10px;
+}
 
-    .signals-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 9px;
-      padding: 10px 12px 12px;
-    }
+.signals-table-wrap {
+  padding: 10px 12px 12px;
+}
 
-    .signal-card {
-      height: 138px;
-      min-height: 138px;
-      display: flex;
-      flex-direction: column;
-      border-radius: 13px;
-      padding: 10px 11px 11px;
-      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-      border: 1px solid rgba(69, 102, 154, 0.34);
-      position: relative;
-      overflow: hidden;
-    }
+.signals-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+  table-layout: fixed;
+}
 
-    .signal-card.good {
-      border-color: rgba(28, 198, 115, 0.55);
-    }
+.signals-table td {
+  width: 33.333%;
+  vertical-align: top;
+}
 
-    .signal-card.warn {
-      border-color: rgba(233, 168, 43, 0.62);
-    }
+.signal-card {
+  height: 122px;
+  min-height: 122px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  padding: 9px 10px 10px;
+  background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
+  border: 1px solid rgba(69, 102, 154, 0.34);
+  position: relative;
+  overflow: hidden;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
 
-    .signal-card.bad {
-      border-color: rgba(238, 95, 86, 0.66);
-    }
+.signal-card.good {
+  border-color: rgba(28, 198, 115, 0.55);
+}
 
-    .signal-badge {
-      position: absolute;
-      top: -9px;
-      left: 12px;
-      padding: 3px 9px;
-      border-radius: 999px;
-      background: #ef5f56;
-      color: #ffffff;
-      font-size: 9px;
-      line-height: 1;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+.signal-card.warn {
+  border-color: rgba(233, 168, 43, 0.62);
+}
 
+.signal-card.bad {
+  border-color: rgba(238, 95, 86, 0.66);
+}
+
+.signal-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 6px;
+  flex: 0 0 auto;
+}
+
+.signal-name {
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: ${escapeHtml(brandText)};
+}
+
+.signal-score {
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 800;
+  color: ${escapeHtml(brandText)};
+  white-space: nowrap;
+}
+
+.score-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow: hidden;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255,255,255,0.05);
+  flex: 0 0 auto;
+}
+
+.score-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: ${escapeHtml(brandAccent)};
+}
+
+.signal-status {
+  font-size: 8px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: ${escapeHtml(brandText)};
+  margin-bottom: 3px;
+  flex: 0 0 auto;
+}
+
+.signal-copy {
+  font-size: 8px;
+  line-height: 1.15;
+  color: ${escapeHtml(brandText)};
+  white-space: normal;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.signal-badge {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #ef5f56;
+  color: #ffffff;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
     .footer-bar {
       border: 1px solid rgba(69, 102, 154, 0.42);
       border-radius: 14px;
@@ -607,13 +678,12 @@ exports.handler = async (event) => {
   <div class="pdf-page">
     <div class="page-shell">
 
-      <div class="section signals-section">
-        <div class="section-head">Delivery Signals</div>
-        <div class="section-body">
-          <div class="signals-grid">
-            ${signalCards}
-          </div>
-        </div>
+<div class="section signals-section">
+  <div class="section-head">Delivery Signals</div>
+  <div class="section-body">
+    ${signalTable}
+  </div>
+</div>
       </div>
 
       ${footerHtml}
@@ -1090,6 +1160,61 @@ function buildSignalCardsHtml(payload, deliverySignals, scores, basicChecks, sec
       `;
     })
     .join("");
+}
+function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
+  const primary = getPrimarySignal(deliverySignals, scores);
+
+  const cards = orderedSignals(deliverySignals, scores).map((sig) => {
+    const score = safeNumber(sig?.score);
+    const label = titleCaseSignal(sig?.label || sig?.id || "Signal");
+    const narrative =
+      deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) ||
+      fallbackSignalNarrative(sig, score);
+    const status = scoreLabel(score);
+    const klass = scoreClass(score);
+    const key = labelToKey(sig?.label || sig?.id || "");
+
+    const primaryBadge =
+      primary && primary.key && primary.key === key
+        ? `<div class="signal-badge">Primary Constraint</div>`
+        : "";
+
+    return `
+      <div class="signal-card ${klass}">
+        ${primaryBadge}
+        <div class="signal-top">
+          <div class="signal-name">${escapeHtml(label)}</div>
+          <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
+        </div>
+        <div class="score-bar">
+          <div class="score-fill" style="width:${clampScore(score)}%;"></div>
+        </div>
+        <div class="signal-status">${escapeHtml(status)}</div>
+        <div class="signal-copy">${escapeHtml(narrative)}</div>
+      </div>
+    `;
+  });
+
+  while (cards.length < 6) {
+    cards.push("&nbsp;");
+  }
+
+  return `
+    <div class="signals-table-wrap">
+      <table class="signals-table" role="presentation">
+        <tr>
+          <td>${cards[0]}</td>
+          <td>${cards[1]}</td>
+          <td>${cards[2]}</td>
+        </tr>
+        <tr>
+          <td>${cards[3]}</td>
+          <td>${cards[4]}</td>
+          <td>${cards[5]}</td>
+        </tr>
+      </table>
+    </div>
+  `;
 }
 
 async function fetchTextWithTimeout(url, ms) {
