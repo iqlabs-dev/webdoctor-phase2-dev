@@ -136,7 +136,6 @@ function detectWordPress(ctx) {
   const headers = ctx.headersText;
   const matches = [];
 
-  // Strong signals
   if (hasAny(html, [
     "/wp-content/",
     "/wp-includes/",
@@ -144,36 +143,40 @@ function detectWordPress(ctx) {
     "wp-embed.min.js",
     "wp-block-library",
     "wpforms",
-    "woocommerce"
+    "woocommerce",
+    "elementor",
+    "rank-math",
+    "yoast",
+    "contact-form-7",
+    "revslider",
+    "wordpress"
   ])) {
     matches.push("html:wp-core");
   }
 
-  // Meta / generator (sometimes hidden)
   if (hasAny(html, [
     'content="wordpress"',
-    "generator: wordpress"
+    "generator: wordpress",
+    "wp-polyfill",
+    "emoji-release.min.js",
+    "wp-emoji-release.min.js"
   ])) {
     matches.push("meta:wordpress");
   }
 
-  // Headers (often present even when hidden)
   if (hasAny(headers, [
     "x-pingback",
     "xmlrpc.php",
+    "wp-json",
+    "wordpress",
     "link"
   ])) {
     matches.push("header:wordpress");
   }
 
-  // REST API hint
-  if (hasAny(html, ["/wp-json/"])) {
-    matches.push("api:wp-json");
-  }
-
-  // URL fallback
   if (hasAny(url, [
     "/wp-content/",
+    "/wp-includes/",
     "/wp-json/",
     "/xmlrpc.php"
   ])) {
@@ -282,13 +285,13 @@ function detectPlatform(input) {
     if (result) return result;
   }
 
-  return {
-    key: "unknown",
-    label: "Unknown",
-    controlLevel: "full",
-    confidence: "low",
-    matchedBy: []
-  };
+return {
+  key: "unknown",
+  label: "Unknown",
+  controlLevel: "partial",
+  confidence: "low",
+  matchedBy: []
+};
 }
 
 module.exports = { detectPlatform };
