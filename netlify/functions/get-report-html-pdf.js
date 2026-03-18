@@ -274,11 +274,21 @@ exports.handler = async (event) => {
       object-fit: contain;
     }
 
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+    /* Force the OSD-style horizontal header cards in PDF */
+    .meta-table-wrap {
       padding: 0 14px 12px;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 8px 0;
+      table-layout: fixed;
+    }
+
+    .meta-table td {
+      width: 33.333%;
+      vertical-align: top;
     }
 
     .meta-card {
@@ -293,11 +303,11 @@ exports.handler = async (event) => {
 
     .meta-label {
       font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      font-weight: 800;
+      letter-spacing: 0.10em;
       text-transform: uppercase;
       color: ${escapeHtml(brandHeaderText)};
-      opacity: 0.95;
+      opacity: 0.98;
       margin-bottom: 6px;
       line-height: 1.15;
     }
@@ -633,21 +643,29 @@ exports.handler = async (event) => {
           </div>
         </div>
 
-        <div class="meta-grid">
-          <div class="meta-card">
-            <div class="meta-label">Website</div>
-            <div class="meta-value">${escapeHtml(website)}</div>
-          </div>
-
-          <div class="meta-card">
-            <div class="meta-label">Report ID</div>
-            <div class="meta-value">${escapeHtml(rid)}</div>
-          </div>
-
-          <div class="meta-card">
-            <div class="meta-label">Report Date</div>
-            <div class="meta-value">${escapeHtml(createdAt)}</div>
-          </div>
+        <div class="meta-table-wrap">
+          <table class="meta-table" role="presentation">
+            <tr>
+              <td>
+                <div class="meta-card">
+                  <div class="meta-label">Website</div>
+                  <div class="meta-value">${escapeHtml(website)}</div>
+                </div>
+              </td>
+              <td>
+                <div class="meta-card">
+                  <div class="meta-label">Report ID</div>
+                  <div class="meta-value">${escapeHtml(rid)}</div>
+                </div>
+              </td>
+              <td>
+                <div class="meta-card">
+                  <div class="meta-label">Report Date</div>
+                  <div class="meta-value">${escapeHtml(createdAt)}</div>
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
 
