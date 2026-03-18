@@ -276,17 +276,21 @@
 .nav-cta-sub {
   max-width: var(--max-width);
   margin: 4px auto 0;
+  margin-top: 2px;
   padding: 0 18px;
   display: flex;
   justify-content: flex-end;
+  position: relative;
+  z-index: 20;
 }
 
 .nav-cta-sub span {
-  transform: translateX(-22px);
-  font-size: 13px;
-  color: #22d3ee;
-  text-shadow: 0 0 6px rgba(34, 211, 238, 0.6);
-}r
+  transform: translateX(-31px);
+  font-size: 12px;
+  color: #b4ecf3;
+  opacity: 1;
+  text-shadow: none;
+}
 
     @media (max-width: 640px) {
       .hero-shell {
@@ -1684,67 +1688,131 @@
       margin-top: 4px;
     }
 
-    /* CLOSING */
-    .closing-statement {
-      margin-top: 48px;
-      padding: 35px 20px 50px;
-      background: transparent;
-      border-top: 1px solid rgba(255,255,255,0.05);
-    }
+/* Thank You / Contributors */
+.contributors {
+  margin-top: 72px;
+  padding-top: 28px;
+  padding-bottom: 120px;
+  text-align: center;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
 
-    .closing-philosophy {
-      max-width: 640px;
-      margin: 0 auto;
-      padding: 0 18px;
-      font-size: 1rem;
-      line-height: 1.8;
-      color: rgba(229,240,255,0.85);
-      text-align: center;
-    }
+.contributors h3 {
+  font-size: 18px; /* smaller */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff; /* brighter */
+  margin: 0 0 12px;
+}
 
-    @media (max-width: 600px) {
-      .closing-statement {
-        margin-top: 40px;
-        padding: 44px 16px 28px;
-      }
+.contributors-sub {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0 auto 18px;
+  max-width: 560px;
+}
 
-      .closing-philosophy {
-        font-size: 0.95rem;
-        line-height: 1.7;
-      }
-    }
+.contributors-label {
+  margin-top: 2px;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffffff;
+  opacity: 1;
+  text-shadow: 0 0 6px rgba(255,255,255,0.25);
+}
+
+.contributors-list {
+  margin-top: 12px;
+}
+
+.contributor {
+  line-height: 1.6;
+}
+
+.contributor .name {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.contributor a {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.contributor a:hover {
+  text-decoration: underline;
+}
+
+
+
+
 
     /* FOOTER */
     .wd-footer {
-      padding: 28px 0;
+      padding: 36px 0 28px;
       border-top: 1px solid rgba(255,255,255,0.08);
       font-size: 0.75rem;
       letter-spacing: 0.04em;
       color: var(--muted);
+      text-align: center;
     }
 
     .wd-footer-inner {
-      max-width: 1280px;
+      max-width: 900px;
       margin: 0 auto;
       padding: 0 18px;
       opacity: 0.9;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      column-gap: 18px;
+      gap: 12px;
     }
 
-    .wd-footer-left { justify-self: start; white-space: nowrap; }
-    .wd-footer-center { justify-self: center; }
-    .wd-footer-right { justify-self: end; white-space: nowrap; color: var(--muted); opacity: 0.85; }
+    .wd-footer-left,
+    .wd-footer-center,
+    .wd-footer-right {
+      text-align: center;
+      white-space: normal;
+    }
 
-    .wd-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
-    .wd-footer-links a { color: var(--ink-soft); text-decoration: none; font-size: 0.75rem; }
-    .wd-footer-links a:hover { color: var(--ink); text-decoration: none; }
+    .wd-footer-right {
+      color: var(--muted);
+      opacity: 0.85;
+    }
+
+    .wd-footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .wd-footer-links a {
+      color: var(--ink-soft);
+      text-decoration: none;
+      font-size: 0.75rem;
+    }
+
+    .wd-footer-links a:hover {
+      color: var(--ink);
+      text-decoration: none;
+    }
 
     @media (max-width: 720px) {
-      .wd-footer-inner { grid-template-columns: 1fr; row-gap: 10px; text-align: center; }
-      .wd-footer-left, .wd-footer-right { justify-self: center; }
+      .wd-footer {
+        padding: 32px 0 24px;
+      }
+
+      .wd-footer-inner {
+        gap: 10px;
+      }
     }
 
     ::target-text {
@@ -2213,14 +2281,31 @@
         </div>
       </section>
 
-      <!-- CLOSING STATEMENT -->
-      <section class="closing-statement">
-        <div class="closing-inner">
-          <p class="closing-philosophy">
-            iQWEB exists to bring clarity to websites that have become increasingly complex beneath the surface. Reports are built on measurable signals and transparent scoring — helping teams understand what matters, decide what to fix, and move forward with confidence.
-          </p>
-        </div>
-      </section>
+
+<div class="contributors">
+
+  <h3>Built with Early Agency Feedback</h3>
+  <p class="contributors-sub">
+    Feedback from real agencies working with clients daily, helping shape how iQWEB performs in real-world environments.
+  </p>
+
+  <div class="contributors-label">Special Thanks To</div>
+
+  <div class="contributors-list">
+    <div class="contributor">
+      <span class="name">South End Design Studio</span>
+      <a href="https://southenddesignstudio.com" target="_blank">
+        southenddesignstudio.com
+      </a>
+    </div>
+  </div>
+
+</div>
+
+
+
+
+
 
       <!-- FOOTER -->
       <footer class="wd-footer">
