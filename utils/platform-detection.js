@@ -136,23 +136,48 @@ function detectWordPress(ctx) {
   const headers = ctx.headersText;
   const matches = [];
 
+  // Strong signals
   if (hasAny(html, [
     "/wp-content/",
     "/wp-includes/",
     "/wp-json/",
-    'content="wordpress"',
-    "wp-content",
-    "wp-includes",
     "wp-embed.min.js",
-    "wp-block-library"
+    "wp-block-library",
+    "wpforms",
+    "woocommerce"
   ])) {
-    matches.push("html:wordpress");
+    matches.push("html:wp-core");
   }
-  if (hasAny(url, ["/wp-content/", "/wp-json/"])) {
-    matches.push("url:wordpress");
+
+  // Meta / generator (sometimes hidden)
+  if (hasAny(html, [
+    'content="wordpress"',
+    "generator: wordpress"
+  ])) {
+    matches.push("meta:wordpress");
   }
-  if (hasAny(headers, ["x-pingback", "link"])) {
+
+  // Headers (often present even when hidden)
+  if (hasAny(headers, [
+    "x-pingback",
+    "xmlrpc.php",
+    "link"
+  ])) {
     matches.push("header:wordpress");
+  }
+
+  // REST API hint
+  if (hasAny(html, ["/wp-json/"])) {
+    matches.push("api:wp-json");
+  }
+
+  // URL fallback
+  if (hasAny(url, [
+    "/wp-content/",
+    "/wp-json/",
+    "/xmlrpc.php"
+  ])) {
+    matches.push("url:wordpress");
   }
 
   if (!matches.length) return null;
