@@ -275,43 +275,45 @@
     return {};
   }
 
-  function pickBranding(data) {
-    data = safeObj(data);
+ function pickBranding(data) {
+  data = safeObj(data);
 
-    if (data.branding && typeof data.branding === "object") {
-      return {
-        agency_name: data.branding.agency_name || "",
-        agency_website: data.branding.agency_website || "",
-        agency_email: data.branding.agency_email || "",
-        agency_phone: data.branding.agency_phone || "",
-        agency_logo_url: data.branding.agency_logo_url || "",
-        agency_header_bg: data.branding.agency_header_bg || "",
-        agency_header_text_color: data.branding.agency_header_text_color || "",
-        agency_accent_color: data.branding.agency_accent_color || "",
-        agency_page_bg: data.branding.agency_page_bg || "",
-        agency_report_title: data.branding.agency_report_title || "",
-        show_header_contact: data.branding.show_header_contact !== false,
-        show_footer_contact: data.branding.show_footer_contact !== false,
-        show_powered_by: data.branding.show_powered_by !== false
-      };
-    }
-
+  if (data.branding && typeof data.branding === "object") {
     return {
-      agency_name: data.agency_name || "",
-      agency_website: data.agency_website || "",
-      agency_email: data.agency_email || "",
-      agency_phone: data.agency_phone || "",
-      agency_logo_url: data.agency_logo_url || "",
-      agency_header_bg: data.agency_header_bg || "",
-      agency_header_text_color: data.agency_header_text_color || "",
-      agency_accent_color: data.agency_accent_color || "",
-      agency_page_bg: data.agency_page_bg || "",
-      agency_report_title: data.agency_report_title || "",
-      show_header_contact: data.show_header_contact !== false,
-      show_footer_contact: data.show_footer_contact !== false,
-      show_powered_by: data.show_powered_by !== false
+      agency_name: data.branding.agency_name || "",
+      agency_website: data.branding.agency_website || "",
+      agency_email: data.branding.agency_email || "",
+      agency_phone: data.branding.agency_phone || "",
+      agency_logo_url: data.branding.agency_logo_url || "",
+      agency_header_bg: data.branding.agency_header_bg || "",
+      agency_header_text_color: data.branding.agency_header_text_color || "",
+      agency_text_color: data.branding.agency_text_color || "",
+      agency_accent_color: data.branding.agency_accent_color || "",
+      agency_page_bg: data.branding.agency_page_bg || "",
+      agency_report_title: data.branding.agency_report_title || "",
+      show_header_contact: data.branding.show_header_contact !== false,
+      show_footer_contact: data.branding.show_footer_contact !== false,
+      show_powered_by: data.branding.show_powered_by !== false
     };
   }
+
+  return {
+    agency_name: data.agency_name || "",
+    agency_website: data.agency_website || "",
+    agency_email: data.agency_email || "",
+    agency_phone: data.agency_phone || "",
+    agency_logo_url: data.agency_logo_url || "",
+    agency_header_bg: data.agency_header_bg || "",
+    agency_header_text_color: data.agency_header_text_color || "",
+    agency_text_color: data.agency_text_color || "",
+    agency_accent_color: data.agency_accent_color || "",
+    agency_page_bg: data.agency_page_bg || "",
+    agency_report_title: data.agency_report_title || "",
+    show_header_contact: data.show_header_contact !== false,
+    show_footer_contact: data.show_footer_contact !== false,
+    show_powered_by: data.show_powered_by !== false
+  };
+}
 
   function applyBrandingUI(branding) {
     branding = safeObj(branding);
@@ -332,12 +334,13 @@
     var footerAgencyPhone = $("footerAgencyPhone");
     var poweredBy = $("powered-by");
 
-    var topCard = document.querySelector(".top-card");
+var topCard = document.querySelector(".top-card");
 
-    var headerBg = branding.agency_header_bg || "";
-    var headerText = branding.agency_header_text_color || "";
-    var accent = branding.agency_accent_color || "";
-    var pageBg = branding.agency_page_bg || "";
+var headerBg = branding.agency_header_bg || "";
+var headerText = branding.agency_header_text_color || "";
+var textColor = branding.agency_text_color || "";
+var accent = branding.agency_accent_color || "";
+var pageBg = branding.agency_page_bg || "";
 
     if (agencyName) {
       agencyName.textContent = branding.agency_name ? String(branding.agency_name) : "";
@@ -359,30 +362,37 @@
       }
     }
 
-    if (headerBg) {
-      document.documentElement.style.setProperty("--report-header-bg", String(headerBg));
-      if (topCard) topCard.style.background = String(headerBg);
-    }
+if (headerBg) {
+  document.documentElement.style.setProperty("--report-header-bg", String(headerBg));
+  if (topCard) topCard.style.background = String(headerBg);
+}
 
-    if (headerText) {
-      document.documentElement.style.setProperty("--report-header-text", String(headerText));
+if (headerText) {
+  document.documentElement.style.setProperty("--report-header-text", String(headerText));
 
-      if (topCard) {
-        topCard.style.color = String(headerText);
-      }
-      if (agencyName) agencyName.style.color = String(headerText);
-      if (agencyReportLabel) agencyReportLabel.style.color = String(headerText);
-      if (agencyContactBlock) agencyContactBlock.style.color = String(headerText);
-    }
+  if (topCard) {
+    topCard.style.color = String(headerText);
+  }
+  if (agencyName) agencyName.style.color = String(headerText);
+  if (agencyReportLabel) agencyReportLabel.style.color = String(headerText);
+  if (agencyContactBlock) agencyContactBlock.style.color = String(headerText);
+}
 
-    if (accent) {
-      document.documentElement.style.setProperty("--accent", String(accent));
-    }
+if (textColor) {
+  document.documentElement.style.setProperty("--text-main", String(textColor));
+  document.documentElement.style.setProperty("--ink", String(textColor));
+  document.documentElement.style.setProperty("--ink-soft", String(textColor));
+  document.documentElement.style.setProperty("--muted", String(textColor));
+}
 
-    if (pageBg) {
-      document.documentElement.style.setProperty("--report-page-bg", String(pageBg));
-      document.body.style.background = String(pageBg);
-    }
+if (accent) {
+  document.documentElement.style.setProperty("--accent", String(accent));
+}
+
+if (pageBg) {
+  document.documentElement.style.setProperty("--report-page-bg", String(pageBg));
+  document.body.style.background = String(pageBg);
+}
 
     // HEADER CONTACT TOGGLE
     var hasHeaderContact = false;
