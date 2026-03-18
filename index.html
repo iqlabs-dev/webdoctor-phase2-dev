@@ -272,14 +272,14 @@
         letter-spacing: 0.12em;
       }
     }
-
-    .nav-cta-sub {
-  position: absolute;
-  top: 70px; /* adjust slightly if needed */
-  right: 352px; /* align with button */
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.89);
+ 
+.nav-cta-sub {
+  max-width: var(--max-width);
+  margin: 6px auto 0;
+  padding: 0 18px;
   text-align: right;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
   pointer-events: none;
 }
 
@@ -1780,13 +1780,14 @@
             </svg>
           </a>
         </div>
-      </header>
+
+              </header>
 
       <div class="nav-cta-sub">
-  Full Dashboard Access Included
+        Full Dashboard Access Included
+      </div>
 
-
-
+    
       <!-- HERO -->
       <main class="hero-shell">
         <section class="hero-left">
