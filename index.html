@@ -289,16 +289,26 @@
         margin-top: 64px;
       }
 
-      .hero-title {
-        font-size: clamp(2rem, 10vw, 2.9rem);
-        line-height: 1.08;
-        max-width: 100%;
-      }
+  .hero-title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.15;
+  max-width: 900px;
+  margin: 0 auto;
+}
 
-      .hero-title-white,
-      .hero-title-accent {
-        display: block;
-      }
+.hero-title-white,
+.hero-title-accent {
+  display: block;
+}
+
+.hero-title-white + .hero-title-white {
+  margin-top: 6px;
+}
+
+.hero-title-accent {
+  margin-top: 10px;
+  color: var(--accent);
+}
 
       .hero-h2 {
         font-size: 1rem;
@@ -337,36 +347,41 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .hero-title {
-      font-size: clamp(2.45rem, 4.6vw, 4.15rem);
-      line-height: 1.04;
-      letter-spacing: -0.03em;
-      font-weight: 800;
-      margin: 0;
-      color: #22d3ee;
-      text-shadow: none;
-      opacity: 0;
-      animation: heroFadeUp 620ms ease forwards;
-      max-width: 24ch;
-      margin-left: auto;
-      margin-right: auto;
-      text-align: center;
-    }
+.hero-title {
+  font-size: clamp(2.45rem, 4.6vw, 4.15rem);
+  line-height: 1.10;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  margin: 0;
+  opacity: 0;
+  animation: heroFadeUp 620ms ease forwards;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
 
-    .hero-title-white,
-    .hero-title-accent {
-      display: inline;
-    }
+.hero-title-white,
+.hero-title-accent {
+  display: block;
+}
 
-    .hero-title-white {
-      color: #ffffff;
-      text-shadow: none;
-    }
+.hero-title-white {
+  color: #ffffff;
+  text-shadow: none;
+}
 
-    .hero-title-accent {
-      color: #22d3ee;
-      text-shadow: 0 0 18px rgba(34,211,238,0.25);
-    }
+.hero-title-white + .hero-title-white {
+  margin-top: 6px;
+}
+
+.hero-title-accent {
+  display: block;
+  margin-top: 10px;
+  color: #22d3ee;
+  text-shadow: 0 0 18px rgba(34,211,238,0.25);
+  font-size: 0.9em;
+}
 
     .hero-h2 {
       font-size: clamp(1.25rem, 1.65vw, 1.45rem);
@@ -1896,14 +1911,14 @@
       <main class="hero-shell">
         <section class="hero-left">
 
-          <h1 class="hero-title">
-            <span class="hero-title-white">White-Label</span>
-            <span class="hero-title-accent">Website Diagnostic Reports for Agencies</span>
-          </h1>
+<h1 class="hero-title">
+  <span class="hero-title-white">Turn Website Issues into</span>
+  <span class="hero-title-white">Client-Ready Reports</span>
+  <span class="hero-title-accent">That Drive Results</span>
+</h1>
 
           <h2 class="hero-h2">
-            Turn website performance and technical signals into branded reports
-            that highlight issues, priorities and recommended fixes.
+           Built for agencies and freelancers to turn performance, SEO, accessibility and security signals into clear reports clients can understand and act on.
           </h2>
 
           <div class="hero-scan-shell" aria-label="Generate a website report">
