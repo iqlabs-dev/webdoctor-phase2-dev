@@ -252,11 +252,11 @@
   function pickOverallSummary(data, overallScore) {
     data = safeObj(data);
 
-    return (
-      "Overall delivery is " +
-      verdict(asInt(overallScore, 0)).toLowerCase() +
-      ". This score reflects deterministic checks only and does not measure brand or content effectiveness."
-    );
+  return (
+  "Overall delivery is " +
+  verdict(asInt(overallScore, 0)).toLowerCase() +
+  ". This score reflects measurable technical signals and does not assess visual design or aesthetic quality."
+);
   }
 
   function pickPsiEnvelope(data) {
