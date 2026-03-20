@@ -612,7 +612,7 @@ if (pageBg) {
 
       case "security":
       case "security_trust":
-        return "Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.";
+       return "Consider adding standard browser security headers such as HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen baseline protection and trust signals.";
 
       case "mobile":
       case "mobile_experience":
