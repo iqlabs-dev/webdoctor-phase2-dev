@@ -194,13 +194,25 @@ function pickEvidenceSnapshot(metrics) {
                           (typeof accEv.missing_html_lang === "boolean") ? accEv.missing_html_lang :
                           undefined;
 
-  // Security header gap (optional)
-  const sec = findDeliverySignal(m, "security");
-  const secEv = safeObj(sec && sec.evidence);
-  const missingSecurityHeaders =
-    (secEv.missing_count != null)
-      ? secEv.missing_count
-      : undefined;
+// Security header gap (optional)
+const sec = findDeliverySignal(m, "security");
+const secEv = safeObj(sec && sec.evidence);
+
+let missingSecurityHeaders = undefined;
+if (secEv.missing_count != null) {
+  missingSecurityHeaders = Number(secEv.missing_count);
+} else {
+  let missing = 0;
+
+  if (secEv.hsts_present === false) missing++;
+  if (secEv.csp_present === false) missing++;
+  if (secEv.x_frame_options_present === false) missing++;
+  if (secEv.x_content_type_options_present === false) missing++;
+  if (secEv.referrer_policy_present === false) missing++;
+  if (secEv.permissions_policy_present === false) missing++;
+
+  missingSecurityHeaders = missing > 0 ? missing : undefined;
+}
 
   const platformInfo = getPlatformInfo(m);
 
@@ -372,35 +384,35 @@ function buildSignalNarratives(metrics, allowDegraded) {
     out.seo = { lines: quietIfGood("seo", lines) };
   })();
 
-  // SECURITY & TRUST
-  (function () {
-    var sig = findDeliverySignal(m, "security");
-    if (!sig) return;
+// SECURITY & TRUST
+(function () {
+  var sig = findDeliverySignal(m, "security");
+  if (!sig) return;
 
-    var ev = safeObj(sig.evidence);
-    var lines = [];
+  var ev = safeObj(sig.evidence);
+  var lines = [];
 
-    if (limitedPlatform) {
-      lines.push(platformInfo.label + " detected.");
-      lines.push("Some security headers and server-level trust controls are managed at the platform level.");
-      lines.push("This signal is shown for context and is not treated as the primary constraint.");
-      out.security = { lines: lines.slice(0, 3) };
-      return;
-    }
+  if (limitedPlatform) {
+    lines.push(platformInfo.label + " detected.");
+    lines.push("Some security headers and server-level trust controls are managed at the platform level.");
+    lines.push("This signal is shown for context and is not treated as the primary constraint.");
+    out.security = { lines: lines.slice(0, 3) };
+    return;
+  }
 
-    if (ev.missing_count != null && Number(ev.missing_count) > 0) {
-      lines.push("Baseline hardening gaps remain (" + Number(ev.missing_count) + " headers missing).");
-    }
-    if (ev.permissions_policy_present === false) {
-      lines.push("Permissions-Policy was not observed, leaving some browser capability controls undefined.");
-    }
-    if (!lines.length && ev.https_active === true) {
-      // Only say this if there isn't a problem, and keep it short.
-      lines.push("HTTPS is active and baseline transport security is in place.");
-    }
+  if (ev.missing_count != null && Number(ev.missing_count) > 0) {
+ lines.push("Browser protection headers are not fully configured (" + Number(ev.missing_count) + " not detected in this scan).");
+  }
+  if (ev.permissions_policy_present === false) {
+    lines.push("Permissions-Policy was not observed. This is usually a hardening improvement rather than a sign the site is unsafe.");
+  }
+  if (!lines.length && ev.https_active === true) {
+    // Only say this if there isn't a problem, and keep it short.
+    lines.push("HTTPS is active and baseline transport security is in place.");
+  }
 
-    out.security = { lines: quietIfGood("security", lines) };
-  })();
+  out.security = { lines: quietIfGood("security", lines) };
+})();
 
   // STRUCTURE & SEMANTICS
   (function () {
@@ -533,7 +545,7 @@ var limitedPlatform = platformControl === "limited" || platformControl === "part
   var missingHeaders = Number(e.missing_security_headers);
   var secScore = Number(sc.security);
   var TRUST_HEADERS_SEVERE = 4;
-  var TRUST_SCORE_SEVERE = 40;
+ var TRUST_SCORE_SEVERE = 30;
 
   if (
     !limitedPlatform &&
@@ -662,7 +674,7 @@ function buildManifestationLine(primary, host) {
 
   // Score-based manifestations
   if (primary.key === "security_score") {
-    return "On " + host + ", missing trust baselines can reduce browser protection and user confidence, especially before any meaningful engagement begins.";
+   return "On " + host + ", missing browser protection headers can reduce baseline hardening and weaken trust signals, even when the site otherwise appears normal.";
   }
 
   if (primary.key === "seo_score") {

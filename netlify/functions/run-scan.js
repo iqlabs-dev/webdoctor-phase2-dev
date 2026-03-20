@@ -825,24 +825,13 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 
 
 // ---------------------------------------------
-// Security scring (Platform-aware)
+// Security scoring (Platform-aware, softened)
 // ---------------------------------------------
 function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   const { getPlatformPolicy } = require("../../utils/platform-policy");
   const policy = getPlatformPolicy(platform);
 
   const base_score = 100;
-
-  const weights = {
-    https: 25,
-    hsts: 15,
-    csp: 15,
-    x_frame_options: 15,
-    x_content_type_options: 10,
-    referrer_policy: 10,
-    permissions_policy: 5,
-  };
-
   const deductions = [];
   const issues = [];
 
@@ -852,7 +841,7 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   // Limited-control platforms:
   // treat security as platform-managed, not a direct implementation defect.
   if (isLimited) {
-   let score = 90;
+    let score = 90;
 
     if (httpsOk) score += 5;
     if (headers.hsts) score += 2;
@@ -862,7 +851,7 @@ function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
     if (headers.referrer_policy) score += 1;
     if (headers.permissions_policy) score += 1;
 
-score = clamp(score, 90, 96);
+    score = clamp(score, 90, 96);
 
     issues.push({
       id: "sec_platform_managed",
@@ -889,6 +878,24 @@ score = clamp(score, 90, 96);
   }
 
   // Full / partial control platforms
+  // New approach:
+  // - keep HTTPS as a major requirement
+  // - weight browser headers by impact
+  // - cap total header penalty so normal sites do not collapse too harshly
+  // - apply a floor when HTTPS is active
+
+const weights = {
+  https: 40,                 // make HTTPS dominant (fair)
+  hsts: 10,
+  csp: 10,
+  x_frame_options: 10,
+  x_content_type_options: 8,
+  referrer_policy: 6,
+  permissions_policy: 4,
+};
+
+  let penalty = 0;
+
   if (!httpsOk) {
     deductions.push({
       points: weights.https,
@@ -904,43 +911,88 @@ score = clamp(score, 90, 96);
         "Without HTTPS, traffic can be intercepted or modified in transit. Enable HTTPS site-wide before any other security work.",
       evidence: { https: headers.https ?? null },
     });
+
+    penalty += weights.https;
   }
 
-  function penalise(condition, weight, code, label) {
-    if (!condition) {
-      const adjusted = Math.round(weight * policy.penaltyMultiplier);
+  function addHeaderPenalty(condition, weight, code, label) {
+    if (condition) return;
 
-      if (adjusted > 0) {
-        deductions.push({
-          points: adjusted,
-          reason:
-            policy.messaging === "platform_managed"
-              ? `${label} not observed (may be platform-managed)`
-              : policy.messaging === "partially_managed"
-              ? `${label} not observed (may depend on hosting/platform)`
-              : `Missing: ${label}`,
-          code,
-        });
-      }
-    }
+    const adjusted = Math.round(weight * policy.penaltyMultiplier);
+    if (adjusted <= 0) return;
+
+    deductions.push({
+      points: adjusted,
+      reason:
+        policy.messaging === "platform_managed"
+          ? `${label} not observed (may be platform-managed)`
+          : policy.messaging === "partially_managed"
+          ? `${label} not observed (may depend on hosting/platform)`
+          : `Missing: ${label}`,
+      code,
+    });
+
+    penalty += adjusted;
   }
 
-  penalise(headers.hsts, weights.hsts, "sec_hsts_not_observed", "HSTS");
-  penalise(headers.content_security_policy, weights.csp, "sec_csp_not_observed", "CSP");
-  penalise(headers.x_frame_options, weights.x_frame_options, "sec_xfo_not_observed", "X-Frame-Options");
-  penalise(headers.x_content_type_options, weights.x_content_type_options, "sec_xcto_not_observed", "X-Content-Type-Options");
-  penalise(headers.referrer_policy, weights.referrer_policy, "sec_referrer_policy_not_observed", "Referrer-Policy");
-  penalise(headers.permissions_policy, weights.permissions_policy, "sec_permissions_policy_not_observed", "Permissions-Policy");
+  // Core protections
+  addHeaderPenalty(
+    headers.content_security_policy,
+    weights.csp,
+    "sec_csp_not_observed",
+    "Content-Security-Policy"
+  );
 
-  let score = 0;
+  addHeaderPenalty(
+    headers.x_frame_options,
+    weights.x_frame_options,
+    "sec_xfo_not_observed",
+    "X-Frame-Options"
+  );
 
-  if (httpsOk) score += weights.https;
-  if (headers.hsts) score += weights.hsts;
-  if (headers.content_security_policy) score += weights.csp;
-  if (headers.x_frame_options) score += weights.x_frame_options;
-  if (headers.x_content_type_options) score += weights.x_content_type_options;
-  if (headers.referrer_policy) score += weights.referrer_policy;
-  if (headers.permissions_policy) score += weights.permissions_policy;
+  addHeaderPenalty(
+    headers.x_content_type_options,
+    weights.x_content_type_options,
+    "sec_xcto_not_observed",
+    "X-Content-Type-Options"
+  );
+
+  // Supporting protections
+  addHeaderPenalty(
+    headers.referrer_policy,
+    weights.referrer_policy,
+    "sec_referrer_policy_not_observed",
+    "Referrer-Policy"
+  );
+
+  // Nice-to-have
+  addHeaderPenalty(
+    headers.permissions_policy,
+    weights.permissions_policy,
+    "sec_permissions_policy_not_observed",
+    "Permissions-Policy"
+  );
+
+  // Only count HSTS when HTTPS is active
+  if (httpsOk) {
+    addHeaderPenalty(
+      headers.hsts,
+      weights.hsts,
+      "sec_hsts_not_observed",
+      "HSTS"
+    );
+  }
+
+  // Cap non-platform header penalty so ordinary sites do not fall too harshly
+  penalty = clamp(penalty, 0, 45);
+
+  let score = base_score - penalty;
+
+  // If HTTPS is active, keep a floor so missing headers read as hardening gaps,
+  // not "this site is unsafe"
+  if (httpsOk) {
+    score = Math.max(score, 55);
+  }
 
   score = clamp(score, 0, 100);
 
@@ -1309,12 +1361,12 @@ const secPack = scoreSecurityFromHeaders(headers, platform);
       mobile >= 90
         ? "Excellent mobile readiness signals. Core mobile fundamentals look strong."
         : "Mobile readiness looks incomplete (viewport missing or not device-width).",
-    security:
-      security >= 90
-        ? "Security posture shows strong baseline + hardening signals (where observable)."
-        : security >= 25
-        ? "HTTPS is present (transport security), but site hardening headers appear incomplete or missing (see deductions & evidence)."
-        : "Security posture issues. Start with HTTPS + key security headers.",
+security:
+  security >= 90
+    ? "Browser protection signals are strong and baseline trust hardening is in place."
+    : security >= 55
+    ? "HTTPS is active, but some browser protection headers are not fully configured. This is usually a hardening improvement rather than a sign the site is unsafe."
+    : "Transport security or browser protection signals need attention. Start with HTTPS, then add the core hardening headers.",
     accessibility:
       accessibility >= 90
         ? "Strong accessibility readiness signals. Good baseline for inclusive access."
