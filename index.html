@@ -192,77 +192,199 @@
       justify-self: end;
     }
 
-    .nav-cta,
-    .nav-ghost {
-      border-radius: 999px;
-      padding: 7px 18px;
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      border: 1px solid transparent;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      text-decoration: none;
-      white-space: nowrap;
-      font-weight: 600;
-      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-    }
+ /* === NAV BUTTON BASE === */
+.nav-cta,
+.nav-ghost {
+  border-radius: 999px;
+  padding: 10px 20px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: 600;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
 
-    .nav-ghost {
-      border-color: rgba(148,163,184,0.35);
-      background: rgba(15,23,42,0.35);
-      color: var(--ink-soft);
-    }
+/* === GHOST BUTTON === */
+.nav-ghost {
+  border-color: rgba(148,163,184,0.35);
+  background: rgba(15,23,42,0.35);
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
 
-    .nav-ghost:hover {
-      border-color: rgba(148,163,184,0.75);
-      color: var(--ink);
-      background: rgba(15,23,42,0.85);
-      transform: translateY(-1px);
-      text-decoration: none;
-    }
+.nav-ghost:hover {
+  border-color: rgba(148,163,184,0.75);
+  color: var(--ink);
+  background: rgba(15,23,42,0.85);
+  transform: translateY(-1px);
+}
 
-    .nav-cta {
-      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-      border-color: rgba(34,211,238,0.55);
-      color: var(--ink-soft);
-      box-shadow: 0 14px 32px rgba(15,23,42,0.85);
-      position: relative;
-      overflow: hidden;
-    }
+/* === PRIMARY CTA (STACKED - FIXED CENTERING) === */
+.nav-cta {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 3px;
 
-    .nav-cta::before {
-      content: "";
-      position: absolute;
-      inset: -30%;
-      background: radial-gradient(circle at 0% 0%, rgba(34,211,238,0.28), transparent 55%);
-      opacity: 0.6;
-      pointer-events: none;
-    }
+  padding: 10px 32px 10px 20px; /* ← balances arrow */
 
-    .nav-cta span,
-    .nav-cta svg {
-      position: relative;
-      z-index: 1;
-    }
+  background:
+    radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
 
-    .nav-cta svg {
-      width: 16px;
-      height: 16px;
-    }
+  border-color: rgba(34,211,238,0.55);
+  color: var(--ink-soft);
 
-    .nav-cta:hover {
-      transform: translateY(-2px);
-      border-color: rgba(34,211,238,0.9);
-      box-shadow: 0 18px 46px rgba(34,211,238,0.55);
-      color: var(--ink);
-      text-decoration: none;
-    }
+  box-shadow:
+    0 14px 32px rgba(15,23,42,0.85),
+    inset 0 0 0 1px rgba(255,255,255,0.02);
 
+  overflow: hidden;
+}
 
+/* glow */
+.nav-cta::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(34,211,238,0.22), transparent 55%);
+  opacity: 0.5;
+  pointer-events: none;
+}
 
+/* layering */
+.nav-cta span,
+.nav-cta svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* main */
+.nav-cta-main {
+  display: block;
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: #e6fbff;
+}
+
+/* sub */
+.nav-cta-sub {
+  display: block;
+  width: 100%;
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: rgba(192,207,235,0.7);
+}
+
+/* arrow */
+.nav-cta svg {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.9;
+}
+
+/* hover */
+.nav-cta:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34,211,238,0.95);
+  box-shadow:
+    0 18px 46px rgba(34,211,238,0.45),
+    inset 0 0 0 1px rgba(255,255,255,0.03);
+  color: #ffffff;
+}
+
+/* remove underline */
+.nav-cta,
+.nav-cta:hover,
+.nav-cta:focus,
+.nav-cta:active,
+.nav-cta:visited {
+  text-decoration: none !important;
+  outline: none;
+}
+
+/* === MOBILE === */
+@media (max-width: 860px) {
+  .nav-cta {
+    padding: 8px 16px;
+  }
+
+  .nav-cta-sub {
+    display: none;
+  }
+
+  .nav-cta-main {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+  }
+}
+/* === MOBILE === */
+@media (max-width: 860px) {
+  .nav {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 16px;
+  }
+
+  .nav-center {
+    display: none;
+  }
+
+  .nav-left {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .nav-title {
+    font-size: 0.98rem;
+  }
+
+  .nav-ghost {
+    display: none;
+  }
+
+  .nav-right {
+    justify-self: end;
+  }
+
+  .nav-cta {
+    padding: 8px 16px;
+  }
+
+  .nav-cta-sub {
+    display: none;
+  }
+
+  .nav-cta-main {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+  }
+}
     @media (max-width: 860px) {
       .shell-inner {
         padding-inline: 16px;
@@ -1948,11 +2070,13 @@
         </div>
 
         <div class="nav-right">
-          <a href="/dashboard.html" class="nav-cta">
-            <span>Run 5 Free Scans</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z"/>
-            </svg>
+    <a href="/dashboard.html" class="nav-cta nav-cta-stack">
+  <span class="nav-cta-main">Run 5 Free Scans</span>
+  <span class="nav-cta-sub">Full Dashboard Access</span>
+  <svg viewBox="0 0 20 20" aria-hidden="true">
+    <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z"/>
+  </svg>
+</a>
           </a>
         </div>
       </header>
