@@ -1409,302 +1409,486 @@
       .iq-network { opacity: 0.14; }
     }
 
-    /* PRICING */
-    #pricing.section {
-      margin-top: 94px !important;
-      margin-bottom: 128px;
-      position: relative;
-    }
+/* PRICING */
+#pricing.section {
+  margin-top: 94px !important;
+  margin-bottom: 128px;
+  position: relative;
+}
 
-    .pricing-row {
-      position: relative;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 18px;
-      margin-top: 30px;
-      isolation: isolate;
-    }
+#pricing .section-header {
+  margin-bottom: 36px;
+}
 
-    .pricing-row::before {
-      content: "";
-      position: absolute;
-      left: 50%;
-      top: 52%;
-      width: 980px;
-      height: 520px;
-      transform: translate(-50%, -50%);
-      background: radial-gradient(
-        ellipse at center,
-        rgba(34, 211, 238, 0.10) 0%,
-        rgba(34, 211, 238, 0.05) 32%,
-        rgba(34, 211, 238, 0.02) 54%,
-        rgba(34, 211, 238, 0) 74%
-      );
-      filter: blur(64px);
-      pointer-events: none;
-      z-index: 0;
-    }
+.pricing-shell {
+  position: relative;
+  margin-top: 30px;
+  isolation: isolate;
+}
 
-    .pricing-card {
-      position: relative;
-      z-index: 1;
-      flex: 1 1 290px;
-      min-height: 312px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 24px 22px 18px;
-      border-radius: 18px;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at top left, rgba(34, 211, 238, 0.08), transparent 40%),
-        linear-gradient(180deg, rgba(10, 16, 34, 0.92), rgba(7, 11, 24, 0.94));
-      border: 1px solid rgba(34, 211, 238, 0.20);
-      box-shadow:
-        0 18px 40px rgba(0, 0, 0, 0.34),
-        0 4px 10px rgba(0, 0, 0, 0.18),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-      backdrop-filter: blur(10px);
-      transition:
-        transform 0.22s ease,
-        border-color 0.22s ease,
-        box-shadow 0.22s ease,
-        background 0.22s ease;
-    }
+.pricing-shell::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: 1040px;
+  height: 560px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(34, 211, 238, 0.14) 0%,
+    rgba(34, 211, 238, 0.07) 30%,
+    rgba(34, 211, 238, 0.025) 56%,
+    rgba(34, 211, 238, 0) 76%
+  );
+  filter: blur(76px);
+  pointer-events: none;
+  z-index: 0;
+}
 
-    .pricing-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.10), transparent 34%),
-        linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%);
-      opacity: 0.9;
-      pointer-events: none;
-    }
+.pricing-intro {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+  margin: 0 auto 28px;
+  text-align: center;
+  font-size: 0.94rem;
+  line-height: 1.7;
+  color: rgba(192, 207, 235, 0.78);
+}
 
-    .pricing-card:hover {
-      transform: translateY(-4px);
-      border-color: rgba(34, 211, 238, 0.36);
-      box-shadow:
-        0 24px 56px rgba(0, 0, 0, 0.42),
-        0 10px 22px rgba(34, 211, 238, 0.08),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-      background:
-        radial-gradient(circle at top left, rgba(34, 211, 238, 0.11), transparent 42%),
-        linear-gradient(180deg, rgba(11, 18, 38, 0.94), rgba(7, 11, 24, 0.96));
-    }
+.pricing-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
 
-    .pricing-name {
-      font-size: 0.78rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-      color: rgba(148, 163, 184, 0.94);
-      margin: 0;
-    }
+.pricing-card {
+  position: relative;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  padding: 28px 24px 22px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.11), transparent 42%),
+    linear-gradient(180deg, rgba(10, 16, 34, 0.95), rgba(7, 11, 24, 0.97));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.40),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(12px);
+  transition:
+    transform 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    filter 0.28s ease,
+    opacity 0.28s ease,
+    background 0.28s ease;
+}
 
-    .pricing-price {
-      font-size: 1.9rem;
-      line-height: 1.05;
-      font-weight: 800;
-      color: #f8fcff;
-      margin: 0;
-    }
+.pricing-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 82% 0%, rgba(34, 211, 238, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.025), transparent 18%);
+  opacity: 0.95;
+  pointer-events: none;
+}
 
-    .pricing-meta-extra {
-      font-size: 0.84rem;
-      line-height: 1.45;
-      color: rgba(192, 207, 235, 0.82);
-      margin: -2px 0 2px;
-      min-height: 2.4em;
-    }
+.pricing-row:hover .pricing-card {
+  opacity: 0.42;
+  filter: blur(2px) saturate(0.75);
+  transform: scale(0.975);
+}
 
-    .pricing-bullets {
-      list-style: none;
-      margin: 8px 0 0;
-      padding: 0;
-      color: rgba(192, 207, 235, 0.82);
-      font-size: 0.82rem;
-      line-height: 1.62;
-      display: grid;
-      gap: 8px;
-    }
+.pricing-row:hover .pricing-card:hover {
+  opacity: 1;
+  filter: none;
+  transform: translateY(-6px) scale(1.02);
+  border-color: rgba(34, 211, 238, 0.55);
+  box-shadow:
+    0 32px 82px rgba(0, 0, 0, 0.54),
+    0 12px 28px rgba(34, 211, 238, 0.12),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 44%),
+    linear-gradient(180deg, rgba(11, 18, 38, 0.99), rgba(7, 11, 24, 0.99));
+  z-index: 2;
+}
 
-    .pricing-bullets li {
-      position: relative;
-      margin: 0;
-      padding-left: 16px;
-    }
+.pricing-card.featured {
+  border-color: rgba(34, 211, 238, 0.42);
+  box-shadow:
+    0 26px 64px rgba(0, 0, 0, 0.46),
+    0 10px 24px rgba(34, 211, 238, 0.10),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+}
 
-    .pricing-bullets li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.78em;
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: rgba(141, 243, 255, 0.9);
-      transform: translateY(-50%);
-    }
+.pricing-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  margin-bottom: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 211, 238, 0.60);
+  background: rgba(34, 211, 238, 0.12);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9ff6ff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.02),
+    0 0 16px rgba(34, 211, 238, 0.10);
+}
 
-    .pricing-bullets strong {
-      color: #e8f7ff;
-      font-weight: 700;
-    }
+.pricing-card:not(.featured) .pricing-badge {
+  visibility: hidden;
+}
 
-    .pricing-note {
-      font-size: 0.84rem;
-      line-height: 1.55;
-      color: rgba(154, 164, 186, 0.88);
-      opacity: 1;
-      margin: 12px 0 0;
-    }
+.pricing-name {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(148, 163, 184, 0.94);
+}
 
-    .pricing-footnote {
-      font-size: 0.82rem;
-      line-height: 1.55;
-      color: rgba(154, 164, 186, 0.88);
-      margin-top: 8px;
-    }
+.pricing-price {
+  position: relative;
+  z-index: 1;
+  margin: 16px 0 8px;
+  font-size: 2.15rem;
+  line-height: 1.02;
+  font-weight: 800;
+  color: #f8fcff;
+}
 
-    .pricing-footnote-link {
-      color: #7dd3fc;
-      text-decoration: none;
-      border-bottom: 1px dotted rgba(125, 211, 252, 0.68);
-    }
+.pricing-price small {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: rgba(192, 207, 235, 0.62);
+}
 
-    .pricing-footnote-link:hover {
-      color: #e0f2fe;
-      border-bottom-style: solid;
-    }
+.pricing-volume {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
 
-    .pricing-cta {
-      margin-top: auto;
-      align-self: stretch;
-      border-radius: 999px;
-      padding: 8px 18px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-      color: #e6f9ff;
-      border: 1px solid rgba(34,211,238,0.85);
-      background:
-        linear-gradient(
-          180deg,
-          rgba(15,23,42,0.95) 0%,
-          rgba(2,6,23,0.95) 100%
-        );
-      box-shadow:
-        inset 0 0 10px rgba(34,211,238,0.08),
-        0 10px 28px rgba(0,0,0,0.45);
-      transition:
-        transform 0.18s ease,
-        border-color 0.18s ease,
-        box-shadow 0.18s ease,
-        color 0.18s ease;
-    }
+.pricing-volume-number {
+  display: block;
+  font-size: 4rem;
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #22d3ee;
+  text-shadow: 0 0 24px rgba(34, 211, 238, 0.18);
+}
 
-    .pricing-cta:hover {
-      transform: translateY(-2px);
-      border-color: rgba(34,211,238,1);
-      box-shadow:
-        inset 0 0 14px rgba(34,211,238,0.14),
-        0 18px 40px rgba(34,211,238,0.35);
-      color: #ffffff;
-      text-decoration: none;
-    }
+.pricing-volume-label {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(192, 207, 235, 0.72);
+}
 
-    @keyframes fadeUpSoft {
-      from { opacity: 0; transform: translateY(10px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-    }
+.pricing-meta-extra {
+  position: relative;
+  z-index: 1;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: rgba(229, 240, 255, 0.80);
+  margin: 0 auto 16px;
+  max-width: 22ch;
+  min-height: 3.2em;
+}
 
-    @keyframes cardRevealUp {
-      from { opacity: 0; transform: translateY(14px); filter: blur(1px); }
-      to   { opacity: 1; transform: translateY(0); filter: blur(0); }
-    }
+.pricing-plan-note {
+  position: relative;
+  z-index: 1;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: rgba(192, 207, 235, 0.72);
+  margin: 0 auto 22px;
+  max-width: 28ch;
+}
 
-    .js-anim #pricing .section-header,
-    .js-anim #pricing .pricing-note,
-    .js-anim #pricing .pricing-footnote {
-      opacity: 0;
-      transform: translateY(10px);
-      will-change: opacity, transform;
-    }
+.pricing-includes {
+  position: relative;
+  z-index: 1;
+ margin-top: 40px;
+  padding: 28px 28px 26px;
+  border-radius: 20px;
 
-    .js-anim .pricing-card {
-      opacity: 0;
-      transform: translateY(14px);
-      will-change: opacity, transform;
-    }
+  background:
+    radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 42%),
+    linear-gradient(180deg, rgba(10,16,32,0.94), rgba(6,10,20,0.98));
 
-    #pricing .section-header.is-revealed,
-    #pricing .pricing-note.is-revealed,
-    #pricing .pricing-footnote.is-revealed {
-      animation: fadeUpSoft 700ms cubic-bezier(.22,1,.36,1) forwards;
-    }
+  border: 1px solid rgba(34, 211, 238, 0.32);
 
-    .pricing-card.is-revealed {
-      animation: cardRevealUp 850ms cubic-bezier(.22,1,.36,1) forwards;
-    }
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.34),
+    0 0 28px rgba(34, 211, 238, 0.10),
+    inset 0 0 0 1px rgba(255,255,255,0.03);
+}
 
-    @media (max-width: 960px) {
-      .pricing-row::before {
-        width: 760px;
-        height: 460px;
-      }
-    }
+.pricing-includes-title {
+  text-align: center;
+  margin: 0 0 18px;
 
-    @media (max-width: 720px) {
-      #pricing.section {
-        margin-top: 78px !important;
-        margin-bottom: 96px;
-      }
+ font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
 
-      .pricing-row {
-        gap: 14px;
-      }
+  color: #e6fbff;
 
-      .pricing-card {
-        flex: 1 1 100%;
-        min-height: auto;
-        padding: 22px 18px 18px;
-      }
+  text-shadow: 0 0 10px rgba(34,211,238,0.25);
+}
 
-      .pricing-row::before {
-        width: 620px;
-        height: 520px;
-      }
+.pricing-includes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 
-      .pricing-price {
-        font-size: 1.72rem;
-      }
-    }
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 14px 22px;
 
-    @media (prefers-reduced-motion: reduce) {
-      .js-anim #pricing .section-header,
-      .js-anim #pricing .pricing-note,
-      .js-anim #pricing .pricing-footnote,
-      .js-anim .pricing-card {
-        opacity: 1 !important;
-        transform: none !important;
-        animation: none !important;
-      }
+  color: rgba(235,245,255,0.95);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
 
-      .pricing-card,
-      .pricing-cta {
-        transition: none !important;
-      }
-    }
+.pricing-includes-list li {
+  position: relative;
+  padding-left: 14px;
+  white-space: nowrap;
+}
 
+.pricing-includes-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+background: #22d3ee;
+box-shadow: 0 0 6px rgba(34,211,238,0.6);
+  transform: translateY(-50%);
+}
+
+.pricing-note {
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(154, 164, 186, 0.88);
+  opacity: 1;
+  margin: 14px 0 0;
+  text-align: center;
+}
+
+.pricing-footnote {
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: rgba(154, 164, 186, 0.88);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.pricing-footnote-link {
+  color: #7dd3fc;
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(125, 211, 252, 0.68);
+}
+
+.pricing-footnote-link:hover {
+  color: #e0f2fe;
+  border-bottom-style: solid;
+}
+
+.pricing-cta {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  align-self: stretch;
+  border-radius: 999px;
+  padding: 11px 18px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #e6f9ff;
+  border: 1px solid rgba(34,211,238,0.85);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(15,23,42,0.96) 0%,
+      rgba(2,6,23,0.96) 100%
+    );
+  box-shadow:
+    inset 0 0 10px rgba(34,211,238,0.08),
+    0 10px 28px rgba(0,0,0,0.45);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+.pricing-cta:hover {
+  transform: translateY(-2px);
+  border-color: rgba(34,211,238,1);
+  box-shadow:
+    inset 0 0 14px rgba(34,211,238,0.14),
+    0 18px 40px rgba(34,211,238,0.35);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+@keyframes fadeUpSoft {
+  from { opacity: 0; transform: translateY(10px); filter: blur(1px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes cardRevealUp {
+  from { opacity: 0; transform: translateY(14px); filter: blur(1px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.js-anim #pricing .section-header,
+.js-anim #pricing .pricing-intro,
+.js-anim #pricing .pricing-includes,
+.js-anim #pricing .pricing-note,
+.js-anim #pricing .pricing-footnote {
+  opacity: 0;
+  transform: translateY(10px);
+  will-change: opacity, transform;
+}
+
+.js-anim .pricing-card {
+  opacity: 0;
+  transform: translateY(14px);
+  will-change: opacity, transform;
+}
+
+#pricing .section-header.is-revealed,
+#pricing .pricing-intro.is-revealed,
+#pricing .pricing-includes.is-revealed,
+#pricing .pricing-note.is-revealed,
+#pricing .pricing-footnote.is-revealed {
+  animation: fadeUpSoft 700ms cubic-bezier(.22,1,.36,1) forwards;
+}
+
+.pricing-card.is-revealed {
+  animation: cardRevealUp 850ms cubic-bezier(.22,1,.36,1) forwards;
+}
+
+@media (max-width: 1040px) {
+  .pricing-includes-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .pricing-shell::before {
+    width: 760px;
+    height: 460px;
+  }
+
+  .pricing-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pricing-card {
+    min-height: auto;
+  }
+
+  .pricing-row:hover .pricing-card,
+  .pricing-row:hover .pricing-card:hover {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  #pricing.section {
+    margin-top: 78px !important;
+    margin-bottom: 96px;
+  }
+
+  #pricing .section-header {
+    margin-bottom: 28px;
+  }
+
+  .pricing-shell::before {
+    width: 620px;
+    height: 520px;
+  }
+
+  .pricing-card {
+    padding: 24px 18px 18px;
+    border-radius: 20px;
+  }
+
+  .pricing-price {
+    font-size: 1.86rem;
+  }
+
+  .pricing-volume-number {
+    font-size: 3.2rem;
+  }
+
+  .pricing-includes-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js-anim #pricing .section-header,
+  .js-anim #pricing .pricing-intro,
+  .js-anim #pricing .pricing-includes,
+  .js-anim #pricing .pricing-note,
+  .js-anim #pricing .pricing-footnote,
+  .js-anim .pricing-card {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .pricing-card,
+  .pricing-cta {
+    transition: none !important;
+  }
+}
+
+    /* TRUST */
     /* TRUST */
     .trust-row {
       display: flex;
@@ -2293,127 +2477,133 @@
   <div class="iq-platform-supported">Supported Platforms:&nbsp;&nbsp;Webflow · Shopify · Wix · Squarespace</div>
   </div>
 
-      <!-- HOW IT WORKS / WORKFLOW -->
-      <section class="section" id="how">
-        <div class="section-header">
-          <div>
-            <div class="section-kicker">Workflow</div>
-            <div class="section-title">From Website URL to Client-Ready Report</div>
-          </div>
+<!-- HOW IT WORKS / WORKFLOW -->
+<section class="section" id="how">
+  <div class="section-header">
+    <div>
+      <div class="section-kicker">Workflow</div>
+      <div class="section-title">From URL to Client-Ready Report</div>
+    </div>
+  </div>
+
+  <div class="wf-stepper">
+    <div class="wf-rail"></div>
+
+    <div class="wf-steps">
+
+      <div class="wf-step">
+        <div class="wf-dot"><span>01</span></div>
+        <div class="wf-content">
+          <h3>Scan the Website</h3>
+          <p>
+            Paste any public website URL. iQWEB runs a full diagnostic scan across performance,
+            SEO, security, accessibility and delivery signals.
+          </p>
         </div>
+      </div>
 
-        <div class="wf-stepper">
-          <div class="wf-rail"></div>
+      <div class="wf-step">
+        <div class="wf-dot"><span>02</span></div>
+        <div class="wf-content">
+          <h3>Prioritise What Matters</h3>
+          <p>
+            Issues are analysed and ranked so agencies can quickly see what affects speed,
+            visibility, trust and user experience most.
+          </p>
+        </div>
+      </div>
 
-          <div class="wf-steps">
-            <div class="wf-step">
-              <div class="wf-dot"><span>01</span></div>
-              <div class="wf-content">
-                <h3>Scan the Website</h3>
-                <p>
-                  Paste any public website URL. iQWEB runs a full diagnostic scan using Lighthouse,
-                  Core Web Vitals and additional site-level checks across performance, SEO, security,
-                  accessibility and delivery signals.
-                </p>
+      <div class="wf-step">
+        <div class="wf-dot"><span>03</span></div>
+        <div class="wf-content">
+          <h3>Generate a Client-Ready Report</h3>
+          <p>
+            iQWEB produces a structured report with clear explanations, ranked priorities
+            and recommended fixes ready to share with clients.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="section-header">
+    <div>
+      <div class="section-kicker">Pricing</div>
+      <div class="section-title">Choose the monthly report volume that fits your workflow.</div>
+    </div>
+  </div>
+
+  <div class="pricing-shell">
+
+          <div class="pricing-row">
+
+            <div class="pricing-card">
+              <div class="pricing-badge">Most Popular</div>
+              <div class="pricing-name">Starter</div>
+              <div class="pricing-price">$39 <small>/ month</small></div>
+
+              <div class="pricing-volume">
+                <span class="pricing-volume-number">25</span>
+                <span class="pricing-volume-label">Reports per month</span>
               </div>
+
+              <div class="pricing-meta-extra">For freelancers and small client workloads</div>
+              <div class="pricing-plan-note">Full diagnostics, white-label reports, branding and PDF export included.</div>
+
+              <button class="pricing-cta" data-plan="sub10">Get Started</button>
             </div>
 
-            <div class="wf-step">
-              <div class="wf-dot"><span>02</span></div>
-              <div class="wf-content">
-                <h3>Identify What Matters</h3>
-                <p>
-                  Issues are analysed and prioritised to highlight the problems that most affect speed,
-                  visibility, trust and user experience, so agencies can quickly see what needs attention.
-                </p>
+            <div class="pricing-card featured">
+              <div class="pricing-badge">Most Popular</div>
+              <div class="pricing-name">Professional</div>
+              <div class="pricing-price">$99 <small>/ month</small></div>
+
+              <div class="pricing-volume">
+                <span class="pricing-volume-number">100</span>
+                <span class="pricing-volume-label">Reports per month</span>
               </div>
+
+              <div class="pricing-meta-extra">For agencies running regular client audits</div>
+              <div class="pricing-plan-note">Full diagnostics, white-label reports, branding and PDF export included.</div>
+
+              <button class="pricing-cta" data-plan="sub50">Get Started</button>
             </div>
 
-            <div class="wf-step">
-              <div class="wf-dot"><span>03</span></div>
-              <div class="wf-content">
-                <h3>Generate a Client-Ready Report</h3>
-                <p>
-                  iQWEB produces a structured report with clear explanations, ranked priorities and
-                  recommended fixes that can be shared directly with clients.
-                </p>
+            <div class="pricing-card">
+              <div class="pricing-badge">Most Popular</div>
+              <div class="pricing-name">Agency</div>
+              <div class="pricing-price">$199 <small>/ month</small></div>
+
+              <div class="pricing-volume">
+                <span class="pricing-volume-number">300</span>
+                <span class="pricing-volume-label">Reports per month</span>
               </div>
+
+              <div class="pricing-meta-extra">For teams managing multiple client sites</div>
+              <div class="pricing-plan-note">Full diagnostics, white-label reports, branding and PDF export included.</div>
+
+              <button class="pricing-cta" data-plan="sub100">Get Started</button>
             </div>
+
           </div>
-        </div>
-      </section>
 
-      <!-- PRICING -->
-      <section class="section" id="pricing">
-        <div class="section-header">
-          <div>
-            <div class="section-kicker">Pricing</div>
-            <div class="section-title">Simple pricing based on monthly reports.</div>
-          </div>
-        </div>
-
-        <div class="pricing-row">
-
-          <div class="pricing-card">
-            <div class="pricing-name">Starter</div>
-            <div class="pricing-price">$39 / month</div>
-            <div class="pricing-meta-extra">For freelancers and small client workloads</div>
-
-            <ul class="pricing-bullets">
-             
-              <li><strong>Up to 25 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-              <li>Custom Brand Colours (Report + PDF)</li>
-              <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-              <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
+          <div class="pricing-includes">
+            <div class="pricing-includes-title">Every plan includes</div>
+            <ul class="pricing-includes-list">
+              <li>Full website diagnostics</li>
+              <li>White-label reporting</li>
+              <li>Custom report branding</li>
+              <li>Client-ready shareable reports</li>
+              <li>PDF export included</li>
+              <li>No automatic overage charges</li>
+              <li>Monthly report reset</li>
+              <li>Same core product on every plan</li>
             </ul>
-
-            <button class="pricing-cta" data-plan="sub10">Get Started</button>
           </div>
-
-          <div class="pricing-card">
-            <div class="pricing-name">Professional</div>
-            <div class="pricing-price">$99 / month</div>
-            <div class="pricing-meta-extra">For agencies running regular client audits</div>
-
-            <ul class="pricing-bullets">
-      
-              <li><strong>Up to 100 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-              <li>Custom Brand Colours (Report + PDF)</li>
-              <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-              <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
-            </ul>
-
-            <button class="pricing-cta" data-plan="sub50">Get Started</button>
-          </div>
-
-          <div class="pricing-card">
-            <div class="pricing-name">Agency</div>
-            <div class="pricing-price">$199 / month</div>
-            <div class="pricing-meta-extra">For teams managing multiple client sites</div>
-
-            <ul class="pricing-bullets">
-     
-              <li><strong>Up to 300 reports per month</strong></li>
-              <li>Full Website Diagnostics</li>
-              <li>Full White-Label Branding</li>
-              <li>Custom Brand Colours (Report + PDF)</li>
-              <li>PDF Download Included</li>
-              <li>Client-Ready Shareable Reports</li>
-              <li>No Automatic Overage Charges</li>
-              <li>Report Allowance Resets Monthly</li>
-            </ul>
-
-            <button class="pricing-cta" data-plan="sub100">Get Started</button>
-          </div>
-
         </div>
 
         <p class="pricing-note">All prices are in USD.</p>
@@ -2429,6 +2619,7 @@
       </section>
 
       <!-- TRUST -->
+
       <section class="section" id="trust">
         <div class="section-header">
           <div>
@@ -2609,13 +2800,17 @@
 
       const cards = Array.from(pricing.querySelectorAll(".pricing-card"));
       const header = pricing.querySelector(".section-header");
+      const intro = pricing.querySelector(".pricing-intro");
+      const includes = pricing.querySelector(".pricing-includes");
       const notes = Array.from(pricing.querySelectorAll(".pricing-note"));
       const footnote = pricing.querySelector(".pricing-footnote");
 
       const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (prefersReduced) {
         header && header.classList.add("is-revealed");
+        intro && intro.classList.add("is-revealed");
         cards.forEach(c => c.classList.add("is-revealed"));
+        includes && includes.classList.add("is-revealed");
         notes.forEach(n => n.classList.add("is-revealed"));
         footnote && footnote.classList.add("is-revealed");
         return;
@@ -2650,13 +2845,23 @@
         const lastCardDelay = base + (Math.max(cards.length - 1, 0) * step);
         const afterCards = lastCardDelay + cardDur + 120;
 
+        if (intro) {
+          intro.style.animationDelay = "120ms";
+          intro.classList.add("is-revealed");
+        }
+
+        if (includes) {
+          includes.style.animationDelay = `${afterCards - 40}ms`;
+          includes.classList.add("is-revealed");
+        }
+
         notes.forEach((n, i) => {
-          n.style.animationDelay = `${afterCards + i * 120}ms`;
+          n.style.animationDelay = `${afterCards + 160 + i * 120}ms`;
           n.classList.add("is-revealed");
         });
 
         if (footnote) {
-          footnote.style.animationDelay = `${afterCards + (notes.length * 120) + 120}ms`;
+          footnote.style.animationDelay = `${afterCards + 160 + (notes.length * 120) + 120}ms`;
           footnote.classList.add("is-revealed");
         }
       };
@@ -2685,7 +2890,7 @@
         });
       }, { threshold: 0.25 });
 
-      const row = pricing.querySelector(".pricing-row") || pricing;
+      const row = pricing.querySelector(".pricing-shell") || pricing;
       pricingObserver.observe(row);
     })();
 
