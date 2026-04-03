@@ -763,33 +763,39 @@ function buildAiDiscoverabilitySignal(aiData) {
     authorityBoost = Math.max(authorityBoost, 20);
   }
 
- let total = Math.max(
-  0,
-  Math.min(
-    100,
-    Math.round(authorityBoost + entityScore + mentionScore + recScore)
-  )
-);
+  // weighted scoring for more realistic AI visibility
+  let total = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(
+        (authorityBoost * 0.35) +
+        (entityScore * 0.15) +
+        (mentionScore * 0.20) +
+        (recScore * 0.30)
+      )
+    )
+  );
 
-// Global-brand floor:
-// if the entity is very strong but recommendation prompts are not the right fit,
-// do not let the score collapse into a misleading low result.
-if (authorityBoost >= 40 && entityScore >= 15 && total < 60) {
-  total = 60;
-}
+  // global-brand floor:
+  // if entity authority is strong but tested prompts are not a good fit,
+  // do not let the score collapse into a misleading low result
+  if (authorityBoost >= 40 && entityScore >= 15 && total < 60) {
+    total = 60;
+  }
 
   const deductions = [];
   const issues = [];
 
   if (recHits === 0) {
     deductions.push({
-      points: 20,
-      reason: "No recommendation presence detected across tested generic prompts.",
+      points: 10,
+      reason: "Business was not surfaced in the tested generic recommendation prompts.",
       code: "ai_recommendation_not_detected"
     });
     issues.push({
       id: "ai_recommendation_not_detected",
-    title: "AI Discoverability: Not surfaced in tested recommendation prompts",
+      title: "AI Discoverability: Not surfaced in tested recommendation prompts",
       severity: "med",
       impact: "Tested AI recommendation prompts did not surface this business. This may reflect the query type rather than overall brand visibility, especially for strong global consumer brands.",
       evidence: { query_hits: recHits }
