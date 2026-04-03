@@ -1617,18 +1617,14 @@ const secPack = scoreSecurityFromHeaders(headers, platform);
     });
   }
 
+const aiRecommendation = await evaluateAiRecommendationPresence(aiProfile, url);
+const aiMentions = await evaluateIndependentMentions(aiProfile, url);
+
 const aiData = {
   profile: aiProfile,
-  recommendation: {
-    detected: false,
-    queries_tested: 3
-  },
-  mentions: {
-    count: 0
-  }
+  recommendation: aiRecommendation,
+  mentions: aiMentions
 };
-
-
 
 let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
 
