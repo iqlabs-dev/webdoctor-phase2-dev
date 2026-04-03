@@ -1513,7 +1513,7 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 // ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
-function buildScores(url, html, res, isHtml, psi, platform = { key: "unknown" }) {
+async function buildScores(url, html, res, isHtml, psi, platform = { key: "unknown" }) {
   const basic = isHtml
     ? basicHtmlSignals(html, url)
     : {
@@ -1627,6 +1627,12 @@ const aiData = {
     count: 0
   }
 };
+
+const gptTest = await openAiChat([
+  { role: "user", content: "Reply with OK" }
+], 5);
+
+console.log("GPT TEST RESPONSE:", gptTest);
 
 let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
 
@@ -2417,7 +2423,7 @@ try {
 // ---------------------------------------------
 // Build scores (NOW includes platform)
 // ---------------------------------------------
-const { basic, headers, scores, human, notes, delivery_signals } = buildScores(
+const { basic, headers, scores, human, notes, delivery_signals } = await buildScores(
   url,
   html,
   res,
