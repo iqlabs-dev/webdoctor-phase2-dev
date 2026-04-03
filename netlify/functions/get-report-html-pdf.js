@@ -1191,10 +1191,10 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
     const klass = scoreClass(score);
     const key = labelToKey(sig?.label || sig?.id || "");
 
-    const primaryBadge =
-      primary && primary.key && primary.key === key
-    ? `<div class="signal-badge">${signal.id === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
-        : "";
+  const primaryBadge =
+  primary && primary.key && primary.key === key
+    ? `<div class="signal-badge">${key === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
+    : "";
 
     return `
       <div class="signal-card ${klass}">
