@@ -1091,9 +1091,9 @@ if (domainKey === "ai_discoverability") {
       "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
       (haveList ? (" Signals such as " + listText + " are currently limited or absent in the tested prompt set.") : ""),
     fix:
-      "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+      "Improve discoverability by tightening entity clarity, earning independent mentions, expanding category-specific references, strengthening directory/profile consistency, and testing prompts that match real buyer language.",
     next:
-      "Re-run the scan after improving entity clarity or external mentions to see whether tested AI recommendation visibility improves."
+      "Update one or more of those discovery signals, then re-run the scan to check whether tested AI recommendation visibility improves."
   };
 }
 
@@ -1605,7 +1605,17 @@ return {
       }
 
       var lever = platformManaged ? "" : recommendedFixForKey(key);
-      if (lever && score !== null && score < 90) {
+      if (score !== null && score < 90 && key === "ai_discoverability") {
+        if (score < 60) {
+          lines.push("Clarify the brand and category language used across the site.");
+          lines.push("Earn more independent mentions from relevant third-party sources.");
+          lines.push("Tighten directory, profile, and citation consistency.");
+          lines.push("Add clearer product, service, and niche context for entity matching.");
+          lines.push("Test prompts that reflect real recommendation searches in your category.");
+        } else if (lever) {
+          lines.push(getRecommendation(score, lever));
+        }
+      } else if (lever && score !== null && score < 90) {
         lever = getRecommendation(score, lever);
         lines.push(lever);
       }
@@ -2101,6 +2111,14 @@ if (isPrimary) {
   }
 
 
+  function safeRenderSection(name, fn) {
+    try {
+      if (typeof fn === "function") fn();
+    } catch (err) {
+      try { console.error("[report-data] section failed:", name, err); } catch (e) {}
+    }
+  }
+
   // -----------------------------
   // Main render
   // -----------------------------
@@ -2112,25 +2130,21 @@ if (isPrimary) {
     var scores = pickScores(data);
     var signals = pickSignals(data);
     var branding = pickBranding(data);
-
-    applyBrandingUI(branding);
-
-    setHeaderUI(header);
-
     var overallSummary = pickOverallSummary(data, scores.overall);
-    setOverallUI(scores, overallSummary);
+    var primary = computePrimaryConstraint(scores, signals, data);
+
+    safeRenderSection("applyBrandingUI", function () { applyBrandingUI(branding); });
+    safeRenderSection("setHeaderUI", function () { setHeaderUI(header); });
+    safeRenderSection("setOverallUI", function () { setOverallUI(scores, overallSummary); });
 
     showReport();
 
-    var primary = computePrimaryConstraint(scores, signals, data);
-
-    renderExecutiveSummary(data, primary);
-    renderSignalsGrid(signals, scores, primary);
-
-    renderSignalEvidence(signals);
-    renderKeyInsights(data, scores, signals, primary);
-    renderTopIssues(signals, primary);
-    renderFixSequence(data, scores, signals, primary);
+    safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
+    safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
+    safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });
+    safeRenderSection("renderKeyInsights", function () { renderKeyInsights(data, scores, signals, primary); });
+    safeRenderSection("renderTopIssues", function () { renderTopIssues(signals, primary); });
+    safeRenderSection("renderFixSequence", function () { renderFixSequence(data, scores, signals, primary); });
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
@@ -2141,7 +2155,8 @@ if (isPrimary) {
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
-      .catch(function () {
+      .catch(function (err) {
+        try { console.error("[report-data] boot failed:", err); } catch (e) {}
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
 
