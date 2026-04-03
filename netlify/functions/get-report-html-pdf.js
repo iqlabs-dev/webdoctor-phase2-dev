@@ -1193,7 +1193,7 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
 
     const primaryBadge =
       primary && primary.key && primary.key === key
-        ? `<div class="signal-badge">Primary Constraint</div>`
+    ? `<div class="signal-badge">${signal.id === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
         : "";
 
     return `

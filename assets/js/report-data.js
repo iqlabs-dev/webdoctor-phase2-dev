@@ -1616,7 +1616,12 @@ return {
       var card = document.createElement("div");
       card.className = "card " + severityClass;
 
-      var badgeHtml = isPrimary ? '<div class="primary-badge">Primary Constraint</div>' : "";
+var badgeHtml = "";
+if (isPrimary) {
+  badgeHtml = key === "ai_discoverability"
+    ? '<div class="primary-badge">Discovery Signal</div>'
+    : '<div class="primary-badge">Primary Constraint</div>';
+}
 
       card.innerHTML =
         badgeHtml +
