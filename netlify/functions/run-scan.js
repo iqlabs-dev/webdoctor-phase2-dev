@@ -1628,11 +1628,7 @@ const aiData = {
   }
 };
 
-const gptTest = await openAiChat([
-  { role: "user", content: "Reply with OK" }
-], 5);
 
-console.log("GPT TEST RESPONSE:", gptTest);
 
 let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
 
