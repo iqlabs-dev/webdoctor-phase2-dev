@@ -1222,7 +1222,7 @@ return {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "Not surfaced in tested recommendation prompts for this category";
+        if (hits !== null && hits <= 0) return "AI systems did not recommend this business in tested discovery searches for this category";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI discoverability requires stronger external context";
@@ -2127,17 +2127,31 @@ return {
       return fallback;
     }
 
-    try {
-      var phases = root.querySelectorAll(".phase");
-      if (phases && phases.length >= 3) {
-        var ul1 = phases[0].querySelector("ul");
-        if (ul1) {
-          var p1 = [];
-          p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
-          p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
-          p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
-          ul1.innerHTML = "<li>" + escapeHtml(p1[0]) + "</li><li>" + escapeHtml(p1[1]) + "</li><li>" + escapeHtml(p1[2]) + "</li>";
-        }
+try {
+  var phases = root.querySelectorAll(".phase");
+  if (phases && phases.length >= 3) {
+    var ul1 = phases[0].querySelector("ul");
+    if (ul1) {
+
+      var p1 = [];
+
+      // Cleaner wording when AI discoverability is the constraint
+      var focusLine;
+      if (focus && focus.toLowerCase().indexOf("recommendation") !== -1) {
+        focusLine = "Fix the top constraint first: improve AI recommendation visibility for this category.";
+      } else {
+        focusLine = "Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".";
+      }
+
+      p1.push(focusLine);
+      p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
+      p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
+
+      ul1.innerHTML =
+        "<li>" + escapeHtml(p1[0]) + "</li>" +
+        "<li>" + escapeHtml(p1[1]) + "</li>" +
+        "<li>" + escapeHtml(p1[2]) + "</li>";
+    }
 
         var ul2 = phases[1].querySelector("ul");
         if (ul2) {
