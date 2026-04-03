@@ -1646,7 +1646,7 @@ return {
             "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
             "<li>Expand entity clarity only where it improves real-world discovery.</li>";
         } else {
-          aiObserved = "The brand was not strongly surfaced in the tested AI recommendation prompts, and external discovery signals appear limited for this category.";
+          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
           aiFixList =
             "<li>Clarify the brand and category language used across the site.</li>" +
             "<li>Earn more independent mentions from relevant third-party sources.</li>" +
