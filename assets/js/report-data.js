@@ -1319,10 +1319,11 @@ return {
     setText(cEl, domainLabel);
 
     var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, signals);
-    var extras = {
-      mobileLcpSeconds: lcpSecondsFromData(data),
-      platformManaged: String(data.platform_control || "").toLowerCase() === "limited"
-    };
+ var extras = {
+  mobileLcpSeconds: lcpSecondsFromData(data),
+  platformManaged: String(data.platform_control || "").toLowerCase() === "limited",
+  aiScore: primary && primary.key === "ai_discoverability" ? primary.score : null
+};
 
     var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);
     var impact = narrative.impact;
