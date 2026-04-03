@@ -104,7 +104,10 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
 
   if (unmeasured) return "Not Measured";
 
-  if (signalKey === "ai_discoverability" && score !== null && score >= 60) {
+  // Special handling for AI Discoverability
+  if (signalKey === "ai_discoverability") {
+    if (score !== null && score < 40) return "Priority Fix";
+    if (score !== null && score < 70) return "Improvement Opportunity";
     return "Observation";
   }
 
