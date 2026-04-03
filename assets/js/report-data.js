@@ -1062,15 +1062,182 @@ if (pageBg) {
     };
   }
 
+
+
+  function findSignalByDomain(signals, domainKey) {
+    signals = asArray(signals);
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      if (domainKeyFromSignal(sig) === domainKey) return sig;
+    }
+    return null;
+  }
+
+  function lcpSecondsFromData(data) {
+    var psi = pickPsiEnvelope(data);
+    var m = safeObj(psi.mobile);
+    var f = safeObj(m.facts);
+    var v = f.lcp_ms || f.LCP_ms || f.lcpMs || f.lcp || m.lcp_ms || m.LCP_ms || m.lcpMs || m.lcp || null;
+    var n = num(v);
+    if (n === null) return null;
+    if (n > 0 && n < 100) return round1(n);
+    return round1(n / 1000);
+  }
+
+  function htmlKbFromData(data) {
+    var basic = pickBasicChecks(data);
+    var v = basic.html_bytes || basic.htmlBytes || basic.html_size_bytes || basic.initial_html_bytes || basic.document_bytes || basic.documentBytes || null;
+    var n = num(v);
+    if (n === null) return null;
+    return Math.round(n / 1024);
+  }
+
+  function inlineScriptsFromData(data) {
+    var basic = pickBasicChecks(data);
+    var v = basic.inline_scripts || basic.inlineScripts || basic.inline_script_count || basic.inlineScriptCount || null;
+    var n = num(v);
+    if (n === null) return null;
+    return Math.round(n);
+  }
+
+  function firstMissingFromSignal(sig) {
+    sig = safeObj(sig);
+    var ev = safeObj(sig.evidence);
+    var keys = Object.keys(ev || {});
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (isMeaningfulFail(k, ev[k])) return k;
+    }
+    return "";
+  }
+
+  function specificConstraintLabel(data, primary, signals) {
+    data = safeObj(data);
+    signals = asArray(signals);
+    if (!primary || !primary.key) return "No clear primary constraint identified.";
+
+    var domain = primary.key;
+    var sig = findSignalByDomain(signals, domain);
+    var basic = pickBasicChecks(data);
+    var lcp = lcpSecondsFromData(data);
+    var htmlKb = htmlKbFromData(data);
+    var inlineScripts = inlineScriptsFromData(data);
+    var platformManaged = String(data.platform_control || "").toLowerCase() === "limited" && domain === "security";
+
+    if (domain === "performance" || domain === "mobile") {
+      if (lcp !== null && lcp > 2.5) return "Slow mobile Largest Contentful Paint (~" + lcp + "s)";
+      if (inlineScripts !== null && inlineScripts >= 6) return "Heavy initial render work (" + inlineScripts + " inline scripts)";
+      if (htmlKb !== null && htmlKb >= 150) return "Large initial HTML payload (~" + htmlKb + "KB)";
+      return (LABELS[domain] || domain) + " requires attention";
+    }
+
+    if (domain === "seo") {
+      if (basic.canonical_present === false) return "Missing canonical baseline";
+      if (basic.title_present === false) return "Missing page title";
+      if (basic.h1_present === false) return "Missing primary heading (H1)";
+      return "SEO baseline gaps";
+    }
+
+    if (domain === "security") {
+      if (platformManaged) return "Platform-managed security context";
+      var sec = findSignalByDomain(signals, "security");
+      var missingCount = 0;
+      if (sec && sec.evidence) {
+        if (sec.evidence.hsts_present === false) missingCount++;
+        if (sec.evidence.csp_present === false) missingCount++;
+        if (sec.evidence.x_frame_options_present === false) missingCount++;
+        if (sec.evidence.x_content_type_options_present === false) missingCount++;
+        if (sec.evidence.referrer_policy_present === false) missingCount++;
+        if (sec.evidence.permissions_policy_present === false) missingCount++;
+      }
+      if (missingCount > 0) return "Missing security hardening headers (" + missingCount + ")";
+      return "Security hardening requires attention";
+    }
+
+    if (domain === "structure") {
+      if (basic.h1_present === false) return "Missing primary heading structure (H1)";
+      if (basic.title_present === false) return "Missing page title structure";
+      if (basic.viewport_present === false) return "Missing viewport baseline";
+      return "Document structure gaps";
+    }
+
+    if (domain === "accessibility") {
+      var acc = findSignalByDomain(signals, "accessibility");
+      if (acc && acc.evidence) {
+        var total = num(acc.evidence.images_total || acc.evidence.img_count);
+        var withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
+        if (total !== null && withAlt !== null && total > withAlt) return "Incomplete image alt coverage (" + withAlt + "/" + total + ")";
+        if (acc.evidence.html_lang_missing === true || acc.evidence.missing_html_lang === true || basic.html_lang_present === false) return "Missing HTML language attribute";
+      }
+      return "Accessibility baseline gaps";
+    }
+
+    return LABELS[domain] || domain;
+  }
+
+  function strongestInsightText(bestKey, bestScore, data, signals) {
+    var sig = findSignalByDomain(signals, bestKey);
+    if (!bestKey || !sig) return "No clear strength identified from this scan.";
+    if (bestKey === "security" && String(data.platform_control || "").toLowerCase() === "limited") {
+      return "Security is treated as platform-managed in this environment, which reduces direct remediation burden.";
+    }
+    if (bestKey === "performance") {
+      var lcp = lcpSecondsFromData(data);
+      if (lcp !== null && lcp <= 2.5) return "Performance is strongest in this scan, with mobile LCP landing around " + lcp + "s.";
+    }
+    if (bestKey === "seo") {
+      var basic = pickBasicChecks(data);
+      if (basic.title_present && basic.h1_present && basic.canonical_present) return "SEO foundations are strongest, with title, H1, and canonical baseline in place.";
+    }
+    if (bestKey === "accessibility") {
+      var acc = findSignalByDomain(signals, "accessibility");
+      if (acc && acc.evidence) {
+        var total = num(acc.evidence.images_total || acc.evidence.img_count);
+        var withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
+        if (total !== null && withAlt !== null && total === withAlt && total > 0) return "Accessibility is strongest here, with full image alt coverage detected.";
+      }
+    }
+    return (LABELS[bestKey] || bestKey) + " is currently the strongest signal (" + bestScore + "/100).";
+  }
+
+  function gatherIssueEntries(signals, domainFilter) {
+    signals = asArray(signals);
+    var out = [];
+    for (var i = 0; i < signals.length; i++) {
+      var sig = safeObj(signals[i]);
+      var domain = domainKeyFromSignal(sig);
+      if (domainFilter && domain !== domainFilter) continue;
+      var issues = asArray(sig.issues);
+      for (var j = 0; j < issues.length; j++) {
+        var it = safeObj(issues[j]);
+        var title = String(it.title || it.id || "").replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "").trim();
+        if (!title) continue;
+        out.push({ domain: domain, title: title, severity: String(it.severity || "MONITOR").toUpperCase(), why: String(it.impact || it.detail || it.description || "").trim() });
+      }
+    }
+    return out;
+  }
+
+  function dedupeIssueEntries(entries) {
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = safeObj(entries[i]);
+      var key = String(e.domain || "") + "|" + String(e.title || "").toLowerCase();
+      if (!e.title || seen[key]) continue;
+      seen[key] = true;
+      out.push(e);
+    }
+    return out;
+  }
+
   // -----------------------------
   // Key Findings
   // -----------------------------
   function renderExecutiveSummary(data, primary) {
     data = safeObj(data);
     var scores = pickScores(data);
-    var psi = pickPsiEnvelope(data);
-    var basic = pickBasicChecks(data);
-
+    var signals = pickSignals(data);
     var overall = asInt(scores.overall, 0);
 
     var oEl = $("findingOverall");
@@ -1084,37 +1251,6 @@ if (pageBg) {
       el.textContent = (t == null || t === "") ? "—" : String(t);
     }
 
-    function lcpSecondsFromPsi() {
-      var m = safeObj(psi.mobile);
-      var f = safeObj(m.facts);
-      var v =
-        f.lcp_ms || f.lcpMs || f.lcp ||
-        m.lcp_ms || m.lcpMs || m.lcp ||
-        null;
-
-      var n = num(v);
-      if (n === null) return null;
-      if (n > 0 && n < 100) return round1(n);
-      return round1(n / 1000);
-    }
-
-    function htmlBytesFromBasic() {
-      var v =
-        basic.html_bytes || basic.htmlBytes || basic.html_size_bytes || basic.initial_html_bytes ||
-        basic.document_bytes || basic.documentBytes ||
-        null;
-      return num(v);
-    }
-
-    function inlineScriptsFromBasic() {
-      var v =
-        basic.inline_scripts || basic.inlineScripts || basic.inline_script_count || basic.inlineScriptCount ||
-        null;
-      var n = num(v);
-      if (n === null) return null;
-      return Math.round(n);
-    }
-
     setText(oEl, overall + "/100 — " + verdict(overall));
 
     if (!primary || !primary.key) {
@@ -1125,32 +1261,54 @@ if (pageBg) {
       return;
     }
 
-    var domainLabel = (LABELS[primary.key] || primary.key);
+    var domainLabel = specificConstraintLabel(data, primary, signals);
     setText(cEl, domainLabel);
 
-    var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, pickSignals(data));
+    var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, signals);
     var extras = {
-      mobileLcpSeconds: lcpSecondsFromPsi(),
+      mobileLcpSeconds: lcpSecondsFromData(data),
       platformManaged: String(data.platform_control || "").toLowerCase() === "limited"
     };
 
     var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);
-    setText(iEl, narrative.impact);
+    var impact = narrative.impact;
+    var lcp = lcpSecondsFromData(data);
+    var htmlKb = htmlKbFromData(data);
+    var inlineScripts = inlineScriptsFromData(data);
+
+    if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
+      impact = "Visible content is arriving later than expected on mobile. Largest Contentful Paint is around " + lcp + "s, which delays the point where the page feels ready to users.";
+    } else if (primary.key === "seo") {
+      if (pickBasicChecks(data).canonical_present === false) impact = "Search engines may be receiving weaker page ownership signals because a canonical link was not detected in this scan.";
+      else if (pickBasicChecks(data).h1_present === false) impact = "The page is missing a clear primary heading, which weakens content clarity for both users and search engines.";
+    } else if (primary.key === "security" && String(data.platform_control || "").toLowerCase() !== "limited") {
+      impact = "Browser trust hardening is incomplete. Missing security headers reduce baseline protection and weaken technical trust signals, even when the site otherwise loads normally.";
+    } else if (primary.key === "accessibility") {
+      var acc = findSignalByDomain(signals, "accessibility");
+      if (acc && acc.evidence) {
+        var total = num(acc.evidence.images_total || acc.evidence.img_count);
+        var withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
+        if (total !== null && withAlt !== null && total > withAlt) impact = "Some content is less accessible than it should be. Alt text coverage is " + withAlt + "/" + total + ", which can block understanding for assistive technologies.";
+      }
+    }
+    setText(iEl, impact);
 
     var fixText = narrative.fix;
     if (primary.key === "performance" || primary.key === "mobile") {
-      var hb = htmlBytesFromBasic();
-      var is = inlineScriptsFromBasic();
-      var kb = (hb !== null) ? Math.round(hb / 1024) : null;
       var parts = [];
-      if (kb !== null && kb >= 50) parts.push(kb + "KB HTML");
-      if (is !== null && is >= 3) parts.push(is + " inline scripts");
-      if (parts.length) fixText += " Initial payload signals observed: " + parts.join(", ") + ".";
+      if (lcp !== null && lcp > 2.5) parts.push("mobile LCP ~" + lcp + "s");
+      if (htmlKb !== null && htmlKb >= 50) parts.push("HTML payload ~" + htmlKb + "KB");
+      if (inlineScripts !== null && inlineScripts >= 3) parts.push(inlineScripts + " inline scripts before render");
+      if (parts.length) fixText += " Evidence observed: " + parts.join(", ") + ".";
     }
-
     setText(fEl, fixText);
-    setText(nEl, narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.");
+
+    var nextText = narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.";
+    if (primary.key === "seo") nextText = "Apply the SEO baseline fix first, then re-run the scan to confirm indexing signals improved.";
+    if (primary.key === "security" && String(data.platform_control || "").toLowerCase() !== "limited") nextText = "Implement the missing hardening headers, then re-run the scan to confirm they are detected.";
+    setText(nEl, nextText);
   }
+
 
   // -----------------------------
   // Delivery signal cards
@@ -1236,17 +1394,17 @@ if (pageBg) {
       if (nv !== null) {
         if (lk.indexOf("bytes") !== -1 || lk.indexOf("size") !== -1) {
           var kb = Math.round(nv / 1024);
-          return "HTML payload exceeds baseline (" + kb + "KB).";
+          return "Initial HTML payload is ~" + kb + "KB, which increases parsing work before the page becomes interactive.";
         }
         if (lk.indexOf("lcp") !== -1) {
           var sec = (nv > 0 && nv < 50) ? round1(nv) : round1(nv / 1000);
-          return "Largest Contentful Paint exceeds target (" + sec + "s).";
+          return "Largest Contentful Paint is ~" + sec + "s, so meaningful content appears later than recommended.";
         }
         if (lk.indexOf("inline") !== -1 && lk.indexOf("script") !== -1) {
-          return "Inline scripts exceed baseline (" + Math.round(nv) + ").";
+          return Math.round(nv) + " inline scripts execute before render, increasing early main-thread work.";
         }
         if (lk.indexOf("coverage") !== -1 || lk.indexOf("ratio") !== -1) {
-          return label + " is below baseline (" + nv + ").";
+          return label + " is below the expected baseline (" + nv + ").";
         }
         return label + " is outside baseline (" + nv + ").";
       }
@@ -1553,20 +1711,19 @@ if (pageBg) {
   // -----------------------------
   // Key Insight Metrics
   // -----------------------------
-  function renderKeyInsights(scores, signals, primary) {
+  function renderKeyInsights(data, scores, signals, primary) {
     var root = $("keyMetricsRoot");
     if (!root) return;
 
+    data = safeObj(data);
     scores = safeObj(scores);
     signals = asArray(signals);
 
-    var placeholder = "Derived insights will appear here as additional scans are analysed. This report focuses on deterministic delivery signals.";
-
     var items = [
-      { key: "Strength", text: placeholder },
-      { key: "Risk",     text: placeholder },
-      { key: "Focus",    text: placeholder },
-      { key: "Next",     text: placeholder }
+      { key: "Strength", text: "No clear strength identified from this scan." },
+      { key: "Risk",     text: "No major risk could be isolated from this scan." },
+      { key: "Focus",    text: "No single focus area identified yet." },
+      { key: "Next",     text: "Apply one measurable change, then re-run the scan." }
     ];
 
     var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
@@ -1581,12 +1738,23 @@ if (pageBg) {
       if (v < worst.v) worst = { k: k, v: v };
     }
 
-    if (best.k) items[0].text = (LABELS[best.k] || best.k).toString() + " is strongest (" + best.v + "/100).";
-    if (worst.k) items[1].text = (LABELS[worst.k] || worst.k).toString() + " is the main risk (" + worst.v + "/100).";
+    if (best.k) items[0].text = strongestInsightText(best.k, best.v, data, signals);
+    if (primary && primary.key) items[1].text = specificConstraintLabel(data, primary, signals) + " is the clearest delivery risk in this scan.";
+    else if (worst.k) items[1].text = (LABELS[worst.k] || worst.k) + " is currently the weakest measured signal (" + worst.v + "/100).";
 
     if (primary && primary.key) {
-      items[2].text = (LABELS[primary.key] || primary.key) + " is the primary constraint in this scan.";
-      items[3].text = "Address one measurable item in this domain, then re-scan to confirm the lift.";
+      var focus = specificConstraintLabel(data, primary, signals);
+      items[2].text = "Focus the next change on " + focus.toLowerCase() + ", because it is the highest-leverage blocker right now.";
+
+      var domainFix = recommendedFixForKey(primary.key);
+      var lcp = lcpSecondsFromData(data);
+      if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
+        items[3].text = "Prioritise the render path first. Mobile LCP is around " + lcp + "s, so improve the first visible content before broad optimisation work.";
+      } else if (primary.key === "seo" && pickBasicChecks(data).canonical_present === false) {
+        items[3].text = "Add the missing canonical first, then re-run the scan to confirm the baseline improved.";
+      } else {
+        items[3].text = domainFix || items[3].text;
+      }
     }
 
     var html = '<div class="insight-list">';
@@ -1601,6 +1769,7 @@ if (pageBg) {
 
     root.innerHTML = html;
   }
+
 
   // -----------------------------
   // Top Issues
@@ -1806,45 +1975,62 @@ if (pageBg) {
   // -----------------------------
   // Fix Sequence
   // -----------------------------
-  function renderFixSequence(scores, signals, primary) {
+  function renderFixSequence(data, scores, signals, primary) {
     var root = $("fixSequenceRoot");
     if (!root) return;
 
+    data = safeObj(data);
     scores = safeObj(scores);
     signals = asArray(signals);
 
     var focus = "";
-    if (primary && primary.key) focus = LABELS[primary.key] || primary.key;
+    if (primary && primary.key) focus = specificConstraintLabel(data, primary, signals);
+
+    var primaryIssues = dedupeIssueEntries(gatherIssueEntries(signals, primary && primary.key ? primary.key : ""));
+    var allIssues = dedupeIssueEntries(gatherIssueEntries(signals, ""));
+    var secondary = [];
+    for (var i = 0; i < allIssues.length; i++) {
+      if (!primary || !primary.key || allIssues[i].domain !== primary.key) secondary.push(allIssues[i]);
+    }
+
+    function issueBullet(entry, fallback) {
+      if (entry && entry.title) return "Resolve: " + entry.title.replace(/\.$/, "") + ".";
+      return fallback;
+    }
 
     try {
       var phases = root.querySelectorAll(".phase");
       if (phases && phases.length >= 3) {
         var ul1 = phases[0].querySelector("ul");
         if (ul1) {
-          ul1.innerHTML =
-            "<li>Fix the top constraint first: <strong>" + escapeHtml(focus || "the clearest evidence-backed item") + "</strong>.</li>" +
-            "<li>Re-run the scan immediately to confirm measurable improvement before expanding scope.</li>" +
-            "<li>Keep changes small and measurable (one batch, one re-scan).</li>";
+          var p1 = [];
+          p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
+          p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
+          p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
+          ul1.innerHTML = "<li>" + escapeHtml(p1[0]) + "</li><li>" + escapeHtml(p1[1]) + "</li><li>" + escapeHtml(p1[2]) + "</li>";
         }
 
         var ul2 = phases[1].querySelector("ul");
         if (ul2) {
-          ul2.innerHTML =
-            "<li>Address remaining deductions in the weakest domain (varies by site and scores).</li>" +
-            "<li>Remove repeat sources of technical debt (templates, missing tags, missing labels, header policy).</li>" +
-            "<li>Validate with a second re-scan and keep a simple before/after record.</li>";
+          var p2 = [];
+          p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
+          p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
+          p2.push("Keep a simple before-and-after record tied to the new scan result.");
+          ul2.innerHTML = "<li>" + escapeHtml(p2[0]) + "</li><li>" + escapeHtml(p2[1]) + "</li><li>" + escapeHtml(p2[2]) + "</li>";
         }
 
         var ul3 = phases[2].querySelector("ul");
         if (ul3) {
-          ul3.innerHTML =
-            "<li>Harden trust posture (headers/policies) once the baseline is stable.</li>" +
-            "<li>Schedule periodic scans to prevent regressions.</li>" +
-            "<li>Keep a lightweight change log tied to scan IDs for auditability.</li>";
+          var p3 = [];
+          p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
+          p3.push("Schedule periodic re-scans to catch regressions before they compound.");
+          p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
+          ul3.innerHTML = "<li>" + escapeHtml(p3[0]) + "</li><li>" + escapeHtml(p3[1]) + "</li><li>" + escapeHtml(p3[2]) + "</li>";
         }
       }
     } catch (e) {}
   }
+
 
   // -----------------------------
   // Main render
@@ -1873,9 +2059,9 @@ if (pageBg) {
     renderSignalsGrid(signals, scores, primary);
 
     renderSignalEvidence(signals);
-    renderKeyInsights(scores, signals, primary);
+    renderKeyInsights(data, scores, signals, primary);
     renderTopIssues(signals, primary);
-    renderFixSequence(scores, signals, primary);
+    renderFixSequence(data, scores, signals, primary);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
