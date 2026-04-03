@@ -1069,7 +1069,6 @@ if (pageBg) {
           "Apply one measurable performance change, then re-run the scan to confirm improvement."
       };
     }
-
 if (domainKey === "ai_discoverability") {
   var aiScore = extras && extras.aiScore;
   var strongBrandCase = aiScore !== null && aiScore >= 60;
@@ -1091,9 +1090,17 @@ if (domainKey === "ai_discoverability") {
       "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
       (haveList ? (" Signals such as " + listText + " are currently limited or absent in the tested prompt set.") : ""),
     fix:
-      "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+      [
+        "Create independent mentions of the brand on directories, communities, partner sites, or relevant industry platforms.",
+        "Add clear Organization structured data so AI systems can reliably identify the business entity.",
+        "Expand service and product explanations on core pages to strengthen contextual understanding of the brand.",
+        "Publish supporting content that explains services, use cases, and problems your audience searches for.",
+        "Earn references or mentions from trusted niche publications, forums, or professional communities."
+      ].slice(0,5).map(function(f,i){
+        return (i + 1) + ". " + f;
+      }).join(" "),
     next:
-      "Re-run the scan after improving entity clarity or external mentions to see whether tested AI recommendation visibility improves."
+      "Re-run the scan after improving entity clarity, structured data, or independent mentions to evaluate changes in tested AI recommendation visibility."
   };
 }
 
@@ -1107,16 +1114,14 @@ return {
 };
 }
 
-
-
-  function findSignalByDomain(signals, domainKey) {
-    signals = asArray(signals);
-    for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      if (domainKeyFromSignal(sig) === domainKey) return sig;
-    }
-    return null;
+function findSignalByDomain(signals, domainKey) {
+  signals = asArray(signals);
+  for (var i = 0; i < signals.length; i++) {
+    var sig = safeObj(signals[i]);
+    if (domainKeyFromSignal(sig) === domainKey) return sig;
   }
+  return null;
+}
 
   function lcpSecondsFromData(data) {
     var psi = pickPsiEnvelope(data);
@@ -1281,98 +1286,26 @@ return {
     return out;
   }
 
-  function dedupeIssueEntries(entries) {
-    var seen = {};
-    var out = [];
-    for (var i = 0; i < entries.length; i++) {
-      var e = safeObj(entries[i]);
-      var key = String(e.domain || "") + "|" + String(e.title || "").toLowerCase();
-      if (!e.title || seen[key]) continue;
+function dedupeIssueEntries(entries) {
+  entries = asArray(entries);
+
+  var seen = {};
+  var out = [];
+
+  for (var i = 0; i < entries.length; i++) {
+    var it = safeObj(entries[i]);
+    var domain = String(it.domain || "").toLowerCase();
+    var title = String(it.title || "").toLowerCase().replace(/\s+/g, " ").trim();
+    var key = domain + "||" + title;
+
+    if (!seen[key]) {
       seen[key] = true;
-      out.push(e);
+      out.push(it);
     }
-    return out;
   }
 
-  // -----------------------------
-  // Key Findings
-  // -----------------------------
-  function renderExecutiveSummary(data, primary) {
-    data = safeObj(data);
-    var scores = pickScores(data);
-    var signals = pickSignals(data);
-    var overall = asInt(scores.overall, 0);
-
-    var oEl = $("findingOverall");
-    var cEl = $("findingConstraint");
-    var iEl = $("findingImpact");
-    var fEl = $("findingFix");
-    var nEl = $("findingNext");
-
-    function setText(el, t) {
-      if (!el) return;
-      el.textContent = (t == null || t === "") ? "—" : String(t);
-    }
-
-    setText(oEl, overall + "/100 — " + verdict(overall));
-
-    if (!primary || !primary.key) {
-      setText(cEl, "No clear primary constraint identified from this scan output.");
-      setText(iEl, "The scan did not return enough evidence to identify a single highest-leverage constraint.");
-      setText(fEl, "Review the Signal Evidence blocks and address the clearest measurable deficit.");
-      setText(nEl, "Re-run the scan after one change to confirm a measurable lift.");
-      return;
-    }
-
-    var domainLabel = specificConstraintLabel(data, primary, signals);
-    setText(cEl, domainLabel);
-
-    var narrativeSignals = collectNarrativeSignalsForDomain(primary.key, signals);
- var extras = {
-  mobileLcpSeconds: lcpSecondsFromData(data),
-  platformManaged: String(data.platform_control || "").toLowerCase() === "limited",
-  aiScore: primary && primary.key === "ai_discoverability" ? primary.score : null
-};
-
-    var narrative = getDomainNarrative(primary.key, narrativeSignals, extras);
-    var impact = narrative.impact;
-    var lcp = lcpSecondsFromData(data);
-    var htmlKb = htmlKbFromData(data);
-    var inlineScripts = inlineScriptsFromData(data);
-
-    if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
-      impact = "Visible content is arriving later than expected on mobile. Largest Contentful Paint is around " + lcp + "s, which delays the point where the page feels ready to users.";
-    } else if (primary.key === "seo") {
-      if (pickBasicChecks(data).canonical_present === false) impact = "Search engines may be receiving weaker page ownership signals because a canonical link was not detected in this scan.";
-      else if (pickBasicChecks(data).h1_present === false) impact = "The page is missing a clear primary heading, which weakens content clarity for both users and search engines.";
-    } else if (primary.key === "security" && String(data.platform_control || "").toLowerCase() !== "limited") {
-      impact = "Browser trust hardening is incomplete. Missing security headers reduce baseline protection and weaken technical trust signals, even when the site otherwise loads normally.";
-    } else if (primary.key === "accessibility") {
-      var acc = findSignalByDomain(signals, "accessibility");
-      if (acc && acc.evidence) {
-        var total = num(acc.evidence.images_total || acc.evidence.img_count);
-        var withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
-        if (total !== null && withAlt !== null && total > withAlt) impact = "Some content is less accessible than it should be. Alt text coverage is " + withAlt + "/" + total + ", which can block understanding for assistive technologies.";
-      }
-    }
-    setText(iEl, impact);
-
-    var fixText = narrative.fix;
-    if (primary.key === "performance" || primary.key === "mobile") {
-      var parts = [];
-      if (lcp !== null && lcp > 2.5) parts.push("mobile LCP ~" + lcp + "s");
-      if (htmlKb !== null && htmlKb >= 50) parts.push("HTML payload ~" + htmlKb + "KB");
-      if (inlineScripts !== null && inlineScripts >= 3) parts.push(inlineScripts + " inline scripts before render");
-      if (parts.length) fixText += " Evidence observed: " + parts.join(", ") + ".";
-    }
-    setText(fEl, fixText);
-
-    var nextText = narrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.";
-    if (primary.key === "seo") nextText = "Apply the SEO baseline fix first, then re-run the scan to confirm indexing signals improved.";
-    if (primary.key === "security" && String(data.platform_control || "").toLowerCase() !== "limited") nextText = "Implement the missing hardening headers, then re-run the scan to confirm they are detected.";
-    setText(nEl, nextText);
-  }
-
+  return out;
+}
 
   // -----------------------------
   // Delivery signal cards
