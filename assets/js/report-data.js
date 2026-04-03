@@ -1062,6 +1062,21 @@ if (pageBg) {
     }
 
 if (domainKey === "ai_discoverability") {
+  var aiScore = extras && extras.aiScore;
+  var strongBrandCase = aiScore !== null && aiScore >= 60;
+
+  if (strongBrandCase) {
+    return {
+      impact:
+        "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
+        (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
+      fix:
+        "No technical issue detected. The tested recommendation prompts may not represent typical discovery queries for this brand.",
+      next:
+        "If needed, test additional prompts aligned with this brand's products, services, or category."
+    };
+  }
+
   return {
     impact:
       "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
@@ -1073,12 +1088,15 @@ if (domainKey === "ai_discoverability") {
   };
 }
 
-    return {
-      impact: "No major delivery constraints were identified from this scan output.",
-      fix: "Review the Signal Evidence blocks and address the clearest evidence-backed deficit.",
-      next: "Re-run the scan after one change to confirm a measurable lift."
-    };
-  }
+return {
+  impact:
+    "This signal indicates a measurable delivery constraint that should be reviewed in context with the evidence below.",
+  fix:
+    "Review the evidence signals and address the underlying technical constraint affecting this category.",
+  next:
+    "Apply one measurable change, then re-run the scan to confirm improvement."
+};
+}
 
 
 
