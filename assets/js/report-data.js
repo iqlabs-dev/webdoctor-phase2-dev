@@ -96,24 +96,29 @@
     return "Poor";
   }
 
-  function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured) {
-    var model = window.IQWEB_SCORE_MODEL || null;
-    if (model && typeof model.signalHeadline === "function") {
-      return model.signalHeadline(score, flagged, isPrimary, unmeasured);
-    }
-
-    if (unmeasured) return "Not Measured";
-    if (isPrimary) return "Priority Fix";
-    if (flagged && score !== null && score < 40) return "Critical Fix";
-    if (flagged && score !== null && score < 80) return "Priority Fix";
-    if (flagged) return "Improvement Opportunity";
-    if (score !== null && score >= 90) return "Strong";
-    if (score !== null && score >= 70) return "Stable";
-    if (score !== null && score >= 50) return "Improvement Opportunity";
-    if (score !== null && score >= 35) return "Priority Fix";
-    if (score !== null) return "Critical Fix";
-    return "Deterministic";
+function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKey) {
+  var model = window.IQWEB_SCORE_MODEL || null;
+  if (model && typeof model.signalHeadline === "function") {
+    return model.signalHeadline(score, flagged, isPrimary, unmeasured, signalKey);
   }
+
+  if (unmeasured) return "Not Measured";
+
+  if (signalKey === "ai_discoverability" && score !== null && score >= 60) {
+    return "Observation";
+  }
+
+  if (isPrimary) return "Priority Fix";
+  if (flagged && score !== null && score < 40) return "Critical Fix";
+  if (flagged && score !== null && score < 80) return "Priority Fix";
+  if (flagged) return "Improvement Opportunity";
+  if (score !== null && score >= 90) return "Strong";
+  if (score !== null && score >= 70) return "Stable";
+  if (score !== null && score >= 50) return "Improvement Opportunity";
+  if (score !== null && score >= 35) return "Priority Fix";
+  if (score !== null) return "Critical Fix";
+  return "Deterministic";
+}
 
   function severityClassFromModel(score, unmeasured) {
     var model = window.IQWEB_SCORE_MODEL || null;
@@ -1566,7 +1571,7 @@ return {
       if (platformManaged) {
         headline = "Platform Managed";
       } else {
-        headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured);
+  headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, key);
       }
 
       var lines = [];
