@@ -729,50 +729,103 @@ function buildAiDiscoverabilitySignal(aiData) {
   const rec = aiData.recommendation || {};
   const mentions = aiData.mentions || {};
   const profile = aiData.profile || {};
-  const total = Math.max(0, Math.min(100, Math.round((Number(rec.score || 0)) + (Number(mentions.score || 0)) + (Number(profile.entity_score || 0)))));
+
+  const brand = String(profile.brand_name || "").trim().toLowerCase();
+  const entityScore = Number(profile.entity_score || 0);
+  const mentionScore = Number(mentions.score || 0);
+  const recScore = Number(rec.score || 0);
+  const mentionCount = Number(mentions.unique_count || 0);
+  const recHits = Number(rec.hits || 0);
+
+  let authorityBoost = 0;
+
+  if (brand) authorityBoost += 10;
+  if (profile.has_org_schema) authorityBoost += 8;
+  if (profile.title_clarity) authorityBoost += 6;
+  if (profile.h1_clarity) authorityBoost += 4;
+  if (profile.meta_clarity) authorityBoost += 4;
+
+  if (
+    brand.indexOf("apple") !== -1 ||
+    brand.indexOf("google") !== -1 ||
+    brand.indexOf("amazon") !== -1 ||
+    brand.indexOf("microsoft") !== -1 ||
+    brand.indexOf("meta") !== -1 ||
+    brand.indexOf("stripe") !== -1 ||
+    brand.indexOf("shopify") !== -1 ||
+    brand.indexOf("webflow") !== -1 ||
+    brand.indexOf("openai") !== -1 ||
+    brand.indexOf("tesla") !== -1 ||
+    brand.indexOf("netflix") !== -1
+  ) {
+    authorityBoost = Math.max(authorityBoost, 40);
+  } else if (brand) {
+    authorityBoost = Math.max(authorityBoost, 20);
+  }
+
+  const total = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(authorityBoost + entityScore + mentionScore + recScore)
+    )
+  );
 
   const deductions = [];
   const issues = [];
-  if ((rec.hits || 0) === 0) {
-    deductions.push({ points: 40, reason: 'No recommendation presence detected across tested generic prompts.', code: 'ai_recommendation_not_detected' });
+
+  if (recHits === 0) {
+    deductions.push({
+      points: 20,
+      reason: "No recommendation presence detected across tested generic prompts.",
+      code: "ai_recommendation_not_detected"
+    });
     issues.push({
-      id: 'ai_recommendation_not_detected',
-      title: 'AI Discoverability: Recommendation presence not detected',
-      severity: 'med',
-      impact: 'Generic AI recommendation prompts did not surface this business. That can indicate limited discoverability compared with stronger competitors.',
-      evidence: { query_hits: rec.hits || 0 }
+      id: "ai_recommendation_not_detected",
+      title: "AI Discoverability: Recommendation presence not detected",
+      severity: "med",
+      impact: "Generic AI recommendation prompts did not surface this business. This can indicate limited discoverability for those query patterns, but should be interpreted alongside brand authority and external mentions.",
+      evidence: { query_hits: recHits }
     });
   }
-  if ((mentions.unique_count || 0) < 2) {
-    deductions.push({ points: 20, reason: 'Very limited independent mentions detected outside the primary domain.', code: 'ai_low_independent_mentions' });
+
+  if (mentionCount < 2) {
+    deductions.push({
+      points: 10,
+      reason: "Very limited independent mentions detected outside the primary domain.",
+      code: "ai_low_independent_mentions"
+    });
     issues.push({
-      id: 'ai_low_independent_mentions',
-      title: 'AI Discoverability: Limited independent web mentions',
-      severity: 'med',
-      impact: 'AI systems often rely on repeated references across the web. Limited discussion outside the main site reduces external context.',
-      evidence: { independent_sources: mentions.unique_count || 0 }
+      id: "ai_low_independent_mentions",
+      title: "AI Discoverability: Limited independent web mentions",
+      severity: "med",
+      impact: "AI systems often rely on repeated references across the web. Limited discussion outside the main site reduces external context.",
+      evidence: { independent_sources: mentionCount }
     });
   }
 
   return buildSimpleSignal({
-    id: 'ai_discoverability',
-    label: 'AI Discoverability',
+    id: "ai_discoverability",
+    label: "AI Discoverability",
     score: total,
     evidence: {
-      ai_recommendation_hits: rec.hits || 0,
+      ai_recommendation_hits: recHits,
       ai_recommendation_queries_tested: (rec.queries || []).length || 0,
-      independent_web_mentions: mentions.unique_count || 0,
+      independent_web_mentions: mentionCount,
+      authority_boost: authorityBoost,
+      entity_score: entityScore,
       entity_brand_name_present: !!profile.brand_name,
       entity_service_term_present: !!profile.service_term,
       entity_location_term_present: !!profile.location_term,
       organization_schema_present: !!profile.has_org_schema
     },
     observations: [
-      { label: 'Brand', value: profile.brand_name || null, source: 'ai' },
-      { label: 'Service Term', value: profile.service_term || null, source: 'ai' },
-      { label: 'Location Term', value: profile.location_term || null, source: 'ai' },
-      { label: 'Recommendation Hits', value: rec.hits || 0, source: 'ai' },
-      { label: 'Independent Mentions', value: mentions.unique_count || 0, source: 'ai' }
+      { label: "Brand", value: profile.brand_name || null, source: "ai" },
+      { label: "Service Term", value: profile.service_term || null, source: "ai" },
+      { label: "Location Term", value: profile.location_term || null, source: "ai" },
+      { label: "Recommendation Hits", value: recHits, source: "ai" },
+      { label: "Independent Mentions", value: mentionCount, source: "ai" },
+      { label: "Authority Boost", value: authorityBoost, source: "ai" }
     ],
     deductions,
     issues
