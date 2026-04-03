@@ -763,13 +763,20 @@ function buildAiDiscoverabilitySignal(aiData) {
     authorityBoost = Math.max(authorityBoost, 20);
   }
 
-  const total = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round(authorityBoost + entityScore + mentionScore + recScore)
-    )
-  );
+ let total = Math.max(
+  0,
+  Math.min(
+    100,
+    Math.round(authorityBoost + entityScore + mentionScore + recScore)
+  )
+);
+
+// Global-brand floor:
+// if the entity is very strong but recommendation prompts are not the right fit,
+// do not let the score collapse into a misleading low result.
+if (authorityBoost >= 40 && entityScore >= 15 && total < 60) {
+  total = 60;
+}
 
   const deductions = [];
   const issues = [];
@@ -782,9 +789,9 @@ function buildAiDiscoverabilitySignal(aiData) {
     });
     issues.push({
       id: "ai_recommendation_not_detected",
-      title: "AI Discoverability: Recommendation presence not detected",
+    title: "AI Discoverability: Not surfaced in tested recommendation prompts",
       severity: "med",
-      impact: "Generic AI recommendation prompts did not surface this business. This can indicate limited discoverability for those query patterns, but should be interpreted alongside brand authority and external mentions.",
+      impact: "Tested AI recommendation prompts did not surface this business. This may reflect the query type rather than overall brand visibility, especially for strong global consumer brands.",
       evidence: { query_hits: recHits }
     });
   }
