@@ -1617,27 +1617,18 @@ const secPack = scoreSecurityFromHeaders(headers, platform);
     });
   }
 
-  let aiDiscoverabilitySignal = buildSimpleSignal({
-    id: "ai_discoverability",
-    label: "AI Discoverability",
-    score: 0,
-    evidence: {
-      ai_recommendation_hits: 0,
-      ai_recommendation_queries_tested: 0,
-      independent_web_mentions: 0,
-      entity_brand_name_present: !!aiProfile.brand_name,
-      entity_service_term_present: !!aiProfile.service_term,
-      entity_location_term_present: !!aiProfile.location_term,
-      organization_schema_present: !!aiProfile.has_org_schema
-    },
-    observations: [
-      { label: "Brand", value: aiProfile.brand_name || null, source: "ai" },
-      { label: "Service Term", value: aiProfile.service_term || null, source: "ai" },
-      { label: "Location Term", value: aiProfile.location_term || null, source: "ai" }
-    ],
-    deductions: [],
-    issues: []
-  });
+const aiData = {
+  profile: aiProfile,
+  recommendation: {
+    detected: false,
+    queries_tested: 3
+  },
+  mentions: {
+    count: 0
+  }
+};
+
+let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
 
   const aiOverall = aiDiscoverabilitySignal.score;
   const overall = Math.round((perf + seo + structure + mobile + security + accessibility + aiOverall) / 7);
