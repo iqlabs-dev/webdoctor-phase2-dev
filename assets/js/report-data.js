@@ -1624,23 +1624,73 @@ return {
       var severityClass = severityClassFromModel(score, unmeasured);
 
       var card = document.createElement("div");
-      card.className = "card " + severityClass;
+      card.className = "card " + severityClass + (key === "ai_discoverability" ? " ai-discovery-card" : "");
 
-var badgeHtml = "";
-if (isPrimary) {
-  badgeHtml = key === "ai_discoverability"
-    ? '<div class="primary-badge">Discovery Signal</div>'
-    : '<div class="primary-badge">Primary Constraint</div>';
-}
+      var badgeHtml = "";
+      if (isPrimary) {
+        badgeHtml = key === "ai_discoverability"
+          ? '<div class="primary-badge">Discovery Signal</div>'
+          : '<div class="primary-badge">Primary Constraint</div>';
+      }
 
-      card.innerHTML =
-        badgeHtml +
-        '<div class="card-top">' +
-          "<h3>" + escapeHtml(label) + "</h3>" +
-          '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-        "</div>" +
-        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-        '<div class="summary">' + summaryHtml + "</div>";
+      if (key === "ai_discoverability") {
+        var aiObserved = "";
+        var aiFixList = "";
+        var aiFootnote =
+          "AI Discoverability is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI discovery scenarios, not overall brand quality or general business value.";
+
+        if (score !== null && score >= 60) {
+          aiObserved = "The brand showed some visibility in the tested AI recommendation prompt set. This is treated as an observation signal rather than a direct technical defect.";
+          aiFixList =
+            "<li>No immediate technical issue was detected.</li>" +
+            "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
+            "<li>Expand entity clarity only where it improves real-world discovery.</li>";
+        } else {
+          aiObserved = "The brand was not strongly surfaced in the tested AI recommendation prompts, and external discovery signals appear limited for this category.";
+          aiFixList =
+            "<li>Clarify the brand and category language used across the site.</li>" +
+            "<li>Earn more independent mentions from relevant third-party sources.</li>" +
+            "<li>Tighten directory, profile, and citation consistency.</li>" +
+            "<li>Add clearer product, service, and niche context for entity matching.</li>" +
+            "<li>Test prompts that reflect real recommendation searches in your category.</li>";
+        }
+
+        card.innerHTML =
+          badgeHtml +
+          '<div class="card-top">' +
+            "<h3>" + escapeHtml(label) + "</h3>" +
+          "</div>" +
+          '<div class="ai-discovery-layout">' +
+            '<div class="ai-discovery-scorebox">' +
+              '<div class="ai-label">Discovery Signal</div>' +
+              '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+              '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+              '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
+            "</div>" +
+
+            '<div class="ai-discovery-panel">' +
+              "<h4>What was observed</h4>" +
+              "<p>" + escapeHtml(aiObserved) + "</p>" +
+            "</div>" +
+
+            '<div class="ai-discovery-panel">' +
+              "<h4>How to improve discoverability</h4>" +
+              "<ul>" + aiFixList + "</ul>" +
+              '<div class="ai-more-toggle" onclick="(function(el){var n=el.nextElementSibling; if(n) n.className = n.className.indexOf(\'open\') !== -1 ? \'ai-more-copy\' : \'ai-more-copy open\';})(this)">More info</div>' +
+              '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style discovery patterns.</div>' +
+            "</div>" +
+          "</div>" +
+          '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
+      } else {
+        card.innerHTML =
+          badgeHtml +
+          '<div class="card-top">' +
+            "<h3>" + escapeHtml(label) + "</h3>" +
+            '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+          "</div>" +
+          '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+          '<div class="summary">' + summaryHtml + "</div>";
+      }
 
       grid.appendChild(card);
     }

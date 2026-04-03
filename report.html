@@ -501,6 +501,7 @@
       gap: 8px;
     }
 
+
     @media (min-width: 800px) {
       .evidence-list { grid-template-columns: 1fr 1fr; }
     }
@@ -853,6 +854,100 @@
         transform: none;
       }
     }
+
+      @media (hover: hover) and (pointer: fine) {
+    .evidence-block {
+      transition: border-color 140ms ease-out, box-shadow 140ms ease-out, transform 140ms ease-out;
+    }
+
+    .evidence-block:hover {
+      border-color: rgba(64, 220, 180, 0.28);
+      box-shadow: 0 0 0 1px rgba(64, 220, 180, 0.12);
+      transform: none;
+    }
+  }
+
+
+/* -------------------------------- */
+/* AI DISCOVERABILITY LAYOUT        */
+/* -------------------------------- */
+
+.card.ai-discovery-card {
+  grid-column: 1 / -1;
+  border-color: rgba(239, 68, 68, 0.32);
+  background:
+    linear-gradient(180deg, rgba(239,68,68,0.06), rgba(0,0,0,0.18));
+  padding: 16px;
+}
+
+.ai-discovery-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.ai-discovery-scorebox {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.ai-discovery-scorebox .ai-label {
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.ai-discovery-scorebox .ai-score {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.ai-discovery-panel {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.ai-discovery-panel h4 {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.ai-discovery-panel p,
+.ai-discovery-panel li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.ai-discovery-footnote {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+@media (max-width: 979px) {
+  .ai-discovery-layout {
+    grid-template-columns: 1fr;
+  }
+}
   </style>
 </head>
 
