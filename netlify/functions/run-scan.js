@@ -729,6 +729,14 @@ function buildAiDiscoverabilitySignal(aiData) {
   const rec = aiData.recommendation || {};
   const mentions = aiData.mentions || {};
   const profile = aiData.profile || {};
+  const pageUrl = String(aiData.page_url || "");
+
+  let host = "";
+  try {
+    host = new URL(pageUrl).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch (e) {
+    host = "";
+  }
 
   const brand = String(profile.brand_name || "").trim().toLowerCase();
   const entityScore = Number(profile.entity_score || 0);
@@ -736,6 +744,20 @@ function buildAiDiscoverabilitySignal(aiData) {
   const recScore = Number(rec.score || 0);
   const mentionCount = Number(mentions.unique_count || 0);
   const recHits = Number(rec.hits || 0);
+
+  const strongHosts = [
+    "apple.com",
+    "google.com",
+    "amazon.com",
+    "microsoft.com",
+    "meta.com",
+    "stripe.com",
+    "shopify.com",
+    "webflow.com",
+    "openai.com",
+    "tesla.com",
+    "netflix.com"
+  ];
 
   let authorityBoost = 0;
 
@@ -746,6 +768,7 @@ function buildAiDiscoverabilitySignal(aiData) {
   if (profile.meta_clarity) authorityBoost += 4;
 
   if (
+    strongHosts.indexOf(host) !== -1 ||
     brand.indexOf("apple") !== -1 ||
     brand.indexOf("google") !== -1 ||
     brand.indexOf("amazon") !== -1 ||
@@ -759,28 +782,20 @@ function buildAiDiscoverabilitySignal(aiData) {
     brand.indexOf("netflix") !== -1
   ) {
     authorityBoost = Math.max(authorityBoost, 40);
-  } else if (brand) {
+  } else if (brand || host) {
     authorityBoost = Math.max(authorityBoost, 20);
   }
 
-  // weighted scoring for more realistic AI visibility
   let total = Math.max(
     0,
     Math.min(
       100,
-      Math.round(
-        (authorityBoost * 0.35) +
-        (entityScore * 0.15) +
-        (mentionScore * 0.20) +
-        (recScore * 0.30)
-      )
+      Math.round(authorityBoost + entityScore + mentionScore + recScore)
     )
   );
 
-  // global-brand floor:
-  // if entity authority is strong but tested prompts are not a good fit,
-  // do not let the score collapse into a misleading low result
-  if (authorityBoost >= 40 && entityScore >= 15 && total < 60) {
+  // prevent globally strong brands from collapsing because prompt fit is poor
+  if ((strongHosts.indexOf(host) !== -1 || authorityBoost >= 40) && total < 60) {
     total = 60;
   }
 
@@ -797,7 +812,7 @@ function buildAiDiscoverabilitySignal(aiData) {
       id: "ai_recommendation_not_detected",
       title: "AI Discoverability: Not surfaced in tested recommendation prompts",
       severity: "med",
-      impact: "Tested AI recommendation prompts did not surface this business. This may reflect the query type rather than overall brand visibility, especially for strong global consumer brands.",
+      impact: "Tested AI recommendation prompts did not surface this business. This may reflect the query type rather than overall brand visibility, especially for strong global brands.",
       evidence: { query_hits: recHits }
     });
   }
@@ -827,6 +842,7 @@ function buildAiDiscoverabilitySignal(aiData) {
       independent_web_mentions: mentionCount,
       authority_boost: authorityBoost,
       entity_score: entityScore,
+      hostname: host,
       entity_brand_name_present: !!profile.brand_name,
       entity_service_term_present: !!profile.service_term,
       entity_location_term_present: !!profile.location_term,
@@ -834,6 +850,7 @@ function buildAiDiscoverabilitySignal(aiData) {
     },
     observations: [
       { label: "Brand", value: profile.brand_name || null, source: "ai" },
+      { label: "Hostname", value: host || null, source: "ai" },
       { label: "Service Term", value: profile.service_term || null, source: "ai" },
       { label: "Location Term", value: profile.location_term || null, source: "ai" },
       { label: "Recommendation Hits", value: recHits, source: "ai" },
@@ -1689,7 +1706,8 @@ const aiMentions = await evaluateIndependentMentions(aiProfile, url);
 const aiData = {
   profile: aiProfile,
   recommendation: aiRecommendation,
-  mentions: aiMentions
+  mentions: aiMentions,
+  page_url: url
 };
 
 let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
