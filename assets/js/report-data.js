@@ -1061,16 +1061,17 @@ if (pageBg) {
       };
     }
 
-    if (domainKey === "ai_discoverability") {
-      return {
-        impact:
-          "AI discoverability is limited when a business has weak independent references across the web." + (haveList ? (" Signals such as " + listText + " are currently limited or absent.") : ""),
-        fix:
-          "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
-        next:
-          "Publish or earn one independent mention, then re-run the scan to see whether AI discoverability signals improve."
-      };
-    }
+if (domainKey === "ai_discoverability") {
+  return {
+    impact:
+      "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
+      (haveList ? (" Signals such as " + listText + " are currently limited or absent in the tested prompt set.") : ""),
+    fix:
+      "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+    next:
+      "Re-run the scan after improving entity clarity or external mentions to see whether tested AI recommendation visibility improves."
+  };
+}
 
     return {
       impact: "No major delivery constraints were identified from this scan output.",
@@ -1194,7 +1195,7 @@ if (pageBg) {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "No AI recommendation presence detected";
+        if (hits !== null && hits <= 0) return "Not surfaced in tested recommendation prompts";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI discoverability requires stronger external context";
