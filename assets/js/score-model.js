@@ -40,6 +40,7 @@
     if (k.indexOf("security") !== -1 || k.indexOf("trust") !== -1) return "security";
     if (k.indexOf("structure") !== -1 || k.indexOf("semantic") !== -1) return "structure";
     if (k.indexOf("access") !== -1) return "accessibility";
+    if (k.indexOf("ai") !== -1 || k.indexOf("discover") !== -1) return "ai_discoverability";
     return "";
   }
 

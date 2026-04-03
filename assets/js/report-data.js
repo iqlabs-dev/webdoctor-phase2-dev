@@ -573,7 +573,8 @@ if (pageBg) {
     seo: 0.20,
     security: 0.15,
     structure: 0.10,
-    accessibility: 0.05
+    accessibility: 0.05,
+    ai_discoverability: 0.10
   };
 
   var LABELS = {
@@ -582,7 +583,8 @@ if (pageBg) {
     seo: "SEO Foundations",
     security: "Security & Trust",
     structure: "Structure & Semantics",
-    accessibility: "Accessibility"
+    accessibility: "Accessibility",
+    ai_discoverability: "AI Discoverability"
   };
 
   function scoreFor(scores, k) {
@@ -624,6 +626,9 @@ if (pageBg) {
       case "performance":
         return "Review performance diagnostics and optimise loading behaviour to ensure stable Core Web Vitals and responsive rendering.";
 
+      case "ai_discoverability":
+        return "Increase independent mentions and clearer brand/entity context so AI systems have more external evidence to reference.";
+
       default:
         return "Review the evidence signals and address the underlying technical constraint affecting this category.";
     }
@@ -642,6 +647,7 @@ if (pageBg) {
     if (k.indexOf("security") !== -1 || k.indexOf("trust") !== -1) return "security";
     if (k.indexOf("structure") !== -1 || k.indexOf("semantic") !== -1) return "structure";
     if (k.indexOf("access") !== -1) return "accessibility";
+    if (k.indexOf("ai") !== -1 || k.indexOf("discover") !== -1) return "ai_discoverability";
     return "";
   }
 
@@ -752,11 +758,11 @@ if (pageBg) {
       return false;
     }
 
-    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility", "ai_discoverability"];
     var nonSecurityMeasured = false;
 
     if (platformControl === "limited") {
-      domains = ["performance", "mobile", "seo", "structure", "accessibility", "security"];
+      domains = ["performance", "mobile", "seo", "structure", "accessibility", "security", "ai_discoverability"];
 
       for (var z = 0; z < domains.length; z++) {
         var testKey = domains[z];
@@ -1055,6 +1061,17 @@ if (pageBg) {
       };
     }
 
+    if (domainKey === "ai_discoverability") {
+      return {
+        impact:
+          "AI discoverability is limited when a business has weak independent references across the web." + (haveList ? (" Signals such as " + listText + " are currently limited or absent.") : ""),
+        fix:
+          "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+        next:
+          "Publish or earn one independent mention, then re-run the scan to see whether AI discoverability signals improve."
+      };
+    }
+
     return {
       impact: "No major delivery constraints were identified from this scan output.",
       fix: "Review the Signal Evidence blocks and address the clearest evidence-backed deficit.",
@@ -1172,6 +1189,17 @@ if (pageBg) {
       return "Accessibility baseline gaps";
     }
 
+    if (domain === "ai_discoverability") {
+      var ai = findSignalByDomain(signals, "ai_discoverability");
+      if (ai && ai.evidence) {
+        var hits = num(ai.evidence.ai_recommendation_hits);
+        var mentions = num(ai.evidence.independent_web_mentions);
+        if (hits !== null && hits <= 0) return "No AI recommendation presence detected";
+        if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
+      }
+      return "AI discoverability requires stronger external context";
+    }
+
     return LABELS[domain] || domain;
   }
 
@@ -1197,6 +1225,13 @@ if (pageBg) {
         if (total !== null && withAlt !== null && total === withAlt && total > 0) return "Accessibility is strongest here, with full image alt coverage detected.";
       }
     }
+    if (bestKey === "ai_discoverability") {
+      var ai = findSignalByDomain(signals, "ai_discoverability");
+      if (ai && ai.evidence) {
+        var mentions = num(ai.evidence.independent_web_mentions);
+        if (mentions !== null && mentions >= 4) return "AI discoverability is strongest here, with independent mentions detected across multiple external sources.";
+      }
+    }
     return (LABELS[bestKey] || bestKey) + " is currently the strongest signal (" + bestScore + "/100).";
   }
 
@@ -1210,7 +1245,7 @@ if (pageBg) {
       var issues = asArray(sig.issues);
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
-        var title = String(it.title || it.id || "").replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "").trim();
+        var title = String(it.title || it.id || "").replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Discoverability)\s*:\s*/i, "").trim();
         if (!title) continue;
         out.push({ domain: domain, title: title, severity: String(it.severity || "MONITOR").toUpperCase(), why: String(it.impact || it.detail || it.description || "").trim() });
       }
@@ -1438,7 +1473,7 @@ if (pageBg) {
         var t = String(it.title || it.id || "").trim();
         t = normalizeExplainLine(t, sig);
 
-        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility)\s*:\s*/i, "");
+        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Discoverability)\s*:\s*/i, "");
 
         if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
         else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
@@ -1726,7 +1761,7 @@ if (pageBg) {
       { key: "Next",     text: "Apply one measurable change, then re-run the scan." }
     ];
 
-    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility"];
+    var domains = ["performance", "mobile", "seo", "security", "structure", "accessibility", "ai_discoverability"];
     var best = { k: "", v: -1 };
     var worst = { k: "", v: 999 };
 

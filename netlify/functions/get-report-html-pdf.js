@@ -810,6 +810,7 @@ function labelToKey(label) {
   if (x.includes("structure")) return "structure";
   if (x.includes("semantic")) return "structure";
   if (x.includes("accessibility")) return "accessibility";
+  if (x.includes("ai") || x.includes("discover")) return "ai_discoverability";
   return "";
 }
 
@@ -821,6 +822,7 @@ function titleCaseSignal(label) {
   if (key === "security") return "Security & Trust";
   if (key === "structure") return "Structure & Semantics";
   if (key === "accessibility") return "Accessibility";
+  if (key === "ai_discoverability") return "AI Discoverability";
   return label || "Signal";
 }
 
@@ -832,6 +834,7 @@ function orderedSignals(deliverySignals, scores) {
     "security",
     "structure",
     "accessibility",
+    "ai_discoverability",
   ];
 
   const mapped = {};
@@ -956,6 +959,18 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
     return "Accessibility foundations are incomplete and should be reviewed.";
   }
 
+  if (key === "ai_discoverability") {
+    const mentions = safeNumber(sig?.evidence?.independent_web_mentions);
+    const hits = safeNumber(sig?.evidence?.ai_recommendation_hits);
+    if ((hits || 0) <= 0) {
+      return "AI recommendation presence was not detected in tested generic prompts, and independent web references are limited.";
+    }
+    if ((mentions || 0) < 2) {
+      return "Independent references across the web are limited, which can reduce the likelihood of being surfaced in AI-generated answers.";
+    }
+    return "AI discoverability signals are present, supported by some recommendation visibility and independent mentions.";
+  }
+
   return "";
 }
 
@@ -988,6 +1003,10 @@ function fallbackSignalNarrative(sig, score) {
 
   if (key === "accessibility") {
     return "Accessibility foundations are incomplete and should be reviewed.";
+  }
+
+  if (key === "ai_discoverability") {
+    return "AI discoverability signals are limited and should be strengthened.";
   }
 
   return "";
@@ -1092,6 +1111,17 @@ function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
         "Optimise the primary render path by reducing document weight, render-blocking work, and heavy execution before content becomes ready.",
       next:
         "Apply one measurable performance change, then re-run the scan to confirm improvement.",
+    };
+  }
+
+  if (domainKey === "ai_discoverability") {
+    return {
+      impact:
+        "AI discoverability is limited when a business has weak independent references and low recommendation presence across generic prompts.",
+      fix:
+        "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+      next:
+        "Earn or publish one independent reference, then re-run the scan to check for measurable improvement.",
     };
   }
 

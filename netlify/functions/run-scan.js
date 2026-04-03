@@ -1,5 +1,6 @@
 const { detectPlatform } = require("../../utils/platform-detection");
 const { getPlatformPolicy } = require("../../utils/platform-policy");
+const cheerio = require("cheerio");
 
 // ---------------------------------------------
 // PSI (PageSpeed Insights) config
@@ -14,6 +15,8 @@ const PSI_STRATEGIES = String(process.env.PSI_STRATEGIES || "mobile,desktop")
 
 // PSI fetch timeout (ms)
 const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || "120000");
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 
  
@@ -489,6 +492,293 @@ function countMatches(re, s) {
   return m ? m.length : 0;
 }
 
+
+function safeJsonParse(v, fallback = null) {
+  try { return JSON.parse(v); } catch { return fallback; }
+}
+
+function decodeHtmlEntities(str) {
+  return String(str || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function hostnameLabelFromUrl(pageUrl) {
+  const u = tryParseUrl(pageUrl);
+  if (!u) return "";
+  const host = String(u.hostname || "").replace(/^www\./i, "").split(".")[0] || "";
+  return host.replace(/[-_]+/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()).trim();
+}
+
+function normalizeName(s) {
+  return String(s || "")
+    .replace(/\s+/g, " ")
+    .replace(/[|•·]+/g, " ")
+    .trim();
+}
+
+function escapeRegex(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+}
+
+
+function parseJsonLdSignals(html) {
+  const out = { organization_name: null, locality: null, service_name: null, has_org_schema: false };
+  if (!html) return out;
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const raw = (m[1] || "").trim();
+    const parsed = safeJsonParse(raw);
+    const items = Array.isArray(parsed) ? parsed : (parsed && parsed['@graph'] && Array.isArray(parsed['@graph']) ? parsed['@graph'] : [parsed]);
+    for (const item of items) {
+      if (!item || typeof item !== 'object') continue;
+      const type = Array.isArray(item['@type']) ? item['@type'].join(' ') : String(item['@type'] || '');
+      if (/organization|localbusiness|professionalservice|corporation|store|agency/i.test(type)) {
+        out.has_org_schema = true;
+        if (!out.organization_name && item.name) out.organization_name = normalizeName(item.name);
+        const addr = item.address || {};
+        if (!out.locality && addr.addressLocality) out.locality = normalizeName(addr.addressLocality);
+      }
+      if (!out.service_name && item.serviceType) out.service_name = normalizeName(item.serviceType);
+      if (!out.service_name && /service/i.test(type) && item.name) out.service_name = normalizeName(item.name);
+    }
+  }
+  return out;
+}
+
+function deriveAiProfile(basic, pageUrl, html) {
+  const profile = {
+    brand_name: '', service_term: '', location_term: '', has_org_schema: false,
+    entity_score: 0, title_clarity: false, h1_clarity: false, meta_clarity: false
+  };
+
+  const schema = parseJsonLdSignals(html);
+  profile.has_org_schema = !!schema.has_org_schema;
+
+  const title = normalizeName(basic.title_text || '');
+  const h1 = normalizeName(basic.h1_text || '');
+  const desc = normalizeName(basic.meta_description_text || '');
+
+  let brand = schema.organization_name || hostnameLabelFromUrl(pageUrl);
+  if (!schema.organization_name && title) {
+    const parts = title.split(/\s+[\-|–|—|•|:]\s+/);
+    if (parts.length > 1) brand = normalizeName(parts[parts.length - 1]);
+  }
+  profile.brand_name = brand;
+
+  let service = schema.service_name || h1 || title;
+  if (service && brand) {
+    const brandRe = new RegExp(escapeRegex(brand), 'ig');
+    service = service.replace(brandRe, ' ').replace(/\s+/g, ' ').trim();
+  }
+  service = service.replace(/^(welcome to|home|official site|homepage)\s+/i, '').trim();
+  if (service.split(' ').length > 8) service = service.split(' ').slice(0, 8).join(' ');
+  profile.service_term = service;
+
+  let location = schema.locality || '';
+  if (!location) {
+    const pool = [title, h1, desc].join(' | ');
+    const locMatch = pool.match(/\b(in|for|based in)\s+([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})/);
+    if (locMatch) location = normalizeName(locMatch[2]);
+  }
+  profile.location_term = location;
+
+  let entity = 0;
+  if (profile.brand_name) entity += 8;
+  if (profile.service_term && profile.service_term.length >= 4) entity += 5;
+  if (profile.location_term) entity += 3;
+  if (schema.has_org_schema) entity += 4;
+  profile.title_clarity = !!(basic.title_present && title);
+  profile.h1_clarity = !!(basic.h1_present && h1);
+  profile.meta_clarity = !!(basic.meta_description_present && desc);
+  profile.entity_score = Math.max(0, Math.min(20, entity));
+
+  return profile;
+}
+
+function buildAiQueries(profile) {
+  const service = profile.service_term || 'website services';
+  const location = profile.location_term || '';
+  const suffix = location ? (' in ' + location) : '';
+  return [
+    'best ' + service + suffix,
+    'top ' + service + suffix,
+    'recommended ' + service + suffix,
+    'who should I hire for ' + service + suffix
+  ];
+}
+
+async function openAiChat(messages, max_tokens = 450) {
+  if (!OPENAI_API_KEY) return null;
+  try {
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + OPENAI_API_KEY,
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        temperature: 0.2,
+        max_tokens,
+        messages,
+      })
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json().catch(() => null);
+    return json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content ? json.choices[0].message.content : null;
+  } catch (e) {
+    console.warn('[run-scan] OpenAI request failed', e && e.message ? e.message : e);
+    return null;
+  }
+}
+
+async function evaluateAiRecommendationPresence(profile, pageUrl) {
+  const queries = buildAiQueries(profile);
+  const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
+  const brand = String(profile.brand_name || '').toLowerCase();
+  const results = [];
+  let hits = 0;
+
+  if (!OPENAI_API_KEY) {
+    return { score: 0, hits: 0, queries, results: [], available: false };
+  }
+
+  for (const q of queries) {
+    const content = await openAiChat([
+      { role: 'system', content: 'You are evaluating whether a business appears in generic recommendation answers. Answer with short plain text names or domains only.' },
+      { role: 'user', content: 'List up to 5 businesses or domains someone might consider for this query: ' + q }
+    ], 180);
+
+    const raw = String(content || '').trim();
+    const lower = raw.toLowerCase();
+    const mentioned = (!!domain && lower.indexOf(domain.toLowerCase()) !== -1) || (!!brand && lower.indexOf(brand) !== -1);
+    if (mentioned) hits += 1;
+    results.push({ query: q, mentioned, raw: raw.slice(0, 400) });
+  }
+
+  const score = hits >= 3 ? 40 : hits >= 1 ? 20 : 0;
+  return { score, hits, queries, results, available: true };
+}
+
+async function fetchDuckDuckGoResults(query) {
+  try {
+    const url = 'https://duckduckgo.com/html/?q=' + encodeURIComponent(query);
+    const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 iQWEB/1.0' } });
+    if (!resp.ok) return [];
+    const html = await resp.text();
+    const $ = cheerio.load(html);
+    const out = [];
+    $('.result').each((_, el) => {
+      if (out.length >= 10) return false;
+      const title = decodeHtmlEntities($(el).find('.result__title').text().trim());
+      let href = $(el).find('.result__title a').attr('href') || '';
+      const snippet = decodeHtmlEntities($(el).find('.result__snippet').text().trim());
+      if (href && href.startsWith('//')) href = 'https:' + href;
+      out.push({ title, href, snippet });
+    });
+    return out;
+  } catch (e) {
+    console.warn('[run-scan] DDG fetch failed', e && e.message ? e.message : e);
+    return [];
+  }
+}
+
+async function evaluateIndependentMentions(profile, pageUrl) {
+  const brand = profile.brand_name || hostnameLabelFromUrl(pageUrl);
+  const queries = [
+    '"' + brand + '"',
+    'site:reddit.com "' + brand + '"',
+    'site:forum "' + brand + '"',
+    '"' + brand + '" review'
+  ];
+  const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
+  const sources = [];
+  const domains = {};
+
+  for (const q of queries) {
+    const rows = await fetchDuckDuckGoResults(q);
+    for (const row of rows) {
+      try {
+        const u = tryParseUrl(row.href);
+        const host = ((u && u.hostname) || '').replace(/^www\./i, '');
+        if (!host || host === domain) continue;
+        const text = (row.title + ' ' + row.snippet).toLowerCase();
+        if (brand && text.indexOf(String(brand).toLowerCase()) === -1) continue;
+        domains[host] = true;
+        sources.push({ query: q, host, title: row.title, snippet: row.snippet });
+      } catch {}
+    }
+  }
+
+  const uniqueCount = Object.keys(domains).length;
+  let score = 0;
+  if (uniqueCount >= 8) score = 40;
+  else if (uniqueCount >= 4) score = 28;
+  else if (uniqueCount >= 2) score = 14;
+  else score = 0;
+
+  return { score, unique_count: uniqueCount, sources: sources.slice(0, 12) };
+}
+
+function buildAiDiscoverabilitySignal(aiData) {
+  const rec = aiData.recommendation || {};
+  const mentions = aiData.mentions || {};
+  const profile = aiData.profile || {};
+  const total = Math.max(0, Math.min(100, Math.round((Number(rec.score || 0)) + (Number(mentions.score || 0)) + (Number(profile.entity_score || 0)))));
+
+  const deductions = [];
+  const issues = [];
+  if ((rec.hits || 0) === 0) {
+    deductions.push({ points: 40, reason: 'No recommendation presence detected across tested generic prompts.', code: 'ai_recommendation_not_detected' });
+    issues.push({
+      id: 'ai_recommendation_not_detected',
+      title: 'AI Discoverability: Recommendation presence not detected',
+      severity: 'med',
+      impact: 'Generic AI recommendation prompts did not surface this business. That can indicate limited discoverability compared with stronger competitors.',
+      evidence: { query_hits: rec.hits || 0 }
+    });
+  }
+  if ((mentions.unique_count || 0) < 2) {
+    deductions.push({ points: 20, reason: 'Very limited independent mentions detected outside the primary domain.', code: 'ai_low_independent_mentions' });
+    issues.push({
+      id: 'ai_low_independent_mentions',
+      title: 'AI Discoverability: Limited independent web mentions',
+      severity: 'med',
+      impact: 'AI systems often rely on repeated references across the web. Limited discussion outside the main site reduces external context.',
+      evidence: { independent_sources: mentions.unique_count || 0 }
+    });
+  }
+
+  return buildSimpleSignal({
+    id: 'ai_discoverability',
+    label: 'AI Discoverability',
+    score: total,
+    evidence: {
+      ai_recommendation_hits: rec.hits || 0,
+      ai_recommendation_queries_tested: (rec.queries || []).length || 0,
+      independent_web_mentions: mentions.unique_count || 0,
+      entity_brand_name_present: !!profile.brand_name,
+      entity_service_term_present: !!profile.service_term,
+      entity_location_term_present: !!profile.location_term,
+      organization_schema_present: !!profile.has_org_schema
+    },
+    observations: [
+      { label: 'Brand', value: profile.brand_name || null, source: 'ai' },
+      { label: 'Service Term', value: profile.service_term || null, source: 'ai' },
+      { label: 'Location Term', value: profile.location_term || null, source: 'ai' },
+      { label: 'Recommendation Hits', value: rec.hits || 0, source: 'ai' },
+      { label: 'Independent Mentions', value: mentions.unique_count || 0, source: 'ai' }
+    ],
+    deductions,
+    issues
+  });
+}
+
 // ---------------------------------------------
 // HTML Signals (expanded for SEO + Mobile + A11y evidence)
 // ---------------------------------------------
@@ -829,6 +1119,7 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
 // ---------------------------------------------
 function scoreSecurityFromHeaders(headers, platform = { key: "unknown" }) {
   const { getPlatformPolicy } = require("../../utils/platform-policy");
+const cheerio = require("cheerio");
   const policy = getPlatformPolicy(platform);
 
   const base_score = 100;
@@ -1264,6 +1555,7 @@ function buildScores(url, html, res, isHtml, psi, platform = { key: "unknown" })
       };
 
   const headers = headerSignals(res, url);
+  const aiProfile = deriveAiProfile(basic, url, html);
 
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
   const perf = perfPack.score;
@@ -1325,8 +1617,31 @@ const secPack = scoreSecurityFromHeaders(headers, platform);
     });
   }
 
-  const overall = Math.round((perf + seo + structure + mobile + security + accessibility) / 6);
-  const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility };
+  let aiDiscoverabilitySignal = buildSimpleSignal({
+    id: "ai_discoverability",
+    label: "AI Discoverability",
+    score: 0,
+    evidence: {
+      ai_recommendation_hits: 0,
+      ai_recommendation_queries_tested: 0,
+      independent_web_mentions: 0,
+      entity_brand_name_present: !!aiProfile.brand_name,
+      entity_service_term_present: !!aiProfile.service_term,
+      entity_location_term_present: !!aiProfile.location_term,
+      organization_schema_present: !!aiProfile.has_org_schema
+    },
+    observations: [
+      { label: "Brand", value: aiProfile.brand_name || null, source: "ai" },
+      { label: "Service Term", value: aiProfile.service_term || null, source: "ai" },
+      { label: "Location Term", value: aiProfile.location_term || null, source: "ai" }
+    ],
+    deductions: [],
+    issues: []
+  });
+
+  const aiOverall = aiDiscoverabilitySignal.score;
+  const overall = Math.round((perf + seo + structure + mobile + security + accessibility + aiOverall) / 7);
+  const scores = { overall, performance: perf, seo, structure, mobile, security, accessibility, ai_discoverability: aiOverall };
 
   const human = {
     clarity: isHtml && basic.title_present && basic.h1_present ? "CLEAR" : "UNCLEAR",
@@ -1483,6 +1798,8 @@ security:
       deductions: accPack.deductions,
       issues: accPack.issues,
     }),
+
+    aiDiscoverabilitySignal,
   ];
 
   return { basic, headers, scores, human, notes, delivery_signals };
