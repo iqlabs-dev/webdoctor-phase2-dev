@@ -1222,7 +1222,7 @@ return {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "Not surfaced in tested recommendation prompts";
+        if (hits !== null && hits <= 0) return "Not surfaced in tested recommendation prompts for this category";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI discoverability requires stronger external context";

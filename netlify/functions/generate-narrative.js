@@ -224,6 +224,7 @@ if (secEv.missing_count != null) {
     security: getSignalScore(m, "security"),
     structure: getSignalScore(m, "structure"),
     accessibility: getSignalScore(m, "accessibility"),
+    ai_discoverability: getSignalScore(m, "ai_discoverability"),
   };
 
   return {
@@ -689,6 +690,10 @@ function buildManifestationLine(primary, host) {
     return "On " + host + ", incomplete document structure reduces clarity for browsers and crawlers, which can weaken consistency across devices and search.";
   }
 
+  if (primary.key === "ai_discoverability_score") {
+    return "On " + host + ", the brand is not being strongly surfaced in tested AI recommendation scenarios, which can reduce discovery even when the site itself appears technically sound.";
+  }
+
   return "On " + host + ", users experience delayed or unreliable page readiness during initial load, which reduces confidence and engagement.";
 }
 
@@ -719,6 +724,8 @@ var limitedPlatform = platformControl === "limited" || platformControl === "part
     s1 = "The page " + host + " includes accessibility gaps that can prevent some users from navigating and completing tasks reliably, independent of visual design.";
   } else if (primary && primary.key === "structure_score") {
     s1 = "The page " + host + " has document structure gaps that weaken semantic clarity for browsers and crawlers, which can reduce consistency across devices.";
+  } else if (primary && primary.key === "ai_discoverability_score") {
+    s1 = "The page " + host + " shows weak AI recommendation discoverability, which can limit how often the business is surfaced in tested category-based AI prompts.";
   } else {
     // PERFORMANCE PATH (UNCHANGED as requested)
     var s1NumParts = [];
@@ -749,6 +756,8 @@ var limitedPlatform = platformControl === "limited" || platformControl === "part
       s2 = "The primary constraint is " + primary.label + ": accessibility score is " + primary.valueStr + ", indicating barriers for some users and assistive workflows.";
     } else if (primary.key === "structure_score") {
       s2 = "The primary constraint is " + primary.label + ": structure score is " + primary.valueStr + ", indicating incomplete semantic and document signals.";
+    } else if (primary.key === "ai_discoverability_score") {
+      s2 = "The primary constraint is " + primary.label + ": AI discoverability score is " + primary.valueStr + ", indicating limited visibility in tested AI recommendation scenarios.";
     }
     // Metric-based S2
     else if (primary.key === "mobile_LCP_ms" || primary.key === "desktop_LCP_ms") {
@@ -815,6 +824,8 @@ var limitedPlatform = platformControl === "limited" || platformControl === "part
     order.push("resolve accessibility blockers first (semantics, labels, and missing essentials)");
   } else if (primary && primary.key === "structure_score") {
     order.push("fix document structure first (headings + key semantic signals)");
+  } else if (primary && primary.key === "ai_discoverability_score") {
+    order.push("strengthen AI recommendation discoverability first (clearer entity context, independent mentions, and category alignment)");
   } else {
     // performance/metric-driven ordering
     var primaryFix = "stabilise the first meaningful render (reduce LCP)";
