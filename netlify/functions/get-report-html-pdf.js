@@ -42,10 +42,10 @@ exports.handler = async (event) => {
     }
 
     const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
-    const dataUrl =
-      siteUrl +
-      "/.netlify/functions/get-report-data?report_id=" +
-      encodeURIComponent(reportId);
+const dataUrl =
+  siteUrl +
+  "/.netlify/functions/get-report-data-pdf?report_id=" +
+  encodeURIComponent(reportId);
 
     const payloadText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
 
@@ -1139,6 +1139,36 @@ function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
     fix: "Review the lowest scoring area first, then re-scan.",
     next: "Implement the highest-priority fix and re-run the scan.",
   };
+}
+
+function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securityHeaders) {
+  const overall = safeNumber(scores.overall);
+  const weakest = getPrimarySignal(deliverySignals, scores);
+  const domain = weakest ? weakest.key : "";
+  const domainNarrative = getDomainNarrative(domain, basicChecks, securityHeaders);
+
+  return [
+    {
+      label: "Overall Delivery",
+      value: overall === null ? "Not Available" : `${overall}/100 — ${scoreLabel(overall)}`,
+    },
+    {
+      label: "Primary Constraint",
+      value: weakest ? weakest.label : "No primary constraint identified",
+    },
+    {
+      label: "Impact",
+      value: weakest ? domainNarrative.impact : "No material issue was surfaced in this scan.",
+    },
+    {
+      label: "Recommended Fix",
+      value: weakest ? domainNarrative.fix : "Review the lowest scoring area first, then re-scan.",
+    },
+    {
+      label: "Next Step",
+      value: weakest ? domainNarrative.next : "Implement the highest-priority fix and re-run the scan.",
+    },
+  ];
 }
 
 function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
