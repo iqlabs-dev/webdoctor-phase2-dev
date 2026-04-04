@@ -163,10 +163,10 @@ const dataUrl =
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    body {
-      font-size: 11px;
-      line-height: 1.35;
-    }
+ body {
+  font-size: 12px;
+  line-height: 1.45;
+}
 
     .pdf-page {
   width: 100%;
@@ -372,9 +372,9 @@ const dataUrl =
       opacity: 0.82;
     }
 
- .finding-value {
-  font-size: 11px;
-  line-height: 1.35;
+.finding-value {
+  font-size: 12px;
+  line-height: 1.45;
   color: ${escapeHtml(brandText)};
 }
 
@@ -440,8 +440,8 @@ const dataUrl =
     }
 
 .signal-copy {
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 11px;
+  line-height: 1.4;
   color: ${escapeHtml(brandText)};
   white-space: pre-line;
   flex: 1 1 auto;
@@ -470,7 +470,7 @@ const dataUrl =
 }
 
 .signal-card {
-  min-height: 112px;
+    min-height: 132px;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
@@ -548,8 +548,8 @@ const dataUrl =
     }
 
 .signal-card .signal-copy {
-  font-size: 8.6px;
-  line-height: 1.2;
+  font-size: 9.6px;
+  line-height: 1.3;
   color: ${escapeHtml(brandText)};
   white-space: normal;
   flex: 1 1 auto;
@@ -702,10 +702,22 @@ const dataUrl =
     <div class="page-shell">
       <div class="section signals-section">
         <div class="section-head">Delivery Signals</div>
- <div class="section-body">
-  ${signalTable}
-  ${renderAiSignal(payload, deliverySignals, scores)}
-</div>
+        <div class="section-body">
+          ${signalTable}
+        </div>
+      </div>
+
+      ${footerHtml}
+    </div>
+  </div>
+
+  <div class="pdf-page">
+    <div class="page-shell">
+      <div class="section signals-section">
+        <div class="section-head">AI Discoverability</div>
+        <div class="section-body">
+          ${renderAiSignal(payload, deliverySignals, scores)}
+        </div>
       </div>
 
       ${footerHtml}
