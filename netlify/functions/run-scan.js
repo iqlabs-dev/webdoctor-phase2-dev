@@ -810,7 +810,7 @@ function buildAiDiscoverabilitySignal(aiData) {
     });
     issues.push({
       id: "ai_recommendation_not_detected",
-      title: "AI Discoverability: Not surfaced in tested recommendation prompts",
+      title: "AI Visibility: Not surfaced in tested recommendation prompts",
       severity: "med",
       impact: "Tested AI recommendation prompts did not surface this business. This may reflect the query type rather than overall brand visibility, especially for strong global brands.",
       evidence: { query_hits: recHits }
@@ -825,7 +825,7 @@ function buildAiDiscoverabilitySignal(aiData) {
     });
     issues.push({
       id: "ai_low_independent_mentions",
-      title: "AI Discoverability: Limited independent web mentions",
+      title: "AI Visibility: Limited independent web mentions",
       severity: "med",
       impact: "AI systems often rely on repeated references across the web. Limited discussion outside the main site reduces external context.",
       evidence: { independent_sources: mentionCount }
@@ -834,7 +834,7 @@ function buildAiDiscoverabilitySignal(aiData) {
 
   return buildSimpleSignal({
     id: "ai_discoverability",
-    label: "AI Discoverability",
+    label: "AI Visibility",
     score: total,
     evidence: {
       ai_recommendation_hits: recHits,

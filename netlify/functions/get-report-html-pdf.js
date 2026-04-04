@@ -714,7 +714,7 @@ const dataUrl =
   <div class="pdf-page">
     <div class="page-shell">
       <div class="section signals-section">
-        <div class="section-head">AI Discoverability</div>
+        <div class="section-head">AI Visibility</div>
         <div class="section-body">
           ${renderAiSignal(payload, deliverySignals, scores)}
         </div>
@@ -832,7 +832,7 @@ function titleCaseSignal(label) {
   if (key === "security") return "Security & Trust";
   if (key === "structure") return "Structure & Semantics";
   if (key === "accessibility") return "Accessibility";
-  if (key === "ai_discoverability") return "AI Discoverability";
+  if (key === "ai_discoverability") return "AI Visibility";
   return label || "Signal";
 }
 
@@ -987,7 +987,7 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
     if ((mentions || 0) < 2) {
       return "Independent references across the web are limited, which can reduce the likelihood of being surfaced in AI-generated answers.";
     }
-    return "AI discoverability signals are present, supported by some recommendation visibility and independent mentions.";
+    return "AI visibility signals are present, supported by some recommendation visibility and independent mentions.";
   }
 
   return "";
@@ -1025,7 +1025,7 @@ function fallbackSignalNarrative(sig, score) {
   }
 
   if (key === "ai_discoverability") {
-    return "AI discoverability signals are limited and should be strengthened.";
+    return "AI visibility signals are limited and should be strengthened.";
   }
 
   return "";
@@ -1150,7 +1150,7 @@ function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
   if (domainKey === "ai_discoverability") {
     return {
       impact:
-        "AI discoverability is limited when a business has weak independent references and low recommendation presence across generic prompts.",
+        "AI visibility is limited when a business has weak independent references and low recommendation presence across generic prompts.",
       fix:
         "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
       next:
@@ -1307,7 +1307,7 @@ function renderAiSignal(payload, deliverySignals, scores) {
     ">
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
-        <div class="signal-name">AI Discoverability</div>
+        <div class="signal-name">AI Visibility</div>
         <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
       </div>
 
