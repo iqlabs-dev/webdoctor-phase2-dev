@@ -1650,62 +1650,79 @@ return {
           : '<div class="primary-badge">Primary Constraint</div>';
       }
 
-      if (key === "ai_discoverability") {
-        var aiObserved = "";
-        var aiFixList = "";
-        var aiFootnote =
-          "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
+if (key === "ai_discoverability") {
+  var aiObserved = "";
+  var aiFixList = "";
+  var aiFootnote =
+    "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
-        if (score !== null && score >= 60) {
-          aiObserved = "The brand showed some visibility in the tested AI recommendation prompt set. This is treated as an observation signal rather than a direct technical defect.";
-          aiFixList =
-            "<li>No immediate technical issue was detected.</li>" +
-            "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
-            "<li>Expand entity clarity only where it improves real-world visibility.</li>";
-        } else {
-          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI visibility signals appear limited.";
-          aiFixList =
-            "<li>Clarify the brand and category language used across the site.</li>" +
-            "<li>Earn more independent mentions from relevant third-party sources.</li>" +
-            "<li>Tighten directory, profile, and citation consistency.</li>" +
-            "<li>Add clearer product, service, and niche context for entity matching.</li>" +
-            "<li>Test prompts that reflect real recommendation searches in your category.</li>";
-        }
+  // Determine severity class based on score
+  var aiSeverity = "";
+  if (score === null) {
+    aiSeverity = "severity-na"; // gray
+  } else if (score < 50) {
+    aiSeverity = "severity-high"; // red
+  } else if (score < 70) {
+    aiSeverity = "severity-medium"; // amber
+  } else {
+    aiSeverity = "severity-strong"; // green
+  }
 
- card.innerHTML =
-  badgeHtml +
-  '<div class="ai-discovery-layout">' +
-    '<div class="ai-discovery-scorebox">' +
-      '<div class="ai-label">AI Visibility Score</div>' +
-      '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-      '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
+  // Prepare observed text and fix list
+  if (score !== null && score >= 60) {
+    aiObserved =
+      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+    aiFixList =
+      "<li>No immediate technical issue was detected.</li>" +
+      "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
+      "<li>Expand entity clarity where it improves real-world visibility.</li>";
+  } else {
+    aiObserved =
+      "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI Visibility signals appear limited.";
+    aiFixList =
+      "<li>Clarify the brand and category language used across the site.</li>" +
+      "<li>Earn independent mentions from relevant third-party sources.</li>" +
+      "<li>Tighten directory, profile, and citation consistency.</li>" +
+      "<li>Add clearer product, service, and niche context for entity matching.</li>" +
+      "<li>Test prompts reflecting real recommendation searches in your category.</li>";
+  }
+
+  // Build AI card HTML
+  card.className = "card ai-discovery-card " + aiSeverity + (isPrimary ? " primary-badge" : "");
+  card.innerHTML =
+    badgeHtml +
+    '<div class="ai-discovery-layout">' +
+      '<div class="ai-discovery-scorebox">' +
+        '<div class="ai-label">AI Visibility Score</div>' +
+        '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+        '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
+      "</div>" +
+
+      '<div class="ai-discovery-panel">' +
+        "<h4>What was observed</h4>" +
+        "<p>" + escapeHtml(aiObserved) + "</p>" +
+      "</div>" +
+
+      '<div class="ai-discovery-panel">' +
+        "<h4>How to improve visibility</h4>" +
+        "<ul>" + aiFixList + "</ul>" +
+        '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
+      "</div>" +
     "</div>" +
-
-    '<div class="ai-discovery-panel">' +
-      "<h4>What was observed</h4>" +
-      "<p>" + escapeHtml(aiObserved) + "</p>" +
+    '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
+} else {
+  card.innerHTML =
+    badgeHtml +
+    '<div class="card-top">' +
+      "<h3>" + escapeHtml(label) + "</h3>" +
+      '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
     "</div>" +
+    '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+    '<div class="summary">' + summaryHtml + "</div>";
+}
 
-    '<div class="ai-discovery-panel">' +
-      "<h4>How to improve visibility</h4>" +
-      "<ul>" + aiFixList + "</ul>" +
-      '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
-    "</div>" +
-  "</div>" +
-  '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
-      } else {
-        card.innerHTML =
-          badgeHtml +
-          '<div class="card-top">' +
-            "<h3>" + escapeHtml(label) + "</h3>" +
-            '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-          "</div>" +
-          '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-          '<div class="summary">' + summaryHtml + "</div>";
-      }
-
-      grid.appendChild(card);
+grid.appendChild(card);
     }
   }
 
