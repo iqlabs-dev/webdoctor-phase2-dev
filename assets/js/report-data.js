@@ -104,7 +104,7 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
 
   if (unmeasured) return "Not Measured";
 
-  // Hard rule for AI Discoverability
+  // Hard rule for AI Visibility
   if (signalKey === "ai_discoverability") {
     if (score === null) return "Observation";
     if (score < 40) return "Priority Fix";
@@ -610,7 +610,7 @@ function setOverallUI(scores, overallSummary) {
     security: "Security & Trust",
     structure: "Structure & Semantics",
     accessibility: "Accessibility",
-    ai_discoverability: "AI Discoverability"
+    ai_discoverability: "AI Visibility"
   };
 
   function scoreFor(scores, k) {
@@ -1097,7 +1097,7 @@ if (domainKey === "ai_discoverability") {
         "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
         (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
       fix:
-        "No technical issue detected. The tested recommendation prompts may not represent typical discovery queries for this brand.",
+        "No technical issue detected. The tested recommendation prompts may not represent typical visibility queries for this brand.",
       next:
         "If needed, test additional prompts aligned with this brand's products, services, or category."
     };
@@ -1106,11 +1106,11 @@ if (domainKey === "ai_discoverability") {
 return {
   impact:
     "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
-    (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested discovery prompts.") : ""),
+    (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested AI recommendation prompts.") : ""),
   fix:
-    "Improve discoverability by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+    "Improve visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
   next:
-    "Update one or more of those discovery signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI discovery signals may take several days or weeks to be reflected as models and external references update."
+    "Update one or more of those AI visibility signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI visibility signals may take several days or weeks to be reflected as models and external references update."
 };
 }
 
@@ -1242,7 +1242,7 @@ return {
         if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
-      return "AI discoverability requires stronger external context";
+      return "AI Visibility requires stronger external context";
     }
 
     return LABELS[domain] || domain;
@@ -1274,7 +1274,7 @@ return {
       var ai = findSignalByDomain(signals, "ai_discoverability");
       if (ai && ai.evidence) {
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (mentions !== null && mentions >= 4) return "AI discoverability is strongest here, with independent mentions detected across multiple external sources.";
+        if (mentions !== null && mentions >= 4) return "AI Visibility is strongest here, with independent mentions detected across multiple external sources.";
       }
     }
     return (LABELS[bestKey] || bestKey) + " is currently the strongest signal (" + bestScore + "/100).";
@@ -1290,7 +1290,7 @@ return {
       var issues = asArray(sig.issues);
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
-        var title = String(it.title || it.id || "").replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Discoverability)\s*:\s*/i, "").trim();
+        var title = String(it.title || it.id || "").replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Visibility )\s*:\s*/i, "").trim();
         if (!title) continue;
         out.push({ domain: domain, title: title, severity: String(it.severity || "MONITOR").toUpperCase(), why: String(it.impact || it.detail || it.description || "").trim() });
       }
@@ -1519,7 +1519,7 @@ return {
         var t = String(it.title || it.id || "").trim();
         t = normalizeExplainLine(t, sig);
 
-        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Discoverability)\s*:\s*/i, "");
+        t = t.replace(/^(Performance|Mobile Experience|SEO Foundations|Security & Trust|Structure & Semantics|Accessibility|AI Visibility )\s*:\s*/i, "");
 
         if (/missing\s*<title>/i.test(t)) t = "Page title (<title>) is missing.";
         else if (/missing meta description/i.test(t)) t = "Meta description is missing.";
@@ -1646,7 +1646,7 @@ return {
       var badgeHtml = "";
       if (isPrimary) {
         badgeHtml = key === "ai_discoverability"
-          ? '<div class="primary-badge">Discovery Signal</div>'
+          ? '<div class="primary-badge">Visibility Signal</div>'
           : '<div class="primary-badge">Primary Constraint</div>';
       }
 
@@ -1654,16 +1654,16 @@ return {
         var aiObserved = "";
         var aiFixList = "";
         var aiFootnote =
-          "AI Discoverability is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI discovery scenarios, not overall brand quality or general business value.";
+          "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
         if (score !== null && score >= 60) {
           aiObserved = "The brand showed some visibility in the tested AI recommendation prompt set. This is treated as an observation signal rather than a direct technical defect.";
           aiFixList =
             "<li>No immediate technical issue was detected.</li>" +
             "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
-            "<li>Expand entity clarity only where it improves real-world discovery.</li>";
+            "<li>Expand entity clarity only where it improves real-world visibility.</li>";
         } else {
-          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
+          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI Visibility signals appear limited.";
           aiFixList =
             "<li>Clarify the brand and category language used across the site.</li>" +
             "<li>Earn more independent mentions from relevant third-party sources.</li>" +
@@ -1679,7 +1679,7 @@ return {
           "</div>" +
           '<div class="ai-discovery-layout">' +
             '<div class="ai-discovery-scorebox">' +
-              '<div class="ai-label">Discovery Signal</div>' +
+              '<div class="ai-label">AI Visibility Score</div>' +
               '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
               '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
               '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
@@ -1691,9 +1691,9 @@ return {
             "</div>" +
 
     '<div class="ai-discovery-panel">' +
-  "<h4>How to improve discoverability</h4>" +
+  "<h4>How to improve visibility</h4>" +
   "<ul>" + aiFixList + "</ul>" +
-  '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style discovery patterns.</div>' +
+  '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
 "</div>" +
 "</div>" +
 '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
@@ -2154,7 +2154,7 @@ try {
 
       if (isAiFocus) {
         p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
-        p1.push("Address the clearest discovery signal identified in this scan, such as entity clarity, category language, or external references.");
+        p1.push("Address the clearest visibility signal identified in this scan, such as entity clarity, category language, or external references.");
         p1.push("Re-run the scan after the update to confirm the signal change has been captured. Improvements to AI recommendation visibility may take time to propagate across models and external sources.");
       } else {
         p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
@@ -2173,7 +2173,7 @@ try {
       var p2 = [];
 
       if (isAiFocus) {
-        p2.push("Strengthen supporting discovery signals such as independent mentions, citations, and category-specific references.");
+        p2.push("Strengthen supporting visibility signals such as independent mentions, citations, and category-specific references.");
         p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references if detected.");
         p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
       } else {
