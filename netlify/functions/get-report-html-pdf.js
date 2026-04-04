@@ -470,7 +470,7 @@ const dataUrl =
 }
 
 .signal-card {
-    min-height: 132px;
+    min-height: 150px;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
