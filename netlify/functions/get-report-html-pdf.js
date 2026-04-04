@@ -1315,14 +1315,14 @@ function renderAiSignal(payload, deliverySignals, scores) {
         <div class="score-fill" style="width:${clampScore(score)}%;"></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:180px 1fr 1.15fr;gap:14px;margin-top:14px;">
+      <div style="display:grid;grid-template-columns:200px 420px 420px;gap:14px;margin-top:14px;">
 
         <div style="
           border:1px solid rgba(255,255,255,0.08);
           border-radius:10px;
           padding:12px;
           background:rgba(255,255,255,0.02);
-          min-height:160px;
+          min-height:180px;
         ">
           <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
             DISCOVERY SIGNAL
