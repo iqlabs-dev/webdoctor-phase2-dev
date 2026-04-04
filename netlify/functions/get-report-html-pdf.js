@@ -1315,68 +1315,75 @@ function renderAiSignal(payload, deliverySignals, scores) {
         <div class="score-fill" style="width:${clampScore(score)}%;"></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:200px 420px 420px;gap:14px;margin-top:14px;">
+      <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:12px 0;margin-top:14px;table-layout:fixed;">
+        <tr>
+          <td style="width:180px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:210px;
+            ">
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                DISCOVERY SIGNAL
+              </div>
+              <div style="font-size:30px;font-weight:800;line-height:1;margin-bottom:10px;">
+                ${score === null ? "—" : escapeHtml(String(score))}
+              </div>
+              <div style="font-size:12px;line-height:1.3;">
+                ${escapeHtml(status)}
+              </div>
+            </div>
+          </td>
 
-        <div style="
-          border:1px solid rgba(255,255,255,0.08);
-          border-radius:10px;
-          padding:12px;
-          background:rgba(255,255,255,0.02);
-          min-height:180px;
-        ">
-          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-            DISCOVERY SIGNAL
-          </div>
-          <div style="font-size:30px;font-weight:800;line-height:1;margin-bottom:10px;">
-            ${score === null ? "—" : escapeHtml(String(score))}
-          </div>
-          <div style="font-size:12px;line-height:1.3;">
-            ${escapeHtml(status)}
-          </div>
-        </div>
+          <td style="width:360px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:210px;
+            ">
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                WHAT WAS OBSERVED
+              </div>
+              <div style="font-size:12px;line-height:1.45;">
+                ${escapeHtml(observedText)}
+              </div>
+            </div>
+          </td>
 
-        <div style="
-          border:1px solid rgba(255,255,255,0.08);
-          border-radius:10px;
-          padding:12px;
-          background:rgba(255,255,255,0.02);
-          min-height:160px;
-        ">
-          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-            WHAT WAS OBSERVED
-          </div>
-          <div style="font-size:12px;line-height:1.45;">
-            ${escapeHtml(observedText)}
-          </div>
-        </div>
+          <td style="width:420px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:210px;
+            ">
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                HOW TO IMPROVE DISCOVERABILITY
+              </div>
+              <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.45;">
+                ${fixItems.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+              </ul>
 
-        <div style="
-          border:1px solid rgba(255,255,255,0.08);
-          border-radius:10px;
-          padding:12px;
-          background:rgba(255,255,255,0.02);
-          min-height:160px;
-        ">
-          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-            HOW TO IMPROVE DISCOVERABILITY
-          </div>
-          <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.45;">
-            ${fixItems.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
-          </ul>
+              <div style="
+                margin-top:12px;
+                padding-top:12px;
+                border-top:1px solid rgba(255,255,255,0.08);
+                font-size:11px;
+                line-height:1.45;
+                opacity:0.92;
+              ">
+                ${escapeHtml(footnote)}
+              </div>
+            </div>
+          </td>
+        </tr>
+      </table>
 
-          <div style="
-            margin-top:12px;
-            padding-top:12px;
-            border-top:1px solid rgba(255,255,255,0.08);
-            font-size:11px;
-            line-height:1.45;
-            opacity:0.92;
-          ">
-            ${escapeHtml(footnote)}
-          </div>
-        </div>
-
-      </div>
     </div>
   </div>
   `;
