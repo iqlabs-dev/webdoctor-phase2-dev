@@ -169,12 +169,11 @@ const dataUrl =
     }
 
     .pdf-page {
-      width: 100%;
-      min-height: 100%;
-      background: ${escapeHtml(brandPageBg)};
-      page-break-after: always;
-      padding: 4px;
-    }
+  width: 100%;
+  background: ${escapeHtml(brandPageBg)};
+  page-break-after: always;
+  padding: 4px;
+}
 
     .pdf-page:last-child {
       page-break-after: auto;
