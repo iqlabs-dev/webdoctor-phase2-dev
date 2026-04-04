@@ -1077,7 +1077,7 @@ if (domainKey === "ai_discoverability") {
   if (strongBrandCase) {
     return {
       impact:
-        "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
+        "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
         (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
       fix:
         "No technical issue detected. The tested recommendation prompts may not represent typical discovery queries for this brand.",
@@ -1222,7 +1222,7 @@ return {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "AI systems did not recommend this business in category discovery searches";
+        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI discoverability requires stronger external context";
@@ -2138,7 +2138,7 @@ try {
       if (isAiFocus) {
         p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
         p1.push("Address the clearest discovery signal identified in this scan, such as entity clarity, category language, or external references.");
-        p1.push("Re-run the scan after the update to confirm the signal change has been captured.");
+        p1.push("Re-run the scan after the update to confirm the signal change has been captured. Improvements to AI recommendation visibility may take time to propagate across models and external sources.");
       } else {
         p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
         p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
@@ -2157,7 +2157,7 @@ try {
 
       if (isAiFocus) {
         p2.push("Strengthen supporting discovery signals such as independent mentions, citations, and category-specific references.");
-        p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references where present.");
+        p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references if detected.");
         p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
       } else {
         p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
@@ -2178,7 +2178,7 @@ try {
       if (isAiFocus) {
         p3.push("Continue strengthening signals that support entity trust and category association.");
         p3.push("Schedule periodic re-scans to detect regressions or missed signals.");
-        p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked over time.");
+        p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked across future scans.");
       } else {
         p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
         p3.push("Schedule periodic re-scans to catch regressions before they compound.");
