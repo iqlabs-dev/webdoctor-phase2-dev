@@ -552,26 +552,43 @@ if (pageBg) {
     if (reportDate) reportDate.textContent = formatDate(created);
   }
 
-  function setOverallUI(scores, overallSummary) {
-    scores = safeObj(scores);
-    var overall = asInt(scores.overall, 0);
+function setOverallUI(scores, overallSummary) {
+  scores = safeObj(scores);
+  var overall = asInt(scores.overall, 0);
 
-    var pill = $("overallPill");
-    var bar = $("overallBar");
-    var note = $("overallNote");
+  var pill = $("overallPill");
+  var bar = $("overallBar");
+  var note = $("overallNote");
+  var strip = document.querySelector(".overall-strip");
 
-    if (pill) pill.textContent = String(overall);
-    if (bar) bar.style.width = overall + "%";
+  if (pill) pill.textContent = String(overall);
+  if (bar) bar.style.width = overall + "%";
 
-    var base = overallSummary || "";
-    var stamp = "Scoring Model v1.0 — Deterministic weighted signals.";
-    if (base) {
-      if (base.indexOf("Scoring Model") === -1) base = base + " " + stamp;
+  if (strip) {
+    strip.className = "overall-strip";
+
+    if (overall >= 90) {
+      strip.className += " overall-strong";
+    } else if (overall >= 70) {
+      strip.className += " overall-good";
+    } else if (overall >= 50) {
+      strip.className += " overall-fair";
     } else {
-      base = stamp;
+      strip.className += " overall-poor";
     }
-    if (note) note.textContent = base;
   }
+
+  var base = overallSummary || "";
+  var stamp = "Scoring Model v1.0 — Deterministic weighted signals.";
+
+  if (base) {
+    if (base.indexOf("Scoring Model") === -1) base = base + " " + stamp;
+  } else {
+    base = stamp;
+  }
+
+  if (note) note.textContent = base;
+}
 
   // -----------------------------
   // Deterministic model constants

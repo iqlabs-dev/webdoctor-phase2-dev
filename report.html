@@ -1008,6 +1008,39 @@
         grid-template-columns: 1fr;
       }
     }
+    .overall-strip {
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.overall-strip.overall-strong {
+  border-color: rgba(34, 197, 94, 0.75);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.14), 0 0 18px rgba(34, 197, 94, 0.10);
+  background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.14));
+}
+
+.overall-strip.overall-good {
+  border-color: rgba(52, 211, 153, 0.72);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.12), 0 0 16px rgba(52, 211, 153, 0.08);
+  background: linear-gradient(180deg, rgba(52,211,153,0.08), rgba(0,0,0,0.14));
+}
+
+.overall-strip.overall-fair {
+  border-color: rgba(245, 158, 11, 0.78);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.12), 0 0 16px rgba(245, 158, 11, 0.08);
+  background: linear-gradient(180deg, rgba(245,158,11,0.08), rgba(0,0,0,0.14));
+}
+
+.overall-strip.overall-poor {
+  border-color: rgba(239, 68, 68, 0.82);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.14), 0 0 18px rgba(239, 68, 68, 0.10);
+  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.14));
+}
+
+.overall-strip-score {
+  font-weight: 900;
+  font-size: 18px;
+}
 
   </style>
 </head>
