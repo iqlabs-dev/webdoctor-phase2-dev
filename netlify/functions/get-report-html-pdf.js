@@ -1034,7 +1034,21 @@ function buildOverallNarrative(payload) {
 
   return "Overall delivery is based on deterministic checks only and does not measure brand or content effectiveness.";
 }
+function renderOverallCard(scores, payload) {
+  const overall = safeNumber(scores.overall);
+  const narrative = buildOverallNarrative(payload);
 
+  return `
+    <div class="signal-top">
+      <div class="signal-name">Overall Delivery Score</div>
+      <div class="signal-score">${overall === null ? "—" : escapeHtml(String(overall))}</div>
+    </div>
+    <div class="score-bar">
+      <div class="score-fill" style="width:${clampScore(overall)}%;"></div>
+    </div>
+    <div class="signal-copy">${escapeHtml(narrative)}</div>
+  `;
+}
 function getPrimarySignal(deliverySignals, scores) {
   const ordered = orderedSignals(deliverySignals, scores)
     .map((sig) => ({
