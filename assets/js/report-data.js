@@ -1077,24 +1077,24 @@ if (domainKey === "ai_discoverability") {
   if (strongBrandCase) {
     return {
       impact:
-        "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
-        (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
+        "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
+        (haveList ? (" Signals such as " + listText + " may be less prominent in the discovery prompts tested.") : ""),
       fix:
-        "No technical issue detected. The tested recommendation prompts may not represent typical discovery queries for this brand.",
+        "No direct technical issue was detected. If needed, improve entity clarity and test additional prompts that better match how real buyers search within this category.",
       next:
-        "If needed, test additional prompts aligned with this brand's products, services, or category."
+        "Test a broader set of category-aligned prompts and re-run the scan if you want to compare discovery coverage across different search angles."
     };
   }
 
-return {
-  impact:
-    "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
-    (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested discovery prompts.") : ""),
-  fix:
-    "Improve discoverability by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
-  next:
-    "Update one or more of those discovery signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI discovery signals may take several days or weeks to be reflected as models and external references update."
-};
+  return {
+    impact:
+      "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
+      (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested discovery prompts.") : ""),
+    fix:
+      "Improve discoverability by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+    next:
+      "Update one or more of those discovery signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI discovery signals may take several days or weeks to be reflected as models and external references update."
+  };
 }
 
 return {
@@ -1222,10 +1222,10 @@ return {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "AI systems did not recommend this business in category discovery searches";
-        if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
+        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category";
+        if (mentions !== null && mentions < 2) return "Independent web mentions for this business appear limited";
       }
-      return "AI discoverability requires stronger external context";
+      return "AI recommendation visibility should be strengthened for this category";
     }
 
     return LABELS[domain] || domain;
@@ -1605,17 +1605,7 @@ return {
       }
 
       var lever = platformManaged ? "" : recommendedFixForKey(key);
-      if (score !== null && score < 90 && key === "ai_discoverability") {
-        if (score < 60) {
-          lines.push("Clarify the brand and category language used across the site.");
-          lines.push("Earn more independent mentions from relevant third-party sources.");
-          lines.push("Tighten directory, profile, and citation consistency.");
-          lines.push("Add clearer product, service, and niche context for entity matching.");
-          lines.push("Test prompts that reflect real recommendation searches in your category.");
-        } else if (lever) {
-          lines.push(getRecommendation(score, lever));
-        }
-      } else if (lever && score !== null && score < 90) {
+      if (lever && score !== null && score < 90) {
         lever = getRecommendation(score, lever);
         lines.push(lever);
       }
@@ -1624,72 +1614,23 @@ return {
       var severityClass = severityClassFromModel(score, unmeasured);
 
       var card = document.createElement("div");
-      card.className = "card " + severityClass + (key === "ai_discoverability" ? " ai-discovery-card" : "");
+      card.className = "card " + severityClass;
 
-      var badgeHtml = "";
-      if (isPrimary) {
-        badgeHtml = key === "ai_discoverability"
-          ? '<div class="primary-badge">Discovery Signal</div>'
-          : '<div class="primary-badge">Primary Constraint</div>';
-      }
+var badgeHtml = "";
+if (isPrimary) {
+  badgeHtml = key === "ai_discoverability"
+    ? '<div class="primary-badge">Discovery Signal</div>'
+    : '<div class="primary-badge">Primary Constraint</div>';
+}
 
-      if (key === "ai_discoverability") {
-        var aiObserved = "";
-        var aiFixList = "";
-        var aiFootnote =
-          "AI Discoverability is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI discovery scenarios, not overall brand quality or general business value.";
-
-        if (score !== null && score >= 60) {
-          aiObserved = "The brand showed some visibility in the tested AI recommendation prompt set. This is treated as an observation signal rather than a direct technical defect.";
-          aiFixList =
-            "<li>No immediate technical issue was detected.</li>" +
-            "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
-            "<li>Expand entity clarity only where it improves real-world discovery.</li>";
-        } else {
-          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
-          aiFixList =
-            "<li>Clarify the brand and category language used across the site.</li>" +
-            "<li>Earn more independent mentions from relevant third-party sources.</li>" +
-            "<li>Tighten directory, profile, and citation consistency.</li>" +
-            "<li>Add clearer product, service, and niche context for entity matching.</li>" +
-            "<li>Test prompts that reflect real recommendation searches in your category.</li>";
-        }
-
-        card.innerHTML =
-          badgeHtml +
-          '<div class="card-top">' +
-            "<h3>" + escapeHtml(label) + "</h3>" +
-          "</div>" +
-          '<div class="ai-discovery-layout">' +
-            '<div class="ai-discovery-scorebox">' +
-              '<div class="ai-label">Discovery Signal</div>' +
-              '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-              '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-              '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
-            "</div>" +
-
-            '<div class="ai-discovery-panel">' +
-              "<h4>What was observed</h4>" +
-              "<p>" + escapeHtml(aiObserved) + "</p>" +
-            "</div>" +
-
-    '<div class="ai-discovery-panel">' +
-  "<h4>How to improve discoverability</h4>" +
-  "<ul>" + aiFixList + "</ul>" +
-  '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style discovery patterns.</div>' +
-"</div>" +
-"</div>" +
-'<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
-      } else {
-        card.innerHTML =
-          badgeHtml +
-          '<div class="card-top">' +
-            "<h3>" + escapeHtml(label) + "</h3>" +
-            '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-          "</div>" +
-          '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-          '<div class="summary">' + summaryHtml + "</div>";
-      }
+      card.innerHTML =
+        badgeHtml +
+        '<div class="card-top">' +
+          "<h3>" + escapeHtml(label) + "</h3>" +
+          '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+        "</div>" +
+        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+        '<div class="summary">' + summaryHtml + "</div>";
 
       grid.appendChild(card);
     }
@@ -1872,16 +1813,21 @@ return {
 
     if (primary && primary.key) {
       var focus = specificConstraintLabel(data, primary, signals);
-      items[2].text = "Focus the next change on " + focus.toLowerCase() + ", because it is the highest-leverage blocker right now.";
-
-      var domainFix = recommendedFixForKey(primary.key);
-      var lcp = lcpSecondsFromData(data);
-      if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
-        items[3].text = "Prioritise the render path first. Mobile LCP is around " + lcp + "s, so improve the first visible content before broad optimisation work.";
-      } else if (primary.key === "seo" && pickBasicChecks(data).canonical_present === false) {
-        items[3].text = "Add the missing canonical first, then re-run the scan to confirm the baseline improved.";
+      if (primary.key === "ai_discoverability") {
+        items[2].text = "Focus the next change on improving AI recommendation visibility for this category, because it is the highest-leverage discovery constraint right now.";
+        items[3].text = "Strengthen the clearest discovery signals first, then re-run the scan. Improvements to AI recommendation visibility may take time to propagate across models and external sources.";
       } else {
-        items[3].text = domainFix || items[3].text;
+        items[2].text = "Focus the next change on " + focus.toLowerCase() + ", because it is the highest-leverage blocker right now.";
+
+        var domainFix = recommendedFixForKey(primary.key);
+        var lcp = lcpSecondsFromData(data);
+        if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
+          items[3].text = "Prioritise the render path first. Mobile LCP is around " + lcp + "s, so improve the first visible content before broad optimisation work.";
+        } else if (primary.key === "seo" && pickBasicChecks(data).canonical_present === false) {
+          items[3].text = "Add the missing canonical first, then re-run the scan to confirm the baseline improved.";
+        } else {
+          items[3].text = domainFix || items[3].text;
+        }
       }
     }
 
@@ -1949,6 +1895,21 @@ return {
       return label + ": Missing baseline inputs for this signal.";
     }
 
+
+    function polishIssueTitle(title, key) {
+      var t = String(title || "").trim();
+      if (!t) return t;
+
+      if (key === "ai_discoverability") {
+        t = t.replace(/^AI Discoverability\s*:\s*/i, "");
+        t = t.replace(/Business was not surfaced in the tested generic recommendation prompts\.?/i, "AI recommendation tests did not surface this business for the tested category.");
+        t = t.replace(/Not surfaced in tested recommendation prompts\.?/i, "The business did not appear in tested AI recommendation prompts for this category.");
+        t = t.replace(/Very limited independent mentions detected outside the primary domain\.?/i, "Very limited independent mentions were found outside the primary domain.");
+        t = t.replace(/Limited independent web mentions\.?/i, "Independent web mentions for this business appear limited.");
+      }
+
+      return t;
+    }
     function collectFromSignal(sig, out) {
       sig = safeObj(sig);
 
@@ -1973,6 +1934,7 @@ return {
         if (!rawTitle) continue;
 
         var title = normaliseRequiredMissing(label, sig, rawTitle);
+        title = polishIssueTitle(title, key);
 
         out.push({
           title: title,
@@ -1997,8 +1959,9 @@ return {
           reason = spec2 || "Missing baseline inputs for this signal.";
         }
 
+        var deducedTitle = polishIssueTitle(label + ": " + reason, key);
         out.push({
-          title: label + ": " + reason,
+          title: deducedTitle,
           sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
           why: "A measured deduction was applied from scan evidence.",
           _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
@@ -2126,82 +2089,74 @@ return {
       return fallback;
     }
 
-try {
-  var phases = root.querySelectorAll(".phase");
-  if (phases && phases.length >= 3) {
-    var isAiFocus = !!(primary && primary.key === "ai_discoverability");
-
-    var ul1 = phases[0].querySelector("ul");
-    if (ul1) {
-      var p1 = [];
-
-      if (isAiFocus) {
-        p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
-        p1.push("Address the clearest discovery signal identified in this scan, such as entity clarity, category language, or external references.");
-        p1.push("Re-run the scan after the update to confirm the signal change has been captured.");
-      } else {
-        p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
-        p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
-        p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
-      }
-
-      ul1.innerHTML =
-        "<li>" + escapeHtml(p1[0]) + "</li>" +
-        "<li>" + escapeHtml(p1[1]) + "</li>" +
-        "<li>" + escapeHtml(p1[2]) + "</li>";
-    }
-
-    var ul2 = phases[1].querySelector("ul");
-    if (ul2) {
-      var p2 = [];
-
-      if (isAiFocus) {
-        p2.push("Strengthen supporting discovery signals such as independent mentions, citations, and category-specific references.");
-        p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references where present.");
-        p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
-      } else {
-        p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
-        p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
-        p2.push("Keep a simple before-and-after record tied to the new scan result.");
-      }
-
-      ul2.innerHTML =
-        "<li>" + escapeHtml(p2[0]) + "</li>" +
-        "<li>" + escapeHtml(p2[1]) + "</li>" +
-        "<li>" + escapeHtml(p2[2]) + "</li>";
-    }
-
-    var ul3 = phases[2].querySelector("ul");
-    if (ul3) {
-      var p3 = [];
-
-      if (isAiFocus) {
-        p3.push("Continue strengthening signals that support entity trust and category association.");
-        p3.push("Schedule periodic re-scans to detect regressions or missed signals.");
-        p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked over time.");
-      } else {
-        p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
-        p3.push("Schedule periodic re-scans to catch regressions before they compound.");
-        p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
-      }
-
-      ul3.innerHTML =
-        "<li>" + escapeHtml(p3[0]) + "</li>" +
-        "<li>" + escapeHtml(p3[1]) + "</li>" +
-        "<li>" + escapeHtml(p3[2]) + "</li>";
-    }
-  }
-} catch (e) {}
-  }
-
-
-  function safeRenderSection(name, fn) {
     try {
-      if (typeof fn === "function") fn();
-    } catch (err) {
-      try { console.error("[report-data] section failed:", name, err); } catch (e) {}
-    }
+      var phases = root.querySelectorAll(".phase");
+      if (phases && phases.length >= 3) {
+        var isAiFocus = !!(primary && primary.key === "ai_discoverability");
+
+        var ul1 = phases[0].querySelector("ul");
+        if (ul1) {
+          var p1 = [];
+
+          if (isAiFocus) {
+            p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
+            p1.push("Address the clearest discovery signal identified in this scan, such as entity clarity, category language, or external references.");
+            p1.push("Re-run the scan after the update to confirm the signal change has been captured. Improvements to AI recommendation visibility may take time to propagate across models and external sources.");
+          } else {
+            p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
+            p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
+            p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
+          }
+
+          ul1.innerHTML =
+            "<li>" + escapeHtml(p1[0]) + "</li>" +
+            "<li>" + escapeHtml(p1[1]) + "</li>" +
+            "<li>" + escapeHtml(p1[2]) + "</li>";
+        }
+
+        var ul2 = phases[1].querySelector("ul");
+        if (ul2) {
+          var p2 = [];
+
+          if (isAiFocus) {
+            p2.push("Strengthen supporting discovery signals such as independent mentions, citations, and category-specific references.");
+            p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references if detected.");
+            p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
+          } else {
+            p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
+            p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
+            p2.push("Keep a simple before-and-after record tied to the new scan result.");
+          }
+
+          ul2.innerHTML =
+            "<li>" + escapeHtml(p2[0]) + "</li>" +
+            "<li>" + escapeHtml(p2[1]) + "</li>" +
+            "<li>" + escapeHtml(p2[2]) + "</li>";
+        }
+
+        var ul3 = phases[2].querySelector("ul");
+        if (ul3) {
+          var p3 = [];
+
+          if (isAiFocus) {
+            p3.push("Continue strengthening signals that support entity trust and category association.");
+            p3.push("Schedule periodic re-scans to detect regressions or missed signals.");
+            p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked across future scans.");
+          } else {
+            p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
+            p3.push("Schedule periodic re-scans to catch regressions before they compound.");
+            p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
+          }
+
+          ul3.innerHTML =
+            "<li>" + escapeHtml(p3[0]) + "</li>" +
+            "<li>" + escapeHtml(p3[1]) + "</li>" +
+            "<li>" + escapeHtml(p3[2]) + "</li>";
+        }
+      }
+    } catch (e) {}
   }
+
 
   // -----------------------------
   // Main render
@@ -2214,21 +2169,25 @@ try {
     var scores = pickScores(data);
     var signals = pickSignals(data);
     var branding = pickBranding(data);
-    var overallSummary = pickOverallSummary(data, scores.overall);
-    var primary = computePrimaryConstraint(scores, signals, data);
 
-    safeRenderSection("applyBrandingUI", function () { applyBrandingUI(branding); });
-    safeRenderSection("setHeaderUI", function () { setHeaderUI(header); });
-    safeRenderSection("setOverallUI", function () { setOverallUI(scores, overallSummary); });
+    applyBrandingUI(branding);
+
+    setHeaderUI(header);
+
+    var overallSummary = pickOverallSummary(data, scores.overall);
+    setOverallUI(scores, overallSummary);
 
     showReport();
 
-    safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
-    safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
-    safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });
-    safeRenderSection("renderKeyInsights", function () { renderKeyInsights(data, scores, signals, primary); });
-    safeRenderSection("renderTopIssues", function () { renderTopIssues(signals, primary); });
-    safeRenderSection("renderFixSequence", function () { renderFixSequence(data, scores, signals, primary); });
+    var primary = computePrimaryConstraint(scores, signals, data);
+
+    renderExecutiveSummary(data, primary);
+    renderSignalsGrid(signals, scores, primary);
+
+    renderSignalEvidence(signals);
+    renderKeyInsights(data, scores, signals, primary);
+    renderTopIssues(signals, primary);
+    renderFixSequence(data, scores, signals, primary);
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
   }
@@ -2239,8 +2198,7 @@ try {
 
     fetchReportData(reportId)
       .then(function (data) { renderAll(data); })
-      .catch(function (err) {
-        try { console.error("[report-data] boot failed:", err); } catch (e) {}
+      .catch(function () {
         showReport();
         try { window.__IQWEB_REPORT_READY = true; } catch (e) {}
 
