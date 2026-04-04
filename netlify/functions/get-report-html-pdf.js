@@ -1284,15 +1284,21 @@ function renderAiSignal(payload, deliverySignals, scores) {
   const score = safeNumber(ai.score);
   const narrative = deriveSignalNarrative(ai, payload);
 
+  const observations =
+    ai?.observations?.map(o => `<li>${escapeHtml(o.label || o)}</li>`).join("") ||
+    `<li>Brand was not surfaced in tested AI recommendation prompts.</li>`;
+
   return `
-  <div style="margin:10px;">
+  <div style="margin:12px;">
+
     <div style="
       border-radius:12px;
-      padding:12px;
+      padding:16px;
       border:1px solid rgba(238,95,86,0.6);
       background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
     ">
-      <div class="signal-top">
+
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
         <div class="signal-name">AI Discoverability</div>
         <div class="signal-score">${score}</div>
       </div>
@@ -1301,8 +1307,37 @@ function renderAiSignal(payload, deliverySignals, scores) {
         <div class="score-fill" style="width:${clampScore(score)}%;"></div>
       </div>
 
-      <div class="signal-copy">${escapeHtml(narrative)}</div>
+      <div style="display:grid;grid-template-columns:200px 1fr 1.2fr;gap:14px;margin-top:14px;">
+
+        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
+          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">DISCOVERY SIGNAL</div>
+          <div style="font-size:30px;font-weight:800;">${score}</div>
+          <div style="font-size:11px;margin-top:6px;">${escapeHtml(scoreLabel(score))}</div>
+        </div>
+
+        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
+          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">WHAT WAS OBSERVED</div>
+          <ul style="margin:0;padding-left:16px;font-size:11px;">
+            ${observations}
+          </ul>
+        </div>
+
+        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
+          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">HOW TO IMPROVE DISCOVERABILITY</div>
+          <p style="font-size:11px;line-height:1.4;">
+            ${escapeHtml(narrative)}
+          </p>
+        </div>
+
+      </div>
+
+      <div style="margin-top:14px;font-size:10px;opacity:0.85;">
+        AI discoverability reflects whether the business appears in tested
+        recommendation prompts and independent web references.
+      </div>
+
     </div>
+
   </div>
   `;
 }
