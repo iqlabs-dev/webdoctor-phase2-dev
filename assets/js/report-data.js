@@ -1086,15 +1086,15 @@ if (domainKey === "ai_discoverability") {
     };
   }
 
-  return {
-    impact:
-      "This score reflects visibility in tested AI recommendation queries, not general brand awareness." +
-      (haveList ? (" Signals such as " + listText + " are currently limited or absent in the tested prompt set.") : ""),
-    fix:
-      "Improve discoverability by tightening entity clarity, earning independent mentions, expanding category-specific references, strengthening directory/profile consistency, and testing prompts that match real buyer language.",
-    next:
-      "Update one or more of those discovery signals, then re-run the scan to check whether tested AI recommendation visibility improves."
-  };
+return {
+  impact:
+    "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
+    (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested discovery prompts.") : ""),
+  fix:
+    "Improve discoverability by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+  next:
+    "Update one or more of those discovery signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI discovery signals may take several days or weeks to be reflected as models and external references update."
+};
 }
 
 return {
