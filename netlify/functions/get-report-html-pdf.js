@@ -1275,22 +1275,30 @@ async function fetchTextWithTimeout(url, ms) {
   }
 }
 function renderAiSignal(payload, deliverySignals, scores) {
-
   const ai = orderedSignals(deliverySignals, scores)
     .find(sig => labelToKey(sig?.label || sig?.id || "") === "ai_discoverability");
 
   if (!ai) return "";
 
   const score = safeNumber(ai.score);
-  const narrative = deriveSignalNarrative(ai, payload);
+  const status = scoreLabel(score);
 
-  const observations =
-    ai?.observations?.map(o => `<li>${escapeHtml(o.label || o)}</li>`).join("") ||
-    `<li>Brand was not surfaced in tested AI recommendation prompts.</li>`;
+  const observedText =
+    "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
+
+  const fixItems = [
+    "Clarify the brand and category language used across the site.",
+    "Earn more independent mentions from relevant third-party sources.",
+    "Tighten directory, profile, and citation consistency.",
+    "Add clearer product, service, and niche context for entity matching.",
+    "Test prompts that reflect real recommendation searches in your category."
+  ];
+
+  const footnote =
+    "This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style discovery patterns.";
 
   return `
   <div style="margin:12px;">
-
     <div style="
       border-radius:12px;
       padding:16px;
@@ -1298,46 +1306,78 @@ function renderAiSignal(payload, deliverySignals, scores) {
       background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
     ">
 
-      <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div class="signal-name">AI Discoverability</div>
-        <div class="signal-score">${score}</div>
+        <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
       </div>
 
       <div class="score-bar">
         <div class="score-fill" style="width:${clampScore(score)}%;"></div>
       </div>
 
-      <div style="display:grid;grid-template-columns:200px 1fr 1.2fr;gap:14px;margin-top:14px;">
+      <div style="display:grid;grid-template-columns:180px 1fr 1.15fr;gap:14px;margin-top:14px;">
 
-        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
-          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">DISCOVERY SIGNAL</div>
-          <div style="font-size:30px;font-weight:800;">${score}</div>
-          <div style="font-size:11px;margin-top:6px;">${escapeHtml(scoreLabel(score))}</div>
+        <div style="
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:10px;
+          padding:12px;
+          background:rgba(255,255,255,0.02);
+          min-height:160px;
+        ">
+          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+            DISCOVERY SIGNAL
+          </div>
+          <div style="font-size:30px;font-weight:800;line-height:1;margin-bottom:10px;">
+            ${score === null ? "—" : escapeHtml(String(score))}
+          </div>
+          <div style="font-size:12px;line-height:1.3;">
+            ${escapeHtml(status)}
+          </div>
         </div>
 
-        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
-          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">WHAT WAS OBSERVED</div>
-          <ul style="margin:0;padding-left:16px;font-size:11px;">
-            ${observations}
+        <div style="
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:10px;
+          padding:12px;
+          background:rgba(255,255,255,0.02);
+          min-height:160px;
+        ">
+          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+            WHAT WAS OBSERVED
+          </div>
+          <div style="font-size:12px;line-height:1.45;">
+            ${escapeHtml(observedText)}
+          </div>
+        </div>
+
+        <div style="
+          border:1px solid rgba(255,255,255,0.08);
+          border-radius:10px;
+          padding:12px;
+          background:rgba(255,255,255,0.02);
+          min-height:160px;
+        ">
+          <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+            HOW TO IMPROVE DISCOVERABILITY
+          </div>
+          <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.45;">
+            ${fixItems.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
           </ul>
-        </div>
 
-        <div style="border:1px solid rgba(255,255,255,0.08);padding:12px;border-radius:10px;">
-          <div style="font-size:10px;font-weight:800;margin-bottom:6px;">HOW TO IMPROVE DISCOVERABILITY</div>
-          <p style="font-size:11px;line-height:1.4;">
-            ${escapeHtml(narrative)}
-          </p>
+          <div style="
+            margin-top:12px;
+            padding-top:12px;
+            border-top:1px solid rgba(255,255,255,0.08);
+            font-size:11px;
+            line-height:1.45;
+            opacity:0.92;
+          ">
+            ${escapeHtml(footnote)}
+          </div>
         </div>
 
       </div>
-
-      <div style="margin-top:14px;font-size:10px;opacity:0.85;">
-        AI discoverability reflects whether the business appears in tested
-        recommendation prompts and independent web references.
-      </div>
-
     </div>
-
   </div>
   `;
 }
