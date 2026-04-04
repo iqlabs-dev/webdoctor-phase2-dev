@@ -1,10 +1,9 @@
 // netlify/functions/get-report-html-pdf.js
 // Branded summary PDF HTML for DocRaptor
-// Uses saved report data from get-report-data
+// Uses normalized PDF payload from get-report-data-pdf
 // Output:
 // - Page 1: Header + Key Findings + Overall Delivery
-// - Page 2: Delivery Signals in 3x2 landscape grid
-// - Footer
+// - Page 2: Delivery Signals grid + full-width AI Discoverability card + Footer
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -42,10 +41,10 @@ exports.handler = async (event) => {
     }
 
     const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
-const dataUrl =
-  siteUrl +
-  "/.netlify/functions/get-report-data-pdf?report_id=" +
-  encodeURIComponent(reportId);
+    const dataUrl =
+      siteUrl +
+      "/.netlify/functions/get-report-data-pdf?report_id=" +
+      encodeURIComponent(reportId);
 
     const payloadText = await fetchTextWithTimeout(dataUrl, FETCH_TIMEOUT_MS);
 
@@ -56,7 +55,7 @@ const dataUrl =
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
-        body: "get-report-data returned non-JSON",
+        body: "get-report-data-pdf returned non-JSON",
       };
     }
 
@@ -64,7 +63,7 @@ const dataUrl =
       return {
         statusCode: 500,
         headers: { ...corsHeaders(), "Content-Type": "text/plain" },
-        body: "get-report-data returned success=false",
+        body: "get-report-data-pdf returned success=false",
       };
     }
 
@@ -74,17 +73,15 @@ const dataUrl =
     const deliverySignals = Array.isArray(payload.delivery_signals)
       ? payload.delivery_signals
       : [];
-    const basicChecks = payload.basic_checks || {};
-    const securityHeaders = payload.security_headers || {};
 
     const website = header.website || "";
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
-    const companyName = branding.agency_name || "iQWEB";
-    const reportTitle = branding.agency_report_title || "Website Report";
-    const logoUrl = branding.agency_logo_url || "";
-    const bannerUrl = branding.agency_banner_url || "";
+    const companyName = branding.company_name || branding.agency_name || "iQWEB";
+    const reportTitle = branding.report_title || branding.agency_report_title || "Website Report";
+    const logoUrl = branding.logo_url || branding.agency_logo_url || "";
+    const bannerUrl = branding.banner_url || branding.agency_banner_url || "";
 
     const brandHeaderBg = branding.agency_header_bg || "#0B1730";
     const brandHeaderText = branding.agency_header_text_color || "#FFFFFF";
@@ -97,34 +94,22 @@ const dataUrl =
     const showPoweredBy = branding.show_powered_by !== false;
 
     const headerContactBits = [
-      branding.agency_website || "",
-      branding.agency_email || "",
-      branding.agency_phone || "",
+      branding.website || branding.agency_website || "",
+      branding.email || branding.agency_email || "",
+      branding.phone || branding.agency_phone || "",
     ].filter(Boolean);
 
     const footerContactBits = [
       companyName || "",
-      branding.agency_website || "",
-      branding.agency_email || "",
-      branding.agency_phone || "",
+      branding.website || branding.agency_website || "",
+      branding.email || branding.agency_email || "",
+      branding.phone || branding.agency_phone || "",
     ].filter(Boolean);
 
-    const keyFindings = buildKeyFindings(
-      payload,
-      scores,
-      deliverySignals,
-      basicChecks,
-      securityHeaders
-    );
-
+    const keyFindings = buildKeyFindings(payload, scores, deliverySignals);
     const overallCard = renderOverallCard(scores, payload);
-    const signalTable = buildSignalTableHtml(
-      payload,
-      deliverySignals,
-      scores,
-      basicChecks,
-      securityHeaders
-    );
+    const signalTable = buildSignalTableHtml(payload, deliverySignals, scores);
+    const aiCard = buildAiSignalSection(payload, deliverySignals, scores);
 
     const footerHtml = `
       <div class="footer-bar">
@@ -188,6 +173,7 @@ const dataUrl =
     .section,
     .overall-card,
     .signal-card,
+    .ai-discovery-card,
     .footer-bar,
     .finding-row {
       break-inside: avoid;
@@ -274,7 +260,6 @@ const dataUrl =
       object-fit: contain;
     }
 
-    /* Force the OSD-style horizontal header cards in PDF */
     .meta-table-wrap {
       padding: 0 14px 12px;
     }
@@ -454,7 +439,7 @@ const dataUrl =
     }
 
     .signals-table-wrap {
-      padding: 12px 10px 10px;
+      padding: 12px 10px 4px;
     }
 
     .signals-table {
@@ -464,27 +449,25 @@ const dataUrl =
       table-layout: fixed;
     }
 
-.signals-table td {
-  width: 33.333%;
-  vertical-align: top;
-  height: 112px;
-  padding-top: 4px;
-}
+    .signals-table td {
+      width: 33.333%;
+      vertical-align: top;
+      padding-top: 4px;
+    }
 
-.signal-card {
-  height: 100px;
-  min-height: 100px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 12px;
-  padding: 9px 10px 9px;
-  background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-  border: 1px solid rgba(69, 102, 154, 0.34);
-  position: relative;
-  overflow: visible;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
+    .signal-card {
+      min-height: 112px;
+      display: flex;
+      flex-direction: column;
+      border-radius: 12px;
+      padding: 10px 10px 10px;
+      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
+      border: 1px solid rgba(69, 102, 154, 0.34);
+      position: relative;
+      overflow: visible;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
 
     .signal-card.good {
       border-color: rgba(28, 198, 115, 0.55);
@@ -574,6 +557,88 @@ const dataUrl =
       letter-spacing: 0.08em;
       text-transform: uppercase;
       white-space: nowrap;
+    }
+
+    .ai-discovery-wrap {
+      padding: 4px 10px 12px;
+    }
+
+    .ai-discovery-card {
+      border-radius: 12px;
+      padding: 12px;
+      background: linear-gradient(180deg, rgba(30, 8, 8, 0.96), rgba(20, 6, 6, 0.98));
+      border: 1px solid rgba(238, 95, 86, 0.56);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ai-grid {
+      display: grid;
+      grid-template-columns: 170px 1fr 1.15fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .ai-panel {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255,255,255,0.02);
+      min-height: 126px;
+    }
+
+    .ai-panel h4,
+    .ai-score-label {
+      margin: 0 0 8px;
+      font-size: 8px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: ${escapeHtml(brandText)};
+    }
+
+    .ai-score-value {
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 800;
+      color: ${escapeHtml(brandText)};
+      margin-bottom: 8px;
+    }
+
+    .ai-score-status {
+      font-size: 10px;
+      line-height: 1.2;
+      font-weight: 700;
+      color: ${escapeHtml(brandText)};
+      margin-top: 8px;
+    }
+
+    .ai-panel p,
+    .ai-panel li {
+      font-size: 8.2px;
+      line-height: 1.28;
+      color: ${escapeHtml(brandText)};
+      margin: 0;
+    }
+
+    .ai-panel ul {
+      margin: 0;
+      padding-left: 16px;
+    }
+
+    .ai-panel li + li {
+      margin-top: 4px;
+    }
+
+    .ai-footnote {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 8px;
+      line-height: 1.3;
+      color: ${escapeHtml(brandText)};
+      opacity: 0.84;
     }
 
     .footer-bar {
@@ -707,6 +772,7 @@ const dataUrl =
         <div class="section-head">Delivery Signals</div>
         <div class="section-body">
           ${signalTable}
+          ${aiCard}
         </div>
       </div>
 
@@ -840,16 +906,15 @@ function orderedSignals(deliverySignals, scores) {
   const mapped = {};
 
   for (const sig of deliverySignals) {
-    const key = labelToKey(sig?.label || sig?.id || "");
+    const key = labelToKey(sig && (sig.label || sig.id || ""));
     if (key && !mapped[key]) mapped[key] = sig;
   }
 
-  const out = wanted.map((key) => {
+  return wanted.map((key) => {
     const existing = mapped[key];
-
     if (existing) {
       if (existing.score === undefined || existing.score === null) {
-        existing.score = scores[key] ?? null;
+        existing.score = scores[key] != null ? scores[key] : null;
       }
       return existing;
     }
@@ -857,30 +922,34 @@ function orderedSignals(deliverySignals, scores) {
     return {
       id: key,
       label: titleCaseSignal(key),
-      score: scores[key] ?? null,
-      summary: "",
-      narrative: "",
-      note: "",
+      score: scores[key] != null ? scores[key] : null,
       deductions: [],
       observations: [],
       evidence: {}
     };
   });
-
-  return out;
 }
 
-function boolIsMissing(key, value) {
-  const lower = String(key || "").toLowerCase();
+function collectMissingEvidence(sig) {
+  const evidence = sig && sig.evidence && typeof sig.evidence === "object" ? sig.evidence : {};
+  const missing = [];
+  const keys = Object.keys(evidence);
 
-  if (typeof value !== "boolean") return false;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const value = evidence[key];
+    const lower = String(key || "").toLowerCase();
 
-  if (lower.includes("present")) return value === false;
-  if (lower.includes("enabled")) return value === false;
-  if (lower.includes("https")) return value === false;
-  if (lower.includes("missing")) return value === true;
+    if (typeof value === "boolean") {
+      if ((lower.indexOf("present") !== -1 || lower.indexOf("enabled") !== -1 || lower.indexOf("https") !== -1) && value === false) {
+        missing.push(humanLabelFromEvidenceKey(key));
+      } else if (lower.indexOf("missing") !== -1 && value === true) {
+        missing.push(humanLabelFromEvidenceKey(key));
+      }
+    }
+  }
 
-  return false;
+  return missing;
 }
 
 function humanLabelFromEvidenceKey(k) {
@@ -898,142 +967,76 @@ function humanLabelFromEvidenceKey(k) {
   if (x.includes("h1")) return "primary heading (H1)";
   if (x.includes("html_lang")) return "<html lang>";
   if (x.includes("img_alt")) return "alt text";
-  if (x.includes("lang")) return "language declaration";
   return String(k || "").replace(/_/g, " ");
 }
 
-function collectMissingEvidence(sig) {
-  const evidence = sig && sig.evidence && typeof sig.evidence === "object" ? sig.evidence : {};
-  const keys = Object.keys(evidence);
-  const missing = [];
-
-  for (const key of keys) {
-    const value = evidence[key];
-    if (boolIsMissing(key, value)) {
-      missing.push(humanLabelFromEvidenceKey(key));
-    }
-  }
-
-  return missing;
-}
-
-function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
+function deriveSignalNarrative(sig, payload) {
   if (!sig || typeof sig !== "object") return "";
 
   const key = labelToKey(sig.label || sig.id || "");
   const score = safeNumber(sig.score);
 
   if (key === "performance") {
-    if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
-    }
+    if (score >= 90) return "Baseline stable — no measurable blockers detected in this scan.";
     return "Page loading performance can be improved by reducing document weight and render-blocking work.";
   }
 
   if (key === "mobile") {
-    if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
-    }
+    if (score >= 90) return "Baseline stable — no measurable blockers detected in this scan.";
     return "Mobile rendering stability and responsiveness can be improved.";
   }
 
   if (key === "seo") {
     const missing = collectMissingEvidence(sig);
-
     if (missing.length) {
-      return `Missing: ${missing.join(", ")}. Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.`;
+      return "Missing: " + missing.join(", ") + ". Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.";
     }
-
     return "Core SEO foundations are incomplete and should be restored before deeper optimisation work.";
   }
 
   if (key === "security") {
     const missing = collectMissingEvidence(sig);
-
     if (missing.length) {
-      return `Missing: ${missing.join(", ")}. Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.`;
+      return "Missing: " + missing.join(", ") + ". Implement modern security headers including HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen browser protection and trust signals.";
     }
-
     return "Trust and browser hardening signals are incomplete and should be corrected first.";
   }
 
   if (key === "structure") {
-    return "This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty. Correct the document structure by ensuring a single primary heading (H1) is present and that semantic HTML tags are used consistently.";
+    if (score >= 90) return "Baseline stable — no measurable blockers detected in this scan.";
+    return "Core document structure and semantic markup need improvement.";
   }
 
   if (key === "accessibility") {
-    if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
-    }
+    if (score >= 90) return "Baseline stable — no measurable blockers detected in this scan.";
     return "Accessibility foundations are incomplete and should be reviewed.";
   }
 
   if (key === "ai_discoverability") {
-    const mentions = safeNumber(sig?.evidence?.independent_web_mentions);
-    const hits = safeNumber(sig?.evidence?.ai_recommendation_hits);
+    const mentions = safeNumber(sig && sig.evidence && sig.evidence.independent_web_mentions);
+    const hits = safeNumber(sig && sig.evidence && sig.evidence.ai_recommendation_hits);
     if ((hits || 0) <= 0) {
-      return "AI recommendation presence was not detected in tested generic prompts, and independent web references are limited.";
+      return "The brand was not surfaced in tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
     }
     if ((mentions || 0) < 2) {
       return "Independent references across the web are limited, which can reduce the likelihood of being surfaced in AI-generated answers.";
     }
-    return "AI discoverability signals are present, supported by some recommendation visibility and independent mentions.";
-  }
-
-  return "";
-}
-
-function fallbackSignalNarrative(sig, score) {
-  const key = labelToKey(sig?.label || sig?.id || "");
-
-  if (score !== null && score >= 90) {
-    return "Baseline stable — no measurable blockers detected in this scan.";
-  }
-
-  if (key === "seo") {
-    return "Core SEO foundations are incomplete and should be restored before deeper optimisation work.";
-  }
-
-  if (key === "security") {
-    return "Trust and browser hardening signals are incomplete and should be corrected first.";
-  }
-
-  if (key === "structure") {
-    return "Core document structure and semantic markup need improvement.";
-  }
-
-  if (key === "mobile") {
-    return "Mobile rendering and responsiveness can be improved.";
-  }
-
-  if (key === "performance") {
-    return "Page loading performance can be improved.";
-  }
-
-  if (key === "accessibility") {
-    return "Accessibility foundations are incomplete and should be reviewed.";
-  }
-
-  if (key === "ai_discoverability") {
-    return "AI discoverability signals are limited and should be strengthened.";
+    return "AI discoverability signals are present, supported by recommendation visibility and independent mentions.";
   }
 
   return "";
 }
 
 function buildOverallNarrative(payload) {
-  const directOverallSummary = String(payload?.overall_summary || "").trim();
-  if (directOverallSummary) {
-    return directOverallSummary;
-  }
+  const directOverallSummary = String(payload && payload.overall_summary || "").trim();
+  if (directOverallSummary) return directOverallSummary;
 
-  const narrativeOverallSummary = String(payload?.narrative?.overall_summary || "").trim();
-  if (narrativeOverallSummary) {
-    return narrativeOverallSummary;
-  }
+  const narrativeOverallSummary = String(payload && payload.narrative && payload.narrative.overall_summary || "").trim();
+  if (narrativeOverallSummary) return narrativeOverallSummary;
 
   return "Overall delivery is based on deterministic checks only and does not measure brand or content effectiveness.";
 }
+
 function renderOverallCard(scores, payload) {
   const overall = safeNumber(scores.overall);
   const narrative = buildOverallNarrative(payload);
@@ -1049,13 +1052,14 @@ function renderOverallCard(scores, payload) {
     <div class="signal-copy">${escapeHtml(narrative)}</div>
   `;
 }
+
 function getPrimarySignal(deliverySignals, scores) {
   const ordered = orderedSignals(deliverySignals, scores)
     .map((sig) => ({
       raw: sig,
-      label: titleCaseSignal(sig?.label || sig?.id || "Signal"),
-      key: labelToKey(sig?.label || sig?.id || ""),
-      score: safeNumber(sig?.score),
+      label: titleCaseSignal(sig && (sig.label || sig.id || "Signal")),
+      key: labelToKey(sig && (sig.label || sig.id || "")),
+      score: safeNumber(sig && sig.score),
     }))
     .filter((x) => x.score !== null)
     .sort((a, b) => a.score - b.score);
@@ -1063,108 +1067,80 @@ function getPrimarySignal(deliverySignals, scores) {
   return ordered[0] || null;
 }
 
-function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
-  const basic = basicChecks || {};
-
+function getDomainNarrative(domainKey) {
   if (domainKey === "security") {
     return {
-      impact:
-        "Security and trust headers are currently incomplete. Important response policies such as Content Security Policy, Referrer-Policy, X-Frame-Options, and Permissions-Policy are not present.",
-      fix:
-        "Add a baseline security header set (HSTS, CSP where appropriate, frame protection, content-type protection, and referrer policy), then re-scan.",
-      next:
-        "Implement the missing headers and re-run the scan to confirm protections are detected.",
+      impact: "Security and trust headers are currently incomplete. Important response policies such as Content Security Policy, Referrer-Policy, X-Frame-Options, and Permissions-Policy are not present.",
+      fix: "Add a baseline security header set (HSTS, CSP where appropriate, frame protection, content-type protection, and referrer policy), then re-scan.",
+      next: "Implement the missing headers and re-run the scan to confirm protections are detected."
     };
   }
 
   if (domainKey === "seo") {
     return {
-      impact:
-        "Search visibility is currently limited by incomplete SEO baseline signals.",
-      fix:
-        "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.",
-      next:
-        "Apply the SEO baseline changes, then re-run the scan to confirm a measurable lift.",
+      impact: "Search visibility is currently limited by incomplete SEO baseline signals.",
+      fix: "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.",
+      next: "Apply the SEO baseline changes, then re-run the scan to confirm a measurable lift."
     };
   }
 
   if (domainKey === "structure") {
     return {
-      impact:
-        "This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.",
-      fix:
-        "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
-      next:
-        "Make one structural pass, then re-run the scan to validate the improvement.",
+      impact: "Core document structure and semantic clarity can be improved.",
+      fix: "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
+      next: "Make one structural pass, then re-run the scan to validate the improvement."
     };
   }
 
   if (domainKey === "accessibility") {
     return {
-      impact:
-        "Accessibility signals are partially incomplete. Some users and assistive technologies may not receive the full page context they need.",
-      fix:
-        "Resolve top accessibility blockers such as labels, alt text, language settings, and empty controls, then verify with a re-scan.",
-      next:
-        "Fix one set of blockers, then re-run the scan to confirm measurable change.",
+      impact: "Accessibility signals are partially incomplete. Some users and assistive technologies may not receive the full page context they need.",
+      fix: "Resolve top accessibility blockers such as labels, alt text, language settings, and empty controls, then verify with a re-scan.",
+      next: "Fix one set of blockers, then re-run the scan to confirm measurable change."
     };
   }
 
   if (domainKey === "mobile") {
     return {
-      impact:
-        "Mobile rendering stability and performance can be improved.",
-      fix:
-        "Ensure the viewport meta tag is correctly configured and review layout stability and payload size to improve mobile rendering.",
-      next:
-        "Ship one mobile improvement, then re-run the scan to confirm the lift.",
+      impact: "Mobile rendering stability and performance can be improved.",
+      fix: "Ensure the viewport meta tag is correctly configured and review layout stability and payload size to improve mobile rendering.",
+      next: "Ship one mobile improvement, then re-run the scan to confirm the lift."
     };
   }
 
   if (domainKey === "performance") {
-    const htmlBytes = safeNumber(basic.html_bytes);
-    const kb = htmlBytes !== null ? Math.round(htmlBytes / 1024) : null;
-
     return {
-      impact:
-        kb !== null && kb >= 150
-          ? "Page loading performance can be improved. Initial HTML size is approximately " + kb + "KB, which increases early render cost."
-          : "Page loading performance can be improved.",
-      fix:
-        "Optimise the primary render path by reducing document weight, render-blocking work, and heavy execution before content becomes ready.",
-      next:
-        "Apply one measurable performance change, then re-run the scan to confirm improvement.",
+      impact: "Page loading performance can be improved.",
+      fix: "Optimise the primary render path by reducing document weight, render-blocking work, and heavy execution before content becomes ready.",
+      next: "Apply one measurable performance change, then re-run the scan to confirm improvement."
     };
   }
 
   if (domainKey === "ai_discoverability") {
     return {
-      impact:
-        "AI discoverability is limited when a business has weak independent references and low recommendation presence across generic prompts.",
-      fix:
-        "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
-      next:
-        "Earn or publish one independent reference, then re-run the scan to check for measurable improvement.",
+      impact: "AI discoverability is limited when a business has weak independent references and low recommendation presence across generic prompts.",
+      fix: "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+      next: "Earn or publish one independent reference, then re-run the scan to check for measurable improvement."
     };
   }
 
   return {
     impact: "No material issue was surfaced in this scan.",
     fix: "Review the lowest scoring area first, then re-scan.",
-    next: "Implement the highest-priority fix and re-run the scan.",
+    next: "Implement the highest-priority fix and re-run the scan."
   };
 }
 
-function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securityHeaders) {
+function buildKeyFindings(payload, scores, deliverySignals) {
   const overall = safeNumber(scores.overall);
   const weakest = getPrimarySignal(deliverySignals, scores);
   const domain = weakest ? weakest.key : "";
-  const domainNarrative = getDomainNarrative(domain, basicChecks, securityHeaders);
+  const domainNarrative = getDomainNarrative(domain);
 
   return [
     {
       label: "Overall Delivery",
-      value: overall === null ? "Not Available" : `${overall}/100 — ${scoreLabel(overall)}`,
+      value: overall === null ? "Not Available" : String(overall) + "/100 — " + scoreLabel(overall),
     },
     {
       label: "Primary Constraint",
@@ -1181,26 +1157,28 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
     {
       label: "Next Step",
       value: weakest ? domainNarrative.next : "Implement the highest-priority fix and re-run the scan.",
-    },
+    }
   ];
 }
 
-function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
+function buildSignalTableHtml(payload, deliverySignals, scores) {
   const primary = getPrimarySignal(deliverySignals, scores);
 
-  const cards = orderedSignals(deliverySignals, scores).map((sig) => {
-    const score = safeNumber(sig?.score);
-    const label = titleCaseSignal(sig?.label || sig?.id || "Signal");
-    const narrative =
-      deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) ||
-      fallbackSignalNarrative(sig, score);
+  const gridSignals = orderedSignals(deliverySignals, scores).filter((sig) => {
+    return labelToKey(sig && (sig.label || sig.id || "")) !== "ai_discoverability";
+  });
+
+  const cards = gridSignals.map((sig) => {
+    const score = safeNumber(sig && sig.score);
+    const label = titleCaseSignal(sig && (sig.label || sig.id || "Signal"));
+    const narrative = deriveSignalNarrative(sig, payload) || "";
     const status = scoreLabel(score);
     const klass = scoreClass(score);
-    const key = labelToKey(sig?.label || sig?.id || "");
+    const key = labelToKey(sig && (sig.label || sig.id || ""));
 
     const primaryBadge =
       primary && primary.key && primary.key === key
-        ? `<div class="signal-badge">${key === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
+        ? '<div class="signal-badge">Primary Constraint</div>'
         : "";
 
     return `
@@ -1219,7 +1197,7 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
     `;
   });
 
-  while (cards.length < 9) {
+  while (cards.length < 6) {
     cards.push("&nbsp;");
   }
 
@@ -1236,12 +1214,68 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
           <td>${cards[4]}</td>
           <td>${cards[5]}</td>
         </tr>
-        <tr>
-          <td>${cards[6]}</td>
-          <td>${cards[7]}</td>
-          <td>${cards[8]}</td>
-        </tr>
       </table>
+    </div>
+  `;
+}
+
+function buildAiSignalSection(payload, deliverySignals, scores) {
+  const aiSignal = orderedSignals(deliverySignals, scores).filter((sig) => {
+    return labelToKey(sig && (sig.label || sig.id || "")) === "ai_discoverability";
+  })[0];
+
+  if (!aiSignal) return "";
+
+  const score = safeNumber(aiSignal.score);
+  const status = scoreLabel(score);
+  const primary = getPrimarySignal(deliverySignals, scores);
+  const badge = primary && primary.key === "ai_discoverability"
+    ? '<div class="signal-badge">Discovery Signal</div>'
+    : '';
+
+  const observed =
+    deriveSignalNarrative(aiSignal, payload) ||
+    "AI discoverability signals are currently limited for this category.";
+
+  const fixItems = [
+    "Clarify the brand and category language used across the site.",
+    "Earn more independent mentions from relevant third-party sources.",
+    "Tighten directory, profile, and citation consistency.",
+    "Add clearer product, service, and niche context for entity matching.",
+    "Test prompts that reflect real recommendation searches in your category."
+  ];
+
+  const footnote = "AI Discoverability is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI discovery scenarios, not overall brand quality or general business value.";
+
+  return `
+    <div class="ai-discovery-wrap">
+      <div class="ai-discovery-card">
+        ${badge}
+        <div class="signal-name">AI Discoverability</div>
+        <div class="ai-grid">
+          <div class="ai-panel">
+            <div class="ai-score-label">Discovery Signal</div>
+            <div class="ai-score-value">${score === null ? "—" : escapeHtml(String(score))}</div>
+            <div class="score-bar">
+              <div class="score-fill" style="width:${clampScore(score)}%;"></div>
+            </div>
+            <div class="ai-score-status">${escapeHtml(status)}</div>
+          </div>
+
+          <div class="ai-panel">
+            <h4>What Was Observed</h4>
+            <p>${escapeHtml(observed)}</p>
+          </div>
+
+          <div class="ai-panel">
+            <h4>How to Improve Discoverability</h4>
+            <ul>
+              ${fixItems.map(function (item) { return "<li>" + escapeHtml(item) + "</li>"; }).join("")}
+            </ul>
+          </div>
+        </div>
+        <div class="ai-footnote">${escapeHtml(footnote)}</div>
+      </div>
     </div>
   `;
 }
@@ -1258,10 +1292,10 @@ async function fetchTextWithTimeout(url, ms) {
 
     const txt = await resp.text().catch(() => "");
     if (!resp.ok) throw new Error(`Fetch failed (${resp.status}): ${txt.slice(0, 600)}`);
-    if (!txt || txt.length < 2) throw new Error("Empty response from get-report-data");
+    if (!txt || !txt.length) throw new Error("Empty response from get-report-data-pdf");
     return txt;
   } catch (e) {
-    if (e?.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
+    if (e && e.name === "AbortError") throw new Error(`Timeout after ${ms}ms: ${url}`);
     throw e;
   } finally {
     clearTimeout(id);
