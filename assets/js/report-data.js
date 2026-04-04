@@ -2127,53 +2127,71 @@ return {
     }
 
 try {
-var phases = root.querySelectorAll(".phase");
-if (phases && phases.length >= 3) {
-  var ul1 = phases[0].querySelector("ul");
-  if (ul1) {
+  var phases = root.querySelectorAll(".phase");
+  if (phases && phases.length >= 3) {
+    var isAiFocus = !!(primary && primary.key === "ai_discoverability");
 
-    var p1 = [];
+    var ul1 = phases[0].querySelector("ul");
+    if (ul1) {
+      var p1 = [];
 
-    // Cleaner wording when AI discoverability is the constraint
-    var focusLine;
-
-    if (focus && focus.toLowerCase().indexOf("recommend") !== -1) {
-      focusLine = "Fix the top constraint first: improve AI recommendation visibility for this category.";
-    } else if (focus) {
-      focusLine = "Fix the top constraint first: address the primary issue identified in this scan.";
-    } else {
-      focusLine = "Fix the top constraint first: address the clearest evidence-backed issue identified in this scan.";
-    }
-
-    p1.push(focusLine);
-    p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this scan."));
-    p1.push("Re-run the scan after these changes to confirm a measurable improvement.");
-
-    ul1.innerHTML =
-      "<li>" + escapeHtml(p1[0]) + "</li>" +
-      "<li>" + escapeHtml(p1[1]) + "</li>" +
-      "<li>" + escapeHtml(p1[2]) + "</li>";
-    }
-
-        var ul2 = phases[1].querySelector("ul");
-        if (ul2) {
-          var p2 = [];
-          p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
-          p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
-          p2.push("Keep a simple before-and-after record tied to the new scan result.");
-          ul2.innerHTML = "<li>" + escapeHtml(p2[0]) + "</li><li>" + escapeHtml(p2[1]) + "</li><li>" + escapeHtml(p2[2]) + "</li>";
-        }
-
-        var ul3 = phases[2].querySelector("ul");
-        if (ul3) {
-          var p3 = [];
-          p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
-          p3.push("Schedule periodic re-scans to catch regressions before they compound.");
-          p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
-          ul3.innerHTML = "<li>" + escapeHtml(p3[0]) + "</li><li>" + escapeHtml(p3[1]) + "</li><li>" + escapeHtml(p3[2]) + "</li>";
-        }
+      if (isAiFocus) {
+        p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
+        p1.push("Address the clearest discovery signal identified in this scan, such as entity clarity, category language, or external references.");
+        p1.push("Re-run the scan after the update to confirm the signal change has been captured.");
+      } else {
+        p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
+        p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
+        p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
       }
-    } catch (e) {}
+
+      ul1.innerHTML =
+        "<li>" + escapeHtml(p1[0]) + "</li>" +
+        "<li>" + escapeHtml(p1[1]) + "</li>" +
+        "<li>" + escapeHtml(p1[2]) + "</li>";
+    }
+
+    var ul2 = phases[1].querySelector("ul");
+    if (ul2) {
+      var p2 = [];
+
+      if (isAiFocus) {
+        p2.push("Strengthen supporting discovery signals such as independent mentions, citations, and category-specific references.");
+        p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references where present.");
+        p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
+      } else {
+        p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
+        p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
+        p2.push("Keep a simple before-and-after record tied to the new scan result.");
+      }
+
+      ul2.innerHTML =
+        "<li>" + escapeHtml(p2[0]) + "</li>" +
+        "<li>" + escapeHtml(p2[1]) + "</li>" +
+        "<li>" + escapeHtml(p2[2]) + "</li>";
+    }
+
+    var ul3 = phases[2].querySelector("ul");
+    if (ul3) {
+      var p3 = [];
+
+      if (isAiFocus) {
+        p3.push("Continue strengthening signals that support entity trust and category association.");
+        p3.push("Schedule periodic re-scans to detect regressions or missed signals.");
+        p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked over time.");
+      } else {
+        p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
+        p3.push("Schedule periodic re-scans to catch regressions before they compound.");
+        p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
+      }
+
+      ul3.innerHTML =
+        "<li>" + escapeHtml(p3[0]) + "</li>" +
+        "<li>" + escapeHtml(p3[1]) + "</li>" +
+        "<li>" + escapeHtml(p3[2]) + "</li>";
+    }
+  }
+} catch (e) {}
   }
 
 
