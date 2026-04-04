@@ -1663,7 +1663,7 @@ return {
             "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
             "<li>Expand entity clarity only where it improves real-world visibility.</li>";
         } else {
-          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI Visibility signals appear limited.";
+          aiObserved = "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI visibility signals appear limited.";
           aiFixList =
             "<li>Clarify the brand and category language used across the site.</li>" +
             "<li>Earn more independent mentions from relevant third-party sources.</li>" +
@@ -1977,7 +1977,7 @@ if (key === "ai_discoverability") label = "AI Visibility";
 
       var platformManaged = (platformControl === "limited" && key === "security");
       if (platformManaged) return;
-      
+
 var label = String(sig.label || sig.id || "Signal");
 if (key === "ai_discoverability") label = "AI Visibility";
       var issues = asArray(sig.issues);
