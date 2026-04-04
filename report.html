@@ -932,74 +932,74 @@
     }
 
     /* -------------------------------- */
-    /* AI VISIBILITY LAYOUT        */
+    /* AI VISIBILITY LAYOUT             */
     /* -------------------------------- */
 
-.card.ai-discovery-card {
-  grid-column: 1 / -1;
-  padding: 16px;
-}
+    .card.ai-discovery-card {
+      grid-column: 1 / -1;
+      padding: 16px;
+    }
 
-/* AI Visibility state colours */
-.card.ai-discovery-card.severity-high {
-  border-color: rgba(239, 68, 68, 0.55);
-  background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.18));
-  box-shadow:
-    0 0 0 1px rgba(239,68,68,0.25),
-    0 8px 30px rgba(239,68,68,0.08);
-}
+    .card.ai-discovery-card.severity-high {
+      border-color: rgba(239, 68, 68, 0.55);
+      background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.18));
+      box-shadow:
+        0 0 0 1px rgba(239,68,68,0.25),
+        0 8px 30px rgba(239,68,68,0.08);
+    }
 
-.card.ai-discovery-card.severity-medium {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: linear-gradient(180deg, rgba(245,158,11,0.10), rgba(0,0,0,0.18));
-  box-shadow:
-    0 0 0 1px rgba(245,158,11,0.22),
-    0 8px 30px rgba(245,158,11,0.08);
-}
+    .card.ai-discovery-card.severity-medium {
+      border-color: rgba(245, 158, 11, 0.55);
+      background: linear-gradient(180deg, rgba(245,158,11,0.10), rgba(0,0,0,0.18));
+      box-shadow:
+        0 0 0 1px rgba(245,158,11,0.22),
+        0 8px 30px rgba(245,158,11,0.08);
+    }
 
-.card.ai-discovery-card.severity-strong {
-  border-color: rgba(34, 197, 94, 0.55);
-  background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18));
-  box-shadow:
-    0 0 0 1px rgba(34,197,94,0.22),
-    0 8px 30px rgba(34,197,94,0.08);
-}
+    .card.ai-discovery-card.severity-strong {
+      border-color: rgba(34, 197, 94, 0.55);
+      background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18));
+      box-shadow:
+        0 0 0 1px rgba(34,197,94,0.22),
+        0 8px 30px rgba(34,197,94,0.08);
+    }
 
-.card.ai-discovery-card.severity-na {
-  border-color: rgba(148,163,184,0.35);
-  background: linear-gradient(180deg, rgba(148,163,184,0.08), rgba(0,0,0,0.18));
-  box-shadow:
-    0 0 0 1px rgba(148,163,184,0.14),
-    0 8px 30px rgba(148,163,184,0.06);
-}
+    .card.ai-discovery-card.severity-na {
+      border-color: rgba(148,163,184,0.35);
+      background: linear-gradient(180deg, rgba(148,163,184,0.08), rgba(0,0,0,0.18));
+      box-shadow:
+        0 0 0 1px rgba(148,163,184,0.14),
+        0 8px 30px rgba(148,163,184,0.06);
+    }
 
-/* Optional: make the AI score bar match the state */
-.card.ai-discovery-card.severity-high .bar > div {
-  background: linear-gradient(90deg, #ef4444, #f87171);
-}
+    .card.ai-discovery-card.severity-high .bar > div {
+      background: linear-gradient(90deg, #ef4444, #f87171);
+    }
 
-.card.ai-discovery-card.severity-medium .bar > div {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
-}
+    .card.ai-discovery-card.severity-medium .bar > div {
+      background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
 
-.card.ai-discovery-card.severity-strong .bar > div {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
-}
+    .card.ai-discovery-card.severity-strong .bar > div {
+      background: linear-gradient(90deg, #22c55e, #4ade80);
+    }
 
-.card.ai-discovery-card.severity-na .bar > div {
-  background: linear-gradient(90deg, #94a3b8, #cbd5e1);
-}
+    .card.ai-discovery-card.severity-na .bar > div {
+      background: linear-gradient(90deg, #94a3b8, #cbd5e1);
+    }
 
     .ai-discovery-layout {
       display: grid;
-      grid-template-columns: 220px 1fr 1fr;
-      gap: 16px;
-      align-items: stretch;
+      grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
     }
 
     .ai-discovery-scorebox,
     .ai-discovery-panel {
-      min-height: 150px;
+      height: auto;
+      min-height: 0;
+      align-self: start;
     }
 
     .ai-discovery-scorebox {
@@ -1026,6 +1026,15 @@
       margin-bottom: 10px;
     }
 
+    .ai-status {
+      margin-top: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
     .ai-discovery-panel {
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.08);
@@ -1049,6 +1058,11 @@
       color: var(--ink-soft);
     }
 
+    .ai-discovery-panel ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
     .ai-more-copy {
       display: block;
       margin-top: 12px;
@@ -1060,8 +1074,8 @@
     }
 
     .ai-discovery-footnote {
-      margin-top: 18px;
-      padding-top: 14px;
+      margin-top: 14px;
+      padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.08);
       font-size: 12px;
       line-height: 1.55;
