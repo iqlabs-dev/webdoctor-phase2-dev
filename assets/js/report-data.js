@@ -1687,11 +1687,8 @@ if (key === "ai_discoverability") {
       "<li>Test prompts reflecting real recommendation searches in your category.</li>";
   }
 
-  // Build AI card HTML
-  card.className = "card ai-discovery-card " + aiSeverity;
-  if (isPrimary) {
-    card.className += " primary-badge";
-  }
+// Build AI card HTML
+card.className = "card ai-discovery-card " + aiSeverity;
 
   card.innerHTML =
     (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
