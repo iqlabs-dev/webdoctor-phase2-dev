@@ -464,27 +464,27 @@ exports.handler = async (event) => {
       table-layout: fixed;
     }
 
-    .signals-table td {
-      width: 33.333%;
-      vertical-align: top;
-      height: 122px;
-      padding-top: 2px;
-    }
+.signals-table td {
+  width: 33.333%;
+  vertical-align: top;
+  height: 112px;
+  padding-top: 4px;
+}
 
-    .signal-card {
-      height: 112px;
-      min-height: 112px;
-      display: flex;
-      flex-direction: column;
-      border-radius: 12px;
-      padding: 10px 10px 10px;
-      background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-      border: 1px solid rgba(69, 102, 154, 0.34);
-      position: relative;
-      overflow: visible;
-      page-break-inside: avoid;
-      break-inside: avoid;
-    }
+.signal-card {
+  height: 100px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  padding: 9px 10px 9px;
+  background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
+  border: 1px solid rgba(69, 102, 154, 0.34);
+  position: relative;
+  overflow: visible;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
 
     .signal-card.good {
       border-color: rgba(28, 198, 115, 0.55);
@@ -1141,52 +1141,6 @@ function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
   };
 }
 
-function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securityHeaders) {
-  const overall = safeNumber(scores.overall);
-  const weakest = getPrimarySignal(deliverySignals, scores);
-  const domain = weakest ? weakest.key : "";
-  const domainNarrative = getDomainNarrative(domain, basicChecks, securityHeaders);
-
-  return [
-    {
-      label: "Overall Delivery",
-      value: overall === null ? "Not Available" : `${overall}/100 — ${scoreLabel(overall)}`,
-    },
-    {
-      label: "Primary Constraint",
-      value: weakest ? weakest.label : "No primary constraint identified",
-    },
-    {
-      label: "Impact",
-      value: weakest ? domainNarrative.impact : "No material issue was surfaced in this scan.",
-    },
-    {
-      label: "Recommended Fix",
-      value: weakest ? domainNarrative.fix : "Review the lowest scoring area first, then re-scan.",
-    },
-    {
-      label: "Next Step",
-      value: weakest ? domainNarrative.next : "Implement the highest-priority fix and re-run the scan.",
-    },
-  ];
-}
-
-function renderOverallCard(scores, payload) {
-  const overall = safeNumber(scores.overall);
-  const narrative = buildOverallNarrative(payload);
-
-  return `
-    <div class="signal-top">
-      <div class="signal-name">Overall Delivery Score</div>
-      <div class="signal-score">${overall === null ? "—" : escapeHtml(String(overall))}</div>
-    </div>
-    <div class="score-bar">
-      <div class="score-fill" style="width:${clampScore(overall)}%;"></div>
-    </div>
-    <div class="signal-copy">${escapeHtml(narrative)}</div>
-  `;
-}
-
 function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, securityHeaders) {
   const primary = getPrimarySignal(deliverySignals, scores);
 
@@ -1200,10 +1154,10 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
     const klass = scoreClass(score);
     const key = labelToKey(sig?.label || sig?.id || "");
 
-  const primaryBadge =
-  primary && primary.key && primary.key === key
-    ? `<div class="signal-badge">${key === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
-    : "";
+    const primaryBadge =
+      primary && primary.key && primary.key === key
+        ? `<div class="signal-badge">${key === "ai_discoverability" ? "Discovery Signal" : "Primary Constraint"}</div>`
+        : "";
 
     return `
       <div class="signal-card ${klass}">
@@ -1221,7 +1175,7 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
     `;
   });
 
-  while (cards.length < 6) {
+  while (cards.length < 9) {
     cards.push("&nbsp;");
   }
 
@@ -1237,6 +1191,11 @@ function buildSignalTableHtml(payload, deliverySignals, scores, basicChecks, sec
           <td>${cards[3]}</td>
           <td>${cards[4]}</td>
           <td>${cards[5]}</td>
+        </tr>
+        <tr>
+          <td>${cards[6]}</td>
+          <td>${cards[7]}</td>
+          <td>${cards[8]}</td>
         </tr>
       </table>
     </div>
