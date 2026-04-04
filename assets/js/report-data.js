@@ -1108,7 +1108,7 @@ return {
     "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
     (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested AI recommendation prompts.") : ""),
   fix:
-    "Improve visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+    "Improve AI visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
   next:
     "Update one or more of those AI visibility signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI visibility signals may take several days or weeks to be reflected as models and external references update."
 };
@@ -1672,31 +1672,28 @@ return {
             "<li>Test prompts that reflect real recommendation searches in your category.</li>";
         }
 
-        card.innerHTML =
-          badgeHtml +
-          '<div class="card-top">' +
-            "<h3>" + escapeHtml(label) + "</h3>" +
-          "</div>" +
-          '<div class="ai-discovery-layout">' +
-            '<div class="ai-discovery-scorebox">' +
-              '<div class="ai-label">AI Visibility Score</div>' +
-              '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
-              '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-              '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
-            "</div>" +
-
-            '<div class="ai-discovery-panel">' +
-              "<h4>What was observed</h4>" +
-              "<p>" + escapeHtml(aiObserved) + "</p>" +
-            "</div>" +
+ card.innerHTML =
+  badgeHtml +
+  '<div class="ai-discovery-layout">' +
+    '<div class="ai-discovery-scorebox">' +
+      '<div class="ai-label">AI Visibility Score</div>' +
+      '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + "</div>" +
+      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+      '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + "</div>" +
+    "</div>" +
 
     '<div class="ai-discovery-panel">' +
-  "<h4>How to improve visibility</h4>" +
-  "<ul>" + aiFixList + "</ul>" +
-  '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
-"</div>" +
-"</div>" +
-'<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
+      "<h4>What was observed</h4>" +
+      "<p>" + escapeHtml(aiObserved) + "</p>" +
+    "</div>" +
+
+    '<div class="ai-discovery-panel">' +
+      "<h4>How to improve visibility</h4>" +
+      "<ul>" + aiFixList + "</ul>" +
+      '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
+    "</div>" +
+  "</div>" +
+  '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + "</div>";
       } else {
         card.innerHTML =
           badgeHtml +
@@ -1735,10 +1732,11 @@ return {
     }
 
     for (var i = 0; i < signals.length; i++) {
-      var sig = safeObj(signals[i]);
-      var label = String(sig.label || sig.id || "Signal");
+  var sig = safeObj(signals[i]);
+var label = String(sig.label || sig.id || "Signal");
 
-      var key = domainKeyFromSignal(sig);
+var key = domainKeyFromSignal(sig);
+if (key === "ai_discoverability") label = "AI Visibility";
 
       var platformControl =
         (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
@@ -1979,8 +1977,9 @@ return {
 
       var platformManaged = (platformControl === "limited" && key === "security");
       if (platformManaged) return;
-
-      var label = String(sig.label || sig.id || "Signal");
+      
+var label = String(sig.label || sig.id || "Signal");
+if (key === "ai_discoverability") label = "AI Visibility";
       var issues = asArray(sig.issues);
       var deds = asArray(sig.deductions);
 
