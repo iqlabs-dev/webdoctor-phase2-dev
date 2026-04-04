@@ -834,31 +834,40 @@ function orderedSignals(deliverySignals, scores) {
     "security",
     "structure",
     "accessibility",
-    "ai_discoverability",
+    "ai_discoverability"
   ];
 
   const mapped = {};
+
   for (const sig of deliverySignals) {
     const key = labelToKey(sig?.label || sig?.id || "");
     if (key && !mapped[key]) mapped[key] = sig;
   }
 
-  return wanted.map((key) => {
+  const out = wanted.map((key) => {
     const existing = mapped[key];
-    if (existing) return existing;
+
+    if (existing) {
+      if (existing.score === undefined || existing.score === null) {
+        existing.score = scores[key] ?? null;
+      }
+      return existing;
+    }
 
     return {
       id: key,
       label: titleCaseSignal(key),
-      score: scores[key],
+      score: scores[key] ?? null,
       summary: "",
       narrative: "",
       note: "",
       deductions: [],
       observations: [],
-      evidence: {},
+      evidence: {}
     };
   });
+
+  return out;
 }
 
 function boolIsMissing(key, value) {

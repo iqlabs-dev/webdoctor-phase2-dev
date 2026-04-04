@@ -138,6 +138,14 @@ exports.handler = async (event) => {
         security: scores.security,
         structure: scores.structure,
         accessibility: scores.accessibility,
+        
+          // AI Discoverability signal
+  ai_discoverability:
+    scores.ai_discoverability ||
+    scores.ai ||
+    scores.ai_visibility ||
+    scores.ai_discovery ||
+    null
       },
       branding,
       narrative: deepClone(narrative),
