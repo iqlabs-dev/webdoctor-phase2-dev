@@ -452,25 +452,28 @@ function stripTags(s) {
 
 function extractBodyExcerpt(html) {
   try {
-    const $ = cheerio.load(String(html || ""));
+    const rawHtml = String(html || "");
+    const $ = cheerio.load(rawHtml);
 
     $("script, style, noscript, svg, canvas, iframe").remove();
-    $("nav, footer, header, aside, form").remove();
 
     const chunks = [];
 
+    // Prefer likely content containers first
     $("main, article, section, [role='main']").each((_, el) => {
       const text = $(el).text().replace(/\s+/g, " ").trim();
       if (text && text.length > 60) chunks.push(text);
     });
 
-    if (!chunks.length) {
+    // If not enough useful text, broaden to body/div blocks
+    if (chunks.join(" ").length < 220) {
       $("body, div").each((_, el) => {
         const text = $(el).text().replace(/\s+/g, " ").trim();
-        if (text && text.length > 80) chunks.push(text);
+        if (text && text.length > 140) chunks.push(text);
       });
     }
 
+    // De-duplicate repeated blocks
     const seen = new Set();
     const uniqueChunks = [];
 
@@ -482,7 +485,22 @@ function extractBodyExcerpt(html) {
       }
     }
 
-    return uniqueChunks.join(" ").replace(/\s+/g, " ").trim().slice(0, 2000);
+    const domExtract = uniqueChunks.join(" ").replace(/\s+/g, " ").trim();
+
+    // Broad fallback only if DOM extract is still very weak
+    if (domExtract.length >= 220) {
+      return domExtract.slice(0, 2000);
+    }
+
+    return rawHtml
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
+
   } catch (e) {
     console.warn("[run-scan] extractBodyExcerpt failed", e);
     return String(html || "")
@@ -495,6 +513,7 @@ function extractBodyExcerpt(html) {
       .slice(0, 2000);
   }
 }
+
 function niceLabel(k) {
   return String(k)
     .replace(/_/g, " ")
@@ -745,19 +764,20 @@ if (!parsed.detected_category) {
     {
       role: "system",
       content:
-        "You classify websites into their primary real-world business category based on the page content. The category should reflect what a person would search for when looking for that type of company. Infer the category even if the site uses vague marketing language. Return ONLY valid JSON."
+        "You classify websites into their primary real-world business category based mainly on the visible page content. Use the body text as the strongest signal. Use the title, H1, brand, service term, and location only as supporting context. Infer the category even if the site uses vague or creative marketing language. Return ONLY valid JSON."
     },
     {
       role: "user",
       content:
         "Determine the primary business category for this website.\n\n" +
+        "Body excerpt:\n" + (pageSignals.body_excerpt || "") + "\n\n" +
+        "Supporting context:\n" +
         "Title: " + (pageSignals.title || "") + "\n" +
         "H1: " + (pageSignals.h1 || "") + "\n" +
         "Meta description: " + (pageSignals.meta || "") + "\n" +
         "Brand: " + (pageSignals.brand || "") + "\n" +
         "Service term: " + (pageSignals.service || "") + "\n" +
         "Location: " + (pageSignals.location || "") + "\n\n" +
-        "Body excerpt:\n" + (pageSignals.body_excerpt || "") + "\n\n" +
         "Return JSON in exactly this format:\n" +
         '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
     }
