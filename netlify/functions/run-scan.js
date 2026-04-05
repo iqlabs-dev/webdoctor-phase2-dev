@@ -704,39 +704,43 @@ try {
 }
 
 // SECOND PASS CATEGORY CLASSIFICATION
-if (!parsed.detected_category && pageSignals.body_excerpt) {
+if (!parsed.detected_category) {
 
-const fallbackPrompt = [
-  {
-    role: "system",
-    content:
-      "You classify companies into realistic business categories people search for on Google or ask AI assistants about. If the site uses creative language, infer the closest real-world category."
-  },
-  {
-    role: "user",
-    content:
-      "Website text:\n\n" +
-      pageSignals.body_excerpt +
-      "\n\nChoose the most likely business category such as:\n" +
-      "Web Design Agency\n" +
-      "Digital Agency\n" +
-      "Branding Agency\n" +
-      "Product Design Agency\n" +
-      "Ecommerce Brand\n" +
-      "SaaS Software Company\n" +
-      "Financial Services\n\n" +
-      "Return JSON only in this format:\n" +
-      '{"detected_category":"...","confidence":"low"}'
-  }
-];
+  const fallbackPrompt = [
+    {
+      role: "system",
+      content:
+        "You classify websites into their primary real-world business category based on the page content. The category should reflect what a person would search for when looking for that type of company. Infer the category even if the site uses vague marketing language. Return ONLY valid JSON."
+    },
+    {
+      role: "user",
+      content:
+        "Determine the primary business category for this website.\n\n" +
+        "Title: " + (pageSignals.title || "") + "\n" +
+        "H1: " + (pageSignals.h1 || "") + "\n" +
+        "Meta description: " + (pageSignals.meta || "") + "\n" +
+        "Brand: " + (pageSignals.brand || "") + "\n" +
+        "Service term: " + (pageSignals.service || "") + "\n" +
+        "Location: " + (pageSignals.location || "") + "\n\n" +
+        "Body excerpt:\n" + (pageSignals.body_excerpt || "") + "\n\n" +
+        "Return JSON in exactly this format:\n" +
+        '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
+    }
+  ];
 
-  const fallbackResp = await openAiChat(fallbackPrompt, 120);
+  const fallbackResp = await openAiChat(fallbackPrompt, 180);
 
   if (fallbackResp) {
     try {
       const parsed2 = JSON.parse(fallbackResp);
+
       parsed.detected_category = parsed2.detected_category || null;
       parsed.confidence = parsed2.confidence || "low";
+
+      if (!parsed.example_prompt_tested && parsed2.example_prompt_tested) {
+        parsed.example_prompt_tested = parsed2.example_prompt_tested;
+      }
+
     } catch (e) {
       console.warn("[run-scan] fallback category parse failed");
     }
