@@ -706,21 +706,29 @@ try {
 // SECOND PASS CATEGORY CLASSIFICATION
 if (!parsed.detected_category && pageSignals.body_excerpt) {
 
-  const fallbackPrompt = [
-    {
-      role: "system",
-      content:
-        "Determine the most realistic real-world business category for this company based on its website text. Use professional categories someone would search for. Return JSON only."
-    },
-    {
-      role: "user",
-      content:
-        "Website text:\n\n" +
-        pageSignals.body_excerpt +
-        "\n\nReturn JSON in this format:\n" +
-        '{"detected_category":"...","confidence":"low"}'
-    }
-  ];
+const fallbackPrompt = [
+  {
+    role: "system",
+    content:
+      "You classify companies into realistic business categories people search for on Google or ask AI assistants about. If the site uses creative language, infer the closest real-world category."
+  },
+  {
+    role: "user",
+    content:
+      "Website text:\n\n" +
+      pageSignals.body_excerpt +
+      "\n\nChoose the most likely business category such as:\n" +
+      "Web Design Agency\n" +
+      "Digital Agency\n" +
+      "Branding Agency\n" +
+      "Product Design Agency\n" +
+      "Ecommerce Brand\n" +
+      "SaaS Software Company\n" +
+      "Financial Services\n\n" +
+      "Return JSON only in this format:\n" +
+      '{"detected_category":"...","confidence":"low"}'
+  }
+];
 
   const fallbackResp = await openAiChat(fallbackPrompt, 120);
 
