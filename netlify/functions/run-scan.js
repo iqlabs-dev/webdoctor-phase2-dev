@@ -637,6 +637,47 @@ async function openAiChat(messages, max_tokens = 450) {
   }
 }
 
+
+// ADD THIS FUNCTION DIRECTLY BELOW openAiChat()
+
+async function classifyBusinessCategory(pageSignals) {
+  try {
+
+    const prompt = [
+      {
+        role: "system",
+        content:
+          "You classify websites into a single primary business category. The category must be short (2–4 words max). Return ONLY valid JSON. Examples: Web Design Agency, SEO Agency, Digital Marketing Agency, Plumbing Service, Dental Clinic, Immigration Lawyer."
+      },
+      {
+        role: "user",
+        content:
+          "Determine the primary business category for this website.\n\n" +
+          "Title: " + (pageSignals.title || "") + "\n" +
+          "H1: " + (pageSignals.h1 || "") + "\n" +
+          "Meta description: " + (pageSignals.meta || "") + "\n\n" +
+          "Return JSON in this format:\n" +
+          '{"detected_category":"...","confidence":"high|medium|low"}'
+      }
+    ];
+
+    const resp = await openAiChat(prompt, 120);
+
+    if (!resp) return null;
+
+    const parsed = JSON.parse(resp);
+
+    return {
+      detected_category: parsed.detected_category || null,
+      confidence: parsed.confidence || null
+    };
+
+  } catch (err) {
+    console.warn("[run-scan] category classification failed", err);
+    return null;
+  }
+}
+
 async function evaluateAiRecommendationPresence(profile, pageUrl) {
   const queries = buildAiQueries(profile);
   const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
@@ -836,18 +877,20 @@ function buildAiDiscoverabilitySignal(aiData) {
     id: "ai_discoverability",
     label: "AI Visibility",
     score: total,
-    evidence: {
-      ai_recommendation_hits: recHits,
-      ai_recommendation_queries_tested: (rec.queries || []).length || 0,
-      independent_web_mentions: mentionCount,
-      authority_boost: authorityBoost,
-      entity_score: entityScore,
-      hostname: host,
-      entity_brand_name_present: !!profile.brand_name,
-      entity_service_term_present: !!profile.service_term,
-      entity_location_term_present: !!profile.location_term,
-      organization_schema_present: !!profile.has_org_schema
-    },
+evidence: {
+  ai_recommendation_hits: recHits,
+  ai_recommendation_queries_tested: (rec.queries || []).length || 0,
+  independent_web_mentions: mentionCount,
+  authority_boost: authorityBoost,
+  entity_score: entityScore,
+  hostname: host,
+  detected_category: profile.detected_category || null,
+  category_confidence: profile.category_confidence || null,
+  entity_brand_name_present: !!profile.brand_name,
+  entity_service_term_present: !!profile.service_term,
+  entity_location_term_present: !!profile.location_term,
+  organization_schema_present: !!profile.has_org_schema
+},
     observations: [
       { label: "Brand", value: profile.brand_name || null, source: "ai" },
       { label: "Hostname", value: host || null, source: "ai" },
@@ -1637,8 +1680,22 @@ async function buildScores(url, html, res, isHtml, psi, platform = { key: "unkno
         empty_links_detected: null,
       };
 
-  const headers = headerSignals(res, url);
-  const aiProfile = deriveAiProfile(basic, url, html);
+ const headers = headerSignals(res, url);
+const aiProfile = deriveAiProfile(basic, url, html);
+
+const categoryResult = await classifyBusinessCategory({
+  title: basic.title_text || "",
+  h1: basic.h1_text || "",
+  meta: basic.meta_description_text || ""
+});
+
+if (categoryResult && categoryResult.detected_category) {
+  aiProfile.detected_category = categoryResult.detected_category;
+  aiProfile.category_confidence = categoryResult.confidence || null;
+} else {
+  aiProfile.detected_category = null;
+  aiProfile.category_confidence = null;
+}
 
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
   const perf = perfPack.score;

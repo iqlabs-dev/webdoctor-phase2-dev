@@ -1690,26 +1690,44 @@ if (key === "ai_discoverability") {
 // Build AI card HTML
 card.className = "card ai-discovery-card " + aiSeverity;
 
-  card.innerHTML =
-    (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
-    '<div class="ai-discovery-layout">' +
-      '<div class="ai-discovery-scorebox">' +
-        '<div class="ai-label">AI Visibility Score</div>' +
-        '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
-        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-        '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
-      '</div>' +
-      '<div class="ai-discovery-panel">' +
-        '<h4>What was observed</h4>' +
-        '<p>' + escapeHtml(aiObserved) + '</p>' +
-      '</div>' +
-      '<div class="ai-discovery-panel">' +
-        '<h4>How to improve visibility</h4>' +
-        '<ul>' + aiFixList + '</ul>' +
-        '<div class="ai-more-copy">This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style visibility patterns.</div>' +
-      '</div>' +
+var aiCategory =
+  (sig && sig.evidence && (sig.evidence.detected_category || sig.evidence.service_term || sig.evidence.category)) ||
+  "Not clearly established";
+
+var aiTestMethod =
+  "Recommendation-style AI prompts were tested against this business category to assess whether the brand is being surfaced in AI discovery results.";
+
+var aiCategoryLabel = "Category Detected";
+var aiMethodLabel = "How this was tested";
+
+card.innerHTML =
+  (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
+  '<div class="ai-discovery-layout">' +
+
+    '<div class="ai-discovery-scorebox">' +
+      '<div class="ai-label">AI Visibility Score</div>' +
+      '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
+      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+      '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
     '</div>' +
-    '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
+
+    '<div class="ai-discovery-panel">' +
+      '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
+      '<p><strong>' + escapeHtml(String(aiCategory)) + '</strong></p>' +
+      '<h4>' + escapeHtml(aiMethodLabel) + '</h4>' +
+      '<p>' + escapeHtml(aiTestMethod) + '</p>' +
+    '</div>' +
+
+    '<div class="ai-discovery-panel">' +
+      '<h4>What was observed</h4>' +
+      '<p>' + escapeHtml(aiObserved) + '</p>' +
+      '<h4>How to improve visibility</h4>' +
+      '<ul>' + aiFixList + '</ul>' +
+      '<div class="ai-more-copy">AI Visibility reflects tested recommendation presence and supporting entity context. A lower result does not mean the business is weak. It usually means the brand is not yet strongly associated with the tested category, external mentions, or recommendation-style discovery patterns.</div>' +
+    '</div>' +
+
+  '</div>' +
+  '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
 
 } else {
   card.innerHTML =
