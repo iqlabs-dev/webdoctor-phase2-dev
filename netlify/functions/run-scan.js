@@ -450,70 +450,6 @@ function stripTags(s) {
     .trim();
 }
 
-function extractBodyExcerpt(html) {
-  try {
-    const rawHtml = String(html || "");
-    const $ = cheerio.load(rawHtml);
-
-    $("script, style, noscript, svg, canvas, iframe").remove();
-
-    const chunks = [];
-
-    // Prefer likely content containers first
-    $("main, article, section, [role='main']").each((_, el) => {
-      const text = $(el).text().replace(/\s+/g, " ").trim();
-      if (text && text.length > 60) chunks.push(text);
-    });
-
-    // If not enough useful text, broaden to body/div blocks
-    if (chunks.join(" ").length < 220) {
-      $("body, div").each((_, el) => {
-        const text = $(el).text().replace(/\s+/g, " ").trim();
-        if (text && text.length > 140) chunks.push(text);
-      });
-    }
-
-    // De-duplicate repeated blocks
-    const seen = new Set();
-    const uniqueChunks = [];
-
-    for (const chunk of chunks) {
-      const normalized = chunk.toLowerCase();
-      if (!seen.has(normalized)) {
-        seen.add(normalized);
-        uniqueChunks.push(chunk);
-      }
-    }
-
-    const domExtract = uniqueChunks.join(" ").replace(/\s+/g, " ").trim();
-
-    // Broad fallback only if DOM extract is still very weak
-    if (domExtract.length >= 220) {
-      return domExtract.slice(0, 2000);
-    }
-
-    return rawHtml
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 2000);
-
-  } catch (e) {
-    console.warn("[run-scan] extractBodyExcerpt failed", e);
-    return String(html || "")
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 2000);
-  }
-}
-
 function niceLabel(k) {
   return String(k)
     .replace(/_/g, " ")
@@ -634,32 +570,14 @@ function deriveAiProfile(basic, pageUrl, html) {
   }
   profile.brand_name = brand;
 
-let service = schema.service_name || h1 || title;
-
-if (service && brand) {
-  const brandRe = new RegExp(escapeRegex(brand), "ig");
-  service = service.replace(brandRe, " ").replace(/\s+/g, " ").trim();
-}
-
-service = service
-  .replace(/^(welcome to|home|official site|homepage)\s+/i, "")
-  .replace(/\b(home|shop|official|site)\b/ig, " ")
-  .replace(/\s+/g, " ")
-  .trim();
-
-if ((!service || service.split(" ").length < 2) && basic.meta_description_text) {
-  service = basic.meta_description_text;
-}
-
-if ((!service || service.split(" ").length < 2) && basic.title_text) {
-  service = basic.title_text;
-}
-
-if (service.split(" ").length > 10) {
-  service = service.split(" ").slice(0, 10).join(" ");
-}
-
-profile.service_term = service;
+  let service = schema.service_name || h1 || title;
+  if (service && brand) {
+    const brandRe = new RegExp(escapeRegex(brand), 'ig');
+    service = service.replace(brandRe, ' ').replace(/\s+/g, ' ').trim();
+  }
+  service = service.replace(/^(welcome to|home|official site|homepage)\s+/i, '').trim();
+  if (service.split(' ').length > 8) service = service.split(' ').slice(0, 8).join(' ');
+  profile.service_term = service;
 
   let location = schema.locality || '';
   if (!location) {
@@ -683,14 +601,14 @@ profile.service_term = service;
 }
 
 function buildAiQueries(profile) {
-  var category = profile.detected_category || profile.service_term || "business services";
-  var location = profile.location_term || "";
-  var suffix = location ? (" in " + location) : "";
-
+  const service = profile.service_term || 'website services';
+  const location = profile.location_term || '';
+  const suffix = location ? (' in ' + location) : '';
   return [
-    "best " + category + suffix,
-    "recommended " + category + suffix,
-    "top " + category + suffix
+    'best ' + service + suffix,
+    'top ' + service + suffix,
+    'recommended ' + service + suffix,
+    'who should I hire for ' + service + suffix
   ];
 }
 
@@ -724,98 +642,35 @@ async function openAiChat(messages, max_tokens = 450) {
 
 async function classifyBusinessCategory(pageSignals) {
   try {
+
     const prompt = [
       {
         role: "system",
         content:
-          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, or Perplexity. The category must be short, clear, and professional. Return ONLY valid JSON."
+          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short (2–4 words max). Return ONLY valid JSON."
       },
       {
         role: "user",
         content:
           "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
-          "Domain: " + (pageSignals.domain || "") + "\n" +
           "Title: " + (pageSignals.title || "") + "\n" +
           "H1: " + (pageSignals.h1 || "") + "\n" +
-          "Meta description: " + (pageSignals.meta || "") + "\n" +
-          "Brand: " + (pageSignals.brand || "") + "\n" +
-          "Service term: " + (pageSignals.service || "") + "\n" +
-          "Location: " + (pageSignals.location || "") + "\n" +
-          "Schema signal: " + (pageSignals.schema || "") + "\n" +
-          "Body excerpt: " + (pageSignals.body_excerpt || "") + "\n\n" +
-          "Return JSON in exactly this format:\n" +
+          "Meta description: " + (pageSignals.meta || "") + "\n\n" +
+          "Return JSON in this format:\n" +
           '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
     ];
 
-    let resp = await openAiChat(prompt, 180);
-
-    if (!resp) {
-      resp = await openAiChat(prompt, 180);
-    }
+    const resp = await openAiChat(prompt, 160);
 
     if (!resp) return null;
 
     let parsed;
-
     try {
       parsed = JSON.parse(resp);
     } catch (e) {
-      console.warn("[run-scan] category JSON parse failed, retrying");
-
-      resp = await openAiChat(prompt, 180);
-      if (!resp) return null;
-
-      try {
-        parsed = JSON.parse(resp);
-      } catch (e2) {
-        console.warn("[run-scan] category JSON parse failed again");
-        return null;
-      }
-    }
-
-    // SECOND PASS CATEGORY CLASSIFICATION
-    if (!parsed.detected_category) {
-      const fallbackPrompt = [
-        {
-          role: "system",
-          content:
-            "You classify websites into realistic real-world business categories people search for. Always choose the closest category even if uncertain. Return ONLY valid JSON."
-        },
-        {
-          role: "user",
-          content:
-            "Determine the primary business category for this website.\n\n" +
-            "Domain: " + (pageSignals.domain || "") + "\n\n" +
-            "Body excerpt:\n" + (pageSignals.body_excerpt || "") + "\n\n" +
-            "Supporting signals:\n" +
-            "Title: " + (pageSignals.title || "") + "\n" +
-            "H1: " + (pageSignals.h1 || "") + "\n" +
-            "Meta description: " + (pageSignals.meta || "") + "\n" +
-            "Brand: " + (pageSignals.brand || "") + "\n" +
-            "Service term: " + (pageSignals.service || "") + "\n" +
-            "Location: " + (pageSignals.location || "") + "\n\n" +
-            "Return JSON in exactly this format:\n" +
-            '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
-        }
-      ];
-
-      const fallbackResp = await openAiChat(fallbackPrompt, 180);
-
-      if (fallbackResp) {
-        try {
-          const parsed2 = JSON.parse(fallbackResp);
-
-          parsed.detected_category = parsed2.detected_category || null;
-          parsed.confidence = parsed2.confidence || "low";
-
-          if (!parsed.example_prompt_tested && parsed2.example_prompt_tested) {
-            parsed.example_prompt_tested = parsed2.example_prompt_tested;
-          }
-        } catch (e) {
-          console.warn("[run-scan] fallback category parse failed");
-        }
-      }
+      console.warn("[run-scan] category JSON parse failed");
+      return null;
     }
 
     return {
@@ -825,7 +680,7 @@ async function classifyBusinessCategory(pageSignals) {
     };
 
   } catch (err) {
-    console.warn("[run-scan] classifyBusinessCategory error", err);
+    console.warn("[run-scan] category classification failed", err);
     return null;
   }
 }
@@ -1832,24 +1687,13 @@ async function buildScores(url, html, res, isHtml, psi, platform = { key: "unkno
         empty_links_detected: null,
       };
 
-const headers = headerSignals(res, url);
+ const headers = headerSignals(res, url);
 const aiProfile = deriveAiProfile(basic, url, html);
-const bodyExcerpt = isHtml ? extractBodyExcerpt(html) : "";
-
-
-
-const parsedUrl = tryParseUrl(url);
 
 const categoryResult = await classifyBusinessCategory({
-  domain: parsedUrl && parsedUrl.hostname ? parsedUrl.hostname : "",
   title: basic.title_text || "",
   h1: basic.h1_text || "",
-  meta: basic.meta_description_text || "",
-  brand: aiProfile.brand_name || "",
-  service: aiProfile.service_term || "",
-  location: aiProfile.location_term || "",
-  schema: aiProfile.has_org_schema ? "organization schema present" : "no organization schema",
-  body_excerpt: bodyExcerpt
+  meta: basic.meta_description_text || ""
 });
 
 if (categoryResult) {

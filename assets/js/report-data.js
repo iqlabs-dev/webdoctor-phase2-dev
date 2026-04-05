@@ -1692,15 +1692,14 @@ card.className = "card ai-discovery-card " + aiSeverity;
 
 var aiCategory =
   (sig && sig.evidence && (sig.evidence.detected_category || sig.evidence.service_term || sig.evidence.category)) ||
-  "Category could not be determined";
+  "Not clearly established";
 
 var aiExamplePrompt =
   (sig && sig.evidence && sig.evidence.example_prompt_tested) || "";
 
 var aiTestMethod =
-  aiCategory === "Category could not be determined"
-    ? "AI recommendation prompts were tested, but a primary business category could not be determined from the available page signals."
-    : "AI recommendation prompts were tested for businesses in the " + aiCategory + " category to determine whether the brand appears in AI visibility results.";
+  "AI recommendation prompts were tested for businesses in the " + aiCategory + " category to determine whether the brand appears in AI visibility results.";
+
 var aiCategoryLabel = "Category Detected";
 var aiMethodLabel = "How this was tested";
 
