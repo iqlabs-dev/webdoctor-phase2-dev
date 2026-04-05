@@ -733,19 +733,19 @@ async function classifyBusinessCategory(pageSignals) {
       },
       {
         role: "user",
-        content:
-          "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
-          "Domain: " + (pageSignals.domain || "") + "\n" +
-          "Title: " + (pageSignals.title || "") + "\n" +
-          "H1: " + (pageSignals.h1 || "") + "\n" +
-          "Meta description: " + (pageSignals.meta || "") + "\n" +
-          "Brand: " + (pageSignals.brand || "") + "\n" +
-          "Service term: " + (pageSignals.service || "") + "\n" +
-          "Location: " + (pageSignals.location || "") + "\n" +
-          "Schema signal: " + (pageSignals.schema || "") + "\n" +
-          "Body excerpt: " + (pageSignals.body_excerpt || "") + "\n\n" +
-          "Return JSON in exactly this format:\n" +
-          '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
+content:
+  "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
+  "Domain: " + (pageSignals.domain || "") + "\n" +
+  "Title: " + (pageSignals.title || "") + "\n" +
+  "H1: " + (pageSignals.h1 || "") + "\n" +
+  "Meta description: " + (pageSignals.meta || "") + "\n" +
+  "Brand: " + (pageSignals.brand || "") + "\n" +
+  "Service term: " + (pageSignals.service || "") + "\n" +
+  "Location: " + (pageSignals.location || "") + "\n" +
+  "Schema signal: " + (pageSignals.schema || "") + "\n" +
+  "Body excerpt: " + (pageSignals.body_excerpt || "") + "\n\n" +
+  "Return JSON in exactly this format:\n" +
+  '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
     ];
 
@@ -783,14 +783,15 @@ if (!parsed.detected_category) {
     {
       role: "system",
       content:
-        "You classify websites into their primary real-world business category based mainly on the visible page content. Use the body text as the strongest signal. Use the title, H1, brand, service term, and location only as supporting context. Infer the category even if the site uses vague or creative marketing language. Return ONLY valid JSON."
+        "You classify websites into realistic real-world business categories people search for. Always choose the closest category even if uncertain. Never return an empty category. Return ONLY valid JSON."
     },
     {
       role: "user",
       content:
         "Determine the primary business category for this website.\n\n" +
+        "Domain: " + (pageSignals.domain || "") + "\n\n" +
         "Body excerpt:\n" + (pageSignals.body_excerpt || "") + "\n\n" +
-        "Supporting context:\n" +
+        "Supporting signals:\n" +
         "Title: " + (pageSignals.title || "") + "\n" +
         "H1: " + (pageSignals.h1 || "") + "\n" +
         "Meta description: " + (pageSignals.meta || "") + "\n" +
@@ -1843,8 +1844,10 @@ const bodyExcerpt = isHtml ? extractBodyExcerpt(html) : "";
 
 
 
+const parsedUrl = tryParseUrl(url);
+
 const categoryResult = await classifyBusinessCategory({
-  domain: (tryParseUrl(url) && tryParseUrl(url).hostname) ? tryParseUrl(url).hostname : "",
+  domain: parsedUrl && parsedUrl.hostname ? parsedUrl.hostname : "",
   title: basic.title_text || "",
   h1: basic.h1_text || "",
   meta: basic.meta_description_text || "",
