@@ -880,6 +880,7 @@ function buildAiDiscoverabilitySignal(aiData) {
 evidence: {
   ai_recommendation_hits: recHits,
   ai_recommendation_queries_tested: (rec.queries || []).length || 0,
+  example_prompt_tested: (rec.queries && rec.queries.length) ? rec.queries[0] : null,
   independent_web_mentions: mentionCount,
   authority_boost: authorityBoost,
   entity_score: entityScore,

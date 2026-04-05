@@ -1694,8 +1694,12 @@ var aiCategory =
   (sig && sig.evidence && (sig.evidence.detected_category || sig.evidence.service_term || sig.evidence.category)) ||
   "Not clearly established";
 
+var aiExamplePrompt =
+  (sig && sig.evidence && sig.evidence.example_prompt_tested) || "";
+
 var aiTestMethod =
   "AI recommendation prompts were tested for businesses in the " + aiCategory + " category to determine whether the brand appears in AI visibility results.";
+
 var aiCategoryLabel = "Category Detected";
 var aiMethodLabel = "How this was tested";
 
@@ -1713,14 +1717,20 @@ card.innerHTML =
     '<div class="ai-discovery-panel">' +
       '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
       '<p><strong>' + escapeHtml(String(aiCategory)) + '</strong></p>' +
-      '<h4>' + escapeHtml(aiMethodLabel) + '</h4>' +
+      '<h4 style="margin-top:14px;">' + escapeHtml(aiMethodLabel) + '</h4>' +
       '<p>' + escapeHtml(aiTestMethod) + '</p>' +
+      (
+        aiExamplePrompt
+          ? '<h4 style="margin-top:14px;">Example Prompt Tested</h4>' +
+            '<div class="ai-prompt-box">' + escapeHtml(String(aiExamplePrompt)) + '</div>'
+          : ''
+      ) +
     '</div>' +
 
     '<div class="ai-discovery-panel">' +
       '<h4>What was observed</h4>' +
-   '<p>' + escapeHtml(aiObserved.replace("this category", aiCategory)) + '</p>'
-      '<h4>How to improve visibility</h4>' +
+      '<p>' + escapeHtml(aiObserved.replace("this category", aiCategory)) + '</p>' +
+      '<h4 style="margin-top:14px;">How to improve visibility</h4>' +
       '<ul>' + aiFixList + '</ul>' +
       '<div class="ai-more-copy">AI Visibility reflects tested recommendation presence and supporting entity context. A lower result does not mean the business is weak. It usually means the brand is not yet strongly associated with the tested category, external mentions, or recommendation-style discovery patterns.</div>' +
     '</div>' +
