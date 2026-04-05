@@ -611,14 +611,14 @@ function deriveAiProfile(basic, pageUrl, html) {
 }
 
 function buildAiQueries(profile) {
-  const service = profile.service_term || 'website services';
-  const location = profile.location_term || '';
-  const suffix = location ? (' in ' + location) : '';
+  var category = profile.detected_category || profile.service_term || "business services";
+  var location = profile.location_term || "";
+  var suffix = location ? (" in " + location) : "";
+
   return [
-    'best ' + service + suffix,
-    'top ' + service + suffix,
-    'recommended ' + service + suffix,
-    'who should I hire for ' + service + suffix
+    "best " + category + suffix,
+    "recommended " + category + suffix,
+    "top " + category + suffix
   ];
 }
 
@@ -678,41 +678,74 @@ async function classifyBusinessCategory(pageSignals) {
 
     let resp = await openAiChat(prompt, 180);
 
-    // retry once if AI fails
-    if (!resp) {
-      resp = await openAiChat(prompt, 180);
-    }
+ // retry once if AI fails
+if (!resp) {
+  resp = await openAiChat(prompt, 180);
+}
 
-    if (!resp) return null;
+if (!resp) return null;
 
-    let parsed;
+let parsed;
 
-    try {
-      parsed = JSON.parse(resp);
-    } catch (e) {
-      console.warn("[run-scan] category JSON parse failed, retrying");
+try {
+  parsed = JSON.parse(resp);
+} catch (e) {
+  console.warn("[run-scan] category JSON parse failed, retrying");
 
-      resp = await openAiChat(prompt, 180);
-      if (!resp) return null;
+  resp = await openAiChat(prompt, 180);
+  if (!resp) return null;
 
-      try {
-        parsed = JSON.parse(resp);
-      } catch (e2) {
-        console.warn("[run-scan] category JSON parse failed again");
-        return null;
-      }
-    }
-
-    return {
-      detected_category: parsed.detected_category || null,
-      confidence: parsed.confidence || null,
-      example_prompt_tested: parsed.example_prompt_tested || null
-    };
-
-  } catch (err) {
-    console.warn("[run-scan] classifyBusinessCategory error", err);
+  try {
+    parsed = JSON.parse(resp);
+  } catch (e2) {
+    console.warn("[run-scan] category JSON parse failed again");
     return null;
   }
+}
+
+// SECOND PASS CATEGORY CLASSIFICATION
+if (!parsed.detected_category && pageSignals.body_excerpt) {
+
+  const fallbackPrompt = [
+    {
+      role: "system",
+      content:
+        "Determine the most realistic real-world business category for this company based on its website text. Use professional categories someone would search for. Return JSON only."
+    },
+    {
+      role: "user",
+      content:
+        "Website text:\n\n" +
+        pageSignals.body_excerpt +
+        "\n\nReturn JSON in this format:\n" +
+        '{"detected_category":"...","confidence":"low"}'
+    }
+  ];
+
+  const fallbackResp = await openAiChat(fallbackPrompt, 120);
+
+  if (fallbackResp) {
+    try {
+      const parsed2 = JSON.parse(fallbackResp);
+      parsed.detected_category = parsed2.detected_category || null;
+      parsed.confidence = parsed2.confidence || "low";
+    } catch (e) {
+      console.warn("[run-scan] fallback category parse failed");
+    }
+  }
+
+}
+
+return {
+  detected_category: parsed.detected_category || null,
+  confidence: parsed.confidence || null,
+  example_prompt_tested: parsed.example_prompt_tested || null
+};
+
+} catch (err) {
+  console.warn("[run-scan] classifyBusinessCategory error", err);
+  return null;
+}
 }
 
 async function evaluateAiRecommendationPresence(profile, pageUrl) {
