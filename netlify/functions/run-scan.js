@@ -450,6 +450,16 @@ function stripTags(s) {
     .trim();
 }
 
+function extractBodyExcerpt(html) {
+  return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 1400);
+}
 function niceLabel(k) {
   return String(k)
     .replace(/_/g, " ")
@@ -642,11 +652,12 @@ async function openAiChat(messages, max_tokens = 450) {
 
 async function classifyBusinessCategory(pageSignals) {
   try {
+
     const prompt = [
       {
         role: "system",
         content:
-          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short, clear, and professional. Return ONLY valid JSON."
+          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, or Perplexity. The category must be short, clear, and professional. Return ONLY valid JSON."
       },
       {
         role: "user",
@@ -658,21 +669,38 @@ async function classifyBusinessCategory(pageSignals) {
           "Brand: " + (pageSignals.brand || "") + "\n" +
           "Service term: " + (pageSignals.service || "") + "\n" +
           "Location: " + (pageSignals.location || "") + "\n" +
-          "Schema signal: " + (pageSignals.schema || "") + "\n\n" +
+          "Schema signal: " + (pageSignals.schema || "") + "\n" +
+          "Body excerpt: " + (pageSignals.body_excerpt || "") + "\n\n" +
           "Return JSON in exactly this format:\n" +
           '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
     ];
 
-    const resp = await openAiChat(prompt, 180);
+    let resp = await openAiChat(prompt, 180);
+
+    // retry once if AI fails
+    if (!resp) {
+      resp = await openAiChat(prompt, 180);
+    }
+
     if (!resp) return null;
 
     let parsed;
+
     try {
       parsed = JSON.parse(resp);
     } catch (e) {
-      console.warn("[run-scan] category JSON parse failed");
-      return null;
+      console.warn("[run-scan] category JSON parse failed, retrying");
+
+      resp = await openAiChat(prompt, 180);
+      if (!resp) return null;
+
+      try {
+        parsed = JSON.parse(resp);
+      } catch (e2) {
+        console.warn("[run-scan] category JSON parse failed again");
+        return null;
+      }
     }
 
     return {
@@ -682,7 +710,7 @@ async function classifyBusinessCategory(pageSignals) {
     };
 
   } catch (err) {
-    console.warn("[run-scan] category classification failed", err);
+    console.warn("[run-scan] classifyBusinessCategory error", err);
     return null;
   }
 }
@@ -1689,8 +1717,11 @@ async function buildScores(url, html, res, isHtml, psi, platform = { key: "unkno
         empty_links_detected: null,
       };
 
- const headers = headerSignals(res, url);
+const headers = headerSignals(res, url);
 const aiProfile = deriveAiProfile(basic, url, html);
+const bodyExcerpt = isHtml ? extractBodyExcerpt(html) : "";
+
+
 
 const categoryResult = await classifyBusinessCategory({
   title: basic.title_text || "",
@@ -1699,7 +1730,8 @@ const categoryResult = await classifyBusinessCategory({
   brand: aiProfile.brand_name || "",
   service: aiProfile.service_term || "",
   location: aiProfile.location_term || "",
-  schema: aiProfile.has_org_schema ? "organization schema present" : "no organization schema"
+  schema: aiProfile.has_org_schema ? "organization schema present" : "no organization schema",
+  body_excerpt: bodyExcerpt
 });
 
 if (categoryResult) {
