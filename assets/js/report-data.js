@@ -1695,8 +1695,7 @@ var aiCategory =
   "Not clearly established";
 
 var aiTestMethod =
-  "Recommendation-style AI prompts were tested against this business category to assess whether the brand is being surfaced in AI discovery results.";
-
+  "AI recommendation prompts were tested for businesses in the " + aiCategory + " category to determine whether the brand appears in AI visibility results.";
 var aiCategoryLabel = "Category Detected";
 var aiMethodLabel = "How this was tested";
 
@@ -1720,7 +1719,7 @@ card.innerHTML =
 
     '<div class="ai-discovery-panel">' +
       '<h4>What was observed</h4>' +
-      '<p>' + escapeHtml(aiObserved) + '</p>' +
+   '<p>' + escapeHtml(aiObserved.replace("this category", aiCategory)) + '</p>'
       '<h4>How to improve visibility</h4>' +
       '<ul>' + aiFixList + '</ul>' +
       '<div class="ai-more-copy">AI Visibility reflects tested recommendation presence and supporting entity context. A lower result does not mean the business is weak. It usually means the brand is not yet strongly associated with the tested category, external mentions, or recommendation-style discovery patterns.</div>' +
