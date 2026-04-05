@@ -634,14 +634,32 @@ function deriveAiProfile(basic, pageUrl, html) {
   }
   profile.brand_name = brand;
 
-  let service = schema.service_name || h1 || title;
-  if (service && brand) {
-    const brandRe = new RegExp(escapeRegex(brand), 'ig');
-    service = service.replace(brandRe, ' ').replace(/\s+/g, ' ').trim();
-  }
-  service = service.replace(/^(welcome to|home|official site|homepage)\s+/i, '').trim();
-  if (service.split(' ').length > 8) service = service.split(' ').slice(0, 8).join(' ');
-  profile.service_term = service;
+let service = schema.service_name || h1 || title;
+
+if (service && brand) {
+  const brandRe = new RegExp(escapeRegex(brand), "ig");
+  service = service.replace(brandRe, " ").replace(/\s+/g, " ").trim();
+}
+
+service = service
+  .replace(/^(welcome to|home|official site|homepage)\s+/i, "")
+  .replace(/\b(home|shop|official|site)\b/ig, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+if ((!service || service.split(" ").length < 2) && basic.meta_description_text) {
+  service = basic.meta_description_text;
+}
+
+if ((!service || service.split(" ").length < 2) && basic.title_text) {
+  service = basic.title_text;
+}
+
+if (service.split(" ").length > 10) {
+  service = service.split(" ").slice(0, 10).join(" ");
+}
+
+profile.service_term = service;
 
   let location = schema.locality || '';
   if (!location) {
@@ -717,6 +735,7 @@ async function classifyBusinessCategory(pageSignals) {
         role: "user",
         content:
           "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
+          "Domain: " + (pageSignals.domain || "") + "\n" +
           "Title: " + (pageSignals.title || "") + "\n" +
           "H1: " + (pageSignals.h1 || "") + "\n" +
           "Meta description: " + (pageSignals.meta || "") + "\n" +
@@ -1825,6 +1844,7 @@ const bodyExcerpt = isHtml ? extractBodyExcerpt(html) : "";
 
 
 const categoryResult = await classifyBusinessCategory({
+  domain: (tryParseUrl(url) && tryParseUrl(url).hostname) ? tryParseUrl(url).hostname : "",
   title: basic.title_text || "",
   h1: basic.h1_text || "",
   meta: basic.meta_description_text || "",
