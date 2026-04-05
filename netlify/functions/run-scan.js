@@ -647,29 +647,36 @@ async function classifyBusinessCategory(pageSignals) {
       {
         role: "system",
         content:
-          "You classify websites into a single primary business category. The category must be short (2–4 words max). Return ONLY valid JSON. Examples: Web Design Agency, SEO Agency, Digital Marketing Agency, Plumbing Service, Dental Clinic, Immigration Lawyer."
+          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short (2–4 words max). Return ONLY valid JSON."
       },
       {
         role: "user",
         content:
-          "Determine the primary business category for this website.\n\n" +
+          "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
           "Title: " + (pageSignals.title || "") + "\n" +
           "H1: " + (pageSignals.h1 || "") + "\n" +
           "Meta description: " + (pageSignals.meta || "") + "\n\n" +
           "Return JSON in this format:\n" +
-          '{"detected_category":"...","confidence":"high|medium|low"}'
+          '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
     ];
 
-    const resp = await openAiChat(prompt, 120);
+    const resp = await openAiChat(prompt, 160);
 
     if (!resp) return null;
 
-    const parsed = JSON.parse(resp);
+    let parsed;
+    try {
+      parsed = JSON.parse(resp);
+    } catch (e) {
+      console.warn("[run-scan] category JSON parse failed");
+      return null;
+    }
 
     return {
       detected_category: parsed.detected_category || null,
-      confidence: parsed.confidence || null
+      confidence: parsed.confidence || null,
+      example_prompt_tested: parsed.example_prompt_tested || null
     };
 
   } catch (err) {
@@ -835,7 +842,6 @@ function buildAiDiscoverabilitySignal(aiData) {
     )
   );
 
-  // prevent globally strong brands from collapsing because prompt fit is poor
   if ((strongHosts.indexOf(host) !== -1 || authorityBoost >= 40) && total < 60) {
     total = 60;
   }
@@ -877,21 +883,21 @@ function buildAiDiscoverabilitySignal(aiData) {
     id: "ai_discoverability",
     label: "AI Visibility",
     score: total,
-evidence: {
-  ai_recommendation_hits: recHits,
-  ai_recommendation_queries_tested: (rec.queries || []).length || 0,
-  example_prompt_tested: (rec.queries && rec.queries.length) ? rec.queries[0] : null,
-  independent_web_mentions: mentionCount,
-  authority_boost: authorityBoost,
-  entity_score: entityScore,
-  hostname: host,
-  detected_category: profile.detected_category || null,
-  category_confidence: profile.category_confidence || null,
-  entity_brand_name_present: !!profile.brand_name,
-  entity_service_term_present: !!profile.service_term,
-  entity_location_term_present: !!profile.location_term,
-  organization_schema_present: !!profile.has_org_schema
-},
+    evidence: {
+      ai_recommendation_hits: recHits,
+      ai_recommendation_queries_tested: (rec.queries || []).length || 0,
+      example_prompt_tested: profile.example_prompt_tested || null,
+      independent_web_mentions: mentionCount,
+      authority_boost: authorityBoost,
+      entity_score: entityScore,
+      hostname: host,
+      detected_category: profile.detected_category || null,
+      category_confidence: profile.category_confidence || null,
+      entity_brand_name_present: !!profile.brand_name,
+      entity_service_term_present: !!profile.service_term,
+      entity_location_term_present: !!profile.location_term,
+      organization_schema_present: !!profile.has_org_schema
+    },
     observations: [
       { label: "Brand", value: profile.brand_name || null, source: "ai" },
       { label: "Hostname", value: host || null, source: "ai" },
@@ -1690,12 +1696,14 @@ const categoryResult = await classifyBusinessCategory({
   meta: basic.meta_description_text || ""
 });
 
-if (categoryResult && categoryResult.detected_category) {
-  aiProfile.detected_category = categoryResult.detected_category;
+if (categoryResult) {
+  aiProfile.detected_category = categoryResult.detected_category || null;
   aiProfile.category_confidence = categoryResult.confidence || null;
+  aiProfile.example_prompt_tested = categoryResult.example_prompt_tested || null;
 } else {
   aiProfile.detected_category = null;
   aiProfile.category_confidence = null;
+  aiProfile.example_prompt_tested = null;
 }
 
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
