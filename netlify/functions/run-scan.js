@@ -451,14 +451,49 @@ function stripTags(s) {
 }
 
 function extractBodyExcerpt(html) {
-  return String(html || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 1400);
+  try {
+    const $ = cheerio.load(String(html || ""));
+
+    $("script, style, noscript, svg, canvas, iframe").remove();
+    $("nav, footer, header, aside, form").remove();
+
+    const chunks = [];
+
+    $("main, article, section, [role='main']").each((_, el) => {
+      const text = $(el).text().replace(/\s+/g, " ").trim();
+      if (text && text.length > 60) chunks.push(text);
+    });
+
+    if (!chunks.length) {
+      $("body, div").each((_, el) => {
+        const text = $(el).text().replace(/\s+/g, " ").trim();
+        if (text && text.length > 80) chunks.push(text);
+      });
+    }
+
+    const seen = new Set();
+    const uniqueChunks = [];
+
+    for (const chunk of chunks) {
+      const normalized = chunk.toLowerCase();
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        uniqueChunks.push(chunk);
+      }
+    }
+
+    return uniqueChunks.join(" ").replace(/\s+/g, " ").trim().slice(0, 2000);
+  } catch (e) {
+    console.warn("[run-scan] extractBodyExcerpt failed", e);
+    return String(html || "")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 2000);
+  }
 }
 function niceLabel(k) {
   return String(k)
