@@ -642,12 +642,11 @@ async function openAiChat(messages, max_tokens = 450) {
 
 async function classifyBusinessCategory(pageSignals) {
   try {
-
     const prompt = [
       {
         role: "system",
         content:
-          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short (2–4 words max). Return ONLY valid JSON."
+          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short, clear, and professional. Return ONLY valid JSON."
       },
       {
         role: "user",
@@ -655,14 +654,17 @@ async function classifyBusinessCategory(pageSignals) {
           "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
           "Title: " + (pageSignals.title || "") + "\n" +
           "H1: " + (pageSignals.h1 || "") + "\n" +
-          "Meta description: " + (pageSignals.meta || "") + "\n\n" +
-          "Return JSON in this format:\n" +
+          "Meta description: " + (pageSignals.meta || "") + "\n" +
+          "Brand: " + (pageSignals.brand || "") + "\n" +
+          "Service term: " + (pageSignals.service || "") + "\n" +
+          "Location: " + (pageSignals.location || "") + "\n" +
+          "Schema signal: " + (pageSignals.schema || "") + "\n\n" +
+          "Return JSON in exactly this format:\n" +
           '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
     ];
 
-    const resp = await openAiChat(prompt, 160);
-
+    const resp = await openAiChat(prompt, 180);
     if (!resp) return null;
 
     let parsed;
@@ -1693,7 +1695,11 @@ const aiProfile = deriveAiProfile(basic, url, html);
 const categoryResult = await classifyBusinessCategory({
   title: basic.title_text || "",
   h1: basic.h1_text || "",
-  meta: basic.meta_description_text || ""
+  meta: basic.meta_description_text || "",
+  brand: aiProfile.brand_name || "",
+  service: aiProfile.service_term || "",
+  location: aiProfile.location_term || "",
+  schema: aiProfile.has_org_schema ? "organization schema present" : "no organization schema"
 });
 
 if (categoryResult) {
