@@ -803,6 +803,7 @@ if (!parsed.detected_category) {
 
 }
 
+
 return {
   detected_category: parsed.detected_category || null,
   confidence: parsed.confidence || null,
