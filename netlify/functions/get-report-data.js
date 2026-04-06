@@ -1,4 +1,4 @@
-// /.netlify/functions/get-report-data.js
+// /.netlify/functins/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
