@@ -223,21 +223,6 @@ function normaliseNarrativeForUI(raw) {
   return out;
 }
 
-function buildPreviousScanPayload(previousScan) {
-  if (!previousScan) return null;
-
-  const prevMetrics = safeObj(previousScan.metrics);
-  const prevScores = safeObj(prevMetrics.scores);
-
-  return {
-    url: previousScan.url || null,
-    report_id: previousScan.report_id || null,
-    created_at: previousScan.created_at || null,
-    normalized_domain: previousScan.normalized_domain || null,
-    scores: prevScores,
-  };
-}
-
 // -----------------------------
 // Handler
 // -----------------------------
@@ -255,7 +240,7 @@ export async function handler(event) {
 
     let q = supabase
       .from("scan_results")
-      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative, normalized_domain")
+      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -275,25 +260,6 @@ export async function handler(event) {
 
     const scan = rows?.[0] || null;
     if (!scan) return json(404, { success: false, error: "Report not found" });
-
-    // -----------------------------
-    // Previous scan lookup
-    // -----------------------------
-    let previous_scan = null;
-
-    if (scan.normalized_domain && scan.created_at) {
-      const { data: previousRows, error: previousErr } = await supabase
-        .from("scan_results")
-        .select("id, report_id, url, created_at, metrics, normalized_domain")
-        .eq("normalized_domain", scan.normalized_domain)
-        .lt("created_at", scan.created_at)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (!previousErr) {
-        previous_scan = buildPreviousScanPayload(previousRows?.[0] || null);
-      }
-    }
 
     // -----------------------------
     // Fetch branding including report title + toggles
@@ -472,7 +438,6 @@ export async function handler(event) {
       findings,
       fix_plan,
       narrative,
-      previous_scan,
 
       narrative_status,
       narrative_attempts: null,
