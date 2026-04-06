@@ -2280,10 +2280,12 @@ function renderProgressSinceLastScan(data, scores) {
   var prev = safeObj(data.previous_scan || data.previousScan || null);
   var prevScores = safeObj(prev.scores || prev);
 
+  var currentOverall = scoreFor(scores, "overall");
   var currentPerformance = scoreFor(scores, "performance");
   var currentSeo = scoreFor(scores, "seo");
   var currentAi = scoreFor(scores, "ai_discoverability");
 
+  var prevOverall = scoreFor(prevScores, "overall");
   var prevPerformance = scoreFor(prevScores, "performance");
   var prevSeo = scoreFor(prevScores, "seo");
   var prevAi = scoreFor(prevScores, "ai_discoverability");
@@ -2318,18 +2320,21 @@ function renderProgressSinceLastScan(data, scores) {
     }
   }
 
-  if (prevPerformance === null && prevSeo === null && prevAi === null) {
+  if (prevOverall === null && prevPerformance === null && prevSeo === null && prevAi === null) {
     return;
   }
 
+  setText("prevOverall", prevOverall);
   setText("prevPerformance", prevPerformance);
   setText("prevSeo", prevSeo);
   setText("prevAi", prevAi);
 
+  setText("currentOverall", currentOverall);
   setText("currentPerformance", currentPerformance);
   setText("currentSeo", currentSeo);
   setText("currentAi", currentAi);
 
+  setDelta("deltaOverall", currentOverall, prevOverall);
   setDelta("deltaPerformance", currentPerformance, prevPerformance);
   setDelta("deltaSeo", currentSeo, prevSeo);
   setDelta("deltaAi", currentAi, prevAi);
