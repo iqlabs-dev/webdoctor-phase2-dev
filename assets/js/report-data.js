@@ -2270,72 +2270,85 @@ try {
     }
   }
 
-  function renderProgressSinceLastScan(data, scores) {
-    var section = $("progressSection");
-    if (!section) return;
+function renderProgressSinceLastScan(data, scores) {
+  var section = $("progressSection");
+  if (!section) return;
 
-    data = safeObj(data);
-    scores = safeObj(scores);
+  data = safeObj(data);
+  scores = safeObj(scores);
 
-    var prev = safeObj(data.previous_scan || data.previousScan || null);
-    var prevScores = safeObj(prev.scores || prev);
+  var prev = safeObj(data.previous_scan || data.previousScan || null);
+  var prevScores = safeObj(prev.scores || prev);
 
-    var currentPerformance = scoreFor(scores, "performance");
-    var currentSeo = scoreFor(scores, "seo");
-    var currentAi = scoreFor(scores, "ai_discoverability");
+  var currentPerformance = scoreFor(scores, "performance");
+  var currentSeo = scoreFor(scores, "seo");
+  var currentAi = scoreFor(scores, "ai_discoverability");
 
-    var prevPerformance = scoreFor(prevScores, "performance");
-    var prevSeo = scoreFor(prevScores, "seo");
-    var prevAi = scoreFor(prevScores, "ai_discoverability");
+  var prevPerformance = scoreFor(prevScores, "performance");
+  var prevSeo = scoreFor(prevScores, "seo");
+  var prevAi = scoreFor(prevScores, "ai_discoverability");
 
-    function setText(id, value) {
-      var el = $(id);
-      if (!el) return;
-      el.textContent = (value === null || typeof value === "undefined") ? "—" : String(value);
-    }
+  function setText(id, value) {
+    var el = $(id);
+    if (!el) return;
+    el.textContent = (value === null || typeof value === "undefined") ? "—" : String(value);
+  }
 
-    function setDelta(id, current, previous) {
-      var el = $(id);
-      if (!el) return;
+  function setDelta(id, current, previous) {
+    var el = $(id);
+    if (!el) return;
 
-      el.className = "finding-value";
+    el.className = "finding-value";
 
-      if (current === null || previous === null || typeof current === "undefined" || typeof previous === "undefined") {
-        el.textContent = "—";
-        return;
-      }
-
-      var diff = current - previous;
-      if (diff > 0) {
-        el.textContent = "+" + diff;
-        el.className += " progress-up";
-      } else if (diff < 0) {
-        el.textContent = String(diff);
-        el.className += " progress-down";
-      } else {
-        el.textContent = "0";
-        el.className += " progress-neutral";
-      }
-    }
-
-    if (prevPerformance === null && prevSeo === null && prevAi === null) {
+    if (current === null || previous === null || typeof current === "undefined" || typeof previous === "undefined") {
+      el.textContent = "—";
       return;
     }
 
-    setText("prevPerformance", prevPerformance);
-    setText("prevSeo", prevSeo);
-    setText("prevAi", prevAi);
-
-    setText("currentPerformance", currentPerformance);
-    setText("currentSeo", currentSeo);
-    setText("currentAi", currentAi);
-
-    setDelta("deltaPerformance", currentPerformance, prevPerformance);
-    setDelta("deltaSeo", currentSeo, prevSeo);
-    setDelta("deltaAi", currentAi, prevAi);
-
-    section.style.display = "block";
+    var diff = current - previous;
+    if (diff > 0) {
+      el.textContent = "+" + diff;
+      el.className += " progress-up";
+    } else if (diff < 0) {
+      el.textContent = String(diff);
+      el.className += " progress-down";
+    } else {
+      el.textContent = "0";
+      el.className += " progress-neutral";
+    }
   }
+
+  if (prevPerformance === null && prevSeo === null && prevAi === null) {
+    return;
+  }
+
+  setText("prevPerformance", prevPerformance);
+  setText("prevSeo", prevSeo);
+  setText("prevAi", prevAi);
+
+  setText("currentPerformance", currentPerformance);
+  setText("currentSeo", currentSeo);
+  setText("currentAi", currentAi);
+
+  setDelta("deltaPerformance", currentPerformance, prevPerformance);
+  setDelta("deltaSeo", currentSeo, prevSeo);
+  setDelta("deltaAi", currentAi, prevAi);
+
+  var prevIdEl = $("previousScanId");
+  if (prevIdEl) {
+    prevIdEl.textContent = prev && prev.report_id ? prev.report_id : "";
+  }
+
+  var currIdEl = $("currentScanId");
+  if (currIdEl) {
+    currIdEl.textContent =
+      (data.header && data.header.report_id)
+        ? data.header.report_id
+        : (data.report && data.report.report_id ? data.report.report_id : "");
+  }
+
+  section.style.display = "block";
+}
 
 
   // -----------------------------

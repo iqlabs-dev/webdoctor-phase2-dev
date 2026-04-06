@@ -384,13 +384,21 @@
       margin-bottom: 8px;
     }
 
-    .card h3 {
-      margin: 0;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
-    }
+.card h3 {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #22d3ee;
+}
+
+.scan-id {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
 
     .score-right {
       font-weight: 800;
@@ -475,7 +483,7 @@
     @media (min-width: 980px) {
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
-    
+
 #progressGrid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1268,7 +1276,10 @@
     <div class="grid" id="progressGrid">
       <div class="card">
         <div class="card-top">
-          <h3>Previous Scan</h3>
+       <h3>
+  Previous Scan
+  <span id="previousScanId" class="scan-id"></span>
+</h3>
         </div>
         <div class="finding-row">
           <div class="finding-label">Performance</div>
@@ -1286,7 +1297,10 @@
 
       <div class="card">
         <div class="card-top">
-          <h3>Current Scan</h3>
+       <h3>
+  Current Scan
+  <span id="currentScanId" class="scan-id"></span>
+</h3>
         </div>
         <div class="finding-row">
           <div class="finding-label">Performance</div>
@@ -1302,10 +1316,10 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-top">
-          <h3>Improvement</h3>
-        </div>
+    <div class="card">
+  <div class="card-top">
+    <h3>Change Since Last Scan</h3>
+  </div>
         <div class="finding-row">
           <div class="finding-label">Performance</div>
           <div class="finding-value" id="deltaPerformance">—</div>
