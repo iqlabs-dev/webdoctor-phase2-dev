@@ -61,6 +61,26 @@ function computeOverallScore(rawScores = {}, basicChecks = {}) {
   return Math.round(finalScore * 10) / 10;
 }
 
+function buildPreviousScanPayload(previousScan) {
+  if (!previousScan || !previousScan.metrics) return null;
+
+  const prevScores = previousScan.metrics?.scores || {};
+  const prevBasicChecks = previousScan.metrics?.basic_checks || {};
+
+  const recomputedPrevOverall = computeOverallScore(prevScores, prevBasicChecks);
+  if (typeof recomputedPrevOverall === "number") {
+    prevScores.overall = recomputedPrevOverall;
+  }
+
+  return {
+    url: previousScan.url || null,
+    report_id: previousScan.report_id || null,
+    created_at: previousScan.created_at || null,
+    normalized_domain: previousScan.normalized_domain || null,
+    scores: prevScores,
+  };
+}
+
 export default async (request) => {
   if (request.method !== "GET") {
     return new Response(
@@ -94,7 +114,7 @@ export default async (request) => {
   // 1) Load scan_results (truth source for scores + metrics)
   const { data: scan, error: scanError } = await supabase
     .from("scan_results")
-    .select("id, url, metrics, report_id, created_at")
+    .select("id, url, metrics, report_id, created_at, normalized_domain")
     .eq("report_id", reportId)
     .single();
 
@@ -116,7 +136,7 @@ export default async (request) => {
   }
 
   // 2) Load stored narrative (if any). DO NOT generate.
-  const { data: rep, error: repErr } = await supabase
+  const { data: rep } = await supabase
     .from("report_data")
     .select("narrative")
     .eq("report_id", reportId)
@@ -125,16 +145,39 @@ export default async (request) => {
   const narrative = rep?.narrative || null;
   const narrativeSource = narrative ? "stored" : "none";
 
+  // 3) Load previous scan for same normalized_domain (if available).
+  // Safe read-only addition for Progress Since Last Scan.
+  let previousScanPayload = null;
+
+  if (scan.normalized_domain && scan.created_at) {
+    const { data: previousScan, error: previousScanError } = await supabase
+      .from("scan_results")
+      .select("id, url, metrics, report_id, created_at, normalized_domain")
+      .eq("normalized_domain", scan.normalized_domain)
+      .lt("created_at", scan.created_at)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (previousScanError) {
+      console.error("generate-report (read-only): previous scan lookup failed", previousScanError);
+    } else {
+      previousScanPayload = buildPreviousScanPayload(previousScan);
+    }
+  }
+
   return new Response(
     JSON.stringify({
       success: true,
       scores,
       narrative,
       narrative_source: narrativeSource,
+      previous_scan: previousScanPayload,
       report: {
         url: scan.url,
         report_id: scan.report_id,
         created_at: scan.created_at,
+        normalized_domain: scan.normalized_domain || null,
       },
       // passthrough if you ever use it later (not required)
       speed_stability: scan.metrics?.speed_stability || null,

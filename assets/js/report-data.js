@@ -2263,6 +2263,74 @@ try {
     }
   }
 
+  function renderProgressSinceLastScan(data, scores) {
+    var section = $("progressSection");
+    if (!section) return;
+
+    data = safeObj(data);
+    scores = safeObj(scores);
+
+    var prev = safeObj(data.previous_scan || data.previousScan || null);
+    var prevScores = safeObj(prev.scores || prev);
+
+    var currentPerformance = scoreFor(scores, "performance");
+    var currentSeo = scoreFor(scores, "seo");
+    var currentAi = scoreFor(scores, "ai_discoverability");
+
+    var prevPerformance = scoreFor(prevScores, "performance");
+    var prevSeo = scoreFor(prevScores, "seo");
+    var prevAi = scoreFor(prevScores, "ai_discoverability");
+
+    function setText(id, value) {
+      var el = $(id);
+      if (!el) return;
+      el.textContent = (value === null || typeof value === "undefined") ? "—" : String(value);
+    }
+
+    function setDelta(id, current, previous) {
+      var el = $(id);
+      if (!el) return;
+
+      el.className = "finding-value";
+
+      if (current === null || previous === null || typeof current === "undefined" || typeof previous === "undefined") {
+        el.textContent = "—";
+        return;
+      }
+
+      var diff = current - previous;
+      if (diff > 0) {
+        el.textContent = "+" + diff;
+        el.className += " progress-up";
+      } else if (diff < 0) {
+        el.textContent = String(diff);
+        el.className += " progress-down";
+      } else {
+        el.textContent = "0";
+        el.className += " progress-neutral";
+      }
+    }
+
+    if (prevPerformance === null && prevSeo === null && prevAi === null) {
+      return;
+    }
+
+    setText("prevPerformance", prevPerformance);
+    setText("prevSeo", prevSeo);
+    setText("prevAi", prevAi);
+
+    setText("currentPerformance", currentPerformance);
+    setText("currentSeo", currentSeo);
+    setText("currentAi", currentAi);
+
+    setDelta("deltaPerformance", currentPerformance, prevPerformance);
+    setDelta("deltaSeo", currentSeo, prevSeo);
+    setDelta("deltaAi", currentAi, prevAi);
+
+    section.style.display = "block";
+  }
+
+
   // -----------------------------
   // Main render
   // -----------------------------
@@ -2284,6 +2352,7 @@ try {
     showReport();
 
     safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
+    safeRenderSection("renderProgressSinceLastScan", function () { renderProgressSinceLastScan(data, scores); });
     safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
     safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });
     safeRenderSection("renderKeyInsights", function () { renderKeyInsights(data, scores, signals, primary); });

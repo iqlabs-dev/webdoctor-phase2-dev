@@ -475,7 +475,43 @@
     @media (min-width: 980px) {
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
+    
+#progressGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 
+#progressGrid .finding-row {
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+#progressGrid .finding-label {
+  padding-top: 0;
+}
+
+#progressGrid .finding-value {
+  justify-content: flex-end;
+  text-align: right;
+  font-weight: 700;
+}
+
+.progress-up {
+  color: var(--good);
+}
+
+.progress-down {
+  color: var(--bad);
+}
+
+.progress-neutral {
+  color: var(--ink-soft);
+}
+
+@media (max-width: 900px) {
+  #progressGrid {
+    grid-template-columns: 1fr;
+  }
+}
     #signalEvidenceRoot {
       display: grid;
       grid-template-columns: 1fr;
@@ -1223,7 +1259,71 @@
           </div>
         </section>
 
-        <div id="fixFirstBlock"></div>
+       <section class="section" id="progressSection" style="display:none;">
+  <div class="section-head">
+    <h2 class="section-title">Progress Since Last Scan</h2>
+  </div>
+
+  <div class="section-body">
+    <div class="grid" id="progressGrid">
+      <div class="card">
+        <div class="card-top">
+          <h3>Previous Scan</h3>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">Performance</div>
+          <div class="finding-value" id="prevPerformance">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">SEO Foundations</div>
+          <div class="finding-value" id="prevSeo">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">AI Visibility</div>
+          <div class="finding-value" id="prevAi">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Current Scan</h3>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">Performance</div>
+          <div class="finding-value" id="currentPerformance">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">SEO Foundations</div>
+          <div class="finding-value" id="currentSeo">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">AI Visibility</div>
+          <div class="finding-value" id="currentAi">—</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Improvement</h3>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">Performance</div>
+          <div class="finding-value" id="deltaPerformance">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">SEO Foundations</div>
+          <div class="finding-value" id="deltaSeo">—</div>
+        </div>
+        <div class="finding-row">
+          <div class="finding-label">AI Visibility</div>
+          <div class="finding-value" id="deltaAi">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="fixFirstBlock"></div>
 
         <section class="section" id="deliverySignalsSection">
           <div class="section-head">
