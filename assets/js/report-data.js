@@ -231,6 +231,13 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
     return fetchJson("GET", "/.netlify/functions/get-report-data?report_id=" + encodeURIComponent(reportId));
   }
 
+  function fetchPreviousScan(reportId) {
+    return fetchJson(
+      "GET",
+      "/.netlify/functions/get-previous-scan?report_id=" + encodeURIComponent(reportId)
+    );
+  }
+
   // -----------------------------
   // Data contract bridge (new vs legacy)
   // -----------------------------
@@ -2367,7 +2374,21 @@ try {
     if (!reportId) return;
 
     fetchReportData(reportId)
-      .then(function (data) { renderAll(data); })
+      .then(function (data) {
+        return fetchPreviousScan(reportId)
+          .then(function (prevData) {
+            if (prevData && prevData.previous_scan) {
+              data.previous_scan = prevData.previous_scan;
+            }
+            return data;
+          })
+          .catch(function () {
+            return data;
+          });
+      })
+      .then(function (data) {
+        renderAll(data);
+      })
       .catch(function (err) {
         try { console.error("[report-data] boot failed:", err); } catch (e) {}
         showReport();
