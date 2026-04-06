@@ -2320,39 +2320,46 @@ function renderProgressSinceLastScan(data, scores) {
     }
   }
 
-  if (prevOverall === null && prevPerformance === null && prevSeo === null && prevAi === null) {
-    return;
-  }
+if (prevOverall === null && prevPerformance === null && prevSeo === null && prevAi === null) {
+  return;
+}
 
-  setText("prevOverall", prevOverall);
-  setText("prevPerformance", prevPerformance);
-  setText("prevSeo", prevSeo);
-  setText("prevAi", prevAi);
+setText("prevOverall", prevOverall);
+setText("prevPerformance", prevPerformance);
+setText("prevSeo", prevSeo);
+setText("prevAi", prevAi);
 
-  setText("currentOverall", currentOverall);
-  setText("currentPerformance", currentPerformance);
-  setText("currentSeo", currentSeo);
-  setText("currentAi", currentAi);
+setText("currentOverall", currentOverall);
+setText("currentPerformance", currentPerformance);
+setText("currentSeo", currentSeo);
+setText("currentAi", currentAi);
 
-  setDelta("deltaOverall", currentOverall, prevOverall);
-  setDelta("deltaPerformance", currentPerformance, prevPerformance);
-  setDelta("deltaSeo", currentSeo, prevSeo);
-  setDelta("deltaAi", currentAi, prevAi);
+setDelta("deltaOverall", currentOverall, prevOverall);
+setDelta("deltaPerformance", currentPerformance, prevPerformance);
+setDelta("deltaSeo", currentSeo, prevSeo);
+setDelta("deltaAi", currentAi, prevAi);
 
-  var prevIdEl = $("previousScanId");
-  if (prevIdEl) {
-    prevIdEl.textContent = prev && prev.report_id ? prev.report_id : "";
-  }
+// populate scan IDs
 
-  var currIdEl = $("currentScanId");
-  if (currIdEl) {
-    currIdEl.textContent =
-      (data.header && data.header.report_id)
-        ? data.header.report_id
-        : (data.report && data.report.report_id ? data.report.report_id : "");
-  }
+var prevIdEl = $("previousScanId");
+if (prevIdEl) {
+  prevIdEl.textContent = prev && prev.report_id ? prev.report_id : "";
+}
 
-  section.style.display = "block";
+var currIdEl = $("currentScanId");
+if (currIdEl) {
+  currIdEl.textContent =
+    (data.header && data.header.report_id)
+      ? data.header.report_id
+      : (data.report && data.report.report_id ? data.report.report_id : "");
+}
+
+var baselineEl = $("baselineScanId");
+if (baselineEl) {
+  baselineEl.textContent = prev && prev.report_id ? prev.report_id : "";
+}
+
+section.style.display = "block";
 }
 
 
