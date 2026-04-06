@@ -122,8 +122,18 @@ export async function handler(event) {
         url: previous.url || null,
         created_at: previous.created_at || null,
         scores: {
-          performance: typeof prevScores.performance !== "undefined" ? asInt(prevScores.performance, 0) : null,
-          seo: typeof prevScores.seo !== "undefined" ? asInt(prevScores.seo, 0) : null,
+          overall:
+            typeof prevScores.overall !== "undefined"
+              ? asInt(prevScores.overall, 0)
+              : null,
+          performance:
+            typeof prevScores.performance !== "undefined"
+              ? asInt(prevScores.performance, 0)
+              : null,
+          seo:
+            typeof prevScores.seo !== "undefined"
+              ? asInt(prevScores.seo, 0)
+              : null,
           ai_discoverability:
             typeof prevScores.ai_discoverability !== "undefined"
               ? asInt(prevScores.ai_discoverability, 0)
