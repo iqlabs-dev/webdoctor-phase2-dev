@@ -947,11 +947,36 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  await bootstrapSignupTrialCredits();
-  await refreshProfile();
-  await loadScanHistory();
+await bootstrapSignupTrialCredits();
+await refreshProfile();
+await loadScanHistory();
 
-  runBtn.addEventListener("click", async function () {
+const clearBaselineBtn = document.getElementById("clear-baseline");
+
+if (clearBaselineBtn) {
+  clearBaselineBtn.addEventListener("click", async function () {
+    try {
+      await fetch("/.netlify/functions/set-baseline-scan", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          clear: true,
+          report_id: window.currentReport?.report_id || null,
+          domain: normalizeDomainFromUrl(window.currentReport?.url || "")
+        })
+      });
+
+      await loadScanHistory();
+    } catch (err) {
+      console.error("Clear baseline failed:", err);
+      alert("Unable to clear baseline.");
+    }
+  });
+}
+
+runBtn.addEventListener("click", async function () {
     const cleaned = normaliseUrl(urlInput.value);
     if (!cleaned) {
       statusEl.textContent = "Enter a valid URL.";

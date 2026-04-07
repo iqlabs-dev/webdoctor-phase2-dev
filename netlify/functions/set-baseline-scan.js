@@ -49,7 +49,118 @@ export async function handler(event) {
 
     const body = JSON.parse(event.body || "{}");
     const reportId = String(body.report_id || "").trim();
+    const clear = body.clear === true;
+    const requestedDomain = String(body.domain || "").trim().toLowerCase().replace(/^www\./, "");
 
+    // --------------------------------------------------
+    // CLEAR BASELINE MODE
+    // Expected body:
+    // { clear: true, report_id: "WEB-...", domain: "example.com" }
+    // report_id is used to determine the user safely.
+    // --------------------------------------------------
+    if (clear) {
+      if (!reportId) {
+        return json(400, {
+          success: false,
+          error: "Missing report_id for clear action"
+        });
+      }
+
+      const targetRes = await supabase
+        .from("scan_results")
+        .select("id, user_id, report_id, url")
+        .eq("report_id", reportId)
+        .limit(1);
+
+      if (targetRes.error) {
+        return json(500, {
+          success: false,
+          error: "Failed to load selected scan",
+          detail: targetRes.error.message || String(targetRes.error)
+        });
+      }
+
+      const target = targetRes.data && targetRes.data[0] ? targetRes.data[0] : null;
+
+      if (!target) {
+        return json(404, { success: false, error: "Selected scan not found" });
+      }
+
+      if (!target.user_id) {
+        return json(400, {
+          success: false,
+          error: "Selected scan is missing user context"
+        });
+      }
+
+      const userScansRes = await supabase
+        .from("scan_results")
+        .select("id, url, is_baseline")
+        .eq("user_id", target.user_id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (userScansRes.error) {
+        return json(500, {
+          success: false,
+          error: "Failed to load scans for user",
+          detail: userScansRes.error.message || String(userScansRes.error)
+        });
+      }
+
+      let idsToClear = [];
+
+      if (requestedDomain) {
+        idsToClear = (userScansRes.data || [])
+          .filter(function (row) {
+            return normalizeDomainFromUrl(row.url) === requestedDomain && row.is_baseline === true;
+          })
+          .map(function (row) {
+            return row.id;
+          });
+      } else {
+        idsToClear = (userScansRes.data || [])
+          .filter(function (row) {
+            return row.is_baseline === true;
+          })
+          .map(function (row) {
+            return row.id;
+          });
+      }
+
+      if (!idsToClear.length) {
+        return json(200, {
+          success: true,
+          cleared: 0,
+          domain: requestedDomain || null
+        });
+      }
+
+      const clearRes = await supabase
+        .from("scan_results")
+        .update({ is_baseline: false })
+        .in("id", idsToClear);
+
+      if (clearRes.error) {
+        return json(500, {
+          success: false,
+          error: "Failed to clear baseline",
+          detail: clearRes.error.message || String(clearRes.error)
+        });
+      }
+
+      return json(200, {
+        success: true,
+        cleared: idsToClear.length,
+        domain: requestedDomain || null
+      });
+    }
+
+    // --------------------------------------------------
+    // SET BASELINE MODE
+    // Expected body:
+    // { report_id: "WEB-..." }
+    // --------------------------------------------------
     if (!reportId) {
       return json(400, { success: false, error: "Missing report_id" });
     }
