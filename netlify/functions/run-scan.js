@@ -3,7 +3,7 @@ const { getPlatformPolicy } = require("../../utils/platform-policy");
 const cheerio = require("cheerio");
 
 // ---------------------------------------------
-// PSI (PageSpeed Insights) config
+// PSI (PageSpeed Insihts) config
 // ---------------------------------------------
 const PSI_API_KEY = process.env.PSI_API_KEY || "";
 
@@ -21,7 +21,7 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
  
 // ---------------------------------------------
-// PageSpeed Insights (Lighthouse) helpers
+// PageSpeed Insights (Ligthouse) helpers
 // ---------------------------------------------
 async function fetchPSI(url, strategy = "desktop") {
   if (!PSI_API_KEY) return { ok: false, error: "PSI_API_KEY_missing" };
@@ -916,29 +916,60 @@ function buildAiDiscoverabilitySignal(aiData) {
 // HTML Signals (expanded for SEO + Mobile + A11y evidence)
 // ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  // Order-insensitive META description extraction (content/name attribute order varies)
-  const metaDescTagMatch = html.match(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i);
-  const metaDescTag = metaDescTagMatch ? metaDescTagMatch[0] : "";
-  const descMatch = metaDescTag ? metaDescTag.match(/\bcontent\s*=\s*["']([^"']*)["']/i) : null;
+  const titleMatches = Array.from(html.matchAll(/<title[^>]*>([\s\S]*?)<\/title>/gi));
+  const titleText = titleMatches.length ? cleanMetaText(titleMatches[0][1], 120) : null;
 
-  // Order-insensitive canonical extraction (href/rel attribute order varies)
-  const canonicalTagMatch = html.match(/<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/i);
-  const canonicalTag = canonicalTagMatch ? canonicalTagMatch[0] : "";
-  const canonicalMatch = canonicalTag ? canonicalTag.match(/\bhref\s*=\s*["']([^"']+)["']/i) : null;
+  // Order-insensitive META description extraction
+  const metaDescriptionTags = Array.from(
+    html.matchAll(/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/gi)
+  );
+  const metaDescriptionValues = metaDescriptionTags
+    .map((m) => {
+      const tag = m[0] || "";
+      const contentMatch = tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i);
+      return contentMatch ? cleanMetaText(contentMatch[1], 220) : "";
+    })
+    .filter((v) => typeof v === "string");
+
+  const descText = metaDescriptionValues.length ? metaDescriptionValues[0] : null;
+
+  // Order-insensitive canonical extraction
+  const canonicalTags = Array.from(
+    html.matchAll(/<link\b[^>]*\brel\s*=\s*["']canonical["'][^>]*>/gi)
+  );
+  const canonicalHrefs = canonicalTags
+    .map((m) => {
+      const tag = m[0] || "";
+      const hrefMatch = tag.match(/\bhref\s*=\s*["']([^"']+)["']/i);
+      return hrefMatch ? String(hrefMatch[1] || "").trim() : "";
+    })
+    .filter(Boolean);
+
+  const canonicalHref = canonicalHrefs.length ? canonicalHrefs[0] : null;
 
   const viewportMatch = html.match(
     /<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
 
   const h1All = Array.from(html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)).map((m) =>
-    stripTags(m[1]).slice(0, 200)
+    cleanMetaText(m[1], 200)
   );
   const h1Text = h1All.length ? h1All[0] : null;
 
   const robotsMatch = html.match(
     /<meta[^>]+name=["']robots["'][^>]*content=["']([^"']*)["'][^>]*>/i
   );
+
+  const ogTitleTag = html.match(/<meta\b[^>]*\bproperty\s*=\s*["']og:title["'][^>]*>/i);
+  const ogDescriptionTag = html.match(/<meta\b[^>]*\bproperty\s*=\s*["']og:description["'][^>]*>/i);
+
+  const ogTitleMatch = ogTitleTag ? ogTitleTag[0].match(/\bcontent\s*=\s*["']([^"']*)["']/i) : null;
+  const ogDescriptionMatch = ogDescriptionTag
+    ? ogDescriptionTag[0].match(/\bcontent\s*=\s*["']([^"']*)["']/i)
+    : null;
+
+  const ogTitleText = ogTitleMatch ? cleanMetaText(ogTitleMatch[1], 200) : null;
+  const ogDescriptionText = ogDescriptionMatch ? cleanMetaText(ogDescriptionMatch[1], 220) : null;
 
   const imgCount = (html.match(/<img\b/gi) || []).length;
   const imgAltCount =
@@ -955,40 +986,46 @@ function basicHtmlSignals(html, pageUrl) {
   const yearMin = years.length ? Math.min(...years) : null;
   const yearMax = years.length ? Math.max(...years) : null;
 
-  const titleText = titleMatch ? stripTags(titleMatch[1]).slice(0, 120) : null;
-  const descText = descMatch ? String(descMatch[1] || "").trim().slice(0, 200) : null;
-  const canonicalHref = canonicalMatch ? String(canonicalMatch[1] || "").trim() : null;
-
   const viewportContent = viewportMatch ? String(viewportMatch[1] || "").trim() : null;
   const vp = parseViewport(viewportContent);
 
   const page = tryParseUrl(pageUrl);
-  const canonAbs = canonicalHref ? tryParseUrl(canonicalHref) : null;
 
+  let canonicalResolved = null;
   let canonicalMatchesUrl = null;
+  let canonicalCrossDomain = false;
+  let canonicalStagingHost = false;
+
   if (canonicalHref && page) {
-    let resolved = canonAbs;
-    if (!resolved) {
-      try {
-        resolved = new URL(canonicalHref, page.origin);
-      } catch {
-        resolved = null;
-      }
+    try {
+      canonicalResolved = new URL(canonicalHref, page.origin);
+    } catch {
+      canonicalResolved = null;
     }
-    if (resolved) {
+
+    if (canonicalResolved) {
       const norm = (u) => {
-        const p = u.pathname.endsWith("/") ? u.pathname : u.pathname + "/";
+        const p = u.pathname.endsWith("/") ? u.pathname : `${u.pathname}/`;
         return `${u.origin}${p}`;
       };
-      canonicalMatchesUrl = norm(resolved) === norm(page);
+      canonicalMatchesUrl = norm(canonicalResolved) === norm(page);
+      canonicalCrossDomain = canonicalResolved.hostname !== page.hostname;
+      canonicalStagingHost = isLikelyStagingHost(canonicalResolved.hostname);
     } else {
       canonicalMatchesUrl = false;
     }
   }
 
   const robotsContent = robotsMatch ? String(robotsMatch[1] || "").trim() : null;
-  const robotsBlocksIndex =
-    robotsContent && /(^|,|\s)noindex(\s|,|$)/i.test(robotsContent);
+  const robotsBlocksIndex = !!(
+    robotsContent &&
+    /(^|,|\s)noindex(\s|,|$)/i.test(robotsContent)
+  );
+  const robotsConflictingDirectives = !!(
+    robotsContent &&
+    /(^|,|\s)index(\s|,|$)/i.test(robotsContent) &&
+    /(^|,|\s)noindex(\s|,|$)/i.test(robotsContent)
+  );
 
   const imgAltRatio = imgCount > 0 ? imgAltCount / imgCount : null;
 
@@ -1005,18 +1042,48 @@ function basicHtmlSignals(html, pageUrl) {
   const emptyButtonCount = countMatches(/<button\b[^>]*>\s*<\/button>/gi, html);
   const emptyLinkCount = countMatches(/<a\b[^>]*>\s*<\/a>/gi, html);
 
+  const titleNorm = normaliseComparableText(titleText);
+  const metaNorm = normaliseComparableText(descText);
+  const h1Norm = normaliseComparableText(h1Text);
+
+  const titleTooShort = !!(titleText && safeTextLen(titleText) < 10);
+  const titleTooLong = !!(titleText && safeTextLen(titleText) > 70);
+  const titleGeneric = !!(titleText && isGenericSeoTitle(titleText));
+
+  const metaDescriptionEmpty = metaDescriptionTags.length > 0 && !metaNorm;
+  const metaDescriptionTooShort = !!(descText && safeTextLen(descText) < 50);
+  const metaDescriptionTooLong = !!(descText && safeTextLen(descText) > 160);
+  const metaDescriptionDuplicatesTitle = !!(titleNorm && metaNorm && titleNorm === metaNorm);
+
+  const h1Missing = h1All.length === 0;
+  const h1Multiple = h1All.length > 1;
+  const h1VeryShort = !!(h1Text && safeTextLen(h1Text) < 6);
+  const titleMatchesH1Exactly = !!(titleNorm && h1Norm && titleNorm === h1Norm);
+
   return {
-    title_present: !!titleMatch,
+    title_present: titleMatches.length > 0,
+    title_count: titleMatches.length,
     title_text: titleText,
     title_length: safeTextLen(titleText),
+    title_too_short: titleTooShort,
+    title_too_long: titleTooLong,
+    title_generic: titleGeneric,
 
-    meta_description_present: !!descMatch,
+    meta_description_present: metaDescriptionTags.length > 0,
+    meta_description_count: metaDescriptionTags.length,
     meta_description_text: descText,
     meta_description_length: safeTextLen(descText),
+    meta_description_empty: metaDescriptionEmpty,
+    meta_description_too_short: metaDescriptionTooShort,
+    meta_description_too_long: metaDescriptionTooLong,
+    meta_description_duplicates_title: metaDescriptionDuplicatesTitle,
 
-    canonical_present: !!canonicalMatch,
+    canonical_present: canonicalHrefs.length > 0,
+    canonical_count: canonicalHrefs.length,
     canonical_href: canonicalHref,
     canonical_matches_url: canonicalMatchesUrl,
+    canonical_cross_domain: canonicalCrossDomain,
+    canonical_staging_host: canonicalStagingHost,
 
     viewport_present: !!viewportMatch,
     viewport_content: viewportContent,
@@ -1025,14 +1092,23 @@ function basicHtmlSignals(html, pageUrl) {
     viewport_maximum_scale: vp.viewport_maximum_scale,
     viewport_initial_scale: vp.viewport_initial_scale,
 
-    h1_present: h1All.length > 0,
+    h1_present: !h1Missing,
     h1_count: h1All.length,
     h1_text: h1Text,
     h1_length: safeTextLen(h1Text),
+    h1_multiple: h1Multiple,
+    h1_very_short: h1VeryShort,
+    title_matches_h1_exactly: titleMatchesH1Exactly,
 
     robots_meta_present: !!robotsMatch,
     robots_meta_content: robotsContent,
-    robots_blocks_index: !!robotsBlocksIndex,
+    robots_blocks_index: robotsBlocksIndex,
+    robots_conflicting_directives: robotsConflictingDirectives,
+
+    og_title_present: !!ogTitleText,
+    og_title_text: ogTitleText,
+    og_description_present: !!ogDescriptionText,
+    og_description_text: ogDescriptionText,
 
     img_count: imgCount,
     img_alt_count: imgAltCount,
@@ -1066,10 +1142,6 @@ function headerSignals(res, url) {
     permissions_policy: !!h("permissions-policy"),
   };
 }
-
-// ---------------------------------------------
-// Delivery Signal Builders
-// ---------------------------------------------
 function buildSeoSignal(basic, pageUrl) {
   const base_score = 100;
   const deductions = [];
@@ -1077,36 +1149,59 @@ function buildSeoSignal(basic, pageUrl) {
 
   const evidence = {
     url: pageUrl,
+
     title_present: basic.title_present,
+    title_count: basic.title_count,
     title_text: basic.title_text,
     title_length: basic.title_length,
+    title_too_short: basic.title_too_short,
+    title_too_long: basic.title_too_long,
+    title_generic: basic.title_generic,
+
     meta_description_present: basic.meta_description_present,
+    meta_description_count: basic.meta_description_count,
     meta_description_text: basic.meta_description_text,
     meta_description_length: basic.meta_description_length,
-    h1_present: basic.h1_present,
-    h1_count: basic.h1_count,
-    h1_text: basic.h1_text,
-    h1_length: basic.h1_length,
+    meta_description_empty: basic.meta_description_empty,
+    meta_description_too_short: basic.meta_description_too_short,
+    meta_description_too_long: basic.meta_description_too_long,
+    meta_description_duplicates_title: basic.meta_description_duplicates_title,
+
     canonical_present: basic.canonical_present,
+    canonical_count: basic.canonical_count,
     canonical_href: basic.canonical_href,
     canonical_matches_url: basic.canonical_matches_url,
+    canonical_cross_domain: basic.canonical_cross_domain,
+    canonical_staging_host: basic.canonical_staging_host,
+
     robots_meta_present: basic.robots_meta_present,
     robots_meta_content: basic.robots_meta_content,
     robots_blocks_index: basic.robots_blocks_index,
+    robots_conflicting_directives: basic.robots_conflicting_directives,
+
+    html_lang_present: basic.html_lang_present,
+
+    og_title_present: basic.og_title_present,
+    og_description_present: basic.og_description_present,
   };
+
+  // -----------------------------
+  // Hard fail: noindex
+  // -----------------------------
 
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     deductions.push({
       points: 100,
-      reason: "Robots meta includes noindex (page is blocked from indexing).",
+      reason: "Robots meta includes noindex.",
       code: "seo_noindex",
     });
+
     issues.push({
       id: "seo_noindex",
-      title: "SEO Foundations: Indexing blocked (noindex)",
+      title: "SEO Foundations: Indexing blocked",
       severity: "high",
       impact:
-        "Search engines are instructed not to index this page, which can eliminate organic visibility.",
+        "Search engines are instructed not to index this page, which prevents it appearing in search results.",
       evidence: { robots_meta_content: basic.robots_meta_content },
     });
 
@@ -1122,97 +1217,213 @@ function buildSeoSignal(basic, pageUrl) {
       observations: [
         { label: "Title Present", value: basic.title_present, source: "html" },
         { label: "Meta Description Present", value: basic.meta_description_present, source: "html" },
-        { label: "H1 Present", value: basic.h1_present, source: "html" },
         { label: "Canonical Present", value: basic.canonical_present, source: "html" },
-        { label: "Robots Meta Present", value: basic.robots_meta_present, source: "html" },
         { label: "Robots Blocks Index", value: basic.robots_blocks_index, source: "html" },
+        { label: "HTML Lang Present", value: basic.html_lang_present, source: "html" },
       ],
     };
   }
 
+  // -----------------------------
+  // Title checks
+  // -----------------------------
+
   if (!basic.title_present) {
-    deductions.push({ points: 25, reason: "Missing <title> tag.", code: "seo_title_missing" });
+    deductions.push({ points: 30, reason: "Missing <title> tag.", code: "seo_title_missing" });
+
     issues.push({
       id: "seo_title_missing",
-      title: "SEO Foundations: Missing <title>",
+      title: "SEO Foundations: Missing page title",
       severity: "high",
-      impact: "Page titles are a primary signal for search result relevance and click-through.",
+      impact:
+        "Page titles are one of the strongest signals search engines use to understand page topics.",
       evidence: { title_present: false },
     });
   } else {
-    if (basic.title_length < 10)
-      deductions.push({ points: 5, reason: "Title is very short (< 10 chars).", code: "seo_title_short" });
-    if (basic.title_length > 70)
-      deductions.push({ points: 5, reason: "Title is long (> 70 chars).", code: "seo_title_long" });
+    if (basic.title_too_short)
+      deductions.push({ points: 8, reason: "Title is very short.", code: "seo_title_short" });
+
+    if (basic.title_too_long)
+      deductions.push({ points: 4, reason: "Title is long.", code: "seo_title_long" });
+
+    if (basic.title_generic) {
+      deductions.push({ points: 12, reason: "Title is generic.", code: "seo_title_generic" });
+
+      issues.push({
+        id: "seo_title_generic",
+        title: "SEO Foundations: Weak page title",
+        severity: "med",
+        impact:
+          "The page title exists but is too generic to clearly describe the page topic.",
+        evidence: { title_text: basic.title_text },
+      });
+    }
   }
 
+  // -----------------------------
+  // Meta description checks
+  // -----------------------------
+
   if (!basic.meta_description_present) {
-    deductions.push({ points: 15, reason: "Missing meta description.", code: "seo_meta_description_missing" });
+    deductions.push({
+      points: 22,
+      reason: "Missing meta description.",
+      code: "seo_meta_description_missing",
+    });
+
     issues.push({
       id: "seo_meta_description_missing",
       title: "SEO Foundations: Missing meta description",
-      severity: "med",
-      impact: "Search snippets may be less controlled, reducing click-through quality from results pages.",
+      severity: "high",
+      impact:
+        "Search engines may generate uncontrolled snippets when no description is provided.",
       evidence: { meta_description_present: false },
     });
   } else {
-    if (basic.meta_description_length < 50)
-      deductions.push({ points: 5, reason: "Meta description is short (< 50 chars).", code: "seo_meta_description_short" });
-    if (basic.meta_description_length > 160)
-      deductions.push({ points: 5, reason: "Meta description is long (> 160 chars).", code: "seo_meta_description_long" });
+    if (basic.meta_description_empty) {
+      deductions.push({
+        points: 18,
+        reason: "Meta description empty.",
+        code: "seo_meta_description_empty",
+      });
+    }
+
+    if (basic.meta_description_too_short)
+      deductions.push({
+        points: 8,
+        reason: "Meta description very short.",
+        code: "seo_meta_description_short",
+      });
+
+    if (basic.meta_description_too_long)
+      deductions.push({
+        points: 4,
+        reason: "Meta description long.",
+        code: "seo_meta_description_long",
+      });
+
+    if (basic.meta_description_duplicates_title) {
+      deductions.push({
+        points: 10,
+        reason: "Meta description duplicates title.",
+        code: "seo_meta_description_duplicate",
+      });
+
+      issues.push({
+        id: "seo_meta_description_duplicate",
+        title: "SEO Foundations: Duplicate metadata",
+        severity: "med",
+        impact:
+          "The title and meta description repeat the same text instead of providing additional context.",
+        evidence: {
+          title_text: basic.title_text,
+          meta_description_text: basic.meta_description_text,
+        },
+      });
+    }
   }
 
-  if (!basic.h1_present) {
-    deductions.push({ points: 15, reason: "Missing H1 heading.", code: "seo_h1_missing" });
-    issues.push({
-      id: "seo_h1_missing",
-      title: "SEO Foundations: Missing H1",
-      severity: "med",
-      impact: "A clear primary heading improves clarity for users and helps search engines interpret page intent.",
-      evidence: { h1_present: false },
-    });
-  } else {
-    if (basic.h1_count > 1)
-      deductions.push({ points: 5, reason: "Multiple H1 headings detected.", code: "seo_h1_multiple" });
-    if (basic.h1_length < 6)
-      deductions.push({ points: 3, reason: "H1 is very short (< 6 chars).", code: "seo_h1_short" });
-  }
+  // -----------------------------
+  // Canonical checks
+  // -----------------------------
 
   if (!basic.canonical_present) {
-    deductions.push({ points: 10, reason: "Canonical link missing.", code: "seo_canonical_missing" });
-    issues.push({
-      id: "seo_canonical_missing",
-      title: "SEO Foundations: Canonical missing",
-      severity: "med",
-      impact: "Without a canonical, duplicate URL variants can dilute SEO signals.",
-      evidence: { observed: false },
+    deductions.push({
+      points: 18,
+      reason: "Canonical missing.",
+      code: "seo_canonical_missing",
     });
-  } else if (basic.canonical_matches_url === false) {
-    deductions.push({ points: 10, reason: "Canonical does not match the scanned URL.", code: "seo_canonical_mismatch" });
-    issues.push({
-      id: "seo_canonical_mismatch",
-      title: "SEO Foundations: Canonical mismatch",
-      severity: "med",
-      impact: "A canonical pointing elsewhere can move authority away from this URL or cause indexing confusion.",
-      evidence: { canonical_href: basic.canonical_href, canonical_matches_url: false },
+  } else {
+    if (basic.canonical_count > 1)
+      deductions.push({
+        points: 12,
+        reason: "Multiple canonical tags detected.",
+        code: "seo_canonical_multiple",
+      });
+
+    if (basic.canonical_matches_url === false)
+      deductions.push({
+        points: 10,
+        reason: "Canonical does not match page URL.",
+        code: "seo_canonical_mismatch",
+      });
+
+    if (basic.canonical_cross_domain) {
+      deductions.push({
+        points: 18,
+        reason: "Canonical points to different domain.",
+        code: "seo_canonical_cross_domain",
+      });
+    }
+
+    if (basic.canonical_staging_host) {
+      deductions.push({
+        points: 20,
+        reason: "Canonical points to staging host.",
+        code: "seo_canonical_staging",
+      });
+    }
+  }
+
+  // -----------------------------
+  // Robots conflicts
+  // -----------------------------
+
+  if (basic.robots_conflicting_directives) {
+    deductions.push({
+      points: 12,
+      reason: "Conflicting robots directives.",
+      code: "seo_robots_conflict",
     });
   }
 
-  if (!basic.robots_meta_present) {
-    deductions.push({ points: 3, reason: "Robots meta tag not found (hygiene/clarity).", code: "seo_robots_meta_missing" });
-  }
+  // -----------------------------
+  // HTML language
+  // -----------------------------
+
+  if (!basic.html_lang_present)
+    deductions.push({
+      points: 6,
+      reason: "Missing html lang attribute.",
+      code: "seo_html_lang_missing",
+    });
+
+  // -----------------------------
+  // OpenGraph hygiene
+  // -----------------------------
+
+  if (!basic.og_title_present)
+    deductions.push({
+      points: 2,
+      reason: "OpenGraph title missing.",
+      code: "seo_og_title_missing",
+    });
+
+  if (!basic.og_description_present)
+    deductions.push({
+      points: 2,
+      reason: "OpenGraph description missing.",
+      code: "seo_og_description_missing",
+    });
+
+  // -----------------------------
+  // Final score
+  // -----------------------------
 
   const penalty_points = deductions.reduce((sum, d) => sum + (Number(d.points) || 0), 0);
   const score = clamp(base_score - penalty_points, 0, 100);
 
   const observations = [
     { label: "Title Present", value: basic.title_present, source: "html" },
+    { label: "Title Generic", value: basic.title_generic, source: "html" },
     { label: "Meta Description Present", value: basic.meta_description_present, source: "html" },
-    { label: "H1 Present", value: basic.h1_present, source: "html" },
+    { label: "Meta Description Empty", value: basic.meta_description_empty, source: "html" },
     { label: "Canonical Present", value: basic.canonical_present, source: "html" },
+    { label: "Canonical Count", value: basic.canonical_count, source: "html" },
     { label: "Canonical Matches URL", value: basic.canonical_matches_url, source: "html" },
-    { label: "Robots Meta Present", value: basic.robots_meta_present, source: "html" },
     { label: "Robots Blocks Index", value: basic.robots_blocks_index, source: "html" },
+    { label: "HTML Lang Present", value: basic.html_lang_present, source: "html" },
+    { label: "OpenGraph Title Present", value: basic.og_title_present, source: "html" },
   ];
 
   return {
@@ -1642,7 +1853,61 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 
   return { score, base_score, deductions, issues };
 }
+function decodeHtmlEntities(str) {
+  return String(str || "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
 
+function cleanMetaText(str, max) {
+  if (typeof max === "undefined") max = 200;
+  return decodeHtmlEntities(stripTags(String(str || "")))
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+}
+
+function normaliseComparableText(str) {
+  return String(str || "")
+    .toLowerCase()
+    .replace(/[\s\-_–|:]+/g, " ")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isGenericSeoTitle(title) {
+  var t = normaliseComparableText(title);
+  if (!t) return false;
+
+  var generic = {
+    "home": true,
+    "homepage": true,
+    "welcome": true,
+    "untitled": true,
+    "index": true,
+    "landing page": true,
+    "new page": true,
+    "page": true,
+    "test": true,
+    "hello world": true
+  };
+
+  return !!generic[t];
+}
+
+function isLikelyStagingHost(hostname) {
+  var h = String(hostname || "").toLowerCase();
+  return (
+    h === "localhost" ||
+    h === "127.0.0.1" ||
+    /(^|[.\-])(staging|dev|test|preview|sandbox|qa)([.\-]|$)/.test(h) ||
+    /\.local$/.test(h)
+  );
+}
 // ---------------------------------------------
 // Build all Scores + Delivery Signals
 // ---------------------------------------------
@@ -2623,21 +2888,22 @@ const metrics = {
       metrics,
     };
 
-    const { data: saved, error: saveErr } = await supabase
-      .from("scan_results")
-      .insert(insertRow)
-      .select("id, report_id")
-      .single();
+const { data: saved, error: saveErr } = await supabase
+  .from("scan_results")
+  .insert(insertRow)
+  .select("id, report_id")
+  .single();
 
-    if (saveErr) {
-      console.error("[run-scan] insert error:", saveErr);
-      return json(500, {
-        success: false,
-        error: "Failed to save scan result",
-        detail: saveErr.message || saveErr,
-      });
-    }
-    if (isAnonymous) {
+if (saveErr) {
+  console.error("[run-scan] insert error:", saveErr);
+  return json(500, {
+    success: false,
+    error: "Failed to save scan result",
+    detail: saveErr.message || saveErr,
+  });
+}
+
+if (isAnonymous) {
   const { error: anonInsertErr } = await supabase
     .from("anon_scans")
     .insert({
@@ -2652,6 +2918,59 @@ const metrics = {
     console.error("[anon_scans] insert error:", anonInsertErr);
   }
 }
+
+// ---------------------------------------------
+// Auto-set baseline if this domain has none yet
+// ---------------------------------------------
+{
+  let normalizedDomain = "";
+  try {
+    normalizedDomain = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch (e) {
+    normalizedDomain = "";
+  }
+
+  if (normalizedDomain) {
+    const { data: priorRows, error: priorErr } = await supabase
+      .from("scan_results")
+      .select("id, url, is_baseline")
+      .eq("user_id", user_id)
+      .eq("is_baseline", true);
+
+    if (priorErr) {
+      console.error("[run-scan] baseline lookup error:", priorErr);
+    } else {
+      let hasBaselineForDomain = false;
+      const rows = priorRows || [];
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        try {
+          const rowDomain = new URL(row.url).hostname.replace(/^www\./i, "").toLowerCase();
+          if (rowDomain === normalizedDomain) {
+            hasBaselineForDomain = true;
+            break;
+          }
+        } catch (e) {}
+      }
+
+      if (!hasBaselineForDomain) {
+        const { error: baselineErr } = await supabase
+          .from("scan_results")
+          .update({ is_baseline: true })
+          .eq("id", saved.id);
+
+        if (baselineErr) {
+          console.error("[run-scan] baseline set error:", baselineErr);
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------
+// STEP 1: Ensure reports row exists + set narrative pending
+// ---------------------------------------------
 
     // ---------------------------------------------
     // STEP 1: Ensure reports row exists + set narrative pending

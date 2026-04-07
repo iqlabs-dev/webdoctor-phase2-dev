@@ -1,4 +1,51 @@
-// /assets/js/dashboard.js
+/*
+============================================================
+IQWEB DASHBOARD CONTROLLER
+------------------------------------------------------------
+This script powers the main user dashboard for the IQWEB
+website audit platform.
+
+Responsibilities:
+- Loads the user's scan history from Supabase
+- Displays scans in the dashboard history table
+- Updates the "Latest Scan" summary card
+- Handles scan filtering and search
+- Generates links to view reports
+- Allows copying report URLs
+- Triggers PDF downloads of reports
+
+Baseline System (planned):
+- Each domain can have a designated "baseline" scan
+- Baseline represents the reference point for comparisons
+- First scan for a domain automatically becomes baseline
+- Future scans compare performance vs the baseline scan
+- Dashboard will allow selecting baseline via radio button
+
+Key Data Source:
+Table: scan_results
+
+Important fields used:
+- report_id
+- url
+- created_at
+- status
+- metrics.scores
+- score_overall
+- is_baseline (future baseline comparison feature)
+
+This file only controls the UI layer.
+Actual scan processing occurs in Netlify functions.
+
+Author: IQWEB
+============================================================
+*/
+
+
+
+
+
+
+dy// /assts/js/dashboard.js
 console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 
 import { normaliseUrl } from "./scan.js";
@@ -13,10 +60,6 @@ window.lastScanResult = null;
 window.currentProfile = null;
 window.currentUserEmail = null;
 window.currentUserId = null;
-
-let commentaryTemplates = [];
-let commentaryCurrentTemplateId = "";
-let commentaryLastLoadedReportId = "";
 
 // -----------------------------
 // Helpers
@@ -525,11 +568,6 @@ function updateLatestScanCard(row, opts = {}) {
       ? ""
       : "Report ID not available yet. Please refresh in a moment.";
   }
-
-  updateCommentaryTargetUI();
-  loadCommentaryForReport(row.report_id).catch(function (err) {
-    console.warn("[COMMENTARY] latest scan sync failed:", err);
-  });
 }
 
 // -----------------------------
@@ -638,7 +676,7 @@ async function loadScanHistory() {
   try {
     const { data: rows, error } = await supabase
       .from("scan_results")
-      .select("id,url,created_at,status,score_overall,metrics,report_url,report_id")
+      .select("id,url,created_at,status,score_overall,metrics,report_url,report_id,is_baseline")
       .eq("user_id", currentUserId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -711,6 +749,43 @@ async function loadScanHistory() {
       tdReportId.textContent = row.report_id || "—";
       tr.appendChild(tdReportId);
 
+      const tdBaseline = document.createElement("td");
+      tdBaseline.style.textAlign = "center";
+
+      const baselineInput = document.createElement("input");
+      baselineInput.type = "radio";
+      baselineInput.name = "baselineScan";
+      baselineInput.className = "baseline-selector";
+      baselineInput.dataset.reportId = row.report_id || "";
+      baselineInput.checked = row.is_baseline === true;
+
+      baselineInput.addEventListener("change", async function () {
+        if (!baselineInput.dataset.reportId) return;
+
+        try {
+          const resp = await fetch("/.netlify/functions/set-baseline-scan", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              report_id: baselineInput.dataset.reportId
+            })
+          });
+
+          if (!resp.ok) {
+            throw new Error("Failed to set baseline");
+          }
+
+          await loadScanHistory();
+        } catch (err) {
+          console.error("Set baseline failed:", err);
+        }
+      });
+
+      tdBaseline.appendChild(baselineInput);
+      tr.appendChild(tdBaseline);
+
       const tdActions = document.createElement("td");
       tdActions.className = "col-actions";
 
@@ -768,340 +843,6 @@ async function loadScanHistory() {
   } catch (err) {
     console.error("History load unexpected:", err);
     empty.textContent = "Unable to load scan history.";
-  }
-}
-
-// -----------------------------
-// Commentary + templates
-// -----------------------------
-function textOrEmpty(v) {
-  return String(v || "").trim();
-}
-
-function getCommentaryEls() {
-  return {
-    target: $("commentary-target-report"),
-    status: $("commentary-status"),
-    templateSelect: $("commentary-template-select"),
-    templateName: $("commentary-template-name"),
-    title: $("commentary-title"),
-    body: $("commentary-body"),
-    signoff: $("commentary-signoff"),
-    btnLoad: $("commentary-load-template"),
-    btnSaveTemplate: $("commentary-save-template"),
-    btnUpdateTemplate: $("commentary-update-template"),
-    btnDeleteTemplate: $("commentary-delete-template"),
-    btnClear: $("commentary-clear"),
-    btnSaveReport: $("commentary-save-report"),
-  };
-}
-
-function setCommentaryStatus(message, isError) {
-  const els = getCommentaryEls();
-  if (!els.status) return;
-  els.status.textContent = message || "";
-  els.status.style.color = isError ? "#fca5a5" : "";
-}
-
-async function getAccessTokenOrThrow() {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData && sessionData.session ? sessionData.session.access_token : null;
-  if (!accessToken) throw new Error("Session expired. Please refresh and log in again.");
-  return accessToken;
-}
-
-async function commentaryApi(path, options) {
-  const accessToken = await getAccessTokenOrThrow();
-  const opts = options || {};
-  const headers = Object.assign({}, opts.headers || {}, {
-    Authorization: `Bearer ${accessToken}`,
-  });
-  if (opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
-  const res = await fetch(path, Object.assign({}, opts, { headers }));
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || (data && data.success === false)) {
-    throw new Error((data && (data.error || data.message || data.detail)) || `Request failed (${res.status})`);
-  }
-  return data;
-}
-
-function currentSelectedReportId() {
-  return normaliseReportId(window.currentReport && window.currentReport.report_id);
-}
-
-function commentaryPayloadFromFields() {
-  const els = getCommentaryEls();
-  return {
-    title: textOrEmpty(els.title && els.title.value),
-    body: textOrEmpty(els.body && els.body.value),
-    signoff: textOrEmpty(els.signoff && els.signoff.value),
-  };
-}
-
-function applyCommentaryToFields(payload) {
-  const els = getCommentaryEls();
-  const data = payload || {};
-  if (els.title) els.title.value = data.title || "";
-  if (els.body) els.body.value = data.body || "";
-  if (els.signoff) els.signoff.value = data.signoff || "";
-}
-
-function clearCommentaryFields() {
-  applyCommentaryToFields({ title: "", body: "", signoff: "" });
-}
-
-function updateCommentaryTargetUI() {
-  const els = getCommentaryEls();
-  const rid = currentSelectedReportId();
-  if (els.target) {
-    els.target.value = rid ? rid : "No report selected";
-  }
-}
-
-function fillTemplateSelect() {
-  const els = getCommentaryEls();
-  if (!els.templateSelect) return;
-  const current = commentaryCurrentTemplateId || "";
-  els.templateSelect.innerHTML = '<option value="">No template selected</option>';
-  commentaryTemplates.forEach(function (tpl) {
-    const opt = document.createElement("option");
-    opt.value = tpl.id;
-    opt.textContent = tpl.template_name || "Untitled template";
-    if (tpl.id === current) opt.selected = true;
-    els.templateSelect.appendChild(opt);
-  });
-}
-
-async function loadCommentaryTemplates() {
-  const data = await commentaryApi("/.netlify/functions/list-commentary-templates", { method: "GET" });
-  commentaryTemplates = Array.isArray(data.templates) ? data.templates : [];
-  fillTemplateSelect();
-}
-
-async function loadCommentaryForReport(reportId) {
-  const rid = normaliseReportId(reportId);
-  updateCommentaryTargetUI();
-  if (!rid) {
-    clearCommentaryFields();
-    commentaryLastLoadedReportId = "";
-    setCommentaryStatus("Select a report from Latest Scan or Scan History to load and save commentary.");
-    return;
-  }
-
-  try {
-    const data = await commentaryApi(`/.netlify/functions/get-report-commentary?report_id=${encodeURIComponent(rid)}`, {
-      method: "GET",
-    });
-    const commentary = data.commentary || {};
-    applyCommentaryToFields(commentary);
-    commentaryLastLoadedReportId = rid;
-    setCommentaryStatus(`Loaded commentary for ${rid}.`);
-  } catch (err) {
-    console.error("[COMMENTARY] load report commentary failed:", err);
-    clearCommentaryFields();
-    commentaryLastLoadedReportId = rid;
-    setCommentaryStatus("Unable to load commentary for the selected report.", true);
-  }
-}
-
-async function saveCommentaryToCurrentReport() {
-  const rid = currentSelectedReportId();
-  if (!rid) {
-    setCommentaryStatus("Select a report from Latest Scan or Scan History first.", true);
-    return;
-  }
-
-  const els = getCommentaryEls();
-  const original = els.btnSaveReport ? els.btnSaveReport.textContent : "";
-  try {
-    if (els.btnSaveReport) {
-      els.btnSaveReport.disabled = true;
-      els.btnSaveReport.textContent = "Saving…";
-    }
-
-    const payload = commentaryPayloadFromFields();
-    await commentaryApi("/.netlify/functions/save-report-commentary", {
-      method: "POST",
-      body: JSON.stringify({
-        report_id: rid,
-        title: payload.title,
-        body: payload.body,
-        signoff: payload.signoff,
-      }),
-    });
-
-    commentaryLastLoadedReportId = rid;
-    setCommentaryStatus(`Commentary saved to ${rid}. Empty commentary will collapse in the report and PDF.`);
-  } catch (err) {
-    console.error("[COMMENTARY] save report commentary failed:", err);
-    setCommentaryStatus((err && err.message) || "Unable to save commentary.", true);
-  } finally {
-    if (els.btnSaveReport) {
-      els.btnSaveReport.disabled = false;
-      els.btnSaveReport.textContent = original || "Save Commentary to Report";
-    }
-  }
-}
-
-function selectedTemplate() {
-  const id = commentaryCurrentTemplateId || textOrEmpty(getCommentaryEls().templateSelect && getCommentaryEls().templateSelect.value);
-  if (!id) return null;
-  for (let i = 0; i < commentaryTemplates.length; i++) {
-    if (String(commentaryTemplates[i].id) === String(id)) return commentaryTemplates[i];
-  }
-  return null;
-}
-
-function applyTemplateToFields(tpl) {
-  if (!tpl) return;
-  commentaryCurrentTemplateId = tpl.id || "";
-  applyCommentaryToFields({
-    title: tpl.title || "",
-    body: tpl.body || "",
-    signoff: tpl.signoff || "",
-  });
-  const els = getCommentaryEls();
-  if (els.templateSelect) els.templateSelect.value = commentaryCurrentTemplateId;
-  if (els.templateName) els.templateName.value = tpl.template_name || "";
-  setCommentaryStatus(`Template loaded: ${tpl.template_name || "Untitled template"}.`);
-}
-
-async function saveTemplate(mode) {
-  const els = getCommentaryEls();
-  const templateName = textOrEmpty(els.templateName && els.templateName.value);
-  if (!templateName) {
-    setCommentaryStatus("Enter a template name first.", true);
-    return;
-  }
-
-  if (mode === "update" && !selectedTemplate()) {
-    setCommentaryStatus("Select a template to update.", true);
-    return;
-  }
-
-  const btn = mode === "update" ? els.btnUpdateTemplate : els.btnSaveTemplate;
-  const original = btn ? btn.textContent : "";
-
-  try {
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = mode === "update" ? "Updating…" : "Saving…";
-    }
-
-    const payload = commentaryPayloadFromFields();
-    const existing = selectedTemplate();
-    const data = await commentaryApi("/.netlify/functions/save-commentary-template", {
-      method: "POST",
-      body: JSON.stringify({
-        template_id: mode === "update" && existing ? existing.id : null,
-        template_name: templateName,
-        title: payload.title,
-        body: payload.body,
-        signoff: payload.signoff,
-      }),
-    });
-
-    commentaryCurrentTemplateId = data.template && data.template.id ? data.template.id : "";
-    await loadCommentaryTemplates();
-    const latest = selectedTemplate();
-    if (latest) applyTemplateToFields(latest);
-    setCommentaryStatus(mode === "update" ? `Template updated: ${templateName}.` : `Template saved: ${templateName}.`);
-  } catch (err) {
-    console.error("[COMMENTARY] save template failed:", err);
-    setCommentaryStatus((err && err.message) || "Unable to save template.", true);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = original || (mode === "update" ? "Update Template" : "Save New Template");
-    }
-  }
-}
-
-async function deleteTemplate() {
-  const tpl = selectedTemplate();
-  const els = getCommentaryEls();
-  if (!tpl) {
-    setCommentaryStatus("Select a template to delete.", true);
-    return;
-  }
-
-  if (!window.confirm(`Delete template "${tpl.template_name}"?`)) return;
-
-  const original = els.btnDeleteTemplate ? els.btnDeleteTemplate.textContent : "";
-  try {
-    if (els.btnDeleteTemplate) {
-      els.btnDeleteTemplate.disabled = true;
-      els.btnDeleteTemplate.textContent = "Deleting…";
-    }
-
-    await commentaryApi("/.netlify/functions/delete-commentary-template", {
-      method: "POST",
-      body: JSON.stringify({ template_id: tpl.id }),
-    });
-
-    commentaryCurrentTemplateId = "";
-    if (els.templateName) els.templateName.value = "";
-    await loadCommentaryTemplates();
-    setCommentaryStatus(`Template deleted: ${tpl.template_name}.`);
-  } catch (err) {
-    console.error("[COMMENTARY] delete template failed:", err);
-    setCommentaryStatus((err && err.message) || "Unable to delete template.", true);
-  } finally {
-    if (els.btnDeleteTemplate) {
-      els.btnDeleteTemplate.disabled = false;
-      els.btnDeleteTemplate.textContent = original || "Delete Template";
-    }
-  }
-}
-
-function wireCommentaryUi() {
-  const els = getCommentaryEls();
-  if (!els.title || !els.body || !els.signoff) return;
-
-  updateCommentaryTargetUI();
-
-  if (els.templateSelect) {
-    els.templateSelect.addEventListener("change", function () {
-      commentaryCurrentTemplateId = textOrEmpty(els.templateSelect.value);
-      const tpl = selectedTemplate();
-      if (tpl) {
-        if (els.templateName) els.templateName.value = tpl.template_name || "";
-      }
-    });
-  }
-
-  if (els.btnLoad) {
-    els.btnLoad.addEventListener("click", function () {
-      const tpl = selectedTemplate();
-      if (!tpl) {
-        setCommentaryStatus("Select a template to load.", true);
-        return;
-      }
-      applyTemplateToFields(tpl);
-    });
-  }
-
-  if (els.btnSaveTemplate) {
-    els.btnSaveTemplate.addEventListener("click", function () { saveTemplate("create"); });
-  }
-
-  if (els.btnUpdateTemplate) {
-    els.btnUpdateTemplate.addEventListener("click", function () { saveTemplate("update"); });
-  }
-
-  if (els.btnDeleteTemplate) {
-    els.btnDeleteTemplate.addEventListener("click", function () { deleteTemplate(); });
-  }
-
-  if (els.btnClear) {
-    els.btnClear.addEventListener("click", function () {
-      clearCommentaryFields();
-      setCommentaryStatus("Commentary fields cleared. Save to the report if you want the commentary section removed.");
-    });
-  }
-
-  if (els.btnSaveReport) {
-    els.btnSaveReport.addEventListener("click", function () { saveCommentaryToCurrentReport(); });
   }
 }
 
@@ -1179,11 +920,6 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   await bootstrapSignupTrialCredits();
   await refreshProfile();
-  wireCommentaryUi();
-  await loadCommentaryTemplates().catch(function (err) {
-    console.warn("[COMMENTARY] template load failed:", err);
-    setCommentaryStatus("Unable to load commentary templates right now.", true);
-  });
   await loadScanHistory();
 
   runBtn.addEventListener("click", async function () {
