@@ -142,32 +142,7 @@ export async function handler(event) {
       }
     }
 
-    // 2. Fallback to first scan for this domain if no baseline set
-    if (!baseline) {
-      var fallbackRes = await supabase
-        .from("scan_results")
-        .select("id, user_id, report_id, url, created_at, metrics, is_baseline")
-        .eq("user_id", current.user_id)
-        .order("created_at", { ascending: true })
-        .limit(100);
 
-      if (fallbackRes.error) {
-        return json(500, {
-          success: false,
-          error: "Failed to load fallback scans",
-          detail: fallbackRes.error.message || String(fallbackRes.error)
-        });
-      }
-
-      var fallbackRows = fallbackRes.data || [];
-      for (var j = 0; j < fallbackRows.length; j++) {
-        var row2 = fallbackRows[j];
-        if (normalizeDomainFromUrl(row2.url) === normalizedDomain) {
-          baseline = row2;
-          break;
-        }
-      }
-    }
 
     // Do not compare current scan against itself
     if (!baseline || baseline.report_id === current.report_id) {

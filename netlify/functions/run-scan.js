@@ -2919,54 +2919,7 @@ if (isAnonymous) {
   }
 }
 
-// ---------------------------------------------
-// Auto-set baseline if this domain has none yet
-// ---------------------------------------------
-{
-  let normalizedDomain = "";
-  try {
-    normalizedDomain = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
-  } catch (e) {
-    normalizedDomain = "";
-  }
 
-  if (normalizedDomain) {
-    const { data: priorRows, error: priorErr } = await supabase
-      .from("scan_results")
-      .select("id, url, is_baseline")
-      .eq("user_id", user_id)
-      .eq("is_baseline", true);
-
-    if (priorErr) {
-      console.error("[run-scan] baseline lookup error:", priorErr);
-    } else {
-      let hasBaselineForDomain = false;
-      const rows = priorRows || [];
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        try {
-          const rowDomain = new URL(row.url).hostname.replace(/^www\./i, "").toLowerCase();
-          if (rowDomain === normalizedDomain) {
-            hasBaselineForDomain = true;
-            break;
-          }
-        } catch (e) {}
-      }
-
-      if (!hasBaselineForDomain) {
-        const { error: baselineErr } = await supabase
-          .from("scan_results")
-          .update({ is_baseline: true })
-          .eq("id", saved.id);
-
-        if (baselineErr) {
-          console.error("[run-scan] baseline set error:", baselineErr);
-        }
-      }
-    }
-  }
-}
 
 // ---------------------------------------------
 // STEP 1: Ensure reports row exists + set narrative pending
