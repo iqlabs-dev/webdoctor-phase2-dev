@@ -757,91 +757,99 @@ async function loadScanHistory() {
       baselineInput.dataset.reportId = row.report_id || "";
       baselineInput.checked = row.is_baseline === true;
 
-      baselineInput.addEventListener("change", async function () {
-        if (!baselineInput.dataset.reportId) return;
+baselineInput.addEventListener("change", async function () {
+  const reportId = baselineInput.dataset.reportId;
+  if (!reportId) return;
 
-        try {
-          const resp = await fetch("/.netlify/functions/set-baseline-scan", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              report_id: baselineInput.dataset.reportId
-            })
-          });
+  try {
+    const resp = await fetch("/.netlify/functions/set-baseline-scan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        report_id: reportId
+      })
+    });
 
-          if (!resp.ok) {
-            throw new Error("Failed to set baseline");
-          }
+    const result = await resp.json().catch(() => null);
 
-          await loadScanHistory();
-        } catch (err) {
-          console.error("Set baseline failed:", err);
-        }
-      });
-
-      tdBaseline.appendChild(baselineInput);
-      tr.appendChild(tdBaseline);
-
-      const tdActions = document.createElement("td");
-      tdActions.className = "col-actions";
-
-      const viewBtn = document.createElement("button");
-      viewBtn.className = "btn-link";
-      viewBtn.type = "button";
-      viewBtn.textContent = "View Report";
-      viewBtn.onclick = function () {
-        goToReportFromHistory(row.report_id);
-      };
-      tdActions.appendChild(viewBtn);
-
-      const copyBtn = document.createElement("button");
-      copyBtn.className = "btn-link";
-      copyBtn.type = "button";
-      copyBtn.style.marginLeft = "6px";
-      copyBtn.textContent = "Copy Link";
-
-      copyBtn.onclick = async function () {
-        const rid = normaliseReportId(row.report_id);
-        if (!rid) return;
-
-        const reportUrl =
-          `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
-
-        try {
-          await navigator.clipboard.writeText(reportUrl);
-          copyBtn.textContent = "✓ Copied";
-          setTimeout(function () {
-            copyBtn.textContent = "Copy Link";
-          }, 2000);
-        } catch (err) {
-          console.error("Clipboard failed:", err);
-        }
-      };
-
-      tdActions.appendChild(copyBtn);
-
-      const pdfBtn = document.createElement("button");
-      pdfBtn.className = "btn-link";
-      pdfBtn.type = "button";
-      pdfBtn.style.marginLeft = "6px";
-      pdfBtn.textContent = "PDF";
-      pdfBtn.onclick = function () {
-        downloadReportPdf(row.report_id, pdfBtn);
-      };
-
-      tdActions.appendChild(pdfBtn);
-      tr.appendChild(tdActions);
-
-      tbody.appendChild(tr);
+    if (!resp.ok || !result || result.success !== true) {
+      console.error("Baseline update failed:", result);
+      alert("Unable to set baseline. Please try again.");
+      baselineInput.checked = false;
+      return;
     }
 
-    applyHistoryFilter();
+    await loadScanHistory();
   } catch (err) {
-    console.error("History load unexpected:", err);
-    empty.textContent = "Unable to load scan history.";
+    console.error("Set baseline failed:", err);
+    alert("Unable to set baseline.");
+    baselineInput.checked = false;
   }
+});
+
+tdBaseline.appendChild(baselineInput);
+tr.appendChild(tdBaseline);
+
+const tdActions = document.createElement("td");
+tdActions.className = "col-actions";
+
+const viewBtn = document.createElement("button");
+viewBtn.className = "btn-link";
+viewBtn.type = "button";
+viewBtn.textContent = "View Report";
+viewBtn.onclick = function () {
+  goToReportFromHistory(row.report_id);
+};
+tdActions.appendChild(viewBtn);
+
+const copyBtn = document.createElement("button");
+copyBtn.className = "btn-link";
+copyBtn.type = "button";
+copyBtn.style.marginLeft = "6px";
+copyBtn.textContent = "Copy Link";
+
+copyBtn.onclick = async function () {
+  const rid = normaliseReportId(row.report_id);
+  if (!rid) return;
+
+  const reportUrl =
+    `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
+
+  try {
+    await navigator.clipboard.writeText(reportUrl);
+    copyBtn.textContent = "✓ Copied";
+    setTimeout(function () {
+      copyBtn.textContent = "Copy Link";
+    }, 2000);
+  } catch (err) {
+    console.error("Clipboard failed:", err);
+  }
+};
+
+tdActions.appendChild(copyBtn);
+
+const pdfBtn = document.createElement("button");
+pdfBtn.className = "btn-link";
+pdfBtn.type = "button";
+pdfBtn.style.marginLeft = "6px";
+pdfBtn.textContent = "PDF";
+pdfBtn.onclick = function () {
+  downloadReportPdf(row.report_id, pdfBtn);
+};
+
+tdActions.appendChild(pdfBtn);
+tr.appendChild(tdActions);
+
+tbody.appendChild(tr);
+}
+
+applyHistoryFilter();
+} catch (err) {
+console.error("History load unexpected:", err);
+empty.textContent = "Unable to load scan history.";
+}
 }
 
 // -----------------------------
