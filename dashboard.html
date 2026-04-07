@@ -636,16 +636,6 @@ tbody td:nth-child(8) {
   vertical-align: middle;
 }
 
-    .history-helper {
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(255,255,255,.55);
-    }
-
-    .history-helper ul {
-  line-height: 1.5;
-}
-
 .baseline-help{
   margin-top:14px;
   padding:10px 12px;
@@ -653,6 +643,12 @@ tbody td:nth-child(8) {
   color: rgba(255,255,255,.55);
   border-top:1px solid rgba(255,255,255,.06);
   line-height:1.5;
+}
+
+.baseline-help strong{
+  display:block;
+  margin-bottom:6px;
+  color: rgba(255,255,255,.75);
 }
 
     .brand-grid{
@@ -982,15 +978,17 @@ tbody td:nth-child(8) {
         </a>
       </div>
 
-      <nav class="nav" aria-label="Secondary">
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
+<nav class="nav" aria-label="Secondary">
+  <a href="#" id="logout-link">Sign out</a>
+</nav>
 
-      <div class="baseline-help">
-  <strong>Baseline guide</strong>
-  <div>• Select a radio in Scan History to set the baseline.</div>
-  <div>• Future scans compare against this baseline.</div>
-  <div>• Use Clear Baseline to remove it.</div>
+<div class="sidebar-foot">
+  <div class="baseline-help">
+    <strong>Baseline guide</strong>
+    <div>• Select a radio in Scan History to set the baseline.</div>
+    <div>• Future scans compare against this baseline.</div>
+    <div>• Use Clear Baseline to remove it.</div>
+  </div>
 </div>
 
       <div class="sidebar-foot" style="display:none;">
