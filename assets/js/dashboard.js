@@ -769,41 +769,48 @@ async function loadScanHistory() {
         : "baselineScan:unknown";
       baselineInput.checked = row.is_baseline === true;
 
-      baselineInput.addEventListener("change", async function () {
-        const reportId = baselineInput.dataset.reportId;
-        if (!reportId) return;
+baselineInput.addEventListener("change", async function () {
+  const reportId = baselineInput.dataset.reportId;
+  if (!reportId) return;
 
-        baselineInput.disabled = true;
+  // Instantly show selected state
+  document.querySelectorAll(".baseline-selector").forEach(function (r) {
+    r.checked = false;
+  });
+  baselineInput.checked = true;
+  baselineInput.disabled = true;
 
-        try {
-          const resp = await fetch("/.netlify/functions/set-baseline-scan", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              report_id: reportId
-            })
-          });
+  try {
+    const resp = await fetch("/.netlify/functions/set-baseline-scan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        report_id: reportId
+      })
+    });
 
-          const result = await resp.json().catch(() => null);
+    const result = await resp.json().catch(function () {
+      return null;
+    });
 
-          if (!resp.ok || !result || result.success !== true) {
-            console.error("Baseline update failed:", result);
-            alert("Unable to set baseline. Please try again.");
-            await loadScanHistory();
-            return;
-          }
+    if (!resp.ok || !result || result.success !== true) {
+      console.error("Baseline update failed:", result);
+      alert("Unable to set baseline. Please try again.");
+      await loadScanHistory();
+      return;
+    }
 
-          await loadScanHistory();
-        } catch (err) {
-          console.error("Set baseline failed:", err);
-          alert("Unable to set baseline.");
-          await loadScanHistory();
-        } finally {
-          baselineInput.disabled = false;
-        }
-      });
+    await loadScanHistory();
+  } catch (err) {
+    console.error("Set baseline failed:", err);
+    alert("Unable to set baseline.");
+    await loadScanHistory();
+  } finally {
+    baselineInput.disabled = false;
+  }
+});
 
 tdBaseline.appendChild(baselineInput);
 tr.appendChild(tdBaseline);
