@@ -43,9 +43,7 @@ Author: IQWEB
 
 
 
-
-
-dy// /assts/js/dashboard.js
+// /assts/js/dashboard.js
 console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
 
 import { normaliseUrl } from "./scan.js";
