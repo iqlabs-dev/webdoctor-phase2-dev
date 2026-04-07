@@ -642,6 +642,10 @@ tbody td:nth-child(8) {
       color: rgba(255,255,255,.55);
     }
 
+    .history-helper ul {
+  line-height: 1.5;
+}
+
     .brand-grid{
       display:grid;
       grid-template-columns: repeat(2, minmax(260px, 1fr));
@@ -1078,9 +1082,12 @@ tbody td:nth-child(8) {
 </div>
 
 <div class="history-helper">
-1. Select a radio to set the baseline scan for that website.  
-2. Future scans compare against this baseline.  
-3. Use Clear Baseline to remove it.
+  <strong>Baseline guide:</strong>
+  <ul style="margin:6px 0 0 16px; padding:0;">
+    <li>Select a radio to set the baseline scan for that website.</li>
+    <li>Future scans compare against this baseline.</li>
+    <li>Use <strong>Clear Baseline</strong> to remove it.</li>
+  </ul>
 </div>
 
 <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
