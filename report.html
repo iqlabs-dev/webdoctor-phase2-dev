@@ -30,7 +30,7 @@
       --border: rgba(255,255,255,0.10);
       --border-subtle: rgba(255,255,255,0.08);
       --shadow: 0 10px 30px rgba(0,0,0,0.35);
-      --shadow-soft: 0 12px 34px rgba(0,0,0,0.28);
+   --shadow-soft: 0 10px 24px rgba(0,0,0,0.20);
       --radius: 18px;
 
       --report-header-bg: #0B1730;
@@ -49,22 +49,22 @@
       padding: 22px 12px 40px;
     }
 
-    .page-shell {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 18px;
-    }
+.page-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
 
-    .shell-inner {
-      width: 100%;
-      max-width: 1120px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
+.shell-inner {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
 
     #backToDashboard {
       display: inline-block;
@@ -730,16 +730,16 @@
       align-items: flex-start;
     }
 
-    .insight .tag {
-      flex: 0 0 auto;
-      font-weight: 800;
-      font-size: 11px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: var(--accent);
-      padding-top: 2px;
-      min-width: 92px;
-    }
+.insight .tag {
+  flex: 0 0 auto;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #7C859C;
+  padding-top: 2px;
+  min-width: 92px;
+}
 
     .insight .text {
       color: var(--ink-soft);
@@ -1530,15 +1530,17 @@
       function applyBranding(branding) {
         if (!branding || typeof branding !== "object") return;
 
-        var headerBg = branding.headerBg || branding.agency_header_bg || "#0B1730";
-        var headerText = branding.headerText || branding.agency_header_text_color || "#FFFFFF";
-        var accent = branding.accent || branding.agency_accent_color || "#22d3ee";
-        var pageBg = branding.pageBg || branding.agency_page_bg || "#070A10";
+var headerBg = branding.headerBg || branding.agency_header_bg || "#0B1730";
+var headerText = branding.headerText || branding.agency_header_text_color || "#FFFFFF";
+var bodyText = branding.textColor || branding.agency_text_color || "#E5F0FF";
+var accent = branding.accent || branding.agency_accent_color || "#22d3ee";
+var pageBg = branding.pageBg || branding.agency_page_bg || "#070A10";
 
-        document.documentElement.style.setProperty("--report-header-bg", headerBg);
-        document.documentElement.style.setProperty("--report-header-text", headerText);
-        document.documentElement.style.setProperty("--accent", accent);
-        document.documentElement.style.setProperty("--report-page-bg", pageBg);
+document.documentElement.style.setProperty("--report-header-bg", headerBg);
+document.documentElement.style.setProperty("--report-header-text", headerText);
+document.documentElement.style.setProperty("--ink", bodyText);
+document.documentElement.style.setProperty("--accent", accent);
+document.documentElement.style.setProperty("--report-page-bg", pageBg);
       }
 
       window.__IQWEB_APPLY_BRANDING = applyBranding;
