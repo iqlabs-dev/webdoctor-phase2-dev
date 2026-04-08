@@ -603,6 +603,33 @@ const footerContactBits = [
       color: ${escapeHtml(brandText)};
       opacity: 0.78;
     }
+
+    .ai-card,
+.ai-card * {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+table {
+  table-layout: fixed;
+}
+
+td {
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.ai-prompt {
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.ai-card p,
+.ai-card li {
+  max-width: 100%;
+}
+
   </style>
 </head>
 <body>
