@@ -118,42 +118,51 @@ exports.handler = async (event) => {
 
     const branding = normalizeBranding(raw);
 
-    const pdfPayload = {
-      success: true,
-      header: {
-        website: header.website || header.url || raw.url || raw.website || "",
-        report_id: header.report_id || raw.report_id || reportId,
-        created_at:
-          header.created_at ||
-          header.report_date ||
-          raw.created_at ||
-          raw.report_date ||
-          "",
-      },
-      scores: {
-        overall: scores.overall,
-        performance: scores.performance,
-        mobile: scores.mobile,
-        seo: scores.seo,
-        security: scores.security,
-        structure: scores.structure,
-        accessibility: scores.accessibility,
-        
-          // AI Discoverability signal
-  ai_discoverability:
-    scores.ai_discoverability ||
-    scores.ai ||
-    scores.ai_visibility ||
-    scores.ai_discovery ||
-    null
-      },
-      branding,
-      narrative: deepClone(narrative),
-      findings: deepClone(findings),
-      delivery_signals: normalizedSignals,
-      top_issues: topIssues,
-    };
+const pdfPayload = {
+  success: true,
+  header: {
+    website: header.website || header.url || raw.url || raw.website || "",
+    report_id: header.report_id || raw.report_id || reportId,
+    created_at:
+      header.created_at ||
+      header.report_date ||
+      raw.created_at ||
+      raw.report_date ||
+      "",
+  },
 
+  scores: {
+    overall: scores.overall,
+    performance: scores.performance,
+    mobile: scores.mobile,
+    seo: scores.seo,
+    security: scores.security,
+    structure: scores.structure,
+    accessibility: scores.accessibility,
+
+    // AI Discoverability signal
+    ai_discoverability:
+      scores.ai_discoverability ||
+      scores.ai ||
+      scores.ai_visibility ||
+      scores.ai_discovery ||
+      null
+  },
+
+  // baseline support for PDF reports
+  baseline:
+    raw.baseline ||
+    raw.previous_scan ||
+    raw.previousScan ||
+    raw.baseline_scan ||
+    null,
+
+  branding,
+  narrative: deepClone(narrative),
+  findings: deepClone(findings),
+  delivery_signals: normalizedSignals,
+  top_issues: topIssues,
+};
     ensureDeterministicExecutiveSummary(pdfPayload);
 
     return {

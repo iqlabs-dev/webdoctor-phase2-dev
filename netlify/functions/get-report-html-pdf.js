@@ -70,6 +70,7 @@ const dataUrl =
 
     const header = payload.header || {};
     const scores = payload.scores || {};
+const baseline = payload.baseline || null;
     const branding = payload.branding || {};
     const deliverySignals = Array.isArray(payload.delivery_signals)
       ? payload.delivery_signals
@@ -1045,19 +1046,42 @@ function buildOverallNarrative(payload) {
   return "Overall delivery is based on deterministic checks only and does not measure brand or content effectiveness.";
 }
 function renderOverallCard(scores, payload) {
-  const overall = safeNumber(scores.overall);
-  const narrative = buildOverallNarrative(payload);
+const overall = safeNumber(scores.overall);
+const narrative = buildOverallNarrative(payload);
+const baseline = payload.baseline && payload.baseline.overall
+  ? payload.baseline.overall
+  : null;
 
-  return `
-    <div class="signal-top">
-      <div class="signal-name">Overall Delivery Score</div>
-      <div class="signal-score">${overall === null ? "—" : escapeHtml(String(overall))}</div>
-    </div>
-    <div class="score-bar">
-      <div class="score-fill" style="width:${clampScore(overall)}%;"></div>
-    </div>
-    <div class="signal-copy">${escapeHtml(narrative)}</div>
-  `;
+const delta =
+  baseline !== null && overall !== null
+    ? overall - baseline
+    : null;
+
+return `
+  <div class="signal-top">
+    <div class="signal-name">Overall Delivery Score</div>
+    <div class="signal-score">${overall === null ? "—" : escapeHtml(String(overall))}</div>
+  </div>
+
+  <div class="score-bar">
+    <div class="score-fill" style="width:${clampScore(overall)}%;"></div>
+  </div>
+
+  ${
+    baseline !== null
+      ? `<div class="muted" style="margin-top:6px;font-size:10px;">
+           Baseline: ${escapeHtml(String(baseline))}
+           ${
+             delta !== null
+               ? ` • Change: ${delta > 0 ? "+" : ""}${escapeHtml(String(delta))}`
+               : ""
+           }
+         </div>`
+      : ""
+  }
+
+  <div class="signal-copy">${escapeHtml(narrative)}</div>
+`;
 }
 function getPrimarySignal(deliverySignals, scores) {
   const ordered = orderedSignals(deliverySignals, scores)
