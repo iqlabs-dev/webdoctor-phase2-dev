@@ -377,6 +377,7 @@ const footerContactBits = [
   font-size: 12px;
   line-height: 1.45;
   color: ${escapeHtml(brandText)};
+  max-width: 880px;
 }
 
     .overall-card {
@@ -628,6 +629,11 @@ td {
 .ai-card p,
 .ai-card li {
   max-width: 100%;
+}
+
+.ai-card table {
+  width: 100%;
+  table-layout: fixed;
 }
 
   </style>
@@ -1785,13 +1791,12 @@ function renderAiSignal(payload, deliverySignals, scores) {
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
   return `
-  <div style="margin:12px;">
-    <div style="
-      border-radius:12px;
-      padding:16px;
-      border:1px solid rgba(238,95,86,0.6);
-      background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
-    ">
+<div class="ai-card" style="
+  border-radius:12px;
+  padding:16px;
+  border:1px solid rgba(238,95,86,0.6);
+  background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
+">
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
         <div class="signal-name">AI Visibility</div>
