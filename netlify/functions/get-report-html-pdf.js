@@ -694,6 +694,73 @@ const baseline = payload.baseline || null;
         </div>
       </div>
 
+      ${
+        baseline && baseline.scores
+          ? `
+      <div class="section" style="margin-bottom:10px;">
+        <div class="section-head">Progress Since Last Scan</div>
+        <div class="section-body" style="padding:12px;">
+          <table class="signals-table" role="presentation" style="border-spacing:8px 0;">
+            <tr>
+              <td>
+                <div class="signal-card">
+                  <div class="signal-top">
+                    <div class="signal-name">Previous Scan</div>
+                    <div class="signal-score">${escapeHtml(String(baseline.report_id || baseline.scan_id || "Baseline"))}</div>
+                  </div>
+                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(baseline.scores.overall ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(baseline.scores.performance ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(baseline.scores.seo ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(
+                    baseline.scores.ai_discoverability ??
+                    baseline.scores.ai_visibility ??
+                    baseline.scores.ai ??
+                    "—"
+                  ))}</div></div>
+                </div>
+              </td>
+
+              <td>
+                <div class="signal-card">
+                  <div class="signal-top">
+                    <div class="signal-name">Current Scan</div>
+                    <div class="signal-score">${escapeHtml(String(rid))}</div>
+                  </div>
+                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(scores.overall ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(scores.performance ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(scores.seo ?? "—"))}</div></div>
+                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(
+                    scores.ai_discoverability ??
+                    scores.ai_visibility ??
+                    scores.ai ??
+                    "—"
+                  ))}</div></div>
+                </div>
+              </td>
+
+              <td>
+                <div class="signal-card">
+                  <div class="signal-top">
+                    <div class="signal-name">Change Since</div>
+                    <div class="signal-score">${escapeHtml(String(baseline.report_id || baseline.scan_id || "Baseline"))}</div>
+                  </div>
+                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(delta(scores.overall, baseline.scores.overall)))}</div></div>
+                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(delta(scores.performance, baseline.scores.performance)))}</div></div>
+                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(delta(scores.seo, baseline.scores.seo)))}</div></div>
+                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(delta(
+                    scores.ai_discoverability ?? scores.ai_visibility ?? scores.ai,
+                    baseline.scores.ai_discoverability ?? baseline.scores.ai_visibility ?? baseline.scores.ai
+                  )))}</div></div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      `
+          : ""
+      }
+
       ${footerHtml}
 
     </div>
@@ -776,6 +843,14 @@ function safeNumber(v) {
 function clampScore(score) {
   if (score === null) return 0;
   return Math.max(0, Math.min(100, Number(score) || 0));
+}
+
+function delta(current, previous) {
+  const a = safeNumber(current);
+  const b = safeNumber(previous);
+  if (a === null || b === null) return "—";
+  const d = a - b;
+  return d > 0 ? `+${d}` : String(d);
 }
 
 function formatDisplayDate(v) {
@@ -1048,9 +1123,12 @@ function buildOverallNarrative(payload) {
 function renderOverallCard(scores, payload) {
 const overall = safeNumber(scores.overall);
 const narrative = buildOverallNarrative(payload);
-const baseline = payload.baseline && payload.baseline.overall
-  ? payload.baseline.overall
-  : null;
+const baseline =
+  payload.baseline &&
+  payload.baseline.scores &&
+  payload.baseline.scores.overall != null
+    ? payload.baseline.scores.overall
+    : null;
 
 const delta =
   baseline !== null && overall !== null

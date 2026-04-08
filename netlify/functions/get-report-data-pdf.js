@@ -150,12 +150,13 @@ const pdfPayload = {
   },
 
   // baseline support for PDF reports
-  baseline:
+  baseline: normalizeBaseline(
     raw.baseline ||
     raw.previous_scan ||
     raw.previousScan ||
     raw.baseline_scan ||
-    null,
+    null
+  ),
 
   branding,
   narrative: deepClone(narrative),
@@ -342,6 +343,63 @@ function normalizeBranding(raw) {
     show_header_contact: showHeaderContact,
     show_footer_contact: showFooterContact,
     show_powered_by: showPoweredBy,
+  };
+}
+
+function normalizeBaseline(v) {
+  const b = safeObj(v);
+  if (!b || Object.keys(b).length === 0) return null;
+
+  const baselineScores = safeObj(b.scores || b.metrics || b.score || {});
+
+  return {
+    report_id: b.report_id || b.reportId || b.id || "",
+    scan_id: b.scan_id || b.scanId || b.id || "",
+    scores: {
+      overall:
+        baselineScores.overall ??
+        b.overall ??
+        null,
+
+      performance:
+        baselineScores.performance ??
+        b.performance ??
+        null,
+
+      mobile:
+        baselineScores.mobile ??
+        b.mobile ??
+        null,
+
+      seo:
+        baselineScores.seo ??
+        b.seo ??
+        null,
+
+      security:
+        baselineScores.security ??
+        b.security ??
+        null,
+
+      structure:
+        baselineScores.structure ??
+        b.structure ??
+        null,
+
+      accessibility:
+        baselineScores.accessibility ??
+        b.accessibility ??
+        null,
+
+      ai_discoverability:
+        baselineScores.ai_discoverability ??
+        baselineScores.ai_visibility ??
+        baselineScores.ai ??
+        b.ai_discoverability ??
+        b.ai_visibility ??
+        b.ai ??
+        null
+    }
   };
 }
 
