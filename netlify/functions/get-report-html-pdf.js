@@ -82,33 +82,33 @@ const baseline = payload.baseline || null;
     const createdAt = formatDisplayDate(header.created_at || "");
     const rid = header.report_id || reportId;
 
-    const companyName = branding.agency_name || "iQWEB";
-    const reportTitle = branding.agency_report_title || "Website Report";
-    const logoUrl = branding.agency_logo_url || "";
-    const bannerUrl = branding.agency_banner_url || "";
+const companyName = branding.company_name || "iQWEB";
+const reportTitle = branding.report_title || "Website Report";
+const logoUrl = branding.logo_url || "";
+const bannerUrl = branding.banner_url || "";
 
-    const brandHeaderBg = branding.agency_header_bg || "#0B1730";
-    const brandHeaderText = branding.agency_header_text_color || "#FFFFFF";
-    const brandText = branding.agency_text_color || "#E5F0FF";
-    const brandAccent = branding.agency_accent_color || "#18D6C4";
-    const brandPageBg = branding.agency_page_bg || "#061122";
+const brandHeaderBg = branding.header_bg || "#0B1730";
+const brandHeaderText = branding.header_text || "#FFFFFF";
+const brandText = branding.text_color || "#E5F0FF";
+const brandAccent = branding.accent_color || "#18D6C4";
+const brandPageBg = branding.page_bg || "#061122";
 
-    const showHeaderContact = branding.show_header_contact !== false;
-    const showFooterContact = branding.show_footer_contact !== false;
-    const showPoweredBy = branding.show_powered_by !== false;
+const showHeaderContact = branding.show_header_contact !== false;
+const showFooterContact = branding.show_footer_contact !== false;
+const showPoweredBy = branding.show_powered_by !== false;
 
-    const headerContactBits = [
-      branding.agency_website || "",
-      branding.agency_email || "",
-      branding.agency_phone || "",
-    ].filter(Boolean);
+const headerContactBits = [
+  branding.website || "",
+  branding.email || "",
+  branding.phone || "",
+].filter(Boolean);
 
-    const footerContactBits = [
-      companyName || "",
-      branding.agency_website || "",
-      branding.agency_email || "",
-      branding.agency_phone || "",
-    ].filter(Boolean);
+const footerContactBits = [
+  companyName || "",
+  branding.website || "",
+  branding.email || "",
+  branding.phone || "",
+].filter(Boolean);
 
     const keyFindings = buildKeyFindings(
       payload,
