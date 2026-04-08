@@ -1202,103 +1202,430 @@ function getPrimarySignal(deliverySignals, scores) {
   return ordered[0] || null;
 }
 
-function getDomainNarrative(domainKey, basicChecks, securityHeaders) {
-  const basic = basicChecks || {};
+function getDomainNarrative(domainKey, pickedSignals, extras) {
+  pickedSignals = Array.isArray(pickedSignals) ? pickedSignals : [];
+  extras = extras && typeof extras === "object" ? extras : {};
 
-  if (domainKey === "security") {
-    return {
-      impact:
-        "Security and trust headers are currently incomplete. Important response policies such as Content Security Policy, Referrer-Policy, X-Frame-Options, and Permissions-Policy are not present.",
-      fix:
-        "Add a baseline security header set (HSTS, CSP where appropriate, frame protection, content-type protection, and referrer policy), then re-scan.",
-      next:
-        "Implement the missing headers and re-run the scan to confirm protections are detected.",
-    };
+  function joinHumanList(list, max) {
+    list = Array.isArray(list) ? list : [];
+    if (!list.length) return "";
+    if (typeof max === "number" && max > 0 && list.length > max) list = list.slice(0, max);
+    if (list.length === 1) return list[0];
+    if (list.length === 2) return list[0] + " and " + list[1];
+    return list.slice(0, list.length - 1).join(", ") + ", and " + list[list.length - 1];
   }
+
+  const listText = joinHumanList(pickedSignals, 4);
+  const haveList = !!listText;
 
   if (domainKey === "seo") {
     return {
       impact:
-        "Search visibility is currently limited by incomplete SEO baseline signals.",
+        "Search visibility is currently limited by incomplete SEO baseline signals." +
+        (haveList ? (" Key indexing elements such as " + listText + " are missing or incomplete.") : ""),
       fix:
-        "Restore the SEO baseline by adding a page title, primary heading (H1), canonical link, and essential metadata so the page can be properly indexed and understood by search engines.",
+        "Establish the SEO baseline (title, primary heading, description, canonical, and indexability) before deeper optimisation work.",
       next:
-        "Apply the SEO baseline changes, then re-run the scan to confirm a measurable lift.",
+        "Apply the SEO baseline changes, then re-run the scan to confirm a measurable lift."
+    };
+  }
+
+  if (domainKey === "security") {
+    if (extras && extras.platformManaged) {
+      return {
+        impact:
+          "Security configuration and infrastructure are managed by the hosting platform. Direct control over headers and policies may be limited, and no immediate action is required.",
+        fix:
+          "No direct action required. This signal is shown for context and interpreted as platform-managed rather than a direct implementation issue.",
+        next:
+          "Focus on the next highest actionable constraint and re-scan after measurable changes."
+      };
+    }
+
+    return {
+      impact:
+        "Security and trust headers are currently incomplete." +
+        (haveList ? (" Important response policies such as " + listText + " are not present.") : ""),
+      fix:
+        "Add a baseline security header set (HSTS, CSP where appropriate, frame protection, content-type protection, and referrer policy), then re-scan.",
+      next:
+        "Implement the missing headers and re-run the scan to confirm protections are detected."
     };
   }
 
   if (domainKey === "structure") {
     return {
       impact:
-        "This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.",
+        "Page structure and semantic markup are incomplete. Core document structure signals such as headings, landmarks, and semantic HTML elements help engines and assistive tools interpret page content correctly.",
       fix:
         "Correct semantic structure first by ensuring a single primary heading (H1) and proper semantic HTML tags, then address secondary quality improvements.",
       next:
-        "Make one structural pass, then re-run the scan to validate the improvement.",
+        "Make one structural pass, then re-run the scan to validate the improvement."
     };
   }
 
   if (domainKey === "accessibility") {
     return {
       impact:
-        "Accessibility signals are partially incomplete. Some users and assistive technologies may not receive the full page context they need.",
+        "Accessibility signals are partially incomplete." +
+        (haveList ? (" Elements such as " + listText + " help assistive technologies interpret page content correctly.") : ""),
       fix:
-        "Resolve top accessibility blockers such as labels, alt text, language settings, and empty controls, then verify with a re-scan.",
+        "Resolve top accessibility blockers (labels, alt text, contrast, and ARIA where needed) and verify via a re-scan.",
       next:
-        "Fix one set of blockers, then re-run the scan to confirm measurable change.",
+        "Fix one set of blockers, then re-run the scan to confirm measurable change."
     };
   }
 
   if (domainKey === "mobile") {
+    const lcp = extras && extras.mobileLcpSeconds;
+    const lcpTxt = (typeof lcp === "number" && isFinite(lcp) && lcp > 0)
+      ? (" Mobile LCP observed: " + Math.round(lcp * 10) / 10 + "s (target < 2.5s).")
+      : "";
+
     return {
       impact:
-        "Mobile rendering stability and performance can be improved.",
+        "Mobile rendering stability and performance can be improved." + lcpTxt,
       fix:
-        "Ensure the viewport meta tag is correctly configured and review layout stability and payload size to improve mobile rendering.",
+        "Reduce mobile LCP and layout shift by optimising hero media, render-blocking resources, and initial payload size.",
       next:
-        "Ship one mobile improvement, then re-run the scan to confirm the lift.",
+        "Ship one mobile performance change, then re-run the scan to confirm the lift."
     };
   }
 
   if (domainKey === "performance") {
-    const htmlBytes = safeNumber(basic.html_bytes);
-    const kb = htmlBytes !== null ? Math.round(htmlBytes / 1024) : null;
+    const lcp = extras && extras.mobileLcpSeconds;
+    const lcpTxt = (typeof lcp === "number" && isFinite(lcp) && lcp > 0)
+      ? (" Mobile LCP observed: " + Math.round(lcp * 10) / 10 + "s (target < 2.5s).")
+      : "";
 
     return {
       impact:
-        kb !== null && kb >= 150
-          ? "Page loading performance can be improved. Initial HTML size is approximately " + kb + "KB, which increases early render cost."
-          : "Page loading performance can be improved.",
+        "Page loading performance can be improved." + lcpTxt,
       fix:
-        "Optimise the primary render path by reducing document weight, render-blocking work, and heavy execution before content becomes ready.",
+        "Optimise the primary render path (LCP element, main-thread work, and render-blocking resources) and then re-scan.",
       next:
-        "Apply one measurable performance change, then re-run the scan to confirm improvement.",
+        "Apply one measurable performance change, then re-run the scan to confirm improvement."
     };
   }
 
   if (domainKey === "ai_discoverability") {
+    const aiScore = extras && extras.aiScore;
+    const strongBrandCase = aiScore !== null && aiScore >= 60;
+
+    if (strongBrandCase) {
+      return {
+        impact:
+          "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
+          (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
+        fix:
+          "No technical issue detected. The tested recommendation prompts may not represent typical visibility queries for this brand.",
+        next:
+          "If needed, test additional prompts aligned with this brand's products, services, or category."
+      };
+    }
+
     return {
       impact:
-        "AI visibility is limited when a business has weak independent references and low recommendation presence across generic prompts.",
+        "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
+        (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested AI recommendation prompts.") : ""),
       fix:
-        "Strengthen external brand context with clearer entity information and more independent mentions across communities, directories, and niche sources.",
+        "Improve AI visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
       next:
-        "Earn or publish one independent reference, then re-run the scan to check for measurable improvement.",
+        "Update one or more of those AI visibility signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI visibility signals may take several days or weeks to be reflected as models and external references update."
     };
   }
 
   return {
-    impact: "No material issue was surfaced in this scan.",
-    fix: "Review the lowest scoring area first, then re-scan.",
-    next: "Implement the highest-priority fix and re-run the scan.",
+    impact:
+      "This signal indicates a measurable delivery constraint that should be reviewed in context with the evidence below.",
+    fix:
+      "Review the evidence signals and address the underlying technical constraint affecting this category.",
+    next:
+      "Apply one measurable change, then re-run the scan to confirm improvement."
   };
 }
 
 function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securityHeaders) {
+  function num(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function safeObj(v) {
+    return v && typeof v === "object" ? v : {};
+  }
+
+  function findSignalByDomain(signals, domainKey) {
+    signals = Array.isArray(signals) ? signals : [];
+    for (const sig of signals) {
+      if (labelToKey(sig?.label || sig?.id || "") === domainKey) return sig;
+    }
+    return null;
+  }
+
+  function collectNarrativeSignalsForDomain(domainKey, signals) {
+    signals = Array.isArray(signals) ? signals : [];
+    const collected = [];
+
+    function uniquePush(arr, s) {
+      s = String(s || "").trim();
+      if (!s) return;
+      if (arr.indexOf(s) === -1) arr.push(s);
+    }
+
+    function isMeaningfulFail(key, value) {
+      const k = String(key || "").toLowerCase();
+
+      if (typeof value === "boolean") {
+        if (k.indexOf("missing") !== -1) return value === true;
+        if (
+          k.indexOf("present") !== -1 ||
+          k.indexOf("enabled") !== -1 ||
+          k.indexOf("https") !== -1 ||
+          k.indexOf("hsts") !== -1 ||
+          k.indexOf("viewport") !== -1 ||
+          k.indexOf("indexable") !== -1
+        ) {
+          return value === false;
+        }
+        return value === false;
+      }
+
+      const nv = num(value);
+      if (nv === null) return false;
+
+      if (k.indexOf("coverage") !== -1 || k.indexOf("ratio") !== -1) {
+        if (nv >= 0 && nv <= 1) return nv < 0.9;
+        if (nv > 1 && nv <= 100) return nv < 90;
+        return false;
+      }
+
+      if (k.indexOf("lcp") !== -1) {
+        if (nv > 0 && nv < 50) return nv > 2.5;
+        return nv > 2500;
+      }
+      if (k.indexOf("inp") !== -1) return nv > 200;
+      if (k.indexOf("cls") !== -1) return nv > 0.1;
+      if (k.indexOf("ttfb") !== -1) return nv > 800;
+      if (k.indexOf("bytes") !== -1 || k.indexOf("size") !== -1) return nv >= 50000;
+      if (k.indexOf("inline") !== -1 && k.indexOf("script") !== -1) return nv >= 3;
+      return false;
+    }
+
+    function mapEvidenceKeyToHuman(k) {
+      const lk = String(k || "").toLowerCase();
+
+      if (lk.indexOf("title") !== -1) return "page title";
+      if (lk.indexOf("meta") !== -1 && lk.indexOf("description") !== -1) return "meta description";
+      if (lk.indexOf("canonical") !== -1) return "canonical link";
+      if (lk.indexOf("h1") !== -1) return "primary heading (H1)";
+      if (lk.indexOf("html_lang") !== -1) return "HTML language attribute";
+      if (lk.indexOf("hsts") !== -1) return "HSTS policy";
+      if (lk.indexOf("content_security_policy") !== -1 || lk === "csp" || lk.indexOf("csp") !== -1) return "Content Security Policy";
+      if (lk.indexOf("x_content_type_options") !== -1) return "X-Content-Type-Options";
+      if (lk.indexOf("x_frame_options") !== -1) return "X-Frame-Options";
+      if (lk.indexOf("referrer") !== -1) return "Referrer-Policy";
+      if (lk.indexOf("permissions") !== -1) return "Permissions-Policy";
+      if (lk.indexOf("lcp") !== -1) return "Largest Contentful Paint (LCP)";
+      if (lk.indexOf("cls") !== -1) return "layout stability (CLS)";
+      if (lk.indexOf("inp") !== -1) return "Interaction to Next Paint (INP)";
+      if (lk.indexOf("ttfb") !== -1) return "Time to First Byte (TTFB)";
+      if (lk.indexOf("alt") !== -1) return "image alt text";
+      return String(k || "").replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+
+    for (const sig of signals) {
+      if (labelToKey(sig?.label || sig?.id || "") !== domainKey) continue;
+      const ev = safeObj(sig.evidence);
+      const keys = Object.keys(ev || {});
+      for (const ek of keys) {
+        if (isMeaningfulFail(ek, ev[ek])) {
+          uniquePush(collected, mapEvidenceKeyToHuman(ek));
+        }
+      }
+      if (collected.length >= 6) break;
+    }
+
+    return collected.slice(0, 6);
+  }
+
+  function lcpSecondsFromPayload(payloadObj) {
+    const psi = safeObj(payloadObj.psi);
+    const mobile = safeObj(psi.mobile);
+    const facts = safeObj(mobile.facts);
+    const v =
+      facts.lcp_ms ||
+      facts.LCP_ms ||
+      facts.lcpMs ||
+      facts.lcp ||
+      mobile.lcp_ms ||
+      mobile.LCP_ms ||
+      mobile.lcpMs ||
+      mobile.lcp ||
+      null;
+
+    const n = num(v);
+    if (n === null) return null;
+    if (n > 0 && n < 100) return Math.round(n * 10) / 10;
+    return Math.round((n / 1000) * 10) / 10;
+  }
+
+  function htmlKbFromPayload(payloadObj) {
+    const basic = safeObj(payloadObj.basic_checks);
+    const v =
+      basic.html_bytes ||
+      basic.htmlBytes ||
+      basic.html_size_bytes ||
+      basic.initial_html_bytes ||
+      basic.document_bytes ||
+      basic.documentBytes ||
+      null;
+
+    const n = num(v);
+    if (n === null) return null;
+    return Math.round(n / 1024);
+  }
+
+  function inlineScriptsFromPayload(payloadObj) {
+    const basic = safeObj(payloadObj.basic_checks);
+    const v =
+      basic.inline_scripts ||
+      basic.inlineScripts ||
+      basic.inline_script_count ||
+      basic.inlineScriptCount ||
+      null;
+
+    const n = num(v);
+    if (n === null) return null;
+    return Math.round(n);
+  }
+
+  function specificConstraintLabel(payloadObj, primary, signals) {
+    const basic = safeObj(payloadObj.basic_checks);
+    const domain = primary.key;
+    const lcp = lcpSecondsFromPayload(payloadObj);
+    const htmlKb = htmlKbFromPayload(payloadObj);
+    const inlineScripts = inlineScriptsFromPayload(payloadObj);
+    const platformManaged = String(payloadObj.platform_control || "").toLowerCase() === "limited" && domain === "security";
+
+    if (domain === "performance" || domain === "mobile") {
+      if (lcp !== null && lcp > 2.5) return "Slow mobile Largest Contentful Paint (~" + lcp + "s)";
+      if (inlineScripts !== null && inlineScripts >= 6) return "Heavy initial render work (" + inlineScripts + " inline scripts)";
+      if (htmlKb !== null && htmlKb >= 150) return "Large initial HTML payload (~" + htmlKb + "KB)";
+      return titleCaseSignal(domain);
+    }
+
+    if (domain === "seo") {
+      if (basic.canonical_present === false) return "Missing canonical baseline";
+      if (basic.title_present === false) return "Missing page title";
+      if (basic.h1_present === false) return "Missing primary heading (H1)";
+      return "SEO baseline gaps";
+    }
+
+    if (domain === "security") {
+      if (platformManaged) return "Platform-managed security context";
+      const sec = findSignalByDomain(signals, "security");
+      let missingCount = 0;
+      if (sec && sec.evidence) {
+        if (sec.evidence.hsts_present === false) missingCount++;
+        if (sec.evidence.csp_present === false) missingCount++;
+        if (sec.evidence.x_frame_options_present === false) missingCount++;
+        if (sec.evidence.x_content_type_options_present === false) missingCount++;
+        if (sec.evidence.referrer_policy_present === false) missingCount++;
+        if (sec.evidence.permissions_policy_present === false) missingCount++;
+      }
+      if (missingCount > 0) return "Missing security hardening headers (" + missingCount + ")";
+      return "Security hardening requires attention";
+    }
+
+    if (domain === "structure") {
+      if (basic.h1_present === false) return "Missing primary heading structure (H1)";
+      if (basic.title_present === false) return "Missing page title structure";
+      if (basic.viewport_present === false) return "Missing viewport baseline";
+      return "Document structure gaps";
+    }
+
+    if (domain === "accessibility") {
+      const acc = findSignalByDomain(signals, "accessibility");
+      if (acc && acc.evidence) {
+        const total = num(acc.evidence.images_total || acc.evidence.img_count);
+        const withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
+        if (total !== null && withAlt !== null && total > withAlt) {
+          return "Incomplete image alt coverage (" + withAlt + "/" + total + ")";
+        }
+      }
+      return "Accessibility baseline gaps";
+    }
+
+    if (domain === "ai_discoverability") {
+      const ai = findSignalByDomain(signals, "ai_discoverability");
+      if (ai && ai.evidence) {
+        const hits = num(ai.evidence.ai_recommendation_hits);
+        const mentions = num(ai.evidence.independent_web_mentions);
+        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
+        if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
+      }
+      return "AI Visibility requires stronger external context";
+    }
+
+    return titleCaseSignal(domain);
+  }
+
   const overall = safeNumber(scores.overall);
   const weakest = getPrimarySignal(deliverySignals, scores);
   const domain = weakest ? weakest.key : "";
-  const domainNarrative = getDomainNarrative(domain, basicChecks, securityHeaders);
+  const narrativeSignals = collectNarrativeSignalsForDomain(domain, deliverySignals);
+
+  const extras = {
+    mobileLcpSeconds: lcpSecondsFromPayload(payload),
+    platformManaged: String(payload.platform_control || "").toLowerCase() === "limited",
+    aiScore: weakest && weakest.key === "ai_discoverability" ? weakest.score : null
+  };
+
+  const domainNarrative = getDomainNarrative(domain, narrativeSignals, extras);
+
+  let impact = domainNarrative.impact;
+  const lcp = lcpSecondsFromPayload(payload);
+  const htmlKb = htmlKbFromPayload(payload);
+  const inlineScripts = inlineScriptsFromPayload(payload);
+
+  if (weakest && (weakest.key === "performance" || weakest.key === "mobile") && lcp !== null && lcp > 2.5) {
+    impact = "Visible content is arriving later than expected on mobile. Largest Contentful Paint is around " + lcp + "s, which delays the point where the page feels ready to users.";
+  } else if (weakest && weakest.key === "seo") {
+    if (safeObj(payload.basic_checks).canonical_present === false) {
+      impact = "Search engines may be receiving weaker page ownership signals because a canonical link was not detected in this scan.";
+    } else if (safeObj(payload.basic_checks).h1_present === false) {
+      impact = "The page is missing a clear primary heading, which weakens content clarity for both users and search engines.";
+    }
+  } else if (weakest && weakest.key === "security" && String(payload.platform_control || "").toLowerCase() !== "limited") {
+    impact = "Browser trust hardening is incomplete. Missing security headers reduce baseline protection and weaken technical trust signals, even when the site otherwise loads normally.";
+  } else if (weakest && weakest.key === "accessibility") {
+    const acc = findSignalByDomain(deliverySignals, "accessibility");
+    if (acc && acc.evidence) {
+      const total = num(acc.evidence.images_total || acc.evidence.img_count);
+      const withAlt = num(acc.evidence.images_with_alt || acc.evidence.img_alt_count);
+      if (total !== null && withAlt !== null && total > withAlt) {
+        impact = "Some content is less accessible than it should be. Alt text coverage is " + withAlt + "/" + total + ", which can block understanding for assistive technologies.";
+      }
+    }
+  }
+
+  let fixText = domainNarrative.fix;
+  if (weakest && (weakest.key === "performance" || weakest.key === "mobile")) {
+    const parts = [];
+    if (lcp !== null && lcp > 2.5) parts.push("mobile LCP ~" + lcp + "s");
+    if (htmlKb !== null && htmlKb >= 50) parts.push("HTML payload ~" + htmlKb + "KB");
+    if (inlineScripts !== null && inlineScripts >= 3) parts.push(inlineScripts + " inline scripts before render");
+    if (parts.length) fixText += " Evidence observed: " + parts.join(", ") + ".";
+  }
+
+  let nextText = domainNarrative.next || "Apply one measurable change, then re-run the scan to confirm the lift.";
+  if (weakest && weakest.key === "seo") {
+    nextText = "Apply the SEO baseline fix first, then re-run the scan to confirm indexing signals improved.";
+  }
+  if (weakest && weakest.key === "security" && String(payload.platform_control || "").toLowerCase() !== "limited") {
+    nextText = "Implement the missing hardening headers, then re-run the scan to confirm they are detected.";
+  }
 
   return [
     {
@@ -1307,19 +1634,19 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
     },
     {
       label: "Primary Constraint",
-      value: weakest ? weakest.label : "No primary constraint identified",
+      value: weakest ? specificConstraintLabel(payload, weakest, deliverySignals) : "No clear primary constraint identified from this scan output.",
     },
     {
       label: "Impact",
-      value: weakest ? domainNarrative.impact : "No material issue was surfaced in this scan.",
+      value: weakest ? impact : "The scan did not return enough evidence to identify a single highest-leverage constraint.",
     },
     {
       label: "Recommended Fix",
-      value: weakest ? domainNarrative.fix : "Review the lowest scoring area first, then re-scan.",
+      value: weakest ? fixText : "Review the Signal Evidence blocks and address the clearest measurable deficit.",
     },
     {
       label: "Next Step",
-      value: weakest ? domainNarrative.next : "Implement the highest-priority fix and re-run the scan.",
+      value: weakest ? nextText : "Re-run the scan after one change to confirm a measurable lift.",
     },
   ];
 }
