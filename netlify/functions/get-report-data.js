@@ -47,6 +47,44 @@ function isNumericString(v) {
   return isNonEmptyString(v) && /^[0-9]+$/.test(v.trim());
 }
 
+function normalizeDomainFromUrl(rawUrl) {
+  try {
+    const u = new URL(String(rawUrl || "").trim());
+    return String(u.hostname || "").toLowerCase().replace(/^www\./, "");
+  } catch (e) {
+    return "";
+  }
+}
+
+function buildPreviousScanPayload(scanRow) {
+  if (!scanRow) return null;
+
+  const metrics = safeObj(scanRow.metrics);
+  const prevScores = safeObj(metrics.scores);
+
+  return {
+    url: scanRow.url || null,
+    report_id: scanRow.report_id || null,
+    created_at: scanRow.created_at || null,
+    normalized_domain:
+      scanRow.normalized_domain || normalizeDomainFromUrl(scanRow.url),
+    scores: {
+      overall: prevScores.overall ?? null,
+      performance: prevScores.performance ?? null,
+      mobile: prevScores.mobile ?? null,
+      seo: prevScores.seo ?? null,
+      security: prevScores.security ?? null,
+      structure: prevScores.structure ?? null,
+      accessibility: prevScores.accessibility ?? null,
+      ai_discoverability:
+        prevScores.ai_discoverability ??
+        prevScores.ai_visibility ??
+        prevScores.ai ??
+        null,
+    },
+  };
+}
+
 function overallSummaryFromScore(score) {
   const s = Number(score);
 
@@ -240,7 +278,7 @@ export async function handler(event) {
 
     let q = supabase
       .from("scan_results")
-      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative")
+      .select("id, user_id, report_id, url, created_at, metrics, score_overall, narrative, is_baseline, normalized_domain")
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -260,6 +298,32 @@ export async function handler(event) {
 
     const scan = rows?.[0] || null;
     if (!scan) return json(404, { success: false, error: "Report not found" });
+
+    const normalizedDomain =
+      scan.normalized_domain || normalizeDomainFromUrl(scan.url);
+
+    let previous_scan = null;
+
+    if (scan.user_id && normalizedDomain) {
+      const { data: baselineRows, error: baselineErr } = await supabase
+        .from("scan_results")
+        .select("id, user_id, report_id, url, created_at, metrics, is_baseline, normalized_domain")
+        .eq("user_id", scan.user_id)
+        .eq("is_baseline", true)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (!baselineErr && Array.isArray(baselineRows)) {
+        const matched = baselineRows.find((row) => {
+          const rowDomain = row.normalized_domain || normalizeDomainFromUrl(row.url);
+          return rowDomain === normalizedDomain && row.report_id !== scan.report_id;
+        });
+
+        if (matched) {
+          previous_scan = buildPreviousScanPayload(matched);
+        }
+      }
+    }
 
     // -----------------------------
     // Fetch branding including report title + toggles
@@ -352,6 +416,10 @@ export async function handler(event) {
           security: asInt(delivery_signals.find((s) => s.id === "security")?.score, 0),
           structure: asInt(delivery_signals.find((s) => s.id === "structure")?.score, 0),
           accessibility: asInt(delivery_signals.find((s) => s.id === "accessibility")?.score, 0),
+          ai_discoverability: asInt(
+            delivery_signals.find((s) => s.id === "ai_discoverability")?.score,
+            0
+          ),
         };
 
     const overall_summary = overallSummaryFromScore(scores.overall);
@@ -438,6 +506,9 @@ export async function handler(event) {
       findings,
       fix_plan,
       narrative,
+
+      previous_scan,
+      baseline: previous_scan,
 
       narrative_status,
       narrative_attempts: null,
