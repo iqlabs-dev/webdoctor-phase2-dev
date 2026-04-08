@@ -1384,20 +1384,51 @@ function renderAiSignal(payload, deliverySignals, scores) {
 
   const score = safeNumber(ai.score);
   const status = scoreLabel(score);
+  const evidence = ai && ai.evidence ? ai.evidence : {};
 
-  const observedText =
-    "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting discovery signals appear limited.";
+  const aiCategory =
+    evidence.detected_category ||
+    evidence.service_term ||
+    evidence.category ||
+    "Not clearly established";
 
-  const fixItems = [
-    "Clarify the brand and category language used across the site.",
-    "Earn more independent mentions from relevant third-party sources.",
-    "Tighten directory, profile, and citation consistency.",
-    "Add clearer product, service, and niche context for entity matching.",
-    "Test prompts that reflect real recommendation searches in your category."
-  ];
+  const aiExamplePrompt =
+    evidence.example_prompt_tested || "";
+
+  const aiTestMethod =
+    "AI recommendation prompts were tested for businesses in the " +
+    aiCategory +
+    " category to determine whether the brand appears in AI visibility results.";
+
+  let observedText = "";
+  let fixItems = [];
+
+  if (score !== null && score >= 60) {
+    observedText =
+      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+
+    fixItems = [
+      "No immediate technical issue was detected.",
+      "Test additional prompts aligned to real product, service, and category searches.",
+      "Expand entity clarity where it improves real-world visibility."
+    ];
+  } else {
+    observedText =
+      "The brand was not surfaced in the tested AI recommendation prompts for " +
+      aiCategory +
+      ", and supporting AI Visibility signals appear limited.";
+
+    fixItems = [
+      "Clarify the brand and category language used across the site.",
+      "Earn independent mentions from relevant third-party sources.",
+      "Tighten directory, profile, and citation consistency.",
+      "Add clearer product, service, and niche context for entity matching.",
+      "Test prompts reflecting real recommendation searches in your category."
+    ];
+  }
 
   const footnote =
-    "This signal is based on tested recommendation visibility and supporting external entity context. A lower result does not automatically mean the business is weak. It usually means the brand is not yet strongly connected to the tested category language, independent mentions, or recommendation-style discovery patterns.";
+    "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
   return `
   <div style="margin:12px;">
@@ -1425,33 +1456,16 @@ function renderAiSignal(payload, deliverySignals, scores) {
               border-radius:10px;
               padding:12px;
               background:rgba(255,255,255,0.02);
-              min-height:210px;
+              min-height:250px;
             ">
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                DISCOVERY SIGNAL
+                AI VISIBILITY SCORE
               </div>
               <div style="font-size:30px;font-weight:800;line-height:1;margin-bottom:10px;">
                 ${score === null ? "—" : escapeHtml(String(score))}
               </div>
-              <div style="font-size:12px;line-height:1.3;">
+              <div style="font-size:12px;line-height:1.3;font-weight:700;">
                 ${escapeHtml(status)}
-              </div>
-            </div>
-          </td>
-
-          <td style="width:360px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:210px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                WHAT WAS OBSERVED
-              </div>
-              <div style="font-size:12px;line-height:1.45;">
-                ${escapeHtml(observedText)}
               </div>
             </div>
           </td>
@@ -1462,10 +1476,62 @@ function renderAiSignal(payload, deliverySignals, scores) {
               border-radius:10px;
               padding:12px;
               background:rgba(255,255,255,0.02);
-              min-height:210px;
+              min-height:250px;
             ">
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                HOW TO IMPROVE DISCOVERABILITY
+                CATEGORY DETECTED
+              </div>
+              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+                ${escapeHtml(String(aiCategory))}
+              </div>
+
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                HOW THIS WAS TESTED
+              </div>
+              <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
+                ${escapeHtml(aiTestMethod)}
+              </div>
+
+              ${
+                aiExamplePrompt
+                  ? `
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                EXAMPLE PROMPT TESTED
+              </div>
+              <div style="
+                border:1px solid rgba(255,255,255,0.08);
+                border-radius:8px;
+                padding:10px 12px;
+                background:rgba(255,255,255,0.03);
+                font-size:12px;
+                line-height:1.4;
+                font-family:monospace;
+              ">
+                ${escapeHtml(String(aiExamplePrompt))}
+              </div>
+                  `
+                  : ""
+              }
+            </div>
+          </td>
+
+          <td style="width:420px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:250px;
+            ">
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                WHAT WAS OBSERVED
+              </div>
+              <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
+                ${escapeHtml(observedText)}
+              </div>
+
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                HOW TO IMPROVE VISIBILITY
               </div>
               <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.45;">
                 ${fixItems.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
