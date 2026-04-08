@@ -194,15 +194,15 @@ const footerContactBits = [
       page-break-inside: avoid;
     }
 
-    .top-card {
-      border: 1px solid rgba(69, 102, 154, 0.42);
-      border-radius: 16px;
-      overflow: hidden;
-      background: ${escapeHtml(brandHeaderBg)};
-      color: ${escapeHtml(brandHeaderText)};
-      box-shadow: 0 8px 20px rgba(0,0,0,0.20);
-      margin-bottom: 10px;
-    }
+.top-card {
+  border: 1px solid rgba(69, 102, 154, 0.42);
+  border-radius: 16px;
+  overflow: hidden;
+  background: ${escapeHtml(brandHeaderBg)};
+  color: ${escapeHtml(brandHeaderText)};
+  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  margin-bottom: 10px;
+}
 
     .brand-banner {
       width: 100%;
@@ -254,12 +254,12 @@ const footerContactBits = [
       margin: 0 0 8px;
     }
 
-    .brand-contact {
-      font-size: 10px;
-      line-height: 1.45;
-      color: ${escapeHtml(brandHeaderText)};
-      opacity: 0.82;
-    }
+.brand-contact {
+  font-size: 10px;
+  line-height: 1.45;
+  color: ${escapeHtml(brandHeaderText)};
+  opacity: 0.92;
+}
 
     .brand-logo {
       width: 86px;
@@ -328,13 +328,13 @@ const footerContactBits = [
       margin-bottom: 10px;
     }
 
-    .section {
-      border: 1px solid rgba(69, 102, 154, 0.42);
-      border-radius: 14px;
-      overflow: hidden;
-      background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
-      box-shadow: 0 8px 18px rgba(0,0,0,0.16);
-    }
+.section {
+  border: 1px solid rgba(69, 102, 154, 0.42);
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
+  box-shadow: 0 3px 10px rgba(0,0,0,0.10);
+}
 
     .section-head {
       padding: 8px 12px;
@@ -600,10 +600,10 @@ const footerContactBits = [
       text-align: right;
     }
 
-    .muted {
-      color: ${escapeHtml(brandText)};
-      opacity: 0.78;
-    }
+ .muted {
+  color: ${escapeHtml(brandText)};
+  opacity: 0.9;
+}
 
     .ai-card,
 .ai-card * {
