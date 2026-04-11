@@ -1458,6 +1458,7 @@ color:#27d7ff;
   }
 }
 
+ 
 /* PRICING */
 #pricing.section {
   margin-top: 94px !important;
@@ -1554,25 +1555,52 @@ color:#27d7ff;
   pointer-events: none;
 }
 
-.pricing-row:hover .pricing-card {
-  opacity: 0.42;
-  filter: blur(2px) saturate(0.75);
-  transform: scale(0.975);
+.pricing-card::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  background: radial-gradient(circle at top, rgba(34,211,238,0.22), transparent 65%);
+}
+
+.pricing-card:hover::after {
+  opacity: 1;
+}
+
+/* Default single-card hover */
+.pricing-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(34, 211, 238, 0.45);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(34, 211, 238, 0.20),
+    inset 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 2;
+}
+
+/* Focus effect */
+.pricing-row:hover .pricing-card:not(:hover) {
+  opacity: 0.22;
+  filter: blur(6px) saturate(0.55) brightness(0.72);
+  transform: scale(0.94);
 }
 
 .pricing-row:hover .pricing-card:hover {
   opacity: 1;
   filter: none;
-  transform: translateY(-6px) scale(1.02);
-  border-color: rgba(34, 211, 238, 0.55);
+  transform: translateY(-8px) scale(1.06);
+  border-color: rgba(34, 211, 238, 0.60);
   box-shadow:
-    0 32px 82px rgba(0, 0, 0, 0.54),
-    0 12px 28px rgba(34, 211, 238, 0.12),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+    0 36px 96px rgba(0, 0, 0, 0.58),
+    0 16px 36px rgba(34, 211, 238, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   background:
-    radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 44%),
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.20), transparent 46%),
     linear-gradient(180deg, rgba(11, 18, 38, 0.99), rgba(7, 11, 24, 0.99));
-  z-index: 2;
+  z-index: 3;
 }
 
 .pricing-card.featured {
@@ -1685,16 +1713,13 @@ color:#27d7ff;
 .pricing-includes {
   position: relative;
   z-index: 1;
- margin-top: 40px;
+  margin-top: 40px;
   padding: 28px 28px 26px;
   border-radius: 20px;
-
   background:
     radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 42%),
     linear-gradient(180deg, rgba(10,16,32,0.94), rgba(6,10,20,0.98));
-
   border: 1px solid rgba(34, 211, 238, 0.32);
-
   box-shadow:
     0 20px 48px rgba(0, 0, 0, 0.34),
     0 0 28px rgba(34, 211, 238, 0.10),
@@ -1704,14 +1729,11 @@ color:#27d7ff;
 .pricing-includes-title {
   text-align: center;
   margin: 0 0 18px;
-
- font-size: 1.02rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: 0.20em;
   text-transform: uppercase;
-
   color: #e6fbff;
-
   text-shadow: 0 0 10px rgba(34,211,238,0.25);
 }
 
@@ -1719,11 +1741,9 @@ color:#27d7ff;
   list-style: none;
   margin: 0;
   padding: 0;
-
   display: grid;
   grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 14px 22px;
-
   color: rgba(235,245,255,0.95);
   font-size: 0.9rem;
   line-height: 1.6;
@@ -1743,8 +1763,8 @@ color:#27d7ff;
   width: 5px;
   height: 5px;
   border-radius: 999px;
-background: #22d3ee;
-box-shadow: 0 0 6px rgba(34,211,238,0.6);
+  background: #22d3ee;
+  box-shadow: 0 0 6px rgba(34,211,238,0.6);
   transform: translateY(-50%);
 }
 
@@ -1830,6 +1850,15 @@ box-shadow: 0 0 6px rgba(34,211,238,0.6);
   to   { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
+.pricing-trust {
+  text-align: center;
+  font-size: 14px;
+  color: #9FB6CC;
+  margin-top: 20px;
+  letter-spacing: 0.3px;
+  opacity: 0.9;
+}
+
 .js-anim #pricing .section-header,
 .js-anim #pricing .pricing-intro,
 .js-anim #pricing .pricing-includes,
@@ -1879,7 +1908,8 @@ box-shadow: 0 0 6px rgba(34,211,238,0.6);
   }
 
   .pricing-row:hover .pricing-card,
-  .pricing-row:hover .pricing-card:hover {
+  .pricing-row:hover .pricing-card:hover,
+  .pricing-row:hover .pricing-card:not(:hover) {
     opacity: 1;
     filter: none;
     transform: none;
@@ -1937,7 +1967,7 @@ box-shadow: 0 0 6px rgba(34,211,238,0.6);
   }
 }
 
-    /* TRUST */
+   
     /* TRUST */
     .trust-row {
       display: flex;
@@ -2632,8 +2662,7 @@ Choose Your Monthly Report Volume For<br>
               </div>
 
           
-              <div class="pricing-plan-note">Performance, SEO and AI Visibility diagnostics with baseline comparisons, white-label reporting and PDF export.</div>
-
+              
               <button class="pricing-cta" data-plan="sub10">Get Started</button>
             </div>
 
@@ -2648,7 +2677,7 @@ Choose Your Monthly Report Volume For<br>
               </div>
 
         
-              <div class="pricing-plan-note">Performance, SEO and AI Visibility diagnostics with baseline comparisons, white-label reporting and PDF export.</div>
+              
               <button class="pricing-cta" data-plan="sub50">Get Started</button>
             </div>
 
@@ -2663,12 +2692,15 @@ Choose Your Monthly Report Volume For<br>
               </div>
 
        
-           <div class="pricing-plan-note">Performance, SEO and AI Visibility diagnostics with baseline comparisons, white-label reporting and PDF export.</div>
-
+           
               <button class="pricing-cta" data-plan="sub100">Get Started</button>
             </div>
 
           </div>
+
+          <div class="pricing-trust">
+  Instant access · Cancel anytime · Secure checkout via Stripe · 14-day refund guarantee
+</div>
 
 <div class="pricing-includes">
   <div class="pricing-includes-title">Every plan includes</div>
@@ -2868,7 +2900,7 @@ Choose Your Monthly Report Volume For<br>
             io.disconnect();
           }
         });
-      }, { threshold: 0.35 });
+      }, { threshold: 0.10 });
 
       io.observe(how);
     })();
@@ -2956,7 +2988,7 @@ Choose Your Monthly Report Volume For<br>
             }, WORKFLOW_TOTAL_MS);
           }
         });
-      }, { threshold: 0.35 });
+      }, { threshold: 0.15 });
 
       howObserver.observe(how);
 
@@ -2968,7 +3000,7 @@ Choose Your Monthly Report Volume For<br>
             if (revealed) pricingObserver.disconnect();
           }
         });
-      }, { threshold: 0.25 });
+      }, { threshold: 0.15 });
 
       const row = pricing.querySelector(".pricing-shell") || pricing;
       pricingObserver.observe(row);
