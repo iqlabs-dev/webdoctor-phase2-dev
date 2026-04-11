@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FAQ | iQWEB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Frequently asked questions about iQWEB, including how the platform works, what it analyzes, how AI Visibility is measured, and why agencies use it instead of raw diagnostic tools alone." />
+
+  <link rel="icon" href="/favicon.ico?v=1" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+  <link rel="manifest" href="/site.webmanifest?v=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.usefathom.com/script.js" data-site="MIQNNPNX" defer></script>
+
+  <style>
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --accent-2: #14b8a6;
+      --border-subtle: #1f2937;
+      --panel: #070d1c;
+      --panel-soft: #0b1224;
+      --shadow-soft: 0 26px 60px rgba(0, 0, 0, 0.55);
+      --radius-lg: 22px;
+      --radius-pill: 999px;
+      --max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 28%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-mid) 42%, var(--bg-bot));
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e0f2fe; text-decoration: underline; }
+
+    .page-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 18px 18px 42px;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+
+    .nav-left, .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .nav-left { justify-self: start; }
+    .nav-right { justify-self: end; }
+
+    .nav-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 0.8rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      margin: 0 auto;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .nav-title:hover { text-decoration: none; }
+
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.66rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    .nav-link:hover,
+    .nav-link.is-active {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+      opacity: 1;
+      text-decoration: none;
+    }
+
+    .nav-cta,
+    .nav-ghost {
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .nav-ghost {
+      border-color: rgba(148,163,184,0.35);
+      background: rgba(15,23,42,0.35);
+      color: var(--ink-soft);
+    }
+
+    .nav-ghost:hover {
+      border-color: rgba(148,163,184,0.75);
+      color: var(--ink);
+      background: rgba(15,23,42,0.85);
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.55);
+      color: var(--ink-soft);
+      box-shadow: 0 14px 32px rgba(15,23,42,0.85);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.9);
+      box-shadow: 0 18px 46px rgba(34,211,238,0.55);
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .article-hero {
+      margin-top: 94px;
+      margin-bottom: 28px;
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #8df3ff;
+      border: 1px solid rgba(34,211,238,0.35);
+      background: rgba(34,211,238,0.08);
+    }
+
+    .article-title {
+      font-size: clamp(2.3rem, 4.8vw, 4rem);
+      line-height: 1.03;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+      margin: 0 auto;
+      max-width: 14ch;
+      color: #fff;
+    }
+
+    .article-title .accent {
+      color: #22d3ee;
+      text-shadow: 0 0 18px rgba(34,211,238,0.2);
+    }
+
+    .article-subtitle {
+      font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+      line-height: 1.65;
+      color: rgba(255,255,255,0.88);
+      font-weight: 500;
+      max-width: 72ch;
+      margin: 20px auto 0;
+    }
+
+    .hero-actions {
+      margin-top: 28px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border-radius: 999px;
+      padding: 11px 20px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.72);
+      color: var(--ink);
+      box-shadow: 0 16px 36px rgba(15,23,42,0.7);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.95);
+      box-shadow: 0 18px 42px rgba(34,211,238,0.32);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      border-color: rgba(148,163,184,0.28);
+      background: rgba(15,23,42,0.58);
+      color: var(--ink-soft);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(148,163,184,0.58);
+      text-decoration: none;
+    }
+
+    .content-shell {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border-radius: 22px;
+      padding: 26px 24px;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
+        linear-gradient(180deg, rgba(10,16,34,0.9), rgba(8,12,24,0.92));
+      border: 1px solid rgba(34,211,238,0.14);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.34);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(7,13,28,0.72);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.015);
+    }
+
+    .info-card h3,
+    .section-heading {
+      margin: 0 0 10px;
+      color: #eef7ff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      color: rgba(141,243,255,0.86);
+      font-weight: 700;
+    }
+
+    .lead,
+    .panel p,
+    .info-card p {
+      color: rgba(229,240,255,0.82);
+      line-height: 1.75;
+      font-size: 0.94rem;
+      margin: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: rgba(229,240,255,0.84);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .list li + li { margin-top: 8px; }
+    .list strong { color: #eef7ff; }
+
+    .highlight {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(34,211,238,0.1);
+      border: 1px solid rgba(34,211,238,0.22);
+      color: #c8f8ff;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      vertical-align: middle;
+    }
+
+    .faq-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .faq-item {
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(7,13,28,0.72);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.015);
+    }
+
+    .faq-question {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: #eef7ff;
+      text-align: left;
+      padding: 20px 22px;
+      font: inherit;
+      font-size: 0.98rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      letter-spacing: 0.005em;
+    }
+
+    .faq-question:hover {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .faq-question-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .faq-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid rgba(34,211,238,0.18);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #8df3ff;
+      font-size: 1rem;
+      flex: 0 0 auto;
+      transition: transform 0.22s ease, background 0.22s ease, border-color 0.22s ease;
+      background: rgba(34,211,238,0.04);
+    }
+
+    .faq-item.is-open .faq-icon {
+      transform: rotate(45deg);
+      background: rgba(34,211,238,0.12);
+      border-color: rgba(34,211,238,0.34);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.28s ease;
+    }
+
+    .faq-answer-inner {
+      padding: 0 22px 22px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .faq-answer p {
+      margin: 0;
+      color: rgba(229,240,255,0.82);
+      line-height: 1.78;
+      font-size: 0.94rem;
+    }
+
+    .faq-answer ul {
+      margin: 0;
+      padding-left: 18px;
+      color: rgba(229,240,255,0.84);
+      line-height: 1.75;
+      font-size: 0.92rem;
+    }
+
+    .faq-answer li + li {
+      margin-top: 8px;
+    }
+
+    .faq-answer strong {
+      color: #eef7ff;
+    }
+
+    .cta-panel {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .wd-footer {
+      padding: 28px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-top: 56px;
+    }
+
+    .wd-footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 18px;
+      opacity: 0.9;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      column-gap: 18px;
+    }
+
+    .wd-footer-left { justify-self: start; white-space: nowrap; }
+    .wd-footer-center { justify-self: center; }
+    .wd-footer-right { justify-self: end; white-space: nowrap; color: var(--muted); opacity: 0.85; }
+
+    .wd-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+    .wd-footer-links a { color: var(--ink-soft); text-decoration: none; font-size: 0.75rem; }
+    .wd-footer-links a:hover { color: var(--ink); text-decoration: none; }
+
+    @media (max-width: 980px) {
+      .panel-grid,
+      .cta-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .shell-inner { padding-inline: 16px; }
+
+      .nav {
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 16px;
+      }
+
+      .nav-center { display: none; }
+
+      .nav-title { font-size: 0.98rem; }
+
+      .nav-ghost { display: none; }
+
+      .nav-cta {
+        padding: 7px 14px;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+      }
+
+      .article-hero { margin-top: 72px; }
+    }
+
+    @media (max-width: 720px) {
+      .wd-footer-inner {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+        text-align: center;
+      }
+
+      .wd-footer-left,
+      .wd-footer-right {
+        justify-self: center;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .article-title {
+        font-size: clamp(2rem, 9vw, 2.8rem);
+        max-width: 100%;
+      }
+
+      .article-subtitle {
+        font-size: 1rem;
+        max-width: 100%;
+      }
+
+      .panel { padding: 22px 18px; }
+      .info-card { padding: 16px; }
+
+      .faq-question {
+        padding: 18px 18px;
+        font-size: 0.94rem;
+      }
+
+      .faq-answer-inner {
+        padding: 0 18px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div class="shell-inner">
+      <header class="nav">
+        <div class="nav-left">
+          <a href="/" class="nav-title">iQWEB</a>
+        </div>
+
+        <div class="nav-center">
+          <div class="nav-links">
+            <a href="/changelog.html" class="nav-link">Changelog</a>
+            <a href="/faq.html" class="nav-link is-active">FAQ</a>
+            <a href="/methodology.html" class="nav-link">Methodology</a>
+            <a href="/pagespeed-score-explained.html" class="nav-link">PageSpeed</a>
+            <a href="/ai-visibility-explained.html" class="nav-link">AI Visibility</a>
+            <a href="/website-diagnostics-explained.html" class="nav-link">Diagnostics</a>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <a href="/" class="nav-cta">Main Page</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="article-hero">
+          <div class="hero-badge">iQWEB FAQ</div>
+
+          <h1 class="article-title">
+            Questions, <span class="accent">Answered</span>
+          </h1>
+
+          <p class="article-subtitle">
+            A clear explanation of what iQWEB does, what it does not do, how the signals are used,
+            and why agencies use it to turn raw diagnostics into structured client-ready reporting.
+          </p>
+
+          <div class="hero-actions">
+            <a href="/methodology.html" class="btn-primary">Open Methodology</a>
+            <a href="/" class="btn-secondary">Back to Home</a>
+          </div>
+        </section>
+
+        <div class="content-shell">
+
+          <section class="panel">
+            <div class="panel-grid">
+              <div class="info-card">
+                <span class="eyebrow">What it is</span>
+                <h3>Structured diagnostic reporting</h3>
+                <p>iQWEB is designed to turn multiple website diagnostics into a report agencies can actually use with clients, instead of leaving the work spread across separate tools and screenshots.</p>
+              </div>
+
+              <div class="info-card">
+                <span class="eyebrow">What it is not</span>
+                <h3>Not just a Lighthouse wrapper</h3>
+                <p>Performance data is one part of the picture. iQWEB also layers technical SEO checks, trust indicators, baseline comparison and AI visibility signals into one report structure.</p>
+              </div>
+
+              <div class="info-card">
+                <span class="eyebrow">Why people use it</span>
+                <h3>Time saved and reporting clarity</h3>
+                <p>The value is not the existence of individual checks. The value is reducing manual reporting work and making the results easier to explain, prioritise and track over time.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">The short version</span>
+              <h2 class="section-heading">The platform exists to close the gap between raw diagnostics and client communication.</h2>
+              <p class="lead">
+                Free tools are useful for raw measurement. iQWEB is built for the next step:
+                combining multiple signals, identifying what matters, capturing baselines,
+                and turning that into a report a developer or agency can actually hand to a client.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <span class="eyebrow">Frequently asked questions</span>
+            <div class="faq-wrap">
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">What is iQWEB?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      iQWEB is a website diagnostic reporting platform built for web developers, agencies,
+                      consultants and technical service providers who need a faster way to turn technical checks
+                      into client-ready output.
+                    </p>
+                    <p>
+                      The platform analyzes multiple signal groups including performance, technical SEO, trust indicators
+                      and AI visibility, then organizes those findings into a structured report that is easier to explain,
+                      prioritise and compare over time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Is iQWEB just Lighthouse or PageSpeed Insights?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      No.
+                    </p>
+                    <p>
+                      Lighthouse and PageSpeed Insights are valuable diagnostic tools, but they primarily provide
+                      raw performance data. They do not aim to package multiple signal groups into a reporting workflow
+                      designed for agency delivery, baseline comparison and client communication.
+                    </p>
+                    <p>
+                      iQWEB uses performance signals as one part of a broader report that also includes technical SEO checks,
+                      trust indicators, AI visibility analysis, prioritised issue presentation and baseline tracking.
+                    </p>
+                    <p>
+                      In simple terms: Lighthouse helps measure. iQWEB helps measure, organise, explain and present.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">What signals does iQWEB analyze?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p><strong>Performance</strong><br>
+                      Delivery metrics and Core Web Vitals related to loading speed, rendering behaviour and user experience.</p>
+
+                    <p><strong>SEO</strong><br>
+                      Technical SEO indicators such as titles, meta descriptions, structural elements and other site-level signals that influence discoverability.</p>
+
+                    <p><strong>Trust</strong><br>
+                      HTTPS, security headers and related trust indicators that affect technical credibility and user confidence.</p>
+
+                    <p><strong>AI Visibility</strong><br>
+                      Signals that help determine whether a site or brand appears in tested AI recommendation prompts within its detected category.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">What is AI Visibility?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      AI Visibility is a directional signal that tests whether a brand or website appears in AI-generated
+                      recommendation prompts relevant to its business category.
+                    </p>
+                    <p>
+                      The platform first detects the likely category of a site, then evaluates visibility within tested
+                      prompts related to that category. It also considers contextual signals that may support or weaken
+                      visibility, such as entity relevance, mentions and site context.
+                    </p>
+                    <p>
+                      This signal is intentionally called <strong>AI Visibility</strong> rather than AI ranking or GEO certainty.
+                      AI outputs can vary by prompt, model and time. The purpose of the signal is to surface patterns and
+                      give agencies a starting point for discussion, not to claim a permanent or absolute truth.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Is the entire report generated by AI?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      No.
+                    </p>
+                    <p>
+                      The report is based on measurable technical signals and structured diagnostic logic.
+                      AI may be used in limited areas to support interpretation or visibility testing, but the platform
+                      is not simply inventing a report from thin air.
+                    </p>
+                    <p>
+                      In other words, the report is anchored in underlying diagnostics. It is not intended to be vague,
+                      generic output detached from measurable evidence.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">How are scores calculated?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      Scores are derived from the signals collected within each category and the severity of issues detected.
+                      They are designed to function as diagnostic indicators that help identify where attention may be needed.
+                    </p>
+                    <p>
+                      A score should not be treated as a universal ranking of a business or website. It is a structured
+                      summary of the signals available at the time of testing.
+                    </p>
+                    <p>
+                      The more important part of the report is not the number alone, but the explanation of what is influencing
+                      the result and what should be fixed first.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">What is the Baseline feature?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      Baseline lets an agency or developer capture a diagnostic snapshot of a site at a specific point in time.
+                    </p>
+                    <p>
+                      Future scans can then be compared against that reference point to show what improved, what regressed
+                      and where additional work may still be needed.
+                    </p>
+                    <p>
+                      This is especially useful in client work where the goal is not just to find issues once, but to demonstrate
+                      measurable progress after optimisation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Why would someone use iQWEB instead of free tools?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      Free tools are valuable and many developers already use them. The problem usually is not access to raw checks.
+                      The problem is the manual work required to combine those checks, interpret the results, package them cleanly
+                      and explain them to clients.
+                    </p>
+                    <p>
+                      iQWEB exists to reduce that workload by bringing multiple signal groups together into one structured report
+                      with clearer priorities, baseline support and client-ready presentation.
+                    </p>
+                    <p>
+                      For solo developers and agencies, the main value is often workflow compression:
+                      less time collecting, less time formatting and less time rewriting diagnostics into plain English.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">How does iQWEB justify its pricing?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      The pricing is not based on the existence of a single metric or on charging for one AI prompt.
+                      It is based on the time saved and workflow value created when multiple diagnostics are packaged
+                      into a structured agency-ready report.
+                    </p>
+                    <p>
+                      In many client workflows, the costly part is not opening Lighthouse or checking a few technical signals.
+                      The costly part is combining multiple sources, deciding what matters, preparing a usable report,
+                      explaining the findings and then tracking changes over time.
+                    </p>
+                    <p>
+                      iQWEB is intended to reduce that repeated manual effort. For agencies and consultants producing
+                      reports regularly, the value is usually in reporting speed, consistency and presentation clarity.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Does iQWEB replace developer expertise?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      No.
+                    </p>
+                    <p>
+                      iQWEB is designed as a diagnostic support and reporting tool.
+                      It highlights issues, patterns and opportunities, but it does not replace engineering judgement,
+                      implementation skill or business context.
+                    </p>
+                    <p>
+                      The best results come when developers use the platform as a reporting and analysis layer,
+                      then apply their own expertise to the final recommendations and fixes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Are the results always perfect or fully fixed in stone?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      No diagnostic system should be treated that way.
+                    </p>
+                    <p>
+                      Website analysis depends on the data available at the time of testing, the condition of the site,
+                      and in some cases external APIs or AI systems that may change over time.
+                    </p>
+                    <p>
+                      iQWEB should be treated as a structured snapshot and decision-support tool, not a claim of permanent certainty.
+                      That is also why ongoing refinement, baseline comparison and real-world developer feedback remain important.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="faq-item">
+                <button class="faq-question" type="button">
+                  <span class="faq-question-text">Where is iQWEB developed and who builds it?</span>
+                  <span class="faq-icon">+</span>
+                </button>
+                <div class="faq-answer">
+                  <div class="faq-answer-inner">
+                    <p>
+                      iQWEB is developed by <strong>iQLABS Ltd</strong>, a New Zealand technology company focused on building practical,
+                      engineering-led software tools.
+                    </p>
+                    <p>
+                      The product is being built as a focused platform for website diagnostics, structured reporting
+                      and agency workflow improvement, with continued refinement based on real-world testing and user feedback.
+                    </p>
+                    <p>
+                      The intention is not to produce a generic AI wrapper. The intention is to build a usable product with
+                      clear reporting value, transparent positioning and ongoing improvement.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <section class="panel cta-panel">
+            <div>
+              <span class="eyebrow">Next step</span>
+              <h2 class="section-heading">Want the deeper explanation?</h2>
+              <p class="lead">
+                The FAQ answers the main positioning and trust questions.
+                The Methodology page should go further into signal logic, data inputs, AI Visibility framing and limitations.
+              </p>
+            </div>
+            <div class="info-card">
+              <h3>Recommended next page</h3>
+              <p>Create a dedicated Methodology page and link it in the main nav so developers can quickly inspect how the platform works.</p>
+              <p style="margin-top:12px;"><a href="/methodology.html" class="highlight">Open methodology page</a></p>
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      <footer class="wd-footer">
+        <div class="wd-footer-inner">
+
+          <div class="wd-footer-left">
+            © 2025 iQWEB – All rights reserved.
+          </div>
+
+          <div class="wd-footer-center">
+            <div class="wd-footer-links">
+              <a href="/">Home</a>
+              <a href="/#pricing">Pricing</a>
+              <a href="/trust.html">Trust</a>
+              <a href="/privacy.html">Privacy</a>
+              <a href="/terms.html">Terms</a>
+              <a href="/refunds.html">Billing &amp; Refunds</a>
+              <a href="/changelog.html">Changelog</a>
+              <a href="/faq.html">FAQ</a>
+              <a href="/methodology.html">Methodology</a>
+              <a href="/pagespeed-score-explained.html">PageSpeed Score Explained</a>
+              <a href="/ai-visibility-explained.html">AI Visibility Explained</a>
+              <a href="/website-diagnostics-explained.html">Website Diagnostics Guide</a>
+              <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+            </div>
+          </div>
+
+          <div class="wd-footer-right">
+            Powered by Λ i Q™
+          </div>
+
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const faqItems = document.querySelectorAll('.faq-item');
+
+    faqItems.forEach((item, index) => {
+      const button = item.querySelector('.faq-question');
+      const answer = item.querySelector('.faq-answer');
+
+      button.addEventListener('click', () => {
+        const isOpen = item.classList.contains('is-open');
+
+        faqItems.forEach((otherItem) => {
+          otherItem.classList.remove('is-open');
+          otherItem.querySelector('.faq-answer').style.maxHeight = null;
+        });
+
+        if (!isOpen) {
+          item.classList.add('is-open');
+          answer.style.maxHeight = answer.scrollHeight + 'px';
+        }
+      });
+
+      if (index === 0) {
+        item.classList.add('is-open');
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.faq-item.is-open .faq-answer').forEach((answer) => {
+        answer.style.maxHeight = answer.scrollHeight + 'px';
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Methodology | iQWEB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Learn how iQWEB evaluates website performance, SEO, trust signals, baseline comparisons and AI Visibility, and how those signals are structured into client-ready reports." />
+
+  <link rel="icon" href="/favicon.ico?v=1" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1">
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png?v=1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=1">
+  <link rel="manifest" href="/site.webmanifest?v=1">
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.usefathom.com/script.js" data-site="MIQNNPNX" defer></script>
+
+  <style>
+    :root {
+      --bg-top: #050814;
+      --bg-mid: #050b19;
+      --bg-bot: #02030a;
+      --ink: #e5f0ff;
+      --ink-soft: #c0cfeb;
+      --muted: #9aa4ba;
+      --accent: #22d3ee;
+      --accent-2: #14b8a6;
+      --border-subtle: #1f2937;
+      --panel: #070d1c;
+      --panel-soft: #0b1224;
+      --shadow-soft: 0 26px 60px rgba(0, 0, 0, 0.55);
+      --radius-lg: 22px;
+      --radius-pill: 999px;
+      --max-width: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 28%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-mid) 42%, var(--bg-bot));
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e0f2fe; text-decoration: underline; }
+
+    .page-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .shell-inner {
+      flex: 1;
+      width: 100%;
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 18px 18px 42px;
+    }
+
+    .nav {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
+      border: 1px solid rgba(148,163,184,0.26);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      backdrop-filter: blur(26px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+
+    .nav-left, .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .nav-left { justify-self: start; }
+    .nav-right { justify-self: end; }
+
+    .nav-center {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 0.8rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      margin: 0 auto;
+    }
+
+    .nav-title {
+      font-weight: 700;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .nav-title:hover { text-decoration: none; }
+
+    .nav-link {
+      color: var(--muted);
+      text-decoration: none;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.66rem;
+      font-weight: 500;
+      padding-bottom: 2px;
+      border-bottom: 1px solid transparent;
+      transition: color 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+      opacity: 0.9;
+      white-space: nowrap;
+    }
+
+    .nav-link:hover,
+    .nav-link.is-active {
+      color: var(--ink-soft);
+      border-color: rgba(148,163,184,0.7);
+      opacity: 1;
+      text-decoration: none;
+    }
+
+    .nav-cta,
+    .nav-ghost {
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      white-space: nowrap;
+      font-weight: 600;
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    .nav-ghost {
+      border-color: rgba(148,163,184,0.35);
+      background: rgba(15,23,42,0.35);
+      color: var(--ink-soft);
+    }
+
+    .nav-ghost:hover {
+      border-color: rgba(148,163,184,0.75);
+      color: var(--ink);
+      background: rgba(15,23,42,0.85);
+      transform: translateY(-1px);
+      text-decoration: none;
+    }
+
+    .nav-cta {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.55);
+      color: var(--ink-soft);
+      box-shadow: 0 14px 32px rgba(15,23,42,0.85);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.9);
+      box-shadow: 0 18px 46px rgba(34,211,238,0.55);
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .article-hero {
+      margin-top: 94px;
+      margin-bottom: 28px;
+      text-align: center;
+      padding: 0 8px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #8df3ff;
+      border: 1px solid rgba(34,211,238,0.35);
+      background: rgba(34,211,238,0.08);
+    }
+
+    .article-title {
+      font-size: clamp(2.3rem, 4.8vw, 4rem);
+      line-height: 1.03;
+      letter-spacing: -0.03em;
+      font-weight: 800;
+      margin: 0 auto;
+      max-width: 15ch;
+      color: #fff;
+    }
+
+    .article-title .accent {
+      color: #22d3ee;
+      text-shadow: 0 0 18px rgba(34,211,238,0.2);
+    }
+
+    .article-subtitle {
+      font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+      line-height: 1.65;
+      color: rgba(255,255,255,0.88);
+      font-weight: 500;
+      max-width: 72ch;
+      margin: 20px auto 0;
+    }
+
+    .hero-actions {
+      margin-top: 28px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+      border-radius: 999px;
+      padding: 11px 20px;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      border: 1px solid transparent;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .btn-primary {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
+      border-color: rgba(34,211,238,0.72);
+      color: var(--ink);
+      box-shadow: 0 16px 36px rgba(15,23,42,0.7);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(34,211,238,0.95);
+      box-shadow: 0 18px 42px rgba(34,211,238,0.32);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      border-color: rgba(148,163,184,0.28);
+      background: rgba(15,23,42,0.58);
+      color: var(--ink-soft);
+    }
+
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      border-color: rgba(148,163,184,0.58);
+      text-decoration: none;
+    }
+
+    .content-shell {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      border-radius: 22px;
+      padding: 26px 24px;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.07), transparent 38%),
+        linear-gradient(180deg, rgba(10,16,34,0.9), rgba(8,12,24,0.92));
+      border: 1px solid rgba(34,211,238,0.14);
+      box-shadow: 0 20px 48px rgba(0,0,0,0.34);
+      backdrop-filter: blur(10px);
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(7,13,28,0.72);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.015);
+    }
+
+    .info-card h3,
+    .section-heading {
+      margin: 0 0 10px;
+      color: #eef7ff;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      color: rgba(141,243,255,0.86);
+      font-weight: 700;
+    }
+
+    .lead,
+    .panel p,
+    .info-card p {
+      color: rgba(229,240,255,0.82);
+      line-height: 1.75;
+      font-size: 0.94rem;
+      margin: 0;
+    }
+
+    .stack {
+      display: grid;
+      gap: 18px;
+    }
+
+    .list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: rgba(229,240,255,0.84);
+      line-height: 1.7;
+      font-size: 0.92rem;
+    }
+
+    .list li + li { margin-top: 8px; }
+    .list strong { color: #eef7ff; }
+
+    .highlight {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(34,211,238,0.1);
+      border: 1px solid rgba(34,211,238,0.22);
+      color: #c8f8ff;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      vertical-align: middle;
+    }
+
+    .step-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .step-card {
+      border-radius: 18px;
+      padding: 20px 18px;
+      background: rgba(7,13,28,0.72);
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.015);
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .step-no {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(34,211,238,0.08);
+      border: 1px solid rgba(34,211,238,0.22);
+      color: #8df3ff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .step-body h3 {
+      margin: 0 0 8px;
+      color: #eef7ff;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .step-body p {
+      margin: 0;
+      color: rgba(229,240,255,0.82);
+      line-height: 1.75;
+      font-size: 0.94rem;
+    }
+
+    .cta-panel {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .wd-footer {
+      padding: 28px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-top: 56px;
+    }
+
+    .wd-footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 18px;
+      opacity: 0.9;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      column-gap: 18px;
+    }
+
+    .wd-footer-left { justify-self: start; white-space: nowrap; }
+    .wd-footer-center { justify-self: center; }
+    .wd-footer-right { justify-self: end; white-space: nowrap; color: var(--muted); opacity: 0.85; }
+
+    .wd-footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+    .wd-footer-links a { color: var(--ink-soft); text-decoration: none; font-size: 0.75rem; }
+    .wd-footer-links a:hover { color: var(--ink); text-decoration: none; }
+
+    @media (max-width: 980px) {
+      .panel-grid,
+      .cta-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .shell-inner { padding-inline: 16px; }
+
+      .nav {
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 8px 12px;
+        border-radius: 16px;
+      }
+
+      .nav-center { display: none; }
+      .nav-title { font-size: 0.98rem; }
+      .nav-ghost { display: none; }
+
+      .nav-cta {
+        padding: 7px 14px;
+        font-size: 0.68rem;
+        letter-spacing: 0.12em;
+      }
+
+      .article-hero { margin-top: 72px; }
+    }
+
+    @media (max-width: 720px) {
+      .step-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .wd-footer-inner {
+        grid-template-columns: 1fr;
+        row-gap: 10px;
+        text-align: center;
+      }
+
+      .wd-footer-left,
+      .wd-footer-right {
+        justify-self: center;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .article-title {
+        font-size: clamp(2rem, 9vw, 2.8rem);
+        max-width: 100%;
+      }
+
+      .article-subtitle {
+        font-size: 1rem;
+        max-width: 100%;
+      }
+
+      .panel { padding: 22px 18px; }
+      .info-card { padding: 16px; }
+      .step-card { padding: 18px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <div class="shell-inner">
+      <header class="nav">
+        <div class="nav-left">
+          <a href="/" class="nav-title">iQWEB</a>
+        </div>
+
+        <div class="nav-center">
+          <div class="nav-links">
+            <a href="/changelog.html" class="nav-link">Changelog</a>
+            <a href="/faq.html" class="nav-link">FAQ</a>
+            <a href="/methodology.html" class="nav-link is-active">Methodology</a>
+            <a href="/pagespeed-score-explained.html" class="nav-link">PageSpeed</a>
+            <a href="/ai-visibility-explained.html" class="nav-link">AI Visibility</a>
+            <a href="/website-diagnostics-explained.html" class="nav-link">Diagnostics</a>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <a href="/" class="nav-cta">Main Page</a>
+        </div>
+      </header>
+
+      <main>
+        <section class="article-hero">
+          <div class="hero-badge">iQWEB Methodology</div>
+
+          <h1 class="article-title">
+            How iQWEB <span class="accent">Works</span>
+          </h1>
+
+          <p class="article-subtitle">
+            This page explains how iQWEB approaches website diagnostics, what signal groups are used,
+            how AI Visibility is framed, where interpretation begins, and why the platform is intended
+            as a structured reporting layer rather than a black-box scoring gimmick.
+          </p>
+
+          <div class="hero-actions">
+            <a href="/faq.html" class="btn-primary">Open FAQ</a>
+            <a href="/" class="btn-secondary">Back to Home</a>
+          </div>
+        </section>
+
+        <div class="content-shell">
+
+          <section class="panel">
+            <div class="panel-grid">
+              <div class="info-card">
+                <span class="eyebrow">First principle</span>
+                <h3>Signals before narrative</h3>
+                <p>iQWEB starts with measurable website signals. The report exists to structure and explain those signals, not to invent conclusions without evidence.</p>
+              </div>
+
+              <div class="info-card">
+                <span class="eyebrow">Second principle</span>
+                <h3>Direction over false certainty</h3>
+                <p>Some signal groups are deterministic. Others, especially AI Visibility, are directional and time-sensitive. The methodology is designed to reflect that honestly.</p>
+              </div>
+
+              <div class="info-card">
+                <span class="eyebrow">Third principle</span>
+                <h3>Reporting is the product</h3>
+                <p>The main value is not just gathering raw checks. It is organizing them into a report that agencies can present, compare and act on more efficiently.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">Core position</span>
+              <h2 class="section-heading">iQWEB is built to reduce the gap between diagnostics and client communication.</h2>
+              <p class="lead">
+                Many free tools already expose individual diagnostics. What they do not usually provide is a clean layer
+                that combines those findings, identifies what matters most, captures baseline comparisons and turns the result
+                into a structured report suitable for agency workflows. That is the role iQWEB is designed to fill.
+              </p>
+            </div>
+
+            <ul class="list">
+              <li><strong>Raw checks alone are not the full workflow.</strong> Agencies still need to collect, compare, explain and present.</li>
+              <li><strong>Scores are summaries, not absolute truths.</strong> The report is intended to guide attention, not replace engineering judgment.</li>
+              <li><strong>Transparency matters.</strong> Methodology, limitations and signal framing should be visible rather than hidden.</li>
+            </ul>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">Process overview</span>
+              <h2 class="section-heading">From site scan to structured report</h2>
+            </div>
+
+            <div class="step-grid">
+
+              <div class="step-card">
+                <div class="step-no">01</div>
+                <div class="step-body">
+                  <h3>Collect website signals</h3>
+                  <p>
+                    iQWEB gathers publicly accessible diagnostic inputs across multiple categories including performance,
+                    technical SEO, trust indicators and site context. The goal at this stage is signal collection, not storytelling.
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-card">
+                <div class="step-no">02</div>
+                <div class="step-body">
+                  <h3>Evaluate signal groups</h3>
+                  <p>
+                    The collected inputs are grouped into report categories so the platform can identify where strengths,
+                    weaknesses and notable issues appear. This is where the report begins separating raw measurements
+                    from prioritised interpretation.
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-card">
+                <div class="step-no">03</div>
+                <div class="step-body">
+                  <h3>Structure findings for clarity</h3>
+                  <p>
+                    Rather than dumping isolated metrics into a flat list, iQWEB organizes them into a report flow
+                    intended to be easier for agencies and clients to follow. The aim is to highlight what matters,
+                    what appears stable, and what may need further attention.
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-card">
+                <div class="step-no">04</div>
+                <div class="step-body">
+                  <h3>Capture baseline and comparison value</h3>
+                  <p>
+                    When a baseline exists, iQWEB can use that snapshot as a reference point for future scans.
+                    This helps turn one-off diagnostics into a more useful before-and-after reporting workflow.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <section class="panel">
+            <span class="eyebrow">Signal groups</span>
+            <div class="panel-grid">
+              <div class="info-card">
+                <h3>Performance</h3>
+                <p>
+                  Performance focuses on delivery behaviour, loading efficiency, rendering and related metrics that affect
+                  speed and user experience. These signals are closer to deterministic diagnostics than interpretive narrative.
+                </p>
+              </div>
+
+              <div class="info-card">
+                <h3>SEO</h3>
+                <p>
+                  SEO signals focus on technical discoverability factors such as titles, metadata, structure and other
+                  site-level elements that influence how content may be interpreted by search systems.
+                </p>
+              </div>
+
+              <div class="info-card">
+                <h3>Trust</h3>
+                <p>
+                  Trust signals focus on HTTPS, header-related checks and other indicators that contribute to technical credibility,
+                  perceived safety and delivery confidence.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">AI Visibility</span>
+              <h2 class="section-heading">Why AI Visibility is framed carefully</h2>
+              <p class="lead">
+                AI Visibility is included because search and discovery behaviour is changing, but it is intentionally framed
+                as a directional signal rather than a claim of permanent optimisation or a guaranteed GEO ranking.
+              </p>
+            </div>
+
+            <ul class="list">
+              <li><strong>Category detection first.</strong> The platform attempts to identify the likely business category of a website before visibility testing is interpreted.</li>
+              <li><strong>Prompt-based testing.</strong> Visibility is evaluated against tested recommendation-style prompts relevant to that category.</li>
+              <li><strong>Context matters.</strong> Whether a site appears can depend on prompts, model behaviour, entity relevance and broader mention signals.</li>
+              <li><strong>Time matters.</strong> AI outputs can shift. A result should be read as a snapshot signal, not a fixed universal verdict.</li>
+            </ul>
+
+            <p>
+              That is why the signal is described as <span class="highlight">AI Visibility</span> rather than “AI truth”,
+              permanent optimisation certainty or broad marketing hype. The intention is to expose a useful signal category
+              honestly, without pretending the space is more stable than it currently is.
+            </p>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">Scoring philosophy</span>
+              <h2 class="section-heading">Scores are summaries, not the full product</h2>
+              <p class="lead">
+                Scores help make diagnostic outputs easier to read quickly, but the methodology does not treat a single number
+                as the complete answer. The surrounding explanation, issue context and baseline comparison matter just as much.
+              </p>
+            </div>
+
+            <ul class="list">
+              <li><strong>A score is a guide.</strong> It points attention toward where issues may exist.</li>
+              <li><strong>A score is not a business valuation.</strong> It should not be read as an absolute statement about quality, competence or brand strength.</li>
+              <li><strong>A score gains meaning through context.</strong> The report is more useful when the signal, likely cause and follow-up action are considered together.</li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <span class="eyebrow">What the pricing is actually for</span>
+            <div class="panel-grid">
+              <div class="info-card">
+                <h3>Not just raw checks</h3>
+                <p>
+                  Free tools may expose parts of the same underlying problem space, but the platform is not priced as if it were
+                  selling a single API response or one isolated measurement.
+                </p>
+              </div>
+
+              <div class="info-card">
+                <h3>Workflow compression</h3>
+                <p>
+                  The value is in reducing the repeated manual work of gathering, comparing, structuring and explaining results
+                  for client use, especially in agency settings where that effort happens again and again.
+                </p>
+              </div>
+
+              <div class="info-card">
+                <h3>Client-ready delivery</h3>
+                <p>
+                  iQWEB is intended to help agencies move from technical checks to a usable reporting output faster,
+                  with clearer prioritisation and better change tracking over time.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel stack">
+            <div>
+              <span class="eyebrow">Limitations</span>
+              <h2 class="section-heading">What this methodology does not claim</h2>
+            </div>
+
+            <ul class="list">
+              <li><strong>It does not claim perfect certainty.</strong> Website conditions, third-party services and external systems can change.</li>
+              <li><strong>It does not replace engineering judgment.</strong> Developers still decide what to fix, what matters most and what trade-offs are acceptable.</li>
+              <li><strong>It does not treat AI systems as fully stable.</strong> AI Visibility is inherently more variable than deterministic technical checks.</li>
+              <li><strong>It does not claim that a single number tells the whole story.</strong> The report is intended to support better interpretation, not eliminate it.</li>
+            </ul>
+
+            <p>
+              The aim is to be useful, structured and transparent. Where a signal is stable, it should be treated as such.
+              Where a signal is emerging or variable, the methodology should make that clear.
+            </p>
+          </section>
+
+          <section class="panel cta-panel">
+            <div>
+              <span class="eyebrow">Related page</span>
+              <h2 class="section-heading">Use this together with the FAQ</h2>
+              <p class="lead">
+                The FAQ handles the fast objections. This page handles the deeper trust questions.
+                Together they help explain what iQWEB is, what it is not, and why the product exists.
+              </p>
+            </div>
+            <div class="info-card">
+              <h3>Recommended companion</h3>
+              <p>Link this page beside FAQ in the top navigation so developers can quickly inspect both the positioning and the methodology.</p>
+              <p style="margin-top:12px;"><a href="/faq.html" class="highlight">Open FAQ</a></p>
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      <footer class="wd-footer">
+        <div class="wd-footer-inner">
+
+          <div class="wd-footer-left">
+            © 2025 iQWEB – All rights reserved.
+          </div>
+
+          <div class="wd-footer-center">
+            <div class="wd-footer-links">
+              <a href="/">Home</a>
+              <a href="/#pricing">Pricing</a>
+              <a href="/trust.html">Trust</a>
+              <a href="/privacy.html">Privacy</a>
+              <a href="/terms.html">Terms</a>
+              <a href="/refunds.html">Billing &amp; Refunds</a>
+              <a href="/changelog.html">Changelog</a>
+              <a href="/faq.html">FAQ</a>
+              <a href="/methodology.html">Methodology</a>
+              <a href="/pagespeed-score-explained.html">PageSpeed Score Explained</a>
+              <a href="/ai-visibility-explained.html">AI Visibility Explained</a>
+              <a href="/website-diagnostics-explained.html">Website Diagnostics Guide</a>
+              <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+            </div>
+          </div>
+
+          <div class="wd-footer-right">
+            Powered by Λ i Q™
+          </div>
+
+        </div>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
