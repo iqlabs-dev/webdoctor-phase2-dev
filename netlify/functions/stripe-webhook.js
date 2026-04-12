@@ -20,7 +20,7 @@ function json(statusCode, obj) {
 }
 
 /**
- * New mapping:
+ * New maping:
  * SUB_10   = Starter
  * SUB_50   = Professional
  * SUB_100  = Agency
