@@ -1583,9 +1583,9 @@ color:#27d7ff;
 
 /* Focus effect */
 .pricing-row:hover .pricing-card:not(:hover) {
-  opacity: 0.22;
-  filter: blur(6px) saturate(0.55) brightness(0.72);
-  transform: scale(0.94);
+  opacity: 0.58;
+  filter: blur(1.5px) saturate(0.82) brightness(0.9);
+  transform: scale(0.985);
 }
 
 .pricing-row:hover .pricing-card:hover {
@@ -1604,13 +1604,22 @@ color:#27d7ff;
 }
 
 .pricing-card.featured {
-  transform: translateY(-8px);
+  transform: translateY(-10px) scale(1.03);
   z-index: 3;
-  border-color: rgba(34, 211, 238, 0.55);
+  border-color: rgba(34, 211, 238, 0.60);
   box-shadow:
-    0 34px 84px rgba(0, 0, 0, 0.52),
-    0 14px 30px rgba(34, 211, 238, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    0 40px 96px rgba(0, 0, 0, 0.56),
+    0 18px 36px rgba(34, 211, 238, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Slightly larger text for featured plan */
+.pricing-card.featured .pricing-price {
+  font-size: 2.35rem;
+}
+
+.pricing-card.featured .pricing-volume-number {
+  font-size: 4.4rem;
 }
 .pricing-card:not(.featured) {
   transform: translateY(0);
