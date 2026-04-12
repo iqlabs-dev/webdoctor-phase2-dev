@@ -1511,7 +1511,7 @@ color:#27d7ff;
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 0.94fr 1.12fr 0.94fr;
   gap: 20px;
   align-items: stretch;
 }
@@ -1604,11 +1604,17 @@ color:#27d7ff;
 }
 
 .pricing-card.featured {
-  border-color: rgba(34, 211, 238, 0.42);
+  transform: translateY(-8px);
+  z-index: 3;
+  border-color: rgba(34, 211, 238, 0.55);
   box-shadow:
-    0 26px 64px rgba(0, 0, 0, 0.46),
-    0 10px 24px rgba(34, 211, 238, 0.10),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+    0 34px 84px rgba(0, 0, 0, 0.52),
+    0 14px 30px rgba(34, 211, 238, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+.pricing-card:not(.featured) {
+  transform: translateY(0);
+  opacity: 0.96;
 }
 
 .pricing-badge {
@@ -2642,61 +2648,65 @@ Website Diagnostic Platform
    
   <div class="section-title">
 Choose Your Monthly Report Volume For<br>
- PERFORMANCE SEO TRUST & AI VISIBILITY REPORTS
+Performance · SEO · Trust · AI Visibility Reports
 </div>
     </div>
   </div>
 
   <div class="pricing-shell">
 
-          <div class="pricing-row">
+<div class="pricing-row">
 
-            <div class="pricing-card">
-          
-              <div class="pricing-name">Starter</div>
-              <div class="pricing-price">$39 <small>/ month</small></div>
+  <div class="pricing-card">
+    <div class="pricing-name">Freelancer</div>
+    <div class="pricing-price">$39 <small>/ month</small></div>
 
-              <div class="pricing-volume">
-                <span class="pricing-volume-number">25</span>
-                <span class="pricing-volume-label">REPORTS / MONTH</span>
-              </div>
+    <div class="pricing-volume">
+      <span class="pricing-volume-number">100</span>
+      <span class="pricing-volume-label">REPORTS / MONTH</span>
+    </div>
 
-          
-              
-              <button class="pricing-cta" data-plan="sub10">Get Started</button>
-            </div>
+    <p class="pricing-plan-note">
+      For freelancers and smaller studios needing client-ready diagnostic reports.
+    </p>
 
-            <div class="pricing-card featured">
-     
-              <div class="pricing-name">Professional</div>
-              <div class="pricing-price">$99 <small>/ month</small></div>
+    <button class="pricing-cta" data-plan="sub25">Get Started</button>
+  </div>
 
-              <div class="pricing-volume">
-                <span class="pricing-volume-number">100</span>
-                <span class="pricing-volume-label">REPORTS / MONTH</span>
-              </div>
+  <div class="pricing-card featured">
+ 
+    <div class="pricing-name">Agency</div>
+    <div class="pricing-price">$99 <small>/ month</small></div>
 
-        
-              
-              <button class="pricing-cta" data-plan="sub50">Get Started</button>
-            </div>
+    <div class="pricing-volume">
+      <span class="pricing-volume-number">300</span>
+      <span class="pricing-volume-label">REPORTS / MONTH</span>
+    </div>
 
-            <div class="pricing-card">
+    <p class="pricing-plan-note">
+      For agencies managing multiple client websites and ongoing baseline tracking.
+    </p>
+
+    <button class="pricing-cta" data-plan="sub100">Get Started</button>
+  </div>
+
+  <div class="pricing-card">
+    <div class="pricing-name">Custom</div>
+    <div class="pricing-price">Custom</div>
+
+    <div class="pricing-volume">
+      <span class="pricing-volume-number">+</span>
+      <span class="pricing-volume-label">HIGHER VOLUME</span>
+    </div>
+
+    <p class="pricing-plan-note">
+      For larger agencies or teams needing higher report volume or tailored usage.
+    </p>
     
-              <div class="pricing-name">Agency</div>
-              <div class="pricing-price">$199 <small>/ month</small></div>
+<a class="pricing-cta" href="mailto:pricing@iqweb.ai?subject=Custom%20Plan%20Inquiry">Contact Us</a>
+  </div>
 
-              <div class="pricing-volume">
-                <span class="pricing-volume-number">300</span>
-                <span class="pricing-volume-label">REPORTS / MONTH</span>
-              </div>
-
-       
-           
-              <button class="pricing-cta" data-plan="sub100">Get Started</button>
-            </div>
-
-          </div>
+</div>
 
           <div class="pricing-trust">
   Instant access · Cancel anytime · Secure checkout via Stripe · 14-day refund guarantee
@@ -2705,7 +2715,7 @@ Choose Your Monthly Report Volume For<br>
 <div class="pricing-includes">
   <div class="pricing-includes-title">Every plan includes</div>
   <ul class="pricing-includes-list">
-    <li>SEO, Performance & AI Visibility</li>
+<li>Performance, SEO, Trust & AI</li>
     <li>Baseline Comparisons</li>
     <li>White-Label Reporting</li>
     <li>Custom Report Branding</li>
@@ -2867,14 +2877,12 @@ Choose Your Monthly Report Volume For<br>
           btn.getAttribute("data-plan") ||
           btn.getAttribute("data-buy");
 
-        const map = {
-          starter: "sub10",
-          sub10: "sub10",
-          professional: "sub50",
-          sub50: "sub50",
-          agency: "sub100",
-          sub100: "sub100",
-        };
+    const map = {
+  freelancer: "sub25",
+  sub25: "sub25",
+  agency: "sub100",
+  sub100: "sub100",
+};
 
         const priceKey = map[plan];
         if (!priceKey) return;

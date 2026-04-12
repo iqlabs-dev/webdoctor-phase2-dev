@@ -28,17 +28,13 @@ function json(statusCode, obj) {
 function mapPriceToPlan(priceId) {
   const sub25 = process.env.STRIPE_PRICE_SUB_25;
   const sub100 = process.env.STRIPE_PRICE_SUB_100;
-  const sub300 = process.env.STRIPE_PRICE_SUB_300;
+ 
 
   if (priceId === sub25) {
-    return { plan: "starter", credits: 25, kind: "subscription" };
+    return { plan: "freelancer", credits: 100, kind: "subscription" };
   }
 
   if (priceId === sub100) {
-    return { plan: "professional", credits: 100, kind: "subscription" };
-  }
-
-  if (priceId === sub300) {
     return { plan: "agency", credits: 300, kind: "subscription" };
   }
 
@@ -392,9 +388,8 @@ export const handler = async (event) => {
       if (mode === "subscription" && subscriptionId) {
         let planPayload = null;
 
-if (priceKey === "sub25") planPayload = { plan: "starter", credits: 25 };
-if (priceKey === "sub100") planPayload = { plan: "professional", credits: 100 };
-if (priceKey === "sub300") planPayload = { plan: "agency", credits: 300 };
+if (priceKey === "sub25") planPayload = { plan: "freelancer", credits: 100 };
+if (priceKey === "sub100") planPayload = { plan: "agency", credits: 300 };
 
         const subObj = await stripe.subscriptions.retrieve(subscriptionId, {
           expand: ["items.data.price"],
