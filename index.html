@@ -1511,7 +1511,7 @@ color:#27d7ff;
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 0.94fr 1.12fr 0.94fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   align-items: stretch;
 }
@@ -1604,13 +1604,12 @@ color:#27d7ff;
 }
 
 .pricing-card.featured {
-  transform: translateY(-10px) scale(1.03);
-  z-index: 3;
-  border-color: rgba(34, 211, 238, 0.60);
+  transform: translateY(0);
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 40px 96px rgba(0, 0, 0, 0.56),
-    0 18px 36px rgba(34, 211, 238, 0.18),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 22px 54px rgba(0, 0, 0, 0.40),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
 }
 
 /* Slightly larger text for featured plan */
