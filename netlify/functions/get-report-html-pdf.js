@@ -1089,8 +1089,8 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
 
   if (key === "ai_discoverability") {
     const mentions = safeNumber(sig?.evidence?.independent_web_mentions);
-    const hits = safeNumber(sig?.evidence?.ai_recommendation_hits);
-    if ((hits || 0) <= 0) {
+    const aihits = safeNumber(sig?.evidence?.ai_recommendation_hits);
+    if ((aihits || 0) <= 0) {
       return "AI recommendation presence was not detected in tested generic prompts, and independent web references are limited.";
     }
     if ((mentions || 0) < 2) {
@@ -1566,9 +1566,9 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
     if (domain === "ai_discoverability") {
       const ai = findSignalByDomain(signals, "ai_discoverability");
       if (ai && ai.evidence) {
-        const hits = num(ai.evidence.ai_recommendation_hits);
+        const aihits = num(ai.evidence.ai_recommendation_hits);
         const mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
+        if (aihits !== null && aihits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI Visibility requires stronger external context";
