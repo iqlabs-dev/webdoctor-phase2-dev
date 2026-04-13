@@ -1693,6 +1693,7 @@ if (key === "ai_discoverability") {
     "";
 
   var aiCategoryEstablished = !!aiCategory;
+  var aiCategoryPanelClass = aiCategoryEstablished ? " category-success" : "";
 
   var aiCategoryLabel = "Category Detected";
   var aiCategoryValue = aiCategoryEstablished ? aiCategory : "Category could not be determined";
@@ -1760,7 +1761,7 @@ var aiTestMethod = aiCategoryEstablished
         '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
       '</div>' +
 
-      '<div class="ai-discovery-panel">' +
+           '<div class="ai-discovery-panel' + aiCategoryPanelClass + '">' +
         '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
         '<p><strong>' + escapeHtml(aiCategoryValue) + '</strong></p>' +
         '<h4 style="margin-top:14px;">How this was tested</h4>' +
