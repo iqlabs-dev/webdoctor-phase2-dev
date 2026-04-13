@@ -655,7 +655,8 @@ async function classifyBusinessCategory(pageSignals) {
           "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
           "Title: " + (pageSignals.title || "") + "\n" +
           "H1: " + (pageSignals.h1 || "") + "\n" +
-          "Meta description: " + (pageSignals.meta || "") + "\n\n" +
+          "Meta description: " + (pageSignals.meta || "") + "\n" +
+          "Page content excerpt: " + (pageSignals.body || "") + "\n\n" +
           "Return JSON in this format:\n" +
           '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
       }
@@ -1955,10 +1956,13 @@ async function buildScores(url, html, res, isHtml, psi, platform = { key: "unkno
  const headers = headerSignals(res, url);
 const aiProfile = deriveAiProfile(basic, url, html);
 
+const bodyText = stripTags(html).slice(0, 1500);
+
 const categoryResult = await classifyBusinessCategory({
   title: basic.title_text || "",
   h1: basic.h1_text || "",
-  meta: basic.meta_description_text || ""
+  meta: basic.meta_description_text || "",
+  body: bodyText
 });
 
 if (categoryResult) {
