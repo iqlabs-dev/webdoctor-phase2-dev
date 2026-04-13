@@ -1089,8 +1089,8 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
 
   if (key === "ai_discoverability") {
     const mentions = safeNumber(sig?.evidence?.independent_web_mentions);
-    const aihits = safeNumber(sig?.evidence?.ai_recommendation_hits);
-    if ((aihits || 0) <= 0) {
+    const hits = safeNumber(sig?.evidence?.ai_recommendation_hits);
+    if ((hits || 0) <= 0) {
       return "AI recommendation presence was not detected in tested generic prompts, and independent web references are limited.";
     }
     if ((mentions || 0) < 2) {
@@ -1566,9 +1566,9 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
     if (domain === "ai_discoverability") {
       const ai = findSignalByDomain(signals, "ai_discoverability");
       if (ai && ai.evidence) {
-        const aihits = num(ai.evidence.ai_recommendation_hits);
+        const hits = num(ai.evidence.ai_recommendation_hits);
         const mentions = num(ai.evidence.independent_web_mentions);
-        if (aihits !== null && aihits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
+        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI Visibility requires stronger external context";
@@ -1748,107 +1748,22 @@ function renderAiSignal(payload, deliverySignals, scores) {
 
   const aiCategory =
     evidence.detected_category ||
-    evidence.schema_category ||
     evidence.service_term ||
     evidence.category ||
-    "";
+    "Not clearly established";
 
   const aiExamplePrompt =
     evidence.example_prompt_tested || "";
 
-  const aiLocation =
-    evidence.detected_location ||
-    evidence.location_term ||
-    evidence.city ||
-    "";
-
-const aiCategoryEstablished = !!aiCategory;
-
-const aiCategoryValue = aiCategoryEstablished
-  ? aiCategory
-  : "Category could not be determined";
-
-const aiHits = safeNumber(evidence.ai_recommendation_hits);
-
-const aiBrandSurfaced =
-  aiHits !== null
-    ? aiHits > 0
-    : (score !== null && score >= 60);
-
-/* ---------- Outer card colour ---------- */
-
-const aiOuterBorder =
-  !aiCategoryEstablished
-    ? "rgba(238,95,86,0.60)"
-    : (score !== null && score >= 80
-        ? "rgba(34,197,94,0.55)"
-        : (score !== null && score >= 60
-            ? "rgba(245,158,11,0.55)"
-            : "rgba(239,68,68,0.55)"));
-
-const aiOuterBg =
-  !aiCategoryEstablished
-    ? "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"
-    : (score !== null && score >= 80
-        ? "linear-gradient(180deg, rgba(12,28,18,0.96), rgba(8,20,12,0.98))"
-        : (score !== null && score >= 60
-            ? "linear-gradient(180deg, rgba(36,24,8,0.96), rgba(24,16,6,0.98))"
-            : "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"));
-
-/* ---------- Category panel ---------- */
-
-const aiCategoryPanelBorder =
-  aiCategoryEstablished
-    ? "rgba(34,197,94,0.55)"
-    : "rgba(255,255,255,0.08)";
-
-const aiCategoryPanelBg =
-  aiCategoryEstablished
-    ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
-    : "rgba(255,255,255,0.02)";
-
-const aiCategoryHeadingColor =
-  aiCategoryEstablished
-    ? "#4ade80"
-    : brandText;
-
-/* ---------- Recommendation panel ---------- */
-
-const aiRecommendationPanelBorder =
-  aiBrandSurfaced
-    ? "rgba(34,197,94,0.55)"
-    : "rgba(255,255,255,0.08)";
-
-const aiRecommendationPanelBg =
-  aiBrandSurfaced
-    ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
-    : "rgba(255,255,255,0.02)";
-
-const aiRecommendationHeadingColor =
-  aiBrandSurfaced
-    ? "#4ade80"
-    : brandText;
-
-/* ---------- Test explanation ---------- */
-
-const aiTestMethod =
-  aiCategoryEstablished
-    ? "AI recommendation prompts were tested for " +
-      (aiLocation
-        ? "businesses in the " + aiCategory + " category in " + aiLocation
-        : "businesses in the " + aiCategory + " category") +
-      " to determine whether the brand is surfaced as a recommendation."
-    : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
-
-
+  const aiTestMethod =
+    "AI recommendation prompts were tested for businesses in the " +
+    aiCategory +
+    " category to determine whether the brand appears in AI visibility results.";
 
   let observedText = "";
   let fixItems = [];
-  let recommendationResult = "";
 
-  if (aiHits !== null ? aiHits > 0 : (score !== null && score >= 60)) {
-    recommendationResult = "Brand surfaced in tested AI recommendation results.";
-
+  if (score !== null && score >= 60) {
     observedText =
       "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
 
@@ -1858,33 +1773,18 @@ const aiTestMethod =
       "Expand entity clarity where it improves real-world visibility."
     ];
   } else {
-    recommendationResult = "Brand not surfaced in tested AI recommendation results.";
+    observedText =
+      "The brand was not surfaced in the tested AI recommendation prompts for " +
+      aiCategory +
+      ", and supporting AI Visibility signals appear limited.";
 
-    if (aiCategoryEstablished) {
-      observedText =
-        "The brand was not surfaced in the tested AI recommendation prompts for the " +
-        aiCategory +
-        " category, and supporting AI visibility signals appear limited.";
-
-      fixItems = [
-        "Clarify the brand and category language used across the site.",
-        "Earn independent mentions from relevant third-party sources.",
-        "Tighten directory, profile, and citation consistency.",
-        "Add clearer product, service, and niche context for entity matching.",
-        "Test prompts reflecting real recommendation searches in your category."
-      ];
-    } else {
-      observedText =
-        "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
-
-      fixItems = [
-        "Clarify the brand and core service language used across the site.",
-        "Earn independent mentions from relevant third-party sources.",
-        "Tighten directory, profile, and citation consistency.",
-        "Add clearer product, service, and niche context for entity matching.",
-        "Clarify the website's core service category so AI systems can associate the brand with relevant recommendation queries."
-      ];
-    }
+    fixItems = [
+      "Clarify the brand and category language used across the site.",
+      "Earn independent mentions from relevant third-party sources.",
+      "Tighten directory, profile, and citation consistency.",
+      "Add clearer product, service, and niche context for entity matching.",
+      "Test prompts reflecting real recommendation searches in your category."
+    ];
   }
 
   const footnote =
@@ -1894,8 +1794,8 @@ const aiTestMethod =
 <div class="ai-card" style="
   border-radius:12px;
   padding:16px;
-  border:1px solid ${aiOuterBorder};
-  background:${aiOuterBg};
+  border:1px solid rgba(238,95,86,0.6);
+  background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
 ">
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -1929,19 +1829,19 @@ const aiTestMethod =
             </div>
           </td>
 
-      <td style="width:420px;vertical-align:top;">
-  <div style="
-    border:1px solid ${aiCategoryPanelBorder};
-    border-radius:10px;
-    padding:12px;
-    background:${aiCategoryPanelBg};
-    min-height:250px;
-  ">
-         <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;color:${aiCategoryHeadingColor};">
-  CATEGORY DETECTED
-</div>
+          <td style="width:420px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:250px;
+            ">
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                CATEGORY DETECTED
+              </div>
               <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
-                ${escapeHtml(aiCategoryValue)}
+                ${escapeHtml(String(aiCategory))}
               </div>
 
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
@@ -1974,21 +1874,14 @@ const aiTestMethod =
             </div>
           </td>
 
-     <td style="width:420px;vertical-align:top;">
-  <div style="
-    border:1px solid ${aiRecommendationPanelBorder};
-    border-radius:10px;
-    padding:12px;
-    background:${aiRecommendationPanelBg};
-    min-height:250px;
-  ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                RECOMMENDATION TEST RESULT
-              </div>
-              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
-                ${escapeHtml(recommendationResult)}
-              </div>
-
+          <td style="width:420px;vertical-align:top;">
+            <div style="
+              border:1px solid rgba(255,255,255,0.08);
+              border-radius:10px;
+              padding:12px;
+              background:rgba(255,255,255,0.02);
+              min-height:250px;
+            ">
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 WHAT WAS OBSERVED
               </div>
@@ -2019,5 +1912,6 @@ const aiTestMethod =
       </table>
 
     </div>
+  </div>
   `;
 }
