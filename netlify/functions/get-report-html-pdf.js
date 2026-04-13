@@ -1762,15 +1762,23 @@ function renderAiSignal(payload, deliverySignals, scores) {
     evidence.city ||
     "";
 
-  const aiCategoryEstablished = !!aiCategory;
+const aiCategoryEstablished = !!aiCategory;
 
-  const aiCategoryValue = aiCategoryEstablished
-    ? aiCategory
-    : "Category could not be determined";
+const aiCategoryValue = aiCategoryEstablished
+  ? aiCategory
+  : "Category could not be determined";
 
-      const aiBrandSurfaced = aiHits !== null ? aiHits > 0 : (score !== null && score >= 60);
+const aiHits = safeNumber(evidence.ai_recommendation_hits);
 
-  const aiOuterBorder = !aiCategoryEstablished
+const aiBrandSurfaced =
+  aiHits !== null
+    ? aiHits > 0
+    : (score !== null && score >= 60);
+
+/* ---------- Outer card colour ---------- */
+
+const aiOuterBorder =
+  !aiCategoryEstablished
     ? "rgba(238,95,86,0.60)"
     : (score !== null && score >= 80
         ? "rgba(34,197,94,0.55)"
@@ -1778,7 +1786,8 @@ function renderAiSignal(payload, deliverySignals, scores) {
             ? "rgba(245,158,11,0.55)"
             : "rgba(239,68,68,0.55)"));
 
-  const aiOuterBg = !aiCategoryEstablished
+const aiOuterBg =
+  !aiCategoryEstablished
     ? "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"
     : (score !== null && score >= 80
         ? "linear-gradient(180deg, rgba(12,28,18,0.96), rgba(8,20,12,0.98))"
@@ -1786,39 +1795,52 @@ function renderAiSignal(payload, deliverySignals, scores) {
             ? "linear-gradient(180deg, rgba(36,24,8,0.96), rgba(24,16,6,0.98))"
             : "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"));
 
-  const aiCategoryPanelBorder = aiCategoryEstablished
+/* ---------- Category panel ---------- */
+
+const aiCategoryPanelBorder =
+  aiCategoryEstablished
     ? "rgba(34,197,94,0.55)"
     : "rgba(255,255,255,0.08)";
 
-  const aiCategoryPanelBg = aiCategoryEstablished
+const aiCategoryPanelBg =
+  aiCategoryEstablished
     ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
     : "rgba(255,255,255,0.02)";
 
-  const aiCategoryHeadingColor = aiCategoryEstablished
+const aiCategoryHeadingColor =
+  aiCategoryEstablished
     ? "#4ade80"
     : brandText;
 
-  const aiRecommendationPanelBorder = aiBrandSurfaced
+/* ---------- Recommendation panel ---------- */
+
+const aiRecommendationPanelBorder =
+  aiBrandSurfaced
     ? "rgba(34,197,94,0.55)"
     : "rgba(255,255,255,0.08)";
 
-  const aiRecommendationPanelBg = aiBrandSurfaced
+const aiRecommendationPanelBg =
+  aiBrandSurfaced
     ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
     : "rgba(255,255,255,0.02)";
 
-  const aiRecommendationHeadingColor = aiBrandSurfaced
+const aiRecommendationHeadingColor =
+  aiBrandSurfaced
     ? "#4ade80"
     : brandText;
 
-  const aiTestMethod = aiCategoryEstablished
+/* ---------- Test explanation ---------- */
+
+const aiTestMethod =
+  aiCategoryEstablished
     ? "AI recommendation prompts were tested for " +
       (aiLocation
-        ? ("businesses in the " + aiCategory + " category in " + aiLocation)
-        : ("businesses in the " + aiCategory + " category")) +
+        ? "businesses in the " + aiCategory + " category in " + aiLocation
+        : "businesses in the " + aiCategory + " category") +
       " to determine whether the brand is surfaced as a recommendation."
     : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
 
-  const aiHits = safeNumber(evidence.ai_recommendation_hits);
+
 
   let observedText = "";
   let fixItems = [];
@@ -1960,9 +1982,9 @@ function renderAiSignal(payload, deliverySignals, scores) {
     background:${aiRecommendationPanelBg};
     min-height:250px;
   ">
-           <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;color:${aiRecommendationHeadingColor};">
-  RECOMMENDATION TEST RESULT
-</div>
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                RECOMMENDATION TEST RESULT
+              </div>
               <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
                 ${escapeHtml(recommendationResult)}
               </div>
