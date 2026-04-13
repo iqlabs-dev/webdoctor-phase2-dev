@@ -1675,24 +1675,48 @@ if (key === "ai_discoverability") {
     aiSeverity = "severity-strong"; // green
   }
 
-  // Prepare observed text and fix list
-  if (score !== null && score >= 60) {
+// Prepare observed text and fix list
+if (score !== null && score >= 60) {
+
+  aiObserved =
+    "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+
+  aiFixList =
+    "<li>No immediate technical issue was detected.</li>" +
+    "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
+    "<li>Expand entity clarity where it improves real-world visibility.</li>";
+
+} else {
+
+  if (aiCategoryEstablished) {
+
     aiObserved =
-      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
-    aiFixList =
-      "<li>No immediate technical issue was detected.</li>" +
-      "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
-      "<li>Expand entity clarity where it improves real-world visibility.</li>";
-  } else {
-    aiObserved =
-      "The brand was not surfaced in the tested AI recommendation prompts for this category, and supporting AI Visibility signals appear limited.";
+      "The brand was not surfaced in the tested AI recommendation prompts for the " +
+      aiCategory +
+      " category, and supporting AI visibility signals appear limited.";
+
     aiFixList =
       "<li>Clarify the brand and category language used across the site.</li>" +
       "<li>Earn independent mentions from relevant third-party sources.</li>" +
       "<li>Tighten directory, profile, and citation consistency.</li>" +
       "<li>Add clearer product, service, and niche context for entity matching.</li>" +
       "<li>Test prompts reflecting real recommendation searches in your category.</li>";
+
+  } else {
+
+    aiObserved =
+      "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
+
+    aiFixList =
+      "<li>Clarify the brand and core service language used across the site.</li>" +
+      "<li>Earn independent mentions from relevant third-party sources.</li>" +
+      "<li>Tighten directory, profile, and citation consistency.</li>" +
+      "<li>Add clearer product, service, and niche context for entity matching.</li>" +
+      "<li>Clarify the website's core service category so AI systems can associate the brand with relevant recommendation queries.</li>";
+
   }
+
+}
 
 // Build AI card HTML
 card.className = "card ai-discovery-card " + aiSeverity;

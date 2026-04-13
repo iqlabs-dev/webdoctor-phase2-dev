@@ -1766,20 +1766,21 @@ const aiTestMethod = aiCategoryEstablished
   let observedText = "";
   let fixItems = [];
 
-  if (score !== null && score >= 60) {
-    observedText =
-      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+if (score !== null && score >= 60) {
+  observedText =
+    "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
 
-    fixItems = [
-      "No immediate technical issue was detected.",
-      "Test additional prompts aligned to real product, service, and category searches.",
-      "Expand entity clarity where it improves real-world visibility."
-    ];
-  } else {
+  fixItems = [
+    "No immediate technical issue was detected.",
+    "Test additional prompts aligned to real product, service, and category searches.",
+    "Expand entity clarity where it improves real-world visibility."
+  ];
+} else {
+  if (aiCategoryEstablished) {
     observedText =
-      "The brand was not surfaced in the tested AI recommendation prompts for " +
+      "The brand was not surfaced in the tested AI recommendation prompts for the " +
       aiCategory +
-      ", and supporting AI Visibility signals appear limited.";
+      " category, and supporting AI visibility signals appear limited.";
 
     fixItems = [
       "Clarify the brand and category language used across the site.",
@@ -1788,7 +1789,19 @@ const aiTestMethod = aiCategoryEstablished
       "Add clearer product, service, and niche context for entity matching.",
       "Test prompts reflecting real recommendation searches in your category."
     ];
+  } else {
+    observedText =
+      "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
+
+    fixItems = [
+      "Clarify the brand and core service language used across the site.",
+      "Earn independent mentions from relevant third-party sources.",
+      "Tighten directory, profile, and citation consistency.",
+      "Add clearer product, service, and niche context for entity matching.",
+      "Clarify the website's core service category so AI systems can associate the brand with relevant recommendation searches."
+    ];
   }
+}
 
   const footnote =
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
@@ -1843,9 +1856,9 @@ const aiTestMethod = aiCategoryEstablished
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 CATEGORY DETECTED
               </div>
-              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
-                ${escapeHtml(String(aiCategory))}
-              </div>
+           <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+ ${escapeHtml(aiCategoryEstablished ? aiCategory : "Category could not be determined")}
+</div>
 
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 HOW THIS WAS TESTED
