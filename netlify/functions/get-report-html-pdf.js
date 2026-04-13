@@ -1746,62 +1746,82 @@ function renderAiSignal(payload, deliverySignals, scores) {
   const status = scoreLabel(score);
   const evidence = ai && ai.evidence ? ai.evidence : {};
 
-const aiCategory =
-  evidence.detected_category ||
-  evidence.service_term ||
-  evidence.category ||
-  "";
+  const aiCategory =
+    evidence.detected_category ||
+    evidence.schema_category ||
+    evidence.service_term ||
+    evidence.category ||
+    "";
 
-const aiExamplePrompt =
-  evidence.example_prompt_tested || "";
+  const aiExamplePrompt =
+    evidence.example_prompt_tested || "";
 
-const aiCategoryEstablished = !!aiCategory;
+  const aiLocation =
+    evidence.detected_location ||
+    evidence.location_term ||
+    evidence.city ||
+    "";
 
-const aiTestMethod = aiCategoryEstablished
-  ? "AI recommendation prompts were tested for businesses in the " +
-    aiCategory +
-    " category to determine whether the brand is surfaced as a recommendation."
-  : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
+  const aiCategoryEstablished = !!aiCategory;
+
+  const aiCategoryValue = aiCategoryEstablished
+    ? aiCategory
+    : "Category could not be determined";
+
+  const aiTestMethod = aiCategoryEstablished
+    ? "AI recommendation prompts were tested for " +
+      (aiLocation
+        ? ("businesses in the " + aiCategory + " category in " + aiLocation)
+        : ("businesses in the " + aiCategory + " category")) +
+      " to determine whether the brand is surfaced as a recommendation."
+    : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
+
+  const aiHits = safeNumber(evidence.ai_recommendation_hits);
 
   let observedText = "";
   let fixItems = [];
+  let recommendationResult = "";
 
-if (score !== null && score >= 60) {
-  observedText =
-    "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+  if (aiHits !== null ? aiHits > 0 : (score !== null && score >= 60)) {
+    recommendationResult = "Brand surfaced in tested AI recommendation results.";
 
-  fixItems = [
-    "No immediate technical issue was detected.",
-    "Test additional prompts aligned to real product, service, and category searches.",
-    "Expand entity clarity where it improves real-world visibility."
-  ];
-} else {
-  if (aiCategoryEstablished) {
     observedText =
-      "The brand was not surfaced in the tested AI recommendation prompts for the " +
-      aiCategory +
-      " category, and supporting AI visibility signals appear limited.";
+      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
 
     fixItems = [
-      "Clarify the brand and category language used across the site.",
-      "Earn independent mentions from relevant third-party sources.",
-      "Tighten directory, profile, and citation consistency.",
-      "Add clearer product, service, and niche context for entity matching.",
-      "Test prompts reflecting real recommendation searches in your category."
+      "No immediate technical issue was detected.",
+      "Test additional prompts aligned to real product, service, and category searches.",
+      "Expand entity clarity where it improves real-world visibility."
     ];
   } else {
-    observedText =
-      "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
+    recommendationResult = "Brand not surfaced in tested AI recommendation results.";
 
-    fixItems = [
-      "Clarify the brand and core service language used across the site.",
-      "Earn independent mentions from relevant third-party sources.",
-      "Tighten directory, profile, and citation consistency.",
-      "Add clearer product, service, and niche context for entity matching.",
-      "Clarify the website's core service category so AI systems can associate the brand with relevant recommendation searches."
-    ];
+    if (aiCategoryEstablished) {
+      observedText =
+        "The brand was not surfaced in the tested AI recommendation prompts for the " +
+        aiCategory +
+        " category, and supporting AI visibility signals appear limited.";
+
+      fixItems = [
+        "Clarify the brand and category language used across the site.",
+        "Earn independent mentions from relevant third-party sources.",
+        "Tighten directory, profile, and citation consistency.",
+        "Add clearer product, service, and niche context for entity matching.",
+        "Test prompts reflecting real recommendation searches in your category."
+      ];
+    } else {
+      observedText =
+        "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
+
+      fixItems = [
+        "Clarify the brand and core service language used across the site.",
+        "Earn independent mentions from relevant third-party sources.",
+        "Tighten directory, profile, and citation consistency.",
+        "Add clearer product, service, and niche context for entity matching.",
+        "Clarify the website's core service category so AI systems can associate the brand with relevant recommendation queries."
+      ];
+    }
   }
-}
 
   const footnote =
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
@@ -1856,9 +1876,9 @@ if (score !== null && score >= 60) {
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 CATEGORY DETECTED
               </div>
-           <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
- ${escapeHtml(aiCategoryEstablished ? aiCategory : "Category could not be determined")}
-</div>
+              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+                ${escapeHtml(aiCategoryValue)}
+              </div>
 
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 HOW THIS WAS TESTED
@@ -1899,6 +1919,13 @@ if (score !== null && score >= 60) {
               min-height:250px;
             ">
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+                RECOMMENDATION TEST RESULT
+              </div>
+              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+                ${escapeHtml(recommendationResult)}
+              </div>
+
+              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 WHAT WAS OBSERVED
               </div>
               <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
@@ -1928,6 +1955,5 @@ if (score !== null && score >= 60) {
       </table>
 
     </div>
-  </div>
   `;
 }

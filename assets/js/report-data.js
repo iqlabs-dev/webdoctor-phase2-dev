@@ -1658,119 +1658,133 @@ return {
       }
 
 if (key === "ai_discoverability") {
-  var aiObserved = "";
-  var aiFixList = "";
   var aiFootnote =
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
-  // Determine severity class based on score
   var aiSeverity = "";
   if (score === null) {
-    aiSeverity = "severity-na"; // gray
+    aiSeverity = "severity-na";
   } else if (score < 50) {
-    aiSeverity = "severity-high"; // red
+    aiSeverity = "severity-high";
   } else if (score < 70) {
-    aiSeverity = "severity-medium"; // amber
+    aiSeverity = "severity-medium";
   } else {
-    aiSeverity = "severity-strong"; // green
+    aiSeverity = "severity-strong";
   }
 
-// Prepare observed text and fix list
-if (score !== null && score >= 60) {
+  var aiCategory =
+    (sig && sig.evidence && (
+      sig.evidence.detected_category ||
+      sig.evidence.schema_category ||
+      sig.evidence.service_term ||
+      sig.evidence.category
+    )) ||
+    "";
 
-  aiObserved =
-    "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+  var aiExamplePrompt =
+    (sig && sig.evidence && sig.evidence.example_prompt_tested) || "";
 
-  aiFixList =
-    "<li>No immediate technical issue was detected.</li>" +
-    "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
-    "<li>Expand entity clarity where it improves real-world visibility.</li>";
+  var aiLocation =
+    (sig && sig.evidence && (
+      sig.evidence.detected_location ||
+      sig.evidence.location_term ||
+      sig.evidence.city
+    )) ||
+    "";
 
-} else {
+  var aiCategoryEstablished = !!aiCategory;
 
-  if (aiCategoryEstablished) {
-
-    aiObserved =
-      "The brand was not surfaced in the tested AI recommendation prompts for the " +
-      aiCategory +
-      " category, and supporting AI visibility signals appear limited.";
-
-    aiFixList =
-      "<li>Clarify the brand and category language used across the site.</li>" +
-      "<li>Earn independent mentions from relevant third-party sources.</li>" +
-      "<li>Tighten directory, profile, and citation consistency.</li>" +
-      "<li>Add clearer product, service, and niche context for entity matching.</li>" +
-      "<li>Test prompts reflecting real recommendation searches in your category.</li>";
-
-  } else {
-
-    aiObserved =
-      "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
-
-    aiFixList =
-      "<li>Clarify the brand and core service language used across the site.</li>" +
-      "<li>Earn independent mentions from relevant third-party sources.</li>" +
-      "<li>Tighten directory, profile, and citation consistency.</li>" +
-      "<li>Add clearer product, service, and niche context for entity matching.</li>" +
-      "<li>Clarify the website's core service category so AI systems can associate the brand with relevant recommendation queries.</li>";
-
-  }
-
-}
-
-// Build AI card HTML
-card.className = "card ai-discovery-card " + aiSeverity;
-
-var aiCategory =
-  (sig && sig.evidence && (sig.evidence.detected_category || sig.evidence.service_term || sig.evidence.category)) ||
-  "";
-
-var aiExamplePrompt =
-  (sig && sig.evidence && sig.evidence.example_prompt_tested) || "";
-
-var aiCategoryEstablished = !!aiCategory;
+  var aiCategoryLabel = "Category Detected";
+  var aiCategoryValue = aiCategoryEstablished ? aiCategory : "Category could not be determined";
 
 var aiTestMethod = aiCategoryEstablished
-  ? "AI recommendation prompts were tested for businesses in the " + aiCategory + " category to determine whether the brand is surfaced as a recommendation."
+  ? "AI recommendation prompts were tested for " +
+    (aiLocation
+      ? ("businesses in the " + aiCategory + " category in " + aiLocation)
+      : ("businesses in the " + aiCategory + " category")) +
+    " to determine whether the brand is surfaced as a recommendation."
   : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
 
-var aiCategoryLabel = aiCategoryEstablished ? "Category Detected" : "Category";
-var aiMethodLabel = "How this was tested";
+  var aiObserved = "";
+  var aiFixList = "";
+  var aiRecommendationResult = "";
 
-card.innerHTML =
-  (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
-  '<div class="ai-discovery-layout">' +
+  if (score !== null && score >= 60) {
+    aiRecommendationResult = "Brand surfaced in tested AI recommendation results.";
 
-    '<div class="ai-discovery-scorebox">' +
-      '<div class="ai-label">AI Visibility Score</div>' +
-      '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
-      '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-      '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
+    aiObserved =
+      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+
+    aiFixList =
+      "<li>No immediate technical issue was detected.</li>" +
+      "<li>Test additional prompts aligned to real product, service, and category searches.</li>" +
+      "<li>Expand entity clarity where it improves real-world visibility.</li>";
+  } else {
+    aiRecommendationResult = "Brand not surfaced in tested AI recommendation results.";
+
+    if (aiCategoryEstablished) {
+      aiObserved =
+        "The brand was not surfaced in the tested AI recommendation prompts for the " +
+        aiCategory +
+        " category, and supporting AI visibility signals appear limited.";
+
+      aiFixList =
+        "<li>Clarify the brand and category language used across the site.</li>" +
+        "<li>Earn independent mentions from relevant third-party sources.</li>" +
+        "<li>Tighten directory, profile, and citation consistency.</li>" +
+        "<li>Add clearer product, service, and niche context for entity matching.</li>" +
+        "<li>Test prompts reflecting real recommendation searches in your category.</li>";
+    } else {
+      aiObserved =
+        "The brand was not surfaced in the tested AI recommendation prompts, and supporting AI visibility signals appear limited.";
+
+      aiFixList =
+        "<li>Clarify the brand and core service language used across the site.</li>" +
+        "<li>Earn independent mentions from relevant third-party sources.</li>" +
+        "<li>Tighten directory, profile, and citation consistency.</li>" +
+        "<li>Add clearer product, service, and niche context for entity matching.</li>" +
+        "<li>Clarify the website's core service category so AI systems can associate the brand with relevant recommendation queries.</li>";
+    }
+  }
+
+  card.className = "card ai-discovery-card " + aiSeverity;
+
+  card.innerHTML =
+    (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
+    '<div class="ai-discovery-layout">' +
+
+      '<div class="ai-discovery-scorebox">' +
+        '<div class="ai-label">AI Visibility Score</div>' +
+        '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
+        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
+        '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
+      '</div>' +
+
+      '<div class="ai-discovery-panel">' +
+        '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
+        '<p><strong>' + escapeHtml(aiCategoryValue) + '</strong></p>' +
+        '<h4 style="margin-top:14px;">How this was tested</h4>' +
+        '<p>' + escapeHtml(aiTestMethod) + '</p>' +
+        (
+          aiExamplePrompt
+            ? '<h4 style="margin-top:14px;">Example Prompt Tested</h4>' +
+              '<div class="ai-prompt-box">' + escapeHtml(String(aiExamplePrompt)) + '</div>'
+            : ''
+        ) +
+      '</div>' +
+
+      '<div class="ai-discovery-panel">' +
+        '<h4>Recommendation Test Result</h4>' +
+        '<p><strong>' + escapeHtml(aiRecommendationResult) + '</strong></p>' +
+        '<h4 style="margin-top:14px;">What was observed</h4>' +
+        '<p>' + escapeHtml(aiObserved) + '</p>' +
+        '<h4 style="margin-top:14px;">How to improve visibility</h4>' +
+        '<ul>' + aiFixList + '</ul>' +
+        '<div class="ai-more-copy">AI Visibility reflects tested recommendation presence and supporting entity context. A lower result does not mean the business is weak. It usually means the brand is not yet strongly associated with the tested category, external mentions, or recommendation-style discovery patterns.</div>' +
+      '</div>' +
+
     '</div>' +
-
-    '<div class="ai-discovery-panel">' +
-      '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
-      '<p><strong>' + escapeHtml(String(aiCategory)) + '</strong></p>' +
-      '<h4 style="margin-top:14px;">' + escapeHtml(aiMethodLabel) + '</h4>' +
-      '<p>' + escapeHtml(aiTestMethod) + '</p>' +
-      (
-        aiExamplePrompt
-          ? '<h4 style="margin-top:14px;">Example Prompt Tested</h4>' +
-            '<div class="ai-prompt-box">' + escapeHtml(String(aiExamplePrompt)) + '</div>'
-          : ''
-      ) +
-    '</div>' +
-
-    '<div class="ai-discovery-panel">' +
-      '<h4>What was observed</h4>' +
-      '<p>' + escapeHtml(aiObserved.replace("this category", aiCategory)) + '</p>' +
-      '<h4 style="margin-top:14px;">How to improve visibility</h4>' +
-      '<ul>' + aiFixList + '</ul>' +
-      '<div class="ai-more-copy">AI Visibility reflects tested recommendation presence and supporting entity context. A lower result does not mean the business is weak. It usually means the brand is not yet strongly associated with the tested category, external mentions, or recommendation-style discovery patterns.</div>' +
-    '</div>' +
-
-  '</div>' +
-  '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
+    '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
 
 } else {
   card.innerHTML =
