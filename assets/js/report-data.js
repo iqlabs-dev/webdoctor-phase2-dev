@@ -1692,8 +1692,11 @@ if (key === "ai_discoverability") {
     )) ||
     "";
 
-  var aiCategoryEstablished = !!aiCategory;
-  var aiCategoryPanelClass = aiCategoryEstablished ? " category-success" : "";
+var aiCategoryEstablished = !!aiCategory;
+var aiCategoryPanelClass = aiCategoryEstablished ? " category-success" : "";
+
+var aiBrandSurfaced = score !== null && score >= 60;
+var aiRecommendationPanelClass = aiBrandSurfaced ? " category-success" : "";
 
   var aiCategoryLabel = "Category Detected";
   var aiCategoryValue = aiCategoryEstablished ? aiCategory : "Category could not be determined";
@@ -1774,7 +1777,7 @@ var aiTestMethod = aiCategoryEstablished
         ) +
       '</div>' +
 
-      '<div class="ai-discovery-panel">' +
+   '<div class="ai-discovery-panel' + aiRecommendationPanelClass + '">'
         '<h4>Recommendation Test Result</h4>' +
         '<p><strong>' + escapeHtml(aiRecommendationResult) + '</strong></p>' +
         '<h4 style="margin-top:14px;">What was observed</h4>' +
