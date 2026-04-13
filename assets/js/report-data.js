@@ -1764,7 +1764,7 @@ var aiTestMethod = aiCategoryEstablished
         '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
       '</div>' +
 
-           '<div class="ai-discovery-panel' + aiCategoryPanelClass + '">' +
+      '<div class="ai-discovery-panel' + aiCategoryPanelClass + '">' +
         '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
         '<p><strong>' + escapeHtml(aiCategoryValue) + '</strong></p>' +
         '<h4 style="margin-top:14px;">How this was tested</h4>' +
@@ -1777,7 +1777,7 @@ var aiTestMethod = aiCategoryEstablished
         ) +
       '</div>' +
 
-   '<div class="ai-discovery-panel' + aiRecommendationPanelClass + '">'
+      '<div class="ai-discovery-panel' + aiRecommendationPanelClass + '">' +
         '<h4>Recommendation Test Result</h4>' +
         '<p><strong>' + escapeHtml(aiRecommendationResult) + '</strong></p>' +
         '<h4 style="margin-top:14px;">What was observed</h4>' +
