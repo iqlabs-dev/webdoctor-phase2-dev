@@ -1768,6 +1768,48 @@ function renderAiSignal(payload, deliverySignals, scores) {
     ? aiCategory
     : "Category could not be determined";
 
+      const aiBrandSurfaced = aiHits !== null ? aiHits > 0 : (score !== null && score >= 60);
+
+  const aiOuterBorder = !aiCategoryEstablished
+    ? "rgba(238,95,86,0.60)"
+    : (score !== null && score >= 80
+        ? "rgba(34,197,94,0.55)"
+        : (score !== null && score >= 60
+            ? "rgba(245,158,11,0.55)"
+            : "rgba(239,68,68,0.55)"));
+
+  const aiOuterBg = !aiCategoryEstablished
+    ? "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"
+    : (score !== null && score >= 80
+        ? "linear-gradient(180deg, rgba(12,28,18,0.96), rgba(8,20,12,0.98))"
+        : (score !== null && score >= 60
+            ? "linear-gradient(180deg, rgba(36,24,8,0.96), rgba(24,16,6,0.98))"
+            : "linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98))"));
+
+  const aiCategoryPanelBorder = aiCategoryEstablished
+    ? "rgba(34,197,94,0.55)"
+    : "rgba(255,255,255,0.08)";
+
+  const aiCategoryPanelBg = aiCategoryEstablished
+    ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
+    : "rgba(255,255,255,0.02)";
+
+  const aiCategoryHeadingColor = aiCategoryEstablished
+    ? "#4ade80"
+    : brandText;
+
+  const aiRecommendationPanelBorder = aiBrandSurfaced
+    ? "rgba(34,197,94,0.55)"
+    : "rgba(255,255,255,0.08)";
+
+  const aiRecommendationPanelBg = aiBrandSurfaced
+    ? "linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18))"
+    : "rgba(255,255,255,0.02)";
+
+  const aiRecommendationHeadingColor = aiBrandSurfaced
+    ? "#4ade80"
+    : brandText;
+
   const aiTestMethod = aiCategoryEstablished
     ? "AI recommendation prompts were tested for " +
       (aiLocation
@@ -1830,8 +1872,8 @@ function renderAiSignal(payload, deliverySignals, scores) {
 <div class="ai-card" style="
   border-radius:12px;
   padding:16px;
-  border:1px solid rgba(238,95,86,0.6);
-  background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
+  border:1px solid ${aiOuterBorder};
+  background:${aiOuterBg};
 ">
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
@@ -1865,17 +1907,17 @@ function renderAiSignal(payload, deliverySignals, scores) {
             </div>
           </td>
 
-          <td style="width:420px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:250px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                CATEGORY DETECTED
-              </div>
+      <td style="width:420px;vertical-align:top;">
+  <div style="
+    border:1px solid ${aiCategoryPanelBorder};
+    border-radius:10px;
+    padding:12px;
+    background:${aiCategoryPanelBg};
+    min-height:250px;
+  ">
+         <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;color:${aiCategoryHeadingColor};">
+  CATEGORY DETECTED
+</div>
               <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
                 ${escapeHtml(aiCategoryValue)}
               </div>
@@ -1910,17 +1952,17 @@ function renderAiSignal(payload, deliverySignals, scores) {
             </div>
           </td>
 
-          <td style="width:420px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:250px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                RECOMMENDATION TEST RESULT
-              </div>
+     <td style="width:420px;vertical-align:top;">
+  <div style="
+    border:1px solid ${aiRecommendationPanelBorder};
+    border-radius:10px;
+    padding:12px;
+    background:${aiRecommendationPanelBg};
+    min-height:250px;
+  ">
+           <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;color:${aiRecommendationHeadingColor};">
+  RECOMMENDATION TEST RESULT
+</div>
               <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
                 ${escapeHtml(recommendationResult)}
               </div>
