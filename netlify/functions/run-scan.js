@@ -642,44 +642,64 @@ async function openAiChat(messages, max_tokens = 450) {
 
 async function classifyBusinessCategory(pageSignals) {
   try {
+    async function runPrompt(useBody) {
+      const prompt = [
+        {
+          role: "system",
+          content:
+            "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. Choose the most likely category even if signals are imperfect. The category must be short, professional, and 2 to 4 words maximum. Return ONLY valid JSON."
+        },
+        {
+          role: "user",
+          content:
+            "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
+            "Title: " + (pageSignals.title || "") + "\n" +
+            "H1: " + (pageSignals.h1 || "") + "\n" +
+            "Meta description: " + (pageSignals.meta || "") + "\n" +
+            (useBody ? ("Page content excerpt: " + (pageSignals.body || "") + "\n") : "") +
+            "\nReturn JSON in this format:\n" +
+            '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
+        }
+      ];
 
-    const prompt = [
-      {
-        role: "system",
-        content:
-          "You classify websites into a single primary business category and generate one realistic AI recommendation prompt someone might use to find that type of business using ChatGPT, Gemini, Perplexity, or another AI assistant. The category must be short (2–4 words max). Return ONLY valid JSON."
-      },
-      {
-        role: "user",
-        content:
-          "Determine the primary business category for this website and generate one realistic AI recommendation prompt.\n\n" +
-          "Title: " + (pageSignals.title || "") + "\n" +
-          "H1: " + (pageSignals.h1 || "") + "\n" +
-          "Meta description: " + (pageSignals.meta || "") + "\n" +
-          "Page content excerpt: " + (pageSignals.body || "") + "\n\n" +
-          "Return JSON in this format:\n" +
-          '{"detected_category":"...","confidence":"high|medium|low","example_prompt_tested":"..."}'
+      const resp = await openAiChat(prompt, 160);
+      if (!resp) return null;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(resp);
+      } catch (e) {
+        console.warn("[run-scan] category JSON parse failed");
+        return null;
       }
-    ];
 
-    const resp = await openAiChat(prompt, 160);
-
-    if (!resp) return null;
-
-    let parsed;
-    try {
-      parsed = JSON.parse(resp);
-    } catch (e) {
-      console.warn("[run-scan] category JSON parse failed");
-      return null;
+      return {
+        detected_category: parsed.detected_category || null,
+        confidence: parsed.confidence || null,
+        example_prompt_tested: parsed.example_prompt_tested || null
+      };
     }
 
-    return {
-      detected_category: parsed.detected_category || null,
-      confidence: parsed.confidence || null,
-      example_prompt_tested: parsed.example_prompt_tested || null
-    };
+    // Pass 1: clean signals only
+    let result = await runPrompt(false);
 
+    if (
+      result &&
+      result.detected_category &&
+      result.confidence &&
+      result.confidence !== "low"
+    ) {
+      return result;
+    }
+
+    // Pass 2: include body text only as fallback
+    result = await runPrompt(true);
+
+    if (result && result.detected_category) {
+      return result;
+    }
+
+    return null;
   } catch (err) {
     console.warn("[run-scan] category classification failed", err);
     return null;
