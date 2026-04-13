@@ -1746,19 +1746,22 @@ function renderAiSignal(payload, deliverySignals, scores) {
   const status = scoreLabel(score);
   const evidence = ai && ai.evidence ? ai.evidence : {};
 
-  const aiCategory =
-    evidence.detected_category ||
-    evidence.service_term ||
-    evidence.category ||
-    "Not clearly established";
+const aiCategory =
+  evidence.detected_category ||
+  evidence.service_term ||
+  evidence.category ||
+  "";
 
-  const aiExamplePrompt =
-    evidence.example_prompt_tested || "";
+const aiExamplePrompt =
+  evidence.example_prompt_tested || "";
 
-  const aiTestMethod =
-    "AI recommendation prompts were tested for businesses in the " +
+const aiCategoryEstablished = !!aiCategory;
+
+const aiTestMethod = aiCategoryEstablished
+  ? "AI recommendation prompts were tested for businesses in the " +
     aiCategory +
-    " category to determine whether the brand appears in AI visibility results.";
+    " category to determine whether the brand is surfaced as a recommendation."
+  : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
 
   let observedText = "";
   let fixItems = [];
