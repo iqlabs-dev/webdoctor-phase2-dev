@@ -1246,7 +1246,33 @@ return {
       if (ai && ai.evidence) {
         var hits = num(ai.evidence.ai_recommendation_hits);
         var mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
+
+        var detectedCategory =
+          ai.evidence.detected_category ||
+          ai.evidence.schema_category ||
+          ai.evidence.service_term ||
+          ai.evidence.category ||
+          "";
+
+        var categoryDetected = !!String(detectedCategory || "").trim();
+        var brandSurfaced = hits !== null && hits > 0;
+
+        if (categoryDetected && brandSurfaced) {
+          return "The business category was identified and the brand appeared in tested AI recommendation results for that category.";
+        }
+
+        if (categoryDetected && !brandSurfaced) {
+          return "The business category was identified, however the brand did not appear in tested AI recommendation results for that category.";
+        }
+
+        if (!categoryDetected && brandSurfaced) {
+          return "The brand appeared in tested AI recommendation results, however the business category could not be clearly identified from the available site signals.";
+        }
+
+        if (!categoryDetected && !brandSurfaced) {
+          return "The business category could not be clearly identified, and the brand did not appear in tested AI recommendation results.";
+        }
+
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI Visibility requires stronger external context";
