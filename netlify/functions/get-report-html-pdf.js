@@ -1,6 +1,6 @@
 // netlify/functions/get-report-html-pdf.js
 // Branded summary PDF HTML for DocRaptor
-// Uses saved report data from get-report-data
+// Uses saved report data frm get-report-data
 // Output:
 // - Page 1: Header + Key Findings + Overall Delivery
 // - Page 2: Delivery Signals in 3x2 landscape grid
@@ -1315,29 +1315,51 @@ function getDomainNarrative(domainKey, pickedSignals, extras) {
   }
 
   if (domainKey === "ai_discoverability") {
-    const aiScore = extras && extras.aiScore;
-    const strongBrandCase = aiScore !== null && aiScore >= 60;
+    const categoryDetected = !!(extras && extras.aiCategoryDetected);
+    const brandSurfaced = !!(extras && extras.aiBrandSurfaced);
 
-    if (strongBrandCase) {
+    if (categoryDetected && brandSurfaced) {
       return {
         impact:
           "This score reflects whether the business appears in AI recommendation results for the tested category, not overall brand awareness." +
-          (haveList ? (" Signals such as " + listText + " were not prominent in the tested prompt set.") : ""),
+          (haveList ? (" Signals such as " + listText + " were present in the tested prompt set.") : ""),
         fix:
-          "No technical issue detected. The tested recommendation prompts may not represent typical visibility queries for this brand.",
+          "No immediate technical issue detected. Continue strengthening category relevance, external entity signals, and brand clarity where helpful.",
         next:
           "If needed, test additional prompts aligned with this brand's products, services, or category."
       };
     }
 
+    if (categoryDetected && !brandSurfaced) {
+      return {
+        impact:
+          "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
+          (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested AI recommendation prompts.") : ""),
+        fix:
+          "Improve AI visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+        next:
+          "Update one or more of those AI visibility signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI visibility signals may take several days or weeks to be reflected as models and external references update."
+      };
+    }
+
+    if (!categoryDetected && brandSurfaced) {
+      return {
+        impact:
+          "The brand appeared in tested AI recommendation results, however the business category could not be clearly identified from the available site signals.",
+        fix:
+          "Clarify the primary service category using stronger on-page category language, clearer service descriptions, and more consistent entity references.",
+        next:
+          "Strengthen category clarity, then re-run the scan to confirm whether category detection improves."
+      };
+    }
+
     return {
       impact:
-        "This score reflects whether the business appears in AI recommendations for the tested category, not overall brand awareness." +
-        (haveList ? (" Signals such as " + listText + " appear limited or absent in the tested AI recommendation prompts.") : ""),
+        "The business category could not be clearly identified, and the brand did not appear in tested AI recommendation results.",
       fix:
-        "Improve AI visibility by clarifying brand and category language, earning independent mentions from relevant sources, expanding category-specific references, and strengthening directory and profile consistency so recommendation systems can more clearly associate the business with the correct services.",
+        "Improve AI visibility by clarifying the brand and core service language, adding clearer category and niche context, earning relevant independent mentions, and strengthening consistent entity references across the web.",
       next:
-        "Update one or more of those AI visibility signals, then re-run the scan to check whether AI recommendation visibility improves. Improvements to AI visibility signals may take several days or weeks to be reflected as models and external references update."
+        "Strengthen those AI visibility signals, then re-run the scan to check whether category detection and recommendation visibility improve."
     };
   }
 
@@ -1568,7 +1590,33 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
       if (ai && ai.evidence) {
         const hits = num(ai.evidence.ai_recommendation_hits);
         const mentions = num(ai.evidence.independent_web_mentions);
-        if (hits !== null && hits <= 0) return "This business did not appear in tested AI recommendation results for this category.";
+
+        const detectedCategory =
+          ai.evidence.detected_category ||
+          ai.evidence.schema_category ||
+          ai.evidence.service_term ||
+          ai.evidence.category ||
+          "";
+
+        const categoryDetected = !!String(detectedCategory || "").trim();
+        const brandSurfaced = hits !== null && hits > 0;
+
+        if (categoryDetected && brandSurfaced) {
+          return "The business category was identified and the brand appeared in tested AI recommendation results for that category.";
+        }
+
+        if (categoryDetected && !brandSurfaced) {
+          return "The business category was identified, however the brand did not appear in tested AI recommendation results for that category.";
+        }
+
+        if (!categoryDetected && brandSurfaced) {
+          return "The brand appeared in tested AI recommendation results, however the business category could not be clearly identified from the available site signals.";
+        }
+
+        if (!categoryDetected && !brandSurfaced) {
+          return "The business category could not be clearly identified, and the brand did not appear in tested AI recommendation results.";
+        }
+
         if (mentions !== null && mentions < 2) return "Very limited independent web mentions";
       }
       return "AI Visibility requires stronger external context";
@@ -1582,11 +1630,24 @@ function buildKeyFindings(payload, scores, deliverySignals, basicChecks, securit
   const domain = weakest ? weakest.key : "";
   const narrativeSignals = collectNarrativeSignalsForDomain(domain, deliverySignals);
 
-  const extras = {
-    mobileLcpSeconds: lcpSecondsFromPayload(payload),
-    platformManaged: String(payload.platform_control || "").toLowerCase() === "limited",
-    aiScore: weakest && weakest.key === "ai_discoverability" ? weakest.score : null
-  };
+const aiSignal = findSignalByDomain(deliverySignals, "ai_discoverability");
+const aiEvidence = aiSignal && aiSignal.evidence ? aiSignal.evidence : {};
+
+const aiCategory =
+  aiEvidence.detected_category ||
+  aiEvidence.schema_category ||
+  aiEvidence.service_term ||
+  aiEvidence.category ||
+  "";
+
+const aiHits = num(aiEvidence.ai_recommendation_hits);
+
+const extras = {
+  mobileLcpSeconds: lcpSecondsFromPayload(payload),
+  platformManaged: String(payload.platform_control || "").toLowerCase() === "limited",
+  aiCategoryDetected: !!String(aiCategory || "").trim(),
+  aiBrandSurfaced: aiHits !== null && aiHits > 0
+};
 
   const domainNarrative = getDomainNarrative(domain, narrativeSignals, extras);
 
@@ -1746,46 +1807,78 @@ function renderAiSignal(payload, deliverySignals, scores) {
   const status = scoreLabel(score);
   const evidence = ai && ai.evidence ? ai.evidence : {};
 
-  const aiCategory =
-    evidence.detected_category ||
-    evidence.service_term ||
-    evidence.category ||
-    "Not clearly established";
+const aiCategory =
+  evidence.detected_category ||
+  evidence.service_term ||
+  evidence.category ||
+  "";
 
-  const aiExamplePrompt =
-    evidence.example_prompt_tested || "";
+const aiExamplePrompt =
+  evidence.example_prompt_tested || "";
 
-  const aiTestMethod =
-    "AI recommendation prompts were tested for businesses in the " +
+const aiHits = safeNumber(evidence.ai_recommendation_hits);
+const aiCategoryEstablished = !!String(aiCategory || "").trim();
+const aiBrandSurfaced = aiHits !== null ? aiHits > 0 : (score !== null && score >= 60);
+
+const aiTestMethod = aiCategoryEstablished
+  ? "AI recommendation prompts were tested for businesses in the " +
     aiCategory +
-    " category to determine whether the brand appears in AI visibility results.";
+    " category to determine whether the brand is surfaced as a recommendation."
+  : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be fully evaluated.";
 
-  let observedText = "";
-  let fixItems = [];
+let observedText = "";
+let fixItems = [];
+let recommendationResult = "";
 
-  if (score !== null && score >= 60) {
-    observedText =
-      "The brand showed some visibility in the tested AI recommendation prompt set. Treated as an observation signal rather than a direct technical defect.";
+if (aiCategoryEstablished && aiBrandSurfaced) {
+  recommendationResult = "Category identified and brand surfaced in tested AI recommendation results.";
 
-    fixItems = [
-      "No immediate technical issue was detected.",
-      "Test additional prompts aligned to real product, service, and category searches.",
-      "Expand entity clarity where it improves real-world visibility."
-    ];
-  } else {
-    observedText =
-      "The brand was not surfaced in the tested AI recommendation prompts for " +
-      aiCategory +
-      ", and supporting AI Visibility signals appear limited.";
+  observedText =
+    "AI systems were able to identify the business category and surface the brand in the tested recommendation prompts. This indicates that category and entity association signals are being recognised.";
 
-    fixItems = [
-      "Clarify the brand and category language used across the site.",
-      "Earn independent mentions from relevant third-party sources.",
-      "Tighten directory, profile, and citation consistency.",
-      "Add clearer product, service, and niche context for entity matching.",
-      "Test prompts reflecting real recommendation searches in your category."
-    ];
-  }
+  fixItems = [
+    "No immediate technical issue was detected.",
+    "Test additional prompts aligned to real product, service, and category searches.",
+    "Expand entity clarity where it improves real-world visibility."
+  ];
+} else if (aiCategoryEstablished && !aiBrandSurfaced) {
+  recommendationResult = "Category identified, but brand not surfaced in tested AI recommendation results.";
+
+  observedText =
+    "AI systems were able to identify the business category, however the brand was not surfaced in the tested recommendation prompts for that category.";
+
+  fixItems = [
+    "Clarify the brand and category language used across the site.",
+    "Earn independent mentions from relevant third-party sources.",
+    "Tighten directory, profile, and citation consistency.",
+    "Add clearer product, service, and niche context for entity matching.",
+    "Test prompts reflecting real recommendation searches in your category."
+  ];
+} else if (!aiCategoryEstablished && aiBrandSurfaced) {
+  recommendationResult = "Brand surfaced, but category could not be clearly determined.";
+
+  observedText =
+    "The brand appeared in the tested AI recommendation results, however the site did not provide enough clear category signals to confidently determine the primary business category.";
+
+  fixItems = [
+    "Clarify the website's primary service category using stronger on-page language.",
+    "Strengthen service, niche, and category references across the site.",
+    "Keep brand naming and profile references consistent across external sources."
+  ];
+} else {
+  recommendationResult = "Category not established and brand not surfaced in tested AI recommendation results.";
+
+  observedText =
+    "AI systems could not confidently determine the business category, and the brand was not surfaced in the tested recommendation prompts.";
+
+  fixItems = [
+    "Clarify the brand and core service language used across the site.",
+    "Add clearer category, service, and niche context to the site content.",
+    "Earn independent mentions from relevant third-party sources.",
+    "Tighten directory, profile, and citation consistency.",
+    "Strengthen entity signals so AI systems can associate the brand with the correct category."
+  ];
+}
 
   const footnote =
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
@@ -1840,9 +1933,9 @@ function renderAiSignal(payload, deliverySignals, scores) {
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 CATEGORY DETECTED
               </div>
-              <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
-                ${escapeHtml(String(aiCategory))}
-              </div>
+           <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+ ${escapeHtml(aiCategoryEstablished ? aiCategory : "Category could not be determined")}
+</div>
 
               <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
                 HOW THIS WAS TESTED
@@ -1874,17 +1967,25 @@ function renderAiSignal(payload, deliverySignals, scores) {
             </div>
           </td>
 
-          <td style="width:420px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:250px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                WHAT WAS OBSERVED
-              </div>
+  <td style="width:420px;vertical-align:top;">
+  <div style="
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    padding:12px;
+    background:rgba(255,255,255,0.02);
+    min-height:250px;
+  ">
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+      RECOMMENDATION TEST RESULT
+    </div>
+    <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
+      ${escapeHtml(recommendationResult)}
+    </div>
+
+    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
+      WHAT WAS OBSERVED
+    </div>
               <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
                 ${escapeHtml(observedText)}
               </div>
