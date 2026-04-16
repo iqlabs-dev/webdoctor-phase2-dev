@@ -119,13 +119,11 @@
       z-index: 20;
     }
 
-    .nav-left {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      min-width: 0;
-      justify-self: start;
-    }
+  .nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
     .nav-title {
       font-family: "Montserrat", sans-serif;
@@ -230,24 +228,19 @@
 .nav-cta {
   position: relative;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   gap: 3px;
-
-  padding: 10px 32px 10px 20px; /* ← balances arrow */
-
+  min-height: 44px;
+  padding: 10px 32px 10px 20px;
   background:
     radial-gradient(circle at top, rgba(15,23,42,0.96), #020617);
-
   border-color: rgba(34,211,238,0.55);
   color: var(--ink-soft);
-
   box-shadow:
     0 14px 32px rgba(15,23,42,0.85),
     inset 0 0 0 1px rgba(255,255,255,0.02);
-
   overflow: hidden;
 }
 
@@ -279,6 +272,7 @@
   text-transform: uppercase;
   line-height: 1.1;
   color: #e6fbff;
+  padding-right: 6px;
 }
 
 /* sub */
@@ -761,12 +755,67 @@ text-shadow:0 0 14px rgba(39,215,255,0.25);
   color: #22d3ee;
 }
 
+.hero-register-cta {
+  margin-top: 42px;
+  display: flex;
+  justify-content: center;
+}
+
+.hero-register-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.5;
+
+  color: #22c55e;
+
+  text-decoration: none;
+  white-space: nowrap;
+
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.hero-register-link:hover {
+  color: #4ade80;
+  transform: translateY(-1px);
+}
+
+.cta-arrow {
+  font-size: 20px;
+  font-weight: 700;
+  margin-left: 4px;
+  color: #22c55e;
+  transition: transform 0.18s ease;
+}
+
+.hero-register-link:hover .cta-arrow {
+  transform: translateX(4px);
+}
+
+@media (max-width: 860px) {
+  .hero-register-cta {
+    margin-top: 28px;
+  }
+
+  .hero-register-link {
+    font-size: 0.85rem;
+    white-space: normal;
+    text-align: center;
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 720px) {
   .hero-scan-form {
     flex-direction: column;
     gap: 10px;
     padding: 10px;
   }
+
 
   .hero-scan-button {
     width: 100%;
@@ -2280,38 +2329,32 @@ color:#27d7ff;
   <div class="page-shell">
     <div class="shell-inner">
 
-      <!-- NAVIGATION -->
-      <header class="nav">
-        <div class="nav-left">
-          <a href="/" class="nav-title">iQWEB</a>
+<!-- NAVIGATION -->
+<header class="nav">
+  <div class="nav-left">
+    <a href="/" class="nav-title">iQWEB</a>
+  </div>
 
-          <a href="/dashboard.html" class="nav-ghost">
-            Dashboard
-          </a>
-        </div>
+  <div class="nav-center">
+    <div class="nav-links">
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="#signals" class="nav-link">Signals</a>
+      <a href="/faq.html" class="nav-link">FAQ</a>
+      <a href="/methodology.html" class="nav-link">Methodology</a>
+      <a href="#trust" class="nav-link">Trust</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+    </div>
+  </div>
 
-        <div class="nav-center">
-<div class="nav-links">
-  <a href="#how" class="nav-link">How it works</a>
-  <a href="#signals" class="nav-link">Signals</a>
-  <a href="/faq.html" class="nav-link">FAQ</a>
-  <a href="/methodology.html" class="nav-link">Methodology</a>
-  <a href="#trust" class="nav-link">Trust</a>
-  <a href="#pricing" class="nav-link">Pricing</a>
-</div>
-        </div>
-
-        <div class="nav-right">
+  <div class="nav-right">
     <a href="/dashboard.html" class="nav-cta nav-cta-stack">
-  <span class="nav-cta-main">Run 5 Free Scans</span>
-  <span class="nav-cta-sub">Baseline Tracking</span>
-  <svg viewBox="0 0 20 20" aria-hidden="true">
-    <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z"/>
-  </svg>
-</a>
-          </a>
-        </div>
-      </header>
+      <span class="nav-cta-main">Dashboard</span>
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path fill="currentColor" d="M5 10.75h6.69L9.47 13a.75.75 0 1 0 1.06 1.06l3.75-3.75a.75.75 0 0 0 0-1.06L10.53 5.5A.75.75 0 0 0 9.47 6.56L11.69 8.8H5a.75.75 0 0 0 0 1.5Z"/>
+      </svg>
+    </a>
+  </div>
+</header>
 
   
 
@@ -2326,7 +2369,7 @@ Website Diagnostic Platform • Baseline Tracking
 <h1 class="hero-title">
   <span class="hero-line hero-line-top">PERFORMANCE&nbsp;•&nbsp;SEO&nbsp;•&nbsp;TRUST</span>
   <span class="hero-line hero-line-focus">AI VISIBILITY</span>
-  <span class="hero-line hero-line-sub">One Clear Client-Ready Diagnostic Report</span>
+  <span class="hero-line hero-line-sub">One Clear Client-Ready Website Diagnostic</span>
 </h1>
     
 </h1>
@@ -2353,15 +2396,22 @@ Website Diagnostic Platform • Baseline Tracking
               </button>
             </form>
 
-            <div class="hero-scan-meta">
-              <div class="hero-benefits">
-                <span>No signup required</span>
-                <span>Scan any public website</span>
-                <span>Instant client-ready report</span>
-              </div>
+<div class="hero-scan-meta">
+  <div class="hero-benefits">
+    <span>No signup required</span>
+    <span>Scan any public website</span>
+    <span>Instant client-ready report</span>
+  </div>
 
-              <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
-            </div>
+<div class="hero-register-cta">
+  <a href="/dashboard.html" class="hero-register-link">
+    <span>Create a free account to unlock <strong>5 free scans</strong> and baseline tracking</span>
+    <span class="cta-arrow">→</span>
+  </a>
+</div>
+
+  <div id="heroScanStatus" class="hero-scan-status" aria-live="polite"></div>
+</div>
           </div>
 
           <section class="iq-diagnostic-zone">
