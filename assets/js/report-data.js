@@ -1597,10 +1597,9 @@ return {
       var sig = safeObj(signals[i]);
 
       var label = String(sig.label || sig.id || "Signal");
-      var rawScore = asInt(sig.score, 0);
-
-      var unmeasured = isUnmeasuredSignal(sig, rawScore);
-      var score = unmeasured ? null : rawScore;
+var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0) : asInt(sig.score, 0);
+var unmeasured = isUnmeasuredSignal(sig, displayScore);
+var score = unmeasured ? null : displayScore;
 
       var key = domainKeyFromSignal(sig);
 
