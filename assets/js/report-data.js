@@ -1866,12 +1866,16 @@ if (key === "ai_discoverability") label = "AI Visibility";
           window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
         "full";
 
-      var platformManaged = (platformControl === "limited" && key === "security");
+    var platformManaged = (platformControl === "limited" && key === "security");
 
-      var rawScore = asInt(sig.score, 0);
-      var unmeasured = isUnmeasuredSignal(sig, rawScore);
-      var score = unmeasured ? null : rawScore;
+var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0) : asInt(sig.score, 0);
+var unmeasured = isUnmeasuredSignal(sig, displayScore);
+var score = unmeasured ? null : displayScore;
 
+if (platformManaged) {
+  score = 95;
+  unmeasured = false;
+}
       var issues = asArray(sig.issues);
       var obs = asArray(sig.observations);
       var deds = asArray(sig.deductions);
