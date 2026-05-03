@@ -2335,13 +2335,27 @@ function renderExecutiveTopIssues(items) {
     return "monitor";
   }
 
+  function cleanIssueTitle(title) {
+    return String(title || "")
+      .replace(/^AI Visibility:\s*/i, "")
+      .replace(/^SEO Foundations:\s*/i, "")
+      .replace(/^SEO:\s*/i, "")
+      .replace(/^Performance:\s*/i, "")
+      .replace(/^Security & Trust:\s*/i, "")
+      .replace(/^Trust:\s*/i, "")
+      .replace(/^Structure & Semantics:\s*/i, "")
+      .replace(/^Accessibility:\s*/i, "")
+      .trim();
+  }
+
   var out = "";
 
   for (var i = 0; i < items.length; i++) {
     var it = safeObj(items[i]);
-    var title = String(it.title || "").trim();
+    var rawTitle = String(it.title || "").trim();
+    var title = cleanIssueTitle(rawTitle);
     var sev = String(it.sev || "MONITOR").toUpperCase();
-    var cls = issueIconClass(title);
+    var cls = issueIconClass(rawTitle);
     var sCls = sevClass(sev);
 
     out +=
