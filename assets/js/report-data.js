@@ -2368,12 +2368,12 @@ function iconSVG(cls) {
   var cls = issueIconClass((it.domain || "") + " " + rawTitle);
     var sCls = sevClass(sev);
 
-    out +=
-      '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
-        '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + escapeHtml(iconSymbol(cls)) + '</span>' +
-        '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
-        '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
-      '</div>';
+out +=
+  '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
+    '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + iconSVG(cls) + '</span>' +
+    '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
+    '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
+  '</div>';
   }
 
   execRoot.innerHTML = out;
