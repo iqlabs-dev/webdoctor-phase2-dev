@@ -973,6 +973,344 @@ body {
 }
     }
 
+
+
+/* -------------------------------- */
+/* REPORT V2 EXECUTIVE DASHBOARD    */
+/* -------------------------------- */
+.executive-dashboard {
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(34,211,238,0.10), transparent 28%),
+    linear-gradient(180deg, rgba(13,22,41,0.92), rgba(4,7,14,0.98));
+  border: 1px solid rgba(148,163,184,0.18);
+}
+
+.executive-dashboard::before {
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.42), transparent);
+}
+
+.exec-dash-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+}
+
+.exec-eyebrow {
+  margin: 0 0 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.exec-title {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.14;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+.exec-subtitle {
+  margin: 8px 0 0;
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.exec-status-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #9ff7e8;
+  border: 1px solid rgba(34,211,238,0.22);
+  background: rgba(34,211,238,0.07);
+}
+
+.exec-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 16px rgba(34,197,94,0.45);
+}
+
+.exec-score-grid {
+  display: grid;
+  grid-template-columns: 250px repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+}
+
+.exec-overall-score {
+  padding: 20px 22px;
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 16px;
+  align-items: center;
+  border-right: 1px solid rgba(148,163,184,0.14);
+  background: rgba(255,255,255,0.018);
+}
+
+.exec-score-ring {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background: conic-gradient(var(--accent-strong) var(--dash-score-deg, 0deg), rgba(148,163,184,0.14) 0deg);
+}
+
+.exec-score-ring::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: #07101f;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.exec-score-ring strong {
+  position: relative;
+  z-index: 1;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: #fff;
+}
+
+.exec-score-ring span {
+  position: relative;
+  z-index: 1;
+  align-self: start;
+}
+
+.exec-score-copy .k,
+.exec-signal .k,
+.exec-priority-label,
+.exec-snapshot .k {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.exec-score-copy .v {
+  margin-top: 7px;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.exec-score-copy .note {
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.exec-signal {
+  padding: 19px 18px;
+  min-width: 0;
+  border-right: 1px solid rgba(148,163,184,0.12);
+}
+
+.exec-signal:last-child { border-right: 0; }
+
+.exec-signal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.exec-signal-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.exec-signal-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--sig) 32%, transparent);
+  background: color-mix(in srgb, var(--sig) 12%, transparent);
+  color: var(--sig);
+}
+
+.exec-signal-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.exec-signal-score {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: var(--sig);
+}
+
+.exec-signal-score small {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.exec-signal-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148,163,184,0.14);
+}
+
+.exec-signal-bar span {
+  display: block;
+  height: 100%;
+  width: var(--score-width, 0%);
+  border-radius: inherit;
+  background: var(--sig);
+}
+
+.exec-dashboard-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) 330px;
+  gap: 16px;
+  padding: 18px 22px 22px;
+}
+
+.exec-panel {
+  border: 1px solid rgba(148,163,184,0.13);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.026);
+  padding: 16px;
+}
+
+.exec-panel-title {
+  margin: 0 0 13px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.exec-priority-list {
+  display: grid;
+  gap: 10px;
+}
+
+.exec-priority {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 11px;
+  align-items: start;
+  padding: 11px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.20);
+  border: 1px solid rgba(148,163,184,0.10);
+}
+
+.exec-priority-rank {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+  color: #061018;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+}
+
+.exec-priority-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.38;
+}
+
+.exec-diagnosis {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+  background: rgba(34,211,238,0.055);
+  border: 1px solid rgba(34,211,238,0.16);
+}
+
+.exec-snapshot {
+  display: grid;
+  gap: 10px;
+}
+
+.exec-snapshot-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148,163,184,0.10);
+}
+
+.exec-snapshot-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.exec-snapshot .v {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+#executiveNarrativeSection .section-head { display: none; }
+#executiveNarrativeSection .section-body { padding: 0; }
+
+@media (max-width: 1050px) {
+  .exec-score-grid { grid-template-columns: 1fr 1fr; }
+  .exec-overall-score { grid-column: 1 / -1; border-right: 0; border-bottom: 1px solid rgba(148,163,184,0.12); }
+  .exec-signal:nth-child(odd) { border-right: 1px solid rgba(148,163,184,0.12); }
+  .exec-dashboard-body { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .exec-dash-head { flex-direction: column; }
+  .exec-score-grid { grid-template-columns: 1fr; }
+  .exec-overall-score { grid-template-columns: 80px 1fr; }
+  .exec-signal { border-right: 0 !important; border-bottom: 1px solid rgba(148,163,184,0.12); }
+  .exec-signal:last-child { border-bottom: 0; }
+}
+
 /* -------------------------------- */
 /* AI VISIBILITY LAYOUT             */
 /* -------------------------------- */
@@ -1240,35 +1578,115 @@ body {
       </section>
 
       <main id="reportRoot" style="display:none;">
-        <section class="section" id="executiveNarrativeSection">
+        <section class="section executive-dashboard" id="executiveNarrativeSection">
           <div class="section-head">
-            <h2 class="section-title">Key Findings</h2>
+            <h2 class="section-title">Executive Dashboard</h2>
           </div>
           <div class="section-body">
-            <div id="narrativeText" class="keyfindings">
-              <div class="finding-row">
-                <div class="finding-label">Overall Delivery</div>
-                <div class="finding-value" id="findingOverall">Loading report…</div>
+            <div id="narrativeText" class="exec-dashboard-wrap">
+              <div class="exec-dash-head">
+                <div>
+                  <p class="exec-eyebrow">Client-ready diagnostic summary</p>
+                  <h2 class="exec-title">Website delivery dashboard</h2>
+                  <p class="exec-subtitle" id="execSubtitle">A compact view of the score, weakest signal, and highest-priority fixes from this scan.</p>
+                </div>
+                <div class="exec-status-pill"><span class="exec-status-dot"></span>Report Ready</div>
               </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Primary Constraint</div>
-                <div class="finding-value" id="findingConstraint">Loading report…</div>
+              <div class="exec-score-grid">
+                <div class="exec-overall-score">
+                  <div class="exec-score-ring" id="dashOverallRing" style="--dash-score-deg:0deg;">
+                    <strong id="dashOverallScore">—</strong>
+                  </div>
+                  <div class="exec-score-copy">
+                    <div class="k">Overall score</div>
+                    <div class="v" id="dashOverallVerdict">Loading</div>
+                    <div class="note" id="findingOverall">Loading report…</div>
+                  </div>
+                </div>
+
+                <div class="exec-signal" style="--sig:#22c55e;">
+                  <div class="exec-signal-top">
+                    <div class="exec-signal-name">
+                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 10-13h-7l0-7z"/></svg></span>
+                      <div class="k">Performance</div>
+                    </div>
+                  </div>
+                  <div class="exec-signal-score"><span id="dashPerformanceScore">—</span><small>/100</small></div>
+                  <div class="exec-signal-bar"><span id="dashPerformanceBar"></span></div>
+                </div>
+
+                <div class="exec-signal" style="--sig:#60a5fa;">
+                  <div class="exec-signal-top">
+                    <div class="exec-signal-name">
+                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span>
+                      <div class="k">SEO</div>
+                    </div>
+                  </div>
+                  <div class="exec-signal-score"><span id="dashSeoScore">—</span><small>/100</small></div>
+                  <div class="exec-signal-bar"><span id="dashSeoBar"></span></div>
+                </div>
+
+                <div class="exec-signal" style="--sig:#14b8a6;">
+                  <div class="exec-signal-top">
+                    <div class="exec-signal-name">
+                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-5"/></svg></span>
+                      <div class="k">Trust</div>
+                    </div>
+                  </div>
+                  <div class="exec-signal-score"><span id="dashTrustScore">—</span><small>/100</small></div>
+                  <div class="exec-signal-bar"><span id="dashTrustBar"></span></div>
+                </div>
+
+                <div class="exec-signal" style="--sig:#f59e0b;">
+                  <div class="exec-signal-top">
+                    <div class="exec-signal-name">
+                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+                      <div class="k">AI Visibility</div>
+                    </div>
+                  </div>
+                  <div class="exec-signal-score"><span id="dashAiScore">—</span><small>/100</small></div>
+                  <div class="exec-signal-bar"><span id="dashAiBar"></span></div>
+                </div>
               </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Impact</div>
-                <div class="finding-value" id="findingImpact">Analysing measured signals…</div>
-              </div>
+              <div class="exec-dashboard-body">
+                <div class="exec-panel">
+                  <h3 class="exec-panel-title">Top priorities</h3>
+                  <div class="exec-priority-list">
+                    <div class="exec-priority">
+                      <div class="exec-priority-rank">1</div>
+                      <div>
+                        <div class="exec-priority-label">Primary constraint</div>
+                        <p class="exec-priority-title" id="findingConstraint">Loading report…</p>
+                      </div>
+                    </div>
+                    <div class="exec-priority">
+                      <div class="exec-priority-rank">2</div>
+                      <div>
+                        <div class="exec-priority-label">Impact</div>
+                        <p class="exec-priority-title" id="findingImpact">Analysing measured signals…</p>
+                      </div>
+                    </div>
+                    <div class="exec-priority">
+                      <div class="exec-priority-rank">3</div>
+                      <div>
+                        <div class="exec-priority-label">Recommended fix</div>
+                        <p class="exec-priority-title" id="findingFix">Preparing recommended action…</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="exec-diagnosis" id="findingNext">Preparing next step…</div>
+                </div>
 
-              <div class="finding-row">
-                <div class="finding-label">Recommended Fix</div>
-                <div class="finding-value" id="findingFix">Preparing recommended action…</div>
-              </div>
-
-              <div class="finding-row">
-                <div class="finding-label">Next Step</div>
-                <div class="finding-value" id="findingNext">Preparing next step…</div>
+                <div class="exec-panel exec-snapshot">
+                  <h3 class="exec-panel-title">Scan snapshot</h3>
+                  <div class="exec-snapshot-row"><div class="k">Website</div><div class="v" id="dashWebsite">—</div></div>
+                  <div class="exec-snapshot-row"><div class="k">Report ID</div><div class="v" id="dashReportId">—</div></div>
+                  <div class="exec-snapshot-row"><div class="k">Report Date</div><div class="v" id="dashReportDate">—</div></div>
+                  <div class="exec-snapshot-row"><div class="k">Status</div><div class="v">Complete</div></div>
+                  <div class="exec-snapshot-row"><div class="k">Model</div><div class="v">Deterministic Signals</div></div>
+                </div>
               </div>
             </div>
           </div>
