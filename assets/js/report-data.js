@@ -2355,7 +2355,7 @@ function renderExecutiveTopIssues(items) {
     var rawTitle = String(it.title || "").trim();
     var title = cleanIssueTitle(rawTitle);
     var sev = String(it.sev || "MONITOR").toUpperCase();
-    var cls = issueIconClass(rawTitle);
+  var cls = issueIconClass((it.domain || "") + " " + rawTitle);
     var sCls = sevClass(sev);
 
     out +=
