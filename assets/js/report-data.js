@@ -597,6 +597,85 @@ function setOverallUI(scores, overallSummary) {
   if (note) note.textContent = base;
 }
 
+
+
+function setExecutiveDashboardUI(data, header, scores, signals, primary) {
+  data = safeObj(data);
+  header = safeObj(header);
+  scores = safeObj(scores);
+  signals = asArray(signals);
+
+  function setText(id, value) {
+    var el = $(id);
+    if (!el) return;
+    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "—" : String(value);
+  }
+
+  function setRing(id, score) {
+    var el = $(id);
+    if (!el) return;
+    if (score === null || typeof score === "undefined") {
+      el.style.setProperty("--dash-score-deg", "0deg");
+      return;
+    }
+    var s = asInt(score, 0);
+    el.style.setProperty("--dash-score-deg", (s * 3.6) + "deg");
+  }
+
+  function displayScoreFor(domainKey, scoreKey) {
+    var sig = findSignalByDomain(signals, domainKey);
+    var v = null;
+
+    if (sig && sig.display_score !== undefined) v = asInt(sig.display_score, 0);
+    else if (sig && sig.score !== undefined) v = asInt(sig.score, 0);
+    else v = scoreFor(scores, scoreKey || domainKey);
+
+    if (sig && isUnmeasuredSignal(sig, v === null ? 0 : v)) return null;
+
+    var platformControl =
+      data.platform_control ||
+      (data.platform && data.platform.controlLevel) ||
+      "full";
+
+    if (platformControl === "limited" && domainKey === "security") return 95;
+    return v;
+  }
+
+  function scoreLabel(score) {
+    if (score === null || typeof score === "undefined") return "Not measured";
+    return verdict(score);
+  }
+
+  function setScore(prefix, score) {
+    setText(prefix + "Score", score === null || typeof score === "undefined" ? "—" : score);
+    setText(prefix + "Verdict", scoreLabel(score));
+    setRing(prefix + "Ring", score);
+  }
+
+  var overall = scoreFor(scores, "overall");
+  if (overall === null) overall = 0;
+
+  setScore("dashOverall", overall);
+  setScore("dashPerformance", displayScoreFor("performance", "performance"));
+  setScore("dashSeo", displayScoreFor("seo", "seo"));
+  setScore("dashTrust", displayScoreFor("security", "security"));
+  setScore("dashAi", displayScoreFor("ai_discoverability", "ai_discoverability"));
+
+  var website = String(header.website || "").trim();
+  var rid = String(header.report_id || "").trim();
+  var created = header.report_date || header.created_at || header.generated_at || "";
+
+  setText("dashWebsite", website || "—");
+  setText("dashReportId", rid || "—");
+  setText("dashReportDate", formatDate(created));
+
+  var subtitle = $("execSubtitle");
+  if (subtitle) {
+    var constraint = primary && primary.key ? specificConstraintLabel(data, primary, signals) : "the clearest measured signal";
+    subtitle.textContent = "A compact executive view of the score, supporting signals, and highest-priority fixes from this scan.";
+  }
+}
+
   // -----------------------------
   // Deterministic model constants
   // -----------------------------
@@ -2458,6 +2537,7 @@ section.style.display = "block";
     showReport();
 
     safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
+    safeRenderSection("setExecutiveDashboardUI", function () { setExecutiveDashboardUI(data, header, scores, signals, primary); });
     safeRenderSection("renderProgressSinceLastScan", function () { renderProgressSinceLastScan(data, scores); });
     safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
     safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });

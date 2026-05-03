@@ -62,7 +62,7 @@ body {
 
 .shell-inner {
   width: 100%;
-  max-width: 1120px;
+  max-width: 1040px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -850,7 +850,7 @@ body {
 
     .loader-wrap {
       width: 100%;
-      max-width: 1120px;
+      max-width: 1040px;
       border-radius: var(--radius);
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border-subtle);
@@ -895,7 +895,7 @@ body {
 
     .footer {
       width: 100%;
-      max-width: 1120px;
+      max-width: 1040px;
       color: rgba(229,240,255,0.60);
       font-size: 11px;
       text-align: center;
@@ -1200,15 +1200,15 @@ body {
 .exec-dashboard-body {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) 330px;
-  gap: 16px;
-  padding: 18px 22px 22px;
+  gap: 22px;
+  padding: 22px 28px 28px;
 }
 
 .exec-panel {
   border: 1px solid rgba(148,163,184,0.13);
   border-radius: 18px;
   background: rgba(255,255,255,0.026);
-  padding: 16px;
+  padding: 18px;
 }
 
 .exec-panel-title {
@@ -1317,7 +1317,7 @@ body {
 /* -------------------------------- */
 .exec-score-grid.exec-score-circles {
   display: grid;
-grid-template-columns: 2fr repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
   padding: 18px 22px;
   border-bottom: 1px solid rgba(148,163,184,0.12);
@@ -1327,8 +1327,8 @@ grid-template-columns: 2fr repeat(4, 1fr);
 .exec-overall-score,
 .exec-signal {
   min-width: 0;
-  min-height: 176px;
-  padding: 16px 12px 15px;
+  min-height: 184px;
+  padding: 22px 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1341,20 +1341,6 @@ grid-template-columns: 2fr repeat(4, 1fr);
     radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--sig) 13%, transparent), transparent 45%),
     linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
-}
-/* === MAKE OVERALL BIGGER (SAFE) === */
-.exec-overall-score {
-  transform: scale(1.08);
-  border-color: rgba(56,232,212,0.35);
-}
-
-.exec-overall-score .exec-score-ring {
-  width: 120px;
-  height: 120px;
-}
-
-.exec-overall-score .exec-score-ring strong {
-  font-size: 38px;
 }
 
 .exec-overall-score {
@@ -1487,6 +1473,41 @@ grid-template-columns: 2fr repeat(4, 1fr);
     min-height: 150px;
   }
   
+}
+
+/* === REPORT V2 POLISH: NARROWER + MORE BREATHING ROOM === */
+.executive-dashboard {
+  max-width: 100%;
+}
+
+.exec-score-grid.exec-score-circles {
+  align-items: stretch;
+}
+
+.exec-score-card,
+.exec-overall-score,
+.exec-signal {
+  margin: 0;
+}
+
+.exec-overall-score {
+  min-height: 194px;
+}
+
+.exec-dashboard-body {
+  align-items: stretch;
+}
+
+.exec-priority-list {
+  gap: 14px;
+}
+
+.exec-priority {
+  padding: 14px;
+}
+
+.exec-snapshot-row {
+  padding: 13px 0;
 }
 
 /* -------------------------------- */
