@@ -1317,9 +1317,9 @@ body {
 /* -------------------------------- */
 .exec-score-grid.exec-score-circles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 14px;
-  padding: 18px 22px;
+  grid-template-columns: 1.45fr repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  padding: 22px 26px;
   border-bottom: 1px solid rgba(148,163,184,0.12);
 }
 
@@ -1327,24 +1327,31 @@ body {
 .exec-overall-score,
 .exec-signal {
   min-width: 0;
-  min-height: 184px;
-  padding: 22px 16px 20px;
+  min-height: 190px;
+  padding: 24px 18px 22px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 11px;
   text-align: center;
   border: 1px solid rgba(148,163,184,0.13);
-  border-radius: 18px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--sig) 13%, transparent), transparent 45%),
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--sig) 13%, transparent), transparent 48%),
     linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
 }
 
 .exec-overall-score {
-  border-color: rgba(56,232,212,0.24);
+  min-height: 214px;
+  border-color: rgba(56,232,212,0.36);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(56,232,212,0.18), transparent 55%),
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(0,0,0,0.18));
+  box-shadow:
+    0 14px 44px rgba(56,232,212,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .exec-score-ring {
@@ -1362,19 +1369,19 @@ body {
 }
 
 .exec-ring-lg {
-  width: 104px;
-  height: 104px;
+  width: 142px;
+  height: 142px;
 }
 
 .exec-ring-sm {
-  width: 86px;
-  height: 86px;
+  width: 92px;
+  height: 92px;
 }
 
 .exec-score-ring::after {
   content: "";
   position: absolute;
-  inset: 9px;
+  inset: 10px;
   border-radius: 50%;
   background: #07101f;
   border: 1px solid rgba(255,255,255,0.07);
@@ -1390,21 +1397,21 @@ body {
 }
 
 .exec-ring-lg strong {
-  font-size: 34px;
+  font-size: 46px;
 }
 
 .exec-ring-sm strong {
-  font-size: 28px;
+  font-size: 30px;
 }
 
 .exec-mini-icon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
   color: var(--sig);
   border: 1px solid color-mix(in srgb, var(--sig) 34%, transparent);
-  border-radius: 10px;
+  border-radius: 11px;
   background: color-mix(in srgb, var(--sig) 10%, transparent);
 }
 
@@ -1431,7 +1438,7 @@ body {
 }
 
 .exec-score-copy .v {
-  margin-top: 6px;
+  margin-top: 7px;
   color: var(--sig);
   font-size: 12px;
   font-weight: 900;
@@ -1440,10 +1447,22 @@ body {
 }
 
 .exec-score-copy .note {
-  margin-top: 5px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
+}
+
+.exec-overall-score .exec-score-copy .k {
+  font-size: 11px;
+}
+
+.exec-overall-score .exec-score-copy .v {
+  font-size: 13px;
+}
+
+.exec-overall-score .exec-score-copy .note {
+  font-size: 12px;
 }
 
 .exec-signal-top,
@@ -1457,7 +1476,9 @@ body {
 @media (max-width: 1050px) {
   .exec-score-grid.exec-score-circles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
   }
+
   .exec-overall-score {
     grid-column: 1 / -1;
   }
@@ -1466,13 +1487,23 @@ body {
 @media (max-width: 620px) {
   .exec-score-grid.exec-score-circles {
     grid-template-columns: 1fr;
+    padding: 18px;
   }
+
   .exec-score-card,
   .exec-overall-score,
   .exec-signal {
-    min-height: 150px;
+    min-height: 160px;
   }
-  
+
+  .exec-ring-lg {
+    width: 120px;
+    height: 120px;
+  }
+
+  .exec-ring-lg strong {
+    font-size: 40px;
+  }
 }
 
 /* === REPORT V2 POLISH: NARROWER + MORE BREATHING ROOM === */
