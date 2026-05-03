@@ -1311,6 +1311,169 @@ body {
   .exec-signal:last-child { border-bottom: 0; }
 }
 
+
+/* -------------------------------- */
+/* REPORT V2 SCORE CIRCLES          */
+/* -------------------------------- */
+.exec-score-grid.exec-score-circles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(148,163,184,0.12);
+}
+
+.exec-score-card,
+.exec-overall-score,
+.exec-signal {
+  min-width: 0;
+  min-height: 176px;
+  padding: 16px 12px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  border: 1px solid rgba(148,163,184,0.13);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--sig) 13%, transparent), transparent 45%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
+}
+
+.exec-overall-score {
+  border-color: rgba(56,232,212,0.24);
+}
+
+.exec-score-ring {
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex: 0 0 auto;
+  background:
+    conic-gradient(var(--sig) var(--dash-score-deg, 0deg), rgba(148,163,184,0.16) 0deg),
+    radial-gradient(circle, rgba(255,255,255,0.05), rgba(255,255,255,0));
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.035),
+    0 14px 34px color-mix(in srgb, var(--sig) 16%, transparent);
+}
+
+.exec-ring-lg {
+  width: 104px;
+  height: 104px;
+}
+
+.exec-ring-sm {
+  width: 86px;
+  height: 86px;
+}
+
+.exec-score-ring::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: #07101f;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.exec-score-ring strong {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.exec-ring-lg strong {
+  font-size: 34px;
+}
+
+.exec-ring-sm strong {
+  font-size: 28px;
+}
+
+.exec-mini-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--sig);
+  border: 1px solid color-mix(in srgb, var(--sig) 34%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--sig) 10%, transparent);
+}
+
+.exec-mini-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.exec-score-copy {
+  width: 100%;
+}
+
+.exec-score-copy .k {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.exec-score-copy .v {
+  margin-top: 6px;
+  color: var(--sig);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.exec-score-copy .note {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.exec-signal-top,
+.exec-signal-name,
+.exec-signal-bar,
+.exec-signal-score,
+.exec-signal-icon {
+  display: none;
+}
+
+@media (max-width: 1050px) {
+  .exec-score-grid.exec-score-circles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .exec-overall-score {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .exec-score-grid.exec-score-circles {
+    grid-template-columns: 1fr;
+  }
+  .exec-score-card,
+  .exec-overall-score,
+  .exec-signal {
+    min-height: 150px;
+  }
+}
+
 /* -------------------------------- */
 /* AI VISIBILITY LAYOUT             */
 /* -------------------------------- */
@@ -1593,60 +1756,60 @@ body {
                 <div class="exec-status-pill"><span class="exec-status-dot"></span>Report Ready</div>
               </div>
 
-              <div class="exec-score-grid">
-                <div class="exec-overall-score">
-                  <div class="exec-score-ring" id="dashOverallRing" style="--dash-score-deg:0deg;">
+              <div class="exec-score-grid exec-score-circles">
+                <div class="exec-score-card exec-overall-score" style="--sig:#38e8d4;">
+                  <div class="exec-score-ring exec-ring-lg" id="dashOverallRing" style="--dash-score-deg:0deg;">
                     <strong id="dashOverallScore">—</strong>
                   </div>
                   <div class="exec-score-copy">
-                    <div class="k">Overall score</div>
+                    <div class="k">Overall</div>
                     <div class="v" id="dashOverallVerdict">Loading</div>
                     <div class="note" id="findingOverall">Loading report…</div>
                   </div>
                 </div>
 
-                <div class="exec-signal" style="--sig:#22c55e;">
-                  <div class="exec-signal-top">
-                    <div class="exec-signal-name">
-                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 10-13h-7l0-7z"/></svg></span>
-                      <div class="k">Performance</div>
-                    </div>
+                <div class="exec-score-card exec-signal" style="--sig:#22c55e;">
+                  <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 10-13h-7l0-7z"/></svg></div>
+                  <div class="exec-score-ring exec-ring-sm" id="dashPerformanceRing" style="--dash-score-deg:0deg;">
+                    <strong id="dashPerformanceScore">—</strong>
                   </div>
-                  <div class="exec-signal-score"><span id="dashPerformanceScore">—</span><small>/100</small></div>
-                  <div class="exec-signal-bar"><span id="dashPerformanceBar"></span></div>
+                  <div class="exec-score-copy">
+                    <div class="k">Performance</div>
+                    <div class="v" id="dashPerformanceVerdict">—</div>
+                  </div>
                 </div>
 
-                <div class="exec-signal" style="--sig:#60a5fa;">
-                  <div class="exec-signal-top">
-                    <div class="exec-signal-name">
-                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></span>
-                      <div class="k">SEO</div>
-                    </div>
+                <div class="exec-score-card exec-signal" style="--sig:#60a5fa;">
+                  <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div>
+                  <div class="exec-score-ring exec-ring-sm" id="dashSeoRing" style="--dash-score-deg:0deg;">
+                    <strong id="dashSeoScore">—</strong>
                   </div>
-                  <div class="exec-signal-score"><span id="dashSeoScore">—</span><small>/100</small></div>
-                  <div class="exec-signal-bar"><span id="dashSeoBar"></span></div>
+                  <div class="exec-score-copy">
+                    <div class="k">SEO</div>
+                    <div class="v" id="dashSeoVerdict">—</div>
+                  </div>
                 </div>
 
-                <div class="exec-signal" style="--sig:#14b8a6;">
-                  <div class="exec-signal-top">
-                    <div class="exec-signal-name">
-                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-5"/></svg></span>
-                      <div class="k">Trust</div>
-                    </div>
+                <div class="exec-score-card exec-signal" style="--sig:#14b8a6;">
+                  <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-5"/></svg></div>
+                  <div class="exec-score-ring exec-ring-sm" id="dashTrustRing" style="--dash-score-deg:0deg;">
+                    <strong id="dashTrustScore">—</strong>
                   </div>
-                  <div class="exec-signal-score"><span id="dashTrustScore">—</span><small>/100</small></div>
-                  <div class="exec-signal-bar"><span id="dashTrustBar"></span></div>
+                  <div class="exec-score-copy">
+                    <div class="k">Trust</div>
+                    <div class="v" id="dashTrustVerdict">—</div>
+                  </div>
                 </div>
 
-                <div class="exec-signal" style="--sig:#f59e0b;">
-                  <div class="exec-signal-top">
-                    <div class="exec-signal-name">
-                      <span class="exec-signal-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
-                      <div class="k">AI Visibility</div>
-                    </div>
+                <div class="exec-score-card exec-signal" style="--sig:#f59e0b;">
+                  <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></div>
+                  <div class="exec-score-ring exec-ring-sm" id="dashAiRing" style="--dash-score-deg:0deg;">
+                    <strong id="dashAiScore">—</strong>
                   </div>
-                  <div class="exec-signal-score"><span id="dashAiScore">—</span><small>/100</small></div>
-                  <div class="exec-signal-bar"><span id="dashAiBar"></span></div>
+                  <div class="exec-score-copy">
+                    <div class="k">AI Visibility</div>
+                    <div class="v" id="dashAiVerdict">—</div>
+                  </div>
                 </div>
               </div>
 
