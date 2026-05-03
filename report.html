@@ -994,10 +994,10 @@ body {
 
 .exec-dash-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 22px;
-  padding: 22px 22px 18px;
+  padding: 12px 22px;
   border-bottom: 1px solid rgba(148,163,184,0.12);
 }
 
@@ -1019,9 +1019,9 @@ body {
 }
 
 .exec-subtitle {
-  margin: 8px 0 0;
-  max-width: 720px;
-  color: var(--muted);
+  margin: 0;
+  max-width: 760px;
+  color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -1921,12 +1921,11 @@ body {
             <div id="narrativeText" class="exec-dashboard-wrap">
               <div class="exec-dash-head">
                 <div>
-                  <p class="exec-eyebrow">EXECUTIVE SUMMARY</p>
-                  <h2 class="exec-title">Website performance overview</h2>
-                  <p class="exec-subtitle" id="execSubtitle"> A clear view of performance, visibility, and the most important issues affecting this site.</p>
-                </div>
-                <div class="exec-status-pill"><span class="exec-status-dot"></span>Report Ready</div>
-              </div>
+          <div>
+  <p class="exec-subtitle" id="execSubtitle">
+    A compact executive view of the score, supporting signals, and highest-priority fixes from this scan.
+  </p>
+</div>
 
               <div class="exec-score-grid exec-score-circles">
                 <div class="exec-score-card exec-overall-score" style="--sig:#38e8d4;">
