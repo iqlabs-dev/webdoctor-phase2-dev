@@ -2290,19 +2290,84 @@ if (key === "ai_discoverability") label = "AI Visibility";
       return 0;
     });
 
-    var cap = chosen.length > 6 ? 6 : chosen.length;
+var cap = chosen.length > 6 ? 6 : chosen.length;
 
-    if (!cap) {
-      root.innerHTML =
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">No issues detected</p>' +
-            '<span class="issue-label">OK</span>' +
-          "</div>" +
-          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
-        "</div>";
-      return;
-    }
+function renderExecutiveTopIssues(items) {
+  var execRoot = $("execTopIssuesRoot");
+  if (!execRoot) return;
+
+  items = asArray(items).slice(0, 4);
+
+  if (!items.length) {
+    execRoot.innerHTML =
+      '<div class="exec-mini-issue monitor">' +
+        '<span class="exec-mini-icon structure">✓</span>' +
+        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
+        '<span class="exec-mini-sev">OK</span>' +
+      '</div>';
+    return;
+  }
+
+  function issueIconClass(title) {
+    title = String(title || "").toLowerCase();
+    if (title.indexOf("ai visibility") !== -1 || title.indexOf("recommendation") !== -1) return "ai";
+    if (title.indexOf("seo") !== -1 || title.indexOf("meta") !== -1 || title.indexOf("canonical") !== -1) return "seo";
+    if (title.indexOf("performance") !== -1 || title.indexOf("lcp") !== -1 || title.indexOf("paint") !== -1) return "performance";
+    if (title.indexOf("trust") !== -1 || title.indexOf("security") !== -1 || title.indexOf("header") !== -1) return "trust";
+    if (title.indexOf("accessibility") !== -1 || title.indexOf("alt") !== -1) return "accessibility";
+    return "structure";
+  }
+
+  function iconSymbol(cls) {
+    if (cls === "ai") return "✦";
+    if (cls === "seo") return "⌕";
+    if (cls === "performance") return "⚡";
+    if (cls === "trust") return "♢";
+    if (cls === "accessibility") return "◎";
+    return "▱";
+  }
+
+  function sevClass(sev) {
+    sev = String(sev || "MONITOR").toUpperCase();
+    if (sev === "HIGH" || sev === "CRITICAL") return "high";
+    if (sev === "MED" || sev === "MEDIUM") return "med";
+    if (sev === "LOW") return "low";
+    return "monitor";
+  }
+
+  var out = "";
+
+  for (var i = 0; i < items.length; i++) {
+    var it = safeObj(items[i]);
+    var title = String(it.title || "").trim();
+    var sev = String(it.sev || "MONITOR").toUpperCase();
+    var cls = issueIconClass(title);
+    var sCls = sevClass(sev);
+
+    out +=
+      '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
+        '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + escapeHtml(iconSymbol(cls)) + '</span>' +
+        '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
+        '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
+      '</div>';
+  }
+
+  execRoot.innerHTML = out;
+}
+
+ if (!cap) {
+  root.innerHTML =
+    '<div class="issue">' +
+      '<div class="issue-top">' +
+        '<p class="issue-title">No issues detected</p>' +
+        '<span class="issue-label">OK</span>' +
+      "</div>" +
+      '<div class="issue-why">This scan did not return any actionable issues.</div>' +
+    "</div>";
+
+  renderExecutiveTopIssues([]);
+  return;
+}
 
     var html = "";
     for (var x = 0; x < cap; x++) {
@@ -2317,7 +2382,8 @@ if (key === "ai_discoverability") label = "AI Visibility";
         '</div>';
     }
 
-    root.innerHTML = html;
+   root.innerHTML = html;
+renderExecutiveTopIssues(chosen.slice(0, 4));
   }
 
   // -----------------------------

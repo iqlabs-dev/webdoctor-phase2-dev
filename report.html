@@ -1536,6 +1536,86 @@ body {
 .exec-priority {
   padding: 14px;
 }
+.exec-issues-panel {
+  min-height: 100%;
+}
+
+.exec-issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exec-mini-issue {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border-radius: 13px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(148,163,184,0.10);
+}
+
+.exec-mini-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.exec-mini-text {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.exec-mini-sev {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.exec-mini-issue.high .exec-mini-sev { color: #ef4444; }
+.exec-mini-issue.med .exec-mini-sev { color: #f59e0b; }
+.exec-mini-issue.low .exec-mini-sev,
+.exec-mini-issue.monitor .exec-mini-sev { color: #94a3b8; }
+
+.exec-mini-icon.ai {
+  color: #f59e0b;
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.32);
+}
+
+.exec-mini-icon.seo {
+  color: #60a5fa;
+  background: rgba(96,165,250,0.12);
+  border: 1px solid rgba(96,165,250,0.32);
+}
+
+.exec-mini-icon.performance {
+  color: #22c55e;
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.32);
+}
+
+.exec-mini-icon.trust {
+  color: #14b8a6;
+  background: rgba(20,184,166,0.12);
+  border: 1px solid rgba(20,184,166,0.32);
+}
+
+.exec-mini-icon.structure,
+.exec-mini-icon.accessibility {
+  color: #a78bfa;
+  background: rgba(167,139,250,0.12);
+  border: 1px solid rgba(167,139,250,0.32);
+}
 
 .exec-snapshot-row {
   padding: 13px 0;
@@ -1909,17 +1989,16 @@ body {
                   <div class="exec-diagnosis" id="findingNext">Preparing next step…</div>
                 </div>
 
-                <div class="exec-panel exec-snapshot">
-                  <h3 class="exec-panel-title">Scan snapshot</h3>
-                  <div class="exec-snapshot-row"><div class="k">Website</div><div class="v" id="dashWebsite">—</div></div>
-                  <div class="exec-snapshot-row"><div class="k">Report ID</div><div class="v" id="dashReportId">—</div></div>
-                  <div class="exec-snapshot-row"><div class="k">Report Date</div><div class="v" id="dashReportDate">—</div></div>
-                  <div class="exec-snapshot-row"><div class="k">Status</div><div class="v">Complete</div></div>
-                  <div class="exec-snapshot-row"><div class="k">Model</div><div class="v">Deterministic Signals</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
+<div class="exec-panel exec-issues-panel">
+  <h3 class="exec-panel-title">Top Issues Detected</h3>
+  <div id="execTopIssuesRoot" class="exec-issues-list">
+    <div class="exec-mini-issue">
+      <span class="exec-mini-icon">•</span>
+      <span class="exec-mini-text">Loading top issues…</span>
+      <span class="exec-mini-sev">—</span>
+    </div>
+  </div>
+</div>
         </section>
 
        <section class="section" id="progressSection" style="display:none;">
