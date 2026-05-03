@@ -2318,14 +2318,24 @@ function renderExecutiveTopIssues(items) {
     return "structure";
   }
 
-  function iconSymbol(cls) {
-    if (cls === "ai") return "✦";
-    if (cls === "seo") return "⌕";
-    if (cls === "performance") return "⚡";
-    if (cls === "trust") return "♢";
-    if (cls === "accessibility") return "◎";
-    return "▱";
+function iconSVG(cls) {
+  if (cls === "ai") {
+    return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>';
   }
+  if (cls === "seo") {
+    return '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+  }
+  if (cls === "performance") {
+    return '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>';
+  }
+  if (cls === "trust") {
+    return '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6z"/></svg>';
+  }
+  if (cls === "accessibility") {
+    return '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v12M5 12h14"/></svg>';
+  }
+  return '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>';
+}
 
   function sevClass(sev) {
     sev = String(sev || "MONITOR").toUpperCase();
