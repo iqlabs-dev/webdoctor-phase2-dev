@@ -66,7 +66,7 @@ body {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 14px; /* tightened from 28px */
 }
 
     #backToDashboard {
@@ -94,9 +94,9 @@ body {
       transform: translateY(-1px);
     }
 
-    .top-card {
-      width: 100%;
-      border-radius: var(--radius);
+.top-card {
+  width: 100%;
+  border-radius: 24px 24px 0 0; /* only top rounded */
       background:
         linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
         var(--report-header-bg);
@@ -979,7 +979,8 @@ body {
 /* REPORT V2 EXECUTVE DASHBOARD    */
 /* -------------------------------- */
 .executive-dashboard {
-  border-radius: 24px;
+  border-radius: 0 0 24px 24px;
+  border-top: none;
   overflow: hidden;
   background:
     radial-gradient(circle at 18% 0%, rgba(34,211,238,0.10), transparent 28%),
