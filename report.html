@@ -1240,18 +1240,41 @@ body {
 }
 
 .exec-priority-rank {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 10px;
+
   display: grid;
   place-items: center;
+
   font-size: 12px;
-  font-weight: 900;
-  color: var(--accent-strong);
-  background: rgba(34,211,238,0.055);
-  border: 1px solid rgba(56,232,212,0.32);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  font-weight: 800;
+
+  color: var(--accent);
+
+  background: transparent; /* remove fill */
+  border: 1px solid rgba(34,211,238,0.25);
+
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.02),
+    0 4px 12px rgba(0,0,0,0.25);
 }
+
+.exec-priority:nth-child(1) .exec-priority-rank {
+  border-color: rgba(34,211,238,0.35);
+  color: #22d3ee;
+}
+
+.exec-priority:nth-child(2) .exec-priority-rank {
+  border-color: rgba(96,165,250,0.35);
+  color: #60a5fa;
+}
+
+.exec-priority:nth-child(3) .exec-priority-rank {
+  border-color: rgba(52,211,153,0.35);
+  color: #34d399;
+}
+
 .exec-priority-title {
   margin: 0 0 6px;
   font-size: 11px;
@@ -1299,6 +1322,7 @@ body {
   border-color: rgba(56,232,212,0.25);
   background: rgba(255,255,255,0.02);
 }
+
 .exec-diagnosis {
   margin-top: 14px;
   padding: 14px 15px;
