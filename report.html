@@ -1326,22 +1326,22 @@ body {
 }
 
 .exec-diagnosis {
-  margin-top: 12px;
+  margin-top: 14px;
   padding: 12px 14px;
-  border-radius: 14px;
 
-  font-size: 13px;        /* slightly cleaner size */
-  font-weight: 450;       /* lighter than main content */
+  border-radius: 12px;
+
+  font-size: 13px;
+  font-weight: 450;
   line-height: 1.6;
   letter-spacing: 0.01em;
 
   color: var(--ink-soft);
-  opacity: 0.9;           /* subtle fade vs priorities */
+  opacity: 0.88;
 
-  background: rgba(34,211,238,0.04);   /* softer than before */
-  border: 1px solid rgba(34,211,238,0.12);
-
-  text-transform: none;   /* ensure no caps bleed */
+  background: transparent;                 /* 🔥 remove box feel */
+  border: none;                           /* 🔥 cleaner */
+  border-top: 1px solid rgba(255,255,255,0.06); /* subtle divider */
 }
 
 .exec-snapshot {
