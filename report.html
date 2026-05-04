@@ -1253,7 +1253,7 @@ body {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .exec-priority-title {
-  margin: 0;
+  margin: 0 0 4px;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.10em;
@@ -1262,22 +1262,26 @@ body {
   opacity: 0.95;
 }
 
+/* keep body text neutral */
+.exec-priority {
+  color: var(--ink-soft);
+}
+
+.exec-priority p {
+  color: var(--ink-soft) !important;
+}
+
 /* Color ONLY the headings */
 .exec-priority:nth-child(1) .exec-priority-title {
-  color: #22d3ee; /* constraint */
+  color: #22d3ee;
 }
 
 .exec-priority:nth-child(2) .exec-priority-title {
-  color: #60a5fa; /* impact */
+  color: #60a5fa;
 }
 
 .exec-priority:nth-child(3) .exec-priority-title {
-  color: #34d399; /* fix */
-}
-
-.exec-priority p,
-.exec-priority .exec-priority-text {
-  color: var(--ink-soft);
+  color: #34d399;
 }
 
 .exec-diagnosis {
