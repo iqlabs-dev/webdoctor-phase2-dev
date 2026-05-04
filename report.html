@@ -1269,9 +1269,10 @@ body {
 
 .exec-priority p {
   color: var(--ink-soft);
-  font-weight: 500;
-  line-height: 1.55;
-  letter-spacing: 0.01em;
+  font-weight: 450;
+  line-height: 1.6;
+  letter-spacing: 0.015em;
+  text-transform: none; /* critical */
 }
 
 /* Color + subtle glow for hierarchy */
@@ -1290,6 +1291,14 @@ body {
   text-shadow: 0 0 10px rgba(52,211,153,0.25);
 }
 
+.exec-priority {
+  transition: all 0.2s ease;
+}
+
+.exec-priority:hover {
+  border-color: rgba(56,232,212,0.25);
+  background: rgba(255,255,255,0.02);
+}
 .exec-diagnosis {
   margin-top: 14px;
   padding: 14px 15px;
