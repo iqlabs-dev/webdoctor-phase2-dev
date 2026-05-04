@@ -1254,10 +1254,25 @@ body {
 }
 .exec-priority-title {
   margin: 0;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.48;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  opacity: 0.95;
+}
+
+/* === Priority heading colors (Pro SaaS) === */
+.exec-priority:nth-child(1) .exec-priority-title {
+  color: #22d3ee; /* cyan → constraint */
+}
+
+.exec-priority:nth-child(2) .exec-priority-title {
+  color: #60a5fa; /* blue → impact */
+}
+
+.exec-priority:nth-child(3) .exec-priority-title {
+  color: #34d399; /* green → fix */
 }
 
 .exec-diagnosis {
