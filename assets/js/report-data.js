@@ -2326,7 +2326,30 @@ if (!primaryOnly.length && primary && primary.key) {
   });
 }
 
-var chosen = primaryOnly.length ? primaryOnly : all;
+var chosen = [];
+
+if (primaryOnly.length) {
+  chosen = primaryOnly.slice(0);
+}
+
+for (var ai = 0; ai < all.length; ai++) {
+  var extra = all[ai];
+  var duplicate = false;
+
+  for (var pi = 0; pi < chosen.length; pi++) {
+    if (
+      normIssueTitle(chosen[pi].title) === normIssueTitle(extra.title)
+    ) {
+      duplicate = true;
+      break;
+    }
+  }
+
+  if (!duplicate) chosen.push(extra);
+}
+
+/* Keep Top Issues useful, not empty or overloaded */
+chosen = chosen.slice(0, 5);
 
     chosen.sort(function (a, b) {
       var ra = a._rank || sevRank(a.sev);
@@ -2368,13 +2391,13 @@ if (!displayChosen.length && primaryOnly.length) {
   displayChosen = primaryOnly.slice(0);
 }
 
-var cap = displayChosen.length > 6 ? 6 : displayChosen.length;
+var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
 function renderExecutiveTopIssues(items) {
   var execRoot = $("execTopIssuesRoot");
   if (!execRoot) return;
 
-  items = asArray(items).slice(0, 4);
+  items = asArray(items).slice(0, 5);
 
   if (!items.length) {
     execRoot.innerHTML =
