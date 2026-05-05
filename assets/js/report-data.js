@@ -2311,6 +2311,25 @@ out.push({
 primaryOnly = dedupe(primaryOnly);
 all = dedupe(all);
 
+function isUsefulExecutiveIssue(issue) {
+  issue = safeObj(issue);
+
+  var title = String(issue.title || "").toLowerCase();
+  var domain = String(issue.domain || "").toLowerCase();
+
+  if (!title) return false;
+
+  /* remove generic filler */
+  if (title.indexOf("missing baseline inputs for this signal") !== -1) return false;
+  if (title.indexOf("missing baseline inputs") !== -1) return false;
+  if (title.indexOf("required signal missing") !== -1) return false;
+
+  /* avoid support issues from strong domains */
+  if (domain === "seo" && title.indexOf("missing baseline inputs") !== -1) return false;
+
+  return true;
+}
+
 function sortIssues(list) {
   list = asArray(list).slice(0);
 
@@ -2376,7 +2395,8 @@ for (var adi = 0; adi < all.length; adi++) {
     }
   }
 
-  if (!duplicate) displayChosen.push(candidate);
+if (!duplicate && isUsefulExecutiveIssue(candidate)) {
+  displayChosen.push(candidate);
 }
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
@@ -2505,7 +2525,7 @@ if (root) {
 }
 
 if (typeof renderExecutiveTopIssues === "function") {
-  renderExecutiveTopIssues(displayChosen);
+renderExecutiveTopIssues(displayChosen.filter(isUsefulExecutiveIssue));
 }
   }
 
