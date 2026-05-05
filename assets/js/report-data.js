@@ -2199,13 +2199,25 @@ if (!root && !execRoot) return;
           window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
         "full";
 
-      var platformManaged = (platformControl === "limited" && key === "security");
-      if (platformManaged) return;
+var platformManaged = (platformControl === "limited" && key === "security");
+if (platformManaged) return;
+
+var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0) : asInt(sig.score, 0);
+var unmeasured = isUnmeasuredSignal(sig, displayScore);
+var isPrimarySignal = !!(primary && primary.key && key === primary.key);
+
+/*
+  Do not allow high-scoring signals to dominate Top Issues.
+  Example: AI Visibility 97 should not appear as a HIGH issue.
+*/
+if (!unmeasured && displayScore >= 90 && !isPrimarySignal) {
+  return;
+}
 
 var label = String(sig.label || sig.id || "Signal");
 if (key === "ai_discoverability") label = "AI Visibility";
-      var issues = asArray(sig.issues);
-      var deds = asArray(sig.deductions);
+var issues = asArray(sig.issues);
+var deds = asArray(sig.deductions);
 
       for (var j = 0; j < issues.length; j++) {
         var it = safeObj(issues[j]);
