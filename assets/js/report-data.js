@@ -2350,6 +2350,93 @@ function sortIssues(list) {
   return list;
 }
 
+function renderExecutiveTopIssues(items) {
+  var execRoot = $("execTopIssuesRoot");
+  if (!execRoot) return;
+
+  items = asArray(items).slice(0, 5);
+
+  if (!items.length) {
+    execRoot.innerHTML =
+      '<div class="exec-mini-issue monitor">' +
+        '<span class="exec-mini-icon structure">✓</span>' +
+        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
+        '<span class="exec-mini-sev">OK</span>' +
+      '</div>';
+    return;
+  }
+
+  function issueIconClass(title) {
+    title = String(title || "").toLowerCase();
+    if (title.indexOf("ai visibility") !== -1 || title.indexOf("recommendation") !== -1) return "ai";
+    if (title.indexOf("seo") !== -1 || title.indexOf("meta") !== -1 || title.indexOf("canonical") !== -1) return "seo";
+    if (title.indexOf("performance") !== -1 || title.indexOf("lcp") !== -1 || title.indexOf("paint") !== -1) return "performance";
+    if (title.indexOf("trust") !== -1 || title.indexOf("security") !== -1 || title.indexOf("header") !== -1) return "trust";
+    if (title.indexOf("accessibility") !== -1 || title.indexOf("alt") !== -1) return "accessibility";
+    return "structure";
+  }
+
+  function iconSVG(cls) {
+    if (cls === "ai") {
+      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>';
+    }
+    if (cls === "seo") {
+      return '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+    }
+    if (cls === "performance") {
+      return '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>';
+    }
+    if (cls === "trust") {
+      return '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6z"/></svg>';
+    }
+    if (cls === "accessibility") {
+      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v12M5 12h14"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>';
+  }
+
+  function sevClass(sev) {
+    sev = String(sev || "MONITOR").toUpperCase();
+    if (sev === "HIGH" || sev === "CRITICAL") return "high";
+    if (sev === "MED" || sev === "MEDIUM") return "med";
+    if (sev === "LOW") return "low";
+    return "monitor";
+  }
+
+  function cleanIssueTitle(title) {
+    return String(title || "")
+      .replace(/^AI Visibility:\s*/i, "")
+      .replace(/^SEO Foundations:\s*/i, "")
+      .replace(/^SEO:\s*/i, "")
+      .replace(/^Performance:\s*/i, "")
+      .replace(/^Security & Trust:\s*/i, "")
+      .replace(/^Trust:\s*/i, "")
+      .replace(/^Structure & Semantics:\s*/i, "")
+      .replace(/^Accessibility:\s*/i, "")
+      .trim();
+  }
+
+  var out = "";
+
+  for (var i = 0; i < items.length; i++) {
+    var it = safeObj(items[i]);
+    var rawTitle = String(it.title || "").trim();
+    var title = cleanIssueTitle(rawTitle);
+    var sev = String(it.sev || "MONITOR").toUpperCase();
+    var cls = issueIconClass((it.domain || "") + " " + rawTitle);
+    var sCls = sevClass(sev);
+
+    out +=
+      '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
+        '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + iconSVG(cls) + '</span>' +
+        '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
+        '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
+      '</div>';
+  }
+
+  execRoot.innerHTML = out;
+}
+
 /*
   If the primary constraint has no issue/deduction object, create one from the same
   primary label used in Top Priorities.
@@ -2401,91 +2488,6 @@ if (!duplicate && isUsefulExecutiveIssue(candidate)) {
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
-function renderExecutiveTopIssues(items) {
-  var execRoot = $("execTopIssuesRoot");
-  if (!execRoot) return;
-
-  items = asArray(items).slice(0, 5);
-
-  if (!items.length) {
-    execRoot.innerHTML =
-      '<div class="exec-mini-issue monitor">' +
-        '<span class="exec-mini-icon structure">✓</span>' +
-        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
-        '<span class="exec-mini-sev">OK</span>' +
-      '</div>';
-    return;
-  }
-
-  function issueIconClass(title) {
-    title = String(title || "").toLowerCase();
-    if (title.indexOf("ai visibility") !== -1 || title.indexOf("recommendation") !== -1) return "ai";
-    if (title.indexOf("seo") !== -1 || title.indexOf("meta") !== -1 || title.indexOf("canonical") !== -1) return "seo";
-    if (title.indexOf("performance") !== -1 || title.indexOf("lcp") !== -1 || title.indexOf("paint") !== -1) return "performance";
-    if (title.indexOf("trust") !== -1 || title.indexOf("security") !== -1 || title.indexOf("header") !== -1) return "trust";
-    if (title.indexOf("accessibility") !== -1 || title.indexOf("alt") !== -1) return "accessibility";
-    return "structure";
-  }
-
-function iconSVG(cls) {
-  if (cls === "ai") {
-    return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>';
-  }
-  if (cls === "seo") {
-    return '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
-  }
-  if (cls === "performance") {
-    return '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>';
-  }
-  if (cls === "trust") {
-    return '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6z"/></svg>';
-  }
-  if (cls === "accessibility") {
-    return '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v12M5 12h14"/></svg>';
-  }
-  return '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>';
-}
-
-  function sevClass(sev) {
-    sev = String(sev || "MONITOR").toUpperCase();
-    if (sev === "HIGH" || sev === "CRITICAL") return "high";
-    if (sev === "MED" || sev === "MEDIUM") return "med";
-    if (sev === "LOW") return "low";
-    return "monitor";
-  }
-
-  function cleanIssueTitle(title) {
-    return String(title || "")
-      .replace(/^AI Visibility:\s*/i, "")
-      .replace(/^SEO Foundations:\s*/i, "")
-      .replace(/^SEO:\s*/i, "")
-      .replace(/^Performance:\s*/i, "")
-      .replace(/^Security & Trust:\s*/i, "")
-      .replace(/^Trust:\s*/i, "")
-      .replace(/^Structure & Semantics:\s*/i, "")
-      .replace(/^Accessibility:\s*/i, "")
-      .trim();
-  }
-
-  var out = "";
-
-  for (var i = 0; i < items.length; i++) {
-    var it = safeObj(items[i]);
-    var rawTitle = String(it.title || "").trim();
-    var title = cleanIssueTitle(rawTitle);
-    var sev = String(it.sev || "MONITOR").toUpperCase();
-  var cls = issueIconClass((it.domain || "") + " " + rawTitle);
-    var sCls = sevClass(sev);
-
-out +=
-  '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
-    '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + iconSVG(cls) + '</span>' +
-    '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
-    '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
-  '</div>';
-  }
-
-  execRoot.innerHTML = out;
 }
 
 if (!cap) {
