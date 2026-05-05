@@ -2379,17 +2379,35 @@ for (var ti = 0; ti < chosen.length; ti++) {
   }
 }
 
-var displayChosen = highIssues.length
-  ? highIssues
-  : (medIssues.length ? medIssues : lowerIssues);
+var displayChosen = [];
 
-/*
-  CRITICAL FIX:
-  If everything got filtered out, force include primary constraint issues
-*/
-if (!displayChosen.length && primaryOnly.length) {
-  displayChosen = primaryOnly.slice(0);
+/* Always start with primary issues */
+for (var di = 0; di < primaryOnly.length; di++) {
+  displayChosen.push(primaryOnly[di]);
 }
+
+/* Then add remaining HIGH, MED, then LOW/MONITOR issues */
+function addIssueGroup(group) {
+  for (var gi = 0; gi < group.length; gi++) {
+    if (displayChosen.length >= 5) return;
+
+    var candidate = group[gi];
+    var alreadyAdded = false;
+
+    for (var ci = 0; ci < displayChosen.length; ci++) {
+      if (normIssueTitle(displayChosen[ci].title) === normIssueTitle(candidate.title)) {
+        alreadyAdded = true;
+        break;
+      }
+    }
+
+    if (!alreadyAdded) displayChosen.push(candidate);
+  }
+}
+
+addIssueGroup(highIssues);
+addIssueGroup(medIssues);
+addIssueGroup(lowerIssues);
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
