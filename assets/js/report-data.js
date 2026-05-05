@@ -2165,14 +2165,27 @@ window.__AI_MENTIONS_SHOWN = false;
       .trim();
   }
 
-  function sevRank(sev) {
-    sev = String(sev || "").toUpperCase();
-    if (sev === "CRITICAL") return 4;
-    if (sev === "HIGH") return 3;
-    if (sev === "MED" || sev === "MEDIUM") return 2;
-    if (sev === "LOW") return 1;
-    return 1;
+function sevRank(sev, issue) {
+  sev = String(sev || "").toUpperCase();
+
+  var domain = String(issue && issue.domain || "").toLowerCase();
+  var title = String(issue && issue.title || "").toLowerCase();
+
+  // 🚨 AI PRIORITY OVERRIDE
+  if (domain === "ai_discoverability") {
+    if (title.indexOf("not surfaced") !== -1) return 100;
+    if (title.indexOf("limited") !== -1) return 90;
+    return 80;
   }
+
+  // Normal severity
+  if (sev === "CRITICAL") return 70;
+  if (sev === "HIGH") return 60;
+  if (sev === "MED" || sev === "MEDIUM") return 40;
+  if (sev === "LOW") return 20;
+
+  return 10;
+}
 
 function isUsefulIssue(issue) {
   issue = safeObj(issue);
@@ -2254,13 +2267,16 @@ function isUsefulIssue(issue) {
       var title = String(it.title || it.id || "").trim();
       if (!title) continue;
 
-      out.push({
-        domain: key,
-        title: label + ": " + title,
-        sev: String(it.severity || "MONITOR").toUpperCase(),
-        why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-        _rank: sevRank(it.severity || "MONITOR")
-      });
+out.push({
+  domain: key,
+  title: label + ": " + title,
+  sev: String(it.severity || "MONITOR").toUpperCase(),
+  why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+  _rank: sevRank(it.severity || "MONITOR", {
+    domain: key,
+    title: title
+  })
+});
     }
 
     for (var j = 0; j < deds.length; j++) {
@@ -2301,8 +2317,8 @@ function isUsefulIssue(issue) {
     list = asArray(list).slice(0);
 
     list.sort(function (a, b) {
-      var ra = a._rank || sevRank(a.sev);
-      var rb = b._rank || sevRank(b.sev);
+var ra = a._rank || sevRank(a.sev, a);
+var rb = b._rank || sevRank(b.sev, b);
       if (rb !== ra) return rb - ra;
 
       var ta = normIssueTitle(a.title);
