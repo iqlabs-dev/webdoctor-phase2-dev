@@ -2322,7 +2322,28 @@ var deds = asArray(sig.deductions);
       return 0;
     });
 
-var cap = chosen.length > 6 ? 6 : chosen.length;
+var highIssues = [];
+var medIssues = [];
+var lowerIssues = [];
+
+for (var ti = 0; ti < chosen.length; ti++) {
+  var issue = chosen[ti];
+  var rank = issue._rank || sevRank(issue.sev);
+
+  if (rank >= 3) {
+    highIssues.push(issue);
+  } else if (rank === 2) {
+    medIssues.push(issue);
+  } else {
+    lowerIssues.push(issue);
+  }
+}
+
+var displayChosen = highIssues.length
+  ? highIssues
+  : (medIssues.length ? medIssues : lowerIssues);
+
+var cap = displayChosen.length > 6 ? 6 : displayChosen.length;
 
 function renderExecutiveTopIssues(items) {
   var execRoot = $("execTopIssuesRoot");
@@ -2431,8 +2452,8 @@ if (!cap) {
 }
 
     var html = "";
-    for (var x = 0; x < cap; x++) {
-      var it2 = chosen[x];
+  for (var x = 0; x < cap; x++) {
+  var it2 = displayChosen[x];
       html +=
         '<div class="issue">' +
           '<div class="issue-top">' +
@@ -2448,7 +2469,7 @@ if (root) {
 }
 
 if (typeof renderExecutiveTopIssues === "function") {
-  renderExecutiveTopIssues(chosen);
+  renderExecutiveTopIssues(displayChosen);
 }
   }
 
