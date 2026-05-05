@@ -2311,9 +2311,29 @@ out.push({
 primaryOnly = dedupe(primaryOnly);
 all = dedupe(all);
 
+function sortIssues(list) {
+  list = asArray(list).slice(0);
+
+  list.sort(function (a, b) {
+    var ra = a._rank || sevRank(a.sev);
+    var rb = b._rank || sevRank(b.sev);
+
+    if (rb !== ra) return rb - ra;
+
+    var ta = normIssueTitle(a.title);
+    var tb = normIssueTitle(b.title);
+
+    if (ta < tb) return -1;
+    if (ta > tb) return 1;
+    return 0;
+  });
+
+  return list;
+}
+
 /*
   If the primary constraint has no issue/deduction object, create one from the same
-  primary label used in Top Priorities. This prevents Performance 50 showing as OK.
+  primary label used in Top Priorities.
 */
 if (!primaryOnly.length && primary && primary.key) {
   var primaryTitle = specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals);
@@ -2326,88 +2346,38 @@ if (!primaryOnly.length && primary && primary.key) {
   });
 }
 
-var chosen = [];
+primaryOnly = sortIssues(primaryOnly);
+all = sortIssues(all);
 
-if (primaryOnly.length) {
-  chosen = primaryOnly.slice(0);
+var displayChosen = [];
+
+/* 1. Always show primary domain issues first */
+for (var pdi = 0; pdi < primaryOnly.length; pdi++) {
+  if (displayChosen.length >= 5) break;
+  displayChosen.push(primaryOnly[pdi]);
 }
 
-for (var ai = 0; ai < all.length; ai++) {
-  var extra = all[ai];
+/* 2. Then add supporting issues from other domains */
+for (var adi = 0; adi < all.length; adi++) {
+  if (displayChosen.length >= 5) break;
+
+  var candidate = all[adi];
+
+  if (primary && primary.key && candidate.domain === primary.key) {
+    continue;
+  }
+
   var duplicate = false;
 
-  for (var pi = 0; pi < chosen.length; pi++) {
-    if (
-      normIssueTitle(chosen[pi].title) === normIssueTitle(extra.title)
-    ) {
+  for (var ddi = 0; ddi < displayChosen.length; ddi++) {
+    if (normIssueTitle(displayChosen[ddi].title) === normIssueTitle(candidate.title)) {
       duplicate = true;
       break;
     }
   }
 
-  if (!duplicate) chosen.push(extra);
+  if (!duplicate) displayChosen.push(candidate);
 }
-
-/* Keep Top Issues useful, not empty or overloaded */
-chosen = chosen.slice(0, 5);
-
-    chosen.sort(function (a, b) {
-      var ra = a._rank || sevRank(a.sev);
-      var rb = b._rank || sevRank(b.sev);
-      if (rb !== ra) return rb - ra;
-      var ta = normKey(a.title);
-      var tb = normKey(b.title);
-      if (ta < tb) return -1;
-      if (ta > tb) return 1;
-      return 0;
-    });
-
-var highIssues = [];
-var medIssues = [];
-var lowerIssues = [];
-
-for (var ti = 0; ti < chosen.length; ti++) {
-  var issue = chosen[ti];
-  var rank = issue._rank || sevRank(issue.sev);
-
-  if (rank >= 3) {
-    highIssues.push(issue);
-  } else if (rank === 2) {
-    medIssues.push(issue);
-  } else {
-    lowerIssues.push(issue);
-  }
-}
-
-var displayChosen = [];
-
-/* Always start with primary issues */
-for (var di = 0; di < primaryOnly.length; di++) {
-  displayChosen.push(primaryOnly[di]);
-}
-
-/* Then add remaining HIGH, MED, then LOW/MONITOR issues */
-function addIssueGroup(group) {
-  for (var gi = 0; gi < group.length; gi++) {
-    if (displayChosen.length >= 5) return;
-
-    var candidate = group[gi];
-    var alreadyAdded = false;
-
-    for (var ci = 0; ci < displayChosen.length; ci++) {
-      if (normIssueTitle(displayChosen[ci].title) === normIssueTitle(candidate.title)) {
-        alreadyAdded = true;
-        break;
-      }
-    }
-
-    if (!alreadyAdded) displayChosen.push(candidate);
-  }
-}
-
-addIssueGroup(highIssues);
-addIssueGroup(medIssues);
-addIssueGroup(lowerIssues);
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
