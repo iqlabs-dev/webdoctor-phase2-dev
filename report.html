@@ -1983,6 +1983,24 @@ body {
 .signal-evidence-toggle:not([open]) .evidence-expand-pill::after {
   content: " ↓";
 }
+
+.exec-score-card.exec-primary-constraint {
+  border-color: rgba(239, 68, 68, 0.62);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(239,68,68,0.18), transparent 52%),
+    linear-gradient(180deg, rgba(239,68,68,0.10), rgba(0,0,0,0.18));
+}
+
+.exec-score-card.exec-primary-constraint .exec-score-ring {
+  background:
+    conic-gradient(#ef4444 var(--dash-score-deg, 0deg), rgba(148,163,184,0.16) 0deg),
+    radial-gradient(circle, rgba(255,255,255,0.05), rgba(255,255,255,0));
+}
+
+.exec-score-card.exec-primary-constraint .exec-score-copy .v {
+  color: #ef4444;
+}
+
   </style>
 </head>
 
@@ -2068,7 +2086,7 @@ body {
                   </div>
                 </div>
 
-                <div class="exec-score-card exec-signal" style="--sig:#22c55e;">
+             <div class="exec-score-card exec-signal" id="dashPerformanceCard" style="--sig:#22c55e;">
                   <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 10-13h-7l0-7z"/></svg></div>
                   <div class="exec-score-ring exec-ring-sm" id="dashPerformanceRing" style="--dash-score-deg:0deg;">
                     <strong id="dashPerformanceScore">—</strong>
@@ -2079,7 +2097,7 @@ body {
                   </div>
                 </div>
 
-                <div class="exec-score-card exec-signal" style="--sig:#60a5fa;">
+      <div class="exec-score-card exec-signal" id="dashSeoCard" style="--sig:#60a5fa;">
                   <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div>
                   <div class="exec-score-ring exec-ring-sm" id="dashSeoRing" style="--dash-score-deg:0deg;">
                     <strong id="dashSeoScore">—</strong>
@@ -2090,7 +2108,7 @@ body {
                   </div>
                 </div>
 
-                <div class="exec-score-card exec-signal" style="--sig:#14b8a6;">
+          <div class="exec-score-card exec-signal" id="dashTrustCard" style="--sig:#14b8a6;">
                   <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-5"/></svg></div>
                   <div class="exec-score-ring exec-ring-sm" id="dashTrustRing" style="--dash-score-deg:0deg;">
                     <strong id="dashTrustScore">—</strong>
@@ -2101,7 +2119,7 @@ body {
                   </div>
                 </div>
 
-                <div class="exec-score-card exec-signal" style="--sig:#f59e0b;">
+<div class="exec-score-card exec-signal" id="dashAiCard" style="--sig:#f59e0b;">
                   <div class="exec-mini-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></div>
                   <div class="exec-score-ring exec-ring-sm" id="dashAiRing" style="--dash-score-deg:0deg;">
                     <strong id="dashAiScore">—</strong>

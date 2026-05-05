@@ -661,6 +661,24 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
   setScore("dashTrust", displayScoreFor("security", "security"));
   setScore("dashAi", displayScoreFor("ai_discoverability", "ai_discoverability"));
 
+    var cardMap = {
+    performance: "dashPerformanceCard",
+    seo: "dashSeoCard",
+    security: "dashTrustCard",
+    ai_discoverability: "dashAiCard"
+  };
+
+  var cardIds = ["dashPerformanceCard", "dashSeoCard", "dashTrustCard", "dashAiCard"];
+  for (var c = 0; c < cardIds.length; c++) {
+    var cardEl = $(cardIds[c]);
+    if (cardEl) cardEl.classList.remove("exec-primary-constraint");
+  }
+
+  if (primary && primary.key && cardMap[primary.key]) {
+    var primaryCard = $(cardMap[primary.key]);
+    if (primaryCard) primaryCard.classList.add("exec-primary-constraint");
+  }
+
   var website = String(header.website || "").trim();
   var rid = String(header.report_id || "").trim();
   var created = header.report_date || header.created_at || header.generated_at || "";
