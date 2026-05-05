@@ -2267,16 +2267,32 @@ function isUsefulIssue(issue) {
       var title = String(it.title || it.id || "").trim();
       if (!title) continue;
 
-out.push({
-  domain: key,
-  title: label + ": " + title,
-  sev: String(it.severity || "MONITOR").toUpperCase(),
-  why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-  _rank: sevRank(it.severity || "MONITOR", {
-    domain: key,
-    title: title
-  })
-});
+      var sev = String(it.severity || "MONITOR").toUpperCase();
+
+      if (key === "ai_discoverability") {
+        var t = String(title || "").toLowerCase();
+
+        if (t.indexOf("not surfaced") !== -1 || t.indexOf("not found") !== -1) {
+          sev = "HIGH";
+        } else if (
+          t.indexOf("limited") !== -1 ||
+          t.indexOf("independent") !== -1 ||
+          t.indexOf("mentions") !== -1
+        ) {
+          sev = "MED";
+        }
+      }
+
+      out.push({
+        domain: key,
+        title: label + ": " + title,
+        sev: sev,
+        why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+        _rank: sevRank(sev, {
+          domain: key,
+          title: title
+        })
+      });
     }
 
     for (var j = 0; j < deds.length; j++) {
