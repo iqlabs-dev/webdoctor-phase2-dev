@@ -2206,9 +2206,9 @@ var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0)
 var unmeasured = isUnmeasuredSignal(sig, displayScore);
 var isPrimarySignal = !!(primary && primary.key && key === primary.key);
 
-/*
-  Do not allow high-scoring signals to dominate Top Issues.
-  Example: AI Visibility 97 should not appear as a HIGH issue.
+/* 
+  Do not show strong non-primary signals as Top Issues.
+  Example: AI Visibility 97 must not appear as an issue.
 */
 if (!unmeasured && displayScore >= 90 && !isPrimarySignal) {
   return;
@@ -2226,12 +2226,13 @@ var deds = asArray(sig.deductions);
 
         var title = normaliseRequiredMissing(label, sig, rawTitle);
 
-        out.push({
-          title: title,
-          sev: String(it.severity || "MONITOR").toUpperCase(),
-          why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-          _rank: sevRank(it.severity || "MONITOR")
-        });
+    out.push({
+  domain: key,
+  title: title,
+  sev: String(it.severity || "MONITOR").toUpperCase(),
+  why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+  _rank: sevRank(it.severity || "MONITOR")
+});
       }
 
       for (var m = 0; m < deds.length; m++) {
@@ -2249,12 +2250,13 @@ var deds = asArray(sig.deductions);
           reason = spec2 || "Missing baseline inputs for this signal.";
         }
 
-        out.push({
-          title: label + ": " + reason,
-          sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
-          why: "A measured deduction was applied from scan evidence.",
-          _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
-        });
+out.push({
+  domain: key,
+  title: label + ": " + reason,
+  sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
+  why: "A measured deduction was applied from scan evidence.",
+  _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
+});
       }
     }
 
@@ -2306,10 +2308,25 @@ var deds = asArray(sig.deductions);
       return out;
     }
 
-    primaryOnly = dedupe(primaryOnly);
-    all = dedupe(all);
+primaryOnly = dedupe(primaryOnly);
+all = dedupe(all);
 
-    var chosen = primaryOnly.length ? primaryOnly : all;
+/*
+  If the primary constraint has no issue/deduction object, create one from the same
+  primary label used in Top Priorities. This prevents Performance 50 showing as OK.
+*/
+if (!primaryOnly.length && primary && primary.key) {
+  var primaryTitle = specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals);
+  primaryOnly.push({
+    domain: primary.key,
+    title: primaryTitle,
+    sev: primary.score < 70 ? "HIGH" : "MED",
+    why: "This is the primary constraint identified from the scan evidence.",
+    _rank: primary.score < 70 ? 3 : 2
+  });
+}
+
+var chosen = primaryOnly.length ? primaryOnly : all;
 
     chosen.sort(function (a, b) {
       var ra = a._rank || sevRank(a.sev);
