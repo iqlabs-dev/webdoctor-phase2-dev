@@ -2347,13 +2347,8 @@ var displayChosen = highIssues.length
   CRITICAL FIX:
   If everything got filtered out, force include primary constraint issues
 */
-if (!displayChosen.length && primary && primary.key) {
-  for (var pi = 0; pi < chosen.length; pi++) {
-    var item = chosen[pi];
-    if (item && item.title && item.title.toLowerCase().indexOf(primary.key) !== -1) {
-      displayChosen.push(item);
-    }
-  }
+if (!displayChosen.length && primaryOnly.length) {
+  displayChosen = primaryOnly.slice(0);
 }
 
 var cap = displayChosen.length > 6 ? 6 : displayChosen.length;
