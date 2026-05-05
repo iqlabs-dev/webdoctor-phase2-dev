@@ -1929,6 +1929,24 @@ body {
   font-size: 18px;
 }
 
+#reportRoot[style*="display:none"],
+#reportRoot[style*="display: none"] {
+  display: none !important;
+}
+
+.signal-evidence-toggle > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.signal-evidence-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+
+.signal-evidence-toggle[open] > summary {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
   </style>
 </head>
 
@@ -2187,23 +2205,18 @@ body {
 
 <div id="fixFirstBlock"></div>
 
-        <section class="section" id="deliverySignalsSection">
-          <div class="section-head">
-            <h2 class="section-title">Delivery Signals</h2>
-          </div>
+<section class="section" id="deliverySignalsSection">
+  <div class="section-head">
+    <h2 class="section-title">Delivery Signals</h2>
+  </div>
 
-          <div class="section-body">
+  <div class="section-body">
+    <div id="signalsGrid" class="grid"></div>
+  </div>
+</section>
 
-
-            </div>
-
-            <div id="signalsGrid" class="grid"></div>
-
-          </div>
-        </section>
-
-    <details class="section" id="signalEvidenceSection">
-  <summary class="section-head" style="cursor:pointer;">
+<details class="section signal-evidence-toggle" id="signalEvidenceSection">
+  <summary class="section-head">
     <h2 class="section-title">Signal Evidence</h2>
   </summary>
 
@@ -2395,12 +2408,17 @@ document.documentElement.style.setProperty("--report-page-bg", pageBg);
       }
     })();
 
-    function setEvidenceOpen(open) {
-      try {
-        var list = document.querySelectorAll("details.evidence-block");
-        for (var i = 0; i < list.length; i++) list[i].open = !!open;
-      } catch (_) {}
+function setEvidenceOpen(open) {
+  try {
+    var section = document.getElementById("signalEvidenceSection");
+    if (section && section.tagName.toLowerCase() === "details") {
+      section.open = !!open;
     }
+
+    var list = document.querySelectorAll("details.evidence-block");
+    for (var i = 0; i < list.length; i++) list[i].open = !!open;
+  } catch (_) {}
+}
 
     setEvidenceOpen(false);
 
