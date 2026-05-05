@@ -2122,8 +2122,10 @@ if (platformManaged) {
   // Top Issues
   // -----------------------------
   function renderTopIssues(signals, primary) {
-    var root = $("topIssuesRoot");
-    if (!root) return;
+ var root = $("topIssuesRoot");
+var execRoot = $("execTopIssuesRoot");
+
+if (!root && !execRoot) return;
 
     signals = asArray(signals);
 
@@ -2379,17 +2381,22 @@ out +=
   execRoot.innerHTML = out;
 }
 
- if (!cap) {
-  root.innerHTML =
-    '<div class="issue">' +
-      '<div class="issue-top">' +
-        '<p class="issue-title">No issues detected</p>' +
-        '<span class="issue-label">OK</span>' +
-      "</div>" +
-      '<div class="issue-why">This scan did not return any actionable issues.</div>' +
-    "</div>";
+if (!cap) {
+  if (root) {
+    root.innerHTML =
+      '<div class="issue">' +
+        '<div class="issue-top">' +
+          '<p class="issue-title">No issues detected</p>' +
+          '<span class="issue-label">OK</span>' +
+        "</div>" +
+        '<div class="issue-why">This scan did not return any actionable issues.</div>' +
+      "</div>";
+  }
 
-  renderExecutiveTopIssues([]);
+  if (typeof renderExecutiveTopIssues === "function") {
+    renderExecutiveTopIssues([]);
+  }
+
   return;
 }
 
@@ -2406,8 +2413,13 @@ out +=
         '</div>';
     }
 
-   root.innerHTML = html;
-renderExecutiveTopIssues(chosen.slice(0, 4));
+if (root) {
+  root.innerHTML = html;
+}
+
+if (typeof renderExecutiveTopIssues === "function") {
+  renderExecutiveTopIssues(chosen);
+}
   }
 
   // -----------------------------
