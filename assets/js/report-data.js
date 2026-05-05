@@ -2145,7 +2145,11 @@ function renderTopIssues(signals, primary) {
 
   if (!root && !execRoot) return;
 
-  signals = asArray(signals);
+signals = asArray(signals);
+
+// RESET AI DEDUPE FLAGS (IMPORTANT)
+window.__AI_NOT_SURFACED_SHOWN = false;
+window.__AI_MENTIONS_SHOWN = false;
 
   function normIssueTitle(t) {
     return String(t || "")
@@ -2170,14 +2174,53 @@ function renderTopIssues(signals, primary) {
     return 1;
   }
 
-  function isUsefulIssue(issue) {
-    issue = safeObj(issue);
-    var title = String(issue.title || "").toLowerCase();
-    if (!title) return false;
-    if (title.indexOf("missing baseline inputs") !== -1) return false;
-    if (title.indexOf("required signal missing") !== -1) return false;
-    return true;
+function isUsefulIssue(issue) {
+  issue = safeObj(issue);
+
+  var title = String(issue.title || "").toLowerCase();
+  var domain = String(issue.domain || "").toLowerCase();
+
+  if (!title) return false;
+
+  // Remove generic filler
+  if (title.indexOf("missing baseline inputs") !== -1) return false;
+  if (title.indexOf("required signal missing") !== -1) return false;
+
+  // 🔴 AI VISIBILITY DEDUPE
+  if (domain === "ai_discoverability") {
+
+    if (
+      title.indexOf("not surfaced") !== -1 ||
+      title.indexOf("not found in recommendation") !== -1
+    ) {
+      if (window.__AI_NOT_SURFACED_SHOWN) return false;
+      window.__AI_NOT_SURFACED_SHOWN = true;
+    }
+
+    if (
+      title.indexOf("independent mention") !== -1 ||
+      title.indexOf("limited mention") !== -1
+    ) {
+      if (window.__AI_MENTIONS_SHOWN) return false;
+      window.__AI_MENTIONS_SHOWN = true;
+    }
   }
+
+  // 🔴 FILTER NON-PRIMARY NOISE WHEN AI IS PRIMARY
+  if (typeof primary !== "undefined" && primary && primary.key === "ai_discoverability") {
+    if (
+      domain !== "ai_discoverability" &&
+      (
+        title.indexOf("empty <a") !== -1 ||
+        title.indexOf("content-security-policy") !== -1
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
   function cleanTitle(title) {
     return String(title || "")
