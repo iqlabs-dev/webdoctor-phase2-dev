@@ -2139,397 +2139,256 @@ if (platformManaged) {
   // -----------------------------
   // Top Issues
   // -----------------------------
-  function renderTopIssues(signals, primary) {
- var root = $("topIssuesRoot");
-var execRoot = $("execTopIssuesRoot");
-
-if (!root && !execRoot) return;
-
-    signals = asArray(signals);
-
-    function normKey(s) {
-      return String(s || "")
-        .toLowerCase()
-        .replace(/<\s*/g, "<")
-        .replace(/\s*>/g, ">")
-        .replace(/\s+/g, " ")
-        .replace(/[^\w\s:<>\-]/g, "")
-        .trim();
-    }
-
-    function normIssueTitle(t) {
-      var s = String(t || "");
-      s = s.replace(/\s+/g, " ").trim();
-      s = s.replace(/\btag\b/gi, "");
-      s = s.replace(/\s+\./g, ".");
-      s = s.replace(/\.\s*$/g, "");
-      s = s.replace(/\s+\(/g, "(").replace(/\)\s+/g, ")");
-      s = s.replace(/\bmeta\s+description\b/gi, "meta description");
-      s = s.replace(/\bpage\s+title\b/gi, "title");
-      s = s.replace(/\bcanonical\s+link\b/gi, "canonical");
-      return normKey(s);
-    }
-
-    function sevRank(sev) {
-      sev = String(sev || "").toUpperCase();
-      if (sev === "CRITICAL") return 4;
-      if (sev === "HIGH") return 3;
-      if (sev === "MED" || sev === "MEDIUM") return 2;
-      if (sev === "LOW") return 1;
-      if (sev === "OK") return 0;
-      return 1;
-    }
-
-    function normaliseRequiredMissing(label, sig, text) {
-      if (!/required signal missing/i.test(String(text || ""))) return String(text || "");
-      var spec = "";
-      try { spec = specificMissingSignals(sig); } catch (e) { spec = ""; }
-      if (spec) return label + ": " + spec;
-      return label + ": Missing baseline inputs for this signal.";
-    }
-
-    function collectFromSignal(sig, out) {
-      sig = safeObj(sig);
-
-      var key = domainKeyFromSignal(sig);
-      var platformControl =
-        (window.__IQWEB_LAST_DATA && window.__IQWEB_LAST_DATA.platform_control) ||
-        ((window.__IQWEB_LAST_DATA &&
-          window.__IQWEB_LAST_DATA.platform &&
-          window.__IQWEB_LAST_DATA.platform.controlLevel)) ||
-        "full";
-
-var platformManaged = (platformControl === "limited" && key === "security");
-if (platformManaged) return;
-
-var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0) : asInt(sig.score, 0);
-var unmeasured = isUnmeasuredSignal(sig, displayScore);
-var isPrimarySignal = !!(primary && primary.key && key === primary.key);
-
-/* 
-  Do not show strong non-primary signals as Top Issues.
-  Example: AI Visibility 97 must not appear as an issue.
-*/
-if (!unmeasured && displayScore >= 90 && !isPrimarySignal) {
-  return;
-}
-
-var label = String(sig.label || sig.id || "Signal");
-if (key === "ai_discoverability") label = "AI Visibility";
-var issues = asArray(sig.issues);
-var deds = asArray(sig.deductions);
-
-      for (var j = 0; j < issues.length; j++) {
-        var it = safeObj(issues[j]);
-        var rawTitle = String(it.title || it.id || (label + ": issue")).trim();
-        if (!rawTitle) continue;
-
-        var title = normaliseRequiredMissing(label, sig, rawTitle);
-
-    out.push({
-  domain: key,
-  title: title,
-  sev: String(it.severity || "MONITOR").toUpperCase(),
-  why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
-  _rank: sevRank(it.severity || "MONITOR")
-});
-      }
-
-      for (var m = 0; m < deds.length; m++) {
-        var dd = safeObj(deds[m]);
-        var pts = num(dd.points);
-        var rawReason = String(dd.reason || dd.code || "").trim();
-        if (!rawReason) continue;
-
-        if (pts !== null && pts < 2) continue;
-
-        var reason = rawReason;
-        if (/required signal missing/i.test(reason)) {
-          var spec2 = "";
-          try { spec2 = specificMissingSignals(sig); } catch (e2) { spec2 = ""; }
-          reason = spec2 || "Missing baseline inputs for this signal.";
-        }
-
-out.push({
-  domain: key,
-  title: label + ": " + reason,
-  sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
-  why: "A measured deduction was applied from scan evidence.",
-  _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
-});
-      }
-    }
-
-    var all = [];
-    var primaryOnly = [];
-
-    if (primary && primary.key) {
-      for (var i = 0; i < signals.length; i++) {
-        if (domainKeyFromSignal(signals[i]) === primary.key) {
-          collectFromSignal(signals[i], primaryOnly);
-        }
-      }
-    }
-
-    for (var k = 0; k < signals.length; k++) {
-      collectFromSignal(safeObj(signals[k]), all);
-    }
-
-    function dedupe(list) {
-      var map = {};
-      for (var i = 0; i < list.length; i++) {
-        var it = list[i];
-        if (!it || !it.title) continue;
-
-        var tKey = normIssueTitle(it.title);
-        var key = tKey;
-
-        if (!map[key]) {
-          map[key] = it;
-        } else {
-          var cur = map[key];
-          var rNew = it._rank || sevRank(it.sev);
-          var rCur = cur._rank || sevRank(cur.sev);
-
-          if (rNew > rCur) {
-            map[key] = it;
-          } else if (rNew === rCur) {
-            var wNew = String(it.why || "");
-            var wCur = String(cur.why || "");
-            if (wNew.length > wCur.length) map[key] = it;
-          }
-        }
-      }
-
-      var out = [];
-      for (var kk in map) {
-        if (map.hasOwnProperty(kk)) out.push(map[kk]);
-      }
-      return out;
-    }
-
-primaryOnly = dedupe(primaryOnly);
-all = dedupe(all);
-
-function isUsefulExecutiveIssue(issue) {
-  issue = safeObj(issue);
-
-  var title = String(issue.title || "").toLowerCase();
-  var domain = String(issue.domain || "").toLowerCase();
-
-  if (!title) return false;
-
-  /* remove generic filler */
-  if (title.indexOf("missing baseline inputs for this signal") !== -1) return false;
-  if (title.indexOf("missing baseline inputs") !== -1) return false;
-  if (title.indexOf("required signal missing") !== -1) return false;
-
-  /* avoid support issues from strong domains */
-  if (domain === "seo" && title.indexOf("missing baseline inputs") !== -1) return false;
-
-  return true;
-}
-
-function sortIssues(list) {
-  list = asArray(list).slice(0);
-
-  list.sort(function (a, b) {
-    var ra = a._rank || sevRank(a.sev);
-    var rb = b._rank || sevRank(b.sev);
-
-    if (rb !== ra) return rb - ra;
-
-    var ta = normIssueTitle(a.title);
-    var tb = normIssueTitle(b.title);
-
-    if (ta < tb) return -1;
-    if (ta > tb) return 1;
-    return 0;
-  });
-
-  return list;
-}
-
-function renderExecutiveTopIssues(items) {
+function renderTopIssues(signals, primary) {
+  var root = $("topIssuesRoot");
   var execRoot = $("execTopIssuesRoot");
-  if (!execRoot) return;
 
-  items = asArray(items).slice(0, 5);
+  if (!root && !execRoot) return;
 
-  if (!items.length) {
-    execRoot.innerHTML =
-      '<div class="exec-mini-issue monitor">' +
-        '<span class="exec-mini-icon structure">✓</span>' +
-        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
-        '<span class="exec-mini-sev">OK</span>' +
-      '</div>';
-    return;
+  signals = asArray(signals);
+
+  function normIssueTitle(t) {
+    return String(t || "")
+      .toLowerCase()
+      .replace(/^ai visibility:\s*/i, "")
+      .replace(/^seo foundations:\s*/i, "")
+      .replace(/^performance:\s*/i, "")
+      .replace(/^security & trust:\s*/i, "")
+      .replace(/^structure & semantics:\s*/i, "")
+      .replace(/^accessibility:\s*/i, "")
+      .replace(/\s+/g, " ")
+      .replace(/[^\w\s:<>\-]/g, "")
+      .trim();
   }
 
-  function issueIconClass(title) {
-    title = String(title || "").toLowerCase();
-    if (title.indexOf("ai visibility") !== -1 || title.indexOf("recommendation") !== -1) return "ai";
-    if (title.indexOf("seo") !== -1 || title.indexOf("meta") !== -1 || title.indexOf("canonical") !== -1) return "seo";
-    if (title.indexOf("performance") !== -1 || title.indexOf("lcp") !== -1 || title.indexOf("paint") !== -1) return "performance";
-    if (title.indexOf("trust") !== -1 || title.indexOf("security") !== -1 || title.indexOf("header") !== -1) return "trust";
-    if (title.indexOf("accessibility") !== -1 || title.indexOf("alt") !== -1) return "accessibility";
-    return "structure";
+  function sevRank(sev) {
+    sev = String(sev || "").toUpperCase();
+    if (sev === "CRITICAL") return 4;
+    if (sev === "HIGH") return 3;
+    if (sev === "MED" || sev === "MEDIUM") return 2;
+    if (sev === "LOW") return 1;
+    return 1;
   }
 
-  function iconSVG(cls) {
-    if (cls === "ai") {
-      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>';
-    }
-    if (cls === "seo") {
-      return '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
-    }
-    if (cls === "performance") {
-      return '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>';
-    }
-    if (cls === "trust") {
-      return '<svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6z"/></svg>';
-    }
-    if (cls === "accessibility") {
-      return '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v12M5 12h14"/></svg>';
-    }
-    return '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>';
+  function isUsefulIssue(issue) {
+    issue = safeObj(issue);
+    var title = String(issue.title || "").toLowerCase();
+    if (!title) return false;
+    if (title.indexOf("missing baseline inputs") !== -1) return false;
+    if (title.indexOf("required signal missing") !== -1) return false;
+    return true;
   }
 
-  function sevClass(sev) {
-    sev = String(sev || "MONITOR").toUpperCase();
-    if (sev === "HIGH" || sev === "CRITICAL") return "high";
-    if (sev === "MED" || sev === "MEDIUM") return "med";
-    if (sev === "LOW") return "low";
-    return "monitor";
-  }
-
-  function cleanIssueTitle(title) {
+  function cleanTitle(title) {
     return String(title || "")
       .replace(/^AI Visibility:\s*/i, "")
       .replace(/^SEO Foundations:\s*/i, "")
-      .replace(/^SEO:\s*/i, "")
       .replace(/^Performance:\s*/i, "")
       .replace(/^Security & Trust:\s*/i, "")
-      .replace(/^Trust:\s*/i, "")
       .replace(/^Structure & Semantics:\s*/i, "")
       .replace(/^Accessibility:\s*/i, "")
       .trim();
   }
 
-  var out = "";
+  function collectFromSignal(sig, out) {
+    sig = safeObj(sig);
 
-  for (var i = 0; i < items.length; i++) {
-    var it = safeObj(items[i]);
-    var rawTitle = String(it.title || "").trim();
-    var title = cleanIssueTitle(rawTitle);
-    var sev = String(it.sev || "MONITOR").toUpperCase();
-    var cls = issueIconClass((it.domain || "") + " " + rawTitle);
-    var sCls = sevClass(sev);
+    var key = domainKeyFromSignal(sig);
+    var displayScore = sig.display_score !== undefined ? asInt(sig.display_score, 0) : asInt(sig.score, 0);
+    var unmeasured = isUnmeasuredSignal(sig, displayScore);
+    var isPrimarySignal = !!(primary && primary.key && key === primary.key);
 
-    out +=
-      '<div class="exec-mini-issue ' + escapeHtml(sCls) + '">' +
-        '<span class="exec-mini-icon ' + escapeHtml(cls) + '">' + iconSVG(cls) + '</span>' +
-        '<span class="exec-mini-text">' + escapeHtml(title) + '</span>' +
-        '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
-      '</div>';
-  }
+    if (!unmeasured && displayScore >= 90 && !isPrimarySignal) return;
 
-  execRoot.innerHTML = out;
-}
+    var label = String(sig.label || sig.id || "Signal");
+    if (key === "ai_discoverability") label = "AI Visibility";
 
-/*
-  If the primary constraint has no issue/deduction object, create one from the same
-  primary label used in Top Priorities.
-*/
-if (!primaryOnly.length && primary && primary.key) {
-  var primaryTitle = specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals);
-  primaryOnly.push({
-    domain: primary.key,
-    title: primaryTitle,
-    sev: primary.score < 70 ? "HIGH" : "MED",
-    why: "This is the primary constraint identified from the scan evidence.",
-    _rank: primary.score < 70 ? 3 : 2
-  });
-}
+    var issues = asArray(sig.issues);
+    var deds = asArray(sig.deductions);
 
-primaryOnly = sortIssues(primaryOnly);
-all = sortIssues(all);
+    for (var i = 0; i < issues.length; i++) {
+      var it = safeObj(issues[i]);
+      var title = String(it.title || it.id || "").trim();
+      if (!title) continue;
 
-var displayChosen = [];
+      out.push({
+        domain: key,
+        title: label + ": " + title,
+        sev: String(it.severity || "MONITOR").toUpperCase(),
+        why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+        _rank: sevRank(it.severity || "MONITOR")
+      });
+    }
 
-/* 1. Always show primary domain issues first */
-for (var pdi = 0; pdi < primaryOnly.length; pdi++) {
-  if (displayChosen.length >= 5) break;
-  displayChosen.push(primaryOnly[pdi]);
-}
+    for (var j = 0; j < deds.length; j++) {
+      var dd = safeObj(deds[j]);
+      var pts = num(dd.points);
+      var reason = String(dd.reason || dd.code || "").trim();
 
-/* 2. Then add supporting issues from other domains */
-for (var adi = 0; adi < all.length; adi++) {
-  if (displayChosen.length >= 5) break;
+      if (!reason) continue;
+      if (pts !== null && pts < 2) continue;
+      if (/required signal missing/i.test(reason)) continue;
 
-  var candidate = all[adi];
-
-  if (primary && primary.key && candidate.domain === primary.key) {
-    continue;
-  }
-
-  var duplicate = false;
-
-  for (var ddi = 0; ddi < displayChosen.length; ddi++) {
-    if (normIssueTitle(displayChosen[ddi].title) === normIssueTitle(candidate.title)) {
-      duplicate = true;
-      break;
+      out.push({
+        domain: key,
+        title: label + ": " + reason,
+        sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
+        why: "A measured deduction was applied from scan evidence.",
+        _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
+      });
     }
   }
 
-if (!duplicate && isUsefulExecutiveIssue(candidate)) {
-  displayChosen.push(candidate);
-}
+  function dedupe(list) {
+    var seen = {};
+    var out = [];
 
-var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
+    for (var i = 0; i < list.length; i++) {
+      var item = safeObj(list[i]);
+      var key = normIssueTitle(item.title);
+      if (!key || seen[key]) continue;
+      seen[key] = true;
+      out.push(item);
+    }
 
-}
-
-if (!cap) {
-  if (root) {
-    root.innerHTML =
-      '<div class="issue">' +
-        '<div class="issue-top">' +
-          '<p class="issue-title">No issues detected</p>' +
-          '<span class="issue-label">OK</span>' +
-        "</div>" +
-        '<div class="issue-why">This scan did not return any actionable issues.</div>' +
-      "</div>";
+    return out;
   }
 
-  if (typeof renderExecutiveTopIssues === "function") {
-    renderExecutiveTopIssues([]);
+  function sortIssues(list) {
+    list = asArray(list).slice(0);
+
+    list.sort(function (a, b) {
+      var ra = a._rank || sevRank(a.sev);
+      var rb = b._rank || sevRank(b.sev);
+      if (rb !== ra) return rb - ra;
+
+      var ta = normIssueTitle(a.title);
+      var tb = normIssueTitle(b.title);
+      if (ta < tb) return -1;
+      if (ta > tb) return 1;
+      return 0;
+    });
+
+    return list;
   }
 
-  return;
-}
+  function renderExecutiveTopIssues(items) {
+    if (!execRoot) return;
+
+    items = asArray(items).slice(0, 5);
+
+    if (!items.length) {
+      execRoot.innerHTML =
+        '<div class="exec-mini-issue monitor">' +
+          '<span class="exec-mini-icon structure">✓</span>' +
+          '<span class="exec-mini-text">No high-priority issues detected.</span>' +
+          '<span class="exec-mini-sev">OK</span>' +
+        '</div>';
+      return;
+    }
 
     var html = "";
-  for (var x = 0; x < cap; x++) {
-  var it2 = displayChosen[x];
+
+    for (var i = 0; i < items.length; i++) {
+      var it = safeObj(items[i]);
       html +=
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">' + escapeHtml(it2.title) + '</p>' +
-            '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
-          '</div>' +
-          '<div class="issue-why impact-text">' + escapeHtml(it2.why) + '</div>' +
+        '<div class="exec-mini-issue ' + escapeHtml(String(it.sev || "monitor").toLowerCase()) + '">' +
+          '<span class="exec-mini-icon ai">•</span>' +
+          '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
+          '<span class="exec-mini-sev">' + escapeHtml(it.sev || "MONITOR") + '</span>' +
         '</div>';
     }
 
-if (root) {
-  root.innerHTML = html;
+    execRoot.innerHTML = html;
+  }
+
+  var all = [];
+  var primaryOnly = [];
+
+  for (var a = 0; a < signals.length; a++) {
+    var sigA = safeObj(signals[a]);
+
+    collectFromSignal(sigA, all);
+
+    if (primary && primary.key && domainKeyFromSignal(sigA) === primary.key) {
+      collectFromSignal(sigA, primaryOnly);
+    }
+  }
+
+  all = sortIssues(dedupe(all)).filter(isUsefulIssue);
+  primaryOnly = sortIssues(dedupe(primaryOnly)).filter(isUsefulIssue);
+
+  if (!primaryOnly.length && primary && primary.key) {
+    primaryOnly.push({
+      domain: primary.key,
+      title: specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals),
+      sev: primary.score < 70 ? "HIGH" : "MED",
+      why: "This is the primary constraint identified from the scan evidence.",
+      _rank: primary.score < 70 ? 3 : 2
+    });
+  }
+
+  var displayChosen = [];
+
+  for (var p = 0; p < primaryOnly.length; p++) {
+    if (displayChosen.length >= 5) break;
+    displayChosen.push(primaryOnly[p]);
+  }
+
+  for (var b = 0; b < all.length; b++) {
+    if (displayChosen.length >= 5) break;
+
+    var candidate = all[b];
+
+    var duplicate = false;
+    for (var d = 0; d < displayChosen.length; d++) {
+      if (normIssueTitle(displayChosen[d].title) === normIssueTitle(candidate.title)) {
+        duplicate = true;
+        break;
+      }
+    }
+
+    if (!duplicate) displayChosen.push(candidate);
+  }
+
+  var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
+
+  if (!cap) {
+    if (root) {
+      root.innerHTML =
+        '<div class="issue">' +
+          '<div class="issue-top">' +
+            '<p class="issue-title">No issues detected</p>' +
+            '<span class="issue-label">OK</span>' +
+          '</div>' +
+          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
+        '</div>';
+    }
+
+    renderExecutiveTopIssues([]);
+    return;
+  }
+
+  var htmlOut = "";
+
+  for (var x = 0; x < cap; x++) {
+    var it2 = displayChosen[x];
+
+    htmlOut +=
+      '<div class="issue">' +
+        '<div class="issue-top">' +
+          '<p class="issue-title">' + escapeHtml(cleanTitle(it2.title)) + '</p>' +
+          '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
+        '</div>' +
+        '<div class="issue-why impact-text">' + escapeHtml(it2.why || "") + '</div>' +
+      '</div>';
+  }
+
+  if (root) root.innerHTML = htmlOut;
+
+  renderExecutiveTopIssues(displayChosen.slice(0, cap));
 }
 
-if (typeof renderExecutiveTopIssues === "function") {
-renderExecutiveTopIssues(displayChosen.filter(isUsefulExecutiveIssue));
-}
-  }
 
   // -----------------------------
   // Fix Sequence
