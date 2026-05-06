@@ -2392,78 +2392,87 @@ var rb = b._rank || sevRank(b.sev, b);
     }
   }
 
-  all = sortIssues(dedupe(all)).filter(isUsefulIssue);
-  primaryOnly = sortIssues(dedupe(primaryOnly)).filter(isUsefulIssue);
+all = sortIssues(dedupe(all)).filter(isUsefulIssue);
+primaryOnly = sortIssues(dedupe(primaryOnly)).filter(isUsefulIssue);
 
-  if (!primaryOnly.length && primary && primary.key) {
-    primaryOnly.push({
-      domain: primary.key,
-      title: specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals),
-      sev: primary.score < 70 ? "HIGH" : "MED",
-      why: "This is the primary constraint identified from the scan evidence.",
-      _rank: primary.score < 70 ? 3 : 2
-    });
+if (!primaryOnly.length && primary && primary.key) {
+  primaryOnly.push({
+    domain: primary.key,
+    title: specificConstraintLabel(window.__IQWEB_LAST_DATA || {}, primary, signals),
+    sev: primary.score < 70 ? "HIGH" : "MED",
+    why: "This is the primary constraint identified from the scan evidence.",
+    _rank: primary.score < 70 ? 100 : 90
+  });
+}
+
+var displayChosen = [];
+
+/* 1. Primary constraint issues first */
+for (var p = 0; p < primaryOnly.length; p++) {
+  if (displayChosen.length >= 5) break;
+  displayChosen.push(primaryOnly[p]);
+}
+
+/* 2. Then useful supporting issues */
+for (var b = 0; b < all.length; b++) {
+  if (displayChosen.length >= 5) break;
+
+  var candidate = all[b];
+
+  if (primary && primary.key && candidate.domain === primary.key) {
+    continue;
   }
 
-  var displayChosen = [];
+  var duplicate = false;
 
-  for (var p = 0; p < primaryOnly.length; p++) {
-    if (displayChosen.length >= 5) break;
-    displayChosen.push(primaryOnly[p]);
-  }
-
-  for (var b = 0; b < all.length; b++) {
-    if (displayChosen.length >= 5) break;
-
-    var candidate = all[b];
-
-    var duplicate = false;
-    for (var d = 0; d < displayChosen.length; d++) {
-      if (normIssueTitle(displayChosen[d].title) === normIssueTitle(candidate.title)) {
-        duplicate = true;
-        break;
-      }
+  for (var d = 0; d < displayChosen.length; d++) {
+    if (normIssueTitle(displayChosen[d].title) === normIssueTitle(candidate.title)) {
+      duplicate = true;
+      break;
     }
-
-    if (!duplicate) displayChosen.push(candidate);
   }
 
-  var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
-
-  if (!cap) {
-    if (root) {
-      root.innerHTML =
-        '<div class="issue">' +
-          '<div class="issue-top">' +
-            '<p class="issue-title">No issues detected</p>' +
-            '<span class="issue-label">OK</span>' +
-          '</div>' +
-          '<div class="issue-why">This scan did not return any actionable issues.</div>' +
-        '</div>';
-    }
-
-    renderExecutiveTopIssues([]);
-    return;
+  if (!duplicate) {
+    displayChosen.push(candidate);
   }
+}
 
-  var htmlOut = "";
+var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
-  for (var x = 0; x < cap; x++) {
-    var it2 = displayChosen[x];
-
-    htmlOut +=
+if (!cap) {
+  if (root) {
+    root.innerHTML =
       '<div class="issue">' +
         '<div class="issue-top">' +
-          '<p class="issue-title">' + escapeHtml(cleanTitle(it2.title)) + '</p>' +
-          '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
+          '<p class="issue-title">No issues detected</p>' +
+          '<span class="issue-label">OK</span>' +
         '</div>' +
-        '<div class="issue-why impact-text">' + escapeHtml(it2.why || "") + '</div>' +
+        '<div class="issue-why">This scan did not return any actionable issues.</div>' +
       '</div>';
   }
 
-  if (root) root.innerHTML = htmlOut;
+  renderExecutiveTopIssues([]);
+  return;
+}
 
-  renderExecutiveTopIssues(displayChosen.slice(0, cap));
+var htmlOut = "";
+
+for (var x = 0; x < cap; x++) {
+  var it2 = displayChosen[x];
+
+  htmlOut +=
+    '<div class="issue">' +
+      '<div class="issue-top">' +
+        '<p class="issue-title">' + escapeHtml(cleanTitle(it2.title)) + '</p>' +
+        '<span class="issue-label">' + escapeHtml(it2.sev || "MONITOR") + '</span>' +
+      '</div>' +
+      '<div class="issue-why impact-text">' + escapeHtml(it2.why || "") + '</div>' +
+    '</div>';
+}
+
+if (root) root.innerHTML = htmlOut;
+
+renderExecutiveTopIssues(displayChosen.slice(0, cap));
 }
 
 
