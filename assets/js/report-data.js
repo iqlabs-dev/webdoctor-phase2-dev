@@ -2334,9 +2334,43 @@ function isUsefulIssue(issue) {
 function sortIssues(list) {
   list = asArray(list).slice(0);
 
+  function issueRank(item) {
+    item = safeObj(item);
+
+    var sev = String(item.sev || "").toUpperCase();
+    var domain = String(item.domain || "").toLowerCase();
+    var title = String(item.title || "").toLowerCase();
+
+    var rank = 0;
+
+    if (sev === "CRITICAL") rank = 500;
+    else if (sev === "HIGH") rank = 400;
+    else if (sev === "MED" || sev === "MEDIUM") rank = 300;
+    else if (sev === "LOW") rank = 200;
+    else rank = 100;
+
+    if (primary && primary.key && domain === primary.key) {
+      rank += 1000;
+    }
+
+    if (title.indexOf("not surfaced") !== -1) {
+      rank += 80;
+    }
+
+    if (title.indexOf("very limited") !== -1) {
+      rank += 60;
+    }
+
+    if (title.indexOf("limited independent") !== -1) {
+      rank += 20;
+    }
+
+    return rank;
+  }
+
   list.sort(function (a, b) {
-    var ra = sevRank(a.sev, a);
-    var rb = sevRank(b.sev, b);
+    var ra = issueRank(a);
+    var rb = issueRank(b);
 
     if (rb !== ra) return rb - ra;
 
@@ -2350,48 +2384,48 @@ function sortIssues(list) {
   return list;
 }
 
-  function renderExecutiveTopIssues(items) {
-    if (!execRoot) return;
+function renderExecutiveTopIssues(items) {
+  if (!execRoot) return;
 
-    items = asArray(items).slice(0, 5);
+  items = sortIssues(asArray(items)).slice(0, 5);
 
-    if (!items.length) {
-      execRoot.innerHTML =
-        '<div class="exec-mini-issue monitor">' +
-          '<span class="exec-mini-icon structure">✓</span>' +
-          '<span class="exec-mini-text">No high-priority issues detected.</span>' +
-          '<span class="exec-mini-sev">OK</span>' +
-        '</div>';
-      return;
-    }
-
-    var html = "";
-
-    for (var i = 0; i < items.length; i++) {
-      var it = safeObj(items[i]);
-      html +=
-        '<div class="exec-mini-issue ' + escapeHtml(String(it.sev || "monitor").toLowerCase()) + '">' +
-          '<span class="exec-mini-icon ai">•</span>' +
-          '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
-          '<span class="exec-mini-sev">' + escapeHtml(it.sev || "MONITOR") + '</span>' +
-        '</div>';
-    }
-
-    execRoot.innerHTML = html;
+  if (!items.length) {
+    execRoot.innerHTML =
+      '<div class="exec-mini-issue monitor">' +
+        '<span class="exec-mini-icon structure">✓</span>' +
+        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
+        '<span class="exec-mini-sev">OK</span>' +
+      '</div>';
+    return;
   }
 
-  var all = [];
-  var primaryOnly = [];
+  var html = "";
 
-  for (var a = 0; a < signals.length; a++) {
-    var sigA = safeObj(signals[a]);
-
-    collectFromSignal(sigA, all);
-
-    if (primary && primary.key && domainKeyFromSignal(sigA) === primary.key) {
-      collectFromSignal(sigA, primaryOnly);
-    }
+  for (var i = 0; i < items.length; i++) {
+    var it = safeObj(items[i]);
+    html +=
+      '<div class="exec-mini-issue ' + escapeHtml(String(it.sev || "monitor").toLowerCase()) + '">' +
+        '<span class="exec-mini-icon ai">•</span>' +
+        '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
+        '<span class="exec-mini-sev">' + escapeHtml(it.sev || "MONITOR") + '</span>' +
+      '</div>';
   }
+
+  execRoot.innerHTML = html;
+}
+
+var all = [];
+var primaryOnly = [];
+
+for (var a = 0; a < signals.length; a++) {
+  var sigA = safeObj(signals[a]);
+
+  collectFromSignal(sigA, all);
+
+  if (primary && primary.key && domainKeyFromSignal(sigA) === primary.key) {
+    collectFromSignal(sigA, primaryOnly);
+  }
+}
 
 all = sortIssues(dedupe(all)).filter(isUsefulIssue);
 primaryOnly = sortIssues(dedupe(primaryOnly)).filter(isUsefulIssue);
@@ -2452,6 +2486,10 @@ for (var b = 0; b < all.length; b++) {
     continue;
   }
 
+  if (shouldSuppressIssue(candidate)) {
+    continue;
+  }
+
   var duplicate = false;
 
   for (var d = 0; d < displayChosen.length; d++) {
@@ -2465,6 +2503,8 @@ for (var b = 0; b < all.length; b++) {
     displayChosen.push(candidate);
   }
 }
+
+displayChosen = sortIssues(displayChosen);
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
