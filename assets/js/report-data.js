@@ -2171,10 +2171,12 @@ function sevRank(sev, issue) {
   var domain = String(issue && issue.domain || "").toLowerCase();
   var title = String(issue && issue.title || "").toLowerCase();
 
-  // 🚨 AI PRIORITY OVERRIDE
-  if (domain === "ai_discoverability") {
-    if (title.indexOf("not surfaced") !== -1) return 100;
-    if (title.indexOf("limited") !== -1) return 90;
+  // Primary constraint always ranks first, whatever signal it is
+  if (primary && primary.key && domain === primary.key) {
+    if (sev === "CRITICAL") return 100;
+    if (sev === "HIGH") return 95;
+    if (sev === "MED" || sev === "MEDIUM") return 90;
+    if (sev === "LOW") return 85;
     return 80;
   }
 
