@@ -2441,8 +2441,29 @@ for (var p = 0; p < primaryOnly.length; p++) {
   displayChosen.push(primaryOnly[p]);
 }
 
-/* 2. Do not add supporting issues here.
-   Top Issues must stay aligned to the primary constraint card. */
+/* 2. Add more issues only from the primary / lowest-score signal */
+for (var b = 0; b < all.length; b++) {
+  if (displayChosen.length >= 5) break;
+
+  var candidate = all[b];
+
+  if (!primary || !primary.key || candidate.domain !== primary.key) {
+    continue;
+  }
+
+  var duplicate = false;
+
+  for (var d = 0; d < displayChosen.length; d++) {
+    if (normIssueTitle(displayChosen[d].title) === normIssueTitle(candidate.title)) {
+      duplicate = true;
+      break;
+    }
+  }
+
+  if (!duplicate) {
+    displayChosen.push(candidate);
+  }
+}
 
 var cap = displayChosen.length > 5 ? 5 : displayChosen.length;
 
