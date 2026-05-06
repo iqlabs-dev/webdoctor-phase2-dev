@@ -2407,6 +2407,34 @@ if (!primaryOnly.length && primary && primary.key) {
 
 var displayChosen = [];
 
+var primaryKey = primary && primary.key ? primary.key : "";
+
+function shouldSuppressIssue(issue) {
+  if (!issue) return false;
+
+  var title = String(issue.title || "").toLowerCase();
+  var domain = String(issue.domain || "").toLowerCase();
+
+  if (primaryKey === "ai_discoverability") {
+    if (
+      title.indexOf("referrer-policy") !== -1 ||
+      title.indexOf("x-frame-options") !== -1 ||
+      title.indexOf("x-content-type-options") !== -1
+    ) {
+      return true;
+    }
+
+    if (
+      domain === "security" &&
+      scoreFor(window.__IQWEB_LAST_SCORES || {}, "security") >= 60
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /* 1. Primary constraint issues first */
 for (var p = 0; p < primaryOnly.length; p++) {
   if (displayChosen.length >= 5) break;
@@ -2420,6 +2448,10 @@ for (var b = 0; b < all.length; b++) {
   var candidate = all[b];
 
   if (primary && primary.key && candidate.domain === primary.key) {
+    continue;
+  }
+
+  if (shouldSuppressIssue(candidate)) {
     continue;
   }
 
@@ -2474,7 +2506,6 @@ if (root) root.innerHTML = htmlOut;
 
 renderExecutiveTopIssues(displayChosen.slice(0, cap));
 }
-
 
   // -----------------------------
   // Fix Sequence
@@ -2678,6 +2709,7 @@ section.style.display = "block";
   function renderAll(data) {
     data = safeObj(data);
     window.__IQWEB_LAST_DATA = data;
+    window.__IQWEB_LAST_SCORES = scores;
 
     var header = pickHeader(data);
     var scores = pickScores(data);
