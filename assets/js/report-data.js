@@ -2331,23 +2331,24 @@ function isUsefulIssue(issue) {
     return out;
   }
 
-  function sortIssues(list) {
-    list = asArray(list).slice(0);
+function sortIssues(list) {
+  list = asArray(list).slice(0);
 
-    list.sort(function (a, b) {
-var ra = a._rank || sevRank(a.sev, a);
-var rb = b._rank || sevRank(b.sev, b);
-      if (rb !== ra) return rb - ra;
+  list.sort(function (a, b) {
+    var ra = sevRank(a.sev, a);
+    var rb = sevRank(b.sev, b);
 
-      var ta = normIssueTitle(a.title);
-      var tb = normIssueTitle(b.title);
-      if (ta < tb) return -1;
-      if (ta > tb) return 1;
-      return 0;
-    });
+    if (rb !== ra) return rb - ra;
 
-    return list;
-  }
+    var ta = normIssueTitle(a.title);
+    var tb = normIssueTitle(b.title);
+    if (ta < tb) return -1;
+    if (ta > tb) return 1;
+    return 0;
+  });
+
+  return list;
+}
 
   function renderExecutiveTopIssues(items) {
     if (!execRoot) return;
