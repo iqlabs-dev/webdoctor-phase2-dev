@@ -700,101 +700,271 @@ td {
         </div>
       </div>
 
-      <div class="intro-grid">
-        <div class="section">
-          <div class="section-head">Key Findings</div>
-          <div class="section-body">
-            ${keyFindings
-              .map(
-                (row) => `
-                  <div class="finding-row">
-                    <div class="finding-label">${escapeHtml(row.label)}</div>
-                    <div class="finding-value">${escapeHtml(row.value)}</div>
-                  </div>
-                `
-              )
-              .join("")}
-          </div>
-        </div>
+<div class="section" style="margin-bottom:10px;">
+  <div class="section-head">Executive Dashboard</div>
 
-        <div class="section">
-          <div class="section-head">Overall Delivery</div>
-          <div class="section-body">
-            <div class="overall-card">
-              ${overallCard}
+  <div class="section-body" style="padding:14px;">
+
+    <table class="signals-table" role="presentation" style="border-spacing:10px 0;">
+      <tr>
+
+        <td>
+          <div class="signal-card good" style="min-height:170px;text-align:center;">
+            <div class="signal-name">Overall</div>
+
+            <div style="
+              width:110px;
+              height:110px;
+              margin:12px auto;
+              border-radius:999px;
+              border:8px solid ${escapeHtml(brandAccent)};
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:34px;
+              font-weight:800;
+              color:${escapeHtml(brandText)};
+            ">
+              ${escapeHtml(String(scores.overall ?? "—"))}
+            </div>
+
+            <div class="signal-status">
+              ${escapeHtml(scoreLabel(scores.overall))}
             </div>
           </div>
-        </div>
-      </div>
+        </td>
 
-      ${
-        baseline && baseline.scores
-          ? `
-      <div class="section" style="margin-bottom:10px;">
-        <div class="section-head">Progress Since Last Scan</div>
+        <td>
+          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+            <div class="signal-name">Performance</div>
+
+            <div style="
+              width:96px;
+              height:96px;
+              margin:18px auto 12px;
+              border-radius:999px;
+              border:7px solid #22c55e;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:28px;
+              font-weight:800;
+            ">
+              ${escapeHtml(String(scores.performance ?? "—"))}
+            </div>
+
+            <div class="signal-status">
+              ${escapeHtml(scoreLabel(scores.performance))}
+            </div>
+          </div>
+        </td>
+
+        <td>
+          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+            <div class="signal-name">SEO</div>
+
+            <div style="
+              width:96px;
+              height:96px;
+              margin:18px auto 12px;
+              border-radius:999px;
+              border:7px solid #60a5fa;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:28px;
+              font-weight:800;
+            ">
+              ${escapeHtml(String(scores.seo ?? "—"))}
+            </div>
+
+            <div class="signal-status">
+              ${escapeHtml(scoreLabel(scores.seo))}
+            </div>
+          </div>
+        </td>
+
+        <td>
+          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+            <div class="signal-name">Trust</div>
+
+            <div style="
+              width:96px;
+              height:96px;
+              margin:18px auto 12px;
+              border-radius:999px;
+              border:7px solid #2dd4bf;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:28px;
+              font-weight:800;
+            ">
+              ${escapeHtml(String(scores.security ?? "—"))}
+            </div>
+
+            <div class="signal-status">
+              ${escapeHtml(scoreLabel(scores.security))}
+            </div>
+          </div>
+        </td>
+
+        <td>
+          <div class="signal-card bad" style="min-height:170px;text-align:center;">
+            <div class="signal-name">AI Visibility</div>
+
+            <div style="
+              width:96px;
+              height:96px;
+              margin:18px auto 12px;
+              border-radius:999px;
+              border:7px solid #ef5f56;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              font-size:28px;
+              font-weight:800;
+            ">
+              ${escapeHtml(String(
+                scores.ai_discoverability ??
+                scores.ai_visibility ??
+                scores.ai ??
+                "—"
+              ))}
+            </div>
+
+            <div class="signal-status">
+              ${escapeHtml(
+                scoreLabel(
+                  scores.ai_discoverability ??
+                  scores.ai_visibility ??
+                  scores.ai
+                )
+              )}
+            </div>
+          </div>
+        </td>
+
+      </tr>
+    </table>
+
+  </div>
+</div>
+
+<table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin-bottom:10px;">
+  <tr>
+
+    <td style="width:62%;vertical-align:top;">
+
+      <div class="section" style="height:100%;">
+        <div class="section-head">Top Priorities</div>
+
         <div class="section-body" style="padding:12px;">
-          <table class="signals-table" role="presentation" style="border-spacing:8px 0;">
-            <tr>
-              <td>
-                <div class="signal-card">
-                  <div class="signal-top">
-                    <div class="signal-name">Previous Scan</div>
-                    <div class="signal-score">${escapeHtml(String(baseline.report_id || baseline.scan_id || "Baseline"))}</div>
-                  </div>
-                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(baseline.scores.overall ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(baseline.scores.performance ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(baseline.scores.seo ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(
-                    baseline.scores.ai_discoverability ??
-                    baseline.scores.ai_visibility ??
-                    baseline.scores.ai ??
-                    "—"
-                  ))}</div></div>
-                </div>
-              </td>
 
-              <td>
-                <div class="signal-card">
-                  <div class="signal-top">
-                    <div class="signal-name">Current Scan</div>
-                    <div class="signal-score">${escapeHtml(String(rid))}</div>
-                  </div>
-                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(scores.overall ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(scores.performance ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(scores.seo ?? "—"))}</div></div>
-                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(
-                    scores.ai_discoverability ??
-                    scores.ai_visibility ??
-                    scores.ai ??
-                    "—"
-                  ))}</div></div>
-                </div>
-              </td>
+          ${keyFindings.map((row, idx) => `
+            <div style="
+              border:1px solid rgba(69,102,154,0.28);
+              border-radius:12px;
+              padding:12px;
+              margin-bottom:10px;
+              background:rgba(255,255,255,0.02);
+            ">
 
-              <td>
-                <div class="signal-card">
-                  <div class="signal-top">
-                    <div class="signal-name">Change Since</div>
-                    <div class="signal-score">${escapeHtml(String(baseline.report_id || baseline.scan_id || "Baseline"))}</div>
-                  </div>
-                  <div class="finding-row"><div class="finding-label">Overall Delivery Score</div><div class="finding-value">${escapeHtml(String(delta(scores.overall, baseline.scores.overall)))}</div></div>
-                  <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(delta(scores.performance, baseline.scores.performance)))}</div></div>
-                  <div class="finding-row"><div class="finding-label">SEO Foundations</div><div class="finding-value">${escapeHtml(String(delta(scores.seo, baseline.scores.seo)))}</div></div>
-                  <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(delta(
-                    scores.ai_discoverability ?? scores.ai_visibility ?? scores.ai,
-                    baseline.scores.ai_discoverability ?? baseline.scores.ai_visibility ?? baseline.scores.ai
-                  )))}</div></div>
-                </div>
-              </td>
-            </tr>
-          </table>
+              <div style="
+                font-size:10px;
+                font-weight:800;
+                letter-spacing:0.12em;
+                text-transform:uppercase;
+                margin-bottom:6px;
+                color:${escapeHtml(brandText)};
+              ">
+                ${idx + 1}. ${escapeHtml(row.label)}
+              </div>
+
+              <div style="
+                font-size:12px;
+                line-height:1.5;
+                color:${escapeHtml(brandText)};
+              ">
+                ${escapeHtml(row.value)}
+              </div>
+
+            </div>
+          `).join("")}
+
         </div>
       </div>
-      `
-          : ""
-      }
 
-      ${footerHtml}
+    </td>
+
+    <td style="width:38%;vertical-align:top;">
+
+      <div class="section" style="height:100%;">
+        <div class="section-head">Top Issues Detected</div>
+
+        <div class="section-body" style="padding:12px;">
+
+          ${orderedSignals(deliverySignals, scores)
+            .filter(sig => safeNumber(sig.score) !== null)
+            .sort((a,b) => safeNumber(a.score) - safeNumber(b.score))
+            .slice(0,5)
+            .map(sig => {
+
+              const score = safeNumber(sig.score);
+              const sev =
+                score >= 75 ? "LOW" :
+                score >= 60 ? "MED" :
+                "HIGH";
+
+              return `
+                <div style="
+                  border:1px solid rgba(69,102,154,0.28);
+                  border-radius:12px;
+                  padding:12px;
+                  margin-bottom:10px;
+                  background:rgba(255,255,255,0.02);
+                ">
+
+                  <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:10px;
+                    align-items:flex-start;
+                  ">
+
+                    <div style="
+                      font-size:12px;
+                      line-height:1.45;
+                      font-weight:700;
+                      color:${escapeHtml(brandText)};
+                    ">
+                      ${escapeHtml(titleCaseSignal(sig.label || sig.id || "Issue"))}
+                    </div>
+
+                    <div style="
+                      font-size:10px;
+                      font-weight:800;
+                      letter-spacing:0.1em;
+                      color:${sev === "HIGH" ? "#ef5f56" : sev === "MED" ? "#f59e0b" : "#22c55e"};
+                    ">
+                      ${sev}
+                    </div>
+
+                  </div>
+
+                </div>
+              `;
+            }).join("")}
+
+        </div>
+      </div>
+
+    </td>
+
+  </tr>
+</table>
+
+${footerHtml}
 
     </div>
   </div>
