@@ -1,6 +1,6 @@
 // netlify/functions/get-report-html-pdf.js
 // Branded summary PDF HTML for DocRaptor
-// Uses saved report data frm get-report-data
+// Uses saved report data from get-report-data
 // Output:
 // - Page 1: Header + Key Findings + Overall Delivery
 // - Page 2: Delivery Signals in 3x2 landscape grid
