@@ -2387,31 +2387,72 @@ function sortIssues(list) {
 function renderExecutiveTopIssues(items) {
   if (!execRoot) return;
 
-  items = sortIssues(asArray(items)).slice(0, 5);
+items = asArray(items)
+  .filter(Boolean)
+  .slice(0, 6);
 
-  if (!items.length) {
-    execRoot.innerHTML =
-      '<div class="exec-mini-issue monitor">' +
-        '<span class="exec-mini-icon structure">✓</span>' +
-        '<span class="exec-mini-text">No high-priority issues detected.</span>' +
-        '<span class="exec-mini-sev">OK</span>' +
-      '</div>';
-    return;
+if (!items.length) {
+  execRoot.innerHTML =
+    '<div class="exec-mini-issue monitor">' +
+      '<span class="exec-mini-icon structure">✓</span>' +
+      '<span class="exec-mini-text">No major delivery blockers detected.</span>' +
+      '<span class="exec-mini-sev">OK</span>' +
+    '</div>' +
+
+    '<div class="exec-mini-issue monitor">' +
+      '<span class="exec-mini-icon seo">⌕</span>' +
+      '<span class="exec-mini-text">SEO structure appears stable.</span>' +
+      '<span class="exec-mini-sev">WATCH</span>' +
+    '</div>' +
+
+    '<div class="exec-mini-issue monitor">' +
+      '<span class="exec-mini-icon performance">⚡</span>' +
+      '<span class="exec-mini-text">Continue monitoring performance regressions.</span>' +
+      '<span class="exec-mini-sev">WATCH</span>' +
+    '</div>';
+
+  return;
+}
+
+var html = "";
+
+for (var i = 0; i < items.length; i++) {
+  var it = safeObj(items[i]);
+
+  var sev = String(it.sev || "MONITOR").toUpperCase();
+  var sevClass = sev.toLowerCase();
+
+  var domain = String(it.domain || "").toLowerCase();
+
+  var iconClass = "structure";
+  var icon = "•";
+
+  if (domain === "seo") {
+    iconClass = "seo";
+    icon = "⌕";
+  } else if (domain === "performance") {
+    iconClass = "performance";
+    icon = "⚡";
+  } else if (domain === "trust" || domain === "security") {
+    iconClass = "trust";
+    icon = "✓";
+  } else if (domain === "ai" || domain === "ai_visibility") {
+    iconClass = "ai";
+    icon = "✦";
+  } else if (domain === "accessibility") {
+    iconClass = "accessibility";
+    icon = "◐";
   }
 
-  var html = "";
+  html +=
+    '<div class="exec-mini-issue ' + escapeHtml(sevClass) + '">' +
+      '<span class="exec-mini-icon ' + iconClass + '">' + icon + '</span>' +
+      '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
+      '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
+    '</div>';
+}
 
-  for (var i = 0; i < items.length; i++) {
-    var it = safeObj(items[i]);
-    html +=
-      '<div class="exec-mini-issue ' + escapeHtml(String(it.sev || "monitor").toLowerCase()) + '">' +
-        '<span class="exec-mini-icon ai">•</span>' +
-        '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
-        '<span class="exec-mini-sev">' + escapeHtml(it.sev || "MONITOR") + '</span>' +
-      '</div>';
-  }
-
-  execRoot.innerHTML = html;
+execRoot.innerHTML = html;
 }
 
 var all = [];
