@@ -2271,19 +2271,37 @@ function isUsefulIssue(issue) {
 
       var sev = String(it.severity || "MONITOR").toUpperCase();
 
-      if (key === "ai_discoverability") {
-        var t = String(title || "").toLowerCase();
+if (key === "ai_discoverability") {
+  var t = String(title || "").toLowerCase();
 
-        if (t.indexOf("not surfaced") !== -1 || t.indexOf("not found") !== -1) {
-          sev = "HIGH";
-        } else if (
-          t.indexOf("limited") !== -1 ||
-          t.indexOf("independent") !== -1 ||
-          t.indexOf("mentions") !== -1
-        ) {
-          sev = "MED";
-        }
-      }
+  if (
+    t.indexOf("not surfaced") !== -1 ||
+    t.indexOf("not found") !== -1 ||
+    t.indexOf("recommendation") !== -1
+  ) {
+    title = "Brand not surfaced in tested AI recommendation prompts";
+    sev = "HIGH";
+
+  } else if (
+    t.indexOf("independent") !== -1 ||
+    t.indexOf("mentions") !== -1
+  ) {
+    title = "Independent mentions are limited";
+    sev = "MED";
+
+  } else if (
+    t.indexOf("category") !== -1 ||
+    t.indexOf("entity") !== -1 ||
+    t.indexOf("service") !== -1
+  ) {
+    title = "Category association needs strengthening";
+    sev = "MED";
+
+  } else {
+    title = "AI visibility signals need strengthening";
+    sev = "MED";
+  }
+}
 
       out.push({
         domain: key,
