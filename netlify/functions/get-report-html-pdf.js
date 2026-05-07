@@ -149,10 +149,10 @@ const footerContactBits = [
   <title>${escapeHtml(reportTitle)} — ${escapeHtml(rid)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    @page {
-      size: A4 landscape;
-      margin: 5mm;
-    }
+ @page {
+  size: A4 portrait;
+  margin: 6mm;
+}
 
     * { box-sizing: border-box; }
 
@@ -287,7 +287,7 @@ const footerContactBits = [
     }
 
     .meta-table td {
-      width: 33.333%;
+    width: auto;
       vertical-align: top;
     }
 
