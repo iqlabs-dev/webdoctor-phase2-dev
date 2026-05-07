@@ -2423,19 +2423,33 @@ for (var i = 0; i < items.length; i++) {
   var sevClass = sev.toLowerCase();
 
   var domain = String(it.domain || "").toLowerCase();
+  var title = String(it.title || "").toLowerCase();
 
   var iconClass = "structure";
-  var icon = "•";
+  var icon =
+    '<span>•</span>';
 
   if (
-    domain.indexOf("ai") !== -1
+    domain.indexOf("ai") !== -1 ||
+    title.indexOf("ai visibility") !== -1 ||
+    title.indexOf("recommendation") !== -1 ||
+    title.indexOf("surfaced") !== -1
   ) {
     iconClass = "ai";
-    icon = "✦";
+    icon =
+      '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="3"></circle>' +
+        '<path d="M12 3v3"></path>' +
+        '<path d="M12 18v3"></path>' +
+        '<path d="M3 12h3"></path>' +
+        '<path d="M18 12h3"></path>' +
+        '<path d="M5.6 5.6l2.1 2.1"></path>' +
+        '<path d="M16.3 16.3l2.1 2.1"></path>' +
+        '<path d="M18.4 5.6l-2.1 2.1"></path>' +
+        '<path d="M7.7 16.3l-2.1 2.1"></path>' +
+      '</svg>';
 
-  } else if (
-    domain.indexOf("seo") !== -1
-  ) {
+  } else if (domain.indexOf("seo") !== -1) {
     iconClass = "seo";
     icon = "⌕";
 
@@ -2453,9 +2467,7 @@ for (var i = 0; i < items.length; i++) {
     iconClass = "trust";
     icon = "✓";
 
-  } else if (
-    domain.indexOf("access") !== -1
-  ) {
+  } else if (domain.indexOf("access") !== -1) {
     iconClass = "accessibility";
     icon = "◐";
   }
