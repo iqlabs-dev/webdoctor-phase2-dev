@@ -647,12 +647,11 @@ td {
       font-feature-settings: "tnum";
     }
 
-    .pdf-page {
-      min-height: 183mm;
-      padding: 0;
-      page-break-after: always;
-      overflow: hidden;
-    }
+.pdf-page {
+  padding: 0;
+  page-break-after: always;
+  overflow: visible;
+}
 
     .page-shell {
       width: 100%;
@@ -737,7 +736,7 @@ td {
     }
 
     .score-box {
-      height: 145px;
+       height: 118px;
       border: 1px solid rgba(148,163,184,0.15);
       border-radius: 17px;
       text-align: center;
@@ -751,7 +750,7 @@ td {
     }
 
     .score-box.overall {
-      height: 162px;
+        height: 132px;
       border-color: rgba(56,232,212,0.36);
       background:
         radial-gradient(circle at 50% 0%, rgba(56,232,212,0.18), transparent 55%),
@@ -863,12 +862,12 @@ td {
       width: 36%;
     }
 
-    .exec-panel {
-      border: 1px solid rgba(148,163,184,0.13);
-      border-radius: 17px;
-      background: rgba(255,255,255,0.026);
-      padding: 13px;
-      min-height: 250px;
+.exec-panel {
+  border: 1px solid rgba(148,163,184,0.13);
+  border-radius: 17px;
+  background: rgba(255,255,255,0.026);
+  padding: 11px;
+  min-height: 205px;
       break-inside: avoid;
       page-break-inside: avoid;
     }
@@ -1037,29 +1036,29 @@ td {
       padding: 15px 14px 12px;
     }
 
-    .signal-card {
-      min-height: 125px;
-      padding: 10px;
-    }
+.signal-card {
+      min-height: 105px;
+      padding: 9px;
+}
 
     .signal-card .signal-copy {
       font-size: 8.8px;
       line-height: 1.25;
     }
 
-    .ai-card {
-      padding: 13px !important;
-    }
+   .ai-card {
+  padding: 10px !important;
+}
 
     .ai-card table td:nth-child(1) { width: 155px !important; }
     .ai-card table td:nth-child(2) { width: 365px !important; }
     .ai-card table td:nth-child(3) { width: auto !important; }
 
-    .fix-sequence {
-      padding: 14px;
-      display: grid;
-      gap: 11px;
-    }
+ .fix-sequence {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
 
     .phase {
       border: 1px solid rgba(148,163,184,0.13);
@@ -1101,13 +1100,13 @@ td {
       padding: 11px 13px;
     }
 
-    .phase-body ul {
-      margin: 0;
-      padding-left: 18px;
-      color: #c0cfeb;
-      font-size: 11px;
-      line-height: 1.42;
-    }
+.phase-body ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #c0cfeb;
+  font-size: 10px;
+  line-height: 1.32;
+}
 
     .phase-body li {
       margin: 4px 0;
