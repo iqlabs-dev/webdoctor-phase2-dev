@@ -2427,19 +2427,35 @@ for (var i = 0; i < items.length; i++) {
   var iconClass = "structure";
   var icon = "•";
 
-  if (domain === "seo") {
-    iconClass = "seo";
-    icon = "⌕";
-  } else if (domain === "performance") {
-    iconClass = "performance";
-    icon = "⚡";
-  } else if (domain === "trust" || domain === "security") {
-    iconClass = "trust";
-    icon = "✓";
-  } else if (domain === "ai" || domain === "ai_visibility") {
+  if (
+    domain.indexOf("ai") !== -1
+  ) {
     iconClass = "ai";
     icon = "✦";
-  } else if (domain === "accessibility") {
+
+  } else if (
+    domain.indexOf("seo") !== -1
+  ) {
+    iconClass = "seo";
+    icon = "⌕";
+
+  } else if (
+    domain.indexOf("performance") !== -1 ||
+    domain.indexOf("speed") !== -1
+  ) {
+    iconClass = "performance";
+    icon = "⚡";
+
+  } else if (
+    domain.indexOf("trust") !== -1 ||
+    domain.indexOf("security") !== -1
+  ) {
+    iconClass = "trust";
+    icon = "✓";
+
+  } else if (
+    domain.indexOf("access") !== -1
+  ) {
     iconClass = "accessibility";
     icon = "◐";
   }
