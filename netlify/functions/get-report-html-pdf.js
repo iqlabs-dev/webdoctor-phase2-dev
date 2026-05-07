@@ -151,7 +151,7 @@ const footerContactBits = [
   <style>
     @page {
       size: A4 landscape;
-      margin: 8mm;
+      margin: 7mm;
     }
 
     * { box-sizing: border-box; }
@@ -648,187 +648,278 @@ td {
     }
 
     .pdf-page {
-      min-height: 184mm;
+      min-height: 183mm;
+      padding: 0;
+      page-break-after: always;
+      overflow: hidden;
+    }
+
+    .page-shell {
+      width: 100%;
+      height: 100%;
     }
 
     .top-card {
-      border-radius: 22px 22px 0 0;
+      border-radius: 18px 18px 0 0;
       margin-bottom: 0;
       box-shadow: none;
     }
 
+    .brand-inner {
+      padding: 10px 14px 6px;
+    }
+
+    .company-name {
+      font-size: 17px;
+    }
+
+    .report-title {
+      font-size: 10px;
+      margin-bottom: 5px;
+    }
+
+    .meta-table-wrap {
+      padding: 0 14px 10px;
+    }
+
+    .meta-card {
+      min-height: 46px;
+      padding: 8px 10px;
+    }
+
+    .meta-label {
+      font-size: 9px;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 12px;
+    }
+
+    .section {
+      box-shadow: none;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .section-head {
+      padding: 7px 11px;
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      color: #38e8d4;
+    }
+
     .exec-dashboard {
-      border-radius: 0 0 22px 22px;
       border: 1px solid rgba(148,163,184,0.18);
       border-top: 0;
+      border-radius: 0 0 18px 18px;
       overflow: hidden;
       background:
         radial-gradient(circle at 18% 0%, rgba(34,211,238,0.10), transparent 28%),
         linear-gradient(180deg, rgba(13,22,41,0.92), rgba(4,7,14,0.98));
-      margin-bottom: 10px;
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
-    .exec-score-row {
-      display: grid;
-      grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr));
-      gap: 18px;
-      padding: 20px 24px;
+    .exec-score-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 11px 0;
+      table-layout: fixed;
+      padding: 16px 15px 14px;
       border-bottom: 1px solid rgba(148,163,184,0.12);
     }
 
-    .exec-score-card {
-      min-height: 166px;
-      padding: 18px 14px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 9px;
-      text-align: center;
+    .exec-score-table td {
+      width: 20%;
+      vertical-align: top;
+      padding: 0;
+    }
+
+    .score-box {
+      height: 145px;
       border: 1px solid rgba(148,163,184,0.15);
-      border-radius: 18px;
+      border-radius: 17px;
+      text-align: center;
       background:
         radial-gradient(circle at 50% 0%, rgba(56,232,212,0.10), transparent 48%),
         linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
+      padding: 11px 8px 9px;
+      overflow: hidden;
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
-    .exec-score-card.overall {
-      min-height: 184px;
+    .score-box.overall {
+      height: 162px;
       border-color: rgba(56,232,212,0.36);
       background:
         radial-gradient(circle at 50% 0%, rgba(56,232,212,0.18), transparent 55%),
         linear-gradient(180deg, rgba(255,255,255,0.045), rgba(0,0,0,0.18));
     }
 
-    .score-ring {
+    .ring {
+      margin: 2px auto 8px;
       border-radius: 50%;
-      display: grid;
-      place-items: center;
       position: relative;
       background:
         conic-gradient(var(--ring-color) var(--ring-deg), rgba(148,163,184,0.16) 0deg),
         radial-gradient(circle, rgba(255,255,255,0.05), rgba(255,255,255,0));
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.035);
     }
 
-    .score-ring::after {
+    .ring:after {
       content: "";
       position: absolute;
-      inset: 9px;
+      inset: 8px;
       border-radius: 50%;
       background: #07101f;
       border: 1px solid rgba(255,255,255,0.07);
     }
 
-    .score-ring strong {
-      position: relative;
-      z-index: 1;
+    .ring-num {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      display: table;
+      width: 100%;
+      height: 100%;
       color: #fff;
       font-weight: 900;
-      letter-spacing: -0.07em;
+      letter-spacing: -0.05em;
       line-height: 1;
     }
 
-    .score-ring.large {
-      width: 122px;
-      height: 122px;
+    .ring-num span {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: center;
     }
 
-    .score-ring.large strong {
-      font-size: 40px;
+    .ring-lg {
+      width: 100px;
+      height: 100px;
     }
 
-    .score-ring.small {
-      width: 86px;
-      height: 86px;
+    .ring-lg .ring-num {
+      font-size: 33px;
     }
 
-    .score-ring.small strong {
-      font-size: 28px;
+    .ring-sm {
+      width: 78px;
+      height: 78px;
+      margin-top: 8px;
     }
 
-    .score-k {
+    .ring-sm .ring-num {
+      font-size: 24px;
+    }
+
+    .score-label {
       color: #e5f0ff;
-      font-size: 10px;
+      font-size: 9px;
+      line-height: 1.1;
       font-weight: 900;
       letter-spacing: 0.12em;
       text-transform: uppercase;
+      margin-top: 2px;
     }
 
-    .score-v {
+    .score-verdict {
       color: var(--ring-color);
-      font-size: 11px;
+      font-size: 9px;
+      line-height: 1.15;
       font-weight: 900;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
+      margin-top: 4px;
     }
 
     .score-note {
-      color: rgba(229,240,255,0.68);
-      font-size: 10px;
+      color: rgba(229,240,255,0.70);
+      font-size: 8.5px;
+      line-height: 1.2;
       font-weight: 700;
+      margin-top: 3px;
     }
 
-    .exec-body {
-      display: grid;
-      grid-template-columns: minmax(0, 1.25fr) 330px;
-      gap: 20px;
-      padding: 20px 26px 24px;
+    .exec-lower-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 14px 0;
+      table-layout: fixed;
+      padding: 14px 22px 18px;
+    }
+
+    .exec-lower-table td {
+      vertical-align: top;
+      padding: 0;
+    }
+
+    .exec-left {
+      width: 64%;
+    }
+
+    .exec-right {
+      width: 36%;
     }
 
     .exec-panel {
       border: 1px solid rgba(148,163,184,0.13);
-      border-radius: 18px;
+      border-radius: 17px;
       background: rgba(255,255,255,0.026);
-      padding: 16px;
+      padding: 13px;
+      min-height: 250px;
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
     .exec-panel-title {
-      margin: 0 0 12px;
-      font-size: 11px;
+      margin: 0 0 10px;
+      font-size: 10px;
       font-weight: 900;
       letter-spacing: 0.14em;
       text-transform: uppercase;
       color: #38e8d4;
     }
 
-    .exec-priority-list {
-      display: grid;
-      gap: 10px;
-    }
-
-    .exec-priority {
-      display: grid;
-      grid-template-columns: 28px 1fr;
-      gap: 12px;
-      align-items: start;
-      padding: 13px 14px;
-      border-radius: 15px;
-      background: rgba(255,255,255,0.018);
+    .priority-row {
+      display: table;
+      width: 100%;
       border: 1px solid rgba(148,163,184,0.12);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.018);
+      margin-bottom: 9px;
+      overflow: hidden;
     }
 
-    .exec-priority-rank {
-      width: 26px;
-      height: 26px;
-      border-radius: 9px;
-      display: grid;
-      place-items: center;
-      font-size: 11px;
-      font-weight: 800;
+    .priority-rank {
+      display: table-cell;
+      width: 36px;
+      padding: 11px 8px 11px 12px;
+      vertical-align: top;
+    }
+
+    .priority-rank span {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      display: block;
+      text-align: center;
+      line-height: 24px;
       color: #22d3ee;
-      background: transparent;
       border: 1px solid rgba(34,211,238,0.28);
+      font-size: 10px;
+      font-weight: 800;
     }
 
-    .exec-priority-label {
-      font-size: 9px;
+    .priority-copy {
+      display: table-cell;
+      padding: 11px 12px 11px 0;
+      vertical-align: top;
+    }
+
+    .priority-label {
+      font-size: 8.5px;
       font-weight: 900;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -836,97 +927,106 @@ td {
       margin-bottom: 4px;
     }
 
-    .exec-priority-text {
+    .priority-text {
       margin: 0;
       color: #c0cfeb;
-      font-size: 12px;
-      line-height: 1.48;
+      font-size: 11px;
+      line-height: 1.42;
       font-weight: 500;
     }
 
-    .exec-priority:nth-child(1) .exec-priority-text { color: #22d3ee; }
-    .exec-priority:nth-child(2) .exec-priority-text { color: #60a5fa; }
-    .exec-priority:nth-child(3) .exec-priority-text { color: #34d399; }
+    .priority-row:nth-child(1) .priority-text { color: #22d3ee; }
+    .priority-row:nth-child(2) .priority-text { color: #60a5fa; }
+    .priority-row:nth-child(3) .priority-text { color: #34d399; }
 
-    .exec-diagnosis {
-      margin-top: 12px;
-      padding: 11px 12px;
+    .exec-next {
+      margin-top: 8px;
+      padding: 10px 12px;
       border-top: 1px solid rgba(255,255,255,0.06);
       color: #c0cfeb;
-      font-size: 12px;
-      line-height: 1.5;
+      font-size: 11px;
+      line-height: 1.42;
     }
 
-    .exec-issues-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .exec-mini-issue {
-      display: grid;
-      grid-template-columns: 28px 1fr auto;
-      gap: 10px;
-      align-items: center;
-      padding: 11px 12px;
-      border-radius: 13px;
-      background: rgba(0,0,0,0.18);
+    .issue-row {
+      display: table;
+      width: 100%;
       border: 1px solid rgba(148,163,184,0.10);
+      border-radius: 12px;
+      background: rgba(0,0,0,0.18);
+      margin-bottom: 8px;
+      overflow: hidden;
     }
 
-    .exec-mini-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 9px;
-      display: grid;
-      place-items: center;
-      font-size: 13px;
+    .issue-icon {
+      display: table-cell;
+      width: 34px;
+      padding: 8px 0 8px 10px;
+      vertical-align: middle;
+    }
+
+    .issue-icon span {
+      display: block;
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      text-align: center;
+      line-height: 24px;
+      font-size: 12px;
       font-weight: 900;
     }
 
-    .exec-mini-icon.ai {
+    .issue-text {
+      display: table-cell;
+      padding: 9px 8px;
+      vertical-align: middle;
+      color: #c0cfeb;
+      font-size: 10.5px;
+      font-weight: 700;
+      line-height: 1.32;
+    }
+
+    .issue-sev {
+      display: table-cell;
+      width: 42px;
+      padding: 9px 10px 9px 0;
+      vertical-align: middle;
+      text-align: right;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .icon-ai span {
       color: #f59e0b;
       background: rgba(245,158,11,0.12);
       border: 1px solid rgba(245,158,11,0.32);
     }
 
-    .exec-mini-icon.seo {
+    .icon-seo span {
       color: #60a5fa;
       background: rgba(96,165,250,0.12);
       border: 1px solid rgba(96,165,250,0.32);
     }
 
-    .exec-mini-icon.performance {
+    .icon-performance span {
       color: #22c55e;
       background: rgba(34,197,94,0.12);
       border: 1px solid rgba(34,197,94,0.32);
     }
 
-    .exec-mini-icon.trust {
+    .icon-trust span {
       color: #14b8a6;
       background: rgba(20,184,166,0.12);
       border: 1px solid rgba(20,184,166,0.32);
     }
 
-    .exec-mini-icon.structure,
-    .exec-mini-icon.accessibility {
+    .icon-structure span,
+    .icon-accessibility span {
       color: #a78bfa;
       background: rgba(167,139,250,0.12);
       border: 1px solid rgba(167,139,250,0.32);
-    }
-
-    .exec-mini-text {
-      color: #c0cfeb;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.42;
-    }
-
-    .exec-mini-sev {
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     .sev-high { color: #ef4444; }
@@ -934,21 +1034,31 @@ td {
     .sev-low { color: #22c55e; }
 
     .signals-table-wrap {
-      padding: 16px 14px 14px;
+      padding: 15px 14px 12px;
     }
 
     .signal-card {
-      min-height: 134px;
+      min-height: 125px;
+      padding: 10px;
     }
 
-    .ai-card table td:nth-child(1) { width: 170px !important; }
-    .ai-card table td:nth-child(2) { width: 390px !important; }
+    .signal-card .signal-copy {
+      font-size: 8.8px;
+      line-height: 1.25;
+    }
+
+    .ai-card {
+      padding: 13px !important;
+    }
+
+    .ai-card table td:nth-child(1) { width: 155px !important; }
+    .ai-card table td:nth-child(2) { width: 365px !important; }
     .ai-card table td:nth-child(3) { width: auto !important; }
 
     .fix-sequence {
+      padding: 14px;
       display: grid;
-      gap: 12px;
-      padding: 16px;
+      gap: 11px;
     }
 
     .phase {
@@ -961,17 +1071,17 @@ td {
     }
 
     .phase-head {
-      padding: 12px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
+      padding: 11px 13px;
       border-bottom: 1px solid rgba(148,163,184,0.12);
       background: rgba(255,255,255,0.03);
+      display: table;
+      width: 100%;
     }
 
     .phase-title {
+      display: table-cell;
       margin: 0;
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       font-weight: 900;
@@ -979,26 +1089,28 @@ td {
     }
 
     .phase-time {
-      font-size: 10px;
+      display: table-cell;
+      text-align: right;
+      font-size: 9px;
       letter-spacing: 0.10em;
       text-transform: uppercase;
       color: rgba(229,240,255,0.65);
     }
 
     .phase-body {
-      padding: 12px 14px;
+      padding: 11px 13px;
     }
 
     .phase-body ul {
       margin: 0;
       padding-left: 18px;
       color: #c0cfeb;
-      font-size: 12px;
-      line-height: 1.48;
+      font-size: 11px;
+      line-height: 1.42;
     }
 
     .phase-body li {
-      margin: 5px 0;
+      margin: 4px 0;
     }
 
     @media print {
@@ -1007,7 +1119,6 @@ td {
         print-color-adjust: exact !important;
       }
     }
-
 
   </style>
 </head>
@@ -1074,7 +1185,7 @@ td {
       </div>
 
 
-      ${renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals, brandAccent)}
+      ${renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals)}
 
       ${
         baseline && baseline.scores
@@ -2071,14 +2182,12 @@ return `
 `;
 }
 
-function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals, brandAccent) {
-  const scoreMap = {
-    overall: safeNumber(scores.overall),
-    performance: safeNumber(scores.performance),
-    seo: safeNumber(scores.seo),
-    security: safeNumber(scores.security),
-    ai: safeNumber(scores.ai_discoverability ?? scores.ai_visibility ?? scores.ai),
-  };
+function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals) {
+  const overall = safeNumber(scores.overall);
+  const perf = safeNumber(scores.performance);
+  const seo = safeNumber(scores.seo);
+  const trust = safeNumber(scores.security);
+  const ai = safeNumber(scores.ai_discoverability ?? scores.ai_visibility ?? scores.ai);
 
   const priorities = Array.isArray(keyFindings) ? keyFindings : [];
   const primary = priorities.find((x) => String(x.label || "").toLowerCase().includes("primary")) || priorities[1] || {};
@@ -2088,68 +2197,72 @@ function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals,
 
   return `
     <div class="exec-dashboard">
-      <div class="exec-score-row">
-        ${renderScoreCard("overall", "Overall", scoreMap.overall, "#22d3ee", true)}
-        ${renderScoreCard("performance", "Performance", scoreMap.performance, "#22c55e", false)}
-        ${renderScoreCard("seo", "SEO", scoreMap.seo, "#60a5fa", false)}
-        ${renderScoreCard("trust", "Trust", scoreMap.security, "#14b8a6", false)}
-        ${renderScoreCard("ai", "AI Visibility", scoreMap.ai, "#f59e0b", false)}
-      </div>
+      <table class="exec-score-table" role="presentation">
+        <tr>
+          <td>${renderScoreBox("Overall", overall, "#22d3ee", true)}</td>
+          <td>${renderScoreBox("Performance", perf, "#22c55e", false)}</td>
+          <td>${renderScoreBox("SEO", seo, "#60a5fa", false)}</td>
+          <td>${renderScoreBox("Trust", trust, "#14b8a6", false)}</td>
+          <td>${renderScoreBox("AI Visibility", ai, "#f59e0b", false)}</td>
+        </tr>
+      </table>
 
-      <div class="exec-body">
-        <div class="exec-panel">
-          <h3 class="exec-panel-title">Top Priorities</h3>
-          <div class="exec-priority-list">
-            ${renderPriorityItem(1, "Primary constraint", primary.value)}
-            ${renderPriorityItem(2, "Impact", impact.value)}
-            ${renderPriorityItem(3, "Recommended fix", fix.value)}
-          </div>
-          <div class="exec-diagnosis">${escapeHtml(next.value || "Improve the clearest priority first, then re-run the scan to confirm progress.")}</div>
-        </div>
-
-        <div class="exec-panel">
-          <h3 class="exec-panel-title">Top Issues Detected</h3>
-          <div class="exec-issues-list">
-            ${renderTopIssues(deliverySignals, scores)}
-          </div>
-        </div>
-      </div>
+      <table class="exec-lower-table" role="presentation">
+        <tr>
+          <td class="exec-left">
+            <div class="exec-panel">
+              <h3 class="exec-panel-title">Top Priorities</h3>
+              ${renderPriorityRow(1, "Primary Constraint", primary.value)}
+              ${renderPriorityRow(2, "Impact", impact.value)}
+              ${renderPriorityRow(3, "Recommended Fix", fix.value)}
+              <div class="exec-next">${escapeHtml(next.value || "Improve the clearest priority first, then re-run the scan to confirm progress.")}</div>
+            </div>
+          </td>
+          <td class="exec-right">
+            <div class="exec-panel">
+              <h3 class="exec-panel-title">Top Issues Detected</h3>
+              ${renderTopIssuesTable(deliverySignals, scores)}
+            </div>
+          </td>
+        </tr>
+      </table>
     </div>
   `;
 }
 
-function renderScoreCard(key, label, score, color, large) {
+function renderScoreBox(label, score, color, isOverall) {
   const s = safeNumber(score);
   const deg = s === null ? 0 : Math.round(clampScore(s) * 3.6);
   const verdict = scoreLabel(s);
-  const note = key === "overall" && s !== null ? `${s}/100 - ${verdict}` : "";
-  const klass = large ? "exec-score-card overall" : "exec-score-card";
+  const cls = isOverall ? "score-box overall" : "score-box";
+  const ringCls = isOverall ? "ring ring-lg" : "ring ring-sm";
+  const note = isOverall && s !== null ? `<div class="score-note">${escapeHtml(String(s))}/100 - ${escapeHtml(verdict)}</div>` : "";
 
   return `
-    <div class="${klass}" style="--ring-color:${escapeAttr(color)};--ring-deg:${deg}deg;">
-      <div class="score-ring ${large ? "large" : "small"}">
-        <strong>${s === null ? "—" : escapeHtml(String(s))}</strong>
+    <div class="${cls}" style="--ring-color:${escapeAttr(color)};--ring-deg:${deg}deg;">
+      <div class="${ringCls}">
+        <div class="ring-num"><span>${s === null ? "—" : escapeHtml(String(s))}</span></div>
       </div>
-      <div class="score-k">${escapeHtml(label)}</div>
-      <div class="score-v">${escapeHtml(verdict)}</div>
-      ${note ? `<div class="score-note">${escapeHtml(note)}</div>` : ""}
+      <div class="score-label">${escapeHtml(label)}</div>
+      <div class="score-verdict">${escapeHtml(verdict)}</div>
+      ${note}
     </div>
   `;
 }
 
-function renderPriorityItem(rank, label, text) {
+function renderPriorityRow(rank, label, text) {
   return `
-    <div class="exec-priority">
-      <div class="exec-priority-rank">${escapeHtml(String(rank))}</div>
-      <div>
-        <div class="exec-priority-label">${escapeHtml(label)}</div>
-        <p class="exec-priority-text">${escapeHtml(text || "No priority returned for this scan.")}</p>
+    <div class="priority-row">
+      <div class="priority-rank"><span>${escapeHtml(String(rank))}</span></div>
+      <div class="priority-copy">
+        <div class="priority-label">${escapeHtml(label)}</div>
+        <p class="priority-text">${escapeHtml(text || "No priority returned for this scan.")}</p>
       </div>
     </div>
   `;
 }
 
-function renderTopIssues(deliverySignals, scores) {
+function renderTopIssuesTable(deliverySignals, scores) {
   const items = orderedSignals(deliverySignals, scores)
     .filter((sig) => safeNumber(sig.score) !== null)
     .sort((a, b) => safeNumber(a.score) - safeNumber(b.score))
@@ -2157,10 +2270,10 @@ function renderTopIssues(deliverySignals, scores) {
 
   if (!items.length) {
     return `
-      <div class="exec-mini-issue">
-        <span class="exec-mini-icon structure">✓</span>
-        <span class="exec-mini-text">No high-priority issues detected.</span>
-        <span class="exec-mini-sev sev-low">OK</span>
+      <div class="issue-row">
+        <div class="issue-icon icon-structure"><span>✓</span></div>
+        <div class="issue-text">No high-priority issues detected.</div>
+        <div class="issue-sev sev-low">OK</div>
       </div>
     `;
   }
@@ -2169,14 +2282,14 @@ function renderTopIssues(deliverySignals, scores) {
     const key = labelToKey(sig.label || sig.id || "");
     const score = safeNumber(sig.score);
     const sev = score < 60 ? "HIGH" : score < 75 ? "MED" : "LOW";
+    const sevClass = sev === "HIGH" ? "sev-high" : sev === "MED" ? "sev-med" : "sev-low";
     const iconClass =
-      key === "ai_discoverability" ? "ai" :
-      key === "seo" ? "seo" :
-      key === "performance" || key === "mobile" ? "performance" :
-      key === "security" ? "trust" :
-      key === "accessibility" ? "accessibility" :
-      "structure";
-
+      key === "ai_discoverability" ? "icon-ai" :
+      key === "seo" ? "icon-seo" :
+      key === "performance" || key === "mobile" ? "icon-performance" :
+      key === "security" ? "icon-trust" :
+      key === "accessibility" ? "icon-accessibility" :
+      "icon-structure";
     const icon =
       key === "ai_discoverability" ? "✣" :
       key === "seo" ? "⌕" :
@@ -2185,19 +2298,17 @@ function renderTopIssues(deliverySignals, scores) {
       key === "accessibility" ? "A" :
       "•";
 
-    const sevClass = sev === "HIGH" ? "sev-high" : sev === "MED" ? "sev-med" : "sev-low";
-
     return `
-      <div class="exec-mini-issue">
-        <span class="exec-mini-icon ${escapeAttr(iconClass)}">${escapeHtml(icon)}</span>
-        <span class="exec-mini-text">${escapeHtml(issueTitleForSignal(sig, key, score))}</span>
-        <span class="exec-mini-sev ${sevClass}">${sev}</span>
+      <div class="issue-row">
+        <div class="issue-icon ${escapeAttr(iconClass)}"><span>${escapeHtml(icon)}</span></div>
+        <div class="issue-text">${escapeHtml(issueTitleForSignal(sig, key))}</div>
+        <div class="issue-sev ${sevClass}">${sev}</div>
       </div>
     `;
   }).join("");
 }
 
-function issueTitleForSignal(sig, key, score) {
+function issueTitleForSignal(sig, key) {
   if (key === "ai_discoverability") {
     const ev = sig && sig.evidence ? sig.evidence : {};
     const hits = safeNumber(ev.ai_recommendation_hits);
@@ -2206,7 +2317,6 @@ function issueTitleForSignal(sig, key, score) {
     if (mentions !== null && mentions < 2) return "Independent web mentions remain limited";
     return "AI visibility signals need strengthening";
   }
-
   if (key === "performance" || key === "mobile") return "Performance delivery needs optimisation";
   if (key === "seo") return "SEO foundations need improvement";
   if (key === "security") return "Security and trust headers are incomplete";
