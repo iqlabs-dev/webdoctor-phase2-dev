@@ -709,19 +709,19 @@ td {
       <tr>
 
         <td>
-          <div class="signal-card good" style="min-height:170px;text-align:center;">
+          <div class="signal-card good" style="min-height:145px;text-align:center;">
             <div class="signal-name">Overall</div>
 
             <div style="
-              width:110px;
-              height:110px;
+           width:92px;
+height:92px;
               margin:12px auto;
               border-radius:999px;
               border:8px solid ${escapeHtml(brandAccent)};
               display:flex;
               align-items:center;
               justify-content:center;
-              font-size:34px;
+  font-size:22px;
               font-weight:800;
               color:${escapeHtml(brandText)};
             ">
@@ -735,19 +735,19 @@ td {
         </td>
 
         <td>
-          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+          <div class="signal-card warn" style="min-height:145px;text-align:center;">
             <div class="signal-name">Performance</div>
 
             <div style="
-              width:96px;
-              height:96px;
+          width:82px;
+height:82px;
               margin:18px auto 12px;
               border-radius:999px;
               border:7px solid #22c55e;
               display:flex;
               align-items:center;
               justify-content:center;
-              font-size:28px;
+        font-size:22px;
               font-weight:800;
             ">
               ${escapeHtml(String(scores.performance ?? "—"))}
@@ -760,19 +760,19 @@ td {
         </td>
 
         <td>
-          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+          <div class="signal-card warn" style="min-height:145px;text-align:center;">
             <div class="signal-name">SEO</div>
 
             <div style="
-              width:96px;
-              height:96px;
+          width:82px;
+height:82px;
               margin:18px auto 12px;
               border-radius:999px;
               border:7px solid #60a5fa;
               display:flex;
               align-items:center;
               justify-content:center;
-              font-size:28px;
+             font-size:22px;
               font-weight:800;
             ">
               ${escapeHtml(String(scores.seo ?? "—"))}
@@ -785,19 +785,19 @@ td {
         </td>
 
         <td>
-          <div class="signal-card warn" style="min-height:170px;text-align:center;">
+          <div class="signal-card warn" style="min-height:145px;text-align:center;">
             <div class="signal-name">Trust</div>
 
             <div style="
-              width:96px;
-              height:96px;
+             width:82px;
+height:82px;
               margin:18px auto 12px;
               border-radius:999px;
               border:7px solid #2dd4bf;
               display:flex;
               align-items:center;
               justify-content:center;
-              font-size:28px;
+            font-size:22px;
               font-weight:800;
             ">
               ${escapeHtml(String(scores.security ?? "—"))}
@@ -810,7 +810,7 @@ td {
         </td>
 
         <td>
-          <div class="signal-card bad" style="min-height:170px;text-align:center;">
+          <div class="signal-card bad" style="min-height:145px;text-align:center;">
             <div class="signal-name">AI Visibility</div>
 
             <div style="
@@ -822,7 +822,7 @@ td {
               display:flex;
               align-items:center;
               justify-content:center;
-              font-size:28px;
+          font-size:22px;
               font-weight:800;
             ">
               ${escapeHtml(String(
@@ -883,7 +883,7 @@ td {
 
               <div style="
                 font-size:12px;
-                line-height:1.5;
+          line-height:1.35;
                 color:${escapeHtml(brandText)};
               ">
                 ${escapeHtml(row.value)}
@@ -978,16 +978,12 @@ ${footerHtml}
         </div>
       </div>
 
-      ${footerHtml}
-    </div>
-  </div>
-
-  <div class="pdf-page">
-    <div class="page-shell">
-      <div class="section signals-section">
-        <div class="section-head">AI Visibility</div>
-        <div class="section-body">
-          ${renderAiSignal(payload, deliverySignals, scores)}
+      <div style="margin-top:10px;">
+        <div class="section signals-section">
+          <div class="section-head">AI Visibility</div>
+          <div class="section-body">
+            ${renderAiSignal(payload, deliverySignals, scores)}
+          </div>
         </div>
       </div>
 
