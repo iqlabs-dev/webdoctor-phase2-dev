@@ -2284,17 +2284,19 @@ if (key === "ai_discoverability") {
 
   } else if (
     t.indexOf("independent") !== -1 ||
-    t.indexOf("mentions") !== -1
+    t.indexOf("mentions") !== -1 ||
+    t.indexOf("citation") !== -1
   ) {
-    title = "Independent mentions are limited";
+    title = "Independent web mentions remain limited";
     sev = "MED";
 
   } else if (
     t.indexOf("category") !== -1 ||
     t.indexOf("entity") !== -1 ||
-    t.indexOf("service") !== -1
+    t.indexOf("service") !== -1 ||
+    t.indexOf("association") !== -1
   ) {
-    title = "Category association needs strengthening";
+    title = "Category-to-brand association signals are weak";
     sev = "MED";
 
   } else {
