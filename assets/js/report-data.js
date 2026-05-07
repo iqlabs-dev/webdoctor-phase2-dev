@@ -2274,35 +2274,35 @@ function isUsefulIssue(issue) {
 if (key === "ai_discoverability") {
   var t = String(title || "").toLowerCase();
 
-  if (
-    t.indexOf("not surfaced") !== -1 ||
-    t.indexOf("not found") !== -1 ||
-    t.indexOf("recommendation") !== -1
-  ) {
-    title = "Brand not surfaced in tested AI recommendation prompts";
-    sev = "HIGH";
+if (
+  t.indexOf("not surfaced") !== -1 ||
+  t.indexOf("not found") !== -1 ||
+  t.indexOf("recommendation") !== -1
+) {
+  title = "Brand not surfaced in tested AI recommendation prompts";
+  sev = "HIGH";
 
-  } else if (
-    t.indexOf("independent") !== -1 ||
-    t.indexOf("mentions") !== -1 ||
-    t.indexOf("citation") !== -1
-  ) {
-    title = "Independent web mentions remain limited";
-    sev = "MED";
+} else if (
+  t.indexOf("independent") !== -1 ||
+  t.indexOf("mentions") !== -1 ||
+  t.indexOf("citation") !== -1
+) {
+  title = "Independent web mentions remain limited";
+  sev = "MED";
 
-  } else if (
-    t.indexOf("category") !== -1 ||
-    t.indexOf("entity") !== -1 ||
-    t.indexOf("service") !== -1 ||
-    t.indexOf("association") !== -1
-  ) {
-    title = "Category-to-brand association signals are weak";
-    sev = "MED";
+} else if (
+  t.indexOf("category") !== -1 ||
+  t.indexOf("entity") !== -1 ||
+  t.indexOf("service") !== -1 ||
+  t.indexOf("association") !== -1
+) {
+  title = "AI systems have limited confidence in category association";
+  sev = "MED";
 
-  } else {
-    title = "AI visibility signals need strengthening";
-    sev = "MED";
-  }
+} else {
+  title = "AI visibility signals need strengthening";
+  sev = "MED";
+}
 }
 
       out.push({
