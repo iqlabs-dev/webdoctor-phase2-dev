@@ -2787,6 +2787,19 @@ function renderProgressSinceLastScan(data, scores) {
   }
 
 if (prevOverall === null && prevPerformance === null && prevSeo === null && prevAi === null) {
+  try {
+    var grid = document.getElementById("progressGrid");
+    if (grid) {
+      grid.innerHTML =
+        '<div class="iqweb-v2-baseline-empty" style="grid-column:1/-1;">' +
+          '<div>' +
+            '<strong>Progress Snapshot</strong>' +
+            '<span>No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.</span>' +
+          '</div>' +
+        '</div>';
+    }
+    section.style.display = "block";
+  } catch (e) {}
   return;
 }
 
