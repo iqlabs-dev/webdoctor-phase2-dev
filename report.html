@@ -2002,10 +2002,424 @@ body {
   color: #ef4444;
 }
 
+  
+
+/* =========================================================
+   iQWEB V2 APPLICATION SHELL OVERRIDE
+   Preserves existing report renderer IDs and JS hooks.
+   Adds persistent SaaS-style left navigation + landscape workspace.
+   ========================================================= */
+:root {
+  --v2-sidebar: #071326;
+  --v2-sidebar-deep: #040a16;
+  --v2-main-bg: #f5f7fb;
+  --v2-panel: #ffffff;
+  --v2-panel-border: #e5eaf2;
+  --v2-text: #0f172a;
+  --v2-text-soft: #475569;
+  --v2-muted: #64748b;
+  --v2-blue: #2563eb;
+  --v2-teal: #0f766e;
+  --v2-good: #16a34a;
+  --v2-purple: #7c3aed;
+  --v2-orange: #ea580c;
+}
+
+body.iqweb-v2-shell {
+  padding: 0;
+  background: var(--v2-sidebar-deep);
+  color: var(--v2-text);
+  overflow-x: hidden;
+}
+
+.iqweb-app-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 232px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px 18px;
+  color: #dbeafe;
+  background:
+    radial-gradient(circle at 40% 0%, rgba(37,99,235,0.28), transparent 34%),
+    linear-gradient(180deg, var(--v2-sidebar), var(--v2-sidebar-deep));
+  border-right: 1px solid rgba(148,163,184,0.16);
+}
+
+.iqweb-side-logo {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #ffffff;
+  margin: 0 0 28px 8px;
+}
+
+.iqweb-side-logo span { color: #93c5fd; }
+
+.iqweb-side-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.iqweb-side-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: rgba(226,232,240,0.78);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.iqweb-side-link:hover,
+.iqweb-side-link.active {
+  color: #ffffff;
+  background: rgba(37,99,235,0.22);
+  border-color: rgba(96,165,250,0.18);
+}
+
+.iqweb-side-icon {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  color: rgba(191,219,254,0.86);
+  font-size: 15px;
+}
+
+.iqweb-side-spacer { flex: 1 1 auto; }
+
+.iqweb-side-card {
+  border: 1px solid rgba(96,165,250,0.22);
+  background: rgba(15,23,42,0.42);
+  border-radius: 12px;
+  padding: 12px;
+  color: rgba(226,232,240,0.82);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.iqweb-side-account {
+  margin-top: 14px;
+  border: 1px solid rgba(148,163,184,0.18);
+  background: rgba(15,23,42,0.54);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.iqweb-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.iqweb-account-text strong {
+  display: block;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.iqweb-account-text span {
+  display: block;
+  color: rgba(226,232,240,0.58);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+body.iqweb-v2-shell .page-shell {
+  min-height: 100vh;
+  margin-left: 232px;
+  align-items: stretch;
+  background: var(--v2-main-bg);
+  padding: 18px 18px 28px;
+}
+
+body.iqweb-v2-shell .shell-inner {
+  max-width: 1720px;
+  gap: 0;
+}
+
+body.iqweb-v2-shell #backToDashboard {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .top-card {
+  border-radius: 14px 14px 0 0;
+  padding: 18px 22px;
+  background: var(--v2-panel) !important;
+  color: var(--v2-text) !important;
+  border: 1px solid var(--v2-panel-border);
+  border-bottom-color: #dbe3ee;
+}
+
+body.iqweb-v2-shell .top-card::before { display: none; }
+body.iqweb-v2-shell .brand-copy .logo,
+body.iqweb-v2-shell #agencyReportLabel,
+body.iqweb-v2-shell #agencyContactBlock,
+body.iqweb-v2-shell .meta-cell .k,
+body.iqweb-v2-shell .meta-cell .v {
+  color: var(--v2-text) !important;
+}
+
+body.iqweb-v2-shell .top-row {
+  align-items: center;
+}
+
+body.iqweb-v2-shell .brand-copy .logo {
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+body.iqweb-v2-shell .meta-strip {
+  grid-template-columns: 1.2fr 0.8fr 0.8fr;
+  margin-top: 14px;
+}
+
+body.iqweb-v2-shell .meta-cell {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  box-shadow: none;
+}
+
+body.iqweb-v2-shell .meta-cell .k {
+  color: var(--v2-muted) !important;
+  opacity: 1;
+}
+
+body.iqweb-v2-shell .meta-cell .v {
+  color: var(--v2-text) !important;
+}
+
+body.iqweb-v2-shell .btn {
+  color: var(--v2-text);
+  background: #ffffff;
+  border-color: #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06);
+}
+
+body.iqweb-v2-shell #downloadPdfBtn {
+  display: inline-flex !important;
+}
+
+body.iqweb-v2-shell .loader-wrap {
+  max-width: none;
+  border-radius: 0 0 14px 14px;
+  background: #ffffff;
+  border-color: var(--v2-panel-border);
+  color: var(--v2-text);
+}
+
+body.iqweb-v2-shell main#reportRoot {
+  color: var(--v2-text);
+}
+
+body.iqweb-v2-shell .executive-dashboard {
+  border-radius: 0 0 14px 14px;
+  background: #ffffff;
+  border: 1px solid var(--v2-panel-border);
+  border-top: none;
+  color: var(--v2-text);
+}
+
+body.iqweb-v2-shell .section,
+body.iqweb-v2-shell .card,
+body.iqweb-v2-shell .exec-panel,
+body.iqweb-v2-shell .evidence-block,
+body.iqweb-v2-shell .insight,
+body.iqweb-v2-shell .issue,
+body.iqweb-v2-shell .phase,
+body.iqweb-v2-shell .acc-body,
+body.iqweb-v2-shell .kv {
+  background: #ffffff;
+  border-color: var(--v2-panel-border);
+  color: var(--v2-text);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+}
+
+body.iqweb-v2-shell .section::before,
+body.iqweb-v2-shell .executive-dashboard::before { display: none; }
+
+body.iqweb-v2-shell .section-head {
+  background: #ffffff;
+  border-bottom-color: var(--v2-panel-border);
+}
+
+body.iqweb-v2-shell .section-title,
+body.iqweb-v2-shell .exec-panel-title,
+body.iqweb-v2-shell .card h3 {
+  color: var(--v2-text);
+  text-shadow: none;
+}
+
+body.iqweb-v2-shell .section-title::after { display: none; }
+
+body.iqweb-v2-shell .summary,
+body.iqweb-v2-shell .muted,
+body.iqweb-v2-shell .issue-why,
+body.iqweb-v2-shell .phase-body li,
+body.iqweb-v2-shell .insight .text,
+body.iqweb-v2-shell .kv .k,
+body.iqweb-v2-shell .finding-value,
+body.iqweb-v2-shell .finding-label,
+body.iqweb-v2-shell .exec-priority,
+body.iqweb-v2-shell .exec-priority p,
+body.iqweb-v2-shell .exec-diagnosis,
+body.iqweb-v2-shell .exec-mini-text {
+  color: var(--v2-text-soft);
+}
+
+body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
+  grid-template-columns: 1.45fr repeat(4, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+body.iqweb-v2-shell .exec-score-card,
+body.iqweb-v2-shell .exec-overall-score,
+body.iqweb-v2-shell .exec-signal {
+  min-height: 168px;
+  background: #ffffff;
+  border-color: var(--v2-panel-border);
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+}
+
+body.iqweb-v2-shell .exec-overall-score {
+  min-height: 184px;
+}
+
+body.iqweb-v2-shell .exec-score-ring::after {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+body.iqweb-v2-shell .exec-score-ring strong {
+  color: var(--v2-text);
+}
+
+body.iqweb-v2-shell .exec-score-copy .k,
+body.iqweb-v2-shell .exec-score-copy .note,
+body.iqweb-v2-shell .exec-priority-label,
+body.iqweb-v2-shell .exec-snapshot .k {
+  color: var(--v2-muted);
+}
+
+body.iqweb-v2-shell .exec-dashboard-body {
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 14px;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+body.iqweb-v2-shell .exec-priority,
+body.iqweb-v2-shell .exec-mini-issue {
+  background: #ffffff;
+  border-color: #e5eaf2;
+}
+
+body.iqweb-v2-shell .section:not(.executive-dashboard) {
+  margin-top: 14px;
+  border-radius: 14px;
+}
+
+body.iqweb-v2-shell #progressSection,
+body.iqweb-v2-shell #fixSequenceSection {
+  display: none !important;
+}
+
+body.iqweb-v2-shell #deliverySignalsSection .section-body {
+  padding: 14px;
+  background: #f8fafc;
+}
+
+body.iqweb-v2-shell #signalsGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+body.iqweb-v2-shell .ai-discovery-layout {
+  grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
+}
+
+body.iqweb-v2-shell .ai-discovery-scorebox,
+body.iqweb-v2-shell .ai-discovery-panel {
+  background: #ffffff;
+  border-color: #e5eaf2;
+}
+
+body.iqweb-v2-shell .ai-discovery-panel p,
+body.iqweb-v2-shell .ai-discovery-panel li,
+body.iqweb-v2-shell .ai-discovery-footnote,
+body.iqweb-v2-shell .ai-more-copy {
+  color: var(--v2-text-soft);
+}
+
+body.iqweb-v2-shell .signal-evidence-toggle {
+  margin-top: 14px;
+}
+
+body.iqweb-v2-shell .footer {
+  max-width: none;
+  color: var(--v2-muted);
+}
+
+body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
+
+@media (max-width: 1250px) {
+  body.iqweb-v2-shell .iqweb-app-sidebar { width: 206px; }
+  body.iqweb-v2-shell .page-shell { margin-left: 206px; }
+  body.iqweb-v2-shell .exec-score-grid.exec-score-circles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.iqweb-v2-shell .exec-overall-score { grid-column: 1 / -1; }
+  body.iqweb-v2-shell #signalsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .iqweb-app-sidebar { position: static; width: auto; min-height: auto; }
+  body.iqweb-v2-shell .page-shell { margin-left: 0; padding: 12px; }
+  .iqweb-side-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .iqweb-side-spacer, .iqweb-side-card, .iqweb-side-account { display: none; }
+  body.iqweb-v2-shell .exec-dashboard-body { grid-template-columns: 1fr; }
+  body.iqweb-v2-shell .meta-strip { grid-template-columns: 1fr; }
+}
+
   </style>
 </head>
 
-<body>
+<body class="iqweb-v2-shell">
+
+  <aside class="iqweb-app-sidebar" aria-label="iQWEB navigation">
+    <div class="iqweb-side-logo"><span>iQ</span>WEB</div>
+    <nav class="iqweb-side-nav">
+      <a class="iqweb-side-link active" href="/dashboard.html"><span class="iqweb-side-icon">▣</span>Dashboard</a>
+      <a class="iqweb-side-link" href="/dashboard.html#scans"><span class="iqweb-side-icon">⌕</span>Scans</a>
+      <a class="iqweb-side-link" href="/dashboard.html#baseline"><span class="iqweb-side-icon">◴</span>Baseline Hub</a>
+      <a class="iqweb-side-link" href="/ai-visibility-explained.html"><span class="iqweb-side-icon">✦</span>AI Visibility</a>
+      <a class="iqweb-side-link" href="/dashboard.html#reports"><span class="iqweb-side-icon">▤</span>Reports</a>
+      <a class="iqweb-side-link" href="/dashboard.html#settings"><span class="iqweb-side-icon">⚙</span>Settings</a>
+    </nav>
+    <div class="iqweb-side-spacer"></div>
+    <div class="iqweb-side-card">OSD v2 preview<br>Diagnostic intelligence workspace</div>
+    <div class="iqweb-side-account">
+      <div class="iqweb-avatar">IQ</div>
+      <div class="iqweb-account-text"><strong>iQWEB</strong><span>Report workspace</span></div>
+    </div>
+  </aside>
+
   <div class="page-shell">
     <div class="shell-inner">
 
@@ -2356,7 +2770,7 @@ body {
 
       </main>
 
-      <div,.
+      <div
         class="footer"
         id="reportFooter"
         style="display:none; margin-top:12px; justify-content:space-between; align-items:flex-end; gap:16px; text-align:left;"
