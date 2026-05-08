@@ -2403,38 +2403,56 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
 /* -------------------------------- */
 body.iqweb-v2-shell .iq-report-tabs {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 0 14px;
-  padding: 8px;
-  border: 1px solid #dbe4f0;
-  border-radius: 14px;
-  background: #ffffff;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 2px;
+  margin: 0 0 14px;
+  padding: 0 18px;
+  height: 46px;
+  border: 1px solid var(--v2-panel-border);
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%);
   box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
 body.iqweb-v2-shell .iq-report-tab {
   appearance: none;
+  position: relative;
+  height: 36px;
+  min-width: 112px;
+  margin-bottom: -1px;
+  padding: 0 20px;
   border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
   background: transparent;
   color: #64748b;
   font-family: "Montserrat", system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-radius: 10px;
-  padding: 10px 14px;
   cursor: pointer;
 }
 body.iqweb-v2-shell .iq-report-tab:hover {
   color: #0f172a;
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: rgba(255,255,255,0.72);
+  border-color: #dbe4f0;
 }
 body.iqweb-v2-shell .iq-report-tab.is-active {
   color: #0f172a;
-  background: #eef6ff;
-  border-color: #bfdbfe;
+  background: #ffffff;
+  border-color: #cbd9ea;
+  box-shadow: 0 -1px 0 rgba(255,255,255,0.8) inset;
+}
+body.iqweb-v2-shell .iq-report-tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: #ffffff;
 }
 body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection,
 body.iqweb-v2-shell.report-tab-overview #progressSection {
@@ -2560,6 +2578,12 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
         </div>
       </div>
 
+      <nav class="iq-report-tabs" aria-label="Report sections">
+        <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Overview</button>
+        <button type="button" class="iq-report-tab" data-report-tab="signals">Signals</button>
+        <button type="button" class="iq-report-tab" data-report-tab="evidence">Evidence</button>
+      </nav>
+
       <section id="loaderSection" class="loader-wrap">
         <div class="pulse" aria-hidden="true"></div>
         <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
@@ -2569,12 +2593,6 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
       </section>
 
       <main id="reportRoot" style="display:none;">
-        <nav class="iq-report-tabs" aria-label="Report sections">
-          <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Overview</button>
-          <button type="button" class="iq-report-tab" data-report-tab="signals">Signals</button>
-          <button type="button" class="iq-report-tab" data-report-tab="evidence">Evidence</button>
-        </nav>
-
         <section class="section executive-dashboard" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Executive Dashboard</h2>
