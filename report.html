@@ -2397,6 +2397,120 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
   body.iqweb-v2-shell .meta-strip { grid-template-columns: 1fr; }
 }
 
+
+/* -------------------------------- */
+/* REPORT V2 TAB WORKSPACE          */
+/* -------------------------------- */
+body.iqweb-v2-shell .iq-report-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 8px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+}
+
+body.iqweb-v2-shell .iq-report-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  font-family: "Montserrat", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+body.iqweb-v2-shell .iq-report-tab:hover {
+  color: #0f172a;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+body.iqweb-v2-shell .iq-report-tab.is-active {
+  color: #0f172a;
+  background: #eef6ff;
+  border-color: #bfdbfe;
+}
+
+body.iqweb-v2-shell .iq-tab-panel {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .iq-tab-panel.is-active {
+  display: block !important;
+}
+
+body.iqweb-v2-shell .iq-tab-panel.is-active #progressSection,
+body.iqweb-v2-shell .iq-tab-panel.is-active #fixSequenceSection,
+body.iqweb-v2-shell .iq-tab-panel.is-active #deliverySignalsSection,
+body.iqweb-v2-shell .iq-tab-panel.is-active #signalEvidenceSection {
+  display: block !important;
+}
+
+body.iqweb-v2-shell #progressSection {
+  margin-top: 14px;
+}
+
+body.iqweb-v2-shell #progressSection .section-head {
+  display: flex;
+}
+
+body.iqweb-v2-shell #signalEvidenceSection {
+  border-radius: 14px;
+}
+
+body.iqweb-v2-shell #signalEvidenceSection > summary {
+  display: none !important;
+}
+
+body.iqweb-v2-shell #signalEvidenceSection .section-body {
+  display: block !important;
+  padding: 14px;
+  background: #f8fafc;
+}
+
+body.iqweb-v2-shell .iq-evidence-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5eaf2;
+  background: #ffffff;
+}
+
+body.iqweb-v2-shell .iq-evidence-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body.iqweb-v2-shell .iq-evidence-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  body.iqweb-v2-shell .iq-report-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
   </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
@@ -2478,6 +2592,13 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
       </section>
 
       <main id="reportRoot" style="display:none;">
+        <nav class="iq-report-tabs" aria-label="Report sections">
+          <button type="button" class="iq-report-tab is-active" data-tab="overview">Overview</button>
+          <button type="button" class="iq-report-tab" data-tab="signals">Signals</button>
+          <button type="button" class="iq-report-tab" data-tab="evidence">Evidence</button>
+        </nav>
+
+        <div class="iq-tab-panel is-active" id="tab-overview">
         <section class="section executive-dashboard" id="executiveNarrativeSection">
           <div class="section-head">
             <h2 class="section-title">Executive Dashboard</h2>
@@ -2683,7 +2804,9 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
     </div>
   </div>
 </section>
+        </div>
 
+        <div class="iq-tab-panel" id="tab-signals">
 <div id="fixFirstBlock"></div>
 
 <section class="section" id="deliverySignalsSection">
@@ -2749,8 +2872,10 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
             </div>
           </div>
         </section>
+        </div>
 
-        <details class="section signal-evidence-toggle" id="signalEvidenceSection">
+        <div class="iq-tab-panel" id="tab-evidence">
+        <details class="section signal-evidence-toggle" id="signalEvidenceSection" open>
   <summary class="section-head evidence-summary-head">
     <div>
       <h2 class="section-title">Technical Evidence</h2>
@@ -2764,8 +2889,16 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
     </span>
   </summary>
 
+  <div class="iq-evidence-heading">
+    <div>
+      <h2>Technical Evidence</h2>
+      <p>Raw checks behind the scores. This tab stays open because it is already separated from the executive overview.</p>
+    </div>
+  </div>
+
   <div class="section-body" id="signalEvidenceRoot"></div>
 </details>
+        </div>
 
       
 
@@ -2859,6 +2992,42 @@ document.documentElement.style.setProperty("--report-page-bg", pageBg);
     })();
   </script>
 
+
+  <script>
+    (function () {
+      function setActiveReportTab(tabName) {
+        var tabs = document.querySelectorAll(".iq-report-tab");
+        var panels = document.querySelectorAll(".iq-tab-panel");
+
+        tabs.forEach(function (tab) {
+          var active = tab.getAttribute("data-tab") === tabName;
+          tab.classList.toggle("is-active", active);
+          tab.setAttribute("aria-selected", active ? "true" : "false");
+        });
+
+        panels.forEach(function (panel) {
+          panel.classList.toggle("is-active", panel.id === "tab-" + tabName);
+        });
+
+        if (tabName === "evidence") {
+          try {
+            var evidence = document.getElementById("signalEvidenceSection");
+            if (evidence && evidence.tagName.toLowerCase() === "details") evidence.open = true;
+            document.querySelectorAll("details.evidence-block").forEach(function (item) { item.open = true; });
+          } catch (_) {}
+        }
+      }
+
+      window.__IQWEB_SET_REPORT_TAB = setActiveReportTab;
+
+      document.addEventListener("click", function (event) {
+        var btn = event.target.closest && event.target.closest(".iq-report-tab");
+        if (!btn) return;
+        setActiveReportTab(btn.getAttribute("data-tab") || "overview");
+      });
+    })();
+  </script>
+
   <script>
     window.__IQWEB_REPORT_READY = false;
 
@@ -2887,7 +3056,7 @@ function setEvidenceOpen(open) {
   } catch (_) {}
 }
 
-    setEvidenceOpen(false);
+    setEvidenceOpen(true);
 
     window.docraptorJavaScriptFinished = function () {
       return window.__IQWEB_REPORT_READY === true;
@@ -2911,7 +3080,7 @@ function setEvidenceOpen(open) {
 
       if (loaderHidden && reportVisible && hasSignals) {
         if (__IQWEB_PDF_MODE) setEvidenceOpen(true);
-        else setEvidenceOpen(false);
+        else setEvidenceOpen(true);
 
         window.__IQWEB_REPORT_READY = true;
         return;
