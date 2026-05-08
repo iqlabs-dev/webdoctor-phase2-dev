@@ -2398,6 +2398,380 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
 }
 
 
+
+/* -------------------------------- */
+/* REPORT V2 OVERVIEW DENSITY PASS   */
+/* -------------------------------- */
+body.iqweb-v2-shell.report-tab-overview .executive-dashboard {
+  overflow: hidden;
+}
+
+body.iqweb-v2-shell.report-tab-overview .executive-dashboard .section-body {
+  padding: 0;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
+  grid-template-columns: 1.25fr repeat(4, minmax(145px, 1fr));
+  gap: 12px;
+  padding: 14px 14px 12px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-card,
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
+body.iqweb-v2-shell.report-tab-overview .exec-signal {
+  min-height: 142px;
+  padding: 16px 14px 14px;
+  border-radius: 16px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
+  min-height: 154px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-ring-lg {
+  width: 102px;
+  height: 102px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-ring-lg strong {
+  font-size: 35px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-ring-sm {
+  width: 72px;
+  height: 72px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-ring-sm strong {
+  font-size: 24px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-mini-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-copy .k {
+  font-size: 10px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-copy .v {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-copy .note {
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body {
+  position: absolute !important;
+  left: -9999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+body.iqweb-v2-shell .iq-overview-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr 1fr .92fr;
+  gap: 12px;
+  padding: 0 14px 14px;
+  background: #f8fafc;
+}
+
+body.iqweb-v2-shell .iq-overview-card {
+  min-height: 218px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+  color: #0f172a;
+}
+
+body.iqweb-v2-shell .iq-overview-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+body.iqweb-v2-shell .iq-overview-eyebrow {
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+body.iqweb-v2-shell .iq-overview-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: -.015em;
+}
+
+body.iqweb-v2-shell .iq-overview-card h3 small {
+  margin-left: 2px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+body.iqweb-v2-shell .iq-overview-pill,
+body.iqweb-v2-shell .iq-overview-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+body.iqweb-v2-shell .iq-overview-pill.warning {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+body.iqweb-v2-shell .iq-overview-count {
+  width: 26px;
+  padding: 0;
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+body.iqweb-v2-shell .iq-overview-count.danger {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+body.iqweb-v2-shell .iq-overview-progress-body {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+body.iqweb-v2-shell .iq-mini-trend {
+  height: 92px;
+  display: flex;
+  align-items: end;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 13px;
+  background: linear-gradient(180deg, #f8fafc, #eef6ff);
+  border: 1px solid #e2e8f0;
+}
+
+body.iqweb-v2-shell .iq-mini-trend span {
+  flex: 1;
+  min-height: 12px;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(180deg, #22d3ee, #2563eb);
+}
+
+body.iqweb-v2-shell .iq-overview-progress-body p,
+body.iqweb-v2-shell .iq-overview-ai-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+body.iqweb-v2-shell .iq-delta-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+body.iqweb-v2-shell .iq-delta-strip span {
+  padding: 8px 7px;
+  border-radius: 11px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+
+body.iqweb-v2-shell .iq-delta-strip strong {
+  display: block;
+  margin-top: 3px;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 13px;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars div {
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  gap: 10px;
+  align-items: center;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars span {
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars b {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7c3aed var(--w), #e2e8f0 0);
+}
+
+body.iqweb-v2-shell .iq-insight-list,
+body.iqweb-v2-shell .iq-overview-issues-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.iqweb-v2-shell .iq-insight-list div {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+body.iqweb-v2-shell .iq-insight-list span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.iqweb-v2-shell .iq-insight-list span.good { color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; }
+body.iqweb-v2-shell .iq-insight-list span.warn { color: #d97706; background: #fffbeb; border: 1px solid #fde68a; }
+body.iqweb-v2-shell .iq-insight-list span.info { color: #2563eb; background: #eff6ff; border: 1px solid #bfdbfe; }
+
+body.iqweb-v2-shell .iq-insight-list p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e5eaf2;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue p {
+  margin: 0;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue b {
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .06em;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressSection {
+  display: block !important;
+  margin-top: 10px;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressSection .section-head {
+  padding: 10px 14px;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressSection .section-body {
+  padding: 12px 14px;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressGrid {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressSection .section-body::after {
+  content: "Progress Snapshot\A No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.";
+  display: block;
+  white-space: pre-line;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+body.iqweb-v2-shell.report-tab-overview #progressSection .section-body::after:first-line {
+  color: #0f172a;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1380px) {
+  body.iqweb-v2-shell .iq-overview-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  body.iqweb-v2-shell .iq-overview-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body.iqweb-v2-shell .iq-overview-dashboard-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* -------------------------------- */
 /* REPORT V2 SAFE TABS              */
 /* -------------------------------- */
@@ -2660,6 +3034,80 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
                     <div class="v" id="dashAiVerdict">—</div>
                   </div>
                 </div>
+              </div>
+
+              <div class="iq-overview-dashboard-grid" id="iqOverviewGrid">
+                <section class="iq-overview-card iq-overview-progress-card">
+                  <div class="iq-overview-card-head">
+                    <div>
+                      <div class="iq-overview-eyebrow">Progress Snapshot</div>
+                      <h3 id="ovBaselineTitle">Baseline Ready</h3>
+                    </div>
+                    <span class="iq-overview-pill" id="ovBaselinePill">No baseline</span>
+                  </div>
+                  <div class="iq-overview-progress-body">
+                    <div class="iq-mini-trend" aria-hidden="true">
+                      <span style="height:34%"></span>
+                      <span style="height:50%"></span>
+                      <span style="height:43%"></span>
+                      <span style="height:62%"></span>
+                      <span style="height:58%"></span>
+                      <span style="height:72%"></span>
+                    </div>
+                    <p id="ovBaselineCopy">No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.</p>
+                  </div>
+                  <div class="iq-delta-strip">
+                    <span>Overall <strong id="ovDeltaOverall">—</strong></span>
+                    <span>Perf <strong id="ovDeltaPerformance">—</strong></span>
+                    <span>SEO <strong id="ovDeltaSeo">—</strong></span>
+                    <span>AI <strong id="ovDeltaAi">—</strong></span>
+                  </div>
+                </section>
+
+                <section class="iq-overview-card iq-overview-ai-card">
+                  <div class="iq-overview-card-head">
+                    <div>
+                      <div class="iq-overview-eyebrow">AI Visibility Summary</div>
+                      <h3><span id="ovAiScore">—</span><small>/100</small></h3>
+                    </div>
+                    <span class="iq-overview-pill warning" id="ovAiVerdict">Loading</span>
+                  </div>
+                  <div class="iq-ai-mini-bars">
+                    <div><span>Entity clarity</span><b style="--w:68%"></b></div>
+                    <div><span>Category relevance</span><b style="--w:74%"></b></div>
+                    <div><span>Recommendation signal</span><b style="--w:42%"></b></div>
+                    <div><span>Brand mentions</span><b style="--w:36%"></b></div>
+                  </div>
+                  <p id="ovAiNote">Shows how clearly the business is associated with the tested category and recommendation-style visibility signals.</p>
+                </section>
+
+                <section class="iq-overview-card iq-overview-insights-card">
+                  <div class="iq-overview-card-head">
+                    <div>
+                      <div class="iq-overview-eyebrow">Key Insights</div>
+                      <h3>Executive readout</h3>
+                    </div>
+                    <span class="iq-overview-count">3</span>
+                  </div>
+                  <div class="iq-insight-list">
+                    <div><span class="good">✓</span><p id="ovInsight1">Loading primary constraint…</p></div>
+                    <div><span class="warn">!</span><p id="ovInsight2">Loading impact…</p></div>
+                    <div><span class="info">i</span><p id="ovInsight3">Loading recommended fix…</p></div>
+                  </div>
+                </section>
+
+                <section class="iq-overview-card iq-overview-issues-card">
+                  <div class="iq-overview-card-head">
+                    <div>
+                      <div class="iq-overview-eyebrow">Top Issues</div>
+                      <h3>Detected priorities</h3>
+                    </div>
+                    <span class="iq-overview-count danger" id="ovIssuesCount">—</span>
+                  </div>
+                  <div id="ovTopIssues" class="iq-overview-issues-list">
+                    <div class="iq-overview-mini-issue"><span></span><p>Loading top issues…</p><b>SCAN</b></div>
+                  </div>
+                </section>
               </div>
 
               <div class="exec-dashboard-body">
@@ -3076,6 +3524,78 @@ function setEvidenceOpen(open) {
         document.addEventListener("DOMContentLoaded", function () { setReportTab("overview"); });
       } else {
         setReportTab("overview");
+      }
+    })();
+  </script>
+
+  <script>
+    (function () {
+      function text(id, fallback) {
+        var el = document.getElementById(id);
+        var value = el ? (el.textContent || "").trim() : "";
+        return value || fallback || "—";
+      }
+
+      function setText(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value || "—";
+      }
+
+      function copyOverviewCards() {
+        setText("ovAiScore", text("dashAiScore", "—"));
+        setText("ovAiVerdict", text("dashAiVerdict", "Loading"));
+        setText("ovInsight1", text("findingConstraint", "Primary constraint loading…"));
+        setText("ovInsight2", text("findingImpact", "Impact loading…"));
+        setText("ovInsight3", text("findingFix", "Recommended fix loading…"));
+
+        var deltas = [
+          ["ovDeltaOverall", "deltaOverall"],
+          ["ovDeltaPerformance", "deltaPerformance"],
+          ["ovDeltaSeo", "deltaSeo"],
+          ["ovDeltaAi", "deltaAi"]
+        ];
+        var hasBaseline = false;
+        for (var i = 0; i < deltas.length; i++) {
+          var value = text(deltas[i][1], "—");
+          setText(deltas[i][0], value);
+          if (value && value !== "—") hasBaseline = true;
+        }
+
+        setText("ovBaselineTitle", hasBaseline ? "Progress Since Baseline" : "Baseline Ready");
+        setText("ovBaselinePill", hasBaseline ? "Active" : "No baseline");
+        setText("ovBaselineCopy", hasBaseline ? "Baseline comparison is active. Use the deltas below to show movement since the selected scan." : "No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.");
+
+        var source = document.getElementById("execTopIssuesRoot");
+        var target = document.getElementById("ovTopIssues");
+        if (source && target) {
+          var issues = source.querySelectorAll(".exec-mini-issue");
+          target.innerHTML = "";
+          var count = Math.min(4, issues.length);
+          for (var j = 0; j < count; j++) {
+            var issueText = issues[j].querySelector(".exec-mini-text");
+            var sevText = issues[j].querySelector(".exec-mini-sev");
+            var row = document.createElement("div");
+            row.className = "iq-overview-mini-issue";
+            row.innerHTML = "<span></span><p></p><b></b>";
+            row.querySelector("p").textContent = issueText ? issueText.textContent.trim() : "Issue loading…";
+            row.querySelector("b").textContent = sevText ? sevText.textContent.trim() : "MED";
+            target.appendChild(row);
+          }
+          setText("ovIssuesCount", count ? String(count) : "0");
+        }
+      }
+
+      var attempts = 0;
+      var timer = setInterval(function () {
+        attempts += 1;
+        copyOverviewCards();
+        if (window.__IQWEB_REPORT_READY || attempts > 40) clearInterval(timer);
+      }, 250);
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", copyOverviewCards);
+      } else {
+        copyOverviewCards();
       }
     })();
   </script>
