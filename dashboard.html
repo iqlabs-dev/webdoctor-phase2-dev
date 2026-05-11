@@ -943,7 +943,115 @@ tbody td:nth-child(8) {
   accent-color: #22c55e;
   transform: scale(1.15);
 }
+/* ================================
+   iQWEB DASHBOARD LIGHT MODE FIX
+   Remove dark-mode residue
+================================ */
 
+body.iqweb-v2-dashboard {
+  background: #edf2f8 !important;
+  color: #0f172a !important;
+}
+
+body.iqweb-v2-dashboard .main,
+body.iqweb-v2-dashboard .wrap {
+  background: #edf2f8 !important;
+  color: #0f172a !important;
+}
+
+body.iqweb-v2-dashboard .topbar {
+  background: #edf2f8 !important;
+  border-bottom: none !important;
+}
+
+body.iqweb-v2-dashboard .topbar .title,
+body.iqweb-v2-dashboard .h h2,
+body.iqweb-v2-dashboard .latest-url,
+body.iqweb-v2-dashboard table,
+body.iqweb-v2-dashboard tbody td,
+body.iqweb-v2-dashboard thead th {
+  color: #0f172a !important;
+}
+
+body.iqweb-v2-dashboard .h .meta,
+body.iqweb-v2-dashboard .latest-date,
+body.iqweb-v2-dashboard .scanhelp,
+body.iqweb-v2-dashboard .actions-helper,
+body.iqweb-v2-dashboard #history-empty {
+  color: #64748b !important;
+}
+
+body.iqweb-v2-dashboard .card {
+  background: #ffffff !important;
+  border: 1px solid #dbe4f0 !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.055) !important;
+}
+
+body.iqweb-v2-dashboard .card.primary,
+body.iqweb-v2-dashboard .card.secondary {
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-dashboard .table-wrap {
+  background: #ffffff !important;
+  border: 1px solid #dbe4f0 !important;
+}
+
+body.iqweb-v2-dashboard thead th {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #dbe4f0 !important;
+}
+
+body.iqweb-v2-dashboard tbody td {
+  border-bottom: 1px solid #edf2f7 !important;
+}
+
+body.iqweb-v2-dashboard tbody tr:hover td {
+  background: #f8fafc !important;
+}
+
+body.iqweb-v2-dashboard .history-url,
+body.iqweb-v2-dashboard .wd-history-link {
+  color: #2563eb !important;
+}
+
+body.iqweb-v2-dashboard .btn,
+body.iqweb-v2-dashboard .btn-link {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.iqweb-v2-dashboard .btn-primary {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+body.iqweb-v2-dashboard .scanbar input,
+body.iqweb-v2-dashboard #history-search {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.iqweb-v2-dashboard .scanbar input::placeholder,
+body.iqweb-v2-dashboard #history-search::placeholder {
+  color: #94a3b8 !important;
+}
+
+body.iqweb-v2-dashboard .score {
+  color: #0891b2 !important;
+  background: #ecfeff !important;
+  border-color: #a5f3fc !important;
+}
+
+/* Remove dark mode button if injected */
+body.iqweb-v2-dashboard .iqweb-theme-toggle,
+body.iqweb-v2-dashboard [data-iqweb-theme-toggle],
+body.iqweb-v2-dashboard button:has-text("Dark mode") {
+  display: none !important;
+}
   </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
@@ -1396,6 +1504,6 @@ tbody td:nth-child(8) {
       });
     }
   </script>
-  <script src="/assets/js/iqweb-v2-shell.js?v=2"></script>
+
 </body>
 </html>
