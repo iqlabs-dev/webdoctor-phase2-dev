@@ -3290,6 +3290,26 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
     0 0 0 7px rgba(45, 212, 191, 0.14);
 }
 
+/* upward trend */
+.trend-sparkline.up span:nth-child(1) { transform: translateY(4px); }
+.trend-sparkline.up span:nth-child(2) { transform: translateY(2px); }
+.trend-sparkline.up span:nth-child(3) { transform: translateY(0px); }
+.trend-sparkline.up span:nth-child(4) { transform: translateY(-2px); }
+.trend-sparkline.up span:nth-child(5) { transform: translateY(-4px); }
+.trend-sparkline.up span:nth-child(6) { transform: translateY(-6px); }
+
+/* downward trend */
+.trend-sparkline.down span:nth-child(1) { transform: translateY(-6px); }
+.trend-sparkline.down span:nth-child(2) { transform: translateY(-4px); }
+.trend-sparkline.down span:nth-child(3) { transform: translateY(-2px); }
+.trend-sparkline.down span:nth-child(4) { transform: translateY(0px); }
+.trend-sparkline.down span:nth-child(5) { transform: translateY(2px); }
+.trend-sparkline.down span:nth-child(6) { transform: translateY(4px); }
+
+/* flat trend */
+.trend-sparkline.flat span {
+  transform: translateY(0px) !important;
+}
 .trend-footer {
   margin-top: 10px;
   font-size: 11px;
@@ -4097,9 +4117,13 @@ function setEvidenceOpen(open) {
         (delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral");
     }
 
-    function renderBars(id, values) {
+ function renderBars(id, values, delta) {
       var el = document.getElementById(id);
       if (!el) return;
+      el.classList.remove("up", "down", "flat");
+el.classList.add(
+  delta > 0 ? "up" : delta < 0 ? "down" : "flat"
+);
 
       values = values.filter(function (v) {
         return Number.isFinite(v);
@@ -4161,41 +4185,41 @@ function setEvidenceOpen(open) {
       setDelta("trendSeoDelta", deltaSeo);
       setDelta("trendAiDelta", deltaAi);
 
-      renderBars("trendOverallBars", [
-        prevOverall,
-        prevOverall,
-        prevOverall,
-        currentOverall,
-        currentOverall,
-        currentOverall
-      ]);
+renderBars("trendOverallBars", [
+  prevOverall,
+  prevOverall,
+  prevOverall,
+  currentOverall,
+  currentOverall,
+  currentOverall
+], deltaOverall);
 
-      renderBars("trendPerformanceBars", [
-        prevPerf,
-        prevPerf,
-        prevPerf,
-        currentPerf,
-        currentPerf,
-        currentPerf
-      ]);
+ renderBars("trendPerformanceBars", [
+  prevPerf,
+  prevPerf,
+  prevPerf,
+  currentPerf,
+  currentPerf,
+  currentPerf
+], deltaPerf);
 
-      renderBars("trendSeoBars", [
-        prevSeo,
-        prevSeo,
-        prevSeo,
-        currentSeo,
-        currentSeo,
-        currentSeo
-      ]);
+renderBars("trendSeoBars", [
+  prevSeo,
+  prevSeo,
+  prevSeo,
+  currentSeo,
+  currentSeo,
+  currentSeo
+], deltaSeo);
 
-      renderBars("trendAiBars", [
-        prevAi,
-        prevAi,
-        prevAi,
-        currentAi,
-        currentAi,
-        currentAi
-      ]);
+renderBars("trendAiBars", [
+  prevAi,
+  prevAi,
+  prevAi,
+  currentAi,
+  currentAi,
+  currentAi
+], deltaAi);
 
       setFooter("trendOverallFooter", "Overall", prevOverall, currentOverall);
       setFooter("trendPerformanceFooter", "Performance", prevPerf, currentPerf);
