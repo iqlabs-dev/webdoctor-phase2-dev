@@ -2377,7 +2377,27 @@ body.iqweb-v2-shell #deliverySignalsSection .section-body {
 }
 
 body.iqweb-v2-shell #signalsGrid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: stretch;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
+  min-height: 230px !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card-top {
+  min-height: 28px !important;
+  align-items: center !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
+  flex: 1 1 auto !important;
+  line-height: 1.55 !important;
+  font-size: 13px !important;
+  overflow: visible !important;
 }
 
 body.iqweb-v2-shell .ai-discovery-layout {
@@ -2413,7 +2433,7 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
   body.iqweb-v2-shell .page-shell { margin-left: 206px; }
   body.iqweb-v2-shell .exec-score-grid.exec-score-circles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   body.iqweb-v2-shell .exec-overall-score { grid-column: 1 / -1; }
-  body.iqweb-v2-shell #signalsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.iqweb-v2-shell #signalsGrid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -2423,8 +2443,8 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
   .iqweb-side-spacer, .iqweb-side-card, .iqweb-side-account { display: none; }
   body.iqweb-v2-shell .exec-dashboard-body { grid-template-columns: 1fr; }
   body.iqweb-v2-shell .meta-strip { grid-template-columns: 1fr; }
+  body.iqweb-v2-shell #signalsGrid { grid-template-columns: 1fr; }
 }
-
 
 
 /* -------------------------------- */
