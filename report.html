@@ -12,31 +12,58 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
 
-    :root {
-      --bg-top: #050814;
-      --bg-mid: #050b19;
-      --bg-bot: #020304;
-      --ink: #e5f0ff;
-      --ink-soft: #c0cfeb;
-      --muted: #9aa4ba;
-      --accent: #22d3ee;
-      --accent-strong: #38e8d4;
-      --accent-soft: rgba(56,232,212,0.18);
-      --good: #22c55e;
-      --warn: #f59e0b;
-      --bad: #ef4444;
-      --card: rgba(255,255,255,0.06);
-      --card-2: rgba(255,255,255,0.05);
-      --border: rgba(255,255,255,0.10);
-      --border-subtle: rgba(255,255,255,0.08);
---shadow: none;
---shadow-soft: none;
-      --radius: 18px;
+:root {
+  --bg-top: #050814;
+  --bg-mid: #050b19;
+  --bg-bot: #020304;
 
-      --report-header-bg: #0B1730;
-      --report-header-text: #FFFFFF;
-      --report-page-bg: #070A10;
-    }
+  --ink: #e5f0ff;
+  --ink-soft: #c0cfeb;
+  --muted: #9aa4ba;
+
+  /* Core Brand */
+  --accent: #22d3ee;
+  --accent-strong: #38e8d4;
+  --accent-soft: rgba(56,232,212,0.18);
+
+  /* Signal Colors */
+  --perf: #22c55e;
+  --perf-soft: rgba(34,197,94,0.14);
+
+  --seo: #3b82f6;
+  --seo-soft: rgba(59,130,246,0.14);
+
+  --trust: #06b6d4;
+  --trust-soft: rgba(6,182,212,0.14);
+
+  /* AI Visibility */
+  --ai: #f59e0b;
+  --ai-strong: #f97316;
+  --ai-soft: rgba(245,158,11,0.14);
+  --ai-border: rgba(245,158,11,0.30);
+
+  /* States */
+  --good: #22c55e;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+
+  /* Surfaces */
+  --card: rgba(255,255,255,0.06);
+  --card-2: rgba(255,255,255,0.05);
+
+  --border: rgba(255,255,255,0.10);
+  --border-subtle: rgba(255,255,255,0.08);
+
+  --shadow: none;
+  --shadow-soft: none;
+
+  --radius: 18px;
+
+  /* Report Shell */
+  --report-header-bg: #0B1730;
+  --report-header-text: #FFFFFF;
+  --report-page-bg: #070A10;
+}
 
 body {
   font-family: "Montserrat", system-ui, sans-serif;
@@ -3603,7 +3630,7 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
       <div class="trend-sparkline blue" id="trendSeoBars"></div>
       <div class="trend-footer" id="trendSeoFooter">Awaiting scan history</div>
     </div>
-    
+
         <div class="trend-card" data-trend-card="ai">
       <div class="trend-top">
         <span class="trend-label">AI Visibility</span>
