@@ -3138,6 +3138,122 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
   }
 }
 
+/* =========================
+   OVERVIEW TREND STRIP
+========================= */
+
+.overview-trend-strip {
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #dfe7f2;
+}
+
+.trend-strip-header {
+  margin-bottom: 18px;
+}
+
+.trend-strip-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.trend-strip-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 16px;
+}
+
+.trend-card {
+  background: #fbfdff;
+  border: 1px solid #e5edf7;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.trend-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.trend-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.trend-delta {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.trend-delta.positive {
+  color: #15803d;
+  background: #dcfce7;
+}
+
+.trend-delta.negative {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.trend-delta.neutral {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.trend-sparkline {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 52px;
+  margin-bottom: 14px;
+}
+
+.trend-sparkline span {
+  flex: 1;
+  border-radius: 999px;
+  background: #2dd4bf;
+}
+
+.trend-sparkline span:nth-child(1) { height: 18px; }
+.trend-sparkline span:nth-child(2) { height: 28px; }
+.trend-sparkline span:nth-child(3) { height: 22px; }
+.trend-sparkline span:nth-child(4) { height: 42px; }
+.trend-sparkline span:nth-child(5) { height: 48px; }
+
+.trend-sparkline.purple span {
+  background: #8b5cf6;
+}
+
+.trend-sparkline.green span {
+  background: #22c55e;
+}
+
+.trend-sparkline.blue span {
+  background: #3b82f6;
+}
+
+.trend-footer {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
   </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
@@ -3367,6 +3483,86 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
                   </div>
                 </section>
               </div>
+
+              <!-- ========================= -->
+<!-- COMPACT SCORE TREND AREA -->
+<!-- ========================= -->
+
+<section class="overview-trend-strip">
+
+  <div class="trend-strip-header">
+    <div class="trend-strip-title">Progress Trend</div>
+
+    <div class="trend-strip-subtitle">
+      Baseline-aware movement tracking across core signals.
+    </div>
+  </div>
+
+  <div class="trend-grid">
+
+    <div class="trend-card">
+      <div class="trend-top">
+        <span class="trend-label">Overall</span>
+        <span class="trend-delta positive">+6</span>
+      </div>
+
+      <div class="trend-sparkline">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="trend-footer">
+        68 → 74 since previous baseline
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-top">
+        <span class="trend-label">AI Visibility</span>
+        <span class="trend-delta negative">-2</span>
+      </div>
+
+      <div class="trend-sparkline purple">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="trend-footer">
+        Recommendation visibility fluctuating
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-top">
+        <span class="trend-label">Performance</span>
+        <span class="trend-delta positive">+5</span>
+      </div>
+
+      <div class="trend-sparkline green">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="trend-footer">
+        Core Web Vitals improving
+      </div>
+    </div>
+
+    <div class="trend-card">
+      <div class="trend-top">
+        <span class="trend-label">SEO</span>
+        <span class="trend-delta neutral">0</span>
+      </div>
+
+      <div class="trend-sparkline blue">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+
+      <div class="trend-footer">
+        No significant movement detected
+      </div>
+    </div>
+
+  </div>
+
+</section>
 
               <div class="exec-dashboard-body">
                 <div class="exec-panel">
