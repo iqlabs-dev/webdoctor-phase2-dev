@@ -3245,51 +3245,49 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
   z-index: 1;
   flex: 0 0 auto;
   width: 8px;
-  height: 8px !important;
   border-radius: 999px;
   background: #2dd4bf;
   box-shadow: 0 0 0 4px #fbfdff;
 }
 
+/* subtle movement */
+.trend-sparkline span:nth-child(1) {
+  height: 8px !important;
+  transform: translateY(3px);
+}
+
+.trend-sparkline span:nth-child(2) {
+  height: 8px !important;
+  transform: translateY(1px);
+}
+
+.trend-sparkline span:nth-child(3) {
+  height: 8px !important;
+  transform: translateY(-1px);
+}
+
+.trend-sparkline span:nth-child(4) {
+  height: 8px !important;
+  transform: translateY(-3px);
+}
+
+.trend-sparkline span:nth-child(5) {
+  height: 8px !important;
+  transform: translateY(-1px);
+}
+
+.trend-sparkline span:nth-child(6) {
+  height: 8px !important;
+  transform: translateY(-4px);
+}
+
+/* latest point emphasis */
 .trend-sparkline span:last-child {
   width: 11px;
   height: 11px !important;
   box-shadow:
     0 0 0 4px #fbfdff,
     0 0 0 7px rgba(45, 212, 191, 0.14);
-}
-
-.trend-sparkline.purple::before,
-.trend-sparkline.purple span {
-  background: #8b5cf6;
-}
-
-.trend-sparkline.purple span:last-child {
-  box-shadow:
-    0 0 0 4px #fbfdff,
-    0 0 0 7px rgba(139, 92, 246, 0.14);
-}
-
-.trend-sparkline.green::before,
-.trend-sparkline.green span {
-  background: #22c55e;
-}
-
-.trend-sparkline.green span:last-child {
-  box-shadow:
-    0 0 0 4px #fbfdff,
-    0 0 0 7px rgba(34, 197, 94, 0.14);
-}
-
-.trend-sparkline.blue::before,
-.trend-sparkline.blue span {
-  background: #3b82f6;
-}
-
-.trend-sparkline.blue span:last-child {
-  box-shadow:
-    0 0 0 4px #fbfdff,
-    0 0 0 7px rgba(59, 130, 246, 0.14);
 }
 
 .trend-footer {
