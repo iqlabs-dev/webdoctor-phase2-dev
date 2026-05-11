@@ -3217,37 +3217,79 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
 }
 
 .trend-sparkline {
+  position: relative;
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
   height: 42px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.trend-sparkline::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: #2dd4bf;
+  opacity: 0.42;
 }
 
 .trend-sparkline span {
-  flex: 1;
-  max-width: 22px;
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px !important;
   border-radius: 999px;
   background: #2dd4bf;
-  transition: all 0.2s ease;
+  box-shadow: 0 0 0 4px #fbfdff;
 }
 
-.trend-sparkline span:nth-child(1) { height: 14px; }
-.trend-sparkline span:nth-child(2) { height: 22px; }
-.trend-sparkline span:nth-child(3) { height: 18px; }
-.trend-sparkline span:nth-child(4) { height: 34px; }
-.trend-sparkline span:nth-child(5) { height: 40px; }
+.trend-sparkline span:last-child {
+  width: 11px;
+  height: 11px !important;
+  box-shadow:
+    0 0 0 4px #fbfdff,
+    0 0 0 7px rgba(45, 212, 191, 0.14);
+}
 
+.trend-sparkline.purple::before,
 .trend-sparkline.purple span {
   background: #8b5cf6;
 }
 
+.trend-sparkline.purple span:last-child {
+  box-shadow:
+    0 0 0 4px #fbfdff,
+    0 0 0 7px rgba(139, 92, 246, 0.14);
+}
+
+.trend-sparkline.green::before,
 .trend-sparkline.green span {
   background: #22c55e;
 }
 
+.trend-sparkline.green span:last-child {
+  box-shadow:
+    0 0 0 4px #fbfdff,
+    0 0 0 7px rgba(34, 197, 94, 0.14);
+}
+
+.trend-sparkline.blue::before,
 .trend-sparkline.blue span {
   background: #3b82f6;
+}
+
+.trend-sparkline.blue span:last-child {
+  box-shadow:
+    0 0 0 4px #fbfdff,
+    0 0 0 7px rgba(59, 130, 246, 0.14);
 }
 
 .trend-footer {
