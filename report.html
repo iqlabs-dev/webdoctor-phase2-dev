@@ -3490,7 +3490,52 @@ body.iqweb-v2-shell .evidence-card .score {
 }
 
   </style>
-  <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
+<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
+
+<style>
+/* =========================================
+   EVIDENCE TAB FINAL LIGHT MODE OVERRIDE
+   Must sit AFTER iqweb-v2.css
+========================================= */
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-block,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot summary,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-body,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv {
+  background: #ffffff !important;
+  border-color: #d8e2ee !important;
+  color: #0f172a !important;
+  opacity: 1 !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot *,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection * {
+  color: #0f172a !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv .k,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection .muted,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection .evidence-summary-subtitle {
+  color: #475569 !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-body {
+  border: 1px solid #d8e2ee !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv .v,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+</style>
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
