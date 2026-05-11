@@ -3155,7 +3155,7 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
 }
 
 .trend-strip-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -3178,7 +3178,7 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
   background: #fbfdff;
   border: 1px solid #e5edf7;
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .trend-top {
@@ -3220,21 +3220,23 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
   display: flex;
   align-items: flex-end;
   gap: 6px;
-  height: 52px;
+  height: 42px;
   margin-bottom: 14px;
 }
 
 .trend-sparkline span {
   flex: 1;
+  max-width: 22px;
   border-radius: 999px;
   background: #2dd4bf;
+  transition: all 0.2s ease;
 }
 
-.trend-sparkline span:nth-child(1) { height: 18px; }
-.trend-sparkline span:nth-child(2) { height: 28px; }
-.trend-sparkline span:nth-child(3) { height: 22px; }
-.trend-sparkline span:nth-child(4) { height: 42px; }
-.trend-sparkline span:nth-child(5) { height: 48px; }
+.trend-sparkline span:nth-child(1) { height: 14px; }
+.trend-sparkline span:nth-child(2) { height: 22px; }
+.trend-sparkline span:nth-child(3) { height: 18px; }
+.trend-sparkline span:nth-child(4) { height: 34px; }
+.trend-sparkline span:nth-child(5) { height: 40px; }
 
 .trend-sparkline.purple span {
   background: #8b5cf6;
@@ -3249,8 +3251,10 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
 }
 
 .trend-footer {
-  font-size: 12px;
-  line-height: 1.5;
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 500;
   color: #64748b;
 }
 
