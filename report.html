@@ -3586,15 +3586,6 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
       <div class="trend-footer" id="trendOverallFooter">Awaiting scan history</div>
     </div>
 
-    <div class="trend-card" data-trend-card="ai">
-      <div class="trend-top">
-        <span class="trend-label">AI Visibility</span>
-        <span class="trend-delta neutral" id="trendAiDelta">—</span>
-      </div>
-      <div class="trend-sparkline purple" id="trendAiBars"></div>
-      <div class="trend-footer" id="trendAiFooter">Awaiting scan history</div>
-    </div>
-
     <div class="trend-card" data-trend-card="performance">
       <div class="trend-top">
         <span class="trend-label">Performance</span>
@@ -3611,6 +3602,15 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
       </div>
       <div class="trend-sparkline blue" id="trendSeoBars"></div>
       <div class="trend-footer" id="trendSeoFooter">Awaiting scan history</div>
+    </div>
+    
+        <div class="trend-card" data-trend-card="ai">
+      <div class="trend-top">
+        <span class="trend-label">AI Visibility</span>
+        <span class="trend-delta neutral" id="trendAiDelta">—</span>
+      </div>
+      <div class="trend-sparkline purple" id="trendAiBars"></div>
+      <div class="trend-footer" id="trendAiFooter">Awaiting scan history</div>
     </div>
 
   </div>
@@ -4213,46 +4213,46 @@ el.classList.add(
       setDelta("trendSeoDelta", deltaSeo);
       setDelta("trendAiDelta", deltaAi);
 
-      renderBars("trendOverallBars", [
-        prevOverall,
-        prevOverall,
-        prevOverall,
-        currentOverall,
-        currentOverall,
-        currentOverall
-      ], deltaOverall);
+renderBars("trendOverallBars", [
+  prevOverall,
+  prevOverall,
+  prevOverall,
+  currentOverall,
+  currentOverall,
+  currentOverall
+], deltaOverall);
 
-      renderBars("trendPerformanceBars", [
-        prevPerf,
-        prevPerf,
-        prevPerf,
-        currentPerf,
-        currentPerf,
-        currentPerf
-      ], deltaPerf);
+renderBars("trendPerformanceBars", [
+  prevPerf,
+  prevPerf,
+  prevPerf,
+  currentPerf,
+  currentPerf,
+  currentPerf
+], deltaPerf);
 
-      renderBars("trendSeoBars", [
-        prevSeo,
-        prevSeo,
-        prevSeo,
-        currentSeo,
-        currentSeo,
-        currentSeo
-      ], deltaSeo);
+renderBars("trendSeoBars", [
+  prevSeo,
+  prevSeo,
+  prevSeo,
+  currentSeo,
+  currentSeo,
+  currentSeo
+], deltaSeo);
 
-      renderBars("trendAiBars", [
-        prevAi,
-        prevAi,
-        prevAi,
-        currentAi,
-        currentAi,
-        currentAi
-      ], deltaAi);
+renderBars("trendAiBars", [
+  prevAi,
+  prevAi,
+  prevAi,
+  currentAi,
+  currentAi,
+  currentAi
+], deltaAi);
 
-      setFooter("trendOverallFooter", "Overall", prevOverall, currentOverall);
-      setFooter("trendPerformanceFooter", "Performance", prevPerf, currentPerf);
-      setFooter("trendSeoFooter", "SEO", prevSeo, currentSeo);
-      setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
+setFooter("trendOverallFooter", "Overall", prevOverall, currentOverall);
+setFooter("trendPerformanceFooter", "Performance", prevPerf, currentPerf);
+setFooter("trendSeoFooter", "SEO", prevSeo, currentSeo);
+setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
     }
 
     var tries = 0;
