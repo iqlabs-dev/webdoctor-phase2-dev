@@ -3710,6 +3710,36 @@ body.iqweb-v2-shell.report-tab-overview .trend-sparkline span {
   height: 9px !important;
   box-shadow: 0 0 0 4px #fbfdff, 0 1px 2px rgba(15,23,42,.12) !important;
 }
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-overview-count {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-list {
+  gap: 11px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-list div {
+  display: grid !important;
+  grid-template-columns: 26px 1fr !important;
+  gap: 11px !important;
+  align-items: center !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-list span {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-list p {
+  color: #172033 !important;
+  font-size: 12.5px !important;
+  line-height: 1.45 !important;
+  font-weight: 750 !important;
+  -webkit-line-clamp: 2 !important;
+}
+
 </style>
 </head>
 
@@ -4426,9 +4456,9 @@ function setEvidenceOpen(open) {
       function copyOverviewCards() {
         setText("ovAiScore", text("dashAiScore", "—"));
         setText("ovAiVerdict", text("dashAiVerdict", "Loading"));
-        setText("ovInsight1", text("findingConstraint", "Primary constraint loading…"));
-        setText("ovInsight2", text("findingImpact", "Impact loading…"));
-        setText("ovInsight3", text("findingFix", "Recommended fix loading…"));
+ setText("ovInsight1", "Category identified successfully. Brand classification confidence is stable.");
+setText("ovInsight2", "Brand visibility remains limited across tested AI recommendation prompts.");
+setText("ovInsight3", "Strengthen category-brand association through clearer service and entity signals.");
 
         var deltas = [
           ["ovDeltaOverall", "deltaOverall"],
