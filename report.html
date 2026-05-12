@@ -3158,6 +3158,14 @@ body.iqweb-v2-shell .iq-overview-mini-issue b {
   border: 1px solid #fecdd3;
 }
 
+body.iqweb-v2-shell .iq-overview-dashboard-grid {
+  grid-auto-rows: minmax(272px, auto);
+}
+
+body.iqweb-v2-shell .iq-overview-card {
+  min-height: 272px;
+}
+
 /* The overview already has a reserved baseline card, so remove the duplicate lower baseline strip. */
 body.iqweb-v2-shell.report-tab-overview #progressSection {
   display: none !important;
@@ -3735,9 +3743,17 @@ body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-l
 body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-insight-list p {
   color: #172033 !important;
   font-size: 12.5px !important;
-  line-height: 1.45 !important;
-  font-weight: 750 !important;
-  -webkit-line-clamp: 2 !important;
+  line-height: 1.52 !important;
+  font-weight: 720 !important;
+
+  display: -webkit-box !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 3 !important;
+
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  max-height: 58px !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card {
