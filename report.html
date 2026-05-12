@@ -3535,6 +3535,181 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
   color: #0f172a !important;
   font-weight: 800 !important;
 }
+
+
+/* =========================================
+   OVERVIEW FINAL POLISH PASS
+   Light refinement only, no layout rebuild
+========================================= */
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
+  gap: 24px !important;
+  padding: 24px 28px !important;
+  border-bottom-color: rgba(210, 218, 232, .62) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-card,
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
+body.iqweb-v2-shell.report-tab-overview .exec-signal {
+  padding: 28px 22px !important;
+  border-color: rgba(210, 218, 232, .66) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
+  border-color: rgba(34, 211, 238, .34) !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 10px 26px rgba(34,211,238,.08) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score .exec-score-copy .note {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-copy .k,
+body.iqweb-v2-shell.report-tab-overview .trend-label,
+body.iqweb-v2-shell.report-tab-overview .trend-strip-title,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-card h3 {
+  font-weight: 800 !important;
+  letter-spacing: -.02em !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-copy .k,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-eyebrow,
+body.iqweb-v2-shell.report-tab-overview .trend-strip-title {
+  letter-spacing: .08em !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid {
+  gap: 14px !important;
+  padding: 0 18px 18px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-card {
+  min-height: 224px !important;
+  padding: 18px !important;
+  border-radius: 18px !important;
+  border-color: rgba(210, 218, 232, .68) !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.035) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-card-head {
+  margin-bottom: 14px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-eyebrow {
+  margin-bottom: 7px !important;
+  color: #5f7188 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-progress-body p,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-ai-card p,
+body.iqweb-v2-shell.report-tab-overview .trend-strip-subtitle,
+body.iqweb-v2-shell.report-tab-overview .trend-footer {
+  color: #667085 !important;
+  line-height: 1.55 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-mini-trend,
+body.iqweb-v2-shell.report-tab-overview .iq-delta-strip span,
+body.iqweb-v2-shell.report-tab-overview .trend-card,
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
+  border-color: rgba(210, 218, 232, .68) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-insight-list,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-issues-list {
+  gap: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-insight-list div {
+  gap: 11px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-insight-list p {
+  color: #223149 !important;
+  font-weight: 650 !important;
+  line-height: 1.5 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue {
+  position: relative !important;
+  grid-template-columns: 10px 1fr auto !important;
+  padding: 11px 10px 11px 12px !important;
+  border-radius: 13px !important;
+  background: linear-gradient(180deg, #fff, #fff7f7) !important;
+  border-color: rgba(254, 202, 202, .88) !important;
+  box-shadow: 0 1px 2px rgba(127, 29, 29, .045) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue p {
+  color: #111827 !important;
+  font-weight: 850 !important;
+  line-height: 1.35 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue b {
+  color: #dc2626 !important;
+  background: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
+  margin-top: 20px !important;
+  padding: 20px !important;
+  border-radius: 18px !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.03) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-strip-header {
+  margin-bottom: 20px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-strip-title {
+  color: #071326 !important;
+  font-size: 14px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-strip-subtitle {
+  margin-top: 7px !important;
+  font-size: 12.5px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-card {
+  padding: 16px !important;
+  border-radius: 16px !important;
+  background: #fbfdff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-delta {
+  min-width: 34px !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-sparkline::before {
+  height: 3px !important;
+  opacity: .62 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .trend-sparkline span {
+  width: 9px !important;
+  height: 9px !important;
+  box-shadow: 0 0 0 4px #fbfdff, 0 1px 2px rgba(15,23,42,.12) !important;
+}
 </style>
 </head>
 
@@ -3732,7 +3907,7 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
                     <div><span>Recommendation signal</span><b style="--w:42%"></b></div>
                     <div><span>Brand mentions</span><b style="--w:36%"></b></div>
                   </div>
-                  <p id="ovAiNote">Shows how clearly the business is associated with the tested category and recommendation-style visibility signals.</p>
+                  <p id="ovAiNote">Measures category and recommendation visibility signals.</p>
                 </section>
 
                 <section class="iq-overview-card iq-overview-insights-card">
@@ -3772,7 +3947,7 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
   <div class="trend-strip-header">
     <div class="trend-strip-title">Progress Trend</div>
     <div class="trend-strip-subtitle">
-      Last 6 scans for this site, oldest to newest.
+      Baseline trend across recent scans.
     </div>
   </div>
 
