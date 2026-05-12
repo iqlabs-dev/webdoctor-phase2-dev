@@ -2377,9 +2377,13 @@ body.iqweb-v2-shell #deliverySignalsSection .section-body {
 }
 
 body.iqweb-v2-shell #signalsGrid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
   align-items: stretch;
-  gap: 12px;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:last-child {
+  grid-column: 1 / 2;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
