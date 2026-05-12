@@ -2377,13 +2377,17 @@ body.iqweb-v2-shell #deliverySignalsSection .section-body {
 }
 
 body.iqweb-v2-shell #signalsGrid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
   align-items: stretch;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:last-child {
-  grid-column: 1 / 2;
+body.iqweb-v2-shell.report-tab-signals #signalsGrid > .card:nth-child(-n+5) {
+  min-height: 250px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid > .card:nth-child(6) {
+  max-width: calc(20% - 12px);
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
