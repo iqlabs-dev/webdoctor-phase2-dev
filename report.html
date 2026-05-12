@@ -2377,12 +2377,13 @@ body.iqweb-v2-shell #deliverySignalsSection .section-body {
 }
 
 body.iqweb-v2-shell #signalsGrid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: stretch;
+  gap: 12px;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
-  min-height: 230px !important;
+  min-height: 260px !important;
   height: auto !important;
   display: flex !important;
   flex-direction: column !important;
@@ -3495,6 +3496,10 @@ body.iqweb-v2-shell .evidence-row .score,
 body.iqweb-v2-shell .evidence-card .score {
   color: #2563eb !important;
   font-weight: 700 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-status {
+  display: none !important;
 }
 
   </style>
