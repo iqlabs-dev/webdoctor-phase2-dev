@@ -3828,7 +3828,32 @@ body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid {
 body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid .card {
   min-height: 220px !important;
 }
+/* AI VISIBILITY DETECTION STATES */
+body.iqweb-v2-shell.report-tab-signals .ai-detected {
+  border-color: rgba(34, 197, 94, 0.45) !important;
+  background: linear-gradient(180deg, rgba(34,197,94,0.055), #ffffff 34%) !important;
+}
 
+body.iqweb-v2-shell.report-tab-signals .ai-not-detected {
+  border-color: rgba(239, 68, 68, 0.38) !important;
+  background: linear-gradient(180deg, rgba(239,68,68,0.055), #ffffff 34%) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-detected h4 {
+  color: #15803d !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-not-detected h4 {
+  color: #dc2626 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-detected .ai-score {
+  color: #15803d !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-not-detected .ai-score {
+  color: #dc2626 !important;
+}
 </style>
 </head>
 
@@ -4758,6 +4783,58 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
     }, 250);
   })();
 </script>
+<script>
+(function () {
+  function applyAiDetectionStates() {
+    var panels = document.querySelectorAll(".ai-discovery-panel");
+    var scorebox = document.querySelector(".ai-discovery-scorebox");
 
+    panels.forEach(function (panel) {
+      var text = (panel.textContent || "").toLowerCase();
+
+      panel.classList.remove("ai-detected", "ai-not-detected");
+
+      if (
+        text.includes("category detected") ||
+        text.includes("category identified") ||
+        text.includes("software") ||
+        text.includes("digital agency") ||
+        text.includes("web intelligence")
+      ) {
+        panel.classList.add("ai-detected");
+      }
+
+      if (
+        text.includes("not surfaced") ||
+        text.includes("not detected") ||
+        text.includes("brand not surfaced") ||
+        text.includes("recommendation test result")
+      ) {
+        panel.classList.add("ai-not-detected");
+      }
+    });
+
+    if (scorebox) {
+      var scoreText = scorebox.textContent || "";
+      var match = scoreText.match(/\b(\d{1,3})\b/);
+      var score = match ? Number(match[1]) : null;
+
+      scorebox.classList.remove("ai-detected", "ai-not-detected");
+
+      if (Number.isFinite(score)) {
+        if (score >= 60) scorebox.classList.add("ai-detected");
+        else scorebox.classList.add("ai-not-detected");
+      }
+    }
+  }
+
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries += 1;
+    applyAiDetectionStates();
+    if (window.__IQWEB_REPORT_READY || tries > 40) clearInterval(timer);
+  }, 250);
+})();
+</script>
 </body>
 </html>
