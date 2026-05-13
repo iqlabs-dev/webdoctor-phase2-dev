@@ -3854,6 +3854,109 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-detected .ai-sc
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-not-detected .ai-score {
   color: #dc2626 !important;
 }
+
+/* =========================================
+   SIGNALS TAB MINIMAL POLISH PASS
+   Fewer labels, fewer borders, shorter copy,
+   more whitespace.
+========================================= */
+
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection .section-head {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection .section-body {
+  padding: 22px !important;
+  background: #f7f9fc !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid {
+  gap: 22px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
+  min-height: 188px !important;
+  padding: 20px !important;
+  border: 1px solid rgba(216, 226, 238, .72) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card-top {
+  margin-bottom: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card h3 {
+  font-size: 11px !important;
+  letter-spacing: .10em !important;
+  font-weight: 850 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .score-right {
+  color: #334155 !important;
+  font-weight: 800 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
+  margin-top: 13px !important;
+  color: #475569 !important;
+  font-size: 12.5px !important;
+  line-height: 1.6 !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar {
+  height: 6px !important;
+  border: 0 !important;
+  background: #e8eef6 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar > div {
+  background: #34b27b !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .signal-group-label {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
+  grid-template-columns: 172px minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 22px !important;
+  margin-top: 20px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel {
+  border-width: 1px !important;
+  box-shadow: none !important;
+  padding: 16px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel h4,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox .ai-label {
+  font-size: 10.5px !important;
+  letter-spacing: .09em !important;
+  font-weight: 850 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel p,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel li,
+body.iqweb-v2-shell.report-tab-signals .ai-more-copy,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-footnote {
+  font-size: 12.5px !important;
+  line-height: 1.58 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-prompt-box {
+  margin-top: 10px !important;
+  padding: 11px 12px !important;
+}
+
+@media (max-width: 979px) {
+  body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 </style>
 </head>
 
@@ -4836,5 +4939,47 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
   }, 250);
 })();
 </script>
+
+<script>
+(function () {
+  function simplifySignalCopy() {
+    var cards = document.querySelectorAll(
+      "body.report-tab-signals #signalsGrid .card .summary, body.iqweb-v2-shell #signalsGrid .card .summary"
+    );
+
+    cards.forEach(function (el) {
+      var txt = (el.textContent || "").trim();
+      if (!txt) return;
+
+      txt = txt
+        .replace(/Baseline stable\s*[—-]\s*no measurable blockers detected in this scan\./gi,
+          "Baseline stable with no measurable blockers detected.")
+        .replace(/^Strong\s*\n+/i, "")
+        .replace(/^Improvement Opportunity\s*\n+/i, "")
+        .replace(/This scan could not observe enough evidence to explain the low score\.\s*/i,
+          "Signal confidence is limited. ")
+        .replace(/Missing or blocked inputs are treated as a penalty\.\s*/i,
+          "")
+        .replace(/Correct the document structure by ensuring a single primary heading \(H1\) is present and that semantic HTML tags are used consistently\./i,
+          "Clarify structure with one primary H1 and consistent semantic HTML.")
+        .replace(/Restore the SEO baseline by adding a page title, primary heading \(H1\), canonical link, and essential metadata so the page can be properly indexed and understood by search engines\./i,
+          "Add title, H1, canonical, and core metadata to improve index clarity.")
+        .replace(/Consider adding standard browser security headers such as HSTS, Content-Security-Policy, X-Frame-Options, and X-Content-Type-Options to strengthen baseline protection and trust signals\./i,
+          "Add standard security headers to strengthen baseline trust signals.")
+        .replace(/Missing:\s*/i, "");
+
+      el.textContent = txt;
+    });
+  }
+
+  var tries = 0;
+  var timer = setInterval(function () {
+    tries += 1;
+    simplifySignalCopy();
+    if (window.__IQWEB_REPORT_READY || tries > 40) clearInterval(timer);
+  }, 250);
+})();
+</script>
+
 </body>
 </html>
