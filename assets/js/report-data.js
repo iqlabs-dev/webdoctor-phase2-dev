@@ -1743,7 +1743,7 @@ var score = unmeasured ? null : displayScore;
           lines.push("This scan could not observe enough evidence to explain the low score. Missing or blocked inputs are treated as a penalty.");
         } else {
           if (score !== null && isStrong(score)) {
-            lines.push("Baseline stable — no measurable blockers detected in this scan.");
+    lines.push("Baseline stable with no measurable blockers detected.");
           } else if (score !== null && score < 90) {
             lines.push(because ? because : "Structural signals indicate measurable drag.");
           }
