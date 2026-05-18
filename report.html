@@ -3550,242 +3550,7 @@ body.iqweb-v2-shell.report-tab-signals .ai-status {
   display: none !important;
 }
 
-  
-
-/* =========================================================
-   iQWEB UNIFIED DASHBOARD SIDEBAR FOR REPORT VIEW
-   Makes report.html use the same shell language as dashboard.html.
-   ========================================================= */
-body.iqweb-v2-dashboard {
-  padding: 0 !important;
-  margin: 0 !important;
-  background: #edf2f8 !important;
-  color: #0f172a !important;
-  overflow-x: hidden;
-}
-
-body.iqweb-v2-dashboard .app{
-  min-height:100vh;
-  display:flex;
-  flex-direction:row;
-}
-
-body.iqweb-v2-dashboard .sidebar{
-  width: 212px;
-  flex: 0 0 212px;
-  background: linear-gradient(180deg, #0B1730 0%, #050814 100%);
-  border-right: 1px solid rgba(255,255,255,.08);
-  padding: 16px 12px;
-  display:flex;
-  flex-direction:column;
-  gap: 12px;
-  min-height:100vh;
-}
-
-body.iqweb-v2-dashboard .brand{
-  padding: 10px 10px 6px 10px;
-  display:flex;
-  flex-direction:column;
-  gap: 8px;
-}
-
-body.iqweb-v2-dashboard .brand-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 10px;
-}
-
-body.iqweb-v2-dashboard .brand .name{
-  font-weight: 700;
-  letter-spacing: .02em;
-  font-size: 16px;
-  line-height: 1.1;
-  color: rgba(255,255,255,.92);
-}
-
-body.iqweb-v2-dashboard .brand-email{
-  font-size: 12px;
-  color: rgba(255,255,255,.45);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.06);
-  background: rgba(255,255,255,.02);
-}
-
-body.iqweb-v2-dashboard .nav{
-  display:flex;
-  flex-direction:column;
-  gap: 6px;
-  padding: 6px 6px 0 6px;
-}
-
-body.iqweb-v2-dashboard .nav a,
-body.iqweb-v2-dashboard .nav button{
-  all: unset;
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 12px;
-  color: rgba(255,255,255,.62);
-  border: 1px solid transparent;
-  user-select:none;
-  font-size: 13px;
-}
-
-body.iqweb-v2-dashboard .nav a:hover,
-body.iqweb-v2-dashboard .nav button:hover{
-  background: rgba(255,255,255,.03);
-  color: rgba(255,255,255,.84);
-  border-color: rgba(255,255,255,.06);
-}
-
-body.iqweb-v2-dashboard .nav a.active,
-body.iqweb-v2-dashboard .nav button.active{
-  background: rgba(24,214,196,.08);
-  border-color: rgba(24,214,196,.22);
-  color: rgba(255,255,255,.92);
-}
-
-body.iqweb-v2-dashboard .baseline-help{
-  margin-top:14px;
-  padding:10px 12px;
-  font-size:12px;
-  color: rgba(255,255,255,.55);
-  border-top:1px solid rgba(255,255,255,.06);
-  line-height:1.5;
-}
-
-body.iqweb-v2-dashboard .baseline-help strong{
-  display:block;
-  margin-bottom:6px;
-  color: rgba(255,255,255,.75);
-}
-
-body.iqweb-v2-dashboard .baseline-help ul{
-  margin:6px 0 0 16px;
-  padding:0;
-}
-
-body.iqweb-v2-dashboard .baseline-help li{
-  margin-bottom:4px;
-}
-
-body.iqweb-v2-dashboard .main{
-  flex:1;
-  min-width:0;
-  display:flex;
-  flex-direction:column;
-  background:#edf2f8 !important;
-}
-
-body.iqweb-v2-dashboard .topbar{
-  position: relative;
-  height: 62px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 14px 22px;
-  border-bottom: none !important;
-  background:#edf2f8 !important;
-}
-
-body.iqweb-v2-dashboard .topbar .left{
-  display:flex;
-  align-items:baseline;
-  gap: 10px;
-  min-width:0;
-}
-
-body.iqweb-v2-dashboard .topbar .title{
-  font-weight: 700;
-  font-size: 15px;
-  white-space:nowrap;
-  color:#0f172a !important;
-}
-
-body.iqweb-v2-dashboard .topbar .sub{
-  font-size: 12px;
-  color:#64748b !important;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-body.iqweb-v2-dashboard .topbar .right{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-  color:#64748b !important;
-  font-size: 12px;
-}
-
-body.iqweb-v2-dashboard .chip{
-  display:inline-flex;
-  align-items:center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid #dbe4f0;
-  background: #ffffff;
-  color: #475569;
-  font-size: 12px;
-}
-
-body.iqweb-v2-dashboard .wrap{
-  padding: 18px 22px 12px 22px;
-  display:flex;
-  flex-direction:column;
-  gap: 14px;
-  min-height: calc(100vh - 62px);
-  background:#edf2f8 !important;
-}
-
-body.iqweb-v2-dashboard .page-shell{
-  min-height: auto !important;
-  margin-left: 0 !important;
-  padding: 0 !important;
-  background: transparent !important;
-  align-items: stretch !important;
-}
-
-body.iqweb-v2-dashboard .shell-inner{
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-}
-
-body.iqweb-v2-dashboard #backToDashboard{
-  display:none !important;
-}
-
-@media (max-width: 760px){
-  body.iqweb-v2-dashboard .app{ flex-direction:column; }
-  body.iqweb-v2-dashboard .sidebar{
-    width:100%;
-    flex-basis:auto;
-    min-height:auto;
-    border-right:none;
-    border-bottom:1px solid rgba(255,255,255,.08);
-  }
-  body.iqweb-v2-dashboard .nav{
-    flex-direction:row;
-    flex-wrap:wrap;
-  }
-  body.iqweb-v2-dashboard .nav a,
-  body.iqweb-v2-dashboard .nav button{
-    flex:1 1 auto;
-    justify-content:center;
-  }
-  body.iqweb-v2-dashboard .wrap{ padding:14px; }
-}
-
-</style>
+  </style>
 <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 
 <style>
@@ -4092,56 +3857,30 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-not-detected .a
 </style>
 </head>
 
-<body class="iqweb-v2-shell iqweb-v2-dashboard report-tab-overview">
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-top">
-          <div class="name">iQWEB</div>
-          <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
-        </div>
+<body class="iqweb-v2-shell report-tab-overview">
 
-        <div id="wd-user-email" class="brand-email">reports@iqweb.ai</div>
-      </div>
+  <aside class="iqweb-app-sidebar" aria-label="iQWEB navigation">
+    <div class="iqweb-side-logo"><span>iQ</span>WEB</div>
+    <nav class="iqweb-side-nav">
+      <a class="iqweb-side-link active" href="/dashboard.html"><span class="iqweb-side-icon">▣</span>Dashboard</a>
+      <a class="iqweb-side-link" href="/dashboard.html#scans"><span class="iqweb-side-icon">⌕</span>Scans</a>
+      <a class="iqweb-side-link" href="/dashboard.html#baseline"><span class="iqweb-side-icon">◴</span>Baseline Hub</a>
+      <a class="iqweb-side-link" href="/ai-visibility-explained.html"><span class="iqweb-side-icon">✦</span>AI Visibility</a>
+      <a class="iqweb-side-link" href="/dashboard.html#reports"><span class="iqweb-side-icon">▤</span>Reports</a>
+      <a class="iqweb-side-link" href="/dashboard.html#settings"><span class="iqweb-side-icon">⚙</span>Settings</a>
+    </nav>
+    <div class="iqweb-side-spacer"></div>
+    <div class="iqweb-side-card">OSD v2 preview<br>Diagnostic intelligence workspace</div>
+    <div class="iqweb-side-account">
+      <div class="iqweb-avatar">IQ</div>
+      <div class="iqweb-account-text"><strong>iQWEB</strong><span>Report workspace</span></div>
+    </div>
+  </aside>
 
-      <nav class="nav" aria-label="Primary">
-        <a href="/dashboard.html">Dashboard</a>
-        <a href="/dashboard.html#reports" class="active">Reports</a>
-        <a href="/dashboard.html#billing">Billing</a>
-        <a href="/dashboard.html#account">Account</a>
-        <a href="/dashboard.html#branding">Branding</a>
-      </nav>
-
-      <nav class="nav" aria-label="Secondary">
-        <a href="/dashboard.html">Back to Dashboard</a>
-      </nav>
-
-      <div class="baseline-help">
-        <strong>Report workspace</strong>
-        <ul>
-          <li>Review diagnostic signals.</li>
-          <li>Compare baseline changes.</li>
-          <li>Export PDF snapshots.</li>
-        </ul>
-      </div>
-    </aside>
-
-    <section class="main">
-      <header class="topbar">
-        <div class="left">
-          <div class="title" id="page-title">Reports</div>
-          <div class="sub" id="page-subtitle">Diagnostic workspace</div>
-        </div>
-
-        <div class="right">
-          <span class="chip">Report detail</span>
-        </div>
-      </header>
-
-      <div class="wrap">
   <div class="page-shell">
     <div class="shell-inner">
 
+      <a id="backToDashboard" href="/dashboard.html">Back to dashboard</a>
 
       <div class="top-card">
 <div class="top-row">
@@ -4639,9 +4378,6 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox.ai-not-detected .a
       </div>
 
     </div>
-  </div>
-      </div>
-    </section>
   </div>
 
   <script src="/assets/js/score-model.js"></script>
