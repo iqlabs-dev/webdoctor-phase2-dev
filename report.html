@@ -2063,14 +2063,16 @@ body.iqweb-v2-shell {
 .iqweb-app-sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 210px;
+  width: 232px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 24px 16px 18px;
   color: #dbeafe;
-  background: linear-gradient(180deg, #0B1730 0%, #050814 100%);
-  border-right: 1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(circle at 40% 0%, rgba(37,99,235,0.28), transparent 34%),
+    linear-gradient(180deg, var(--v2-sidebar), var(--v2-sidebar-deep));
+  border-right: 1px solid rgba(148,163,184,0.16);
 }
 
 .iqweb-side-logo {
@@ -2079,7 +2081,7 @@ body.iqweb-v2-shell {
   line-height: 1;
   letter-spacing: -0.04em;
   color: #ffffff;
-  margin: 0 0 22px 8px;
+  margin: 0 0 28px 8px;
 }
 
 .iqweb-side-logo span { color: #93c5fd; }
@@ -2092,13 +2094,13 @@ body.iqweb-v2-shell {
 .iqweb-side-link {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 42px;
+  gap: 12px;
+  min-height: 44px;
   padding: 0 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   color: rgba(226,232,240,0.78);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   border: 1px solid transparent;
 }
@@ -2169,7 +2171,7 @@ body.iqweb-v2-shell {
 
 body.iqweb-v2-shell .page-shell {
   min-height: 100vh;
-margin-left: 210px;
+  margin-left: 232px;
   align-items: stretch;
   background: var(--v2-main-bg);
   padding: 18px 18px 28px;
@@ -3955,28 +3957,220 @@ body.iqweb-v2-shell.report-tab-signals .ai-prompt-box {
   }
 }
 
+
+
+/* =========================================================
+   REPORT SIDEBAR HARD MATCH TO DASHBOARD
+   Replaces the report-specific sidebar look with the same
+   dashboard navigation shell.
+   ========================================================= */
+body.iqweb-v2-shell {
+  --sidebar-w: 210px;
+  --sidebar-top: #0B1730;
+  --sidebar-bottom: #050814;
+  --border: rgba(255,255,255,.08);
+  --muted: rgba(255,255,255,.62);
+  --muted2: rgba(255,255,255,.45);
+}
+
+body.iqweb-v2-shell .sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  width: var(--sidebar-w) !important;
+  height: 100vh !important;
+  z-index: 1000 !important;
+  flex: 0 0 var(--sidebar-w) !important;
+  background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%) !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 16px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  color: rgba(255,255,255,.88) !important;
+}
+
+body.iqweb-v2-shell .brand {
+  padding: 10px 10px 6px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell .brand-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-shell .brand .name {
+  font-weight: 700 !important;
+  letter-spacing: .02em !important;
+  font-size: 16px !important;
+  line-height: 1.1 !important;
+  color: #ffffff !important;
+}
+
+body.iqweb-v2-shell .brand-email {
+  font-size: 12px !important;
+  color: var(--muted2) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: rgba(255,255,255,.02) !important;
+  width: auto !important;
+  height: auto !important;
+  text-indent: 0 !important;
+}
+
+body.iqweb-v2-shell .brand-email::after {
+  content: none !important;
+}
+
+body.iqweb-v2-shell .nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 6px 6px 0 6px !important;
+}
+
+body.iqweb-v2-shell .nav a,
+body.iqweb-v2-shell .nav button {
+  all: unset;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 10px !important;
+  min-height: auto !important;
+  border-radius: 12px !important;
+  color: var(--muted) !important;
+  border: 1px solid transparent !important;
+  user-select: none !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  background: transparent !important;
+}
+
+body.iqweb-v2-shell .nav a:hover,
+body.iqweb-v2-shell .nav button:hover {
+  background: rgba(255,255,255,.03) !important;
+  color: rgba(255,255,255,.84) !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+
+body.iqweb-v2-shell .nav a.active,
+body.iqweb-v2-shell .nav button.active {
+  background: rgba(24,214,196,.08) !important;
+  border-color: rgba(24,214,196,.22) !important;
+  color: rgba(255,255,255,.92) !important;
+}
+
+body.iqweb-v2-shell .baseline-help {
+  margin-top: auto !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  color: rgba(255,255,255,.55) !important;
+  border-top: 1px solid rgba(255,255,255,.06) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  line-height: 1.5 !important;
+}
+
+body.iqweb-v2-shell .baseline-help strong {
+  display: block !important;
+  margin-bottom: 6px !important;
+  color: rgba(255,255,255,.75) !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-shell .baseline-help ul {
+  margin: 6px 0 0 16px !important;
+  padding: 0 !important;
+}
+
+body.iqweb-v2-shell .baseline-help li {
+  margin-bottom: 4px !important;
+}
+
+body.iqweb-v2-shell .iqweb-app-sidebar,
+body.iqweb-v2-shell .iqweb-side-logo,
+body.iqweb-v2-shell .iqweb-side-nav,
+body.iqweb-v2-shell .iqweb-side-card,
+body.iqweb-v2-shell .iqweb-side-account {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .page-shell {
+  margin-left: var(--sidebar-w) !important;
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-shell .sidebar {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  body.iqweb-v2-shell .page-shell {
+    margin-left: 0 !important;
+  }
+
+  body.iqweb-v2-shell .nav {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+
+  body.iqweb-v2-shell .baseline-help {
+    display: none !important;
+  }
+}
 </style>
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
 
-  <aside class="iqweb-app-sidebar" aria-label="iQWEB navigation">
-    <div class="iqweb-side-logo"><span>iQ</span>WEB</div>
-    <nav class="iqweb-side-nav">
-      <a class="iqweb-side-link active" href="/dashboard.html"><span class="iqweb-side-icon">▣</span>Dashboard</a>
-      <a class="iqweb-side-link" href="/dashboard.html#scans"><span class="iqweb-side-icon">⌕</span>Scans</a>
-      <a class="iqweb-side-link" href="/dashboard.html#baseline"><span class="iqweb-side-icon">◴</span>Baseline Hub</a>
-      <a class="iqweb-side-link" href="/ai-visibility-explained.html"><span class="iqweb-side-icon">✦</span>AI Visibility</a>
-      <a class="iqweb-side-link" href="/dashboard.html#reports"><span class="iqweb-side-icon">▤</span>Reports</a>
-      <a class="iqweb-side-link" href="/dashboard.html#settings"><span class="iqweb-side-icon">⚙</span>Settings</a>
-    </nav>
-    <div class="iqweb-side-spacer"></div>
-    <div class="iqweb-side-card">OSD v2 preview<br>Diagnostic intelligence workspace</div>
-    <div class="iqweb-side-account">
-      <div class="iqweb-avatar">IQ</div>
-      <div class="iqweb-account-text"><strong>iQWEB</strong><span>Report workspace</span></div>
-    </div>
-  </aside>
+  <aside class="sidebar" aria-label="Primary">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="name">iQWEB</div>
+          <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
+        </div>
+
+        <div id="wd-user-email" class="brand-email">djesther@outlook.com</div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a href="/dashboard.html" class="active">Dashboard</a>
+        <a href="/dashboard.html#billing">Billing</a>
+        <a href="/dashboard.html#account">Account</a>
+        <a href="/dashboard.html#branding">Branding</a>
+        <a href="mailto:support@iqweb.ai">Contact</a>
+      </nav>
+
+      <nav class="nav" aria-label="Secondary">
+        <a href="/login.html">Sign out</a>
+      </nav>
+
+      <div class="baseline-help">
+        <strong>Baseline guide</strong>
+        <ul>
+          <li>Select a radio in Scan History to set the baseline. The dashboard will refresh.</li>
+          <li>Future scans compare against this baseline.</li>
+          <li>Use Clear Baseline to remove it.</li>
+        </ul>
+      </div>
+    </aside>
 
   <div class="page-shell">
     <div class="shell-inner">
