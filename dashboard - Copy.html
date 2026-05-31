@@ -2,1472 +2,1366 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>WebDoctor — Dashboard</title>
+  <title>iQWEB Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
-    :root {
-      --bg-top: #050814;
-      --bg-mid: #07101f;
-      --bg-bot: #0b1729;
-      --ink: #e8eef2;
-      --ink-soft: #c7d9e7;
-      --muted: #9fb1bf;
-      --highlight: #5dd8ff;
-      --danger: #ff6b6b;
-      --box: rgba(255,255,255,0.06);
-      --box2: rgba(255,255,255,0.12);
+    :root{
+      --bg: #070A10;
+      --panel: #0A0F1A;
+      --sidebar-top: #0B1730;
+      --sidebar-bottom: #050814;
+      --border: rgba(255,255,255,.08);
+      --text: rgba(255,255,255,.88);
+      --muted: rgba(255,255,255,.62);
+      --muted2: rgba(255,255,255,.45);
+      --accent: #18D6C4;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --radius2: 18px;
+      --sidebar-w: 212px;
     }
 
-    * {
-      box-sizing: border-box;
+    *{ box-sizing:border-box; }
+    html, body { height:100%; }
+
+    body{
+      margin:0;
+      font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #0b1730 0, #050814 55%, #05060a 100%);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: Montserrat, sans-serif;
-      background: radial-gradient(circle at top left, #10172a 0, #050814 45%, #02040a 100%);
-      color: var(--ink);
-      overflow-x: hidden;
+    .app{
+      min-height:100vh;
+      display:flex;
+      flex-direction:row;
     }
 
-    /* HEADER */
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      padding: 22px 40px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.1));
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-    }
-
-    .logo a {
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--ink);
-      text-decoration: none;
-    }
-
-    .back-link {
-      font-size: 16px;
-      color: var(--ink-soft);
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      opacity: 0.9;
-      transition: 0.2s;
-    }
-
-    .back-link span.arrow {
-      font-size: 18px;
-      margin-top: -1px;
-    }
-
-    .back-link:hover {
-      color: var(--highlight);
-      opacity: 1;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 26px;
-    }
-
-    .nav-link {
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--ink-soft);
-      text-decoration: none;
-      transition: 0.2s;
-    }
-
-    .nav-link.active {
-      color: var(--highlight);
-    }
-
-    .nav-link:hover {
-      color: var(--ink);
-    }
-
-    .user-menu {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .user-trigger {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      background: rgba(8,15,30,0.9);
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.12);
-      cursor: pointer;
-      font-size: 14px;
-      color: var(--ink-soft);
-      outline: none;
-    }
-
-    .user-initial {
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--highlight), #8be7ff);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: #000;
-      font-weight: 800;
-      font-size: 15px;
-    }
-
-    .user-email {
-      max-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .user-caret {
-      font-size: 11px;
-      opacity: 0.8;
-      margin-left: 4px;
-    }
-
-    .user-admin-badge {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.25);
-      padding: 2px 6px;
-      color: var(--highlight);
-    }
-
-    .user-dropdown {
-      position: absolute;
-      right: 0;
-      top: 110%;
-      background: #040712;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: 0 18px 40px rgba(0,0,0,0.7);
-      min-width: 230px;
-      padding: 8px;
-      opacity: 0;
-      transform: translateY(-4px);
-      pointer-events: none;
-      transition: 0.16s ease-out;
-    }
-
-    .user-menu:hover .user-dropdown {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-
-    .user-dropdown a,
-    .user-dropdown button {
-      display: block;
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-size: 14px;
-      text-decoration: none;
-      color: var(--ink-soft);
-      transition: 0.16s;
-      border: none;
-      background: transparent;
-      text-align: left;
-      cursor: pointer;
-      font-family: inherit;
-    }
-
-    .user-dropdown a:hover,
-    .user-dropdown button:hover {
-      background: rgba(255,255,255,0.05);
-      color: var(--ink);
-    }
-
-    .user-dropdown a.signout {
-      color: var(--danger);
-      font-weight: 600;
-    }
-
-    .user-dropdown-separator {
-      height: 1px;
-      margin: 6px 4px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 999px;
-    }
-
-    /* PAGE WRAP */
-
-    .wrap {
-      max-width: 1200px;
-      margin: 34px auto 60px;
-      padding: 0 20px 40px;
-    }
-
-    .section {
-      background: var(--box);
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.09);
-      box-shadow: 0 0 40px rgba(0,0,0,0.45);
-      padding: 32px 34px;
-      margin-bottom: 30px;
-    }
-
-    .section.small {
-      padding: 24px 26px;
-    }
-
-    h1 {
-      font-size: 36px;
-      margin: 0 0 6px;
-      font-weight: 800;
-      color: var(--highlight);
-    }
-
-    .subtext {
-      font-size: 18px;
-      color: var(--ink-soft);
-      margin-bottom: 24px;
-    }
-
-    /* SUMMARY CARD */
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-      gap: 26px;
-      align-items: stretch;
-    }
-
-    .summary-block {
-      background: var(--box2);
-      border-radius: 16px;
-      padding: 22px 24px;
-      border: 1px solid rgba(255,255,255,0.09);
-    }
-
-    .summary-label {
-      font-size: 15px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-
-    .credits-value {
-      font-size: 34px;
-      font-weight: 800;
-      color: var(--highlight);
-      transition: color 0.15s;
-    }
-
-    .credits-value.low-credits {
-      color: #fb923c;
-    }
-
-    .last-scan-site {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--ink);
-      margin-bottom: 4px;
-    }
-
-    .last-scan-meta {
-      font-size: 14px;
-      color: var(--ink-soft);
-      margin-bottom: 8px;
-    }
-
-    .score-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(10,180,130,0.14);
-      font-size: 14px;
-      color: #5ffac5;
-      font-weight: 600;
-      margin-top: 4px;
-    }
-
-    .score-pill span.score {
-      font-size: 18px;
-      font-weight: 800;
-    }
-
-    .summary-actions {
-      margin-top: 26px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      align-items: center;
-    }
-
-    /* Inline run strip */
-
-    .run-strip {
-      margin-top: 18px;
-      display: flex;
+    .sidebar{
+      width: var(--sidebar-w);
+      flex: 0 0 var(--sidebar-w);
+      background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%);
+      border-right: 1px solid var(--border);
+      padding: 16px 12px;
+      display:flex;
+      flex-direction:column;
       gap: 12px;
-      align-items: stretch;
     }
 
-    .run-strip-btn,
-    .run-strip-input {
-      flex: 1 1 0;
-      display: flex;
-    }
-
-    .run-strip-input input {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(4,8,18,0.9);
-      color: var(--ink);
-      padding: 12px 14px;
-      font-size: 14px;
-      outline: none;
-    }
-
-    .run-strip-input input::placeholder {
-      color: var(--muted);
-    }
-
-    /* Run button */
-
-    .btn-primary {
-      width: 100%;
-      justify-content: center;
-      padding: 14px 20px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #22c55e, #14b8a6);
-      color: #000;
-      font-weight: 800;
-      font-size: 16px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
+    .brand{
+      padding: 10px 10px 6px 10px;
+      display:flex;
+      flex-direction:column;
       gap: 8px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.55);
-      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
     }
 
-    .btn-primary span.icon {
-      font-size: 18px;
-      margin-top: -1px;
+    .brand-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
     }
 
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 18px 38px rgba(0,0,0,0.7);
-      opacity: 0.92;
+    .brand .name{
+      font-weight: 700;
+      letter-spacing: .02em;
+      font-size: 16px;
+      line-height: 1.1;
     }
 
-    .hint-text {
-      font-size: 14px;
+    .brand .tag{ display:none; }
+
+    .brand-email{
+      font-size: 12px;
+      color: var(--muted2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+    }
+
+    #wd-user-initial{ display:none !important; }
+
+    .nav{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      padding: 6px 6px 0 6px;
+    }
+
+    .nav a,
+    .nav button{
+      all: unset;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 12px;
       color: var(--muted);
+      border: 1px solid transparent;
+      user-select:none;
+      font-size: 13px;
     }
 
-    /* Last scan clickable */
-
-    .last-scan-card {
-      cursor: pointer;
-      transition: box-shadow 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
+    .nav a:hover,
+    .nav button:hover{
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.84);
+      border-color: rgba(255,255,255,.06);
     }
 
-    .last-scan-card:hover {
-      box-shadow: 0 0 40px rgba(0,0,0,0.7);
-      border-color: rgba(93,216,255,0.5);
-      transform: translateY(-1px);
+    .nav a.active,
+    .nav button.active{
+      background: rgba(24,214,196,.08);
+      border-color: rgba(24,214,196,.22);
+      color: rgba(255,255,255,.92);
     }
 
-    /* LAYOUT GRID */
-
-    .layout-grid {
-      display: block;
+    .contact-pop{
+      display:none;
+      margin: 6px 6px 0 6px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(5,8,20,.78);
+      border-radius: 12px;
+      padding: 10px;
     }
 
-    h2 {
-      font-size: 24px;
-      margin: 0 0 10px;
+    .contact-pop a{
+      display:block;
+      padding: 8px 8px;
+      border-radius: 10px;
+      text-decoration:none;
+      color: rgba(255,255,255,.86);
+      border: 1px solid transparent;
+      font-size: 12px;
+      line-height: 1.2;
     }
 
-    /* HISTORY HEADER / SEARCH / FILTERS */
+    .contact-pop a span{
+      display:block;
+      color: var(--muted2);
+      font-size: 11px;
+      margin-top: 3px;
+    }
 
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 16px;
+    .contact-pop a:hover{
+      background: rgba(255,255,255,.03);
+      border-color: rgba(255,255,255,.06);
+    }
+
+    .sidebar-foot{
+      margin-top:auto;
+      padding: 10px 10px 6px 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: var(--muted2);
+      font-size: 12px;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+    }
+
+    .main{
+      flex:1;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      background: transparent;
+    }
+
+    .topbar{
+      position: relative;
+      height: 62px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 14px 22px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      background: transparent;
+      backdrop-filter: none;
+    }
+
+    .topbar .left{
+      display:flex;
+      align-items:baseline;
+      gap: 10px;
+      min-width:0;
+    }
+
+    .topbar .title{
+      font-weight: 700;
+      font-size: 15px;
+      white-space:nowrap;
+    }
+
+    .topbar .sub{
+      font-size: 12px;
+      color: var(--muted2);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    #page-subtitle:empty{ display:none; }
+
+    .topbar .right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .topbar-center-note{
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+      color: rgba(255,255,255,.72);
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 184, 77, .20);
+      background: rgba(255, 184, 77, .08);
+      white-space: nowrap;
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
+    }
+
+    .paid-scans{
+      color: #22c55e;
+      border-color: rgba(34,197,94,.30);
+      background: rgba(34,197,94,.08);
+      font-weight: 700;
+    }
+
+    .paid-scans strong{
+      color: #b7ffcf;
+    }
+
+    #wd-plan-scans-remaining,
+    #wd-free-scans{
+      margin-left: 6px;
+    }
+
+    .wrap{
+      padding: 18px 22px 12px 22px;
+      display:flex;
+      flex-direction:column;
+      gap: 14px;
+      min-height: calc(100vh - 62px);
+    }
+
+    .card{
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(10,15,26,.66);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card.primary{
+      background: linear-gradient(180deg, rgba(16,24,44,.78), rgba(10,15,26,.65));
+      border-color: rgba(255,255,255,.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+
+    .card.secondary{
+      background: rgba(10,15,26,.52);
+      border-color: rgba(255,255,255,.06);
+    }
+
+    .row{
+      display:flex;
+      gap: 14px;
+      align-items:stretch;
+      flex-wrap:wrap;
+      margin-bottom: 6px;
+    }
+
+    .col{
+      flex:1;
+      min-width: 320px;
+      display:flex;
+    }
+
+    .card.equal{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .card.equal .scanhelp{
+      margin-top:auto;
+    }
+
+    .h{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
       margin-bottom: 10px;
     }
 
-    .history-header-left {
-      flex: 1 1 auto;
-    }
-
-    .history-controls {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-      min-width: 260px;
-    }
-
-    .filter-pills {
-      display: inline-flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .filter-pill {
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(10,15,32,0.9);
-      border-radius: 999px;
-      padding: 4px 10px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .filter-pill.active {
-      border-color: var(--highlight);
-      color: var(--ink);
-      background: rgba(12,26,56,0.95);
-    }
-
-    .search-group {
-      position: relative;
-      width: 100%;
-    }
-
-    .search-input {
-      width: 100%;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(4,8,18,0.9);
-      color: var(--ink);
-      padding: 7px 12px 7px 30px;
+    .h h2{
+      margin:0;
       font-size: 13px;
-      outline: none;
+      font-weight: 700;
+      letter-spacing: .01em;
     }
 
-    .search-input::placeholder {
-      color: var(--muted);
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 9px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 13px;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    /* TABLE */
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-    }
-
-    th, td {
-      padding: 14px 10px;
-      font-size: 15px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    th {
-      text-align: left;
-      color: var(--muted);
-      font-weight: 600;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    td {
-      color: var(--ink);
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      background: rgba(95,248,187,0.12);
-      color: #6cfac3;
-    }
-
-    .status-pill.pending {
-      background: rgba(255,204,102,0.15);
-      color: #ffd27a;
-      position: relative;
-      padding-left: 24px;
-    }
-
-    .status-pill.pending::before {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      border: 2px solid rgba(255,210,122,0.8);
-      border-top-color: transparent;
-      position: absolute;
-      left: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: translateY(-50%) rotate(360deg);
-      }
-    }
-
-    .action-link {
-      color: var(--highlight);
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      margin-right: 10px;
-    }
-
-    .action-link:hover {
-      text-decoration: underline;
-    }
-
-    /* Report ID style + copy button */
-
-    .report-id-btn {
-      border: none;
-      background: transparent;
-      padding: 0;
-      cursor: pointer;
-    }
-
-    .report-id {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 13px;
-      letter-spacing: 0.04em;
-      color: var(--ink-soft);
-      transition: color 0.12s;
-    }
-
-    .report-id-btn:hover .report-id {
-      color: var(--highlight);
-    }
-
-    /* History footer / load more */
-
-    .history-footer {
-      margin-top: 10px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 18px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(7,12,24,0.9);
-      color: var(--ink-soft);
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: 0.16s;
-      cursor: pointer;
-    }
-
-    .btn-secondary.small {
-      padding: 7px 14px;
+    .h .meta{
       font-size: 12px;
-      border-radius: 999px;
+      color: var(--muted2);
     }
 
-    .btn-secondary:hover {
-      background: rgba(15,25,42,0.98);
-      color: var(--ink);
+    #subscription-banner{
+      display:none;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      padding: 10px 14px;
+      color: rgba(255,255,255,.85);
+      font-size: 12px;
     }
 
-    /* Empty states */
-
-    .history-empty {
-      display: none;
-      margin-top: 12px;
-      padding: 18px 16px;
+    .plan-banner{
+      display:none;
       border-radius: 16px;
-      border: 1px dashed rgba(255,255,255,0.2);
-      background: rgba(4,8,20,0.85);
-      font-size: 14px;
-      color: var(--ink-soft);
+      border: 1px solid rgba(24,214,196,.22);
+      background: linear-gradient(180deg, rgba(24,214,196,.10), rgba(10,15,26,.55));
+      padding: 12px 14px;
     }
 
-    .history-empty strong {
-      color: var(--highlight);
+    .plan-banner-top{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      margin-bottom: 10px;
     }
 
-    /* Copy toast */
-
-    #copyToast {
-      position: fixed;
-      left: 50%;
-      bottom: 26px;
-      transform: translateX(-50%) translateY(20px);
-      padding: 10px 18px;
-      border-radius: 999px;
-      background: rgba(12,20,40,0.96);
-      border: 1px solid rgba(255,255,255,0.18);
-      color: var(--ink-soft);
+    .plan-banner-title{
+      font-weight: 800;
+      color: rgba(255,255,255,.92);
+      letter-spacing: .01em;
       font-size: 13px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.16s ease-out, transform 0.16s ease-out;
-      z-index: 60;
     }
 
-    #copyToast.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
+    .plan-banner-sub{
+      color: rgba(255,255,255,.65);
+      font-size: 12px;
+      line-height: 1.35;
     }
 
-    @media (max-width: 960px) {
-      header {
-        padding: 18px 18px;
-      }
-
-      .header-left {
-        gap: 16px;
-      }
-
-      .wrap {
-        margin-top: 24px;
-      }
-
-      .summary-grid {
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .history-header {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .history-controls {
-        align-items: stretch;
-        min-width: 0;
-      }
-
-      .filter-pills {
-        justify-content: flex-start;
-      }
+    .plan-banner-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
     }
 
-    @media (max-width: 640px) {
-      h1 {
-        font-size: 30px;
-      }
-
-      .section {
-        padding: 24px 20px;
-      }
-
-      .section.small {
-        padding: 20px 18px;
-      }
-
-      .subtext {
-        font-size: 16px;
-      }
-
-      .user-trigger {
-        padding: 6px 10px;
-      }
-
-      .run-strip {
-        flex-direction: column;
-      }
-    }
-
-    .wd-pdf-btn {
-      padding: 6px 12px;
+    .plan-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 9px 12px;
       border-radius: 999px;
-      border: 1px solid rgba(56, 189, 248, 0.7);
-      background: rgba(15, 23, 42, 0.9);
-      color: #e0f2fe;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+      border: 1px solid rgba(24,214,196,.28);
+      background: rgba(0,0,0,.14);
+      color: rgba(255,255,255,.88);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform .16s ease, background .16s ease, border-color .16s ease;
     }
 
-    .wd-pdf-btn:hover {
-      background: rgba(56, 189, 248, 0.18);
-      border-color: rgba(56, 189, 248, 1);
+    .plan-btn:hover{
+      transform: translateY(-1px);
+      background: rgba(24,214,196,.10);
+      border-color: rgba(24,214,196,.42);
+      text-decoration:none;
+    }
+
+    .latest{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+    }
+
+    .latest-left{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+    }
+
+    .latest-url{
+      font-weight:700;
+      font-size: 14px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .latest-date{
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
+    .latest-right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+
+    .score{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width: 44px;
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(24,214,196,.25);
+      background: rgba(24,214,196,.08);
+      color: rgba(255,255,255,.92);
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .btn{
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.88);
+      padding: 9px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing:.01em;
+    }
+
+    .btn:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+    }
+
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .btn-primary{
+      border-color: rgba(24,214,196,.25);
+      background: rgba(24,214,196,.10);
+    }
+
+    .btn-primary:hover{
+      background: rgba(24,214,196,.14);
+      border-color: rgba(24,214,196,.30);
+    }
+
+    .btn-link{
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      padding: 7px 10px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,.88);
+    }
+
+    .btn-link:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+    }
+
+    .scanbar{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .scanbar input{
+      flex: 1;
+      min-width: 260px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.92);
+      outline: none;
+      font-size: 13px;
+    }
+
+    .scanbar input::placeholder{ color: rgba(255,255,255,.35); }
+
+    .scanhelp{
+      font-size: 12px;
+      color: var(--muted2);
+      margin-top: 8px;
+      line-height: 1.35;
+    }
+
+    #trial-info{
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.86);
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.10);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width: 760px;
+      font-size: 13px;
+    }
+
+    thead th{
+      text-align: left;
+      padding: 12px 12px;
+      color: rgba(255,255,255,.92);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: .02em;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.02);
+      white-space: nowrap;
+    }
+
+    thead th .actions-helper {
+      font-size: 11px;
+      font-weight: 500;
+      color: rgba(255,255,255,.45);
+      letter-spacing: normal;
+    }
+
+    tbody td{
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      color: rgba(255,255,255,.88);
+      vertical-align:middle;
+      white-space:nowrap;
+    }
+
+    tbody tr:hover td{
+      background: rgba(255,255,255,.02);
+    }
+
+    .col-url{
+      max-width: 420px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .history-url{
+      color: rgba(255,255,255,.88);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(24,214,196,.18);
+    }
+
+    .history-url:hover{
+      border-bottom-color: rgba(24,214,196,.40);
+    }
+
+    .wd-history-link{
+      color: rgba(255,255,255,.88);
+      text-decoration:none;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.02);
+      padding: 7px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+    }
+
+    .wd-history-link:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+    }
+
+    .view{ display:none; }
+    .view.active{ display:block; }
+
+    .footer{
+      margin-top:auto;
+      padding: 14px 6px 10px 6px;
+      color: rgba(255,255,255,.55);
+      font-size: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+
+thead th:nth-child(4),
+thead th:nth-child(5),
+thead th:nth-child(7),
+thead th:nth-child(8),
+tbody td:nth-child(4),
+tbody td:nth-child(5),
+tbody td:nth-child(7),
+tbody td:nth-child(8) {
+  text-align: center;
+  vertical-align: middle;
+}
+
+    .history-helper {
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.55);
+    }
+
+    .brand-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .brand-field{
+      display:flex;
+      flex-direction:column;
+      gap: 7px;
+    }
+
+    .brand-field.full{
+      grid-column: 1 / -1;
+    }
+
+    .brand-field label{
+      font-size: 12px;
+      color: rgba(255,255,255,.82);
+      font-weight: 600;
+    }
+
+    .brand-field input{
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.92);
+      outline: none;
+      font-size: 13px;
+      font-family: inherit;
+    }
+
+    .brand-field input::placeholder{
+      color: rgba(255,255,255,.35);
+    }
+
+    .logo-upload-row{
+      display:flex;
+      gap: 12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin-top: 10px;
+    }
+
+    .logo-upload-status{
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted2);
+    }
+
+    .brand-toggle{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:44px;
+      color: rgba(255,255,255,.86);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .brand-toggle input{
+      width:auto;
+      margin:0;
+    }
+
+    .brand-toggles{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .branding-layout{
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+    }
+
+    .branding-section{
+      border:1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.02);
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .branding-section .h{
+      margin-bottom: 14px;
+    }
+
+    .branding-section .h h2{
+      font-size: 14px;
+    }
+
+    .branding-section .meta{
+      color: rgba(255,255,255,.52);
+      font-size: 12px;
+    }
+
+    .color-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 6px;
+    }
+
+    .color-field{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 14px;
+      min-height: 56px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: rgba(0,0,0,.14);
+    }
+
+    .color-field-info{
+      display:flex;
+      flex-direction:column;
+      gap: 4px;
+      min-width:0;
+    }
+
+    .color-field-label{
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,.9);
+    }
+
+    .color-field-help{
+      font-size: 11px;
+      color: rgba(255,255,255,.48);
+      line-height: 1.35;
+    }
+
+    .color-field input[type="color"]{
+      width: 48px;
+      min-width: 48px;
+      height: 34px;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .branding-savebar{
+      margin-top:4px;
+      padding-top:4px;
+      border-top:none;
+      display:flex;
+      justify-content:flex-start;
+    }
+
+    .branding-actions{
+      margin-top: 4px;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+
+    .branding-secondary-btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+      color: rgba(255,255,255,.88);
+      padding: 10px 16px;
+      min-width: 150px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor:pointer;
+      transition: background .18s ease, border-color .18s ease, transform .12s ease;
+    }
+
+    .branding-secondary-btn:hover{
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.18);
       transform: translateY(-1px);
     }
 
-    .scan-actions-pending {
-      font-size: 0.8rem;
-      color: #64748b;
+    .branding-secondary-btn:active{
+      transform: translateY(0);
     }
 
+    .branding-savebar-note{
+      margin:0;
+      font-size:12px;
+      line-height:1.45;
+      color: rgba(255,255,255,.58);
+    }
+
+    .branding-save-btn{
+      appearance:none;
+      border:1px solid rgba(24,214,196,.28);
+      background: linear-gradient(180deg, rgba(24,214,196,.16), rgba(24,214,196,.10));
+      color: rgba(255,255,255,.94);
+      padding: 10px 16px;
+      min-width: 132px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .01em;
+      cursor:pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,.24);
+      transition: background .18s ease, border-color .18s ease, transform .12s ease, box-shadow .18s ease;
+    }
+
+    .branding-save-btn:hover{
+      background: linear-gradient(180deg, rgba(24,214,196,.20), rgba(24,214,196,.12));
+      border-color: rgba(24,214,196,.40);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.30);
+    }
+
+    .branding-save-btn:active{
+      transform: translateY(0);
+    }
+
+    .branding-save-btn:disabled{
+      opacity:.7;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
+
+    .branding-preview-note{
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.54);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 920px){
+      :root{ --sidebar-w: 210px; }
+      .topbar{ padding: 12px 14px; }
+      .wrap{ padding: 14px; }
+      .brand-grid{ grid-template-columns: 1fr; }
+      .color-grid{ grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px){
+      .app{ flex-direction:column; }
+
+      .sidebar{
+        width: 100%;
+        flex-basis:auto;
+        border-right:none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .nav{
+        flex-direction:row;
+        flex-wrap:wrap;
+      }
+
+      .nav a,
+      .nav button{
+        flex: 1 1 auto;
+        justify-content:center;
+      }
+
+      table{ min-width: 720px; }
+
+      .footer{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+
+      .branding-savebar{
+        align-items:flex-start;
+      }
+    }
+
+    .baseline-selector {
+  accent-color: #22c55e;
+  cursor: pointer;
+}
   </style>
 </head>
 
 <body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="name">iQWEB</div>
+          <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
+        </div>
 
-<header>
-  <div class="header-left">
-    <div class="logo">
-      <a href="index.html">WebDoctor</a>
-    </div>
-    <a class="back-link" href="index.html">
-      <span class="arrow">←</span>
-      <span>Back to main page</span>
-    </a>
+        <div id="wd-user-email" class="brand-email">—</div>
+
+        <div id="wd-user-name" style="display:none;"></div>
+        <div id="wd-admin-badge" style="display:none;"></div>
+        <div id="wd-credits-count" style="display:none;">0</div>
+        <div id="wd-plan-summary" style="display:none;"></div>
+      </div>
+
+      <nav class="nav" aria-label="Primary">
+        <a href="#" class="active" data-view="view-dashboard">Dashboard</a>
+        <a href="#" data-view="view-billing">Billing</a>
+        <a href="#" data-view="view-account">Account</a>
+        <a href="#" data-view="view-branding">Branding</a>
+        <button type="button" id="contact-toggle" aria-expanded="false">Contact</button>
+      </nav>
+
+      <div id="contact-pop" class="contact-pop" role="menu" aria-label="Contact emails">
+        <a href="mailto:pricing@iqweb.ai" role="menuitem">
+          Pricing
+          <span>pricing@iqweb.ai</span>
+        </a>
+        <a href="mailto:support@iqweb.ai" role="menuitem">
+          Support
+          <span>support@iqweb.ai</span>
+        </a>
+        <a href="mailto:feedback@iqweb.ai" role="menuitem">
+          Feedback
+          <span>feedback@iqweb.ai</span>
+        </a>
+      </div>
+
+      <nav class="nav" aria-label="Secondary">
+        <a href="#" id="logout-link">Sign out</a>
+      </nav>
+
+      <div class="sidebar-foot" style="display:none;">
+        <button id="logout-btn" class="btn" type="button">Sign out</button>
+      </div>
+    </aside>
+
+    <section class="main">
+      <header class="topbar">
+        <div class="left">
+          <div class="title" id="page-title">Dashboard</div>
+          <div class="sub" id="page-subtitle"></div>
+        </div>
+
+        <div class="right">
+          <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
+          <span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
+        </div>
+      </header>
+
+      <div class="wrap">
+        <div id="view-dashboard" class="view active">
+          <div id="subscription-banner" class="plan-banner">
+            <div class="plan-banner-top">
+              <div class="plan-banner-title">No plan active</div>
+              <div class="plan-banner-sub">Choose a plan to enable scanning.</div>
+            </div>
+
+            <div class="plan-banner-actions">
+              <a id="btn-plan-starter" class="plan-btn" href="#">Starter ($39/mo)</a>
+              <a id="btn-plan-professional" class="plan-btn" href="#">Professional ($99/mo)</a>
+              <a id="btn-plan-agency" class="plan-btn" href="#">Agency ($199/mo)</a>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <div class="card primary equal">
+                <div class="h">
+                  <h2>Latest scan</h2>
+                  <span class="meta">Most recent result</span>
+                </div>
+
+                <div class="latest">
+                  <div class="latest-left">
+                    <div id="ls-url" class="latest-url">—</div>
+                    <div id="ls-date" class="latest-date">—</div>
+                  </div>
+                  <div class="latest-right">
+                    <div id="ls-score" class="score" style="display:none;">—</div>
+                    <button id="ls-view" class="btn-link" type="button">View report</button>
+                  </div>
+                </div>
+
+                <div class="scanhelp"></div>
+              </div>
+            </div>
+
+            <div class="col">
+              <div class="card primary equal">
+                <div class="h">
+                  <h2>Run scan</h2>
+                  <span class="meta">Evidence-first diagnostic</span>
+                </div>
+
+                <div class="scanbar">
+                  <input id="site-url" type="url" inputmode="url" placeholder="https://example.com" />
+                  <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
+                </div>
+
+                <div class="scanhelp"></div>
+
+                <div id="trial-info"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card secondary">
+            <div class="h">
+              <h2>Scan history</h2>
+
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input
+                  id="history-search"
+                  type="text"
+                  placeholder="Search: domain, report ID, score (90, >=80), status…"
+                  style="
+                    width: 360px;
+                    max-width: 46vw;
+                    padding: 9px 12px;
+                    border-radius: 12px;
+                    border: 1px solid rgba(255,255,255,.10);
+                    background: rgba(0,0,0,.18);
+                    color: rgba(255,255,255,.92);
+                    outline: none;
+                    font-size: 12px;"
+                />
+                <button id="history-clear" class="btn" type="button">Clear</button>
+              </div>
+            </div>
+
+            <div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+   <th>Date</th>
+<th>Time</th>
+<th>Website</th>
+<th>Score</th>
+<th>Status</th>
+<th>Report ID</th>
+<th>Baseline</th>
+<th>
+  Actions
+  <div class="actions-helper">
+    Open or share your live report
+  </div>
+</th>
+                  </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-billing" class="view">
+          <div class="card secondary">
+            <div class="h">
+              <h2>Billing</h2>
+              <span class="meta">Account state</span>
+            </div>
+
+            <div class="scanhelp">
+              Current plan, scans remaining, renewal date.
+            </div>
+
+            <div style="margin-top:14px;">
+              <a id="manage-subscription" class="wd-history-link" href="#">
+                Manage subscription
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-account" class="view">
+          <div class="card secondary">
+            <div class="h">
+              <h2>Account</h2>
+              <span class="meta">Security</span>
+            </div>
+
+            <div class="scanhelp" id="acct-email">—</div>
+
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="wd-history-link" href="/login.html">Reset password</a>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-branding" class="view">
+          <div class="card secondary">
+            <div class="branding-layout">
+
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Company Details</h2>
+                  <span class="meta">Shown on your branded report header and footer</span>
+                </div>
+
+                <div class="brand-grid">
+                  <div class="brand-field">
+                    <label for="brand-company">Company Name</label>
+                    <input id="brand-company" type="text" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-website">Website</label>
+                    <input id="brand-website" type="text" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-email">Email</label>
+                    <input id="brand-email" type="email" />
+                  </div>
+
+                  <div class="brand-field">
+                    <label for="brand-phone">Phone (optional)</label>
+                    <input id="brand-phone" type="text" />
+                  </div>
+
+                  <div class="brand-field full">
+                    <label for="brand-report-title">Report Title</label>
+                    <input id="brand-report-title" type="text" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Display Options</h2>
+                  <span class="meta">Control what appears on exported reports</span>
+                </div>
+
+                <div class="brand-toggles" style="margin-top:0;">
+                  <label class="brand-toggle">
+                    <input id="brand-show-header-contact" type="checkbox" checked />
+                    <span>Show contact details in header</span>
+                  </label>
+
+                  <label class="brand-toggle">
+                    <input id="brand-show-footer-contact" type="checkbox" checked />
+                    <span>Show contact details in footer</span>
+                  </label>
+
+                  <label class="brand-toggle">
+                    <input id="brand-show-powered" type="checkbox" checked />
+                    <span>Show "Powered by iQWEB" attribution</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Logo</h2>
+                  <span class="meta">Optional logo shown in the report header</span>
+                </div>
+
+                <div class="scanhelp" style="margin-top:0;">
+                  PNG, JPG, WEBP or SVG • Max file size 2MB
+                </div>
+
+                <div class="logo-upload-row">
+                  <input id="brand-logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+                  <button id="brand-logo-remove" class="btn" type="button">Remove Logo</button>
+                </div>
+
+                <div id="logo-preview-empty" class="logo-upload-status">No logo uploaded yet.</div>
+              </div>
+
+              <div class="branding-section">
+                <div class="h">
+                  <h2>Report Colours</h2>
+                  <span class="meta">Applies to on-screen reports and PDF exports</span>
+                </div>
+
+                <div class="color-grid">
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Header Background</div>
+                      <div class="color-field-help">Top banner background behind company name and logo</div>
+                    </div>
+                    <input type="color" id="headerBg" value="#0B1730">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Header Text</div>
+                      <div class="color-field-help">Company name, report title and header labels</div>
+                    </div>
+                    <input type="color" id="headerText" value="#FFFFFF">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Body Text</div>
+                      <div class="color-field-help">Section headings, labels and report content text</div>
+                    </div>
+                    <input type="color" id="textColor" value="#E5F0FF">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Accent Colour</div>
+                      <div class="color-field-help">Progress bars and highlight accents</div>
+                    </div>
+                    <input type="color" id="accent" value="#18D6C4">
+                  </div>
+
+                  <div class="color-field">
+                    <div class="color-field-info">
+                      <div class="color-field-label">Page Background</div>
+                      <div class="color-field-help">Main page background behind report sections</div>
+                    </div>
+                   <input type="color" id="pageBg" value="#050814">
+                  </div>
+                </div>
+
+                <div class="branding-preview-note">
+                  Changes are saved to your account and applied to future live reports and PDF exports.
+                </div>
+              </div>
+
+              <div class="branding-savebar">
+                <div class="branding-actions">
+                  <button id="brand-save" class="branding-save-btn" type="button">
+                    Save Branding
+                  </button>
+
+                  <button id="brand-reset-defaults" class="branding-secondary-btn" type="button">
+                    Restore Defaults
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <div class="header-right">
-    <a href="#" class="nav-link active">Dashboard</a>
+  <script type="module" src="/assets/js/dashboard.js?v=46"></script>
+  <script type="module" src="/assets/js/dashboard-branding.js"></script>
 
-    <div class="user-menu">
-      <button class="user-trigger" type="button">
-        <span class="user-initial" id="wd-user-initial">U</span>
-        <span class="user-email" id="wd-user-email">you@example.com</span>
-        <span id="wd-admin-badge" class="user-admin-badge" style="display:none;">Admin</span>
-        <span class="user-caret">▾</span>
-      </button>
-      <div class="user-dropdown">
-        <a href="#">Profile</a>
-        <button type="button">Buy extra credits</button>
-        <button type="button">Manage subscription &amp; invoices</button>
-        <div class="user-dropdown-separator"></div>
-        <button type="button">Support</button>
-        <a href="https://trust.webdoctor.tech" target="_blank">Trust &amp; privacy</a>
-        <div class="user-dropdown-separator"></div>
-        <a href="#" class="signout">Sign out</a>
-      </div>
-    </div>
-  </div>
-</header>
+  <script type="module">
+    const $ = (sel) => document.querySelector(sel);
 
-<div class="wrap">
+    const navItems = Array.from(document.querySelectorAll('.nav a[data-view]'));
+    const views = Array.from(document.querySelectorAll('.view'));
+    const pageTitle = $('#page-title');
+    const pageSubtitle = $('#page-subtitle');
 
-  <!-- SUMMARY / TOP STRIP -->
-  <div class="section">
-    <h1>Welcome back, <span id="wd-user-name">there</span></h1>
-    <div class="subtext">
-      Run new scans, check your last diagnosis, and download reports — all from one place.
-    </div>
+    function setActiveView(viewId){
+      views.forEach(v => v.classList.toggle('active', v.id === viewId));
+      navItems.forEach(a => a.classList.toggle('active', a.dataset.view === viewId));
 
-    <div class="summary-grid">
-      <div class="summary-block">
-        <div class="summary-label">Scans available</div>
-        <div class="credits-value" id="wd-credits-count">--</div>
-        <div class="hint-text" id="wd-plan-summary" style="margin-top:8px;">
-          Loading your plan details…
-        </div>
-
-        <!-- INLINE RUN STRIP: BUTTON LEFT, INPUT RIGHT -->
-        <div class="run-strip">
-          <div class="run-strip-btn">
-            <button id="wd-run-scan-btn" class="btn-primary" type="button">
-              <span class="icon">▶</span>
-              <span>Run Scan</span>
-            </button>
-          </div>
-          <div class="run-strip-input">
-            <input
-              id="wd-scan-url-input"
-              type="text"
-              placeholder="Paste a URL to scan (e.g. https://example.com)">
-          </div>
-        </div>
-
-        <div class="hint-text" style="margin-top:8px;">
-          Your plan scans are used first. If you run out, extra credits are $1 per scan.
-        </div>
-      </div>
-
-      <div class="summary-block last-scan-card">
-        <div class="summary-label">Last scan</div>
-        <div class="last-scan-site">No scans yet</div>
-        <div class="last-scan-meta">Run your first WebDoctor scan to see it here.</div>
-        <div class="score-pill" style="display:none;">
-          <span class="score">—</span>
-          Overall score
-        </div>
-        <div class="summary-actions" style="margin-top:18px;">
-          <a href="#" class="action-link" style="display:none;">View full report</a>
-          <a href="#" class="action-link" style="display:none;">Download PDF</a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MAIN GRID: HISTORY ONLY -->
-
-  <div class="layout-grid">
-
-    <div class="section">
-      <div class="history-header">
-        <div class="history-header-left">
-          <h2>Scan history</h2>
-          <div class="hint-text">
-            All the websites you’ve scanned with WebDoctor. Open a report or download the PDF anytime.
-          </div>
-        </div>
-        <div class="history-controls">
-          <div class="filter-pills">
-            <button class="filter-pill active" data-status="all">All</button>
-            <button class="filter-pill" data-status="completed">Completed</button>
-            <button class="filter-pill" data-status="in-progress">In progress</button>
-          </div>
-          <div class="search-group">
-            <span class="search-icon">🔍</span>
-            <input id="historySearch" class="search-input" type="search"
-                   placeholder="Search scans… (domain, date, ID)">
-          </div>
-        </div>
-      </div>
-
-      <table class="scan-history-table">
-        <thead>
-        <tr>
-          <th>Date</th>
-          <th>Time</th>
-          <th>Website</th>
-          <th>Score</th>
-          <th>Status</th>
-          <th>Report ID</th>
-          <th style="text-align:right;">Actions</th>
-        </tr>
-        </thead>
-        <tbody>
-        <!-- rows injected dynamically -->
-        </tbody>
-      </table>
-
-      <div id="historyEmptyNone" class="history-empty">
-        <strong>No scans yet.</strong> Run your first WebDoctor scan and it will appear here.
-      </div>
-
-      <div id="historyEmptyFiltered" class="history-empty">
-        <strong>No scans match your search.</strong> Try clearing filters or changing your search terms.
-      </div>
-
-      <div class="history-footer">
-        <button id="loadMoreScans" type="button" class="btn-secondary small" style="display:none;">
-          Load more scans
-        </button>
-      </div>
-    </div>
-
-  </div>
-
-</div>
-
-<div id="copyToast">Report ID copied to clipboard</div>
-
-<footer style="
-  position: fixed;
-  right: 24px;
-  bottom: 18px;
-  color: rgba(231,239,245,0.45);
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  pointer-events: none;
-">
-  Powered by <span style="color:#5dd8ff;">iQWeb</span>
-</footer>
-
-<!-- Supabase auth + profile + scan history + inline scan wiring -->
-<script type="module">
-  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-  const SUPABASE_URL = "https://arqlambmnbrgjcvwiand.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycWxhbWJtbmJyZ2pjdndpYW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxMzg5NzgsImV4cCI6MjA3NzcxNDk3OH0.2uGkC8vNjy5ZttMUOKCuThtCSUNrQBGZ1-zb39sCzVU";
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  async function requireSession() {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      console.error("Error getting session", error);
-      window.location.href = "/login.html";
-      return null;
-    }
-    if (!data.session) {
-      window.location.href = "/login.html";
-      return null;
-    }
-    return data.session.user;
-  }
-
-  async function loadProfile(user) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, email, credits, subscription_tier, is_admin, monthly_limit, reports_used")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error loading profile", error);
-    }
-
-  const profile = data || {};
-const displayEmail = profile.email || user.email || "";
-const displayName = profile.full_name || displayEmail || "WebDoctor user";
-
-
-    const nameEl = document.getElementById("wd-user-name");
-    const emailEl = document.getElementById("wd-user-email");
-    const initialEl = document.getElementById("wd-user-initial");
-    const creditsEl = document.getElementById("wd-credits-count");
-    const planSummaryEl = document.getElementById("wd-plan-summary");
-    const adminBadgeEl = document.getElementById("wd-admin-badge");
-
-    if (nameEl) nameEl.textContent = displayName;
-    if (emailEl) emailEl.textContent = displayEmail || "Signed in";
-    if (initialEl) initialEl.textContent = (displayName || "?").trim().charAt(0).toUpperCase();
-
-    const credits = typeof profile.credits === "number" ? profile.credits : 0;
-    if (creditsEl) {
-      creditsEl.textContent = credits;
-      creditsEl.classList.toggle("low-credits", credits <= 2);
-    }
-
-    const tier = (profile.subscription_tier || "free").toLowerCase();
-    const monthlyLimit = profile.monthly_limit;
-    const used = profile.reports_used || 0;
-
-    let summary = "Free plan · pay-per-scan credits.";
-    if (tier === "trial") {
-      summary = "Trial plan · enjoy your WebDoctor test scans.";
-    } else if (tier === "starter") {
-      summary = monthlyLimit
-        ? `Starter · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
-        : "Starter plan · monthly scans included.";
-    } else if (tier === "pro") {
-      summary = monthlyLimit
-        ? `Pro · ${monthlyLimit} scans/month — ${Math.max(monthlyLimit - used, 0)} left.`
-        : "Pro plan · higher limits and priority processing.";
-    } else if (tier === "agency") {
-      summary = monthlyLimit
-        ? `Agency · ${monthlyLimit}+ scans/month with priority diagnostics.`
-        : "Agency plan · built for teams and client load.";
-    }
-    if (planSummaryEl) {
-      planSummaryEl.textContent = summary;
-    }
-
-    if (adminBadgeEl) {
-      adminBadgeEl.style.display = profile.is_admin ? "inline-flex" : "none";
-    }
-  }
-
-  // ---- Scan history + filters/search ----
-
-  let allRecords = [];
-  let activeStatus = "all";
-  let searchQuery = "";
-
-  function formatDate(dateString) {
-    if (!dateString) return "—";
-    const d = new Date(dateString);
-    if (Number.isNaN(d.getTime())) return "—";
-    const day = String(d.getDate()).padStart(2, "0");
-    const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-    const year = d.getFullYear();
-    return `${day} ${month} ${year}`;
-  }
-
-  function formatTime(dateString) {
-    if (!dateString) return "—";
-    const d = new Date(dateString);
-    if (Number.isNaN(d.getTime())) return "—";
-    const hours = String(d.getHours()).padStart(2, "0");
-    const mins = String(d.getMinutes()).padStart(2, "0");
-    return `${hours}:${mins}`;
-  }
-
-  function getHostname(url) {
-    if (!url) return "—";
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return url;
-    }
-  }
-
-  function getStatusKey(status) {
-    const s = (status || "").toLowerCase();
-    if (s === "in_progress" || s === "pending") return "in-progress";
-    if (s === "failed" || s === "error") return "failed";
-    return "completed";
-  }
-
-  function getStatusLabel(status) {
-    const key = getStatusKey(status);
-    if (key === "in-progress") return "In progress";
-    if (key === "failed") return "Failed";
-    return "Completed";
-  }
-
-  function getStatusClass(status) {
-    const key = getStatusKey(status);
-    if (key === "in-progress") return "status-pill pending";
-    if (key === "failed") return "status-pill";
-    return "status-pill";
-  }
-
-  function showToast(msg) {
-    const toast = document.getElementById("copyToast");
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.classList.add("visible");
-    setTimeout(() => toast.classList.remove("visible"), 1500);
-  }
-
-  // STEP 1: History rows → View report + Download PDF, and last-scan click
-  function renderRows(records) {
-    const table = document.querySelector(".scan-history-table");
-    const tbody = table?.querySelector("tbody");
-    if (!tbody || !table) return;
-
-    tbody.innerHTML = "";
-
-    for (const rec of records) {
-      const tr = document.createElement("tr");
-      tr.className = "scan-row";
-
-      const created = rec.created_at ? new Date(rec.created_at) : null;
-
-      const dateStr = created
-        ? created.toLocaleDateString("en-NZ", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }).toUpperCase()
-        : "-";
-
-      const timeStr = created
-        ? created.toLocaleTimeString("en-NZ", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          })
-        : "-";
-
-      const website = rec.url || rec.website || "-";
-      const score = rec.score_overall ?? rec.score ?? "—";
-      const statusRaw = (rec.status || "Pending").toString();
-      const statusKey = getStatusKey(statusRaw);
-      const reportId = rec.report_id || rec.id || "-";
-
-      // DATE
-      const tdDate = document.createElement("td");
-      tdDate.textContent = dateStr;
-      tr.appendChild(tdDate);
-
-      // TIME
-      const tdTime = document.createElement("td");
-      tdTime.textContent = timeStr;
-      tr.appendChild(tdTime);
-
-      // WEBSITE
-      const tdSite = document.createElement("td");
-      tdSite.textContent = website;
-      tr.appendChild(tdSite);
-
-      // SCORE
-      const tdScore = document.createElement("td");
-      tdScore.textContent = score;
-      tr.appendChild(tdScore);
-
-      // STATUS
-      const tdStatus = document.createElement("td");
-      tdStatus.textContent = getStatusLabel(statusRaw);
-      tdStatus.className = getStatusClass(statusRaw);
-      tr.appendChild(tdStatus);
-
-      // REPORT ID
-      const tdId = document.createElement("td");
-      tdId.textContent = reportId;
-      tr.appendChild(tdId);
-
-// ACTIONS (VIEW + PDF)
-const tdActions = document.createElement('td');
-tdActions.style.textAlign = 'right';
-
-if (status.toLowerCase() === 'completed' && reportId && reportId !== '-') {
-  // VIEW PDF (opens report.html in new tab)
-  const viewBtn = document.createElement('button');
-  viewBtn.type = 'button';
-  viewBtn.className = 'wd-pdf-btn';        // you can make a wd-view-btn later
-  viewBtn.textContent = 'VIEW  PDF';
-  viewBtn.style.marginRight = '8px';
-  viewBtn.addEventListener('click', () => {
-    window.open(`/report.html?report_id=${reportId}`, '_blank');
-  });
-  tdActions.appendChild(viewBtn);
-
-  // DOWNLOAD PDF
-  const dlBtn = document.createElement('button');
-  dlBtn.type = 'button';
-  dlBtn.className = 'wd-pdf-btn';
-  dlBtn.textContent = 'Download PDF';
-  dlBtn.addEventListener('click', () => downloadPdf(reportId));
-  tdActions.appendChild(dlBtn);
-} else {
-  tdActions.textContent = 'Generating…';
-  tdActions.className = 'scan-actions-pending';
-}
-
-tr.appendChild(tdActions);
-
-      tbody.appendChild(tr);
-    }
-
-    // Make last-scan card click open latest report
-    const lastScanCard = document.querySelector(".last-scan-card");
-    if (lastScanCard && records.length) {
-      const latest = records[0];
-      const latestId = latest.report_id || latest.id;
-      lastScanCard.onclick = () => {
-        if (!latestId) return;
-        window.open(
-          `/report.html?report_id=${encodeURIComponent(latestId)}`,
-          "_blank"
-        );
-      };
-    }
-  }
-
-  // current test wiring for DocRaptor: HTML stub + reportId
-  async function downloadPdf(reportId) {
-    try {
-      const resp = await fetch("/.netlify/functions/docraptor-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId: reportId,
-          html: `
-            <!doctype html>
-            <html>
-              <head>
-                <meta charset="utf-8" />
-                <title>WebDoctor Report ${reportId}</title>
-              </head>
-              <body>
-                <h1>WebDoctor test PDF</h1>
-                <p>This proves DocRaptor wiring works.</p>
-                <p>Report ID: ${reportId}</p>
-              </body>
-            </html>
-          `,
-        }),
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        console.error("PDF download failed", resp.status, text);
-        alert("Sorry — there was a problem generating the PDF.");
-        return;
+      if (pageTitle) {
+        pageTitle.textContent =
+          viewId === 'view-billing' ? 'Billing' :
+          viewId === 'view-account' ? 'Account' :
+          viewId === 'view-branding' ? 'Branding' :
+          'Dashboard';
       }
 
-      const blob = await resp.blob();
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${reportId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PDF download error", err);
-      alert("Sorry — there was a problem generating the PDF.");
-    }
-  }
-
-  // STEP 2: last-scan card links to /report.html + DocRaptor
-  function updateLastScanCard(record) {
-    const card = document.querySelector(".last-scan-card");
-    if (!card) return;
-
-    const siteEl = card.querySelector(".last-scan-site");
-    const metaEl = card.querySelector(".last-scan-meta");
-    const scorePill = card.querySelector(".score-pill");
-    const scoreSpan = card.querySelector(".score-pill .score");
-    const [viewLink, pdfLink] = card.querySelectorAll(".summary-actions .action-link");
-
-    if (!record) {
-      if (siteEl) siteEl.textContent = "No scans yet";
-      if (metaEl) metaEl.textContent = "Run your first WebDoctor scan to see it here.";
-      if (scorePill) scorePill.style.display = "none";
-      if (viewLink) viewLink.style.display = "none";
-      if (pdfLink) pdfLink.style.display = "none";
-      return;
-    }
-
-    const hostname = getHostname(record.url);
-    if (siteEl) siteEl.textContent = hostname;
-    if (metaEl) {
-      metaEl.textContent = `Scanned on ${formatDate(record.created_at)} at ${formatTime(record.created_at)}`;
-    }
-
-    if (scorePill && scoreSpan) {
-      if (record.score_overall != null) {
-        scoreSpan.textContent = record.score_overall;
-        scorePill.style.display = "inline-flex";
-      } else {
-        scorePill.style.display = "none";
+      if (pageSubtitle) {
+        pageSubtitle.textContent =
+          viewId === 'view-billing' ? 'Current plan, scans remaining, renewal date.' :
+          viewId === 'view-account' ? 'Identity and security.' :
+          viewId === 'view-branding' ? '' :
+          '';
       }
     }
 
-    const reportId = record.report_id || record.id;
-
-    // View full report (OSD)
-    if (viewLink && reportId) {
-      viewLink.href = `/report.html?report_id=${encodeURIComponent(reportId)}`;
-      viewLink.target = "_blank";
-      viewLink.style.display = "inline-flex";
-    } else if (viewLink) {
-      viewLink.style.display = "none";
-    }
-
-    // Download PDF (DocRaptor)
-    if (pdfLink && reportId) {
-      pdfLink.onclick = (e) => {
-        e.preventDefault();
-        downloadPdf(reportId);
-      };
-      pdfLink.style.display = "inline-flex";
-    } else if (pdfLink) {
-      pdfLink.style.display = "none";
-    }
-  }
-
-  function applyFiltersAndRender() {
-    const table = document.querySelector(".scan-history-table");
-    const emptyNone = document.getElementById("historyEmptyNone");
-    const emptyFiltered = document.getElementById("historyEmptyFiltered");
-
-    if (!allRecords.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "block";
-      if (emptyFiltered) emptyFiltered.style.display = "none";
-      renderRows([]);
-      return;
-    }
-
-    let filtered = allRecords.slice();
-
-    if (activeStatus !== "all") {
-      filtered = filtered.filter((rec) => getStatusKey(rec.status) === activeStatus);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter((rec) => {
-        const haystack = [
-          formatDate(rec.created_at),
-          formatTime(rec.created_at),
-          getHostname(rec.url),
-          rec.url || "",
-          rec.report_id || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(searchQuery);
-      });
-    }
-
-    if (!filtered.length) {
-      if (table) table.style.display = "none";
-      if (emptyNone) emptyNone.style.display = "none";
-      if (emptyFiltered) emptyFiltered.style.display = "block";
-      renderRows([]);
-      return;
-    }
-
-    if (table) table.style.display = "table";
-    if (emptyNone) emptyNone.style.display = "none";
-    if (emptyFiltered) emptyFiltered.style.display = "none";
-
-    renderRows(filtered);
-  }
-
-  async function loadScanHistory(userId) {
-    let query = supabase
-      .from("scan_results")
-      .select("id, user_id, url, status, score_overall, report_id, report_url, created_at, scan_time_ms")
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Error loading scan history", error);
-      allRecords = [];
-    } else {
-      allRecords = data || [];
-    }
-
-    applyFiltersAndRender();
-    updateLastScanCard(allRecords[0] || null);
-  }
-
-  // Expose for debugging if needed
-  window.loadScanHistory = loadScanHistory;
-
-  function setupFilters() {
-    const filterPills = document.querySelectorAll(".filter-pill");
-    filterPills.forEach((pill) => {
-      pill.addEventListener("click", () => {
-        filterPills.forEach((p) => p.classList.remove("active"));
-        pill.classList.add("active");
-        activeStatus = pill.dataset.status || "all";
-        applyFiltersAndRender();
-      });
-    });
-  }
-
-  function setupSearch() {
-    const searchInput = document.getElementById("historySearch");
-    if (!searchInput) return;
-    searchInput.addEventListener("input", () => {
-      searchQuery = (searchInput.value || "").trim().toLowerCase();
-      applyFiltersAndRender();
-    });
-  }
-
-  async function setupSignOut() {
-    const signoutLink = document.querySelector(".signout");
-    if (!signoutLink) return;
-
-    signoutLink.addEventListener("click", async (e) => {
+    navItems.forEach(a => a.addEventListener('click', (e) => {
       e.preventDefault();
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.error("Error signing out", err);
-      } finally {
-        window.location.href = "/index.html";
-      }
+      setActiveView(a.dataset.view);
+    }));
+
+    const contactToggle = $('#contact-toggle');
+    const contactPop = $('#contact-pop');
+
+    function closeContact(){
+      if (!contactPop || !contactToggle) return;
+      contactPop.style.display = 'none';
+      contactToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleContact(){
+      if (!contactPop || !contactToggle) return;
+      const open = contactPop.style.display === 'block';
+      contactPop.style.display = open ? 'none' : 'block';
+      contactToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    }
+
+    if (contactToggle) contactToggle.addEventListener('click', toggleContact);
+
+    document.addEventListener('click', (e) => {
+      if (!contactPop || !contactToggle) return;
+      if (contactPop.contains(e.target) || contactToggle.contains(e.target)) return;
+      closeContact();
     });
-  }
 
-  function setupInlineRun(user) {
-    const runBtn = document.getElementById("wd-run-scan-btn");
-    const urlInput = document.getElementById("wd-scan-url-input");
-    if (!runBtn || !urlInput) return;
+    const brandLogo = $('#brand-logo');
+    const logoPreviewEmpty = $('#logo-preview-empty');
+    const brandLogoRemove = $('#brand-logo-remove');
 
-    runBtn.addEventListener("click", async () => {
-      const url = (urlInput.value || "").trim();
-      if (!url) {
-        alert("Please enter a URL to scan.");
-        urlInput.focus();
-        return;
-      }
+    if (brandLogo) {
+      brandLogo.addEventListener('change', () => {
+        if (logoPreviewEmpty && brandLogo.files?.[0]) {
+          logoPreviewEmpty.textContent = 'Uploading...';
+        }
+      });
+    }
 
-      runBtn.disabled = true;
-      runBtn.textContent = "Scanning…";
-
-      let json;
-      let res;
-      try {
-        res = await fetch("/.netlify/functions/run-scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url,
-            userId: user?.id || null,
-          }),
-        });
-        json = await res.json();
-      } catch (err) {
-        console.error("Error calling run-scan:", err);
-        alert("Scan failed. Please try again.");
-        runBtn.disabled = false;
-        runBtn.textContent = "Run Scan";
-        return;
-      }
-
-      runBtn.disabled = false;
-      runBtn.textContent = "Run Scan";
-
-      if (!res.ok || !json?.success) {
-        alert("Scan failed: " + (json?.message || "Unknown error"));
-        return;
-      }
-
-      // Clear URL field and refresh history
-      urlInput.value = "";
-      await loadScanHistory(user.id);
-    });
-  }
-
-  document.addEventListener("DOMContentLoaded", async () => {
-    const user = await requireSession();
-    if (!user) return;
-
-    await loadProfile(user);
-    setupFilters();
-    setupSearch();
-    await loadScanHistory(user.id);
-    await setupSignOut();
-    setupInlineRun(user);
-  });
-</script>
-
+    if (brandLogoRemove) {
+      brandLogoRemove.addEventListener('click', () => {
+        if (logoPreviewEmpty) logoPreviewEmpty.textContent = 'No logo uploaded yet.';
+      });
+    }
+  </script>
 </body>
 </html>
