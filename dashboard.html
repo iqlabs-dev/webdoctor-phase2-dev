@@ -1052,6 +1052,107 @@ body.iqweb-v2-dashboard [data-iqweb-theme-toggle],
 body.iqweb-v2-dashboard button:has-text("Dark mode") {
   display: none !important;
 }
+
+/* FORCE DASHBOARD SIDEBAR TO MATCH REPORT SIDEBAR */
+body.iqweb-v2-dashboard .sidebar {
+  width: 190px !important;
+  flex: 0 0 190px !important;
+  padding: 22px 14px 14px !important;
+  background: #050b19 !important;
+  border-right: 1px solid rgba(148,163,184,0.16) !important;
+}
+
+body.iqweb-v2-dashboard .brand {
+  padding: 0 !important;
+  margin: 0 0 22px !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+body.iqweb-v2-dashboard .brand-top {
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-dashboard .brand .name {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.02em !important;
+  color: #ffffff !important;
+}
+
+body.iqweb-v2-dashboard .brand-email {
+  width: 34px !important;
+  height: 26px !important;
+  padding: 0 !important;
+  border-radius: 10px !important;
+  text-indent: -9999px !important;
+  background: rgba(15,23,42,0.55) !important;
+  border: 1px solid rgba(148,163,184,0.14) !important;
+  position: relative !important;
+}
+
+body.iqweb-v2-dashboard .brand-email::after {
+  content: "—";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-indent: 0;
+  color: rgba(226,232,240,0.55);
+  font-size: 15px;
+}
+
+body.iqweb-v2-dashboard .nav {
+  padding: 0 !important;
+  gap: 8px !important;
+}
+
+body.iqweb-v2-dashboard .nav a,
+body.iqweb-v2-dashboard .nav button {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border-radius: 11px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: rgba(226,232,240,0.72) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+
+body.iqweb-v2-dashboard .nav a.active,
+body.iqweb-v2-dashboard .nav button.active {
+  color: #ffffff !important;
+  background: rgba(20,184,166,0.10) !important;
+  border-color: rgba(20,184,166,0.38) !important;
+}
+
+body.iqweb-v2-dashboard .nav a:hover,
+body.iqweb-v2-dashboard .nav button:hover {
+  color: #ffffff !important;
+  background: rgba(20,184,166,0.08) !important;
+  border-color: rgba(20,184,166,0.22) !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help {
+  margin-top: auto !important;
+  padding: 12px 11px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148,163,184,0.14) !important;
+  background: rgba(15,23,42,0.38) !important;
+  color: rgba(226,232,240,0.58) !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help strong {
+  color: rgba(226,232,240,0.82) !important;
+  font-size: 11px !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help ul {
+  margin-left: 13px !important;
+}
   </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
