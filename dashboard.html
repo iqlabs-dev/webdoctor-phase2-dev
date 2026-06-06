@@ -1053,106 +1053,165 @@ body.iqweb-v2-dashboard button:has-text("Dark mode") {
   display: none !important;
 }
 
-/* FORCE DASHBOARD SIDEBAR TO MATCH REPORT SIDEBAR */
+/* =========================================================
+   DASHBOARD SIDEBAR HARD MATCH TO REPORT
+   This copies the same left navigation shell used on report.
+   ========================================================= */
+body.iqweb-v2-dashboard {
+  --sidebar-w: 210px;
+  --sidebar-top: #0B1730;
+  --sidebar-bottom: #050814;
+  --border: rgba(255,255,255,.08);
+  --muted: rgba(255,255,255,.62);
+  --muted2: rgba(255,255,255,.45);
+}
+
 body.iqweb-v2-dashboard .sidebar {
-  width: 210px !important;
-  flex: 0 0 210px !important;
-  padding: 22px 16px 14px !important;
-  background: #050b19 !important;
-  border-right: 1px solid rgba(148,163,184,0.16) !important;
+  width: var(--sidebar-w) !important;
+  flex: 0 0 var(--sidebar-w) !important;
+  background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%) !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 16px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  color: rgba(255,255,255,.88) !important;
 }
 
 body.iqweb-v2-dashboard .brand {
-  padding: 0 !important;
-  margin: 0 0 22px !important;
-  align-items: center !important;
-  gap: 10px !important;
+  padding: 10px 10px 6px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  align-items: stretch !important;
 }
 
 body.iqweb-v2-dashboard .brand-top {
-  justify-content: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
   width: 100% !important;
 }
 
 body.iqweb-v2-dashboard .brand .name {
-  font-size: 14px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+  letter-spacing: .02em !important;
+  font-size: 16px !important;
+  line-height: 1.1 !important;
   color: #ffffff !important;
 }
 
 body.iqweb-v2-dashboard .brand-email {
-  width: 34px !important;
-  height: 26px !important;
-  padding: 0 !important;
+  display: block !important;
+  font-size: 12px !important;
+  color: var(--muted2) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 6px 10px !important;
   border-radius: 10px !important;
-  text-indent: -9999px !important;
-  background: rgba(15,23,42,0.55) !important;
-  border: 1px solid rgba(148,163,184,0.14) !important;
-  position: relative !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: rgba(255,255,255,.02) !important;
+  width: auto !important;
+  height: auto !important;
+  text-indent: 0 !important;
+  position: static !important;
 }
 
 body.iqweb-v2-dashboard .brand-email::after {
-  content: "—";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  text-indent: 0;
-  color: rgba(226,232,240,0.55);
-  font-size: 15px;
+  content: none !important;
 }
 
 body.iqweb-v2-dashboard .nav {
-  padding: 0 !important;
-  gap: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 6px 6px 0 6px !important;
 }
 
 body.iqweb-v2-dashboard .nav a,
 body.iqweb-v2-dashboard .nav button {
-  min-height: 34px !important;
-  padding: 0 12px !important;
-  border-radius: 11px !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
-  color: rgba(226,232,240,0.72) !important;
-  background: transparent !important;
+  all: unset;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 10px !important;
+  min-height: auto !important;
+  border-radius: 12px !important;
+  color: var(--muted) !important;
   border: 1px solid transparent !important;
-}
-
-body.iqweb-v2-dashboard .nav a.active,
-body.iqweb-v2-dashboard .nav button.active {
-  color: #ffffff !important;
-  background: rgba(20,184,166,0.10) !important;
-  border-color: rgba(20,184,166,0.38) !important;
+  user-select: none !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  background: transparent !important;
 }
 
 body.iqweb-v2-dashboard .nav a:hover,
 body.iqweb-v2-dashboard .nav button:hover {
-  color: #ffffff !important;
-  background: rgba(20,184,166,0.08) !important;
-  border-color: rgba(20,184,166,0.22) !important;
+  background: rgba(255,255,255,.03) !important;
+  color: rgba(255,255,255,.84) !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+
+body.iqweb-v2-dashboard .nav a.active,
+body.iqweb-v2-dashboard .nav button.active {
+  background: rgba(24,214,196,.08) !important;
+  border-color: rgba(24,214,196,.22) !important;
+  color: rgba(255,255,255,.92) !important;
 }
 
 body.iqweb-v2-dashboard .baseline-help {
   margin-top: auto !important;
-  padding: 12px 11px !important;
-  border-radius: 12px !important;
-  border: 1px solid rgba(148,163,184,0.14) !important;
-  background: rgba(15,23,42,0.38) !important;
-  color: rgba(226,232,240,0.58) !important;
-  font-size: 11px !important;
-  line-height: 1.45 !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  color: rgba(255,255,255,.55) !important;
+  border-top: 1px solid rgba(255,255,255,.06) !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  line-height: 1.5 !important;
 }
 
 body.iqweb-v2-dashboard .baseline-help strong {
-  color: rgba(226,232,240,0.82) !important;
-  font-size: 11px !important;
+  display: block !important;
+  margin-bottom: 6px !important;
+  color: rgba(255,255,255,.75) !important;
+  font-size: 12px !important;
 }
 
 body.iqweb-v2-dashboard .baseline-help ul {
-  margin-left: 13px !important;
+  margin: 6px 0 0 16px !important;
+  padding: 0 !important;
 }
+
+body.iqweb-v2-dashboard .baseline-help li {
+  margin-bottom: 4px !important;
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-dashboard .sidebar {
+    width: 100% !important;
+    flex-basis: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  body.iqweb-v2-dashboard .nav {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+
+  body.iqweb-v2-dashboard .baseline-help {
+    display: none !important;
+  }
+}
+
   </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
