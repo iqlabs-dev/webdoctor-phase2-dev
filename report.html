@@ -4423,6 +4423,20 @@ body.iqweb-v2-shell #backToDashboard:hover {
     display: none !important;
   }
 }
+.report-nav-bar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:16px;
+}
+
+#backToDashboard{
+  flex:0 0 auto;
+}
+
+#downloadPdfBtn{
+  flex:0 0 auto;
+}
 </style>
 
 </head>
@@ -4433,7 +4447,15 @@ body.iqweb-v2-shell #backToDashboard:hover {
   <div class="page-shell">
     <div class="shell-inner">
 
-      <a id="backToDashboard" href="/dashboard.html">Back to Dashboard</a>
+  <div class="report-nav-bar">
+  <a id="backToDashboard" href="/dashboard.html">
+    Back to Dashboard
+  </a>
+
+  <button id="downloadPdfBtn" class="btn" style="display:none;">
+    Download PDF
+  </button>
+</div>
 
       <div class="top-card">
 <div class="top-row">
@@ -4456,9 +4478,7 @@ body.iqweb-v2-shell #backToDashboard:hover {
   </div>
 </div>
 
-        <div class="top-actions">
-          <button id="downloadPdfBtn" class="btn" style="display:none;">Download PDF</button>
-        </div>
+    
 
         <div class="meta-strip">
           <div class="meta-cell">
