@@ -4363,63 +4363,77 @@ body.iqweb-v2-shell .page-shell {
   }
 }
 </style>
+
+<style>
+/* =========================================================
+   REPORT CLIENT VIEW RESET
+   Removes app sidebar from report and restores top back link.
+   ========================================================= */
+body.iqweb-v2-shell .sidebar,
+body.iqweb-v2-shell .iqweb-app-sidebar,
+body.iqweb-v2-shell .iqweb-side-logo,
+body.iqweb-v2-shell .iqweb-side-nav,
+body.iqweb-v2-shell .iqweb-side-card,
+body.iqweb-v2-shell .iqweb-side-account {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .page-shell {
+  margin-left: 0 !important;
+  padding: 18px 18px 24px !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell .shell-inner {
+  max-width: 1660px !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-shell #backToDashboard {
+  display: inline-flex !important;
+  align-items: center !important;
+  width: max-content !important;
+  margin: 0 0 10px 2px !important;
+  padding: 8px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid #d7e0ec !important;
+  background: #ffffff !important;
+  color: #334155 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
+}
+
+body.iqweb-v2-shell #backToDashboard::before {
+  content: "←";
+  margin-right: 7px;
+}
+
+body.iqweb-v2-shell #backToDashboard:hover {
+  color: #0f172a !important;
+  border-color: #b9c9dc !important;
+  background: #f8fafc !important;
+  transform: none !important;
+}
+
+@media print {
+  body.iqweb-v2-shell #backToDashboard {
+    display: none !important;
+  }
+}
+</style>
+
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
 
-  <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-top">
-          <div class="name">iQWEB</div>
-          <div id="wd-user-initial" class="chip" style="padding:6px 10px; font-weight:700; display:none;">U</div>
-        </div>
-
-        <div id="wd-user-email" class="brand-email">djesther@outlook.com</div>
-
-        <div id="wd-user-name" style="display:none;"></div>
-        <div id="wd-admin-badge" style="display:none;"></div>
-        <div id="wd-credits-count" style="display:none;">0</div>
-        <div id="wd-plan-summary" style="display:none;"></div>
-      </div>
-
-      <nav class="nav" aria-label="Primary">
-        <a href="/dashboard.html" class="active">Dashboard</a>
-        <a href="/dashboard.html#billing">Billing</a>
-        <a href="/dashboard.html#account">Account</a>
-        <a href="/dashboard.html#branding">Branding</a>
-        <button type="button" id="contact-toggle" aria-expanded="false">Contact</button>
-      </nav>
-
-      <div id="contact-pop" class="contact-pop" role="menu" aria-label="Contact emails">
-        <a href="mailto:pricing@iqweb.ai" role="menuitem">
-          Pricing
-          <span>pricing@iqweb.ai</span>
-        </a>
-        <a href="mailto:support@iqweb.ai" role="menuitem">
-          Support
-          <span>support@iqweb.ai</span>
-        </a>
-        <a href="mailto:feedback@iqweb.ai" role="menuitem">
-          Feedback
-          <span>feedback@iqweb.ai</span>
-        </a>
-      </div>
-
-<nav class="nav" aria-label="Secondary">
-  <a href="/login.html" id="logout-link">Sign out</a>
-</nav>
-
-
-
-      <div class="sidebar-foot" style="display:none;">
-        <button id="logout-btn" class="btn" type="button">Sign out</button>
-      </div>
-    </aside>
 
   <div class="page-shell">
     <div class="shell-inner">
 
-      <a id="backToDashboard" href="/dashboard.html">Back to dashboard</a>
+      <a id="backToDashboard" href="/dashboard.html">Back to Dashboard</a>
 
       <div class="top-card">
 <div class="top-row">
@@ -4965,14 +4979,12 @@ document.documentElement.style.setProperty("--report-page-bg", pageBg);
 
       if (isHistory) {
         if (refreshBtn) refreshBtn.style.display = "none";
-        if (backBtn) backBtn.style.display = "none";
         if (pdfBtn) pdfBtn.style.display = "none";
         return;
       }
 
       if (isPreview) {
         if (refreshBtn) refreshBtn.style.display = "none";
-        if (backBtn) backBtn.style.display = "none";
         if (pdfBtn) pdfBtn.style.display = "none";
         return;
       }
@@ -4981,7 +4993,7 @@ document.documentElement.style.setProperty("--report-page-bg", pageBg);
       if (refreshBtn) refreshBtn.onclick = function () { location.reload(); };
 
       if (backBtn) {
-        backBtn.textContent = "Back to dashboard";
+        backBtn.textContent = "Back to Dashboard";
         backBtn.onclick = function () { window.location.href = "/dashboard.html"; };
       }
     })();
