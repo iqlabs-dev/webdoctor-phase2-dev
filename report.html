@@ -4135,12 +4135,239 @@ body.iqweb-v2-shell .page-shell {
     display: none !important;
   }
 }
+
+
+/* =========================================================
+   FINAL REPORT SIDEBAR MATCH TO DASHBOARD.HTML
+   This block is intentionally last. Dashboard.html is source.
+   ========================================================= */
+body.iqweb-v2-shell {
+  --sidebar-w: 210px;
+  --sidebar-top: #0B1730;
+  --sidebar-bottom: #050814;
+  --border: rgba(255,255,255,.08);
+  --muted: rgba(255,255,255,.62);
+  --muted2: rgba(255,255,255,.45);
+}
+
+body.iqweb-v2-shell .sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  width: var(--sidebar-w) !important;
+  height: 100vh !important;
+  z-index: 1000 !important;
+  flex: 0 0 var(--sidebar-w) !important;
+  background: linear-gradient(180deg, var(--sidebar-top) 0%, var(--sidebar-bottom) 100%) !important;
+  border-right: 1px solid var(--border) !important;
+  padding: 16px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  color: rgba(255,255,255,.88) !important;
+}
+
+body.iqweb-v2-shell .brand {
+  padding: 10px 10px 6px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell .brand-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-shell .brand .name {
+  font-weight: 700 !important;
+  letter-spacing: .02em !important;
+  font-size: 16px !important;
+  line-height: 1.1 !important;
+  color: #ffffff !important;
+}
+
+body.iqweb-v2-shell .brand-email {
+  display: block !important;
+  font-size: 12px !important;
+  color: var(--muted2) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: rgba(255,255,255,.02) !important;
+  width: auto !important;
+  height: auto !important;
+  text-indent: 0 !important;
+  position: static !important;
+}
+
+body.iqweb-v2-shell .brand-email::after {
+  content: none !important;
+}
+
+body.iqweb-v2-shell .nav {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 6px 6px 0 6px !important;
+}
+
+body.iqweb-v2-shell .nav a,
+body.iqweb-v2-shell .nav button {
+  all: unset;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 10px !important;
+  min-height: auto !important;
+  border-radius: 12px !important;
+  color: var(--muted) !important;
+  border: 1px solid transparent !important;
+  user-select: none !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+}
+
+body.iqweb-v2-shell .nav a:hover,
+body.iqweb-v2-shell .nav button:hover {
+  background: rgba(255,255,255,.03) !important;
+  color: rgba(255,255,255,.84) !important;
+  border-color: rgba(255,255,255,.06) !important;
+}
+
+body.iqweb-v2-shell .nav a.active,
+body.iqweb-v2-shell .nav button.active {
+  background: rgba(24,214,196,.08) !important;
+  border-color: rgba(24,214,196,.22) !important;
+  color: rgba(255,255,255,.92) !important;
+}
+
+body.iqweb-v2-shell .contact-pop {
+  display: none;
+  margin: 6px 6px 0 6px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(5,8,20,.78);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+body.iqweb-v2-shell .contact-pop a {
+  display: block;
+  padding: 8px 8px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: rgba(255,255,255,.86);
+  border: 1px solid transparent;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+body.iqweb-v2-shell .contact-pop a span {
+  display: block;
+  color: var(--muted2);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+body.iqweb-v2-shell .contact-pop a:hover {
+  background: rgba(255,255,255,.03);
+  border-color: rgba(255,255,255,.06);
+}
+
+body.iqweb-v2-shell .baseline-help {
+  margin-top: 16px !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  color: rgba(255,255,255,.55) !important;
+  border-top: 1px solid rgba(255,255,255,.06) !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  line-height: 1.5 !important;
+}
+
+body.iqweb-v2-shell .baseline-help strong {
+  display: block !important;
+  margin-bottom: 6px !important;
+  color: rgba(255,255,255,.75) !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-shell .baseline-help ul {
+  margin: 6px 0 0 16px !important;
+  padding: 0 !important;
+}
+
+body.iqweb-v2-shell .baseline-help li {
+  margin-bottom: 4px !important;
+}
+
+body.iqweb-v2-shell .sidebar-foot {
+  margin-top: auto;
+  padding: 10px 10px 6px 10px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  color: var(--muted2);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body.iqweb-v2-shell .iqweb-app-sidebar,
+body.iqweb-v2-shell .iqweb-side-logo,
+body.iqweb-v2-shell .iqweb-side-nav,
+body.iqweb-v2-shell .iqweb-side-card,
+body.iqweb-v2-shell .iqweb-side-account {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .page-shell {
+  margin-left: var(--sidebar-w) !important;
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-shell .sidebar {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    flex-basis: auto !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  body.iqweb-v2-shell .page-shell {
+    margin-left: 0 !important;
+  }
+
+  body.iqweb-v2-shell .nav {
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+  }
+
+  body.iqweb-v2-shell .baseline-help {
+    display: none !important;
+  }
+}
 </style>
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
 
-  <aside class="sidebar" aria-label="Primary">
+  <aside class="sidebar">
       <div class="brand">
         <div class="brand-top">
           <div class="name">iQWEB</div>
@@ -4148,6 +4375,11 @@ body.iqweb-v2-shell .page-shell {
         </div>
 
         <div id="wd-user-email" class="brand-email">djesther@outlook.com</div>
+
+        <div id="wd-user-name" style="display:none;"></div>
+        <div id="wd-admin-badge" style="display:none;"></div>
+        <div id="wd-credits-count" style="display:none;">0</div>
+        <div id="wd-plan-summary" style="display:none;"></div>
       </div>
 
       <nav class="nav" aria-label="Primary">
@@ -4155,12 +4387,40 @@ body.iqweb-v2-shell .page-shell {
         <a href="/dashboard.html#billing">Billing</a>
         <a href="/dashboard.html#account">Account</a>
         <a href="/dashboard.html#branding">Branding</a>
-        <a href="mailto:support@iqweb.ai">Contact</a>
+        <button type="button" id="contact-toggle" aria-expanded="false">Contact</button>
       </nav>
 
-      <nav class="nav" aria-label="Secondary">
-        <a href="/login.html">Sign out</a>
-      </nav>
+      <div id="contact-pop" class="contact-pop" role="menu" aria-label="Contact emails">
+        <a href="mailto:pricing@iqweb.ai" role="menuitem">
+          Pricing
+          <span>pricing@iqweb.ai</span>
+        </a>
+        <a href="mailto:support@iqweb.ai" role="menuitem">
+          Support
+          <span>support@iqweb.ai</span>
+        </a>
+        <a href="mailto:feedback@iqweb.ai" role="menuitem">
+          Feedback
+          <span>feedback@iqweb.ai</span>
+        </a>
+      </div>
+
+<nav class="nav" aria-label="Secondary">
+  <a href="/login.html" id="logout-link">Sign out</a>
+</nav>
+
+<div class="baseline-help">
+  <strong>Baseline guide</strong>
+  <ul>
+    <li>Select a radio in Scan History to set the baseline. The dashboard will refresh.</li>
+    <li>Future scans compare against this baseline.</li>
+    <li>Use Clear Baseline to remove it.</li>
+  </ul>
+</div>
+
+      <div class="sidebar-foot" style="display:none;">
+        <button id="logout-btn" class="btn" type="button">Sign out</button>
+      </div>
     </aside>
 
   <div class="page-shell">
@@ -5162,6 +5422,30 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
     if (window.__IQWEB_REPORT_READY || tries > 40) clearInterval(timer);
   }, 250);
 })();
+</script>
+
+<script>
+  (function () {
+    var contactToggle = document.getElementById('contact-toggle');
+    var contactPop = document.getElementById('contact-pop');
+    function closeContact(){
+      if (!contactPop || !contactToggle) return;
+      contactPop.style.display = 'none';
+      contactToggle.setAttribute('aria-expanded', 'false');
+    }
+    function toggleContact(){
+      if (!contactPop || !contactToggle) return;
+      var open = contactPop.style.display === 'block';
+      contactPop.style.display = open ? 'none' : 'block';
+      contactToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    }
+    if (contactToggle) contactToggle.addEventListener('click', toggleContact);
+    document.addEventListener('click', function(e){
+      if (!contactPop || !contactToggle) return;
+      if (contactPop.contains(e.target) || contactToggle.contains(e.target)) return;
+      closeContact();
+    });
+  })();
 </script>
 
 </body>
