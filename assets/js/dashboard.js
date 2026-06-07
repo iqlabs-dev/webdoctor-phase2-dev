@@ -853,6 +853,7 @@ copyBtn.onclick = async function () {
 
 tdActions.appendChild(copyBtn);
 
+/*
 const pdfBtn = document.createElement("button");
 pdfBtn.className = "btn-link";
 pdfBtn.type = "button";
@@ -863,6 +864,8 @@ pdfBtn.onclick = function () {
 };
 
 tdActions.appendChild(pdfBtn);
+*/
+
 tr.appendChild(tdActions);
 
 tbody.appendChild(tr);
