@@ -4868,6 +4868,167 @@ body.iqweb-v2-shell .footer {
     margin-right: 16px !important;
   }
 }
+
+
+/* =========================================================
+   iQWEB COMBINED REPORT TAB OVERRIDE
+   Overview + Signals are now one Report tab. Evidence remains separate.
+   ========================================================= */
+body.iqweb-v2-shell .iq-report-tabs {
+  padding-left: 18px;
+}
+
+body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  display: block !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalEvidenceSection,
+body.iqweb-v2-shell.report-tab-overview #fixSequenceSection,
+body.iqweb-v2-shell.report-tab-overview #fixFirstBlock,
+body.iqweb-v2-shell.report-tab-overview #progressSection {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  margin-top: 14px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-head {
+  display: flex !important;
+  padding: 17px 20px 8px !important;
+  border-bottom: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  font-size: 13px !important;
+  letter-spacing: .08em !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
+  content: "Category Breakdown";
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  color: transparent !important;
+  position: relative;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
+  color: #0f172a;
+  position: absolute;
+  inset: 0 auto auto 0;
+  white-space: nowrap;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-body {
+  padding: 14px 20px 20px !important;
+  background: #f8fafc !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(260px, 1fr)) !important;
+  gap: 14px !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card {
+  min-height: 148px !important;
+  padding: 16px !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15,23,42,.05) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card h3 {
+  color: #0f172a !important;
+  font-size: 11px !important;
+  letter-spacing: .08em !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .score-right {
+  color: #0f172a !important;
+  font-size: 17px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .summary {
+  color: #334155 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar {
+  height: 5px !important;
+  background: #e8eef6 !important;
+  border: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar > div {
+  background: linear-gradient(90deg, #22c55e, #14b8a6) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .card.ai-discovery-card {
+  margin-top: 14px !important;
+  padding: 16px !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .signal-group-label,
+body.iqweb-v2-shell.report-tab-signals .signal-group-label {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .card.ai-discovery-card::before {
+  content: "AI Visibility Analysis";
+  display: block;
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
+  grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel p,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel li,
+body.iqweb-v2-shell.report-tab-overview .ai-more-copy,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-footnote {
+  color: #475569 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
+  margin: 14px 0 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection {
+  margin-top: 14px !important;
+}
+
+@media (max-width: 1180px) {
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid,
+  body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
 </style>
 
 </head>
@@ -4930,8 +5091,7 @@ body.iqweb-v2-shell .footer {
       </div>
 
       <nav class="iq-report-tabs" aria-label="Report sections">
-        <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Overview</button>
-        <button type="button" class="iq-report-tab" data-report-tab="signals">Signals</button>
+        <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Report</button>
         <button type="button" class="iq-report-tab" data-report-tab="evidence">Evidence</button>
       </nav>
 
@@ -5904,5 +6064,48 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
   })();
 </script>
 
+
+<script>
+  (function () {
+    function polishCombinedReportTab() {
+      var tabs = document.querySelectorAll('[data-report-tab="overview"]');
+      tabs.forEach(function (tab) { tab.textContent = 'Report'; });
+
+      var signalTab = document.querySelector('[data-report-tab="signals"]');
+      if (signalTab) signalTab.remove();
+
+      var delivery = document.getElementById('deliverySignalsSection');
+      var trend = document.querySelector('.overview-trend-strip');
+      if (delivery && trend && trend.parentNode !== delivery.parentNode) {
+        delivery.parentNode.insertBefore(trend, delivery.nextSibling);
+      } else if (delivery && trend && delivery.nextSibling !== trend) {
+        delivery.parentNode.insertBefore(trend, delivery.nextSibling);
+      }
+
+      var heading = delivery && delivery.querySelector('.section-title');
+      if (heading) heading.textContent = 'Category Breakdown';
+    }
+
+    function forceReportTab() {
+      if (window.__IQWEB_SET_REPORT_TAB) {
+        window.__IQWEB_SET_REPORT_TAB('overview');
+      }
+      polishCombinedReportTab();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', forceReportTab);
+    } else {
+      forceReportTab();
+    }
+
+    var tries = 0;
+    var timer = setInterval(function () {
+      tries += 1;
+      polishCombinedReportTab();
+      if (window.__IQWEB_REPORT_READY || tries > 60) clearInterval(timer);
+    }, 250);
+  })();
+</script>
 </body>
 </html>
