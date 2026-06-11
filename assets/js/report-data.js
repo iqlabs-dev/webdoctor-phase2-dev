@@ -1,7 +1,7 @@
 /* eslint-disable */
 /**
  * /assets/js/report-data.js
- * iQWEB Report Renderer — v5.2 (ES5, no modules)
+ * iQWEB Report Renderer — v5.2 (ES5, no mdules)
  *
  * PATCH GOAL (coherence pass):
  * 1) One Primary Constraint selector used across: Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence.
