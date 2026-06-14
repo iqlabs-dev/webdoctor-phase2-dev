@@ -16,7 +16,7 @@
  *   so we never show “Issues Found: none” while also saying “X is not satisfied”.
  *
  * NEW COPY PATCH:
- * - Replace vague “required signal missing” with specific, readable descriptions (esp. Security headers).
+ * - Replace vague “required signl missing” with specific, readable descriptions (esp. Security headers).
  * - Key Findings uses a structured 5-row briefing layout (no raw paragraph dump).
  *
  * NARRATIVE PATCH:

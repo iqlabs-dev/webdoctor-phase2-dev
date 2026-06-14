@@ -4,7 +4,7 @@
  * iQWEB Score Model — single source of truth
  *
  * Controls:
- * - Overall verdict labels
+ * - Overall verdit labels
  * - Signal severity buckets
  * - Signal card labels
  * - Signal card CSS severity class

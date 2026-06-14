@@ -4473,6 +4473,211 @@ body.iqweb-v2-shell #backToDashboard::before {
 }
 </style>
 
+
+
+<style>
+/* =========================================================
+   iQWEB Executive Dashboard Merge
+   Overview + Signals are now one front page.
+   Evidence remains the technical backing layer.
+========================================================= */
+body.iqweb-v2-shell .iq-report-tabs {
+  gap: 4px !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab[data-report-tab="signals"] {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab[data-report-tab="overview"] {
+  min-width: 190px !important;
+}
+
+/* Executive Dashboard page */
+body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  display: block !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalEvidenceSection,
+body.iqweb-v2-shell.report-tab-overview #fixSequenceSection,
+body.iqweb-v2-shell.report-tab-overview #fixFirstBlock,
+body.iqweb-v2-shell.report-tab-overview #progressSection {
+  display: none !important;
+}
+
+/* Evidence page */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection {
+  display: block !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #executiveNarrativeSection,
+body.iqweb-v2-shell.report-tab-evidence #deliverySignalsSection,
+body.iqweb-v2-shell.report-tab-evidence #fixSequenceSection,
+body.iqweb-v2-shell.report-tab-evidence #fixFirstBlock,
+body.iqweb-v2-shell.report-tab-evidence #progressSection {
+  display: none !important;
+}
+
+/* Remove audit-tool badges from merged dashboard */
+body.iqweb-v2-shell .primary-badge {
+  display: none !important;
+}
+
+/* Make the merged signal section feel like part of the executive page */
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  margin-top: 0 !important;
+  border-radius: 0 0 14px 14px !important;
+  border-top: 0 !important;
+  box-shadow: 0 14px 34px rgba(15,23,42,0.055) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-head {
+  display: flex !important;
+  padding: 18px 24px 10px !important;
+  background: #f6f8fb !important;
+  border-bottom: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  font-size: 13px !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+  color: #071326 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::after {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  font-size: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
+  content: "Signal Analysis";
+  font-size: 13px !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+  color: #071326 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-body {
+  padding: 14px 24px 24px !important;
+  background: #f6f8fb !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card {
+  min-height: 184px !important;
+  padding: 18px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #dbe4ef !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card-top {
+  margin-bottom: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card h3 {
+  color: #071326 !important;
+  font-size: 12px !important;
+  letter-spacing: .075em !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .score-right {
+  color: #2563eb !important;
+  font-size: 14px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .summary {
+  color: #334155 !important;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar {
+  background: #e2e8f0 !important;
+  border-color: #d8e2ee !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar > div {
+  background: linear-gradient(90deg, #2dd4bf, #22c55e) !important;
+}
+
+/* AI signal spans full width and becomes the main explanatory panel */
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-card {
+  grid-column: 1 / -1 !important;
+  min-height: 0 !important;
+  background: #ffffff !important;
+  border-color: #d8ddff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
+  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 14px !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel {
+  background: #ffffff !important;
+  border-color: #d8e2ee !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel p,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel li,
+body.iqweb-v2-shell.report-tab-overview .ai-more-copy,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-footnote {
+  color: #334155 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel h4,
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-scorebox .ai-label {
+  color: #2563eb !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-discovery-scorebox .ai-score {
+  color: #071326 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .ai-status {
+  display: none !important;
+}
+
+/* Reduce dashboard clutter now that Signals lives on the front page */
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body {
+  display: none !important;
+}
+
+@media (max-width: 1180px) {
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid,
+  body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+</style>
+
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
@@ -4526,8 +4731,7 @@ body.iqweb-v2-shell #backToDashboard::before {
       </div>
 
       <nav class="iq-report-tabs" aria-label="Report sections">
-        <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Overview</button>
-        <button type="button" class="iq-report-tab" data-report-tab="signals">Signals</button>
+        <button type="button" class="iq-report-tab is-active" data-report-tab="overview">Executive Dashboard</button>
         <button type="button" class="iq-report-tab" data-report-tab="evidence">Evidence</button>
       </nav>
 
@@ -5112,7 +5316,8 @@ function setEvidenceOpen(open) {
     (function () {
       function setReportTab(name) {
         name = name || "overview";
-        if (["overview", "signals", "evidence"].indexOf(name) === -1) name = "overview";
+        if (name === "signals") name = "overview";
+        if (["overview", "evidence"].indexOf(name) === -1) name = "overview";
 
         document.body.classList.remove("report-tab-overview", "report-tab-signals", "report-tab-evidence");
         document.body.classList.add("report-tab-" + name);
