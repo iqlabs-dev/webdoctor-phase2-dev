@@ -270,13 +270,27 @@
       min-height: calc(100vh - 62px);
     }
 
-    .card{
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(10,15,26,.66);
-      border-radius: var(--radius2);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
+.card{
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(10,15,26,.66);
+  border-radius: var(--radius2);
+  box-shadow: var(--shadow);
+  padding: 12px 16px;
+}
+
+/* Reduce height of Latest Scan + Run Scan cards */
+#view-dashboard .row:first-child .card{
+  min-height: 120px;
+  padding: 14px 16px;
+}
+
+#view-dashboard .row:first-child .h{
+  margin-bottom: 6px;
+}
+
+#view-dashboard .row:first-child .scanhelp{
+  display: none;
+}
 
     .card.primary{
       background: linear-gradient(180deg, rgba(16,24,44,.78), rgba(10,15,26,.65));
@@ -1458,7 +1472,7 @@ body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
                   </div>
                 </div>
 
-                <div class="scanhelp"></div>
+          
               </div>
             </div>
 
@@ -1474,8 +1488,7 @@ body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
                   <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
                 </div>
 
-                <div class="scanhelp"></div>
-
+        
                 <div id="trial-info"></div>
               </div>
             </div>
