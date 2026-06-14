@@ -4474,286 +4474,184 @@ body.iqweb-v2-shell #backToDashboard::before {
 </style>
 
 
-<style id="iqweb-executive-dashboard-clean-final">
+
+<style id="iqweb-executive-merge-final-override">
 /* =========================================================
-   iQWEB Executive Dashboard clean merge
-   Purpose: Overview + Signals are one front page.
+   EXECUTIVE DASHBOARD MERGE - FINAL SAFE OVERRIDE
+   Uses the original DOM and renderer. No layout hacking.
+   Executive Dashboard = original overview + delivery signals.
    Evidence remains the technical backing layer.
-========================================================= */
-body.iqweb-v2-shell .shell-inner {
-  width: 100% !important;
-  max-width: 1320px !important;
-}
+   ========================================================= */
 
-body.iqweb-v2-shell .iq-report-tab[data-report-tab="signals"] {
-  display: none !important;
-}
-
-body.iqweb-v2-shell .iq-report-tab[data-report-tab="overview"] {
-  min-width: 190px !important;
-}
-
+body.report-tab-overview #executiveNarrativeSection,
 body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection,
+body.report-tab-overview #deliverySignalsSection,
 body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
   display: block !important;
-  width: 100% !important;
-  max-width: none !important;
-  clear: both !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview #signalEvidenceSection,
-body.iqweb-v2-shell.report-tab-overview #fixSequenceSection,
+body.report-tab-overview #progressSection,
+body.iqweb-v2-shell.report-tab-overview #progressSection,
+body.report-tab-overview #fixFirstBlock,
 body.iqweb-v2-shell.report-tab-overview #fixFirstBlock,
-body.iqweb-v2-shell.report-tab-overview #progressSection {
+body.report-tab-overview #fixSequenceSection,
+body.iqweb-v2-shell.report-tab-overview #fixSequenceSection,
+body.report-tab-overview #signalEvidenceSection,
+body.iqweb-v2-shell.report-tab-overview #signalEvidenceSection {
   display: none !important;
 }
 
+body.report-tab-evidence #signalEvidenceSection,
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection {
   display: block !important;
 }
 
+body.report-tab-evidence #executiveNarrativeSection,
 body.iqweb-v2-shell.report-tab-evidence #executiveNarrativeSection,
+body.report-tab-evidence #deliverySignalsSection,
 body.iqweb-v2-shell.report-tab-evidence #deliverySignalsSection,
-body.iqweb-v2-shell.report-tab-evidence #fixSequenceSection,
+body.report-tab-evidence #progressSection,
+body.iqweb-v2-shell.report-tab-evidence #progressSection,
+body.report-tab-evidence #fixFirstBlock,
 body.iqweb-v2-shell.report-tab-evidence #fixFirstBlock,
-body.iqweb-v2-shell.report-tab-evidence #progressSection {
+body.report-tab-evidence #fixSequenceSection,
+body.iqweb-v2-shell.report-tab-evidence #fixSequenceSection {
   display: none !important;
 }
 
-/* Remove the old overview clutter so the front page is not duplicated. */
-body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid,
-body.iqweb-v2-shell.report-tab-overview .overview-trend-strip,
-body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body,
-body.iqweb-v2-shell.report-tab-overview .primary-badge {
-  display: none !important;
-}
-
-/* Executive score row */
-body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection {
-  border-radius: 0 0 14px 14px !important;
-  overflow: visible !important;
-  background: #ffffff !important;
-  border: 1px solid #d8e2ee !important;
-  border-top: none !important;
-  box-shadow: 0 12px 30px rgba(15,23,42,0.055) !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection .section-head {
-  display: none !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection .section-body,
-body.iqweb-v2-shell.report-tab-overview #narrativeText {
-  display: block !important;
-  width: 100% !important;
-  max-width: none !important;
-  min-width: 0 !important;
-  overflow: visible !important;
-  padding: 0 !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: stretch !important;
-  gap: 16px !important;
-  width: 100% !important;
-  max-width: none !important;
-  min-width: 0 !important;
-  padding: 24px !important;
-  margin: 0 !important;
-  background: #f6f8fb !important;
-  border-bottom: 1px solid #e4ebf4 !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-score-card,
-body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
-body.iqweb-v2-shell.report-tab-overview .exec-signal {
-  flex: 1 1 0 !important;
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  min-height: 158px !important;
-  padding: 18px 16px !important;
-  border-radius: 18px !important;
-  background: #ffffff !important;
-  border: 1px solid #d8e2ee !important;
-  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
-  flex: 1.18 1 0 !important;
-  border-color: rgba(34,211,238,.45) !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-ring-lg {
-  width: 104px !important;
-  height: 104px !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-ring-sm {
-  width: 78px !important;
-  height: 78px !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-ring-lg strong {
-  font-size: 36px !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-ring-sm strong {
-  font-size: 25px !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-score-copy .k {
-  color: #071326 !important;
-  font-size: 10.5px !important;
-  font-weight: 900 !important;
-  letter-spacing: .08em !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-score-copy .v {
-  font-size: 11px !important;
-  font-weight: 900 !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .exec-overall-score .exec-score-copy .note {
-  display: none !important;
-}
-
-/* Signal Analysis attached to the same dashboard page */
+body.report-tab-overview #deliverySignalsSection,
 body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
-  margin-top: 16px !important;
+  margin-top: 14px !important;
   border-radius: 14px !important;
-  background: #ffffff !important;
-  border: 1px solid #d8e2ee !important;
-  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+  overflow: hidden !important;
 }
 
+body.report-tab-overview #deliverySignalsSection .section-head,
 body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-head {
   display: flex !important;
-  padding: 20px 24px 8px !important;
+  padding: 16px 22px !important;
   background: #ffffff !important;
-  border-bottom: 0 !important;
+  border-bottom: 1px solid #e5eaf2 !important;
 }
 
+body.report-tab-overview #deliverySignalsSection .section-title,
 body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
-  font-size: 0 !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
-  content: "Signal Analysis";
   color: #071326 !important;
   font-size: 13px !important;
   font-weight: 900 !important;
   letter-spacing: .08em !important;
   text-transform: uppercase !important;
+  text-shadow: none !important;
 }
 
+body.report-tab-overview #deliverySignalsSection .section-title::after,
 body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::after {
   display: none !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-body {
-  padding: 14px 24px 24px !important;
-  background: #ffffff !important;
+body.report-tab-overview #deliverySignalsSection .section-title::before,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
+  content: "Signal Analysis";
 }
 
+body.report-tab-overview #deliverySignalsSection .section-title,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  font-size: 0 !important;
+}
+
+body.report-tab-overview #deliverySignalsSection .section-title::before,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::before {
+  font-size: 13px !important;
+}
+
+body.report-tab-overview #deliverySignalsSection .section-body,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-body {
+  padding: 22px !important;
+  background: #f8fafc !important;
+}
+
+body.report-tab-overview #signalsGrid,
 body.iqweb-v2-shell.report-tab-overview #signalsGrid {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 18px !important;
-  width: 100% !important;
-  max-width: none !important;
+  align-items: stretch !important;
 }
 
+body.report-tab-overview #signalsGrid .card,
 body.iqweb-v2-shell.report-tab-overview #signalsGrid .card {
-  min-height: 184px !important;
+  min-height: 205px !important;
+  height: auto !important;
   padding: 18px !important;
   border-radius: 16px !important;
   background: #ffffff !important;
   border: 1px solid #d8e2ee !important;
   box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
-  display: flex !important;
-  flex-direction: column !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview #signalsGrid .card h3 {
-  color: #071326 !important;
-  font-size: 12px !important;
-  letter-spacing: .075em !important;
-}
-
+body.report-tab-overview #signalsGrid .card h3,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card h3,
+body.report-tab-overview #signalsGrid .score-right,
 body.iqweb-v2-shell.report-tab-overview #signalsGrid .score-right {
-  color: #2563eb !important;
-  font-size: 14px !important;
+  color: #071326 !important;
+  text-shadow: none !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview #signalsGrid .summary {
+body.report-tab-overview #signalsGrid .summary,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .summary,
+body.report-tab-overview #signalsGrid .ai-discovery-panel p,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-panel p,
+body.report-tab-overview #signalsGrid .ai-discovery-panel li,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-panel li,
+body.report-tab-overview #signalsGrid .ai-discovery-footnote,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-footnote,
+body.report-tab-overview #signalsGrid .ai-more-copy,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-more-copy {
   color: #334155 !important;
-  font-size: 12.5px !important;
-  line-height: 1.55 !important;
-  font-weight: 500 !important;
+  opacity: 1 !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar {
-  background: #e2e8f0 !important;
-  border-color: #d8e2ee !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview #signalsGrid .bar > div {
-  background: linear-gradient(90deg, #2dd4bf, #22c55e) !important;
-}
-
+body.report-tab-overview #signalsGrid .ai-discovery-card,
 body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-card {
   grid-column: 1 / -1 !important;
   min-height: 0 !important;
-  border-color: #d8ddff !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
-  grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr) !important;
+body.report-tab-overview #signalsGrid .ai-discovery-layout,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-layout {
+  display: grid !important;
+  grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr) !important;
   gap: 16px !important;
+  align-items: stretch !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-scorebox,
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel {
+body.report-tab-overview #signalsGrid .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-scorebox,
+body.report-tab-overview #signalsGrid .ai-discovery-panel,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-panel {
   background: #ffffff !important;
-  border-color: #d8e2ee !important;
+  border: 1px solid #d8e2ee !important;
+  border-radius: 14px !important;
 }
 
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel p,
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-panel li,
-body.iqweb-v2-shell.report-tab-overview .ai-more-copy,
-body.iqweb-v2-shell.report-tab-overview .ai-discovery-footnote {
-  color: #334155 !important;
-}
-
-body.iqweb-v2-shell.report-tab-overview .ai-status {
-  display: none !important;
+body.report-tab-overview #signalsGrid .ai-discovery-scorebox .ai-score,
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-scorebox .ai-score {
+  color: #0f172a !important;
+  opacity: 1 !important;
 }
 
 @media (max-width: 1180px) {
-  body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
-    flex-wrap: wrap !important;
-  }
-  body.iqweb-v2-shell.report-tab-overview .exec-score-card,
-  body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
-  body.iqweb-v2-shell.report-tab-overview .exec-signal {
-    flex: 1 1 calc(50% - 16px) !important;
-  }
+  body.report-tab-overview #signalsGrid,
   body.iqweb-v2-shell.report-tab-overview #signalsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 760px) {
-  body.iqweb-v2-shell.report-tab-overview .exec-score-card,
-  body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
-  body.iqweb-v2-shell.report-tab-overview .exec-signal {
-    flex-basis: 100% !important;
-  }
+  body.report-tab-overview #signalsGrid,
   body.iqweb-v2-shell.report-tab-overview #signalsGrid,
-  body.iqweb-v2-shell.report-tab-overview .ai-discovery-layout {
+  body.report-tab-overview #signalsGrid .ai-discovery-layout,
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-layout {
     grid-template-columns: 1fr !important;
   }
 }
@@ -5397,8 +5295,7 @@ function setEvidenceOpen(open) {
     (function () {
       function setReportTab(name) {
         name = name || "overview";
-        if (name === "signals") name = "overview";
-        if (["overview", "evidence"].indexOf(name) === -1) name = "overview";
+        if (["overview", "signals", "evidence"].indexOf(name) === -1) name = "overview";
 
         document.body.classList.remove("report-tab-overview", "report-tab-signals", "report-tab-evidence");
         document.body.classList.add("report-tab-" + name);
