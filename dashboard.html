@@ -1365,309 +1365,92 @@ body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
   margin-top: 0 !important;
 }
 
-/* Compact top dashboard cards */
-#view-dashboard > .row:first-of-type {
-  margin-bottom: 14px !important;
-}
-
-#view-dashboard > .row:first-of-type .card {
-  min-height: 92px !important;
-  height: 92px !important;
-  padding: 12px 16px !important;
-  justify-content: flex-start !important;
-}
-
-#view-dashboard > .row:first-of-type .h {
-  margin-bottom: 6px !important;
-}
-
-#view-dashboard > .row:first-of-type .latest {
-  min-height: 0 !important;
-}
-
-#view-dashboard > .row:first-of-type .scanhelp,
-#view-dashboard > .row:first-of-type #trial-info {
-  display: none !important;
-}
-
-#view-dashboard > .row:first-of-type .scanbar input {
-  padding: 8px 12px !important;
-}
-
-#view-dashboard > .row:first-of-type .btn,
-#view-dashboard > .row:first-of-type .btn-link {
-  padding: 8px 12px !important;
-}
-
-/* Make Latest Scan + Run Scan match the green box height */
-#view-dashboard > .row:first-of-type{
-  gap: 14px !important;
-  margin-bottom: 14px !important;
-}
-
-#view-dashboard > .row:first-of-type .col{
-  min-width: 0 !important;
-}
-
-#view-dashboard > .row:first-of-type .card{
-  height: 102px !important;
-  min-height: 102px !important;
-  max-height: 102px !important;
-  padding: 12px 16px !important;
-  overflow: hidden !important;
-}
-
-#view-dashboard > .row:first-of-type .h{
-  margin-bottom: 8px !important;
-}
-
-#view-dashboard > .row:first-of-type .latest,
-#view-dashboard > .row:first-of-type .scanbar{
-  min-height: 34px !important;
-}
-
-#view-dashboard > .row:first-of-type .scanhelp,
-#view-dashboard > .row:first-of-type #trial-info{
-  display: none !important;
-}
-/* FORCE Latest Scan + Run Scan cards compact */
-#view-dashboard .card:has(#ls-url),
-#view-dashboard .card:has(#site-url){
-  height: 100px !important;
-  min-height: 100px !important;
-  max-height: 100px !important;
-  padding: 12px 16px !important;
-  overflow: hidden !important;
-}
-
-#view-dashboard .card:has(#ls-url) .h,
-#view-dashboard .card:has(#site-url) .h{
-  margin-bottom: 6px !important;
-}
-
-#view-dashboard .card:has(#ls-url) .scanhelp,
-#view-dashboard .card:has(#site-url) .scanhelp,
-#view-dashboard .card:has(#site-url) #trial-info{
-  display: none !important;
-}
-
-#view-dashboard .card:has(#site-url) .scanbar input{
-  height: 38px !important;
-  padding: 8px 12px !important;
-}
-
-#view-dashboard .card:has(#site-url) .btn-primary,
-#view-dashboard .card:has(#ls-url) .btn-link{
-  height: 38px !important;
-  padding: 0 14px !important;
-}
-</style>
-  <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
-
-<style>
 /* =========================================================
-   FINAL FIX: top cards aligned + Run Scan status visible
-   Must stay after iqweb-v2.css and after all earlier overrides.
+   DASHBOARD TOP CARDS
+   Single source of truth
    ========================================================= */
-body.iqweb-v2-dashboard .topbar,
-body.iqweb-v2-dashboard .wrap{
-  width: 100% !important;
-  max-width: 1600px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-}
-
-body.iqweb-v2-dashboard .wrap{
-  padding: 14px 22px 12px !important;
-  gap: 14px !important;
-}
 
 body.iqweb-v2-dashboard .dashboard-top-row{
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 16px !important;
-  margin: 0 0 14px 0 !important;
-  align-items: stretch !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .col{
-  display: block !important;
-  min-width: 0 !important;
-  width: 100% !important;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-bottom:16px;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal{
-  padding: 12px 16px !important;
-  border-radius: 16px !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: flex-start !important;
-  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.035) !important;
+  padding:12px 16px;
+  border-radius:16px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
 }
 
-/* Latest Scan has less content */
+/* Latest Scan */
 body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal:has(#ls-url){
-  height: 96px !important;
-  min-height: 96px !important;
-  max-height: 96px !important;
+  min-height:92px;
 }
 
-/* Run Scan needs extra room for Building Report / Scan complete text */
+/* Run Scan */
 body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal:has(#site-url){
-  height: 122px !important;
-  min-height: 122px !important;
-  max-height: 122px !important;
+  min-height:112px;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row .h{
-  min-height: 18px !important;
-  margin: 0 0 8px 0 !important;
-  align-items: center !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .h h2{
-  margin: 0 !important;
-  color: #071326 !important;
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  letter-spacing: .08em !important;
-  text-transform: uppercase !important;
-  line-height: 1.1 !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .h .meta{
-  color: #64748b !important;
-  font-size: 11.5px !important;
-  font-weight: 500 !important;
-  line-height: 1.1 !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .latest{
-  min-height: 38px !important;
-  align-items: center !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .latest-left{
-  gap: 3px !important;
+  margin-bottom:6px;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row .latest-url{
-  color: #071326 !important;
-  font-size: 13.5px !important;
-  font-weight: 850 !important;
-  line-height: 1.15 !important;
+  font-size:14px;
+  font-weight:800;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row .latest-date{
-  color: #64748b !important;
-  font-size: 11.5px !important;
-  font-weight: 500 !important;
-  line-height: 1.25 !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .latest-right{
-  gap: 8px !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .score{
-  min-width: 40px !important;
-  height: 28px !important;
-  padding: 0 10px !important;
-  color: #0891b2 !important;
-  background: #ecfeff !important;
-  border-color: #a5f3fc !important;
-  font-weight: 800 !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row #ls-view,
-body.iqweb-v2-dashboard .dashboard-top-row .btn-link{
-  height: 32px !important;
-  padding: 0 13px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: #2563eb !important;
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  font-weight: 800 !important;
-  white-space: nowrap !important;
-}
-
-body.iqweb-v2-dashboard .dashboard-top-row .scanbar{
-  min-height: 36px !important;
-  gap: 10px !important;
-  align-items: center !important;
-  flex-wrap: nowrap !important;
+  font-size:12px;
+  color:#64748b;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row .scanbar input{
-  height: 36px !important;
-  min-height: 36px !important;
-  padding: 8px 12px !important;
-  color: #071326 !important;
-  background: #f8fafc !important;
-  border: 1px solid #cbd5e1 !important;
-  font-size: 12.5px !important;
-  font-weight: 600 !important;
+  height:36px;
 }
 
 body.iqweb-v2-dashboard .dashboard-top-row #run-scan{
-  height: 36px !important;
-  min-height: 36px !important;
-  padding: 0 15px !important;
-  border-radius: 12px !important;
-  background: #2563eb !important;
-  border-color: #2563eb !important;
-  color: #ffffff !important;
-  font-size: 12px !important;
-  font-weight: 850 !important;
-  white-space: nowrap !important;
+  height:36px;
 }
 
-/* Keep status visible below the Run Scan input */
 body.iqweb-v2-dashboard .dashboard-top-row #trial-info{
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  margin: 7px 0 0 1px !important;
-  min-height: 16px !important;
-  color: #334155 !important;
-  font-size: 12px !important;
-  font-weight: 650 !important;
-  line-height: 1.25 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  margin-top:6px !important;
+  min-height:18px !important;
+  color:#475569 !important;
+  font-size:12px !important;
+  font-weight:600 !important;
 }
 
+/* hide old helper text only */
 body.iqweb-v2-dashboard .dashboard-top-row .scanhelp{
-  display: none !important;
+  display:none;
 }
 
+/* scans remaining */
 body.iqweb-v2-dashboard .paid-scans{
-  color: #065f46 !important;
-  background: #ecfdf5 !important;
-  border-color: #a7f3d0 !important;
+  background:#ecfdf5;
+  border:1px solid #86efac;
 }
 
 body.iqweb-v2-dashboard .paid-scans strong,
 body.iqweb-v2-dashboard #wd-plan-scans-remaining{
-  color: #047857 !important;
-  font-weight: 950 !important;
+  color:#15803d;
+  font-weight:900;
 }
 
-@media (max-width: 900px){
+@media (max-width:900px){
+
   body.iqweb-v2-dashboard .dashboard-top-row{
-    grid-template-columns: 1fr !important;
+    grid-template-columns:1fr;
   }
 
-  body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal:has(#ls-url),
-  body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal:has(#site-url){
-    height: auto !important;
-    min-height: 108px !important;
-    max-height: none !important;
-  }
 }
 </style>
 
