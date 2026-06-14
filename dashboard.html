@@ -1430,6 +1430,37 @@ body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
 #view-dashboard > .row:first-of-type #trial-info{
   display: none !important;
 }
+/* FORCE Latest Scan + Run Scan cards compact */
+#view-dashboard .card:has(#ls-url),
+#view-dashboard .card:has(#site-url){
+  height: 100px !important;
+  min-height: 100px !important;
+  max-height: 100px !important;
+  padding: 12px 16px !important;
+  overflow: hidden !important;
+}
+
+#view-dashboard .card:has(#ls-url) .h,
+#view-dashboard .card:has(#site-url) .h{
+  margin-bottom: 6px !important;
+}
+
+#view-dashboard .card:has(#ls-url) .scanhelp,
+#view-dashboard .card:has(#site-url) .scanhelp,
+#view-dashboard .card:has(#site-url) #trial-info{
+  display: none !important;
+}
+
+#view-dashboard .card:has(#site-url) .scanbar input{
+  height: 38px !important;
+  padding: 8px 12px !important;
+}
+
+#view-dashboard .card:has(#site-url) .btn-primary,
+#view-dashboard .card:has(#ls-url) .btn-link{
+  height: 38px !important;
+  padding: 0 14px !important;
+}
 </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
