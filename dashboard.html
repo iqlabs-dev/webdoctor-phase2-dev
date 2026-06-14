@@ -1398,6 +1398,38 @@ body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
 #view-dashboard > .row:first-of-type .btn-link {
   padding: 8px 12px !important;
 }
+
+/* Make Latest Scan + Run Scan match the green box height */
+#view-dashboard > .row:first-of-type{
+  gap: 14px !important;
+  margin-bottom: 14px !important;
+}
+
+#view-dashboard > .row:first-of-type .col{
+  min-width: 0 !important;
+}
+
+#view-dashboard > .row:first-of-type .card{
+  height: 102px !important;
+  min-height: 102px !important;
+  max-height: 102px !important;
+  padding: 12px 16px !important;
+  overflow: hidden !important;
+}
+
+#view-dashboard > .row:first-of-type .h{
+  margin-bottom: 8px !important;
+}
+
+#view-dashboard > .row:first-of-type .latest,
+#view-dashboard > .row:first-of-type .scanbar{
+  min-height: 34px !important;
+}
+
+#view-dashboard > .row:first-of-type .scanhelp,
+#view-dashboard > .row:first-of-type #trial-info{
+  display: none !important;
+}
 </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
