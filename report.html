@@ -4678,6 +4678,143 @@ body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body {
 }
 </style>
 
+
+<style id="iqweb-executive-dashboard-emergency-fix">
+/* Emergency layout fix: merged Executive Dashboard + Signals */
+body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection,
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  clear: both !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection {
+  overflow: visible !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #executiveNarrativeSection .section-body,
+body.iqweb-v2-shell.report-tab-overview #narrativeText,
+body.iqweb-v2-shell.report-tab-overview .exec-dashboard-wrap {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
+  display: grid !important;
+  width: 100% !important;
+  grid-template-columns: 1.25fr repeat(4, minmax(150px, 1fr)) !important;
+  gap: 18px !important;
+  padding: 24px !important;
+  background: #f6f8fb !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .exec-score-card,
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
+body.iqweb-v2-shell.report-tab-overview .exec-signal {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid {
+  display: grid !important;
+  width: 100% !important;
+  grid-template-columns: 1.1fr 1fr 1fr 1fr !important;
+  gap: 18px !important;
+  padding: 0 24px 24px !important;
+  background: #f6f8fb !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip,
+body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body,
+body.iqweb-v2-shell.report-tab-overview #progressSection,
+body.iqweb-v2-shell.report-tab-overview #fixFirstBlock,
+body.iqweb-v2-shell.report-tab-overview #fixSequenceSection {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection {
+  margin-top: 18px !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  border: 1px solid #d8e2ee !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-head {
+  display: flex !important;
+  padding: 18px 24px 10px !important;
+  border-bottom: 0 !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title {
+  color: #071326 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-title::after {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #deliverySignalsSection .section-body {
+  padding: 14px 24px 24px !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 18px !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .card {
+  min-height: 190px !important;
+  padding: 18px !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  border: 1px solid #d8e2ee !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04) !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-card {
+  grid-column: 1 / -1 !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #executiveNarrativeSection,
+body.iqweb-v2-shell.report-tab-evidence #deliverySignalsSection {
+  display: none !important;
+}
+
+@media (max-width: 1350px) {
+  body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles,
+  body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid,
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid .ai-discovery-card {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles,
+  body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid,
+  body.iqweb-v2-shell.report-tab-overview #signalsGrid {
+    grid-template-columns: 1fr !important;
+  }
+}
+</style>
+
 </head>
 
 <body class="iqweb-v2-shell report-tab-overview">
@@ -4750,12 +4887,6 @@ body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body {
           </div>
           <div class="section-body">
             <div id="narrativeText" class="exec-dashboard-wrap">
-              <div class="exec-dash-head">
-                <div>
-          <div>
- 
-</div>
-
               <div class="exec-score-grid exec-score-circles">
                <div class="exec-score-card exec-overall-score" style="--sig:#22d3ee;">
                   <div class="exec-score-ring exec-ring-lg" id="dashOverallRing" style="--dash-score-deg:0deg;">
