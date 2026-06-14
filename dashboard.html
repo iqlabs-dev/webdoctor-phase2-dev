@@ -1364,6 +1364,40 @@ body.iqweb-v2-dashboard .wrap {
 body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
   margin-top: 0 !important;
 }
+
+/* Compact top dashboard cards */
+#view-dashboard > .row:first-of-type {
+  margin-bottom: 14px !important;
+}
+
+#view-dashboard > .row:first-of-type .card {
+  min-height: 92px !important;
+  height: 92px !important;
+  padding: 12px 16px !important;
+  justify-content: flex-start !important;
+}
+
+#view-dashboard > .row:first-of-type .h {
+  margin-bottom: 6px !important;
+}
+
+#view-dashboard > .row:first-of-type .latest {
+  min-height: 0 !important;
+}
+
+#view-dashboard > .row:first-of-type .scanhelp,
+#view-dashboard > .row:first-of-type #trial-info {
+  display: none !important;
+}
+
+#view-dashboard > .row:first-of-type .scanbar input {
+  padding: 8px 12px !important;
+}
+
+#view-dashboard > .row:first-of-type .btn,
+#view-dashboard > .row:first-of-type .btn-link {
+  padding: 8px 12px !important;
+}
 </style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
