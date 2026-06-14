@@ -1212,7 +1212,145 @@ body.iqweb-v2-dashboard .baseline-help li {
   }
 }
 
-  </style>
+  
+
+/* =========================================================
+   DASHBOARD TOP CARDS COMPACT FIX
+   Latest Scan + Run Scan were too tall and low-contrast.
+   Keep the existing layout, only tighten the two top boxes.
+   ========================================================= */
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type {
+  gap: 16px !important;
+  margin-bottom: 14px !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .card.primary.equal {
+  min-height: 118px !important;
+  height: auto !important;
+  padding: 14px 16px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.035) !important;
+  justify-content: flex-start !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .h {
+  margin-bottom: 10px !important;
+  min-height: 20px !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .h h2 {
+  color: #071326 !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: .08em !important;
+  text-transform: uppercase !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .h .meta {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard .latest {
+  min-height: 38px !important;
+  align-items: center !important;
+}
+
+body.iqweb-v2-dashboard .latest-url {
+  color: #071326 !important;
+  font-size: 14px !important;
+  font-weight: 850 !important;
+}
+
+body.iqweb-v2-dashboard .latest-date {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard .latest-right {
+  align-items: center !important;
+}
+
+body.iqweb-v2-dashboard .score {
+  min-width: 42px !important;
+  height: 28px !important;
+  color: #0891b2 !important;
+  background: #ecfeff !important;
+  border-color: #a5f3fc !important;
+  font-weight: 800 !important;
+}
+
+body.iqweb-v2-dashboard .btn-link,
+body.iqweb-v2-dashboard #ls-view {
+  color: #2563eb !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 800 !important;
+}
+
+body.iqweb-v2-dashboard #ls-view:hover,
+body.iqweb-v2-dashboard .btn-link:hover {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+}
+
+body.iqweb-v2-dashboard .scanbar {
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+body.iqweb-v2-dashboard .scanbar input {
+  height: 40px !important;
+  padding: 9px 12px !important;
+  color: #071326 !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+body.iqweb-v2-dashboard .scanbar input::placeholder {
+  color: #94a3b8 !important;
+}
+
+body.iqweb-v2-dashboard #run-scan {
+  height: 40px !important;
+  padding: 0 16px !important;
+  border-radius: 12px !important;
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 850 !important;
+  white-space: nowrap !important;
+}
+
+body.iqweb-v2-dashboard .scanhelp,
+body.iqweb-v2-dashboard #trial-info {
+  min-height: 0 !important;
+  margin-top: 8px !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+body.iqweb-v2-dashboard .card.equal .scanhelp:empty,
+body.iqweb-v2-dashboard #trial-info:empty {
+  display: none !important;
+}
+
+body.iqweb-v2-dashboard .card.equal .scanhelp {
+  margin-top: 8px !important;
+}
+
+body.iqweb-v2-dashboard .wrap {
+  gap: 14px !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .card.secondary {
+  margin-top: 0 !important;
+}
+</style>
   <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 </head>
 
