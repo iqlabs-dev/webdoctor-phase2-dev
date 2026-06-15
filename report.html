@@ -3567,6 +3567,42 @@ border-color:#22c55e !important;
 background:#f8fafc !important;
 }
 
+
+/* =========================================
+   OVERALL SCORE DOMINANT — added
+========================================= */
+body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
+  grid-template-columns: 2fr repeat(4, minmax(0, 1fr)) !important;
+}
+body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
+  grid-template-columns: 2fr repeat(4, minmax(0, 1fr)) !important;
+}
+body.iqweb-v2-shell .exec-overall-score,
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
+  min-height: 200px !important;
+}
+body.iqweb-v2-shell .exec-ring-lg strong,
+body.iqweb-v2-shell.report-tab-overview .exec-ring-lg strong {
+  font-size: 54px !important;
+}
+
+/* =========================================
+   EVIDENCE SCORE BADGE — colour coded, no /100
+========================================= */
+
+/* Hide the /100 small tag inside acc-score */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score small {
+  display: none !important;
+}
+
+/* Base badge — neutral */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+/* Score colour coding via JS-injected data attributes — fallback to green for high scores */
+/* We'll use a JS snippet instead since scores are dynamic */
 </style>
 <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 
@@ -5613,5 +5649,40 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
   })();
 </script>
 
+
+<script>
+(function() {
+  function colourBadges() {
+    var badges = document.querySelectorAll(
+      'body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score'
+    );
+    badges.forEach(function(badge) {
+      // Strip /100 text
+      badge.innerHTML = badge.innerHTML.replace(/\/100/g, '').replace(/<small[^>]*>.*?<\/small>/gi, '').trim();
+      var val = parseInt(badge.textContent.trim(), 10);
+      if (isNaN(val)) return;
+      if (val >= 80) {
+        badge.style.background = '#f0fdf4';
+        badge.style.color = '#15803d';
+      } else if (val >= 60) {
+        badge.style.background = '#fefce8';
+        badge.style.color = '#854d0e';
+      } else {
+        badge.style.background = '#fef2f2';
+        badge.style.color = '#991b1b';
+      }
+    });
+  }
+
+  // Run on tab switch and on load
+  document.addEventListener('click', function(e) {
+    if (e.target.closest && e.target.closest('[data-report-tab="evidence"]')) {
+      setTimeout(colourBadges, 100);
+    }
+  });
+  setTimeout(colourBadges, 800);
+  setTimeout(colourBadges, 2000);
+})();
+</script>
 </body>
 </html>
