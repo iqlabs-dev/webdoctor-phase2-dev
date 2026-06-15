@@ -158,18 +158,8 @@ const footerContactBits = [
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    :root {
-      --pro-bg: ${escapeHtml(PRO_BG)};
-      --pro-surface: ${escapeHtml(PRO_SURFACE)};
-      --pro-border: ${escapeHtml(PRO_BORDER)};
-      --pro-border-strong: ${escapeHtml(PRO_BORDER_STRONG)};
-      --pro-text: ${escapeHtml(PRO_TEXT)};
-      --pro-text-secondary: ${escapeHtml(PRO_TEXT_SECONDARY)};
-      --pro-text-muted: ${escapeHtml(PRO_TEXT_MUTED)};
-      --pro-accent: ${escapeHtml(PRO_ACCENT)};
-      --pro-radius: ${PRO_RADIUS};
-      --pro-radius-sm: ${PRO_RADIUS_SM};
-    }
+    /* Prince/DocRaptor-safe: literal token values, no CSS custom properties */
+    * { box-shadow: none !important; }
 
     @page {
       size: A4 landscape;
@@ -181,8 +171,8 @@ const footerContactBits = [
     html, body {
       margin: 0;
       padding: 0;
-      background: var(--pro-bg);
-      color: var(--pro-text);
+      background: ${PRO_BG};
+      color: ${PRO_TEXT};
       font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
       letter-spacing: -0.011em;
@@ -197,7 +187,7 @@ const footerContactBits = [
 
     .pdf-page {
       width: 100%;
-      background: var(--pro-bg);
+      background: ${PRO_BG};
       page-break-after: always;
       padding: 0;
       overflow: visible;
@@ -227,11 +217,11 @@ const footerContactBits = [
 
     /* ── Header card ── */
     .top-card {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius) var(--pro-radius) 0 0;
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS} ${PRO_RADIUS} 0 0;
       overflow: hidden;
-      background: var(--pro-surface);
-      color: var(--pro-text);
+      background: ${PRO_SURFACE};
+      color: ${PRO_TEXT};
       box-shadow: none;
       margin-bottom: 0;
     }
@@ -242,7 +232,7 @@ const footerContactBits = [
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      border-bottom: 1px solid var(--pro-border);
+      border-bottom: 1px solid ${PRO_BORDER};
     }
 
     .brand-inner {
@@ -271,7 +261,7 @@ const footerContactBits = [
       line-height: 1.1;
       font-weight: 700;
       letter-spacing: -0.03em;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       margin: 0 0 4px;
     }
 
@@ -281,14 +271,14 @@ const footerContactBits = [
       font-weight: 500;
       letter-spacing: 0.02em;
       text-transform: none;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       margin: 0 0 6px;
     }
 
     .brand-contact {
       font-size: 10px;
       line-height: 1.45;
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
     }
 
     .brand-logo {
@@ -321,9 +311,9 @@ const footerContactBits = [
     }
 
     .meta-card {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
-      background: var(--pro-bg);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
+      background: ${PRO_BG};
       padding: 8px 10px;
       min-height: 46px;
     }
@@ -333,7 +323,7 @@ const footerContactBits = [
       font-weight: 500;
       letter-spacing: 0.02em;
       text-transform: none;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       margin-bottom: 4px;
       line-height: 1.15;
     }
@@ -341,7 +331,7 @@ const footerContactBits = [
     .meta-value {
       font-size: 12px;
       font-weight: 600;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       letter-spacing: -0.01em;
       word-break: break-word;
       line-height: 1.25;
@@ -356,23 +346,23 @@ const footerContactBits = [
 
     /* ── Sections ── */
     .section {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS};
       overflow: hidden;
-      background: var(--pro-surface);
+      background: ${PRO_SURFACE};
       box-shadow: none;
       margin-bottom: 10px;
     }
 
     .section-head {
       padding: 8px 12px;
-      border-bottom: 1px solid var(--pro-border);
+      border-bottom: 1px solid ${PRO_BORDER};
       font-size: 11px;
       line-height: 1.15;
       font-weight: 600;
       letter-spacing: -0.01em;
       text-transform: none;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
     }
 
     .section-body {
@@ -384,7 +374,7 @@ const footerContactBits = [
       grid-template-columns: 130px 1fr;
       gap: 10px;
       padding: 9px 12px;
-      border-top: 1px solid var(--pro-border);
+      border-top: 1px solid ${PRO_BORDER};
     }
 
     .finding-row:first-child {
@@ -397,13 +387,13 @@ const footerContactBits = [
       font-weight: 500;
       letter-spacing: 0.02em;
       text-transform: none;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
     }
 
     .finding-value {
       font-size: 12px;
       line-height: 1.45;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       max-width: 880px;
     }
 
@@ -431,14 +421,14 @@ const footerContactBits = [
       font-weight: 600;
       letter-spacing: -0.01em;
       text-transform: none;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
     }
 
     .signal-score {
       font-size: 13px;
       line-height: 1;
       font-weight: 600;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       white-space: nowrap;
     }
 
@@ -446,7 +436,7 @@ const footerContactBits = [
       width: 100%;
       height: 4px;
       border-radius: 999px;
-      background: var(--pro-border);
+      background: ${PRO_BORDER};
       overflow: hidden;
       margin-bottom: 6px;
       border: 0;
@@ -456,14 +446,14 @@ const footerContactBits = [
     .score-fill {
       height: 100%;
       border-radius: 999px;
-      background: var(--pro-accent);
+      background: ${PRO_ACCENT};
     }
 
     .signal-status {
       font-size: 10px;
       line-height: 1.15;
       font-weight: 500;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       margin-bottom: 4px;
       flex: 0 0 auto;
     }
@@ -471,7 +461,7 @@ const footerContactBits = [
     .signal-copy {
       font-size: 11px;
       line-height: 1.4;
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
       white-space: normal;
       flex: 1 1 auto;
       overflow: hidden;
@@ -502,10 +492,10 @@ const footerContactBits = [
       min-height: 105px;
       display: flex;
       flex-direction: column;
-      border-radius: var(--pro-radius-sm);
+      border-radius: ${PRO_RADIUS_SM};
       padding: 10px;
-      background: var(--pro-surface);
-      border: 1px solid var(--pro-border);
+      background: ${PRO_SURFACE};
+      border: 1px solid ${PRO_BORDER};
       position: relative;
       overflow: visible;
       page-break-inside: avoid;
@@ -513,19 +503,11 @@ const footerContactBits = [
       box-shadow: none;
     }
 
-    .signal-card.good {
-      border-color: #bbf7d0;
-      background: #f0fdf4;
-    }
-
-    .signal-card.warn {
-      border-color: #fde68a;
-      background: #fffbeb;
-    }
-
+    .signal-card.good,
+    .signal-card.warn,
     .signal-card.bad {
-      border-color: #fecaca;
-      background: #fef2f2;
+      border-color: ${PRO_BORDER};
+      background: ${PRO_SURFACE};
     }
 
     .signal-badge {
@@ -547,9 +529,9 @@ const footerContactBits = [
     }
 
     .footer-bar {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
-      background: var(--pro-surface);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
+      background: ${PRO_SURFACE};
       padding: 9px 12px;
       display: flex;
       justify-content: space-between;
@@ -557,7 +539,7 @@ const footerContactBits = [
       gap: 10px;
       font-size: 9px;
       line-height: 1.3;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       flex-wrap: wrap;
       box-shadow: none;
     }
@@ -573,7 +555,7 @@ const footerContactBits = [
     }
 
     .muted {
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
     }
 
     .ai-card,
@@ -615,11 +597,11 @@ const footerContactBits = [
 
     /* ── Executive dashboard ── */
     .exec-dashboard {
-      border: 1px solid var(--pro-border);
+      border: 1px solid ${PRO_BORDER};
       border-top: 0;
-      border-radius: 0 0 var(--pro-radius) var(--pro-radius);
+      border-radius: 0 0 ${PRO_RADIUS} ${PRO_RADIUS};
       overflow: hidden;
-      background: var(--pro-surface);
+      background: ${PRO_SURFACE};
       break-inside: avoid;
       page-break-inside: avoid;
       box-shadow: none;
@@ -631,7 +613,7 @@ const footerContactBits = [
       border-spacing: 10px 0;
       table-layout: fixed;
       padding: 14px 14px 12px;
-      border-bottom: 1px solid var(--pro-border);
+      border-bottom: 1px solid ${PRO_BORDER};
     }
 
     .exec-score-table td {
@@ -642,10 +624,10 @@ const footerContactBits = [
 
     .score-box {
       height: 118px;
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
       text-align: center;
-      background: var(--pro-surface);
+      background: ${PRO_SURFACE};
       padding: 10px 8px 8px;
       overflow: hidden;
       break-inside: avoid;
@@ -655,7 +637,7 @@ const footerContactBits = [
 
     .score-box.overall {
       height: 128px;
-      border-color: var(--pro-border-strong);
+      border-color: ${PRO_BORDER_STRONG};
     }
 
     .ring {
@@ -663,7 +645,7 @@ const footerContactBits = [
       border-radius: 50%;
       position: relative;
       background:
-        conic-gradient(var(--ring-color) var(--ring-deg), var(--pro-border) 0deg),
+        conic-gradient(var(--ring-color) var(--ring-deg), ${PRO_BORDER} 0deg),
         radial-gradient(circle, transparent, transparent);
     }
 
@@ -672,8 +654,8 @@ const footerContactBits = [
       position: absolute;
       inset: 8px;
       border-radius: 50%;
-      background: var(--pro-surface);
-      border: 1px solid var(--pro-border);
+      background: ${PRO_SURFACE};
+      border: 1px solid ${PRO_BORDER};
     }
 
     .ring-num {
@@ -683,7 +665,7 @@ const footerContactBits = [
       display: table;
       width: 100%;
       height: 100%;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       font-weight: 600;
       letter-spacing: -0.04em;
       line-height: 1;
@@ -715,7 +697,7 @@ const footerContactBits = [
     }
 
     .score-label {
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
       font-size: 10px;
       line-height: 1.1;
       font-weight: 500;
@@ -735,7 +717,7 @@ const footerContactBits = [
     }
 
     .score-note {
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       font-size: 8.5px;
       line-height: 1.2;
       font-weight: 500;
@@ -764,9 +746,9 @@ const footerContactBits = [
     }
 
     .exec-panel {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
-      background: var(--pro-surface);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
+      background: ${PRO_SURFACE};
       padding: 10px;
       min-height: 200px;
       break-inside: avoid;
@@ -780,15 +762,15 @@ const footerContactBits = [
       font-weight: 600;
       letter-spacing: -0.01em;
       text-transform: none;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
     }
 
     .priority-row {
       display: table;
       width: 100%;
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
-      background: var(--pro-bg);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
+      background: ${PRO_BG};
       margin-bottom: 8px;
       overflow: hidden;
     }
@@ -807,9 +789,9 @@ const footerContactBits = [
       display: block;
       text-align: center;
       line-height: 22px;
-      color: var(--pro-accent);
-      border: 1px solid var(--pro-border);
-      background: var(--pro-surface);
+      color: ${PRO_ACCENT};
+      border: 1px solid ${PRO_BORDER};
+      background: ${PRO_SURFACE};
       font-size: 10px;
       font-weight: 600;
     }
@@ -825,13 +807,13 @@ const footerContactBits = [
       font-weight: 500;
       letter-spacing: 0.02em;
       text-transform: none;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       margin-bottom: 3px;
     }
 
     .priority-text {
       margin: 0;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       font-size: 11px;
       line-height: 1.42;
       font-weight: 400;
@@ -840,8 +822,8 @@ const footerContactBits = [
     .exec-next {
       margin-top: 6px;
       padding: 8px 10px;
-      border-top: 1px solid var(--pro-border);
-      color: var(--pro-text-secondary);
+      border-top: 1px solid ${PRO_BORDER};
+      color: ${PRO_TEXT_SECONDARY};
       font-size: 11px;
       line-height: 1.42;
     }
@@ -849,9 +831,9 @@ const footerContactBits = [
     .issue-row {
       display: table;
       width: 100%;
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
-      background: var(--pro-bg);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
+      background: ${PRO_BG};
       margin-bottom: 7px;
       overflow: hidden;
     }
@@ -878,7 +860,7 @@ const footerContactBits = [
       display: table-cell;
       padding: 8px;
       vertical-align: middle;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       font-size: 10.5px;
       font-weight: 500;
       line-height: 1.32;
@@ -933,17 +915,17 @@ const footerContactBits = [
 
     .ai-card {
       padding: 10px !important;
-      border-radius: var(--pro-radius-sm) !important;
-      border: 1px solid var(--pro-border) !important;
-      background: var(--pro-surface) !important;
+      border-radius: ${PRO_RADIUS_SM} !important;
+      border: 1px solid ${PRO_BORDER} !important;
+      background: ${PRO_SURFACE} !important;
       box-shadow: none !important;
     }
 
     .ai-inner-panel {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
       padding: 10px;
-      background: var(--pro-bg);
+      background: ${PRO_BG};
       min-height: 240px;
     }
 
@@ -951,7 +933,7 @@ const footerContactBits = [
       font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.02em;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       margin-bottom: 6px;
       text-transform: none;
     }
@@ -959,34 +941,34 @@ const footerContactBits = [
     .ai-inner-value {
       font-size: 12px;
       line-height: 1.45;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
       font-weight: 600;
     }
 
     .ai-inner-copy {
       font-size: 11px;
       line-height: 1.45;
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
     }
 
     .ai-prompt-box {
-      border: 1px solid var(--pro-border);
+      border: 1px solid ${PRO_BORDER};
       border-radius: 6px;
       padding: 8px 10px;
-      background: var(--pro-surface);
+      background: ${PRO_SURFACE};
       font-size: 11px;
       line-height: 1.4;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
     }
 
     .ai-footnote {
       margin-top: 10px;
       padding-top: 10px;
-      border-top: 1px solid var(--pro-border);
+      border-top: 1px solid ${PRO_BORDER};
       font-size: 10px;
       line-height: 1.45;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
     }
 
     .fix-sequence {
@@ -996,10 +978,10 @@ const footerContactBits = [
     }
 
     .phase {
-      border: 1px solid var(--pro-border);
-      border-radius: var(--pro-radius-sm);
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS_SM};
       overflow: hidden;
-      background: var(--pro-surface);
+      background: ${PRO_SURFACE};
       break-inside: avoid;
       page-break-inside: avoid;
       box-shadow: none;
@@ -1007,8 +989,8 @@ const footerContactBits = [
 
     .phase-head {
       padding: 10px 12px;
-      border-bottom: 1px solid var(--pro-border);
-      background: var(--pro-bg);
+      border-bottom: 1px solid ${PRO_BORDER};
+      background: ${PRO_BG};
       display: table;
       width: 100%;
     }
@@ -1020,7 +1002,7 @@ const footerContactBits = [
       letter-spacing: -0.01em;
       text-transform: none;
       font-weight: 600;
-      color: var(--pro-text);
+      color: ${PRO_TEXT};
     }
 
     .phase-time {
@@ -1029,7 +1011,7 @@ const footerContactBits = [
       font-size: 10px;
       letter-spacing: 0;
       text-transform: none;
-      color: var(--pro-text-muted);
+      color: ${PRO_TEXT_MUTED};
       font-weight: 500;
     }
 
@@ -1040,7 +1022,7 @@ const footerContactBits = [
     .phase-body ul {
       margin: 0;
       padding-left: 16px;
-      color: var(--pro-text-secondary);
+      color: ${PRO_TEXT_SECONDARY};
       font-size: 10px;
       line-height: 1.35;
     }
@@ -1059,7 +1041,7 @@ const footerContactBits = [
   </style>
 
 </head>
-<body>
+<body data-iqweb-pdf="pro-v3">
 
   <div class="pdf-page">
     <div class="page-shell">
@@ -1176,7 +1158,9 @@ const footerContactBits = [
       headers: {
         ...corsHeaders(),
         "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        Pragma: "no-cache",
+        Expires: "0",
       },
       body: html,
     };

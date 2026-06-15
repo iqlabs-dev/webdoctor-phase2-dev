@@ -1,3 +1,8 @@
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { handler: reportHtmlHandler } = require("./get-report-html-pdf.js");
+
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -61,31 +66,33 @@ export async function handler(event) {
       };
     }
 
-    const siteUrl = (process.env.URL || "https://iqweb.ai").replace(/\/+$/, "");
-    const htmlUrl =
-      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(report_id)}`;
-
-    // Fetch the fully rendered HTML first, then send HTML directly to DocRaptor.
-    // This avoids DocRaptor 404 errors when trying to fetch the URL itself.
-    const htmlResponse = await fetch(htmlUrl, {
-      method: "GET",
-      headers: {
-        Accept: "text/html,application/xhtml+xml",
-      },
+    // Build HTML in-process so PDF always uses this deploy's template (no stale HTTP fetch).
+    const htmlResult = await reportHtmlHandler({
+      httpMethod: "GET",
+      queryStringParameters: { report_id },
+      headers: event.headers || {},
     });
 
-    if (!htmlResponse.ok) {
-      const txt = await htmlResponse.text().catch(() => "");
+    if (!htmlResult || htmlResult.statusCode !== 200) {
+      const txt =
+        (htmlResult && typeof htmlResult.body === "string" && htmlResult.body) ||
+        "get-report-html-pdf failed";
       throw new Error(
-        `Failed to load report HTML (${htmlResponse.status}): ${txt || "No response body"}`
+        `Failed to load report HTML (${htmlResult?.statusCode || 500}): ${txt.slice(0, 600)}`
       );
     }
 
-    const html = await htmlResponse.text();
+    const html = htmlResult.body || "";
 
-    if (!html || !html.trim()) {
+    if (!html.trim()) {
       throw new Error("Report HTML was empty");
     }
+
+    if (!html.includes('data-iqweb-pdf="pro-v3"')) {
+      console.warn("[generate-report-pdf] HTML missing pro-v3 marker — check deployment");
+    }
+
+    const siteUrl = resolveSiteUrl(event);
 
     const response = await fetch("https://docraptor.com/docs", {
       method: "POST",
@@ -100,7 +107,8 @@ export async function handler(event) {
         document_content: html,
         javascript: false,
         prince_options: {
-          media: "screen",
+          media: "print",
+          baseurl: siteUrl + "/",
         },
       }),
     });
@@ -138,6 +146,24 @@ export async function handler(event) {
       }),
     };
   }
+}
+
+function resolveSiteUrl(event) {
+  const host = event?.headers?.host || event?.headers?.Host;
+  const proto = String(event?.headers?.["x-forwarded-proto"] || "https")
+    .split(",")[0]
+    .trim();
+
+  if (host) {
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+
+  return String(
+    process.env.DEPLOY_PRIME_URL ||
+      process.env.URL ||
+      process.env.DEPLOY_URL ||
+      "https://iqweb.ai"
+  ).replace(/\/+$/, "");
 }
 
 function corsHeaders() {
