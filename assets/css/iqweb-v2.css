@@ -637,23 +637,54 @@ body.iqweb-v2-shell .iq-report-tab.is-active{
 
 /* Overview density */
 body.iqweb-v2-shell.report-tab-overview main#reportRoot:not([style*="display:none"]):not([style*="display: none"]){
-  display:grid !important;
-  grid-template-columns: minmax(0,1fr) 350px;
-  grid-template-areas:
-    "hero hero"
-    "baseline baseline";
-  gap:12px !important;
-  padding-top:14px !important;
+  display:block !important;
+  width:100% !important;
+  max-width:none !important;
+  padding:0 !important;
+  margin:0 !important;
+  gap:0 !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .executive-dashboard{
-  grid-area:hero !important;
+  grid-area:unset !important;
+  width:100% !important;
   border-radius:0 0 16px 16px !important;
 }
 
+body.iqweb-v2-shell.report-tab-overview .executive-dashboard .section-body,
+body.iqweb-v2-shell.report-tab-overview .exec-dashboard-wrap{
+  width:100% !important;
+  padding:0 !important;
+}
+
 body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles{
-  padding:12px !important;
+  width:100% !important;
+  box-sizing:border-box !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  padding:20px 24px 16px !important;
   gap:12px !important;
+  margin:0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .iq-overview-dashboard-grid{
+  width:100% !important;
+  box-sizing:border-box !important;
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  padding:20px 24px 24px !important;
+  gap:16px !important;
+  margin:0 !important;
+  background:#ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip{
+  width:100% !important;
+  box-sizing:border-box !important;
+  margin:0 !important;
+  padding:20px 24px 24px !important;
+  border-radius:0 !important;
+  border-left:0 !important;
+  border-right:0 !important;
+  border-bottom:0 !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-score-card,
