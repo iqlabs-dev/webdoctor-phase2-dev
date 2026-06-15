@@ -326,6 +326,19 @@ function buildRowActionsMenu(row) {
   });
   panel.appendChild(copyItem);
 
+  const pdfItem = document.createElement("button");
+  pdfItem.type = "button";
+  pdfItem.className = "row-menu-item";
+  pdfItem.setAttribute("role", "menuitem");
+  pdfItem.textContent = "Download PDF";
+  pdfItem.addEventListener("click", async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    menu.open = false;
+    await downloadReportPdf(row.report_id, pdfItem);
+  });
+  panel.appendChild(pdfItem);
+
   menu.appendChild(panel);
   return menu;
 }
@@ -630,6 +643,7 @@ function updateLatestScanCard(row, opts = {}) {
   const elScore = $("ls-score");
   const elScoreWrap = $("ls-score-wrap");
   const elView = $("ls-view");
+  const elPdf = $("ls-pdf");
   const urlInput = $("site-url");
 
   if (!row) {
@@ -637,6 +651,10 @@ function updateLatestScanCard(row, opts = {}) {
     if (elDate) elDate.textContent = "Run your first scan to see results here.";
     if (elScoreWrap) elScoreWrap.style.display = "none";
     if (elView) elView.onclick = null;
+    if (elPdf) {
+      elPdf.onclick = null;
+      elPdf.disabled = true;
+    }
     return;
   }
 
@@ -679,6 +697,18 @@ function updateLatestScanCard(row, opts = {}) {
     };
     elView.title = looksLikeReportId(row.report_id)
       ? ""
+      : "Report ID not available yet. Please refresh in a moment.";
+  }
+
+  if (elPdf) {
+    const pdfReady = looksLikeReportId(row.report_id);
+    elPdf.disabled = !pdfReady;
+    elPdf.onclick = async function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      await downloadReportPdf(row.report_id, elPdf);
+    };
+    elPdf.title = pdfReady
+      ? "Download a PDF copy of this report"
       : "Report ID not available yet. Please refresh in a moment.";
   }
 }
@@ -955,19 +985,6 @@ tr.appendChild(tdBaseline);
 const tdActions = document.createElement("td");
 tdActions.className = "col-actions";
 tdActions.appendChild(buildRowActionsMenu(row));
-
-/*
-const pdfBtn = document.createElement("button");
-pdfBtn.className = "btn-link";
-pdfBtn.type = "button";
-pdfBtn.style.marginLeft = "6px";
-pdfBtn.textContent = "PDF";
-pdfBtn.onclick = function () {
-  downloadReportPdf(row.report_id, pdfBtn);
-};
-
-tdActions.appendChild(pdfBtn);
-*/
 
 tr.appendChild(tdActions);
 

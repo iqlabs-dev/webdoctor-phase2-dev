@@ -1744,6 +1744,27 @@ body.iqweb-v2-dashboard .latest-aside {
   flex-shrink: 0;
 }
 
+body.iqweb-v2-dashboard .latest-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+body.iqweb-v2-dashboard .latest-action-sep {
+  color: var(--pro-border-strong);
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+}
+
+body.iqweb-v2-dashboard .latest-cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  text-decoration: none !important;
+}
+
 body.iqweb-v2-dashboard .latest-url {
   font-size: 16px !important;
   font-weight: 600 !important;
@@ -2609,7 +2630,11 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                       <div id="ls-score" class="latest-score-num">—</div>
                       <div class="latest-score-label">Overall</div>
                     </div>
-                    <button id="ls-view" class="latest-cta" type="button">View report →</button>
+                    <div class="latest-actions">
+                      <button id="ls-view" class="latest-cta" type="button">View report →</button>
+                      <span class="latest-action-sep" aria-hidden="true">·</span>
+                      <button id="ls-pdf" class="latest-cta" type="button">Download PDF</button>
+                    </div>
                   </div>
                 </div>
 
@@ -2866,7 +2891,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
     </section>
   </div>
 
-  <script type="module" src="/assets/js/dashboard.js?v=46"></script>
+  <script type="module" src="/assets/js/dashboard.js?v=47"></script>
   <script type="module" src="/assets/js/dashboard-branding.js"></script>
 
   <script type="module">
