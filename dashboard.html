@@ -638,14 +638,14 @@
       border-top: 1px solid rgba(255,255,255,.06);
     }
 
+thead th:nth-child(3),
 thead th:nth-child(4),
-thead th:nth-child(5),
+thead th:nth-child(6),
 thead th:nth-child(7),
-thead th:nth-child(8),
+tbody td:nth-child(3),
 tbody td:nth-child(4),
-tbody td:nth-child(5),
-tbody td:nth-child(7),
-tbody td:nth-child(8) {
+tbody td:nth-child(6),
+tbody td:nth-child(7) {
   text-align: center;
   vertical-align: middle;
 }
@@ -1744,21 +1744,6 @@ body.iqweb-v2-dashboard .latest-aside {
   flex-shrink: 0;
 }
 
-body.iqweb-v2-dashboard .latest-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-body.iqweb-v2-dashboard .latest-action-sep {
-  color: var(--pro-border-strong);
-  font-size: 13px;
-  line-height: 1;
-  user-select: none;
-}
-
 body.iqweb-v2-dashboard .latest-cta:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -1779,6 +1764,14 @@ body.iqweb-v2-dashboard .latest-url {
 body.iqweb-v2-dashboard .latest-date {
   font-size: 13px !important;
   color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .latest-report-id {
+  font-size: 12px !important;
+  color: var(--pro-text-muted) !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px !important;
 }
 
 body.iqweb-v2-dashboard .latest-score-wrap {
@@ -1938,8 +1931,13 @@ body.iqweb-v2-dashboard .scan-history-table tbody td {
   white-space: nowrap !important;
 }
 
-body.iqweb-v2-dashboard .scan-history-table .col-report-id {
-  display: none !important;
+body.iqweb-v2-dashboard .scan-history-table .col-report-id,
+body.iqweb-v2-dashboard .scan-history-table .col-report-id-head {
+  min-width: 148px;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--pro-text-muted) !important;
+  font-variant-numeric: tabular-nums;
 }
 
 body.iqweb-v2-dashboard .scan-history-table .col-scanned {
@@ -2623,6 +2621,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                 <div class="latest-card">
                   <div class="latest-primary">
                     <div id="ls-url" class="latest-url">—</div>
+                    <div id="ls-report-id" class="latest-report-id">—</div>
                     <div id="ls-date" class="latest-date">—</div>
                   </div>
                   <div class="latest-aside">
@@ -2630,11 +2629,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                       <div id="ls-score" class="latest-score-num">—</div>
                       <div class="latest-score-label">Overall</div>
                     </div>
-                    <div class="latest-actions">
-                      <button id="ls-view" class="latest-cta" type="button">View report →</button>
-                      <span class="latest-action-sep" aria-hidden="true">·</span>
-                      <button id="ls-pdf" class="latest-cta" type="button">Download PDF</button>
-                    </div>
+                    <button id="ls-view" class="latest-cta" type="button">View report →</button>
                   </div>
                 </div>
 
@@ -2694,7 +2689,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                     <th>Website</th>
                     <th class="col-score-head">Score</th>
                     <th>Status</th>
-                    <th class="col-report-id">Report ID</th>
+                    <th class="col-report-id col-report-id-head">Report ID</th>
                     <th class="col-baseline-head" title="Set baseline for progress comparisons">Baseline</th>
                     <th class="col-actions-head"><span class="sr-only">Actions</span></th>
                   </tr>
@@ -2891,7 +2886,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
     </section>
   </div>
 
-  <script type="module" src="/assets/js/dashboard.js?v=47"></script>
+  <script type="module" src="/assets/js/dashboard.js?v=48"></script>
   <script type="module" src="/assets/js/dashboard-branding.js"></script>
 
   <script type="module">

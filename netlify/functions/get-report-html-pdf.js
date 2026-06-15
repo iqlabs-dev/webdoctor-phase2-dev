@@ -99,6 +99,7 @@ const PRO_ACCENT = branding.accent_color || "#0d9488";
 const PRO_RADIUS = "10px";
 const PRO_RADIUS_SM = "8px";
 const PAGE_INLINE_STYLE = `background-color:${PRO_BG};color:${PRO_TEXT};`;
+const SHELL_INLINE_STYLE = `background-color:${PRO_BG};padding:14px 16px 16px;`;
 
 const showHeaderContact = branding.show_header_contact !== false;
 const showFooterContact = branding.show_footer_contact !== false;
@@ -228,8 +229,17 @@ const footerContactBits = [
 
     .page-shell {
       width: 100%;
-      height: 100%;
+      min-height: 100%;
       background-color: ${PRO_BG};
+      padding: 14px 16px 16px;
+      box-sizing: border-box;
+    }
+
+    .report-stack {
+      border: 1px solid ${PRO_BORDER};
+      border-radius: ${PRO_RADIUS};
+      overflow: hidden;
+      background-color: ${PRO_SURFACE};
     }
 
     .top-card,
@@ -247,10 +257,10 @@ const footerContactBits = [
 
     /* ── Header card ── */
     .top-card {
-      border: 1px solid ${PRO_BORDER};
-      border-radius: ${PRO_RADIUS} ${PRO_RADIUS} 0 0;
+      border: 0;
+      border-radius: 0;
       overflow: hidden;
-      background: ${PRO_SURFACE};
+      background-color: ${PRO_SURFACE};
       color: ${PRO_TEXT};
       box-shadow: none;
       margin-bottom: 0;
@@ -561,8 +571,9 @@ const footerContactBits = [
     .footer-bar {
       border: 1px solid ${PRO_BORDER};
       border-radius: ${PRO_RADIUS_SM};
-      background: ${PRO_SURFACE};
+      background-color: ${PRO_SURFACE};
       padding: 9px 12px;
+      margin-top: 10px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -627,11 +638,11 @@ const footerContactBits = [
 
     /* ── Executive dashboard ── */
     .exec-dashboard {
-      border: 1px solid ${PRO_BORDER};
-      border-top: 0;
-      border-radius: 0 0 ${PRO_RADIUS} ${PRO_RADIUS};
+      border: 0;
+      border-top: 1px solid ${PRO_BORDER};
+      border-radius: 0;
       overflow: hidden;
-      background: ${PRO_SURFACE};
+      background-color: ${PRO_SURFACE};
       break-inside: avoid;
       page-break-inside: avoid;
       box-shadow: none;
@@ -1071,11 +1082,12 @@ const footerContactBits = [
   </style>
 
 </head>
-<body data-iqweb-pdf="pro-v4" style="${PAGE_INLINE_STYLE}font-family:Inter,system-ui,sans-serif;">
+<body data-iqweb-pdf="pro-v5" style="${PAGE_INLINE_STYLE}font-family:Inter,system-ui,sans-serif;">
 
   <div class="pdf-page" style="background-color:${PRO_BG};">
-    <div class="page-shell">
+    <div class="page-shell" style="${SHELL_INLINE_STYLE}">
 
+      <div class="report-stack">
       <div class="top-card">
         ${
           bannerUrl
@@ -1136,6 +1148,8 @@ const footerContactBits = [
 
       ${renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals, PRO_ACCENT)}
 
+      </div>
+
       ${
         baseline && baseline.scores
           ? renderBaselineBlock(baseline, scores, rid)
@@ -1148,7 +1162,7 @@ const footerContactBits = [
   </div>
 
   <div class="pdf-page" style="background-color:${PRO_BG};">
-    <div class="page-shell">
+    <div class="page-shell" style="${SHELL_INLINE_STYLE}">
       <div class="section signals-section">
         <div class="section-head">Delivery Signals</div>
         <div class="section-body">
@@ -1168,7 +1182,7 @@ const footerContactBits = [
   </div>
 
   <div class="pdf-page" style="background-color:${PRO_BG};">
-    <div class="page-shell">
+    <div class="page-shell" style="${SHELL_INLINE_STYLE}">
       <div class="section">
         <div class="section-head">Recommended Fix Sequence</div>
         <div class="section-body">

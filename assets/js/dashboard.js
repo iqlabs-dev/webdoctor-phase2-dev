@@ -326,19 +326,6 @@ function buildRowActionsMenu(row) {
   });
   panel.appendChild(copyItem);
 
-  const pdfItem = document.createElement("button");
-  pdfItem.type = "button";
-  pdfItem.className = "row-menu-item";
-  pdfItem.setAttribute("role", "menuitem");
-  pdfItem.textContent = "Download PDF";
-  pdfItem.addEventListener("click", async function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    menu.open = false;
-    await downloadReportPdf(row.report_id, pdfItem);
-  });
-  panel.appendChild(pdfItem);
-
   menu.appendChild(panel);
   return menu;
 }
@@ -639,27 +626,28 @@ async function generateNarrative(reportId, accessToken) {
 // -----------------------------
 function updateLatestScanCard(row, opts = {}) {
   const elUrl = $("ls-url");
+  const elReportId = $("ls-report-id");
   const elDate = $("ls-date");
   const elScore = $("ls-score");
   const elScoreWrap = $("ls-score-wrap");
   const elView = $("ls-view");
-  const elPdf = $("ls-pdf");
   const urlInput = $("site-url");
 
   if (!row) {
     if (elUrl) elUrl.textContent = "No scans yet.";
+    if (elReportId) elReportId.textContent = "—";
     if (elDate) elDate.textContent = "Run your first scan to see results here.";
     if (elScoreWrap) elScoreWrap.style.display = "none";
     if (elView) elView.onclick = null;
-    if (elPdf) {
-      elPdf.onclick = null;
-      elPdf.disabled = true;
-    }
     return;
   }
 
   const cleanUrl = (row.url || "—").replace(/^https?:\/\//i, "");
   if (elUrl) elUrl.textContent = cleanUrl;
+
+  if (elReportId) {
+    elReportId.textContent = row.report_id || "—";
+  }
 
   const d = row.created_at ? new Date(row.created_at) : null;
   if (elDate) {
@@ -697,18 +685,6 @@ function updateLatestScanCard(row, opts = {}) {
     };
     elView.title = looksLikeReportId(row.report_id)
       ? ""
-      : "Report ID not available yet. Please refresh in a moment.";
-  }
-
-  if (elPdf) {
-    const pdfReady = looksLikeReportId(row.report_id);
-    elPdf.disabled = !pdfReady;
-    elPdf.onclick = async function (e) {
-      if (e && e.preventDefault) e.preventDefault();
-      await downloadReportPdf(row.report_id, elPdf);
-    };
-    elPdf.title = pdfReady
-      ? "Download a PDF copy of this report"
       : "Report ID not available yet. Please refresh in a moment.";
   }
 }
