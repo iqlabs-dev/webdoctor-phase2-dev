@@ -708,12 +708,6 @@ body {
       gap: 10px;
       background: rgba(0,0,0,0.10);
       border: 1px solid var(--border-subtle);
-      transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    details.evidence-block > summary:hover {
-      background: rgba(255,255,255,0.04);
-      border-color: rgba(56,232,212,0.22);
     }
 
     details.evidence-block > summary::-webkit-details-marker { display: none; }
@@ -722,30 +716,6 @@ body {
       border-bottom-left-radius: 0;
       border-bottom-right-radius: 0;
       border-bottom: 0;
-    }
-
-    /* Chevron indicator on evidence-block summary */
-    details.evidence-block > summary::after {
-      content: "";
-      display: inline-block;
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-      background-color: rgba(192,207,235,0.55);
-      -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 7l5 5 5-5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
-      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 7l5 5 5-5' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
-      -webkit-mask-repeat: no-repeat;
-      mask-repeat: no-repeat;
-      -webkit-mask-position: center;
-      mask-position: center;
-      -webkit-mask-size: contain;
-      mask-size: contain;
-      transition: transform 0.2s ease, background-color 0.15s ease;
-    }
-
-    details.evidence-block[open] > summary::after {
-      transform: rotate(180deg);
-      background-color: rgba(56,232,212,0.8);
     }
 
     .acc-score {
@@ -1111,16 +1081,16 @@ body {
 
 .exec-score-grid {
   display: grid;
-  grid-template-columns: 250px repeat(4, minmax(0, 1fr));
+  grid-template-columns: 320px repeat(4, minmax(0, 1fr));
   gap: 0;
   border-bottom: 1px solid rgba(148,163,184,0.12);
 }
 
 .exec-overall-score {
-  padding: 20px 22px;
+  padding: 28px 28px;
   display: grid;
-  grid-template-columns: 92px 1fr;
-  gap: 16px;
+  grid-template-columns: 142px 1fr;
+  gap: 20px;
   align-items: center;
   border-right: 1px solid rgba(148,163,184,0.14);
   background: rgba(255,255,255,0.018);
@@ -1532,7 +1502,7 @@ border-color: #dbe7f3;
 }
 
 .exec-ring-lg strong {
-  font-size: 42px;
+  font-size: 52px;
 }
 
 .exec-ring-sm strong {
@@ -2749,8 +2719,8 @@ body.iqweb-v2-shell .iq-ai-mini-bars {
 
 body.iqweb-v2-shell .iq-ai-mini-bars div {
   display: grid;
-  grid-template-columns: 1fr 80px 28px;
-  gap: 8px;
+  grid-template-columns: 1fr 92px;
+  gap: 10px;
   align-items: center;
 }
 
@@ -2764,67 +2734,6 @@ body.iqweb-v2-shell .iq-ai-mini-bars b {
   height: 5px;
   border-radius: 999px;
   background: linear-gradient(90deg, #7c3aed var(--w), #e2e8f0 0);
-}
-
-body.iqweb-v2-shell .iq-ai-bar-score {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  color: #7c3aed;
-  text-align: right;
-}
-
-/* Trend section empty state */
-body.iqweb-v2-shell .trend-empty-state {
-  text-align: center;
-  padding: 28px 20px;
-}
-
-body.iqweb-v2-shell .trend-empty-icon {
-  font-size: 28px;
-  margin-bottom: 10px;
-  opacity: 0.5;
-}
-
-body.iqweb-v2-shell .trend-empty-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-  margin-bottom: 6px;
-}
-
-body.iqweb-v2-shell .trend-empty-desc {
-  font-size: 12px;
-  color: #94a3b8;
-  max-width: 380px;
-  margin: 0 auto;
-  line-height: 1.55;
-}
-
-/* Baseline pill — muted "no baseline" state */
-body.iqweb-v2-shell .iq-overview-pill.muted-pill {
-  color: #64748b;
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-/* Evidence block chevron for the light v2-shell context */
-body.iqweb-v2-shell details.evidence-block > summary::after {
-  background-color: rgba(100,116,139,0.6);
-}
-
-body.iqweb-v2-shell details.evidence-block[open] > summary::after {
-  background-color: #7c3aed;
-}
-
-body.iqweb-v2-shell details.evidence-block > summary:hover {
-  background: rgba(248,250,252,0.8);
-  border-color: rgba(139,92,246,0.25);
-}
-
-/* Signal card summary — ensure word spacing */
-body.iqweb-v2-shell #signalsGrid .card .summary {
-  word-spacing: 0.02em;
 }
 
 body.iqweb-v2-shell .iq-insight-list,
@@ -3248,21 +3157,9 @@ body.iqweb-v2-shell .iq-ai-mini-bars {
   gap: 10px;
 }
 
-body.iqweb-v2-shell .iq-ai-mini-bars div {
-  grid-template-columns: 1fr 80px 28px;
-}
-
 body.iqweb-v2-shell .iq-ai-mini-bars span {
   color: #172033;
   font-weight: 850;
-}
-
-body.iqweb-v2-shell .iq-ai-bar-score {
-  color: #6d28d9;
-  font-size: 11px;
-  font-weight: 700;
-  font-style: normal;
-  text-align: right;
 }
 
 body.iqweb-v2-shell .iq-ai-mini-bars b {
@@ -4634,13 +4531,27 @@ body.iqweb-v2-shell #backToDashboard::before {
         <button type="button" class="iq-report-tab" data-report-tab="evidence">Evidence</button>
       </nav>
 
-      <section id="loaderSection" class="loader-wrap">
-        <div class="pulse" aria-hidden="true"></div>
-        <div style="font-weight:800; letter-spacing:0.08em;">Building Report</div>
-        <div id="loaderStatus" class="muted" style="font-size:12px;">
-          Fetching scan data and rendering deterministic signals.
-        </div>
-      </section>
+<section id="loaderSection" class="loader-wrap">
+  <div class="pulse" aria-hidden="true"></div>
+
+  <div style="
+    font-size:28px;
+    font-weight:800;
+    color:#0f172a;
+    letter-spacing:-0.02em;
+    margin-top:12px;
+  ">
+    Building Report
+  </div>
+
+  <div id="loaderStatus" class="muted" style="
+    font-size:13px;
+    margin-top:8px;
+    color:#64748b;
+  ">
+    Fetching scan data and rendering deterministic signals.
+  </div>
+</section>
 
       <main id="reportRoot" style="display:none;">
         <section class="section executive-dashboard" id="executiveNarrativeSection">
@@ -4749,10 +4660,10 @@ body.iqweb-v2-shell #backToDashboard::before {
                     <span class="iq-overview-pill warning" id="ovAiVerdict">Loading</span>
                   </div>
                   <div class="iq-ai-mini-bars">
-                    <div><span>Entity clarity</span><b style="--w:68%"></b><em class="iq-ai-bar-score">68</em></div>
-                    <div><span>Category relevance</span><b style="--w:74%"></b><em class="iq-ai-bar-score">74</em></div>
-                    <div><span>Recommendation signal</span><b style="--w:42%"></b><em class="iq-ai-bar-score">42</em></div>
-                    <div><span>Brand mentions</span><b style="--w:36%"></b><em class="iq-ai-bar-score">36</em></div>
+                    <div><span>Entity clarity</span><b style="--w:68%"></b></div>
+                    <div><span>Category relevance</span><b style="--w:74%"></b></div>
+                    <div><span>Recommendation signal</span><b style="--w:42%"></b></div>
+                    <div><span>Brand mentions</span><b style="--w:36%"></b></div>
                   </div>
                   <p id="ovAiNote">Measures category recognition, brand visibility, and AI recommendation presence.</p>
                 </section>
@@ -4790,15 +4701,15 @@ body.iqweb-v2-shell #backToDashboard::before {
 <!-- COMPACT SCORE TREND AREA -->
 <!-- ========================= -->
 
-<section class="overview-trend-strip" id="trendStripSection">
+<section class="overview-trend-strip">
   <div class="trend-strip-header">
     <div class="trend-strip-title">Progress Trend</div>
     <div class="trend-strip-subtitle">
-      Score movement across recent scans.
+      Baseline trend across recent scans.
     </div>
   </div>
 
-  <div class="trend-grid" id="trendGrid">
+  <div class="trend-grid">
 
     <div class="trend-card" data-trend-card="overall">
       <div class="trend-top">
@@ -4836,13 +4747,6 @@ body.iqweb-v2-shell #backToDashboard::before {
       <div class="trend-footer" id="trendAiFooter">Awaiting scan history</div>
     </div>
 
-  </div>
-
-  <!-- Empty state shown when no scan history yet -->
-  <div class="trend-empty-state" id="trendEmptyState" style="display:none;">
-    <div class="trend-empty-icon">📈</div>
-    <div class="trend-empty-title">Building your history</div>
-    <div class="trend-empty-desc">Run more scans on this domain to see score trends over time. Progress charts will appear automatically once you have 2 or more scans.</div>
   </div>
 </section>
 
@@ -5293,27 +5197,6 @@ setText("ovInsight3", "Strengthen category-brand association through clearer ser
         setText("ovBaselineTitle", hasBaseline ? "Progress Since Baseline" : "Baseline Ready");
         setText("ovBaselinePill", hasBaseline ? "Active" : "No baseline");
         setText("ovBaselineCopy", hasBaseline ? "Baseline comparison is active. Use the deltas below to show movement since the selected scan." : "No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.");
-
-        // Style the baseline pill as muted when no baseline is set
-        var baselinePillEl = document.getElementById("ovBaselinePill");
-        if (baselinePillEl) {
-          if (hasBaseline) {
-            baselinePillEl.classList.remove("muted-pill", "warning");
-          } else {
-            baselinePillEl.classList.add("muted-pill");
-            baselinePillEl.classList.remove("warning");
-          }
-        }
-
-        // Show/hide trend empty state based on whether we have real trend data
-        var trendGrid = document.getElementById("trendGrid");
-        var trendEmpty = document.getElementById("trendEmptyState");
-        var overallBars = document.getElementById("trendOverallBars");
-        var hasTrendData = overallBars && overallBars.children && overallBars.children.length > 0;
-        if (trendGrid && trendEmpty) {
-          trendGrid.style.display = hasTrendData ? "" : "none";
-          trendEmpty.style.display = hasTrendData ? "none" : "";
-        }
 
         var source = document.getElementById("execTopIssuesRoot");
         var target = document.getElementById("ovTopIssues");
