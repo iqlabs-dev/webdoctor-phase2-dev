@@ -87,11 +87,17 @@ const reportTitle = branding.report_title || "Website Report";
 const logoUrl = branding.logo_url || "";
 const bannerUrl = branding.banner_url || "";
 
-const brandHeaderBg = branding.header_bg || "#0B1730";
-const brandHeaderText = branding.header_text || "#FFFFFF";
-const brandText = branding.text_color || "#E5F0FF";
-const brandAccent = branding.accent_color || "#18D6C4";
-const brandPageBg = branding.page_bg || "#061122";
+/* Pro SaaS tokens — aligned with report.html iqweb-v2-shell */
+const PRO_BG = "#f6f9fc";
+const PRO_SURFACE = "#ffffff";
+const PRO_BORDER = "#e6ebf1";
+const PRO_BORDER_STRONG = "#d8dee6";
+const PRO_TEXT = "#0a2540";
+const PRO_TEXT_SECONDARY = "#425466";
+const PRO_TEXT_MUTED = "#697386";
+const PRO_ACCENT = branding.accent_color || "#0d9488";
+const PRO_RADIUS = "10px";
+const PRO_RADIUS_SM = "8px";
 
 const showHeaderContact = branding.show_header_contact !== false;
 const showFooterContact = branding.show_footer_contact !== false;
@@ -148,7 +154,23 @@ const footerContactBits = [
   <meta charset="utf-8" />
   <title>${escapeHtml(reportTitle)} — ${escapeHtml(rid)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    :root {
+      --pro-bg: ${escapeHtml(PRO_BG)};
+      --pro-surface: ${escapeHtml(PRO_SURFACE)};
+      --pro-border: ${escapeHtml(PRO_BORDER)};
+      --pro-border-strong: ${escapeHtml(PRO_BORDER_STRONG)};
+      --pro-text: ${escapeHtml(PRO_TEXT)};
+      --pro-text-secondary: ${escapeHtml(PRO_TEXT_SECONDARY)};
+      --pro-text-muted: ${escapeHtml(PRO_TEXT_MUTED)};
+      --pro-accent: ${escapeHtml(PRO_ACCENT)};
+      --pro-radius: ${PRO_RADIUS};
+      --pro-radius-sm: ${PRO_RADIUS_SM};
+    }
+
     @page {
       size: A4 landscape;
       margin: 7mm;
@@ -159,22 +181,27 @@ const footerContactBits = [
     html, body {
       margin: 0;
       padding: 0;
-      background: ${escapeHtml(brandPageBg)};
-      color: ${escapeHtml(brandText)};
-      font-family: "Montserrat", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--pro-bg);
+      color: var(--pro-text);
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.011em;
     }
 
- body {
-  font-size: 12px;
-  line-height: 1.45;
-}
+    body {
+      font-size: 12px;
+      line-height: 1.45;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
 
     .pdf-page {
-  width: 100%;
-  background: ${escapeHtml(brandPageBg)};
-  page-break-after: always;
-  padding: 4px;
-}
+      width: 100%;
+      background: var(--pro-bg);
+      page-break-after: always;
+      padding: 0;
+      overflow: visible;
+    }
 
     .pdf-page:last-child {
       page-break-after: auto;
@@ -182,6 +209,7 @@ const footerContactBits = [
 
     .page-shell {
       width: 100%;
+      height: 100%;
     }
 
     .top-card,
@@ -189,28 +217,32 @@ const footerContactBits = [
     .overall-card,
     .signal-card,
     .footer-bar,
-    .finding-row {
+    .finding-row,
+    .score-box,
+    .exec-panel,
+    .phase {
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
-.top-card {
-  border: 1px solid rgba(69, 102, 154, 0.42);
-  border-radius: 16px;
-  overflow: hidden;
-  background: ${escapeHtml(brandHeaderBg)};
-  color: ${escapeHtml(brandHeaderText)};
-  box-shadow: 0 3px 10px rgba(0,0,0,0.12);
-  margin-bottom: 10px;
-}
+    /* ── Header card ── */
+    .top-card {
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius) var(--pro-radius) 0 0;
+      overflow: hidden;
+      background: var(--pro-surface);
+      color: var(--pro-text);
+      box-shadow: none;
+      margin-bottom: 0;
+    }
 
     .brand-banner {
       width: 100%;
-      height: 52px;
+      height: 48px;
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;
-      border-bottom: 1px solid rgba(69, 102, 154, 0.30);
+      border-bottom: 1px solid var(--pro-border);
     }
 
     .brand-inner {
@@ -218,7 +250,7 @@ const footerContactBits = [
       justify-content: space-between;
       align-items: flex-start;
       gap: 12px;
-      padding: 12px 14px 8px;
+      padding: 14px 16px 8px;
     }
 
     .brand-left {
@@ -235,48 +267,45 @@ const footerContactBits = [
     }
 
     .company-name {
-      font-size: 18px;
-      line-height: 1.05;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      color: ${escapeHtml(brandHeaderText)};
+      font-size: 17px;
+      line-height: 1.1;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--pro-text);
       margin: 0 0 4px;
     }
 
     .report-title {
       font-size: 11px;
       line-height: 1.2;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandHeaderText)};
-      opacity: 0.78;
-      margin: 0 0 8px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--pro-text-muted);
+      margin: 0 0 6px;
     }
 
-.brand-contact {
-  font-size: 10px;
-  line-height: 1.45;
-  color: ${escapeHtml(brandHeaderText)};
-  opacity: 0.92;
-}
+    .brand-contact {
+      font-size: 10px;
+      line-height: 1.45;
+      color: var(--pro-text-secondary);
+    }
 
     .brand-logo {
-      width: 86px;
-      min-width: 86px;
+      width: 80px;
+      min-width: 80px;
       text-align: right;
     }
 
     .brand-logo img {
-      max-width: 86px;
-      max-height: 86px;
+      max-width: 80px;
+      max-height: 80px;
       display: inline-block;
       object-fit: contain;
     }
 
-    /* Force the OSD-style horizontal header cards in PDF */
     .meta-table-wrap {
-      padding: 0 14px 12px;
+      padding: 0 16px 12px;
     }
 
     .meta-table {
@@ -292,31 +321,28 @@ const footerContactBits = [
     }
 
     .meta-card {
-      border: 1px solid rgba(69, 102, 154, 0.42);
-      border-radius: 12px;
-      background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
-      padding: 10px 12px;
-      min-height: 56px;
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      background: var(--pro-bg);
+      padding: 8px 10px;
+      min-height: 46px;
     }
 
     .meta-label {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandHeaderText)};
-      opacity: 0.98;
-      margin-bottom: 6px;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--pro-text-muted);
+      margin-bottom: 4px;
       line-height: 1.15;
     }
 
     .meta-value {
-      font-size: 14px;
-      font-weight: 700;
-      color: ${escapeHtml(brandHeaderText)};
-      letter-spacing: 0.02em;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--pro-text);
+      letter-spacing: -0.01em;
       word-break: break-word;
       line-height: 1.25;
     }
@@ -328,23 +354,25 @@ const footerContactBits = [
       margin-bottom: 10px;
     }
 
-.section {
-  border: 1px solid rgba(69, 102, 154, 0.42);
-  border-radius: 14px;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(10, 23, 47, 0.94), rgba(8, 20, 42, 0.98));
-  box-shadow: 0 3px 10px rgba(0,0,0,0.10);
-}
+    /* ── Sections ── */
+    .section {
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius);
+      overflow: hidden;
+      background: var(--pro-surface);
+      box-shadow: none;
+      margin-bottom: 10px;
+    }
 
     .section-head {
       padding: 8px 12px;
-      border-bottom: 1px solid rgba(69, 102, 154, 0.24);
-      font-size: 10px;
+      border-bottom: 1px solid var(--pro-border);
+      font-size: 11px;
       line-height: 1.15;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandText)};
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      color: var(--pro-text);
     }
 
     .section-body {
@@ -356,7 +384,7 @@ const footerContactBits = [
       grid-template-columns: 130px 1fr;
       gap: 10px;
       padding: 9px 12px;
-      border-top: 1px solid rgba(69, 102, 154, 0.14);
+      border-top: 1px solid var(--pro-border);
     }
 
     .finding-row:first-child {
@@ -364,21 +392,20 @@ const footerContactBits = [
     }
 
     .finding-label {
-      font-size: 9px;
+      font-size: 10px;
       line-height: 1.15;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandText)};
-      opacity: 0.82;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--pro-text-muted);
     }
 
-.finding-value {
-  font-size: 12px;
-  line-height: 1.45;
-  color: ${escapeHtml(brandText)};
-  max-width: 880px;
-}
+    .finding-value {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--pro-text);
+      max-width: 880px;
+    }
 
     .overall-card {
       margin: 0;
@@ -394,191 +421,135 @@ const footerContactBits = [
       justify-content: space-between;
       gap: 8px;
       align-items: flex-start;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       flex: 0 0 auto;
     }
 
     .signal-name {
-      font-size: 9px;
+      font-size: 10px;
       line-height: 1.15;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandText)};
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      color: var(--pro-text);
     }
 
     .signal-score {
-      font-size: 12px;
+      font-size: 13px;
       line-height: 1;
-      font-weight: 800;
-      color: ${escapeHtml(brandText)};
+      font-weight: 600;
+      color: var(--pro-text);
       white-space: nowrap;
     }
 
     .score-bar {
       width: 100%;
-      height: 6px;
+      height: 4px;
       border-radius: 999px;
-      background: rgba(255,255,255,0.10);
+      background: var(--pro-border);
       overflow: hidden;
-      margin-bottom: 8px;
-      border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 6px;
+      border: 0;
       flex: 0 0 auto;
     }
 
     .score-fill {
       height: 100%;
       border-radius: 999px;
-      background: ${escapeHtml(brandAccent)};
+      background: var(--pro-accent);
     }
 
     .signal-status {
-      font-size: 9px;
+      font-size: 10px;
       line-height: 1.15;
-      font-weight: 700;
-      color: ${escapeHtml(brandText)};
+      font-weight: 500;
+      color: var(--pro-text-muted);
       margin-bottom: 4px;
       flex: 0 0 auto;
     }
 
-.signal-copy {
-  font-size: 11px;
-  line-height: 1.4;
-  color: ${escapeHtml(brandText)};
-  white-space: pre-line;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
+    .signal-copy {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--pro-text-secondary);
+      white-space: normal;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
 
     .signals-section {
       margin-bottom: 10px;
     }
 
     .signals-table-wrap {
-      padding: 12px 10px 10px;
+      padding: 14px 12px 12px;
     }
 
     .signals-table {
       width: 100%;
       border-collapse: separate;
-      border-spacing: 8px 10px;
+      border-spacing: 8px 8px;
       table-layout: fixed;
     }
 
-.signals-table td {
-  width: 33.333%;
-  vertical-align: top;
-  padding: 6px 6px 10px;
-}
+    .signals-table td {
+      width: 33.333%;
+      vertical-align: top;
+      padding: 4px;
+    }
 
-.signal-card {
-    min-height: 150px;
-  display: flex;
-  flex-direction: column;
-  border-radius: 12px;
-  padding: 12px 12px 12px;
-  background: linear-gradient(180deg, rgba(6, 15, 32, 0.96), rgba(7, 18, 38, 0.98));
-  border: 1px solid rgba(69, 102, 154, 0.34);
-  position: relative;
-  overflow: visible;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
+    .signal-card {
+      min-height: 105px;
+      display: flex;
+      flex-direction: column;
+      border-radius: var(--pro-radius-sm);
+      padding: 10px;
+      background: var(--pro-surface);
+      border: 1px solid var(--pro-border);
+      position: relative;
+      overflow: visible;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      box-shadow: none;
+    }
 
     .signal-card.good {
-      border-color: rgba(28, 198, 115, 0.55);
+      border-color: #bbf7d0;
+      background: #f0fdf4;
     }
 
     .signal-card.warn {
-      border-color: rgba(233, 168, 43, 0.62);
+      border-color: #fde68a;
+      background: #fffbeb;
     }
 
     .signal-card.bad {
-      border-color: rgba(238, 95, 86, 0.66);
+      border-color: #fecaca;
+      background: #fef2f2;
     }
-
-    .signal-card .signal-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      align-items: flex-start;
-      margin-bottom: 6px;
-      flex: 0 0 auto;
-    }
-
-    .signal-card .signal-name {
-      font-size: 9px;
-      line-height: 1.1;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: ${escapeHtml(brandText)};
-    }
-
-    .signal-card .signal-score {
-      font-size: 12px;
-      line-height: 1;
-      font-weight: 800;
-      color: ${escapeHtml(brandText)};
-      white-space: nowrap;
-    }
-
-    .signal-card .score-bar {
-      width: 100%;
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.10);
-      overflow: hidden;
-      margin-bottom: 6px;
-      border: 1px solid rgba(255,255,255,0.05);
-      flex: 0 0 auto;
-    }
-
-    .signal-card .score-fill {
-      height: 100%;
-      border-radius: 999px;
-      background: ${escapeHtml(brandAccent)};
-    }
-
-    .signal-card .signal-status {
-      font-size: 8px;
-      line-height: 1.1;
-      font-weight: 700;
-      color: ${escapeHtml(brandText)};
-      margin-bottom: 3px;
-      flex: 0 0 auto;
-    }
-
-.signal-card .signal-copy {
-  font-size: 9.6px;
-  line-height: 1.3;
-  color: ${escapeHtml(brandText)};
-  white-space: normal;
-  flex: 1 1 auto;
-  overflow: hidden;
-}
 
     .signal-badge {
       position: absolute;
-      top: -9px;
+      top: -8px;
       left: 10px;
       z-index: 3;
       padding: 3px 8px;
-      border-radius: 999px;
-      background: #ef5f56;
-      color: #ffffff;
+      border-radius: 6px;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
       font-size: 8px;
       line-height: 1;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: none;
       white-space: nowrap;
     }
 
     .footer-bar {
-      border: 1px solid rgba(69, 102, 154, 0.42);
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(10, 23, 47, 0.92), rgba(8, 20, 42, 0.96));
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      background: var(--pro-surface);
       padding: 9px 12px;
       display: flex;
       justify-content: space-between;
@@ -586,8 +557,9 @@ const footerContactBits = [
       gap: 10px;
       font-size: 9px;
       line-height: 1.3;
-      color: ${escapeHtml(brandText)};
+      color: var(--pro-text-muted);
       flex-wrap: wrap;
+      box-shadow: none;
     }
 
     .footer-left,
@@ -600,133 +572,66 @@ const footerContactBits = [
       text-align: right;
     }
 
- .muted {
-  color: ${escapeHtml(brandText)};
-  opacity: 0.9;
-}
+    .muted {
+      color: var(--pro-text-muted);
+    }
 
     .ai-card,
-.ai-card * {
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  word-break: break-word;
-}
+    .ai-card * {
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      word-break: break-word;
+    }
 
-table {
-  table-layout: fixed;
-}
+    table {
+      table-layout: fixed;
+    }
 
-td {
-  vertical-align: top;
-  overflow-wrap: break-word;
-}
-.ai-prompt {
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
+    td {
+      vertical-align: top;
+      overflow-wrap: break-word;
+    }
 
-.ai-card p,
-.ai-card li {
-  max-width: 100%;
-}
+    .ai-prompt {
+      white-space: normal;
+      overflow-wrap: break-word;
+      word-break: break-word;
+    }
 
-.ai-card table {
-  width: 100%;
-  table-layout: fixed;
-}
+    .ai-card p,
+    .ai-card li {
+      max-width: 100%;
+    }
 
+    .ai-card table {
+      width: 100%;
+      table-layout: fixed;
+    }
 
     html {
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    body {
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-    }
-
-.pdf-page {
-  padding: 0;
-  page-break-after: always;
-  overflow: visible;
-}
-
-    .page-shell {
-      width: 100%;
-      height: 100%;
-    }
-
-    .top-card {
-      border-radius: 18px 18px 0 0;
-      margin-bottom: 0;
-      box-shadow: none;
-    }
-
-    .brand-inner {
-      padding: 10px 14px 6px;
-    }
-
-    .company-name {
-      font-size: 17px;
-    }
-
-    .report-title {
-      font-size: 10px;
-      margin-bottom: 5px;
-    }
-
-    .meta-table-wrap {
-      padding: 0 14px 10px;
-    }
-
-    .meta-card {
-      min-height: 46px;
-      padding: 8px 10px;
-    }
-
-    .meta-label {
-      font-size: 9px;
-      margin-bottom: 4px;
-    }
-
-    .meta-value {
-      font-size: 12px;
-    }
-
-    .section {
-      box-shadow: none;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .section-head {
-      padding: 7px 11px;
-      font-size: 9px;
-      letter-spacing: 0.15em;
-      color: #38e8d4;
-    }
-
+    /* ── Executive dashboard ── */
     .exec-dashboard {
-      border: 1px solid rgba(148,163,184,0.18);
+      border: 1px solid var(--pro-border);
       border-top: 0;
-      border-radius: 0 0 18px 18px;
+      border-radius: 0 0 var(--pro-radius) var(--pro-radius);
       overflow: hidden;
-      background:
-        radial-gradient(circle at 18% 0%, rgba(34,211,238,0.10), transparent 28%),
-        linear-gradient(180deg, rgba(13,22,41,0.92), rgba(4,7,14,0.98));
+      background: var(--pro-surface);
       break-inside: avoid;
       page-break-inside: avoid;
+      box-shadow: none;
     }
 
     .exec-score-table {
       width: 100%;
       border-collapse: separate;
-      border-spacing: 11px 0;
+      border-spacing: 10px 0;
       table-layout: fixed;
-      padding: 16px 15px 14px;
-      border-bottom: 1px solid rgba(148,163,184,0.12);
+      padding: 14px 14px 12px;
+      border-bottom: 1px solid var(--pro-border);
     }
 
     .exec-score-table td {
@@ -736,25 +641,21 @@ td {
     }
 
     .score-box {
-       height: 118px;
-      border: 1px solid rgba(148,163,184,0.15);
-      border-radius: 17px;
+      height: 118px;
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
       text-align: center;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(56,232,212,0.10), transparent 48%),
-        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
-      padding: 11px 8px 9px;
+      background: var(--pro-surface);
+      padding: 10px 8px 8px;
       overflow: hidden;
       break-inside: avoid;
       page-break-inside: avoid;
+      box-shadow: none;
     }
 
     .score-box.overall {
-        height: 132px;
-      border-color: rgba(56,232,212,0.36);
-      background:
-        radial-gradient(circle at 50% 0%, rgba(56,232,212,0.18), transparent 55%),
-        linear-gradient(180deg, rgba(255,255,255,0.045), rgba(0,0,0,0.18));
+      height: 128px;
+      border-color: var(--pro-border-strong);
     }
 
     .ring {
@@ -762,8 +663,8 @@ td {
       border-radius: 50%;
       position: relative;
       background:
-        conic-gradient(var(--ring-color) var(--ring-deg), rgba(148,163,184,0.16) 0deg),
-        radial-gradient(circle, rgba(255,255,255,0.05), rgba(255,255,255,0));
+        conic-gradient(var(--ring-color) var(--ring-deg), var(--pro-border) 0deg),
+        radial-gradient(circle, transparent, transparent);
     }
 
     .ring:after {
@@ -771,8 +672,8 @@ td {
       position: absolute;
       inset: 8px;
       border-radius: 50%;
-      background: #07101f;
-      border: 1px solid rgba(255,255,255,0.07);
+      background: var(--pro-surface);
+      border: 1px solid var(--pro-border);
     }
 
     .ring-num {
@@ -782,9 +683,9 @@ td {
       display: table;
       width: 100%;
       height: 100%;
-      color: #fff;
-      font-weight: 900;
-      letter-spacing: -0.05em;
+      color: var(--pro-text);
+      font-weight: 600;
+      letter-spacing: -0.04em;
       line-height: 1;
     }
 
@@ -795,31 +696,31 @@ td {
     }
 
     .ring-lg {
-      width: 100px;
-      height: 100px;
+      width: 96px;
+      height: 96px;
     }
 
     .ring-lg .ring-num {
-      font-size: 33px;
+      font-size: 30px;
     }
 
     .ring-sm {
-      width: 78px;
-      height: 78px;
-      margin-top: 8px;
+      width: 72px;
+      height: 72px;
+      margin-top: 6px;
     }
 
     .ring-sm .ring-num {
-      font-size: 24px;
+      font-size: 22px;
     }
 
     .score-label {
-      color: #e5f0ff;
-      font-size: 9px;
+      color: var(--pro-text-secondary);
+      font-size: 10px;
       line-height: 1.1;
-      font-weight: 900;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      text-transform: none;
       margin-top: 2px;
     }
 
@@ -827,26 +728,26 @@ td {
       color: var(--ring-color);
       font-size: 9px;
       line-height: 1.15;
-      font-weight: 900;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
       margin-top: 4px;
     }
 
     .score-note {
-      color: rgba(229,240,255,0.70);
+      color: var(--pro-text-muted);
       font-size: 8.5px;
       line-height: 1.2;
-      font-weight: 700;
+      font-weight: 500;
       margin-top: 3px;
     }
 
     .exec-lower-table {
       width: 100%;
       border-collapse: separate;
-      border-spacing: 14px 0;
+      border-spacing: 12px 0;
       table-layout: fixed;
-      padding: 14px 22px 18px;
+      padding: 12px 16px 14px;
     }
 
     .exec-lower-table td {
@@ -862,87 +763,85 @@ td {
       width: 36%;
     }
 
-.exec-panel {
-  border: 1px solid rgba(148,163,184,0.13);
-  border-radius: 17px;
-  background: rgba(255,255,255,0.026);
-  padding: 11px;
-  min-height: 205px;
+    .exec-panel {
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      background: var(--pro-surface);
+      padding: 10px;
+      min-height: 200px;
       break-inside: avoid;
       page-break-inside: avoid;
+      box-shadow: none;
     }
 
     .exec-panel-title {
-      margin: 0 0 10px;
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #38e8d4;
+      margin: 0 0 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      color: var(--pro-text);
     }
 
     .priority-row {
       display: table;
       width: 100%;
-      border: 1px solid rgba(148,163,184,0.12);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.018);
-      margin-bottom: 9px;
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      background: var(--pro-bg);
+      margin-bottom: 8px;
       overflow: hidden;
     }
 
     .priority-rank {
       display: table-cell;
       width: 36px;
-      padding: 11px 8px 11px 12px;
+      padding: 10px 8px 10px 10px;
       vertical-align: top;
     }
 
     .priority-rank span {
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
       display: block;
       text-align: center;
-      line-height: 24px;
-      color: #22d3ee;
-      border: 1px solid rgba(34,211,238,0.28);
+      line-height: 22px;
+      color: var(--pro-accent);
+      border: 1px solid var(--pro-border);
+      background: var(--pro-surface);
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 600;
     }
 
     .priority-copy {
       display: table-cell;
-      padding: 11px 12px 11px 0;
+      padding: 10px 10px 10px 0;
       vertical-align: top;
     }
 
     .priority-label {
-      font-size: 8.5px;
-      font-weight: 900;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #c0cfeb;
-      margin-bottom: 4px;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--pro-text-muted);
+      margin-bottom: 3px;
     }
 
     .priority-text {
       margin: 0;
-      color: #c0cfeb;
+      color: var(--pro-text);
       font-size: 11px;
       line-height: 1.42;
-      font-weight: 500;
+      font-weight: 400;
     }
 
-    .priority-row:nth-child(1) .priority-text { color: #22d3ee; }
-    .priority-row:nth-child(2) .priority-text { color: #60a5fa; }
-    .priority-row:nth-child(3) .priority-text { color: #34d399; }
-
     .exec-next {
-      margin-top: 8px;
-      padding: 10px 12px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      color: #c0cfeb;
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-top: 1px solid var(--pro-border);
+      color: var(--pro-text-secondary);
       font-size: 11px;
       line-height: 1.42;
     }
@@ -950,10 +849,10 @@ td {
     .issue-row {
       display: table;
       width: 100%;
-      border: 1px solid rgba(148,163,184,0.10);
-      border-radius: 12px;
-      background: rgba(0,0,0,0.18);
-      margin-bottom: 8px;
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      background: var(--pro-bg);
+      margin-bottom: 7px;
       overflow: hidden;
     }
 
@@ -966,113 +865,150 @@ td {
 
     .issue-icon span {
       display: block;
-      width: 24px;
-      height: 24px;
-      border-radius: 8px;
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
       text-align: center;
-      line-height: 24px;
-      font-size: 12px;
-      font-weight: 900;
+      line-height: 22px;
+      font-size: 11px;
+      font-weight: 700;
     }
 
     .issue-text {
       display: table-cell;
-      padding: 9px 8px;
+      padding: 8px;
       vertical-align: middle;
-      color: #c0cfeb;
+      color: var(--pro-text);
       font-size: 10.5px;
-      font-weight: 700;
+      font-weight: 500;
       line-height: 1.32;
     }
 
     .issue-sev {
       display: table-cell;
       width: 42px;
-      padding: 9px 10px 9px 0;
+      padding: 8px 10px 8px 0;
       vertical-align: middle;
       text-align: right;
       font-size: 9px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: none;
     }
 
     .icon-ai span {
-      color: #f59e0b;
-      background: rgba(245,158,11,0.12);
-      border: 1px solid rgba(245,158,11,0.32);
+      color: #d97706;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
     }
 
     .icon-seo span {
-      color: #60a5fa;
-      background: rgba(96,165,250,0.12);
-      border: 1px solid rgba(96,165,250,0.32);
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
     }
 
     .icon-performance span {
-      color: #22c55e;
-      background: rgba(34,197,94,0.12);
-      border: 1px solid rgba(34,197,94,0.32);
+      color: #059669;
+      background: #ecfdf5;
+      border: 1px solid #bbf7d0;
     }
 
     .icon-trust span {
-      color: #14b8a6;
-      background: rgba(20,184,166,0.12);
-      border: 1px solid rgba(20,184,166,0.32);
+      color: #0d9488;
+      background: #ecfdf5;
+      border: 1px solid #99f6e4;
     }
 
     .icon-structure span,
     .icon-accessibility span {
-      color: #a78bfa;
-      background: rgba(167,139,250,0.12);
-      border: 1px solid rgba(167,139,250,0.32);
+      color: #7c3aed;
+      background: #f5f3ff;
+      border: 1px solid #ddd6fe;
     }
 
-    .sev-high { color: #ef4444; }
-    .sev-med { color: #f59e0b; }
-    .sev-low { color: #22c55e; }
+    .sev-high { color: #dc2626; }
+    .sev-med { color: #d97706; }
+    .sev-low { color: #059669; }
 
-    .signals-table-wrap {
-      padding: 15px 14px 12px;
+    .ai-card {
+      padding: 10px !important;
+      border-radius: var(--pro-radius-sm) !important;
+      border: 1px solid var(--pro-border) !important;
+      background: var(--pro-surface) !important;
+      box-shadow: none !important;
     }
 
-.signal-card {
-      min-height: 105px;
-      padding: 9px;
-}
-
-    .signal-card .signal-copy {
-      font-size: 8.8px;
-      line-height: 1.25;
+    .ai-inner-panel {
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
+      padding: 10px;
+      background: var(--pro-bg);
+      min-height: 240px;
     }
 
-   .ai-card {
-  padding: 10px !important;
-}
+    .ai-inner-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: var(--pro-text-muted);
+      margin-bottom: 6px;
+      text-transform: none;
+    }
 
-    .ai-card table td:nth-child(1) { width: 155px !important; }
-    .ai-card table td:nth-child(2) { width: 365px !important; }
-    .ai-card table td:nth-child(3) { width: auto !important; }
+    .ai-inner-value {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--pro-text);
+      font-weight: 600;
+    }
 
- .fix-sequence {
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
+    .ai-inner-copy {
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--pro-text-secondary);
+    }
+
+    .ai-prompt-box {
+      border: 1px solid var(--pro-border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: var(--pro-surface);
+      font-size: 11px;
+      line-height: 1.4;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--pro-text-secondary);
+    }
+
+    .ai-footnote {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--pro-border);
+      font-size: 10px;
+      line-height: 1.45;
+      color: var(--pro-text-muted);
+    }
+
+    .fix-sequence {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
 
     .phase {
-      border: 1px solid rgba(148,163,184,0.13);
-      border-radius: 15px;
+      border: 1px solid var(--pro-border);
+      border-radius: var(--pro-radius-sm);
       overflow: hidden;
-      background: rgba(255,255,255,0.026);
+      background: var(--pro-surface);
       break-inside: avoid;
       page-break-inside: avoid;
+      box-shadow: none;
     }
 
     .phase-head {
-      padding: 11px 13px;
-      border-bottom: 1px solid rgba(148,163,184,0.12);
-      background: rgba(255,255,255,0.03);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--pro-border);
+      background: var(--pro-bg);
       display: table;
       width: 100%;
     }
@@ -1080,33 +1016,34 @@ td {
     .phase-title {
       display: table-cell;
       margin: 0;
-      font-size: 10px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 900;
-      color: #e5f0ff;
+      font-size: 11px;
+      letter-spacing: -0.01em;
+      text-transform: none;
+      font-weight: 600;
+      color: var(--pro-text);
     }
 
     .phase-time {
       display: table-cell;
       text-align: right;
-      font-size: 9px;
-      letter-spacing: 0.10em;
-      text-transform: uppercase;
-      color: rgba(229,240,255,0.65);
+      font-size: 10px;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--pro-text-muted);
+      font-weight: 500;
     }
 
     .phase-body {
-      padding: 11px 13px;
+      padding: 10px 12px;
     }
 
-.phase-body ul {
-  margin: 0;
-  padding-left: 16px;
-  color: #c0cfeb;
-  font-size: 10px;
-  line-height: 1.32;
-}
+    .phase-body ul {
+      margin: 0;
+      padding-left: 16px;
+      color: var(--pro-text-secondary);
+      font-size: 10px;
+      line-height: 1.35;
+    }
 
     .phase-body li {
       margin: 4px 0;
@@ -1120,6 +1057,7 @@ td {
     }
 
   </style>
+
 </head>
 <body>
 
@@ -1184,7 +1122,7 @@ td {
       </div>
 
 
-      ${renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals)}
+      ${renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals, PRO_ACCENT)}
 
       ${
         baseline && baseline.scores
@@ -2181,7 +2119,8 @@ return `
 `;
 }
 
-function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals) {
+function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals, proAccent) {
+  const accent = proAccent || "#0d9488";
   const overall = safeNumber(scores.overall);
   const perf = safeNumber(scores.performance);
   const seo = safeNumber(scores.seo);
@@ -2198,11 +2137,11 @@ function renderExecutiveDashboard(payload, scores, keyFindings, deliverySignals)
     <div class="exec-dashboard">
       <table class="exec-score-table" role="presentation">
         <tr>
-          <td>${renderScoreBox("Overall", overall, "#22d3ee", true)}</td>
-          <td>${renderScoreBox("Performance", perf, "#22c55e", false)}</td>
-          <td>${renderScoreBox("SEO", seo, "#60a5fa", false)}</td>
-          <td>${renderScoreBox("Trust", trust, "#14b8a6", false)}</td>
-          <td>${renderScoreBox("AI Visibility", ai, "#f59e0b", false)}</td>
+          <td>${renderScoreBox("Overall", overall, accent, true)}</td>
+          <td>${renderScoreBox("Performance", perf, "#059669", false)}</td>
+          <td>${renderScoreBox("SEO", seo, "#2563eb", false)}</td>
+          <td>${renderScoreBox("Trust", trust, "#0d9488", false)}</td>
+          <td>${renderScoreBox("AI Visibility", ai, "#d97706", false)}</td>
         </tr>
       </table>
 
@@ -2539,14 +2478,9 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
   return `
-<div class="ai-card" style="
-  border-radius:12px;
-  padding:16px;
-  border:1px solid rgba(238,95,86,0.6);
-  background:linear-gradient(180deg, rgba(30,8,8,0.96), rgba(20,6,6,0.98));
-">
+<div class="ai-card">
 
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+      <div class="signal-top">
         <div class="signal-name">AI Visibility</div>
         <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
       </div>
@@ -2555,65 +2489,37 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
         <div class="score-fill" style="width:${clampScore(score)}%;"></div>
       </div>
 
-      <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:12px 0;margin-top:14px;table-layout:fixed;">
+      <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px 0;margin-top:12px;table-layout:fixed;">
         <tr>
-          <td style="width:180px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:250px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                AI VISIBILITY SCORE
-              </div>
-              <div style="font-size:30px;font-weight:800;line-height:1;margin-bottom:10px;">
+          <td style="width:170px;vertical-align:top;">
+            <div class="ai-inner-panel">
+              <div class="ai-inner-label">AI visibility score</div>
+              <div class="ai-inner-value" style="font-size:28px;line-height:1;margin-bottom:8px;">
                 ${score === null ? "—" : escapeHtml(String(score))}
               </div>
-              <div style="font-size:12px;line-height:1.3;font-weight:700;">
+              <div class="ai-inner-value" style="font-weight:500;">
                 ${escapeHtml(status)}
               </div>
             </div>
           </td>
 
-          <td style="width:420px;vertical-align:top;">
-            <div style="
-              border:1px solid rgba(255,255,255,0.08);
-              border-radius:10px;
-              padding:12px;
-              background:rgba(255,255,255,0.02);
-              min-height:250px;
-            ">
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                CATEGORY DETECTED
+          <td style="width:400px;vertical-align:top;">
+            <div class="ai-inner-panel">
+              <div class="ai-inner-label">Category detected</div>
+              <div class="ai-inner-value" style="margin-bottom:12px;">
+                ${escapeHtml(aiCategoryEstablished ? aiCategory : "Category could not be determined")}
               </div>
-           <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
- ${escapeHtml(aiCategoryEstablished ? aiCategory : "Category could not be determined")}
-</div>
 
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                HOW THIS WAS TESTED
-              </div>
-              <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
+              <div class="ai-inner-label">How this was tested</div>
+              <div class="ai-inner-copy" style="margin-bottom:12px;">
                 ${escapeHtml(aiTestMethod)}
               </div>
 
               ${
                 aiExamplePrompt
                   ? `
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                EXAMPLE PROMPT TESTED
-              </div>
-              <div style="
-                border:1px solid rgba(255,255,255,0.08);
-                border-radius:8px;
-                padding:10px 12px;
-                background:rgba(255,255,255,0.03);
-                font-size:12px;
-                line-height:1.4;
-                font-family:monospace;
-              ">
+              <div class="ai-inner-label">Example prompt tested</div>
+              <div class="ai-prompt-box">
                 ${escapeHtml(String(aiExamplePrompt))}
               </div>
                   `
@@ -2622,44 +2528,24 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
             </div>
           </td>
 
-  <td style="width:420px;vertical-align:top;">
-  <div style="
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:10px;
-    padding:12px;
-    background:rgba(255,255,255,0.02);
-    min-height:250px;
-  ">
+          <td style="width:400px;vertical-align:top;">
+            <div class="ai-inner-panel">
+              <div class="ai-inner-label">Recommendation test result</div>
+              <div class="ai-inner-value" style="margin-bottom:12px;">
+                ${escapeHtml(recommendationResult)}
+              </div>
 
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-      RECOMMENDATION TEST RESULT
-    </div>
-    <div style="font-size:12px;line-height:1.45;font-weight:700;margin-bottom:14px;">
-      ${escapeHtml(recommendationResult)}
-    </div>
-
-    <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-      WHAT WAS OBSERVED
-    </div>
-              <div style="font-size:12px;line-height:1.45;margin-bottom:14px;">
+              <div class="ai-inner-label">What was observed</div>
+              <div class="ai-inner-copy" style="margin-bottom:12px;">
                 ${escapeHtml(observedText)}
               </div>
 
-              <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;margin-bottom:8px;">
-                HOW TO IMPROVE VISIBILITY
-              </div>
-              <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.45;">
+              <div class="ai-inner-label">How to improve visibility</div>
+              <ul class="ai-inner-copy" style="margin:0;padding-left:18px;">
                 ${fixItems.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
               </ul>
 
-              <div style="
-                margin-top:12px;
-                padding-top:12px;
-                border-top:1px solid rgba(255,255,255,0.08);
-                font-size:11px;
-                line-height:1.45;
-                opacity:0.92;
-              ">
+              <div class="ai-footnote">
                 ${escapeHtml(footnote)}
               </div>
             </div>
@@ -2668,6 +2554,5 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
       </table>
 
     </div>
-  </div>
   `;
 }

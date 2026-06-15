@@ -2302,6 +2302,205 @@ body.iqweb-v2-dashboard .row-menu-item:hover {
   color: var(--pro-text);
 }
 
+/* =========================================================
+   PHASE 4 — Billing & Branding views
+   ========================================================= */
+
+body.iqweb-v2-dashboard #view-billing .card.secondary,
+body.iqweb-v2-dashboard #view-account .card.secondary,
+body.iqweb-v2-dashboard #view-branding .card.secondary {
+  padding: 20px !important;
+}
+
+body.iqweb-v2-dashboard #view-billing .wd-history-link,
+body.iqweb-v2-dashboard #view-account .wd-history-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pro-accent) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard #view-billing .wd-history-link:hover,
+body.iqweb-v2-dashboard #view-account .wd-history-link:hover {
+  background: transparent !important;
+  color: #0f766e !important;
+  text-decoration: underline !important;
+  border: 0 !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-layout {
+  gap: 16px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-section {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius) !important;
+  padding: 20px !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-section .h {
+  margin-bottom: 12px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-section .h h2 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-section .meta {
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-field label {
+  color: var(--pro-text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-field input::placeholder {
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-toggle {
+  min-height: 40px !important;
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-toggle input {
+  accent-color: var(--pro-accent);
+  width: 16px !important;
+  height: 16px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-toggles {
+  gap: 10px !important;
+  margin-top: 4px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .logo-upload-status,
+body.iqweb-v2-dashboard #view-branding #logo-preview-empty {
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .logo-upload-row input[type="file"] {
+  font-size: 13px !important;
+  color: var(--pro-text-secondary) !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .color-field {
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 12px 14px !important;
+  min-height: 52px !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .color-field-label {
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .color-field-help {
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .color-field input[type="color"] {
+  border: 1px solid var(--pro-border) !important;
+  border-radius: 6px !important;
+  background: var(--pro-surface) !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-preview-note {
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  margin-top: 12px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-savebar {
+  margin-top: 0 !important;
+  padding-top: 8px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-actions {
+  gap: 10px !important;
+  margin-top: 0 !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-save-btn {
+  background: var(--pro-text) !important;
+  border: 1px solid var(--pro-text) !important;
+  color: #fff !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 10px 16px !important;
+  min-width: 0 !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-save-btn:hover {
+  background: #1a3352 !important;
+  border-color: #1a3352 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-save-btn:active {
+  transform: none !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-secondary-btn {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 10px 16px !important;
+  min-width: 0 !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:hover {
+  background: var(--pro-bg) !important;
+  border-color: var(--pro-border-strong) !important;
+  color: var(--pro-text) !important;
+  transform: none !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
+  transform: none !important;
+}
+
+@media (max-width: 760px) {
+  body.iqweb-v2-dashboard #view-branding .brand-grid,
+  body.iqweb-v2-dashboard #view-branding .color-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 </style>
 
 </head>
