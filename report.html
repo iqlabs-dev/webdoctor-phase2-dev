@@ -3545,7 +3545,41 @@ body.iqweb-v2-shell.report-tab-signals .ai-status {
   display: none !important;
 }
 
-  </style>
+  
+
+/* CLEAN EVIDENCE CHEVRON */
+.evidence-expand-pill,
+.acc-score{
+display:none !important;
+}
+
+.signal-evidence-toggle > summary{
+position:relative;
+padding-right:42px !important;
+}
+
+.signal-evidence-toggle > summary::after{
+content:"⌄";
+position:absolute;
+right:16px;
+top:50%;
+transform:translateY(-50%);
+color:#22c55e;
+font-size:18px;
+font-weight:700;
+line-height:1;
+}
+
+.signal-evidence-toggle[open] > summary::after{
+transform:translateY(-50%) rotate(180deg);
+}
+
+.signal-evidence-toggle > summary:hover{
+border-color:#22c55e !important;
+background:#f8fafc !important;
+}
+
+</style>
 <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 
 <style>
