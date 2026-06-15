@@ -224,7 +224,7 @@ body {
 
     .btn:hover {
       border-color: var(--accent);
-      box-shadow: none;
+      box-shadow: 0 0 0 1px rgba(56,232,212,0.14);
     }
 
     .btn:active { transform: translateY(1px); }
@@ -241,7 +241,7 @@ body {
       border: 1px solid var(--border-subtle);
       border-radius: 12px;
       padding: 10px 12px;
-      box-shadow: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
 
     .meta-cell .k {
@@ -281,7 +281,7 @@ body {
       background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.12));
       border: 1px solid var(--border-subtle);
       border-radius: 16px;
-      box-shadow: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
 
 .overall-strip {
@@ -365,7 +365,7 @@ body {
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--accent-strong);
-      text-shadow: none;
+      text-shadow: 0 0 10px rgba(56,232,212,0.18);
       position: relative;
     }
 
@@ -377,7 +377,7 @@ body {
       margin-top: 7px;
       border-radius: 999px;
       background: linear-gradient(90deg, var(--accent-strong), rgba(56,232,212,0.30));
-      box-shadow: none;
+      box-shadow: 0 0 12px rgba(56,232,212,0.18);
     }
 
     .section-body { padding: 20px; }
@@ -627,7 +627,7 @@ body {
     .phase {
       background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.14));
       border: 1px solid var(--border-subtle);
-      box-shadow: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
 
     .evidence-block {
@@ -882,7 +882,7 @@ body {
       border-radius: var(--radius);
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border-subtle);
-      box-shadow: none;
+      box-shadow: var(--shadow-soft);
       padding: 22px 16px;
       display: flex;
       flex-direction: column;
@@ -904,7 +904,7 @@ body {
       font-size: 20px;
       letter-spacing: 0.10em;
       color: rgba(235, 240, 245, 0.92);
-      text-shadow: none;
+      text-shadow: 0 0 8px rgba(200, 215, 230, 0.18);
       animation: iqPulse 1.8s ease-in-out infinite;
     }
 
@@ -939,8 +939,8 @@ body {
       }
 
       * {
-        box-shadow: none;
-        text-shadow: none;
+        box-shadow: none !important;
+        text-shadow: none !important;
         filter: none !important;
       }
 
@@ -951,7 +951,7 @@ body {
 
       .section-title, h1, h2, h3, .issue-title, .evidence-title, .acc-title {
         color: #0f172a !important;
-        text-shadow: none;
+        text-shadow: none !important;
       }
 
       .section-title::after { display: none !important; }
@@ -1076,7 +1076,7 @@ body {
   height: 7px;
   border-radius: 999px;
   background: #22c55e;
-  box-shadow: none;
+  box-shadow: 0 0 16px rgba(34,197,94,0.45);
 }
 
 .exec-score-grid {
@@ -1264,7 +1264,7 @@ body {
   border-radius: 16px;
   background: rgba(255,255,255,0.018);
   border: 1px solid rgba(148,163,184,0.12);
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
 }
 
 .exec-priority-rank {
@@ -1283,7 +1283,9 @@ body {
   background: transparent; /* remove fill */
   border: 1px solid rgba(34,211,238,0.25);
 
-  box-shadow: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.02),
+    0 4px 12px rgba(0,0,0,0.25);
 }
 
 .exec-priority:nth-child(1) .exec-priority-rank {
@@ -1329,17 +1331,17 @@ body {
 /* Color + subtle glow for hierarchy */
 .exec-priority:nth-child(1) .exec-priority-title {
   color: #22d3ee;
-  text-shadow: none;
+  text-shadow: 0 0 10px rgba(34,211,238,0.25);
 }
 
 .exec-priority:nth-child(2) .exec-priority-title {
   color: #60a5fa;
-  text-shadow: none;
+  text-shadow: 0 0 10px rgba(96,165,250,0.25);
 }
 
 .exec-priority:nth-child(3) .exec-priority-title {
   color: #34d399;
-  text-shadow: none;
+  text-shadow: 0 0 10px rgba(52,211,153,0.25);
 }
 
 .exec-priority {
@@ -1443,7 +1445,7 @@ body {
   background:
     radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--sig) 13%, transparent), transparent 48%),
     linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.16));
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.045);
 }
 
 .exec-overall-score {
@@ -1452,7 +1454,8 @@ border-color: #dbe7f3;
   background:
     radial-gradient(circle at 50% 0%, rgba(56,232,212,0.18), transparent 55%),
     linear-gradient(180deg, rgba(255,255,255,0.045), rgba(0,0,0,0.18));
-  box-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .exec-score-ring {
@@ -1464,7 +1467,9 @@ border-color: #dbe7f3;
   background:
     conic-gradient(var(--sig) var(--dash-score-deg, 0deg), rgba(148,163,184,0.16) 0deg),
     radial-gradient(circle, rgba(255,255,255,0.05), rgba(255,255,255,0));
-  box-shadow: none;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.035),
+    0 14px 34px color-mix(in srgb, var(--sig) 16%, transparent);
 }
 
 .exec-ring-lg {
@@ -1714,7 +1719,7 @@ border-color: #dbe7f3;
   color: #8b5cf6;
   background: rgba(139,92,246,0.12);
   border: 1px solid rgba(139,92,246,0.32);
-  box-shadow: none;
+  box-shadow: 0 0 0 4px rgba(139,92,246,0.10);
 }
 
 .exec-mini-icon.seo {
@@ -2010,7 +2015,9 @@ border-color: #dbe7f3;
 .exec-score-card.exec-primary-constraint {
   border-color: rgba(239, 68, 68, 0.7);
   background: inherit;
-  box-shadow: none;
+  box-shadow:
+    0 0 0 1px rgba(239, 68, 68, 0.25),
+    0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
 .exec-score-card.exec-primary-constraint .exec-score-ring {
@@ -2231,7 +2238,7 @@ body.iqweb-v2-shell .btn {
   background: #ffffff;
   border-color: #cbd5e1;
   border-radius: 10px;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06);
 }
 body.iqweb-v2-shell .loader-wrap {
   max-width: none;
@@ -2265,7 +2272,7 @@ body.iqweb-v2-shell .kv {
   background: #ffffff;
   border-color: var(--v2-panel-border);
   color: var(--v2-text);
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
 
 body.iqweb-v2-shell .section::before,
@@ -2313,7 +2320,7 @@ body.iqweb-v2-shell .exec-signal {
   min-height: 168px;
   background: #ffffff;
   border-color: var(--v2-panel-border);
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
 }
 
 body.iqweb-v2-shell .exec-overall-score {
@@ -2378,7 +2385,9 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
   border-radius: 18px !important;
   background: #ffffff !important;
   border: 1px solid #dbe4ef !important;
-  box-shadow: none;
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.04),
+    0 10px 24px rgba(15,23,42,.035) !important;
 
   display: flex !important;
   flex-direction: column !important;
@@ -2572,7 +2581,7 @@ body.iqweb-v2-shell .iq-overview-card {
   border-radius: 16px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
   color: #0f172a;
 }
 
@@ -2870,7 +2879,7 @@ body.iqweb-v2-shell .iq-report-tabs {
   border-top: 0;
   border-radius: 0 0 14px 14px;
   background: linear-gradient(180deg, #f8fafc 0%, #eef3f9 100%);
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
 }
 body.iqweb-v2-shell .iq-report-tab {
   appearance: none;
@@ -2900,7 +2909,7 @@ body.iqweb-v2-shell .iq-report-tab.is-active {
   color: #0f172a;
   background: #ffffff;
   border-color: #cbd9ea;
-  box-shadow: none;
+  box-shadow: 0 -1px 0 rgba(255,255,255,0.8) inset;
 }
 body.iqweb-v2-shell .iq-report-tab.is-active::after {
   content: "";
@@ -2985,7 +2994,7 @@ body.iqweb-v2-shell .shell-inner {
 
 body.iqweb-v2-shell .top-card {
   border-color: #d7e0ec;
-  box-shadow: none;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.055);
 }
 
 body.iqweb-v2-shell .brand-copy .logo {
@@ -3014,7 +3023,7 @@ body.iqweb-v2-shell .iq-report-tabs {
   margin-bottom: 10px;
   border-color: #d7e0ec;
   background: linear-gradient(180deg, #f8fafc 0%, #eaf0f7 100%);
-  box-shadow: none;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset;
 }
 
 body.iqweb-v2-shell .iq-report-tab {
@@ -3025,13 +3034,13 @@ body.iqweb-v2-shell .iq-report-tab {
 body.iqweb-v2-shell .iq-report-tab.is-active {
   color: #071326;
   border-color: #b9c9dc;
-  box-shadow: none;
+  box-shadow: 0 -1px 0 #fff inset, 0 1px 2px rgba(15,23,42,0.04);
 }
 
 body.iqweb-v2-shell.report-tab-overview .executive-dashboard {
   border-color: #d8e2ee;
   background: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.065);
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
@@ -3046,17 +3055,17 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   min-height: 150px;
   border-color: #d8e2ee;
   background: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 8px 22px rgba(15,23,42,0.045);
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
   border-color: #b9d8ff;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 10px 26px rgba(37,99,235,0.08);
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-ring-lg {
-  width: 130px;
-  height: 130px;
+  width: 108px;
+  height: 108px;
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-ring-sm {
@@ -3071,7 +3080,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-score-ring::after {
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-ring-lg strong {
-  font-size: 46px;
+  font-size: 37px;
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-ring-sm strong {
@@ -3099,7 +3108,7 @@ body.iqweb-v2-shell .iq-overview-card {
   min-height: 224px;
   border-color: #d8e2ee;
   background: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 24px rgba(15,23,42,0.045);
 }
 
 body.iqweb-v2-shell .iq-overview-eyebrow {
@@ -3156,7 +3165,7 @@ body.iqweb-v2-shell .iq-ai-mini-bars span {
 body.iqweb-v2-shell .iq-ai-mini-bars b {
   height: 6px;
   background: linear-gradient(90deg, #6d28d9 var(--w), #dfe7f1 0);
-  box-shadow: none;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
 }
 
 body.iqweb-v2-shell .iq-overview-pill.warning {
@@ -3178,7 +3187,7 @@ body.iqweb-v2-shell .iq-insight-list p {
 body.iqweb-v2-shell .iq-overview-mini-issue {
   border-color: #dfe7f1;
   background: #ffffff;
-  box-shadow: none;
+  box-shadow: 0 1px 1px rgba(15,23,42,0.035);
 }
 
 body.iqweb-v2-shell .iq-overview-mini-issue p {
@@ -3353,7 +3362,7 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
   width: 8px;
   border-radius: 999px;
   background: #2dd4bf;
-  box-shadow: none;
+  box-shadow: 0 0 0 4px #fbfdff;
 }
 
 /* subtle movement */
@@ -3391,7 +3400,9 @@ body.iqweb-v2-shell [data-iqweb-theme-toggle] {
 .trend-sparkline span:last-child {
   width: 11px;
   height: 11px !important;
-  box-shadow: none;
+  box-shadow:
+    0 0 0 4px #fbfdff,
+    0 0 0 7px rgba(45, 212, 191, 0.14);
 }
 
 /* upward trend */
@@ -3434,12 +3445,12 @@ body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection .section-body {
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
   background: #ffffff !important;
   border: 1px solid #d8e2ee !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.05) !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card h3 {
   color: #071326 !important;
-  text-shadow: none;
+  text-shadow: none !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .score-right {
@@ -3537,8 +3548,9 @@ body.iqweb-v2-shell.report-tab-signals .ai-status {
   
 
 /* CLEAN EVIDENCE CHEVRON */
-.evidence-expand-pill {
-  display:none !important;
+.evidence-expand-pill,
+.acc-score{
+display:none !important;
 }
 
 .signal-evidence-toggle > summary{
@@ -3567,42 +3579,6 @@ border-color:#22c55e !important;
 background:#f8fafc !important;
 }
 
-
-/* =========================================
-   OVERALL SCORE DOMINANT — added
-========================================= */
-body.iqweb-v2-shell.report-tab-overview .exec-score-grid.exec-score-circles {
-  grid-template-columns: 2fr repeat(4, minmax(0, 1fr)) !important;
-}
-body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
-  grid-template-columns: 2fr repeat(4, minmax(0, 1fr)) !important;
-}
-body.iqweb-v2-shell .exec-overall-score,
-body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
-  min-height: 200px !important;
-}
-body.iqweb-v2-shell .exec-ring-lg strong,
-body.iqweb-v2-shell.report-tab-overview .exec-ring-lg strong {
-  font-size: 54px !important;
-}
-
-/* =========================================
-   EVIDENCE SCORE BADGE — colour coded, no /100
-========================================= */
-
-/* Hide the /100 small tag inside acc-score */
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score small {
-  display: none !important;
-}
-
-/* Base badge — neutral */
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-  background: #f1f5f9 !important;
-  color: #475569 !important;
-}
-
-/* Score colour coding via JS-injected data attributes — fallback to green for high scores */
-/* We'll use a JS snippet instead since scores are dynamic */
 </style>
 <link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=2" />
 
@@ -3629,7 +3605,7 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot *,
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection * {
   color: #0f172a !important;
   opacity: 1 !important;
-  text-shadow: none;
+  text-shadow: none !important;
   filter: none !important;
 }
 
@@ -3653,86 +3629,53 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
 
 
 /* =========================================
-   EVIDENCE TAB CLICKABLE CARD POLISH
-   Green chevron only, no circle.
+   EVIDENCE CARDS — NICER BOXES
 ========================================= */
 
+/* Left accent bar coloured per signal */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #d8e2ee !important;
   border-left: 4px solid #22c55e !important;
-  border-radius: 10px !important;
-  background: #ffffff !important;
-  box-shadow: none !important;
-  transition: border-left-color 0.15s ease !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.07) !important;
+  transition: box-shadow 0.15s ease, transform 0.1s ease !important;
 }
 
+/* Lift on hover */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
-  border-left-color: #16a34a !important;
+  box-shadow: 0 4px 16px rgba(15,23,42,0.11) !important;
+  transform: translateY(-1px) !important;
 }
 
+/* Summary row — more breathing room, label more prominent */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
-  position: relative !important;
-  min-height: 52px !important;
-  padding: 14px 52px 14px 20px !important;
-  cursor: pointer !important;
-  border: 0 !important;
-  background: #ffffff !important;
-  list-style: none !important;
+  padding: 18px 52px 18px 20px !important;
+  min-height: 64px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 12px !important;
 }
 
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::-webkit-details-marker {
-  display: none !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
-  content: "⌄" !important;
-  position: absolute !important;
-  right: 18px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  color: #22c55e !important;
-  font-size: 22px !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
-  background: none !important;
-  border: none !important;
-  box-shadow: none;
-  width: auto !important;
-  height: auto !important;
-  border-radius: 0 !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::after {
-  transform: translateY(-50%) rotate(180deg) !important;
-  color: #22c55e !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-width: 38px !important;
-  height: 30px !important;
-  border-radius: 6px !important;
-  background: #f0fdf4 !important;
-  color: #15803d !important;
-  font-size: 12px !important;
+/* Title text — slightly bigger and darker */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title {
+  font-size: 13px !important;
+  letter-spacing: 0.06em !important;
+  color: #1e293b !important;
   font-weight: 700 !important;
-  margin-left: auto !important;
-  margin-right: 40px !important;
-  padding: 0 10px !important;
-  flex-shrink: 0 !important;
-  border: 1px solid #bbf7d0 !important;
 }
 
+/* Open state — tinted body background */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] .acc-body {
+  background: #f8fafc !important;
   border-top: 1px solid #e2e8f0 !important;
-  background: #fbfdff !important;
+  padding: 18px 20px !important;
+}
+
+/* kv rows inside — cleaner pills */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv {
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 /* =========================================
@@ -3752,12 +3695,12 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   padding: 28px 22px !important;
   border-color: rgba(210, 218, 232, .66) !important;
   border-radius: 18px !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-overall-score {
   border-color: rgba(34, 211, 238, .34) !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 10px 26px rgba(34,211,238,.08) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .exec-overall-score .exec-score-copy .note {
@@ -3788,7 +3731,7 @@ body.iqweb-v2-shell.report-tab-overview .iq-overview-card {
   padding: 18px !important;
   border-radius: 18px !important;
   border-color: rgba(210, 218, 232, .68) !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.035) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .iq-overview-card-head {
@@ -3837,7 +3780,7 @@ body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue {
   border-radius: 13px !important;
   background: linear-gradient(180deg, #fff, #fff7f7) !important;
   border-color: rgba(254, 202, 202, .88) !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(127, 29, 29, .045) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue::before {
@@ -3867,7 +3810,7 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
   margin-top: 20px !important;
   padding: 20px !important;
   border-radius: 18px !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,.045), 0 8px 20px rgba(15,23,42,.03) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .trend-strip-header {
@@ -3906,7 +3849,7 @@ body.iqweb-v2-shell.report-tab-overview .trend-sparkline::before {
 body.iqweb-v2-shell.report-tab-overview .trend-sparkline span {
   width: 9px !important;
   height: 9px !important;
-  box-shadow: none;
+  box-shadow: 0 0 0 4px #fbfdff, 0 1px 2px rgba(15,23,42,.12) !important;
 }
 
 body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card .iq-overview-count {
@@ -3953,7 +3896,9 @@ body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card {
     #ffffff 0%,
     #fbfdff 100%
   ) !important;
-  box-shadow: none;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 10px 24px rgba(59, 130, 246, 0.05) !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid {
@@ -4013,7 +3958,7 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
   min-height: 188px !important;
   padding: 20px !important;
   border: 1px solid rgba(216, 226, 238, .72) !important;
-  box-shadow: none;
+  box-shadow: none !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card-top {
@@ -4062,7 +4007,7 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel {
   border-width: 1px !important;
-  box-shadow: none;
+  box-shadow: none !important;
   padding: 16px !important;
 }
 
@@ -4538,7 +4483,7 @@ body.iqweb-v2-shell #backToDashboard {
   font-weight: 700 !important;
   letter-spacing: 0 !important;
   text-decoration: none !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
 }
 
 body.iqweb-v2-shell #backToDashboard::before {
@@ -4597,7 +4542,7 @@ body.iqweb-v2-shell #backToDashboard {
   font-weight: 700 !important;
   letter-spacing: 0 !important;
   text-decoration: none !important;
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
 }
 
 body.iqweb-v2-shell #backToDashboard::before {
@@ -5649,55 +5594,5 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
   })();
 </script>
 
-
-<script>
-(function() {
-  function colourBadge(badge) {
-    // Strip /100 and <small> tags
-    badge.innerHTML = badge.innerHTML.replace(/<small[^>]*>.*?<\/small>/gi, '').replace(/\/100/g, '').trim();
-    var val = parseInt(badge.textContent.trim(), 10);
-    if (isNaN(val)) return;
-    if (val >= 80) {
-      badge.style.cssText += 'background:#f0fdf4!important;color:#15803d!important;border:1px solid #bbf7d0!important;';
-    } else if (val >= 60) {
-      badge.style.cssText += 'background:#fefce8!important;color:#854d0e!important;border:1px solid #fde68a!important;';
-    } else {
-      badge.style.cssText += 'background:#fef2f2!important;color:#991b1b!important;border:1px solid #fecaca!important;';
-    }
-  }
-
-  function colourAllBadges() {
-    document.querySelectorAll('#signalEvidenceRoot .acc-score').forEach(colourBadge);
-  }
-
-  // MutationObserver — fires whenever signalEvidenceRoot gets children added
-  var observer = new MutationObserver(function() {
-    colourAllBadges();
-  });
-
-  function startObserving() {
-    var root = document.getElementById('signalEvidenceRoot');
-    if (root) {
-      observer.observe(root, { childList: true, subtree: true });
-      colourAllBadges();
-    } else {
-      setTimeout(startObserving, 200);
-    }
-  }
-
-  // Also re-run on evidence tab click
-  document.addEventListener('click', function(e) {
-    var btn = e.target.closest && e.target.closest('[data-report-tab]');
-    if (btn && btn.getAttribute('data-report-tab') === 'evidence') {
-      setTimeout(colourAllBadges, 150);
-      setTimeout(colourAllBadges, 600);
-    }
-  });
-
-  startObserving();
-  setTimeout(colourAllBadges, 1000);
-  setTimeout(colourAllBadges, 3000);
-})();
-</script>
 </body>
 </html>
