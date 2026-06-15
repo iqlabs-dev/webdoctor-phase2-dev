@@ -3596,90 +3596,77 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
 
 /* =========================================
    EVIDENCE TAB CLICKABLE CARD POLISH
-   Makes signal evidence cards read as expandable controls.
+   Subtle expandable rows, no heavy CTA buttons.
 ========================================= */
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
-  gap: 18px !important;
+  gap: 14px !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
   position: relative;
   overflow: hidden;
-  border: 1px solid #cbd8e8 !important;
-  border-radius: 16px !important;
+  border: 1px solid #d8e2ee !important;
+  border-radius: 14px !important;
   background: #ffffff !important;
-  box-shadow: 0 1px 2px rgba(15,23,42,0.05), 0 10px 26px rgba(15,23,42,0.06) !important;
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
-  min-height: 58px;
-  padding: 16px 48px 16px 18px !important;
+  min-height: 56px;
+  padding: 15px 48px 15px 18px !important;
   cursor: pointer !important;
   border: 0 !important;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
+  background: #ffffff !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
-  content: "View details";
-  position: absolute;
-  right: 46px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #2563eb !important;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::before {
   content: "⌄";
   position: absolute;
   right: 18px;
   top: 50%;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   transform: translateY(-50%);
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: #0f172a;
-  color: #ffffff !important;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155 !important;
   font-size: 15px;
   font-weight: 900;
   line-height: 1;
-  transition: transform 160ms ease, background 160ms ease;
+  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::after {
-  content: "Hide details";
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::before {
   transform: translateY(-50%) rotate(180deg);
-  background: #2563eb;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #2563eb !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
-  transform: translateY(-2px);
-  border-color: #93c5fd !important;
-  box-shadow: 0 2px 5px rgba(15,23,42,0.08), 0 16px 34px rgba(37,99,235,0.10) !important;
+  border-color: #b6c6da !important;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.06) !important;
 }
 
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover > summary {
-  background: linear-gradient(180deg, #ffffff 0%, #f0f7ff 100%) !important;
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover > summary::after {
+  border-color: #93c5fd;
+  color: #2563eb !important;
+  background: #eff6ff;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] {
+  border-color: #bfdbfe !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title,
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title {
   margin: 0 !important;
-  padding-right: 132px;
+  padding-right: 44px;
   color: #071326 !important;
   font-size: 12px !important;
   font-weight: 900 !important;
@@ -3687,26 +3674,24 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title {
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-  margin-right: 132px;
+  margin-right: 44px;
   color: #2563eb !important;
+  font-weight: 900 !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] .acc-body {
-  border-top: 1px solid #d8e2ee !important;
+  border-top: 1px solid #e2e8f0 !important;
   background: #fbfdff !important;
 }
 
 @media (max-width: 700px) {
-  body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
-    display: none;
-  }
-
   body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title,
   body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title,
   body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
     padding-right: 36px;
     margin-right: 36px;
   }
+}
 }
 
 /* =========================================
