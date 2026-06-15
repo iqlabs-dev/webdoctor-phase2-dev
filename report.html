@@ -5,7 +5,7 @@
 <title>iQWEB Report</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
 
@@ -4622,6 +4622,687 @@ body.iqweb-v2-shell #backToDashboard::before {
   justify-content: flex-start !important;
   align-items: center !important;
   margin-bottom: 0 !important;
+}
+</style>
+
+
+<style>
+/* =========================================================
+   iQWEB PRO SAAS SHELL — Stripe-inspired report chrome
+   Flat surfaces, restrained type, single accent system
+   ========================================================= */
+body.iqweb-v2-shell {
+  --pro-bg: #f6f9fc;
+  --pro-surface: #ffffff;
+  --pro-border: #e6ebf1;
+  --pro-border-strong: #d8dee6;
+  --pro-text: #0a2540;
+  --pro-text-secondary: #425466;
+  --pro-text-muted: #697386;
+  --pro-accent: #0d9488;
+  --pro-accent-soft: #ecfdf5;
+  --pro-radius: 10px;
+  --pro-radius-sm: 8px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+}
+
+body.iqweb-v2-shell .page-shell {
+  background: var(--pro-bg) !important;
+  padding: 20px 24px 32px !important;
+}
+
+body.iqweb-v2-shell #backToDashboard {
+  box-shadow: none !important;
+  border-color: var(--pro-border) !important;
+  color: var(--pro-text-secondary) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  padding: 7px 12px !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+}
+
+body.iqweb-v2-shell #backToDashboard:hover {
+  color: var(--pro-text) !important;
+  border-color: var(--pro-border-strong) !important;
+  background: var(--pro-surface) !important;
+}
+
+/* Header card */
+body.iqweb-v2-shell .top-card {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius) var(--pro-radius) 0 0 !important;
+  box-shadow: none !important;
+  padding: 20px 24px 16px !important;
+}
+
+body.iqweb-v2-shell .brand-copy .logo {
+  color: var(--pro-text) !important;
+  font-weight: 700 !important;
+  font-size: 17px !important;
+  letter-spacing: -0.03em !important;
+}
+
+body.iqweb-v2-shell .meta-strip {
+  gap: 12px !important;
+  margin-top: 16px !important;
+}
+
+body.iqweb-v2-shell .meta-cell {
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 10px 14px !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .meta-cell .k {
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell .meta-cell .v {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Tabs — underline style, not browser chrome */
+body.iqweb-v2-shell .iq-report-tabs {
+  height: auto !important;
+  min-height: 44px !important;
+  padding: 0 24px !important;
+  margin: 0 !important;
+  gap: 0 !important;
+  border: 1px solid var(--pro-border) !important;
+  border-top: 0 !important;
+  border-radius: 0 !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  min-height: 44px !important;
+  margin: 0 !important;
+  padding: 12px 16px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab.is-active {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+  border-bottom-color: var(--pro-accent) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active) {
+  color: var(--pro-text-secondary) !important;
+}
+
+/* Main report panel */
+body.iqweb-v2-shell .section,
+body.iqweb-v2-shell .executive-dashboard,
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-top: 0 !important;
+  border-radius: 0 0 var(--pro-radius) var(--pro-radius) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .section-head {
+  display: none !important;
+}
+
+body.iqweb-v2-shell #reportRoot {
+  background: transparent !important;
+}
+
+/* ── Overview: score row ── */
+body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
+  background: var(--pro-surface) !important;
+  border-bottom: 1px solid var(--pro-border) !important;
+  gap: 12px !important;
+  padding: 20px 24px !important;
+}
+
+body.iqweb-v2-shell .exec-score-card,
+body.iqweb-v2-shell .exec-overall-score,
+body.iqweb-v2-shell .exec-signal {
+  min-height: 0 !important;
+  padding: 16px 12px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+  gap: 8px !important;
+}
+
+body.iqweb-v2-shell .exec-overall-score {
+  border-color: var(--pro-border-strong) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .exec-mini-icon {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .exec-score-ring {
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .exec-score-ring::after {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .exec-ring-lg {
+  width: 96px !important;
+  height: 96px !important;
+}
+
+body.iqweb-v2-shell .exec-ring-sm {
+  width: 68px !important;
+  height: 68px !important;
+}
+
+body.iqweb-v2-shell .exec-ring-lg strong {
+  font-size: 32px !important;
+  font-weight: 600 !important;
+  color: var(--pro-text) !important;
+  letter-spacing: -0.04em !important;
+}
+
+body.iqweb-v2-shell .exec-ring-sm strong {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  color: var(--pro-text) !important;
+  letter-spacing: -0.03em !important;
+}
+
+body.iqweb-v2-shell .exec-score-copy .k {
+  color: var(--pro-text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell .exec-score-copy .v {
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  margin-top: 2px !important;
+}
+
+body.iqweb-v2-shell .exec-overall-score .exec-score-copy .note {
+  display: none !important;
+}
+
+/* ── Overview: insight grid ── */
+body.iqweb-v2-shell .iq-overview-dashboard-grid {
+  background: var(--pro-surface) !important;
+  padding: 20px 24px !important;
+  gap: 16px !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body.iqweb-v2-shell .iq-overview-card {
+  min-height: 0 !important;
+  padding: 18px 20px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .iq-overview-eyebrow {
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  margin-bottom: 4px !important;
+}
+
+body.iqweb-v2-shell .iq-overview-card h3 {
+  color: var(--pro-text) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+body.iqweb-v2-shell .iq-overview-card h3 small {
+  color: var(--pro-text-muted) !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell .iq-overview-pill,
+body.iqweb-v2-shell .iq-overview-count {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  min-height: 24px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-secondary) !important;
+}
+
+body.iqweb-v2-shell .iq-overview-pill.warning {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+body.iqweb-v2-shell .iq-overview-progress-body p,
+body.iqweb-v2-shell .iq-overview-ai-card p,
+body.iqweb-v2-shell .trend-strip-subtitle,
+body.iqweb-v2-shell .trend-footer {
+  color: var(--pro-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  font-weight: 400 !important;
+}
+
+body.iqweb-v2-shell .iq-mini-trend {
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+}
+
+body.iqweb-v2-shell .iq-delta-strip span {
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+}
+
+body.iqweb-v2-shell .iq-delta-strip strong {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars span {
+  color: var(--pro-text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bars b {
+  background: linear-gradient(90deg, var(--pro-accent) var(--w), var(--pro-border) 0) !important;
+  border-radius: 999px !important;
+  height: 4px !important;
+}
+
+body.iqweb-v2-shell .iq-insight-list p {
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
+
+body.iqweb-v2-shell .iq-insight-list span {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+}
+
+body.iqweb-v2-shell .iq-overview-insights-card {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  box-shadow: none !important;
+  padding: 12px 14px !important;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue::before {
+  width: 2px !important;
+  background: #ef4444 !important;
+  top: 12px !important;
+  bottom: 12px !important;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue p {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-shell .iq-overview-mini-issue b {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 5px !important;
+  padding: 3px 7px !important;
+}
+
+/* Progress trend strip */
+body.iqweb-v2-shell .overview-trend-strip {
+  margin: 0 24px 24px !important;
+  padding: 18px 20px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-bg) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell .trend-strip-title {
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell .trend-card {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 14px !important;
+}
+
+body.iqweb-v2-shell .trend-label {
+  color: var(--pro-text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell .trend-delta {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 5px !important;
+}
+
+body.iqweb-v2-shell .trend-sparkline span {
+  box-shadow: none !important;
+  border: 2px solid var(--pro-surface) !important;
+}
+
+/* ── Signals tab ── */
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection .section-body {
+  background: var(--pro-surface) !important;
+  padding: 20px 24px 24px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid {
+  gap: 16px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
+  min-height: 0 !important;
+  padding: 18px 20px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card h3 {
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .score-right {
+  color: var(--pro-text) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
+  color: var(--pro-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  font-weight: 400 !important;
+  margin-top: 10px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar {
+  height: 4px !important;
+  background: var(--pro-border) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  margin-top: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar > div {
+  background: var(--pro-accent) !important;
+  border-radius: 999px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-detected,
+body.iqweb-v2-shell.report-tab-signals .ai-not-detected {
+  background: var(--pro-surface) !important;
+  border-color: var(--pro-border) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
+  margin-top: 20px !important;
+  padding-top: 20px !important;
+  border-top: 1px solid var(--pro-border) !important;
+  gap: 16px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  box-shadow: none !important;
+  padding: 18px 20px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox .ai-label,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel h4 {
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox .ai-score {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+  font-size: 28px !important;
+  letter-spacing: -0.03em !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel p,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel li,
+body.iqweb-v2-shell.report-tab-signals .ai-more-copy,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-footnote {
+  color: var(--pro-text-secondary) !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-prompt-box {
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  color: var(--pro-text-secondary) !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-status {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-high,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-medium,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-strong,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-na {
+  background: var(--pro-surface) !important;
+  border-color: var(--pro-border) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel.category-success {
+  background: var(--pro-surface) !important;
+  border-color: var(--pro-border) !important;
+}
+
+/* ── Evidence tab ── */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
+  padding: 20px 24px 24px !important;
+  gap: 12px !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
+  border: 1px solid var(--pro-border) !important;
+  border-left: 3px solid var(--pro-accent) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
+  border-color: var(--pro-border-strong) !important;
+  border-left-color: var(--pro-accent) !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
+  padding: 16px 40px 16px 18px !important;
+  min-height: 52px !important;
+  background: var(--pro-surface) !important;
+  cursor: pointer !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary:hover {
+  background: var(--pro-bg) !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
+  border-right-color: var(--pro-text-muted) !important;
+  border-bottom-color: var(--pro-text-muted) !important;
+  width: 7px !important;
+  height: 7px !important;
+  right: 18px !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] .acc-body {
+  background: var(--pro-bg) !important;
+  border-top: 1px solid var(--pro-border) !important;
+  padding: 16px 18px !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: var(--pro-text-muted) !important;
+  margin-bottom: 8px !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv {
+  border: 1px solid var(--pro-border) !important;
+  border-radius: 6px !important;
+  padding: 10px 12px !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv .k {
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv .v {
+  color: var(--pro-text) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+/* Footer */
+body.iqweb-v2-shell .footer,
+body.iqweb-v2-shell #powered-by {
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+@media (max-width: 1100px) {
+  body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  body.iqweb-v2-shell .exec-overall-score {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  body.iqweb-v2-shell .page-shell {
+    padding: 12px 12px 24px !important;
+  }
+  body.iqweb-v2-shell .exec-score-grid.exec-score-circles,
+  body.iqweb-v2-shell .iq-overview-dashboard-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  body.iqweb-v2-shell.report-tab-signals #signalsGrid {
+    grid-template-columns: 1fr !important;
+  }
+  body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
+    grid-template-columns: 1fr !important;
+    padding: 16px !important;
+  }
 }
 </style>
 
