@@ -895,7 +895,6 @@ async function loadScanHistory() {
 
       const tdBaseline = document.createElement("td");
       tdBaseline.className = "col-baseline";
-      tdBaseline.style.textAlign = "center";
 
       const baselineInput = document.createElement("input");
       baselineInput.type = "radio";

@@ -1975,13 +1975,25 @@ body.iqweb-v2-dashboard .scan-history-table .status-complete {
   border: 1px solid #bbf7d0;
 }
 
+body.iqweb-v2-dashboard .scan-history-table .col-baseline-head,
 body.iqweb-v2-dashboard .scan-history-table .col-baseline {
-  text-align: center;
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  text-align: center !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-baseline {
+  vertical-align: middle !important;
 }
 
 body.iqweb-v2-dashboard .scan-history-table .baseline-selector {
-  width: 16px;
-  height: 16px;
+  display: block !important;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 auto !important;
   accent-color: var(--pro-accent);
   cursor: pointer;
 }
@@ -2069,8 +2081,13 @@ body.iqweb-v2-dashboard .sr-only {
 }
 
 body.iqweb-v2-dashboard .baseline-help-collapsible {
+  margin-top: 6px !important;
+  padding: 0 !important;
+}
+
+body.iqweb-v2-dashboard .nav-secondary {
   margin-top: auto !important;
-  padding: 0 6px 4px !important;
+  padding-top: 4px !important;
 }
 
 body.iqweb-v2-dashboard .baseline-help-details {
@@ -2296,20 +2313,19 @@ body.iqweb-v2-dashboard .row-menu-item:hover {
         </a>
       </div>
 
-<nav class="nav" aria-label="Secondary">
+<nav class="nav nav-secondary" aria-label="Secondary">
   <a href="#" id="logout-link">Sign out</a>
+  <div class="baseline-help-collapsible">
+    <details class="baseline-help-details">
+      <summary>How baselines work</summary>
+      <ul>
+        <li>Select a scan in history to set it as the baseline for that domain.</li>
+        <li>Future reports compare progress against that baseline.</li>
+        <li>Use <strong>Clear baseline</strong> in scan history to remove it.</li>
+      </ul>
+    </details>
+  </div>
 </nav>
-
-<div class="baseline-help-collapsible">
-  <details class="baseline-help-details">
-    <summary>How baselines work</summary>
-    <ul>
-      <li>Select a scan in history to set it as the baseline for that domain.</li>
-      <li>Future reports compare progress against that baseline.</li>
-      <li>Use <strong>Clear baseline</strong> in scan history to remove it.</li>
-    </ul>
-  </details>
-</div>
 
       <div class="sidebar-foot" style="display:none;">
         <button id="logout-btn" class="btn" type="button">Sign out</button>
