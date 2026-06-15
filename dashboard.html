@@ -1699,6 +1699,359 @@ body.iqweb-v2-dashboard .wrap {
   gap: 16px !important;
 }
 
+/* =========================================================
+   PHASE 2 — Top cards + scan history table
+   ========================================================= */
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 16px !important;
+  margin-bottom: 0 !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .col {
+  min-width: 0 !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .card.primary.equal {
+  min-height: 0 !important;
+  padding: 20px !important;
+}
+
+/* Latest scan card */
+body.iqweb-v2-dashboard .latest-card {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 4px;
+}
+
+body.iqweb-v2-dashboard .latest-primary {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+body.iqweb-v2-dashboard .latest-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+body.iqweb-v2-dashboard .latest-url {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.3 !important;
+  margin-bottom: 4px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.iqweb-v2-dashboard .latest-date {
+  font-size: 13px !important;
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .latest-score-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+body.iqweb-v2-dashboard .latest-score-num {
+  font-size: 28px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.04em !important;
+  line-height: 1 !important;
+  color: var(--pro-text) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+body.iqweb-v2-dashboard .latest-score-label {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .latest-cta,
+body.iqweb-v2-dashboard #ls-view.latest-cta {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pro-accent) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .latest-cta:hover,
+body.iqweb-v2-dashboard #ls-view.latest-cta:hover {
+  color: #0f766e !important;
+  background: transparent !important;
+  border: 0 !important;
+  text-decoration: underline !important;
+}
+
+/* Joined scan input */
+body.iqweb-v2-dashboard .scanbar-joined {
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  margin-top: 4px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  overflow: hidden !important;
+  background: var(--pro-surface) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body.iqweb-v2-dashboard .scanbar-joined:focus-within {
+  border-color: var(--pro-border-strong) !important;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1) !important;
+}
+
+body.iqweb-v2-dashboard .scanbar-joined input {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  height: 42px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+body.iqweb-v2-dashboard .scanbar-joined input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .scanbar-joined #run-scan {
+  height: auto !important;
+  min-height: 42px !important;
+  padding: 0 18px !important;
+  border: 0 !important;
+  border-left: 1px solid var(--pro-border) !important;
+  border-radius: 0 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+body.iqweb-v2-dashboard #trial-info {
+  margin-top: 10px !important;
+}
+
+/* Scan history header + toolbar */
+body.iqweb-v2-dashboard .scan-history-card .h.scan-history-head {
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 12px 16px !important;
+  margin-bottom: 16px !important;
+}
+
+body.iqweb-v2-dashboard .history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+body.iqweb-v2-dashboard .history-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+body.iqweb-v2-dashboard .history-search-wrap #history-search {
+  width: min(280px, 42vw) !important;
+  height: 36px !important;
+  padding: 0 12px !important;
+}
+
+body.iqweb-v2-dashboard .btn-ghost {
+  background: transparent !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-secondary) !important;
+  padding: 7px 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard .btn-ghost:hover {
+  background: var(--pro-bg) !important;
+  color: var(--pro-text) !important;
+  border-color: var(--pro-border-strong) !important;
+}
+
+body.iqweb-v2-dashboard .history-empty {
+  margin: 0 0 12px !important;
+}
+
+/* History table */
+body.iqweb-v2-dashboard .scan-history-table {
+  min-width: 640px !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table thead th {
+  padding: 10px 14px !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table tbody td {
+  padding: 14px !important;
+  vertical-align: middle !important;
+  white-space: nowrap !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-report-id {
+  display: none !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-scanned {
+  min-width: 120px;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .scan-date {
+  display: block;
+  font-weight: 500;
+  color: var(--pro-text);
+  font-size: 13px;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .scan-time {
+  display: block;
+  font-size: 12px;
+  color: var(--pro-text-muted);
+  margin-top: 2px;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-url {
+  max-width: 320px;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .history-url {
+  color: var(--pro-text) !important;
+  text-decoration: none !important;
+  border-bottom: 0 !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .history-url:hover {
+  color: var(--pro-accent) !important;
+  text-decoration: underline !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-score {
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
+  color: var(--pro-text) !important;
+  font-size: 14px !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .status-complete {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-baseline {
+  text-align: center;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .baseline-selector {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--pro-accent);
+  cursor: pointer;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .row-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .row-actions .btn-link {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--pro-accent) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  min-height: 0 !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .row-actions .btn-link:hover {
+  background: transparent !important;
+  text-decoration: underline !important;
+  color: #0f766e !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy {
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy:hover {
+  color: var(--pro-text-secondary) !important;
+}
+
+@media (max-width: 900px) {
+  body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.iqweb-v2-dashboard .latest-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body.iqweb-v2-dashboard .latest-aside {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  body.iqweb-v2-dashboard .latest-score-wrap {
+    align-items: flex-start;
+  }
+
+  body.iqweb-v2-dashboard .history-toolbar {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  body.iqweb-v2-dashboard .history-search-wrap {
+    flex: 1 1 auto;
+  }
+
+  body.iqweb-v2-dashboard .history-search-wrap #history-search {
+    width: 100% !important;
+    flex: 1 1 auto;
+  }
+}
+
 </style>
 
 </head>
@@ -1796,14 +2149,17 @@ body.iqweb-v2-dashboard .wrap {
                   <span class="meta">Most recent result</span>
                 </div>
 
-                <div class="latest">
-                  <div class="latest-left">
+                <div class="latest-card">
+                  <div class="latest-primary">
                     <div id="ls-url" class="latest-url">—</div>
                     <div id="ls-date" class="latest-date">—</div>
                   </div>
-                  <div class="latest-right">
-                    <div id="ls-score" class="score" style="display:none;">—</div>
-                    <button id="ls-view" class="btn-link" type="button">View report</button>
+                  <div class="latest-aside">
+                    <div id="ls-score-wrap" class="latest-score-wrap" style="display:none">
+                      <div id="ls-score" class="latest-score-num">—</div>
+                      <div class="latest-score-label">Overall</div>
+                    </div>
+                    <button id="ls-view" class="latest-cta" type="button">View report →</button>
                   </div>
                 </div>
 
@@ -1818,7 +2174,7 @@ body.iqweb-v2-dashboard .wrap {
                   <span class="meta">Enter a URL to scan</span>
                 </div>
 
-                <div class="scanbar">
+                <div class="scanbar scanbar-joined">
                   <input id="site-url" type="url" inputmode="url" placeholder="https://example.com" />
                   <button id="run-scan" class="btn btn-primary" type="button">Run scan</button>
                 </div>
@@ -1829,54 +2185,37 @@ body.iqweb-v2-dashboard .wrap {
             </div>
           </div>
 
-          <div class="card secondary">
-            <div class="h">
+          <div class="card secondary scan-history-card">
+            <div class="h scan-history-head">
               <h2>Scan history</h2>
+              <div class="history-toolbar">
+                <button id="clear-baseline" class="btn btn-ghost" type="button">Clear baseline</button>
+                <div class="history-search-wrap">
+                  <input
+                    id="history-search"
+                    type="search"
+                    placeholder="Search scans…"
+                    title="Search by domain, report ID, score (e.g. >=80), or status"
+                    autocomplete="off"
+                  />
+                  <button id="history-clear" class="btn btn-ghost" type="button">Clear</button>
+                </div>
+              </div>
+            </div>
 
-    <div style="display:flex; align-items:center; gap:10px;">
-
-  <button id="clear-baseline" class="btn" type="button">
-    Clear Baseline
-  </button>
-
-  <input
-    id="history-search"
-    type="text"
-    placeholder="Search: domain, report ID, score (90, >=80), status…"
-                  style="
-                    width: 360px;
-                    max-width: 46vw;
-                    padding: 9px 12px;
-                    border-radius: 12px;
-                    border: 1px solid rgba(255,255,255,.10);
-                    background: rgba(0,0,0,.18);
-                    color: rgba(255,255,255,.92);
-                    outline: none;
-                    font-size: 12px;"
-                />
-                <button id="history-clear" class="btn" type="button">Clear</button>
-</div>
-</div>
-
-<div id="history-empty" class="scanhelp" style="margin: 0 0 10px 0;">—</div>
+            <div id="history-empty" class="scanhelp history-empty">—</div>
 
             <div class="table-wrap">
-              <table>
+              <table class="scan-history-table">
                 <thead>
                   <tr>
-   <th>Date</th>
-<th>Time</th>
-<th>Website</th>
-<th>Score</th>
-<th>Status</th>
-<th>Report ID</th>
-<th>Baseline</th>
-<th>
-  Actions
-  <div class="actions-helper">
-    Open or share your live report
-  </div>
-</th>
+                    <th>Scanned</th>
+                    <th>Website</th>
+                    <th class="col-score-head">Score</th>
+                    <th>Status</th>
+                    <th class="col-report-id">Report ID</th>
+                    <th class="col-baseline-head" title="Set baseline for progress comparisons">Baseline</th>
+                    <th class="col-actions-head">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="history-body"></tbody>

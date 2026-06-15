@@ -525,13 +525,14 @@ function updateLatestScanCard(row, opts = {}) {
   const elUrl = $("ls-url");
   const elDate = $("ls-date");
   const elScore = $("ls-score");
+  const elScoreWrap = $("ls-score-wrap");
   const elView = $("ls-view");
   const urlInput = $("site-url");
 
   if (!row) {
     if (elUrl) elUrl.textContent = "No scans yet.";
-    if (elDate) elDate.textContent = "Run your first iQWEB scan to see it here.";
-    if (elScore) elScore.style.display = "none";
+    if (elDate) elDate.textContent = "Run your first scan to see results here.";
+    if (elScoreWrap) elScoreWrap.style.display = "none";
     if (elView) elView.onclick = null;
     return;
   }
@@ -540,19 +541,23 @@ function updateLatestScanCard(row, opts = {}) {
   if (elUrl) elUrl.textContent = cleanUrl;
 
   const d = row.created_at ? new Date(row.created_at) : null;
-  if (elDate) elDate.textContent = d ? `Scanned on ${d.toLocaleString()}` : "";
+  if (elDate) {
+    elDate.textContent = d
+      ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+      : "";
+  }
 
   const overall =
     (row.metrics && row.metrics.scores && (row.metrics.scores.overall ?? row.metrics.scores.overall_score)) ??
     row.score_overall ??
     null;
 
-  if (elScore) {
+  if (elScore && elScoreWrap) {
     if (typeof overall === "number") {
       elScore.textContent = String(Math.round(overall));
-      elScore.style.display = "inline-flex";
+      elScoreWrap.style.display = "flex";
     } else {
-      elScore.style.display = "none";
+      elScoreWrap.style.display = "none";
     }
   }
 
@@ -722,13 +727,23 @@ async function loadScanHistory() {
 
       tr.dataset.score = typeof overallScore === "number" ? String(Math.round(overallScore)) : "";
 
-      const tdDate = document.createElement("td");
-      tdDate.textContent = dateStr;
-      tr.appendChild(tdDate);
+      const tdScanned = document.createElement("td");
+      tdScanned.className = "col-scanned";
+      if (d) {
+        const dateSpan = document.createElement("span");
+        dateSpan.className = "scan-date";
+        dateSpan.textContent = dateStr;
 
-      const tdTime = document.createElement("td");
-      tdTime.textContent = timeStr;
-      tr.appendChild(tdTime);
+        const timeSpan = document.createElement("span");
+        timeSpan.className = "scan-time";
+        timeSpan.textContent = timeStr;
+
+        tdScanned.appendChild(dateSpan);
+        tdScanned.appendChild(timeSpan);
+      } else {
+        tdScanned.textContent = "—";
+      }
+      tr.appendChild(tdScanned);
 
       const tdUrl = document.createElement("td");
       tdUrl.className = "col-url";
@@ -745,18 +760,30 @@ async function loadScanHistory() {
       tr.appendChild(tdUrl);
 
       const tdScore = document.createElement("td");
+      tdScore.className = "col-score";
       tdScore.textContent = typeof overallScore === "number" ? String(Math.round(overallScore)) : "—";
       tr.appendChild(tdScore);
 
       const tdStatus = document.createElement("td");
-      tdStatus.textContent = row.status || "—";
+      tdStatus.className = "col-status";
+      const statusText = String(row.status || "").toLowerCase();
+      if (statusText === "complete") {
+        const pill = document.createElement("span");
+        pill.className = "status-pill status-complete";
+        pill.textContent = "Complete";
+        tdStatus.appendChild(pill);
+      } else {
+        tdStatus.textContent = row.status || "—";
+      }
       tr.appendChild(tdStatus);
 
       const tdReportId = document.createElement("td");
+      tdReportId.className = "col-report-id";
       tdReportId.textContent = row.report_id || "—";
       tr.appendChild(tdReportId);
 
       const tdBaseline = document.createElement("td");
+      tdBaseline.className = "col-baseline";
       tdBaseline.style.textAlign = "center";
 
       const baselineInput = document.createElement("input");
@@ -818,20 +845,22 @@ tr.appendChild(tdBaseline);
 const tdActions = document.createElement("td");
 tdActions.className = "col-actions";
 
+const actionsWrap = document.createElement("div");
+actionsWrap.className = "row-actions";
+
 const viewBtn = document.createElement("button");
 viewBtn.className = "btn-link";
 viewBtn.type = "button";
-viewBtn.textContent = "View Report";
+viewBtn.textContent = "View";
 viewBtn.onclick = function () {
   goToReportFromHistory(row.report_id);
 };
-tdActions.appendChild(viewBtn);
+actionsWrap.appendChild(viewBtn);
 
 const copyBtn = document.createElement("button");
-copyBtn.className = "btn-link";
+copyBtn.className = "btn-link action-copy";
 copyBtn.type = "button";
-copyBtn.style.marginLeft = "6px";
-copyBtn.textContent = "Copy Link";
+copyBtn.textContent = "Copy link";
 
 copyBtn.onclick = async function () {
   const rid = normaliseReportId(row.report_id);
@@ -842,16 +871,17 @@ copyBtn.onclick = async function () {
 
   try {
     await navigator.clipboard.writeText(reportUrl);
-    copyBtn.textContent = "✓ Copied";
+    copyBtn.textContent = "Copied";
     setTimeout(function () {
-      copyBtn.textContent = "Copy Link";
+      copyBtn.textContent = "Copy link";
     }, 2000);
   } catch (err) {
     console.error("Clipboard failed:", err);
   }
 };
 
-tdActions.appendChild(copyBtn);
+actionsWrap.appendChild(copyBtn);
+tdActions.appendChild(actionsWrap);
 
 /*
 const pdfBtn = document.createElement("button");
