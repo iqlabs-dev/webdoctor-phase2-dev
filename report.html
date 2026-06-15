@@ -5652,36 +5652,51 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
 
 <script>
 (function() {
-  function colourBadges() {
-    var badges = document.querySelectorAll(
-      'body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score'
-    );
-    badges.forEach(function(badge) {
-      // Strip /100 text
-      badge.innerHTML = badge.innerHTML.replace(/\/100/g, '').replace(/<small[^>]*>.*?<\/small>/gi, '').trim();
-      var val = parseInt(badge.textContent.trim(), 10);
-      if (isNaN(val)) return;
-      if (val >= 80) {
-        badge.style.background = '#f0fdf4';
-        badge.style.color = '#15803d';
-      } else if (val >= 60) {
-        badge.style.background = '#fefce8';
-        badge.style.color = '#854d0e';
-      } else {
-        badge.style.background = '#fef2f2';
-        badge.style.color = '#991b1b';
-      }
-    });
+  function colourBadge(badge) {
+    // Strip /100 and <small> tags
+    badge.innerHTML = badge.innerHTML.replace(/<small[^>]*>.*?<\/small>/gi, '').replace(/\/100/g, '').trim();
+    var val = parseInt(badge.textContent.trim(), 10);
+    if (isNaN(val)) return;
+    if (val >= 80) {
+      badge.style.cssText += 'background:#f0fdf4!important;color:#15803d!important;border:1px solid #bbf7d0!important;';
+    } else if (val >= 60) {
+      badge.style.cssText += 'background:#fefce8!important;color:#854d0e!important;border:1px solid #fde68a!important;';
+    } else {
+      badge.style.cssText += 'background:#fef2f2!important;color:#991b1b!important;border:1px solid #fecaca!important;';
+    }
   }
 
-  // Run on tab switch and on load
+  function colourAllBadges() {
+    document.querySelectorAll('#signalEvidenceRoot .acc-score').forEach(colourBadge);
+  }
+
+  // MutationObserver — fires whenever signalEvidenceRoot gets children added
+  var observer = new MutationObserver(function() {
+    colourAllBadges();
+  });
+
+  function startObserving() {
+    var root = document.getElementById('signalEvidenceRoot');
+    if (root) {
+      observer.observe(root, { childList: true, subtree: true });
+      colourAllBadges();
+    } else {
+      setTimeout(startObserving, 200);
+    }
+  }
+
+  // Also re-run on evidence tab click
   document.addEventListener('click', function(e) {
-    if (e.target.closest && e.target.closest('[data-report-tab="evidence"]')) {
-      setTimeout(colourBadges, 100);
+    var btn = e.target.closest && e.target.closest('[data-report-tab]');
+    if (btn && btn.getAttribute('data-report-tab') === 'evidence') {
+      setTimeout(colourAllBadges, 150);
+      setTimeout(colourAllBadges, 600);
     }
   });
-  setTimeout(colourBadges, 800);
-  setTimeout(colourBadges, 2000);
+
+  startObserving();
+  setTimeout(colourAllBadges, 1000);
+  setTimeout(colourAllBadges, 3000);
 })();
 </script>
 </body>
