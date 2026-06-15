@@ -5,7 +5,7 @@
   <title>iQWEB Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root{
@@ -1454,6 +1454,253 @@ body.iqweb-v2-dashboard #wd-plan-scans-remaining{
 }
 </style>
 
+<style>
+/* =========================================================
+   iQWEB DASHBOARD — PRO SAAS PHASE 1
+   Shared tokens with report · flat surfaces · Inter type
+   ========================================================= */
+body.iqweb-v2-dashboard {
+  --pro-bg: #f6f9fc;
+  --pro-surface: #ffffff;
+  --pro-border: #e6ebf1;
+  --pro-border-strong: #d8dee6;
+  --pro-text: #0a2540;
+  --pro-text-secondary: #425466;
+  --pro-text-muted: #697386;
+  --pro-accent: #0d9488;
+  --pro-radius: 10px;
+  --pro-radius-sm: 8px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif !important;
+  letter-spacing: -0.011em;
+  background: var(--pro-bg) !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-dashboard .main,
+body.iqweb-v2-dashboard .wrap,
+body.iqweb-v2-dashboard .topbar {
+  background: var(--pro-bg) !important;
+  color: var(--pro-text) !important;
+}
+
+/* Top bar */
+body.iqweb-v2-dashboard .topbar {
+  height: auto !important;
+  min-height: 64px !important;
+  padding: 20px 28px 16px !important;
+  border-bottom: 1px solid var(--pro-border) !important;
+}
+
+body.iqweb-v2-dashboard .topbar .title {
+  color: var(--pro-text) !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em !important;
+}
+
+body.iqweb-v2-dashboard .topbar .sub {
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+body.iqweb-v2-dashboard .chip {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  box-shadow: none !important;
+  border-radius: var(--pro-radius-sm) !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .paid-scans {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-muted) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .paid-scans strong,
+body.iqweb-v2-dashboard #wd-plan-scans-remaining {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+}
+
+body.iqweb-v2-dashboard #wd-free-chip {
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard #wd-free-scans {
+  color: var(--pro-text) !important;
+  font-weight: 600 !important;
+}
+
+/* Flat cards & table */
+body.iqweb-v2-dashboard .card,
+body.iqweb-v2-dashboard .card.primary,
+body.iqweb-v2-dashboard .card.secondary,
+body.iqweb-v2-dashboard .plan-banner,
+body.iqweb-v2-dashboard .table-wrap {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius) !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .card.primary.equal,
+body.iqweb-v2-dashboard .dashboard-top-row .card.primary.equal {
+  box-shadow: none !important;
+  border-radius: var(--pro-radius) !important;
+}
+
+/* Typography — sentence case, restrained weights */
+body.iqweb-v2-dashboard .h h2 {
+  color: var(--pro-text) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-dashboard #view-dashboard > .row:first-of-type .h h2 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-dashboard .h .meta,
+body.iqweb-v2-dashboard .meta,
+body.iqweb-v2-dashboard .scanhelp,
+body.iqweb-v2-dashboard .latest-date,
+body.iqweb-v2-dashboard .actions-helper,
+body.iqweb-v2-dashboard #history-empty,
+body.iqweb-v2-dashboard #trial-info {
+  color: var(--pro-text-muted) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-dashboard .latest-url {
+  color: var(--pro-text) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+
+body.iqweb-v2-dashboard .dashboard-top-row .latest-url {
+  font-weight: 600 !important;
+}
+
+/* Table */
+body.iqweb-v2-dashboard thead th {
+  background: var(--pro-bg) !important;
+  border-bottom: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+body.iqweb-v2-dashboard tbody td {
+  border-bottom: 1px solid var(--pro-border) !important;
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+}
+
+body.iqweb-v2-dashboard tbody tr:hover td {
+  background: var(--pro-bg) !important;
+}
+
+body.iqweb-v2-dashboard .history-url,
+body.iqweb-v2-dashboard .wd-history-link {
+  color: var(--pro-accent) !important;
+  font-weight: 500 !important;
+}
+
+/* Inputs */
+body.iqweb-v2-dashboard .scanbar input,
+body.iqweb-v2-dashboard #history-search,
+body.iqweb-v2-dashboard .brand-field input {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  color: var(--pro-text) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .scanbar input:focus,
+body.iqweb-v2-dashboard #history-search:focus {
+  border-color: var(--pro-border-strong) !important;
+  outline: 2px solid rgba(13, 148, 136, 0.12) !important;
+  outline-offset: 0 !important;
+}
+
+/* Buttons */
+body.iqweb-v2-dashboard .btn,
+body.iqweb-v2-dashboard .btn-link,
+body.iqweb-v2-dashboard #ls-view {
+  border-radius: var(--pro-radius-sm) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .btn,
+body.iqweb-v2-dashboard .btn-link,
+body.iqweb-v2-dashboard #ls-view {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  color: var(--pro-text-secondary) !important;
+}
+
+body.iqweb-v2-dashboard .btn:hover,
+body.iqweb-v2-dashboard .btn-link:hover,
+body.iqweb-v2-dashboard #ls-view:hover {
+  background: var(--pro-bg) !important;
+  border-color: var(--pro-border-strong) !important;
+  color: var(--pro-text) !important;
+  transform: none !important;
+}
+
+body.iqweb-v2-dashboard .btn-primary,
+body.iqweb-v2-dashboard #run-scan {
+  background: var(--pro-text) !important;
+  border-color: var(--pro-text) !important;
+  color: #fff !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-dashboard .btn-primary:hover,
+body.iqweb-v2-dashboard #run-scan:hover {
+  background: #1a3352 !important;
+  border-color: #1a3352 !important;
+  color: #fff !important;
+}
+
+body.iqweb-v2-dashboard .score {
+  color: var(--pro-text) !important;
+  background: var(--pro-bg) !important;
+  border: 1px solid var(--pro-border) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-dashboard .wrap {
+  padding: 20px 28px 32px !important;
+  gap: 16px !important;
+}
+
+</style>
+
 </head>
 
 <body class="iqweb-v2-dashboard">
@@ -1522,7 +1769,7 @@ body.iqweb-v2-dashboard #wd-plan-scans-remaining{
         </div>
 
         <div class="right">
-          <span class="chip paid-scans">Scans Remaining: <strong id="wd-plan-scans-remaining">0</strong></span>
+          <span class="chip paid-scans">Scans remaining · <strong id="wd-plan-scans-remaining">0</strong></span>
           <span class="chip" id="wd-free-chip" style="display:none;">Free scans: <strong id="wd-free-scans">0</strong></span>
         </div>
       </header>
@@ -1568,7 +1815,7 @@ body.iqweb-v2-dashboard #wd-plan-scans-remaining{
               <div class="card primary equal">
                 <div class="h">
                   <h2>Run scan</h2>
-                  <span class="meta">Evidence-first diagnostic</span>
+                  <span class="meta">Enter a URL to scan</span>
                 </div>
 
                 <div class="scanbar">
