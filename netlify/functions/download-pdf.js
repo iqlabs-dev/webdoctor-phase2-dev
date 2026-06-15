@@ -10,10 +10,21 @@ function json(statusCode, obj) {
 }
 
 function getBaseUrl(event) {
-  if (process.env.URL) return process.env.URL.replace(/\/+$/, "");
-  const proto = event.headers["x-forwarded-proto"] || "https";
-  const host = event.headers.host;
-  return `${proto}://${host}`;
+  const host = event?.headers?.host || event?.headers?.Host;
+  const proto = String(event?.headers?.["x-forwarded-proto"] || "https")
+    .split(",")[0]
+    .trim();
+
+  if (host) {
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+
+  return String(
+    process.env.DEPLOY_PRIME_URL ||
+      process.env.URL ||
+      process.env.DEPLOY_URL ||
+      "https://iqweb.ai"
+  ).replace(/\/+$/, "");
 }
 
 export const handler = async (event) => {

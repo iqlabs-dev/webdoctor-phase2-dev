@@ -1,8 +1,3 @@
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const { handler: reportHtmlHandler } = require("./get-report-html-pdf.js");
-
 export async function handler(event) {
   if (event.httpMethod === "OPTIONS") {
     return {
@@ -66,33 +61,30 @@ export async function handler(event) {
       };
     }
 
-    // Build HTML in-process so PDF always uses this deploy's template (no stale HTTP fetch).
-    const htmlResult = await reportHtmlHandler({
-      httpMethod: "GET",
-      queryStringParameters: { report_id },
-      headers: event.headers || {},
+    const siteUrl = resolveSiteUrl(event);
+    const htmlUrl =
+      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(report_id)}&v=pro3`;
+
+    const htmlResponse = await fetch(htmlUrl, {
+      method: "GET",
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "Cache-Control": "no-cache",
+      },
     });
 
-    if (!htmlResult || htmlResult.statusCode !== 200) {
-      const txt =
-        (htmlResult && typeof htmlResult.body === "string" && htmlResult.body) ||
-        "get-report-html-pdf failed";
+    if (!htmlResponse.ok) {
+      const txt = await htmlResponse.text().catch(() => "");
       throw new Error(
-        `Failed to load report HTML (${htmlResult?.statusCode || 500}): ${txt.slice(0, 600)}`
+        `Failed to load report HTML (${htmlResponse.status}): ${txt.slice(0, 600) || "No response body"}`
       );
     }
 
-    const html = htmlResult.body || "";
+    const html = await htmlResponse.text();
 
-    if (!html.trim()) {
+    if (!html || !html.trim()) {
       throw new Error("Report HTML was empty");
     }
-
-    if (!html.includes('data-iqweb-pdf="pro-v3"')) {
-      console.warn("[generate-report-pdf] HTML missing pro-v3 marker — check deployment");
-    }
-
-    const siteUrl = resolveSiteUrl(event);
 
     const response = await fetch("https://docraptor.com/docs", {
       method: "POST",
