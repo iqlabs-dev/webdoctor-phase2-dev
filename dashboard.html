@@ -2052,6 +2052,206 @@ body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy:hover {
   }
 }
 
+/* =========================================================
+   PHASE 3 — Row menus, baseline help, empty state
+   ========================================================= */
+
+body.iqweb-v2-dashboard .sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-collapsible {
+  margin-top: auto !important;
+  padding: 0 6px 4px !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  overflow: hidden !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details > summary {
+  list-style: none !important;
+  cursor: pointer !important;
+  padding: 10px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgba(226, 232, 240, 0.78) !important;
+  user-select: none !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details > summary::after {
+  content: "";
+  float: right;
+  width: 7px;
+  height: 7px;
+  margin-top: 4px;
+  border-right: 1.5px solid rgba(226, 232, 240, 0.5);
+  border-bottom: 1.5px solid rgba(226, 232, 240, 0.5);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details[open] > summary::after {
+  transform: rotate(-135deg);
+  margin-top: 7px;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details > summary:hover {
+  color: #fff !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details ul {
+  margin: 0 !important;
+  padding: 0 12px 12px 28px !important;
+  font-size: 11.5px !important;
+  line-height: 1.5 !important;
+  color: rgba(226, 232, 240, 0.62) !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details li {
+  margin: 6px 0 !important;
+}
+
+body.iqweb-v2-dashboard .baseline-help-details strong {
+  color: rgba(226, 232, 240, 0.82) !important;
+  font-weight: 600 !important;
+}
+
+body.iqweb-v2-dashboard .history-status {
+  margin: 0 0 12px !important;
+  color: var(--pro-text-muted) !important;
+}
+
+body.iqweb-v2-dashboard .history-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px 56px;
+  border: 1px dashed var(--pro-border);
+  border-radius: var(--pro-radius-sm);
+  background: var(--pro-bg);
+  margin-top: 4px;
+}
+
+body.iqweb-v2-dashboard .history-empty-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--pro-surface);
+  border: 1px solid var(--pro-border);
+  color: var(--pro-text-muted);
+  font-size: 18px;
+  margin-bottom: 14px;
+}
+
+body.iqweb-v2-dashboard .history-empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pro-text);
+  letter-spacing: -0.02em;
+}
+
+body.iqweb-v2-dashboard .history-empty-state p {
+  margin: 0;
+  max-width: 360px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--pro-text-muted);
+}
+
+body.iqweb-v2-dashboard .scan-history-table .col-actions-head,
+body.iqweb-v2-dashboard .scan-history-table .col-actions {
+  width: 48px;
+  text-align: right;
+  padding-right: 12px !important;
+}
+
+body.iqweb-v2-dashboard .row-menu {
+  position: relative;
+  display: inline-block;
+}
+
+body.iqweb-v2-dashboard .row-menu-trigger {
+  list-style: none !important;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pro-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+body.iqweb-v2-dashboard .row-menu-trigger::-webkit-details-marker {
+  display: none !important;
+}
+
+body.iqweb-v2-dashboard .row-menu-trigger:hover,
+body.iqweb-v2-dashboard .row-menu[open] .row-menu-trigger {
+  background: var(--pro-bg);
+  border-color: var(--pro-border);
+  color: var(--pro-text);
+}
+
+body.iqweb-v2-dashboard .row-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 148px;
+  padding: 4px;
+  border: 1px solid var(--pro-border);
+  border-radius: var(--pro-radius-sm);
+  background: var(--pro-surface);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+body.iqweb-v2-dashboard .row-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pro-text);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+body.iqweb-v2-dashboard .row-menu-item:hover {
+  background: var(--pro-bg);
+  color: var(--pro-text);
+}
+
 </style>
 
 </head>
@@ -2100,13 +2300,15 @@ body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy:hover {
   <a href="#" id="logout-link">Sign out</a>
 </nav>
 
-<div class="baseline-help">
-  <strong>Baseline guide</strong>
-  <ul>
-    <li>Select a radio in Scan History to set the baseline. The dashboard will refresh.</li>
-    <li>Future scans compare against this baseline.</li>
-    <li>Use Clear Baseline to remove it.</li>
-  </ul>
+<div class="baseline-help-collapsible">
+  <details class="baseline-help-details">
+    <summary>How baselines work</summary>
+    <ul>
+      <li>Select a scan in history to set it as the baseline for that domain.</li>
+      <li>Future reports compare progress against that baseline.</li>
+      <li>Use <strong>Clear baseline</strong> in scan history to remove it.</li>
+    </ul>
+  </details>
 </div>
 
       <div class="sidebar-foot" style="display:none;">
@@ -2203,9 +2405,15 @@ body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy:hover {
               </div>
             </div>
 
-            <div id="history-empty" class="scanhelp history-empty">—</div>
+            <div id="history-empty" class="scanhelp history-status" style="display:none"></div>
 
-            <div class="table-wrap">
+            <div id="history-empty-state" class="history-empty-state" style="display:none">
+              <div class="history-empty-icon" aria-hidden="true">◎</div>
+              <h3>No scans yet</h3>
+              <p>Run your first scan above to generate a client-ready diagnostic report.</p>
+            </div>
+
+            <div class="table-wrap" id="history-table-wrap">
               <table class="scan-history-table">
                 <thead>
                   <tr>
@@ -2215,7 +2423,7 @@ body.iqweb-v2-dashboard .scan-history-table .row-actions .action-copy:hover {
                     <th>Status</th>
                     <th class="col-report-id">Report ID</th>
                     <th class="col-baseline-head" title="Set baseline for progress comparisons">Baseline</th>
-                    <th class="col-actions-head">Actions</th>
+                    <th class="col-actions-head"><span class="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody id="history-body"></tbody>

@@ -220,11 +220,114 @@ function fmtShortDate(d) {
     return d.toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
-      day: "2-digit",
+      day: "numeric",
     });
   } catch (_) {
     return "";
   }
+}
+
+function fmtScanTime(d) {
+  try {
+    if (!d) return "";
+    return d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch (_) {
+    return "";
+  }
+}
+
+function displayDomainFromUrl(rawUrl) {
+  const domain = normalizeDomainFromUrl(rawUrl);
+  if (domain) return domain;
+  return String(rawUrl || "—")
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/+$/, "") || "—";
+}
+
+function wireRowMenus() {
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".row-menu")) return;
+    document.querySelectorAll(".row-menu[open]").forEach(function (menu) {
+      menu.open = false;
+    });
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      document.querySelectorAll(".row-menu[open]").forEach(function (menu) {
+        menu.open = false;
+      });
+    }
+  });
+}
+
+function buildRowActionsMenu(row) {
+  const menu = document.createElement("details");
+  menu.className = "row-menu";
+
+  const summary = document.createElement("summary");
+  summary.className = "row-menu-trigger";
+  summary.setAttribute("aria-label", "Row actions");
+  summary.textContent = "⋯";
+  menu.appendChild(summary);
+
+  menu.addEventListener("toggle", function () {
+    if (!menu.open) return;
+    document.querySelectorAll(".row-menu[open]").forEach(function (other) {
+      if (other !== menu) other.open = false;
+    });
+  });
+
+  const panel = document.createElement("div");
+  panel.className = "row-menu-panel";
+  panel.setAttribute("role", "menu");
+
+  const viewItem = document.createElement("button");
+  viewItem.type = "button";
+  viewItem.className = "row-menu-item";
+  viewItem.setAttribute("role", "menuitem");
+  viewItem.textContent = "View report";
+  viewItem.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    menu.open = false;
+    goToReportFromHistory(row.report_id);
+  });
+  panel.appendChild(viewItem);
+
+  const copyItem = document.createElement("button");
+  copyItem.type = "button";
+  copyItem.className = "row-menu-item";
+  copyItem.setAttribute("role", "menuitem");
+  copyItem.textContent = "Copy link";
+  copyItem.addEventListener("click", async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rid = normaliseReportId(row.report_id);
+    if (!rid) return;
+
+    const reportUrl =
+      `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
+
+    try {
+      await navigator.clipboard.writeText(reportUrl);
+      copyItem.textContent = "Copied";
+      setTimeout(function () {
+        copyItem.textContent = "Copy link";
+        menu.open = false;
+      }, 1200);
+    } catch (err) {
+      console.error("Clipboard failed:", err);
+    }
+  });
+  panel.appendChild(copyItem);
+
+  menu.appendChild(panel);
+  return menu;
 }
 
 // -----------------------------
@@ -542,9 +645,7 @@ function updateLatestScanCard(row, opts = {}) {
 
   const d = row.created_at ? new Date(row.created_at) : null;
   if (elDate) {
-    elDate.textContent = d
-      ? d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
-      : "";
+    elDate.textContent = d ? fmtShortDate(d) : "";
   }
 
   const overall =
@@ -674,10 +775,15 @@ function wireHistorySearch() {
 async function loadScanHistory() {
   const tbody = $("history-body");
   const empty = $("history-empty");
+  const emptyState = $("history-empty-state");
+  const tableWrap = $("history-table-wrap");
 
   if (!tbody || !empty) return;
 
   empty.textContent = "Loading scan history…";
+  empty.style.display = "block";
+  if (emptyState) emptyState.style.display = "none";
+  if (tableWrap) tableWrap.style.display = "none";
   tbody.innerHTML = "";
 
   if (!currentUserId) {
@@ -702,19 +808,23 @@ async function loadScanHistory() {
     updateLatestScanCard(rows && rows.length ? rows[0] : null);
 
     if (!rows || rows.length === 0) {
-      empty.textContent = "No scans yet.";
+      empty.style.display = "none";
+      if (emptyState) emptyState.style.display = "flex";
+      if (tableWrap) tableWrap.style.display = "none";
       return;
     }
 
-    empty.textContent = "";
+    empty.style.display = "none";
+    if (emptyState) emptyState.style.display = "none";
+    if (tableWrap) tableWrap.style.display = "block";
     tbody.innerHTML = "";
 
     for (const row of rows) {
       const tr = document.createElement("tr");
 
       const d = row.created_at ? new Date(row.created_at) : null;
-      const dateStr = d ? d.toLocaleDateString() : "—";
-      const timeStr = d ? d.toLocaleTimeString() : "—";
+      const dateStr = d ? fmtShortDate(d) : "—";
+      const timeStr = d ? fmtScanTime(d) : "—";
 
       tr.dataset.url = row.url || "";
       tr.dataset.reportid = row.report_id || "";
@@ -751,7 +861,8 @@ async function loadScanHistory() {
       const a = document.createElement("a");
       a.className = "history-url";
       a.href = "#";
-      a.textContent = row.url || "—";
+      a.textContent = displayDomainFromUrl(row.url);
+      if (row.url) a.title = row.url;
       a.addEventListener("click", function (e) {
         e.preventDefault();
         updateLatestScanCard(row, { setInput: true });
@@ -844,44 +955,7 @@ tr.appendChild(tdBaseline);
 
 const tdActions = document.createElement("td");
 tdActions.className = "col-actions";
-
-const actionsWrap = document.createElement("div");
-actionsWrap.className = "row-actions";
-
-const viewBtn = document.createElement("button");
-viewBtn.className = "btn-link";
-viewBtn.type = "button";
-viewBtn.textContent = "View";
-viewBtn.onclick = function () {
-  goToReportFromHistory(row.report_id);
-};
-actionsWrap.appendChild(viewBtn);
-
-const copyBtn = document.createElement("button");
-copyBtn.className = "btn-link action-copy";
-copyBtn.type = "button";
-copyBtn.textContent = "Copy link";
-
-copyBtn.onclick = async function () {
-  const rid = normaliseReportId(row.report_id);
-  if (!rid) return;
-
-  const reportUrl =
-    `${window.location.origin}/report.html?report_id=${encodeURIComponent(rid)}&from=history`;
-
-  try {
-    await navigator.clipboard.writeText(reportUrl);
-    copyBtn.textContent = "Copied";
-    setTimeout(function () {
-      copyBtn.textContent = "Copy link";
-    }, 2000);
-  } catch (err) {
-    console.error("Clipboard failed:", err);
-  }
-};
-
-actionsWrap.appendChild(copyBtn);
-tdActions.appendChild(actionsWrap);
+tdActions.appendChild(buildRowActionsMenu(row));
 
 /*
 const pdfBtn = document.createElement("button");
@@ -925,6 +999,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   }
 
   wireHistorySearch();
+  wireRowMenus();
 
   const { data } = await supabase.auth.getUser();
   if (!data || !data.user) {
