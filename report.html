@@ -965,6 +965,7 @@ body {
       .bar > div { background: #111827 !important; }
 
       #backToDashboard,
+      .report-nav-actions,
       .btn,
       .toggle,
       .nav,
@@ -4566,7 +4567,8 @@ body.iqweb-v2-shell #backToDashboard:hover {
 }
 
 @media print {
-  body.iqweb-v2-shell #backToDashboard {
+  body.iqweb-v2-shell #backToDashboard,
+  body.iqweb-v2-shell .report-nav-actions {
     display: none !important;
   }
 }
@@ -4668,6 +4670,63 @@ body.iqweb-v2-shell #backToDashboard:hover {
   color: var(--pro-text) !important;
   border-color: var(--pro-border-strong) !important;
   background: var(--pro-surface) !important;
+}
+
+body.iqweb-v2-shell .report-nav-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 12px !important;
+}
+
+body.iqweb-v2-shell .report-nav-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-left: auto !important;
+}
+
+body.iqweb-v2-shell .report-action-btn {
+  appearance: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 7px 12px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  color: var(--pro-text-secondary) !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+body.iqweb-v2-shell .report-action-btn:hover {
+  background: var(--pro-bg) !important;
+  border-color: var(--pro-border-strong) !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-shell .report-inline-cta {
+  color: var(--pro-accent) !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+}
+
+body.iqweb-v2-shell .report-inline-cta:hover {
+  text-decoration: underline !important;
+  color: #0f766e !important;
+}
+
+@media print {
+  body.iqweb-v2-shell .report-nav-actions {
+    display: none !important;
+  }
 }
 
 /* Header card */
@@ -5314,7 +5373,13 @@ body.iqweb-v2-shell #powered-by {
   <div class="page-shell">
     <div class="shell-inner">
 
-      <a id="backToDashboard" href="/dashboard.html">Back to Dashboard</a>
+      <div class="report-nav-bar">
+        <a id="backToDashboard" href="/dashboard.html">Back to Dashboard</a>
+        <div class="report-nav-actions">
+          <button type="button" id="copyReportLink" class="report-action-btn">Copy link</button>
+          <button type="button" id="printReport" class="report-action-btn">Print</button>
+        </div>
+      </div>
 
       <div class="top-card">
 <div class="top-row">
@@ -5474,7 +5539,7 @@ body.iqweb-v2-shell #powered-by {
                       <span style="height:58%"></span>
                       <span style="height:72%"></span>
                     </div>
-                    <p id="ovBaselineCopy">No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.</p>
+                    <p id="ovBaselineCopy">No baseline yet. <a href="/dashboard.html" class="report-inline-cta">Set a baseline in Scan History</a> to compare future scans.</p>
                   </div>
                   <div class="iq-delta-strip">
                     <span>Overall <strong id="ovDeltaOverall">—</strong></span>
@@ -5889,6 +5954,51 @@ document.documentElement.style.setProperty("--report-page-bg", pageBg);
   </script>
 
   <script>
+    (function () {
+      function getShareableReportUrl() {
+        try {
+          var url = new URL(window.location.href);
+          url.searchParams.delete("pdf");
+          url.searchParams.delete("pdf_token");
+          url.searchParams.delete("from");
+          return url.toString();
+        } catch (_) {
+          return window.location.href;
+        }
+      }
+
+      var copyBtn = document.getElementById("copyReportLink");
+      var printBtn = document.getElementById("printReport");
+
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async function () {
+          var url = getShareableReportUrl();
+          var original = copyBtn.textContent;
+
+          try {
+            await navigator.clipboard.writeText(url);
+            copyBtn.textContent = "Copied";
+          } catch (_) {
+            window.prompt("Copy this report link:", url);
+            copyBtn.textContent = "Copy link";
+            return;
+          }
+
+          setTimeout(function () {
+            copyBtn.textContent = original;
+          }, 1400);
+        });
+      }
+
+      if (printBtn) {
+        printBtn.addEventListener("click", function () {
+          window.print();
+        });
+      }
+    })();
+  </script>
+
+  <script>
     window.__IQWEB_REPORT_READY = false;
 
     var __IQWEB_PDF_MODE = (function () {
@@ -6007,6 +6117,18 @@ function setEvidenceOpen(open) {
         if (el) el.textContent = value || "—";
       }
 
+      function setBaselineCopy(hasBaseline) {
+        var el = document.getElementById("ovBaselineCopy");
+        if (!el) return;
+
+        if (hasBaseline) {
+          el.textContent = "Baseline comparison is active. Deltas below show movement since your selected scan.";
+        } else {
+          el.innerHTML =
+            'No baseline yet. <a href="/dashboard.html" class="report-inline-cta">Set a baseline in Scan History</a> to compare future scans.';
+        }
+      }
+
       function copyOverviewCards() {
         setText("ovAiScore", text("dashAiScore", "—"));
         setText("ovAiVerdict", text("dashAiVerdict", "Loading"));
@@ -6029,7 +6151,7 @@ setText("ovInsight3", "Strengthen category-brand association through clearer ser
 
         setText("ovBaselineTitle", hasBaseline ? "Progress Since Baseline" : "Baseline Ready");
         setText("ovBaselinePill", hasBaseline ? "Active" : "No baseline");
-        setText("ovBaselineCopy", hasBaseline ? "Baseline comparison is active. Use the deltas below to show movement since the selected scan." : "No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.");
+        setBaselineCopy(hasBaseline);
 
         var source = document.getElementById("execTopIssuesRoot");
         var target = document.getElementById("ovTopIssues");
@@ -6132,7 +6254,7 @@ el.classList.add(
       if (!el) return;
 
       if (start === null || end === null || start === undefined || end === undefined) {
-        el.textContent = "Last scans will appear as history builds";
+        el.textContent = "Set a baseline in Scan History to unlock trend data";
         return;
       }
 

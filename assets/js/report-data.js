@@ -2794,7 +2794,7 @@ if (prevOverall === null && prevPerformance === null && prevSeo === null && prev
         '<div class="iqweb-v2-baseline-empty" style="grid-column:1/-1;">' +
           '<div>' +
             '<strong>Progress Snapshot</strong>' +
-            '<span>No baseline selected yet. Set a baseline from Scan History to compare future scans without changing this dashboard layout.</span>' +
+            '<span>No baseline yet. <a href="/dashboard.html" class="report-inline-cta">Set a baseline in Scan History</a> to compare future scans.</span>' +
           '</div>' +
         '</div>';
     }
