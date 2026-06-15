@@ -1090,6 +1090,9 @@ body.iqweb-v2-dashboard .sidebar {
   flex-direction: column !important;
   gap: 12px !important;
   color: rgba(255,255,255,.88) !important;
+  overflow-y: auto !important;
+  min-height: 100vh !important;
+  height: 100vh !important;
 }
 
 body.iqweb-v2-dashboard .brand {
@@ -1975,6 +1978,7 @@ body.iqweb-v2-dashboard .scan-history-table .status-complete {
   border: 1px solid #bbf7d0;
 }
 
+body.iqweb-v2-dashboard .scan-history-table thead th.col-baseline-head,
 body.iqweb-v2-dashboard .scan-history-table .col-baseline-head,
 body.iqweb-v2-dashboard .scan-history-table .col-baseline {
   width: 80px !important;
@@ -2081,13 +2085,42 @@ body.iqweb-v2-dashboard .sr-only {
 }
 
 body.iqweb-v2-dashboard .baseline-help-collapsible {
-  margin-top: 6px !important;
+  margin-top: 0 !important;
   padding: 0 !important;
 }
 
-body.iqweb-v2-dashboard .nav-secondary {
-  margin-top: auto !important;
-  padding-top: 4px !important;
+body.iqweb-v2-dashboard .sidebar-nav-extra {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 0 6px !important;
+  margin-top: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+body.iqweb-v2-dashboard .sidebar-nav-extra #logout-link {
+  all: unset;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 9px 10px !important;
+  min-height: auto !important;
+  border-radius: 12px !important;
+  color: var(--muted) !important;
+  border: 1px solid transparent !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-dashboard .sidebar-nav-extra #logout-link:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  text-decoration: none !important;
 }
 
 body.iqweb-v2-dashboard .baseline-help-details {
@@ -2313,19 +2346,19 @@ body.iqweb-v2-dashboard .row-menu-item:hover {
         </a>
       </div>
 
-<nav class="nav nav-secondary" aria-label="Secondary">
-  <a href="#" id="logout-link">Sign out</a>
-  <div class="baseline-help-collapsible">
-    <details class="baseline-help-details">
-      <summary>How baselines work</summary>
-      <ul>
-        <li>Select a scan in history to set it as the baseline for that domain.</li>
-        <li>Future reports compare progress against that baseline.</li>
-        <li>Use <strong>Clear baseline</strong> in scan history to remove it.</li>
-      </ul>
-    </details>
-  </div>
-</nav>
+      <div class="sidebar-nav-extra">
+        <div class="baseline-help-collapsible">
+          <details class="baseline-help-details">
+            <summary>How baselines work</summary>
+            <ul>
+              <li>Select a scan in history to set it as the baseline for that domain.</li>
+              <li>Future reports compare progress against that baseline.</li>
+              <li>Use <strong>Clear baseline</strong> in scan history to remove it.</li>
+            </ul>
+          </details>
+        </div>
+        <a href="#" id="logout-link">Sign out</a>
+      </div>
 
       <div class="sidebar-foot" style="display:none;">
         <button id="logout-btn" class="btn" type="button">Sign out</button>
