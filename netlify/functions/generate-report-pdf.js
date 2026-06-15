@@ -63,7 +63,7 @@ export async function handler(event) {
 
     const siteUrl = resolveSiteUrl(event);
     const htmlUrl =
-      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(report_id)}&v=pro3`;
+      `${siteUrl}/.netlify/functions/get-report-html-pdf?report_id=${encodeURIComponent(report_id)}&v=pro4`;
 
     const htmlResponse = await fetch(htmlUrl, {
       method: "GET",

@@ -98,6 +98,7 @@ const PRO_TEXT_MUTED = "#697386";
 const PRO_ACCENT = branding.accent_color || "#0d9488";
 const PRO_RADIUS = "10px";
 const PRO_RADIUS_SM = "8px";
+const PAGE_INLINE_STYLE = `background-color:${PRO_BG};color:${PRO_TEXT};`;
 
 const showHeaderContact = branding.show_header_contact !== false;
 const showFooterContact = branding.show_footer_contact !== false;
@@ -154,16 +155,40 @@ const footerContactBits = [
   <meta charset="utf-8" />
   <title>${escapeHtml(reportTitle)} — ${escapeHtml(rid)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
-    /* Prince/DocRaptor-safe: literal token values, no CSS custom properties */
+    /* Prince/DocRaptor-safe: literal colours, embedded Inter, no CSS variables */
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 400;
+      src: url("https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf") format("truetype");
+    }
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 500;
+      src: url("https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf") format("truetype");
+    }
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 600;
+      src: url("https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf") format("truetype");
+    }
+    @font-face {
+      font-family: "Inter";
+      font-style: normal;
+      font-weight: 700;
+      src: url("https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf") format("truetype");
+    }
+
     * { box-shadow: none !important; }
 
     @page {
       size: A4 landscape;
       margin: 7mm;
+      background-color: ${PRO_BG};
     }
 
     * { box-sizing: border-box; }
@@ -171,11 +196,13 @@ const footerContactBits = [
     html, body {
       margin: 0;
       padding: 0;
-      background: ${PRO_BG};
+      background-color: ${PRO_BG};
       color: ${PRO_TEXT};
       font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
       letter-spacing: -0.011em;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     body {
@@ -187,10 +214,12 @@ const footerContactBits = [
 
     .pdf-page {
       width: 100%;
-      background: ${PRO_BG};
+      background-color: ${PRO_BG};
       page-break-after: always;
       padding: 0;
       overflow: visible;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     .pdf-page:last-child {
@@ -200,6 +229,7 @@ const footerContactBits = [
     .page-shell {
       width: 100%;
       height: 100%;
+      background-color: ${PRO_BG};
     }
 
     .top-card,
@@ -1041,9 +1071,9 @@ const footerContactBits = [
   </style>
 
 </head>
-<body data-iqweb-pdf="pro-v3">
+<body data-iqweb-pdf="pro-v4" style="${PAGE_INLINE_STYLE}font-family:Inter,system-ui,sans-serif;">
 
-  <div class="pdf-page">
+  <div class="pdf-page" style="background-color:${PRO_BG};">
     <div class="page-shell">
 
       <div class="top-card">
@@ -1117,7 +1147,7 @@ const footerContactBits = [
     </div>
   </div>
 
-  <div class="pdf-page">
+  <div class="pdf-page" style="background-color:${PRO_BG};">
     <div class="page-shell">
       <div class="section signals-section">
         <div class="section-head">Delivery Signals</div>
@@ -1137,7 +1167,7 @@ const footerContactBits = [
     </div>
   </div>
 
-  <div class="pdf-page">
+  <div class="pdf-page" style="background-color:${PRO_BG};">
     <div class="page-shell">
       <div class="section">
         <div class="section-head">Recommended Fix Sequence</div>
