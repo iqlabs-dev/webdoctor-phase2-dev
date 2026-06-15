@@ -3629,63 +3629,53 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
 
 
 /* =========================================
-   EVIDENCE TAB CLICKABLE CARD POLISH
-   Green chevron only, no circle.
+   EVIDENCE CARDS — NICER BOXES
 ========================================= */
 
+/* Left accent bar coloured per signal */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #d8e2ee !important;
-  border-radius: 14px !important;
-  background: #ffffff !important;
-  box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
+  border-left: 4px solid #22c55e !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.07) !important;
+  transition: box-shadow 0.15s ease, transform 0.1s ease !important;
 }
 
+/* Lift on hover */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
+  box-shadow: 0 4px 16px rgba(15,23,42,0.11) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Summary row — more breathing room, label more prominent */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
-  position: relative !important;
-  min-height: 56px;
-  padding: 15px 44px 15px 18px !important;
-  cursor: pointer !important;
-  border: 0 !important;
-  background: #ffffff !important;
-  list-style: none !important;
+  padding: 18px 52px 18px 20px !important;
+  min-height: 64px !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::-webkit-details-marker {
-  display: none !important;
+/* Title text — slightly bigger and darker */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title {
+  font-size: 13px !important;
+  letter-spacing: 0.06em !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
 }
 
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
-  content: "⌄" !important;
-  position: absolute !important;
-  right: 18px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  color: #22c55e !important;
-  font-size: 22px !important;
-  font-weight: 900 !important;
-  line-height: 1 !important;
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  width: auto !important;
-  height: auto !important;
-  border-radius: 0 !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::after {
-  transform: translateY(-50%) rotate(180deg) !important;
-  color: #22c55e !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-  display: none !important;
-}
-
+/* Open state — tinted body background */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] .acc-body {
+  background: #f8fafc !important;
   border-top: 1px solid #e2e8f0 !important;
-  background: #fbfdff !important;
+  padding: 18px 20px !important;
+}
+
+/* kv rows inside — cleaner pills */
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv {
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 /* =========================================
