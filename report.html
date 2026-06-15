@@ -3630,12 +3630,8 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
 
 /* =========================================
    EVIDENCE TAB CLICKABLE CARD POLISH
-   Subtle expandable rows, no heavy CTA buttons.
+   Green chevron only, no circle.
 ========================================= */
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
-  gap: 14px !important;
-}
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
   position: relative;
@@ -3644,88 +3640,52 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-blo
   border-radius: 14px !important;
   background: #ffffff !important;
   box-shadow: 0 1px 2px rgba(15,23,42,0.04) !important;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
+  position: relative !important;
   min-height: 56px;
-  padding: 15px 48px 15px 18px !important;
+  padding: 15px 44px 15px 18px !important;
   cursor: pointer !important;
   border: 0 !important;
   background: #ffffff !important;
+  list-style: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::-webkit-details-marker {
+  display: none !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
-  content: "⌄";
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  width: 24px;
-  height: 24px;
-  transform: translateY(-50%);
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #334155 !important;
-  font-size: 15px;
-  font-weight: 900;
-  line-height: 1;
-  transition: transform 160ms ease, border-color 160ms ease, color 160ms ease, background 160ms ease;
+  content: "⌄" !important;
+  position: absolute !important;
+  right: 18px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #22c55e !important;
+  font-size: 22px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::after {
-  transform: translateY(-50%) rotate(180deg);
-  border-color: #93c5fd;
-  background: #eff6ff;
-  color: #2563eb !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
-  border-color: #b6c6da !important;
-  box-shadow: 0 2px 6px rgba(15,23,42,0.06) !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover > summary::after {
-  border-color: #93c5fd;
-  color: #2563eb !important;
-  background: #eff6ff;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] {
-  border-color: #bfdbfe !important;
-}
-
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title,
-body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title {
-  margin: 0 !important;
-  padding-right: 44px;
-  color: #071326 !important;
-  font-size: 12px !important;
-  font-weight: 900 !important;
-  letter-spacing: .10em !important;
+  transform: translateY(-50%) rotate(180deg) !important;
+  color: #22c55e !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-  margin-right: 44px;
-  color: #2563eb !important;
-  font-weight: 900 !important;
+  display: none !important;
 }
 
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] .acc-body {
   border-top: 1px solid #e2e8f0 !important;
   background: #fbfdff !important;
-}
-
-@media (max-width: 700px) {
-  body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .evidence-title,
-  body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-title,
-  body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
-    padding-right: 36px;
-    margin-right: 36px;
-  }
-}
 }
 
 /* =========================================
