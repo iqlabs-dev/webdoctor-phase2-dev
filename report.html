@@ -3634,24 +3634,61 @@ body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .acc-score {
 
 /* Left accent bar coloured per signal */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block {
+  border: 1px solid #d8e2ee !important;
   border-left: 4px solid #22c55e !important;
   border-radius: 12px !important;
-  box-shadow: 0 2px 8px rgba(15,23,42,0.07) !important;
-  transition: box-shadow 0.15s ease, transform 0.1s ease !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease, background 0.15s ease !important;
+  overflow: hidden !important;
 }
 
-/* Lift on hover */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
-  box-shadow: 0 4px 16px rgba(15,23,42,0.11) !important;
-  transform: translateY(-1px) !important;
+  border-color: #b8d4c4 !important;
+  border-left-color: #22c55e !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-/* Summary row — more breathing room, label more prominent */
+/* Summary row — clickable header with chevron */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary {
-  padding: 18px 52px 18px 20px !important;
+  position: relative !important;
+  padding: 18px 48px 18px 20px !important;
   min-height: 64px !important;
   display: flex !important;
   align-items: center !important;
+  justify-content: space-between !important;
+  cursor: pointer !important;
+  list-style: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  transition: background 0.15s ease !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::-webkit-details-marker {
+  display: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary::after {
+  content: "";
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #22c55e;
+  border-bottom: 2px solid #22c55e;
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block[open] > summary::after {
+  transform: translateY(-30%) rotate(-135deg);
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block > summary:hover {
+  background: #f8fafc !important;
 }
 
 /* Title text — slightly bigger and darker */
@@ -4037,6 +4074,36 @@ body.iqweb-v2-shell.report-tab-signals .ai-prompt-box {
   }
 }
 
+/* =========================================
+   FLAT SHADOW-FREE REPORT TABS
+   Overview, Signals, Evidence
+========================================= */
+
+body.iqweb-v2-shell.report-tab-overview .executive-dashboard,
+body.iqweb-v2-shell.report-tab-overview .section,
+body.iqweb-v2-shell.report-tab-overview .exec-score-card,
+body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
+body.iqweb-v2-shell.report-tab-overview .exec-signal,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-card,
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-mini-issue,
+body.iqweb-v2-shell.report-tab-overview .iq-overview-insights-card,
+body.iqweb-v2-shell.report-tab-overview .trend-sparkline span,
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection,
+body.iqweb-v2-shell.report-tab-signals .section,
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot .kv {
+  box-shadow: none !important;
+}
+
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot details.evidence-block:hover {
+  box-shadow: none !important;
+  transform: none !important;
+}
 
 
 /* =========================================================
