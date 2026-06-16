@@ -45,7 +45,7 @@ function fixPaths(content) {
     .replace(/href="\/([a-z0-9\-]+)\.html/g, 'href="$1.html')
     .replace(/href='\/([a-z0-9\-]+)\.html/g, "href='$1.html")
     .replace(/href="\/favicon/g, 'href="favicon')
-    .replace(/href="\/apple-touch/g, 'href="favicon-180x180')
+    .replace(/href="\/apple-touch-icon\.png/g, 'href="favicon-180x180.png')
     .replace(/href="\/site\.webmanifest/g, 'href="site.webmanifest')
     .replace(/src="\/assets\//g, 'src="assets/');
 }
