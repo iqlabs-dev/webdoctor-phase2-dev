@@ -98,6 +98,30 @@ a:hover {
   );
 }
 
+.page-shell::after {
+  content: "";
+  position: absolute;
+  top: 38%;
+  left: -18%;
+  width: 140%;
+  height: min(520px, 55vh);
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(
+      118deg,
+      transparent 18%,
+      rgba(99, 91, 255, 0.22) 32%,
+      rgba(0, 212, 170, 0.18) 48%,
+      rgba(99, 91, 255, 0.24) 62%,
+      rgba(129, 140, 248, 0.14) 78%,
+      transparent 92%
+    );
+  transform: rotate(-7deg);
+  filter: blur(48px);
+  opacity: 0.9;
+}
+
 .shell-inner {
   flex: 1;
   width: 100%;
@@ -212,10 +236,12 @@ a:hover {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   gap: 48px 64px;
-  align-items: center;
-  margin-top: 56px;
-  margin-bottom: 40px;
+  align-items: flex-start;
+  margin-top: 64px;
+  margin-bottom: 56px;
+  padding-bottom: 32px;
   position: relative;
+  z-index: 1;
 }
 
 .hero-left {
@@ -231,23 +257,13 @@ a:hover {
 
 .hero-visual {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   min-width: 0;
+  margin-top: 8px;
 }
 
 .hero-visual-eyebrow {
-  margin: 0 0 12px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--accent-text);
-}
-
-@media (max-width: 860px) {
-  .hero-visual-eyebrow {
-    text-align: center;
-  }
+  display: none;
 }
 
 @keyframes heroFadeUp {
@@ -267,17 +283,14 @@ a:hover {
 }
 
 .hero-line-top {
-  font-size: clamp(2.125rem, 4.2vw, 3rem);
+  font-size: clamp(2.25rem, 4.5vw, 3.125rem);
   font-weight: 700;
   color: var(--ink);
+  letter-spacing: -0.035em;
 }
 
 .hero-line-focus {
-  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
-  margin-top: 6px;
-  font-weight: 600;
-  color: var(--body);
-  letter-spacing: -0.02em;
+  display: none;
 }
 
 .hero-line-sub {
@@ -304,7 +317,7 @@ a:hover {
 .hero-scan-shell {
   position: relative;
   z-index: 2;
-  margin-top: 8px;
+  margin-top: 48px;
   max-width: 520px;
   width: 100%;
   opacity: 0;
@@ -537,11 +550,12 @@ a:hover {
   background: #ffffff;
   border-radius: 14px;
   overflow: hidden;
-  aspect-ratio: 1.55 / 1;
-  max-height: 420px;
+  aspect-ratio: 1.45 / 1;
+  max-height: 480px;
   box-shadow:
     0 2px 4px rgba(15, 23, 42, 0.04),
-    0 24px 48px -12px rgba(50, 50, 93, 0.18);
+    0 30px 60px -16px rgba(50, 50, 93, 0.22),
+    0 12px 24px -8px rgba(99, 91, 255, 0.12);
 }
 
 .hero-report-shot:hover {
@@ -1268,6 +1282,13 @@ a:hover {
     height: min(1100px, 115vh);
     opacity: 0.72;
     filter: blur(56px);
+  }
+
+  .page-shell::after {
+    top: 42%;
+    height: min(380px, 42vh);
+    opacity: 0.65;
+    filter: blur(40px);
   }
 
   .nav {
