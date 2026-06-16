@@ -210,10 +210,11 @@ a:hover {
 /* ── Hero ── */
 .hero-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 40px 48px;
+  align-items: center;
   margin-top: 48px;
-  margin-bottom: 24px;
+  margin-bottom: 8px;
   position: relative;
 }
 
@@ -226,6 +227,27 @@ a:hover {
   width: 100%;
   position: relative;
   z-index: 1;
+}
+
+.hero-visual {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.hero-visual-eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+@media (max-width: 860px) {
+  .hero-visual-eyebrow {
+    text-align: center;
+  }
 }
 
 @keyframes heroFadeUp {
@@ -471,7 +493,7 @@ a:hover {
 .iq-diagnostic-zone {
   position: relative;
   width: 100%;
-  margin-top: 64px;
+  margin-top: 24px;
   padding-top: 0;
 }
 
@@ -479,12 +501,18 @@ a:hover {
 
 /* Report preview */
 .sample-reports {
-  margin-top: 0;
-  margin-bottom: 32px;
+  margin: 0;
+  padding: 0;
   text-align: left;
   opacity: 0;
   animation: heroFadeUp 600ms ease forwards;
   animation-delay: 280ms;
+}
+
+@media (min-width: 961px) {
+  .hero-report-cta--visual {
+    margin-top: 12px;
+  }
 }
 
 .sample-reports-title {
@@ -507,37 +535,54 @@ a:hover {
 
 .hero-report-frame {
   margin: 0;
-  width: 1024px;
-  max-width: 100%;
+  width: 100%;
+  max-width: none;
+  position: relative;
+  z-index: 1;
 }
 
 .hero-report-shot {
   display: block;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
   line-height: 0;
   text-decoration: none;
-  background: #eef2f7;
-  box-shadow: 0 28px 56px -20px rgba(50, 50, 93, 0.22);
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 1.55 / 1;
+  max-height: 420px;
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.04),
+    0 24px 48px -12px rgba(50, 50, 93, 0.18);
 }
 
 .hero-report-shot:hover {
   text-decoration: none;
 }
 
+.hero-report-shot:hover .hero-report-img {
+  filter: none;
+}
+
 .hero-report-img {
   display: block;
-  width: calc(100% + 4px);
+  width: 100%;
+  height: 100%;
   max-width: none;
-  height: auto;
-  margin: 0 -4px 0 0;
+  object-fit: cover;
+  object-position: top center;
   border: 0;
   outline: none;
   vertical-align: top;
-  transform: translateZ(0);
+  transition: transform 0.25s ease;
+}
+
+.hero-report-shot:hover .hero-report-img {
+  transform: scale(1.015);
 }
 
 .hero-report-cta {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -547,57 +592,20 @@ a:hover {
   color: var(--accent-text);
 }
 
+.hero-report-cta--visual {
+  margin-top: 14px;
+}
+
+@media (max-width: 860px) {
+  .hero-report-cta--visual {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
 .hero-report-cta:hover {
   color: var(--accent-hover);
   text-decoration: none;
-}
-
-.sample-reports-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  max-width: 720px;
-  margin: 32px 0 0;
-}
-
-.sample-report-card {
-  padding: 20px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  text-decoration: none;
-  color: var(--body);
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.sample-report-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
-}
-
-.sample-report-card h3 {
-  margin: 0 0 8px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.sample-report-card p {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.sample-report-link {
-  display: block;
-  margin-top: 12px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--accent-text);
 }
 
 /* Signals section */
@@ -1252,11 +1260,16 @@ a:hover {
 
 /* Responsive */
 @media (max-width: 960px) {
+  .hero-shell {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    margin-bottom: 16px;
+  }
+
   .iq-signal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workflow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pricing-row { grid-template-columns: 1fr; }
   .pricing-includes-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sample-reports-grid { grid-template-columns: 1fr; max-width: 420px; }
 }
 
 @media (max-width: 860px) {
@@ -1283,13 +1296,9 @@ a:hover {
 
   .hero-benefits { justify-content: center; }
 
-  .sample-reports { text-align: center; }
-
   .hero-report-preview-sub { margin-left: auto; margin-right: auto; }
 
   .hero-report-frame { margin-left: auto; margin-right: auto; }
-
-  .sample-reports-grid { margin-left: auto; margin-right: auto; }
 
   .iq-section-header { text-align: center; }
 
