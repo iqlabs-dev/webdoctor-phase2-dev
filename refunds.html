@@ -5,248 +5,34 @@
   <title>Billing & Refund Policy — iQWEB (iQLABS)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Billing & Refund Policy for iQWEB, a product operated by iQLABS Ltd (New Zealand). Explains payments, subscriptions, credits, taxes, and refunds." />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <style>
-    :root {
-      --bg-top: #050814;
-      --bg-mid: #050b19;
-      --bg-bot: #02030a;
-      --ink: #e5f0ff;
-      --ink-soft: #c0cfeb;
-      --muted: #9aa4ba;
-      --accent: #22d3ee;
-      --border-subtle: #1f2937;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; }
-    html { font-size: 110%; }
-    body {
-      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #0b1730 0, var(--bg-top) 24%, var(--bg-mid) 52%, var(--bg-bot) 100%);
-      color: var(--ink);
-      -webkit-font-smoothing: antialiased;
-    }
-    .page-shell { min-height: 100vh; display: flex; flex-direction: column; }
-    .shell-inner {
-      flex: 1;
-      width: 100%;
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 18px 18px 32px;
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding: 6px 16px;
-      border-radius: 999px;
-      background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(15,23,42,0.96));
-      border: 1px solid rgba(148,163,184,0.26);
-      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
-      backdrop-filter: blur(26px);
-      position: sticky;
-      top: 12px;
-      z-index: 20;
-    }
-    .nav-left { display: flex; flex-direction: column; gap: 2px; }
-    .nav-title {
-      font-weight: 700;
-      font-size: 1.08rem;
-      letter-spacing: 0.04em;
-      color: var(--ink-soft);
-    }
-    .nav-subtitle {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.11em;
-      white-space: nowrap;
-    }
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      font-size: 0.8rem;
-    }
-    .nav-link {
-      color: var(--muted);
-      text-decoration: none;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding-bottom: 2px;
-      border-bottom: 1px solid transparent;
-      transition: color 0.16s ease, border-color 0.16s ease;
-      white-space: nowrap;
-    }
-    .nav-link:hover {
-      color: var(--ink-soft);
-      border-color: rgba(148,163,184,0.7);
-    }
-    @media (max-width: 860px) {
-      .nav-links { display:none; }
-      .nav { border-radius:16px; }
-    }
-
-    .hero-shell {
-      margin-top: 22px;
-      max-width: 900px;
-    }
-    .hero-h1 {
-      font-size: clamp(1.9rem, 2.4vw, 2.3rem);
-      line-height: 1.08;
-      font-weight: 800;
-      margin: 0 0 12px;
-    }
-    .hero-h1 span {
-      background: linear-gradient(120deg,#b9e6f8,#70d9f5,#54d2e7);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .hero-sub {
-      font-size: 1rem;
-      color: var(--ink-soft);
-      max-width: 52rem;
-      line-height: 1.5;
-      margin: 0;
-    }
-
-    .section { margin-top: 40px; }
-    .section-kicker {
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 0.78rem;
-      color: var(--ink);
-      opacity: 0.75;
-    }
-    .section-title {
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      margin-top: 4px;
-    }
-    .section-subtitle {
-      font-size: 0.82rem;
-      color: var(--muted);
-      max-width: 42rem;
-      line-height: 1.6;
-      margin-top: 8px;
-    }
-
-    .legal-block {
-      margin-top: 16px;
-      max-width: 900px;
-    }
-    .legal-block h2 {
-      font-size: 0.95rem;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 4px;
-    }
-    .legal-block h3 {
-      font-size: 0.9rem;
-      margin-top: 12px;
-      margin-bottom: 4px;
-      color: var(--ink-soft);
-    }
-    .legal-block p,
-    .legal-block li {
-      font-size: 0.78rem;
-      color: var(--muted);
-      line-height: 1.7;
-    }
-    .legal-block ul {
-      padding-left: 18px;
-      margin-top: 4px;
-      margin-bottom: 8px;
-    }
-
-    .email-link {
-      color: #22d3ee !important;
-      text-decoration: none;
-    }
-    .email-link:hover { color: #7df3ff !important; text-decoration: underline; }
-
-    .closing-statement {
-      padding: 60px 20px;
-      background: var(--bg-mid);
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .closing-inner {
-      max-width: 850px;
-      margin: 0 auto;
-      text-align: center;
-    }
-  .closing-inner p {
-  font-size: 1rem;
-  line-height: 1.8;
-  color: var(--ink-soft);
-  margin: 0;
-  font-style: italic;
-}
-
-
-    /* --- FOOTER (match Privacy page) --- */
-    .wd-footer {
-      padding: 26px 0;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      font-size: 0.75rem;
-      color: var(--muted);
-      letter-spacing: 0.04em;
-      margin-top: 40px;
-    }
-    .wd-footer-inner {
-      max-width: 1120px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;     /* two-line footer */
-      gap: 10px;
-      align-items: center;        /* center both lines */
-      justify-content: center;
-      opacity: 0.9;
-      text-align: center;
-      padding: 0 18px;
-    }
-    .wd-footer a { color: var(--ink-soft); text-decoration: none; }
-    .wd-footer a:hover { color: var(--ink); }
-
-    .wd-footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-      align-items: center;
-      line-height: 1.4;
-    }
-    .wd-footer-links .dot { opacity: 0.65; }
-  </style>
+  <meta name="theme-color" content="#ffffff" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/iqweb-content.css" />
 </head>
 
 <body>
 <div class="page-shell">
   <div class="shell-inner">
 
-    <!-- NAV -->
     <header class="nav">
       <div class="nav-left">
-        <div class="nav-title">iQLABS</div>
-        <div class="nav-subtitle">Web intelligence studio · New Zealand</div>
+        <a href="index.html" class="nav-title">iQWEB</a>
       </div>
-      <nav class="nav-links">
-        <a href="/#about" class="nav-link">About</a>
-        <a href="/#products" class="nav-link">Products</a>
-        <a href="/#company" class="nav-link">Company</a>
-        <a href="/#contact" class="nav-link">Contact</a>
-        <a href="/privacy" class="nav-link">Privacy</a>
-        <a href="/terms" class="nav-link">Terms</a>
-        <a href="/refunds" class="nav-link">Refunds</a>
-      </nav>
+      <div class="nav-center">
+        <div class="nav-links">
+          <a href="index.html#how" class="nav-link">How it works</a>
+          <a href="faq.html" class="nav-link">FAQ</a>
+          <a href="methodology.html" class="nav-link">Methodology</a>
+          <a href="trust.html" class="nav-link">Trust</a>
+          <a href="refunds.html" class="nav-link is-active">Billing &amp; Refunds</a>
+          <a href="index.html#pricing" class="nav-link">Pricing</a>
+        </div>
+      </div>
+      <div class="nav-right">
+        <a href="dashboard.html" class="nav-cta"><span class="nav-cta-main">Dashboard</span></a>
+      </div>
     </header>
 
     <!-- HERO -->
@@ -401,23 +187,39 @@
     </div>
   </section>
 
-  <!-- FOOTER (match Privacy page) -->
   <footer class="wd-footer">
     <div class="wd-footer-inner">
-      <span>
-        iQWEB is a product operated by iQLABS Ltd (New Zealand). · © 2025 IQLABS LIMITED · All rights reserved · Made in New Zealand.
-      </span>
-
-      <div class="wd-footer-links">
-        <a href="/#company">Company</a><span class="dot">·</span>
-        <a href="/#products">Products</a><span class="dot">·</span>
-        <a href="/privacy">Privacy</a><span class="dot">·</span>
-        <a href="/terms">Terms</a><span class="dot">·</span>
-        <a href="/refunds">Refunds</a>
+      <div class="wd-footer-left">© 2025 iQWEB. All rights reserved.</div>
+      <div class="wd-footer-center">
+        <div class="wd-footer-links">
+          <a href="index.html">Home</a>
+          <a href="index.html#pricing">Pricing</a>
+          <a href="trust.html">Trust</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+          <a href="refunds.html">Billing &amp; Refunds</a>
+          <a href="changelog.html">Changelog</a>
+          <a href="pagespeed-score-explained.html">PageSpeed Score Explained</a>
+          <a href="ai-visibility-explained.html">AI Visibility Explained</a>
+          <a href="pagespeed-report-for-clients.html">PageSpeed Report for Clients</a>
+          <a href="free-website-audit-report.html">Website Audit Report Structure</a>
+          <a href="website-diagnostics-explained.html">Website Diagnostics Guide</a>
+          <a href="https://iqlabs.co.nz" target="_blank" rel="noopener">iQLABS</a>
+        </div>
       </div>
+      <div class="wd-footer-right">Powered by Λ i Q™</div>
     </div>
   </footer>
 
 </div>
+<script>
+(function () {
+  const nav = document.querySelector('.nav, .topbar');
+  if (!nav) return;
+  const onScroll = () => nav.classList.toggle('is-scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+})();
+</script>
 </body>
 </html>
