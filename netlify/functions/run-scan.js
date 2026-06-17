@@ -854,14 +854,30 @@ async function fetchDuckDuckGoResults(query) {
 }
 
 async function evaluateIndependentMentions(profile, pageUrl) {
-  const brand = profile.brand_name || hostnameLabelFromUrl(pageUrl);
-  const queries = [
-    '"' + brand + '"',
-    'site:reddit.com "' + brand + '"',
-    'site:forum "' + brand + '"',
-    '"' + brand + '" review'
-  ];
   const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
+  const domainBase = (domain.split('.')[0] || '');
+
+  // Matchable brand keys (same normalized approach as recommendation hits) so
+  // a page branded "Xero NZ" still matches the far more common "Xero" mentions.
+  const candidateKeys = [];
+  const pushKey = (v) => {
+    const k = aiMatchKey(v);
+    if (k.length >= 3 && candidateKeys.indexOf(k) === -1) candidateKeys.push(k);
+  };
+  pushKey(domainBase);
+  pushKey(profile.brand_core);
+  pushKey(profile.brand_name);
+
+  // Query with the cleanest, most widely-used brand term available.
+  const queryBrand = String(
+    profile.brand_core || profile.brand_name || domainBase || hostnameLabelFromUrl(pageUrl) || ''
+  ).trim();
+
+  const queries = [
+    '"' + queryBrand + '"',
+    'site:reddit.com "' + queryBrand + '"',
+    '"' + queryBrand + '" review'
+  ];
   const sources = [];
   const domains = {};
 
@@ -872,8 +888,9 @@ async function evaluateIndependentMentions(profile, pageUrl) {
         const u = tryParseUrl(row.href);
         const host = ((u && u.hostname) || '').replace(/^www\./i, '');
         if (!host || host === domain) continue;
-        const text = (row.title + ' ' + row.snippet).toLowerCase();
-        if (brand && text.indexOf(String(brand).toLowerCase()) === -1) continue;
+        const answerKey = aiMatchKey(row.title + ' ' + row.snippet);
+        const matched = candidateKeys.some((k) => answerKey.indexOf(k) !== -1);
+        if (!matched) continue;
         domains[host] = true;
         sources.push({ query: q, host, title: row.title, snippet: row.snippet });
       } catch {}

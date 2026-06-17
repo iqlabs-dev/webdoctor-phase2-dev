@@ -130,7 +130,10 @@ function getPlatformInfo(metrics) {
 function isLimitedPlatformControl(platformInfo) {
   var p = safeObj(platformInfo);
   var level = String(p.controlLevel || "").toLowerCase();
-  return level === "limited" || level === "partial";
+  // Only genuinely platform-managed hosts (Webflow, Shopify, etc.) excuse the
+  // security baseline. "partial"/"unknown" platforms still own their headers,
+  // matching the raw security scorer which only relaxes for "limited".
+  return level === "limited";
 }
 
 /* -------------------------------------------------- */
@@ -473,7 +476,7 @@ function choosePrimaryConstraint(e) {
   };
 
 var platformControl = String(e.platform_control || "full").toLowerCase();
-var limitedPlatform = platformControl === "limited" || platformControl === "partial";
+var limitedPlatform = platformControl === "limited";
 
   // --------------------------------------------------
   // Decision hierarchy overrides (v1)
@@ -701,7 +704,7 @@ function buildExecNarrative5(metrics, evidence, url) {
   var host = hostFromUrl(url);
   var e = safeObj(evidence);
  var platformControl = String(e.platform_control || "full").toLowerCase();
-var limitedPlatform = platformControl === "limited" || platformControl === "partial";
+var limitedPlatform = platformControl === "limited";
   var platformLabel = String(e.platform_label || "the platform");
 
   var primary = choosePrimaryConstraint(e);
