@@ -1555,7 +1555,7 @@ return {
         st.id = "iqweb-primary-badge-style";
         st.type = "text/css";
         st.appendChild(document.createTextNode(
-          ".primary-badge{position:absolute;top:-8px;left:12px;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(239,68,68,.92);color:#fff;padding:4px 8px;border-radius:999px;box-shadow:0 8px 22px rgba(239,68,68,.22);}"+
+          ".primary-badge{position:absolute;top:-10px;left:14px;display:inline-flex;align-items:center;font-size:9px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;line-height:1;background:#fef2f2;color:#b91c1c;padding:4px 10px;border-radius:999px;border:1px solid #fecaca;box-shadow:none;}"+
           ".card{position:relative;}"+
           ".severity-na{opacity:.92;}"+
           ".severity-na .bar>div{width:0 !important;}"
