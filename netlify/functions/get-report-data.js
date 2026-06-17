@@ -1,10 +1,9 @@
 // /.netlify/functins/get-report-data.js
-import { createRequire } from "node:module";
 import { createClient } from "@supabase/supabase-js";
 import { reconcileMetricsWithPsi } from "../../utils/reconcile-psi-scores.js";
+import vitalsDeductions from "../../utils/vitals-deductions.cjs";
 
-const require = createRequire(import.meta.url);
-const { enrichSignalWithVitals, isHtmlScan } = require("../../utils/vitals-deductions.js");
+const { enrichSignalWithVitals, isHtmlScan } = vitalsDeductions;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

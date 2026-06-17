@@ -1,14 +1,13 @@
 // /utils/reconcile-psi-scores.js
 // Recompute Performance / Mobile / overall scores after PSI background worker completes.
 
-import { createRequire } from "node:module";
+import vitalsDeductions from "./vitals-deductions.cjs";
 
-const require = createRequire(import.meta.url);
 const {
   buildMobileVitalsPack,
   buildPerformanceVitalsPack,
   mergeVitalsDeductions,
-} = require("./vitals-deductions.js");
+} = vitalsDeductions;
 
 function clamp(n, min, max) {
   if (!Number.isFinite(n)) return min;

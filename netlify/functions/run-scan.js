@@ -5,7 +5,7 @@ const {
   buildPerformanceVitalsPack,
   mergeVitalsDeductions,
   isHtmlScan: vitalsIsHtmlScan,
-} = require("../../utils/vitals-deductions");
+} = require("../../utils/vitals-deductions.cjs");
 const cheerio = require("cheerio");
 
 // ---------------------------------------------
