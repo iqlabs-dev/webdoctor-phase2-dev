@@ -2643,7 +2643,10 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
   // Fix Sequence
   // -----------------------------
   // Upgrade destination for gated fixes (pricing section on the marketing site).
-  var IQ_UPGRADE_URL = "/#pricing";
+  // Use the full index.html#pricing path (matches every other Pricing link in
+  // the app) so the homepage reliably scrolls to the pricing section instead of
+  // landing at the top of the page.
+  var IQ_UPGRADE_URL = "https://iqweb.ai/index.html#pricing";
 
   function fixImpactClass(sev, points) {
     var s = String(sev || "").toLowerCase();
