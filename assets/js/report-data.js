@@ -2642,95 +2642,167 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
   // -----------------------------
   // Fix Sequence
   // -----------------------------
-  function renderFixSequence(data, scores, signals, primary) {
+  // Upgrade destination for gated fixes (pricing section on the marketing site).
+  var IQ_UPGRADE_URL = "/#pricing";
+
+  function fixImpactClass(sev, points) {
+    var s = String(sev || "").toLowerCase();
+    if (s === "high") return "impact-high";
+    if (s === "med" || s === "medium") return "impact-med";
+    if (s === "low") return "impact-low";
+    var p = Number(points) || 0;
+    if (p >= 15) return "impact-high";
+    if (p >= 8) return "impact-med";
+    return "impact-low";
+  }
+
+  function fixImpactLabel(sev, points) {
+    var cls = fixImpactClass(sev, points);
+    if (cls === "impact-high") return "High impact";
+    if (cls === "impact-med") return "Medium impact";
+    return "Low impact";
+  }
+
+  function lockedCtaHtml(lockedCount, headline, sub, extraStyle) {
+    return (
+      '<div class="iq-actionplan-locked"' + (extraStyle ? ' style="' + extraStyle + '"' : "") + '>' +
+        '<div class="lock-copy">' +
+          '<span class="lock-icon">🔒</span>' +
+          '<span class="lock-text">' +
+            "<strong>" + escapeHtml(headline) + "</strong>" +
+            "<span>" + escapeHtml(sub) + "</span>" +
+          "</span>" +
+        "</div>" +
+        '<a class="iq-upgrade-btn" href="' + IQ_UPGRADE_URL + '">Unlock full plan →</a>' +
+      "</div>"
+    );
+  }
+
+  // -----------------------------
+  // Action Plan teaser (Overview)
+  // -----------------------------
+  function renderActionPlan(data) {
+    var root = $("ovActionPlan");
+    if (!root) return;
+
+    data = safeObj(data);
+    var fixPlan = asArray(data.fix_plan);
+    var ent = safeObj(data.entitlement);
+    var pill = $("ovActionPlanPill");
+
+    if (!fixPlan.length) {
+      if (pill) pill.textContent = "All clear";
+      root.innerHTML =
+        '<p class="iq-actionplan-allclear">No measurable issues detected in this scan — nothing to prioritize right now.</p>';
+      return;
+    }
+
+    var total = Number(ent.total_fixes) || fixPlan.length;
+    if (pill) pill.textContent = total + (total === 1 ? " fix" : " fixes");
+
+    var html = "";
+    for (var i = 0; i < fixPlan.length; i++) {
+      var it = safeObj(fixPlan[i]);
+      var rank = it.priority || i + 1;
+      var impactCls = fixImpactClass(it.severity, it.points);
+      var impactLbl = fixImpactLabel(it.severity, it.points);
+      html +=
+        '<div class="iq-actionplan-item">' +
+          '<span class="iq-actionplan-rank">' + escapeHtml(String(rank)) + "</span>" +
+          '<div class="iq-actionplan-main">' +
+            '<p class="iq-actionplan-title">' + escapeHtml(it.title || "Improvement opportunity") + "</p>" +
+            '<p class="iq-actionplan-meta">' + escapeHtml(it.signal_label || "") + "</p>" +
+          "</div>" +
+          '<div class="iq-actionplan-chips">' +
+            '<span class="iq-chip ' + impactCls + '">' + escapeHtml(impactLbl) + "</span>" +
+            '<span class="iq-chip">' + escapeHtml((it.effort || "Medium") + " effort") + "</span>" +
+          "</div>" +
+        "</div>";
+    }
+
+    var locked = Number(ent.locked_count) || 0;
+    if (ent.fixes_gated && locked > 0) {
+      html += lockedCtaHtml(
+        locked,
+        locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " identified",
+        "Unlock the full ranked action plan with step-by-step priorities."
+      );
+    }
+
+    root.innerHTML = html;
+  }
+
+  // -----------------------------
+  // Recommended Fix Sequence (Signals tab) — phased, gated
+  // -----------------------------
+  function renderFixSequence(data) {
     var root = $("fixSequenceRoot");
     if (!root) return;
 
     data = safeObj(data);
-    scores = safeObj(scores);
-    signals = asArray(signals);
+    var fixPlan = asArray(data.fix_plan);
+    var ent = safeObj(data.entitlement);
 
-    var focus = "";
-    if (primary && primary.key) focus = specificConstraintLabel(data, primary, signals);
-
-    var primaryIssues = dedupeIssueEntries(gatherIssueEntries(signals, primary && primary.key ? primary.key : ""));
-    var allIssues = dedupeIssueEntries(gatherIssueEntries(signals, ""));
-    var secondary = [];
-    for (var i = 0; i < allIssues.length; i++) {
-      if (!primary || !primary.key || allIssues[i].domain !== primary.key) secondary.push(allIssues[i]);
+    if (!fixPlan.length) {
+      root.innerHTML =
+        '<div class="phase"><div class="phase-body"><ul>' +
+        "<li>No measurable issues were detected in this scan. Maintain current standards and re-scan periodically to catch regressions.</li>" +
+        "</ul></div></div>";
+      return;
     }
 
-    function issueBullet(entry, fallback) {
-      if (entry && entry.title) return "Resolve: " + entry.title.replace(/\.$/, "") + ".";
-      return fallback;
+    var phaseMeta = {
+      1: { label: "Phase 1 — Fast wins", time: "Today / This week" },
+      2: { label: "Phase 2 — Structural improvements", time: "1–3 weeks" },
+      3: { label: "Phase 3 — Hardening & trust", time: "Ongoing" },
+    };
+
+    var groups = { 1: [], 2: [], 3: [] };
+    for (var i = 0; i < fixPlan.length; i++) {
+      var it = safeObj(fixPlan[i]);
+      var ph = Number(it.phase) || 2;
+      if (!groups[ph]) groups[ph] = [];
+      groups[ph].push(it);
     }
 
-try {
-  var phases = root.querySelectorAll(".phase");
-  if (phases && phases.length >= 3) {
-    var isAiFocus = !!(primary && primary.key === "ai_discoverability");
+    var html = "";
+    [1, 2, 3].forEach(function (ph) {
+      var items = groups[ph];
+      if (!items || !items.length) return;
 
-    var ul1 = phases[0].querySelector("ul");
-    if (ul1) {
-      var p1 = [];
-
-      if (isAiFocus) {
-        p1.push("Fix the top constraint first: improve AI recommendation visibility for this category.");
-        p1.push("Address the clearest visibility signal identified in this scan, such as entity clarity, category language, or external references.");
-        p1.push("Re-run the scan after the update to confirm the signal change has been captured. Improvements to AI recommendation visibility may take time to propagate across models and external sources.");
-      } else {
-        p1.push("Fix the top constraint first: " + (focus ? focus : "the clearest evidence-backed issue") + ".");
-        p1.push(issueBullet(primaryIssues[0], "Resolve the first measurable blocker surfaced in this domain."));
-        p1.push("Re-run the scan immediately after this batch to confirm a measurable lift.");
+      var lis = "";
+      for (var j = 0; j < items.length; j++) {
+        var it = safeObj(items[j]);
+        var impactLbl = fixImpactLabel(it.severity, it.points);
+        lis +=
+          "<li><strong>" + escapeHtml(it.title || "Improvement opportunity") + "</strong>" +
+          " — " + escapeHtml(it.signal_label || "") +
+          " · " + escapeHtml(impactLbl) +
+          " · " + escapeHtml((it.effort || "Medium") + " effort") +
+          "</li>";
       }
 
-      ul1.innerHTML =
-        "<li>" + escapeHtml(p1[0]) + "</li>" +
-        "<li>" + escapeHtml(p1[1]) + "</li>" +
-        "<li>" + escapeHtml(p1[2]) + "</li>";
+      html +=
+        '<div class="phase">' +
+          '<div class="phase-head">' +
+            '<p class="phase-title">' + escapeHtml(phaseMeta[ph].label) + "</p>" +
+            '<div class="phase-time">' + escapeHtml(phaseMeta[ph].time) + "</div>" +
+          "</div>" +
+          '<div class="phase-body"><ul>' + lis + "</ul></div>" +
+        "</div>";
+    });
+
+    var locked = Number(ent.locked_count) || 0;
+    if (ent.fixes_gated && locked > 0) {
+      html += lockedCtaHtml(
+        locked,
+        locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " in the full plan",
+        "Subscribe to unlock the complete ranked fix sequence.",
+        "margin-top:14px;"
+      );
     }
 
-    var ul2 = phases[1].querySelector("ul");
-    if (ul2) {
-      var p2 = [];
-
-      if (isAiFocus) {
-        p2.push("Strengthen supporting visibility signals such as independent mentions, citations, and category-specific references.");
-        p2.push("Resolve structural issues such as canonical mismatches or inconsistent entity references if detected.");
-        p2.push("Re-run the scan periodically to monitor whether AI recommendation visibility begins to improve.");
-      } else {
-        p2.push(issueBullet(primaryIssues[1], "Address the next deduction inside the weakest measured domain."));
-        p2.push(issueBullet(secondary[0], "Clear the highest-impact secondary issue once the primary blocker is stable."));
-        p2.push("Keep a simple before-and-after record tied to the new scan result.");
-      }
-
-      ul2.innerHTML =
-        "<li>" + escapeHtml(p2[0]) + "</li>" +
-        "<li>" + escapeHtml(p2[1]) + "</li>" +
-        "<li>" + escapeHtml(p2[2]) + "</li>";
-    }
-
-    var ul3 = phases[2].querySelector("ul");
-    if (ul3) {
-      var p3 = [];
-
-      if (isAiFocus) {
-        p3.push("Continue strengthening signals that support entity trust and category association.");
-        p3.push("Schedule periodic re-scans to detect regressions or missed signals.");
-        p3.push("Keep a lightweight record of changes alongside scan results so improvements can be tracked across future scans.");
-      } else {
-        p3.push(issueBullet(secondary[1], "Harden remaining trust, accessibility, and maintenance items once baseline delivery is stable."));
-        p3.push("Schedule periodic re-scans to catch regressions before they compound.");
-        p3.push("Keep a lightweight change log linked to scan IDs for auditability.");
-      }
-
-      ul3.innerHTML =
-        "<li>" + escapeHtml(p3[0]) + "</li>" +
-        "<li>" + escapeHtml(p3[1]) + "</li>" +
-        "<li>" + escapeHtml(p3[2]) + "</li>";
-    }
-  }
-} catch (e) {}
+    root.innerHTML = html;
   }
 
 
@@ -2931,6 +3003,7 @@ section.style.display = "block";
     safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });
     safeRenderSection("renderKeyInsights", function () { renderKeyInsights(data, scores, signals, primary); });
     safeRenderSection("renderTopIssues", function () { renderTopIssues(signals, primary); });
+    safeRenderSection("renderActionPlan", function () { renderActionPlan(data); });
     safeRenderSection("renderFixSequence", function () { renderFixSequence(data, scores, signals, primary); });
 
     try { window.__IQWEB_REPORT_READY = true; } catch (e) {}

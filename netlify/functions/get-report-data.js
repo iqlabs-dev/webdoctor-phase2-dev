@@ -217,6 +217,92 @@ function normaliseSignal(sig) {
 }
 
 // -----------------------------
+// Fix Plan (prioritized prescription)
+// -----------------------------
+const FIX_PHASES = {
+  1: { label: "Phase 1 — Fast wins", time: "Today / This week" },
+  2: { label: "Phase 2 — Structural improvements", time: "1–3 weeks" },
+  3: { label: "Phase 3 — Hardening & trust", time: "Ongoing" },
+};
+
+// Effort + phase heuristics keyed off the deduction code / parent signal.
+function classifyFix(code, signalId) {
+  const c = String(code || "").toLowerCase();
+  const sid = String(signalId || "").toLowerCase();
+
+  if (c.startsWith("sec_")) return { effort: "Low", phase: 3 };
+  if (sid === "seo") return { effort: "Low", phase: 1 };
+  if (sid === "accessibility") return { effort: "Low", phase: 1 };
+  if (sid === "structure") return { effort: "Medium", phase: 2 };
+  if (sid === "performance" || sid === "mobile") return { effort: "High", phase: 2 };
+  if (sid === "ai_discoverability") return { effort: "Medium", phase: 3 };
+  return { effort: "Medium", phase: 2 };
+}
+
+// Turn a raw deduction reason into an action-oriented title.
+function actionTitle(code, reason) {
+  const r = String(reason || "").trim();
+  const c = String(code || "").toLowerCase();
+  if (c.startsWith("sec_") && /^missing:/i.test(r)) {
+    const header = r.replace(/^missing:\s*/i, "").trim();
+    return "Add the " + header + " security header";
+  }
+  return r || "Improvement opportunity";
+}
+
+function severityFromPoints(pts) {
+  if (pts >= 15) return "high";
+  if (pts >= 8) return "med";
+  return "low";
+}
+
+// Build a flat, impact-ranked list of fixes from the normalised signals.
+function buildFixPlan(signals) {
+  const items = [];
+  for (const sig of asArray(signals)) {
+    const signalId = sig.id || "";
+    const signalLabel = sig.label || signalId || "Signal";
+    const issues = asArray(sig.issues);
+    const deds = asArray(sig.deductions);
+
+    for (const d of deds) {
+      const pts = Number(d.points) || 0;
+      if (pts <= 0) continue;
+      const code = d.code || signalId + "_fix";
+      const match = issues.find(
+        (i) => i && i.id && d.code && String(i.id) === String(d.code)
+      );
+      const cls = classifyFix(d.code, signalId);
+      items.push({
+        code,
+        signal_id: signalId,
+        signal_label: signalLabel,
+        title: (match && match.title) || actionTitle(d.code, d.reason),
+        detail:
+          (match && (match.impact || match.title)) ||
+          actionTitle(d.code, d.reason),
+        points: pts,
+        severity: (match && match.severity) || severityFromPoints(pts),
+        effort: cls.effort,
+        phase: cls.phase,
+        phase_label: FIX_PHASES[cls.phase].label,
+        phase_time: FIX_PHASES[cls.phase].time,
+      });
+    }
+  }
+
+  // Rank by measured impact (deduction points) descending.
+  items.sort((a, b) => b.points - a.points);
+
+  // Stamp 1-based priority after ranking.
+  items.forEach((it, idx) => {
+    it.priority = idx + 1;
+  });
+
+  return items;
+}
+
+// -----------------------------
 // Narrative normaliser
 // -----------------------------
 function deriveOverallLinesFromExecutiveNarrative(executive_narrative) {
@@ -346,10 +432,19 @@ export async function handler(event) {
       show_powered_by: true,
     };
 
+    let ownerEntitlement = {
+      plan: "free",
+      subscription_status: null,
+      billing_period_end: null,
+    };
+
     if (scan.user_id) {
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
         .select(`
+          plan,
+          subscription_status,
+          billing_period_end,
           agency_name,
           agency_website,
           agency_email,
@@ -369,6 +464,11 @@ export async function handler(event) {
         .maybeSingle();
 
       if (!profileErr && profile) {
+        ownerEntitlement = {
+          plan: profile.plan || "free",
+          subscription_status: profile.subscription_status || null,
+          billing_period_end: profile.billing_period_end || null,
+        };
         branding = {
           agency_name: profile.agency_name || "",
           agency_website: profile.agency_website || "",
@@ -456,7 +556,42 @@ export async function handler(event) {
     };
 
     const findings = asArray(reconciled.findings);
-    const fix_plan = asArray(reconciled.fix_plan);
+
+    // Build the full, impact-ranked prescription from the measured signals.
+    const fullFixPlan = buildFixPlan(delivery_signals);
+
+    // Entitlement gate: fix-plan DEPTH is gated on the report OWNER's plan
+    // (not the viewer's), so shared links unlock retroactively on upgrade.
+    const PAID_PLANS = ["freelancer", "agency"];
+    const periodOk =
+      !ownerEntitlement.billing_period_end ||
+      new Date(ownerEntitlement.billing_period_end) > new Date();
+    // "canceling" = cancelled but still within the paid period; access persists
+    // until billing_period_end (validated by periodOk).
+    const ACTIVE_STATUSES = ["active", "canceling", "trialing"];
+    const isSubscribed =
+      PAID_PLANS.includes(String(ownerEntitlement.plan || "").toLowerCase()) &&
+      ACTIVE_STATUSES.includes(String(ownerEntitlement.subscription_status || "").toLowerCase()) &&
+      periodOk;
+
+    const FREE_VISIBLE_FIXES = 2;
+    let fix_plan = fullFixPlan;
+    let fixesLocked = 0;
+    if (!isSubscribed) {
+      fixesLocked = Math.max(0, fullFixPlan.length - FREE_VISIBLE_FIXES);
+      // IMPORTANT: locked items are removed from the payload entirely so they
+      // cannot be scraped from the network response / DevTools.
+      fix_plan = fullFixPlan.slice(0, FREE_VISIBLE_FIXES);
+    }
+
+    const entitlement = {
+      plan: ownerEntitlement.plan || "free",
+      is_subscribed: isSubscribed,
+      fixes_gated: !isSubscribed,
+      visible_count: fix_plan.length,
+      locked_count: fixesLocked,
+      total_fixes: fullFixPlan.length,
+    };
 
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
@@ -507,6 +642,7 @@ export async function handler(event) {
       key_metrics,
       findings,
       fix_plan,
+      entitlement,
       narrative,
 
       previous_scan,
