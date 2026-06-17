@@ -513,7 +513,7 @@ a:hover {
 
 @media (min-width: 961px) {
   .hero-report-cta--visual {
-    margin-top: 12px;
+    margin-top: -14px;
   }
 }
 
@@ -593,13 +593,17 @@ a:hover {
 }
 
 .hero-report-cta--visual {
-  margin-top: 14px;
+  /* The preview asset includes built-in whitespace around the card; pull the
+     link up into that gap and align it with the card's visible left border. */
+  margin-top: -14px;
+  margin-left: 3.5%;
 }
 
 @media (max-width: 860px) {
   .hero-report-cta--visual {
     justify-content: center;
     width: 100%;
+    margin-left: 0;
   }
 }
 
