@@ -5653,6 +5653,74 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-disc
   color: #dc2626 !important;
 }
 
+/* Signal cards — severity borders + bar fills (must follow pro-border resets) */
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card),
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card).has-signal-impact {
+  border-color: #86efac !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card),
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card).has-signal-impact {
+  border-color: #fcd34d !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card),
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card).has-signal-impact {
+  border-color: #fca5a5 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na:not(.ai-discovery-card) {
+  border-color: #e2e8f0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-strong {
+  border-color: #86efac !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-medium {
+  border-color: #fcd34d !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-high {
+  border-color: #fca5a5 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-na {
+  border-color: #e2e8f0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card) .bar > div {
+  background: linear-gradient(90deg, #22c55e, #4ade80) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card) .bar > div {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card) .bar > div {
+  background: linear-gradient(90deg, #ef4444, #f87171) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na:not(.ai-discovery-card) .bar > div {
+  background: linear-gradient(90deg, #94a3b8, #cbd5e1) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .bar > div {
+  background: linear-gradient(90deg, #22c55e, #4ade80) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .bar > div {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .bar > div {
+  background: linear-gradient(90deg, #ef4444, #f87171) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-na .bar > div {
+  background: linear-gradient(90deg, #94a3b8, #cbd5e1) !important;
+}
+
 /* ── Evidence tab ── */
 body.iqweb-v2-shell.report-tab-evidence #signalEvidenceRoot {
   padding: 20px 24px 24px !important;
