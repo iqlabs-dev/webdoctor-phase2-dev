@@ -2834,20 +2834,37 @@ body.iqweb-v2-shell .iq-ai-mini-bars {
   margin-bottom: 13px;
 }
 
-body.iqweb-v2-shell .iq-ai-mini-bars div {
+body.iqweb-v2-shell .iq-ai-mini-bar-row {
   display: grid;
-  grid-template-columns: 1fr 92px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 42%);
   gap: 10px;
   align-items: center;
 }
 
-body.iqweb-v2-shell .iq-ai-mini-bars span {
+body.iqweb-v2-shell .iq-ai-mini-bar-label {
   color: #334155;
   font-size: 11px;
   font-weight: 700;
 }
 
+body.iqweb-v2-shell .iq-ai-mini-bar-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bar-val {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.6em;
+  text-align: right;
+}
+
 body.iqweb-v2-shell .iq-ai-mini-bars b {
+  display: block;
   height: 5px;
   border-radius: 999px;
   background: linear-gradient(90deg, #7c3aed var(--w), #e2e8f0 0);
@@ -3422,9 +3439,14 @@ body.iqweb-v2-shell .iq-ai-mini-bars {
   gap: 10px;
 }
 
-body.iqweb-v2-shell .iq-ai-mini-bars span {
+body.iqweb-v2-shell .iq-ai-mini-bar-label {
   color: #172033;
   font-weight: 850;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bar-val {
+  color: #64748b;
+  font-weight: 700;
 }
 
 body.iqweb-v2-shell .iq-ai-mini-bars b {
@@ -3711,6 +3733,22 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
   background: #ffffff !important;
   border: 1px solid #d8e2ee !important;
   box-shadow: 0 1px 2px rgba(15,23,42,0.05) !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong {
+  border-color: #bbf7d0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium {
+  border-color: #fde68a !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high {
+  border-color: #fecaca !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na {
+  border-color: #e2e8f0 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card h3 {
@@ -4210,15 +4248,15 @@ body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid {
 body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection #signalsGrid .card {
   min-height: 220px !important;
 }
-/* AI VISIBILITY DETECTION STATES */
+/* AI VISIBILITY DETECTION STATES — subtle borders (match signal cards) */
 body.iqweb-v2-shell.report-tab-signals .ai-detected {
-  border-color: rgba(34, 197, 94, 0.45) !important;
-  background: linear-gradient(180deg, rgba(34,197,94,0.055), #ffffff 34%) !important;
+  border-color: #bbf7d0 !important;
+  background: #ffffff !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-not-detected {
-  border-color: rgba(239, 68, 68, 0.38) !important;
-  background: linear-gradient(180deg, rgba(239,68,68,0.055), #ffffff 34%) !important;
+  border-color: #fecaca !important;
+  background: #ffffff !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-detected h4 {
@@ -5288,9 +5326,15 @@ body.iqweb-v2-shell .iq-delta-strip strong {
   font-weight: 600 !important;
 }
 
-body.iqweb-v2-shell .iq-ai-mini-bars span {
+body.iqweb-v2-shell .iq-ai-mini-bar-label {
   color: var(--pro-text-secondary) !important;
   font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+body.iqweb-v2-shell .iq-ai-mini-bar-val {
+  color: var(--pro-text-muted) !important;
+  font-size: 11px !important;
   font-weight: 500 !important;
 }
 
@@ -5508,12 +5552,6 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar > div {
   border-radius: 999px !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals .ai-detected,
-body.iqweb-v2-shell.report-tab-signals .ai-not-detected {
-  background: var(--pro-surface) !important;
-  border-color: var(--pro-border) !important;
-}
-
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
   margin-top: 20px !important;
   padding-top: 20px !important;
@@ -5574,12 +5612,45 @@ body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-medium,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-strong,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-na {
   background: var(--pro-surface) !important;
-  border-color: var(--pro-border) !important;
+}
+
+/* AI Visibility inner boxes — score + category + brand */
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .ai-discovery-scorebox {
+  border-color: #bbf7d0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .ai-discovery-scorebox {
+  border-color: #fde68a !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-discovery-scorebox {
+  border-color: #fecaca !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-na .ai-discovery-scorebox {
+  border-color: #e2e8f0 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel.category-success {
-  background: var(--pro-surface) !important;
-  border-color: var(--pro-border) !important;
+  border-color: #bbf7d0 !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel:not(.category-success) {
+  border-color: #fecaca !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .ai-discovery-scorebox .ai-score {
+  color: #15803d !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .ai-discovery-scorebox .ai-score {
+  color: #b45309 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-discovery-scorebox .ai-score {
+  color: #dc2626 !important;
 }
 
 /* ── Evidence tab ── */
@@ -5983,10 +6054,34 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
                     <span class="iq-overview-pill warning" id="ovAiVerdict">Loading</span>
                   </div>
                   <div class="iq-ai-mini-bars">
-                    <div><span>Entity clarity</span><b style="--w:68%"></b></div>
-                    <div><span>Category relevance</span><b style="--w:74%"></b></div>
-                    <div><span>Recommendation signal</span><b style="--w:42%"></b></div>
-                    <div><span>Brand mentions</span><b style="--w:36%"></b></div>
+                    <div class="iq-ai-mini-bar-row">
+                      <span class="iq-ai-mini-bar-label">Entity clarity</span>
+                      <div class="iq-ai-mini-bar-cell">
+                        <b id="ovAiBarEntity" style="--w:0%"></b>
+                        <span class="iq-ai-mini-bar-val" id="ovAiValEntity">—</span>
+                      </div>
+                    </div>
+                    <div class="iq-ai-mini-bar-row">
+                      <span class="iq-ai-mini-bar-label">Category relevance</span>
+                      <div class="iq-ai-mini-bar-cell">
+                        <b id="ovAiBarCategory" style="--w:0%"></b>
+                        <span class="iq-ai-mini-bar-val" id="ovAiValCategory">—</span>
+                      </div>
+                    </div>
+                    <div class="iq-ai-mini-bar-row">
+                      <span class="iq-ai-mini-bar-label">Recommendation signal</span>
+                      <div class="iq-ai-mini-bar-cell">
+                        <b id="ovAiBarRecommendation" style="--w:0%"></b>
+                        <span class="iq-ai-mini-bar-val" id="ovAiValRecommendation">—</span>
+                      </div>
+                    </div>
+                    <div class="iq-ai-mini-bar-row">
+                      <span class="iq-ai-mini-bar-label">Brand mentions</span>
+                      <div class="iq-ai-mini-bar-cell">
+                        <b id="ovAiBarMentions" style="--w:0%"></b>
+                        <span class="iq-ai-mini-bar-val" id="ovAiValMentions">—</span>
+                      </div>
+                    </div>
                   </div>
                   <p id="ovAiNote">Measures category recognition, brand visibility, and AI recommendation presence.</p>
                 </section>
@@ -6338,7 +6433,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js"></script>
-  <script src="/assets/js/report-data.js?v=20260618b"></script>
+  <script src="/assets/js/report-data.js?v=20260618c"></script>
 
   <script>
     (function () {
@@ -6584,6 +6679,9 @@ function setEvidenceOpen(open) {
           setText("ovInsight2", "AI visibility insight loading…");
           setText("ovInsight3", "Recommendation insight loading…");
         }
+        if (window.IQWEB_renderOverviewAiMiniBars && window.__IQWEB_LAST_DATA) {
+          window.IQWEB_renderOverviewAiMiniBars(window.__IQWEB_LAST_DATA);
+        }
 
         var deltas = [
           ["ovDeltaOverall", "deltaOverall"],
@@ -6797,46 +6895,19 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
 <script>
 (function () {
   function applyAiDetectionStates() {
-    var panels = document.querySelectorAll(".ai-discovery-panel");
-    var scorebox = document.querySelector(".ai-discovery-scorebox");
+    var layout = document.querySelector(".ai-discovery-layout");
+    if (!layout) return;
+
+    var panels = layout.querySelectorAll(".ai-discovery-panel");
 
     panels.forEach(function (panel) {
-      var text = (panel.textContent || "").toLowerCase();
-
       panel.classList.remove("ai-detected", "ai-not-detected");
-
-      if (
-        text.includes("category detected") ||
-        text.includes("category identified") ||
-        text.includes("software") ||
-        text.includes("digital agency") ||
-        text.includes("web intelligence")
-      ) {
+      if (panel.classList.contains("category-success")) {
         panel.classList.add("ai-detected");
-      }
-
-      if (
-        text.includes("not surfaced") ||
-        text.includes("not detected") ||
-        text.includes("brand not surfaced") ||
-        text.includes("recommendation test result")
-      ) {
+      } else {
         panel.classList.add("ai-not-detected");
       }
     });
-
-    if (scorebox) {
-      var scoreText = scorebox.textContent || "";
-      var match = scoreText.match(/\b(\d{1,3})\b/);
-      var score = match ? Number(match[1]) : null;
-
-      scorebox.classList.remove("ai-detected", "ai-not-detected");
-
-      if (Number.isFinite(score)) {
-        if (score >= 60) scorebox.classList.add("ai-detected");
-        else scorebox.classList.add("ai-not-detected");
-      }
-    }
   }
 
   var tries = 0;

@@ -3026,6 +3026,73 @@ section.style.display = "block";
     return null;
   }
 
+  function clampAiBarScore(n) {
+    if (n === null || typeof n === "undefined" || !Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, Math.round(n)));
+  }
+
+  function aiEntityBarScore(ev) {
+    ev = safeObj(ev);
+    return clampAiBarScore(asInt(ev.entity_score, 0) * 5);
+  }
+
+  function aiCategoryBarScore(ev) {
+    ev = safeObj(ev);
+    if (!ev.detected_category) return null;
+    var conf = String(ev.category_confidence || "").toLowerCase();
+    if (conf === "high") return 92;
+    if (conf === "medium") return 74;
+    if (conf === "low") return 48;
+    return 70;
+  }
+
+  function aiRecommendationBarScore(ev) {
+    ev = safeObj(ev);
+    var queries = asInt(ev.ai_recommendation_queries_tested, 0);
+    if (queries <= 0) return null;
+    var hits = asInt(ev.ai_recommendation_hits, 0);
+    var raw = hits >= 3 ? 40 : hits >= 1 ? 20 : 0;
+    return clampAiBarScore(raw * 2.5);
+  }
+
+  function aiMentionsBarScore(ev) {
+    ev = safeObj(ev);
+    var count = asInt(ev.independent_web_mentions, 0);
+    var kg = !!ev.knowledge_graph_present;
+    var raw = 0;
+    if (count >= 8) raw = 40;
+    else if (count >= 4) raw = 28;
+    else if (count >= 2) raw = 14;
+    if (kg) raw = Math.max(raw, 28);
+    return clampAiBarScore(raw * 2.5);
+  }
+
+  function setAiMiniBar(barId, valId, score) {
+    var bar = $(barId);
+    var val = $(valId);
+    if (!bar && !val) return;
+
+    if (score === null) {
+      if (bar) bar.style.setProperty("--w", "0%");
+      if (val) val.textContent = "—";
+      return;
+    }
+
+    if (bar) bar.style.setProperty("--w", String(score) + "%");
+    if (val) val.textContent = String(score);
+  }
+
+  function renderOverviewAiMiniBars(data) {
+    data = safeObj(data);
+    var aiSig = findAiSignal(pickSignals(data));
+    var ev = aiSig ? safeObj(aiSig.evidence) : {};
+
+    setAiMiniBar("ovAiBarEntity", "ovAiValEntity", aiEntityBarScore(ev));
+    setAiMiniBar("ovAiBarCategory", "ovAiValCategory", aiCategoryBarScore(ev));
+    setAiMiniBar("ovAiBarRecommendation", "ovAiValRecommendation", aiRecommendationBarScore(ev));
+    setAiMiniBar("ovAiBarMentions", "ovAiValMentions", aiMentionsBarScore(ev));
+  }
+
   function renderOverviewInsights(data) {
     data = safeObj(data);
     var aiSig = findAiSignal(pickSignals(data));
@@ -3067,6 +3134,7 @@ section.style.display = "block";
 
   try {
     window.IQWEB_renderOverviewInsights = renderOverviewInsights;
+    window.IQWEB_renderOverviewAiMiniBars = renderOverviewAiMiniBars;
   } catch (e) {}
 
   // -----------------------------
@@ -3108,6 +3176,7 @@ section.style.display = "block";
     safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
     safeRenderSection("setExecutiveDashboardUI", function () { setExecutiveDashboardUI(data, header, scores, signals, primary); });
     safeRenderSection("renderOverviewInsights", function () { renderOverviewInsights(data); });
+    safeRenderSection("renderOverviewAiMiniBars", function () { renderOverviewAiMiniBars(data); });
     safeRenderSection("renderProgressSinceLastScan", function () { renderProgressSinceLastScan(data, scores); });
     safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
     safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });
