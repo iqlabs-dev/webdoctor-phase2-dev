@@ -1251,6 +1251,8 @@ function buildAiDiscoverabilitySignal(aiData) {
       mentions_provider: mentions.provider || null,
       authority_boost: authorityBoost,
       entity_score: entityScore,
+      mention_score: mentionScore,
+      recommendation_score: recScore,
       hostname: host,
       detected_category: profile.detected_category || null,
       category_confidence: profile.category_confidence || null,

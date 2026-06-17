@@ -3031,6 +3031,22 @@ section.style.display = "block";
     return Math.max(0, Math.min(100, Math.round(n)));
   }
 
+  function aiEvidenceNum(ev, aiSig, evidenceKey, observationLabel, fallback) {
+    ev = safeObj(ev);
+    if (ev[evidenceKey] !== null && typeof ev[evidenceKey] !== "undefined") {
+      return asInt(ev[evidenceKey], fallback);
+    }
+    if (aiSig && Array.isArray(aiSig.observations)) {
+      for (var i = 0; i < aiSig.observations.length; i++) {
+        var obs = aiSig.observations[i];
+        if (obs && obs.label === observationLabel && obs.value !== null && typeof obs.value !== "undefined") {
+          return asInt(obs.value, fallback);
+        }
+      }
+    }
+    return fallback;
+  }
+
   function aiEntityBarScore(ev) {
     ev = safeObj(ev);
     return clampAiBarScore(asInt(ev.entity_score, 0) * 5);
@@ -3039,32 +3055,67 @@ section.style.display = "block";
   function aiCategoryBarScore(ev) {
     ev = safeObj(ev);
     if (!ev.detected_category) return null;
-    var conf = String(ev.category_confidence || "").toLowerCase();
+    var confRaw = ev.category_confidence;
+    if (typeof confRaw === "number" && Number.isFinite(confRaw)) {
+      return clampAiBarScore(confRaw <= 1 ? confRaw * 100 : confRaw);
+    }
+    var conf = String(confRaw || "").toLowerCase();
     if (conf === "high") return 92;
     if (conf === "medium") return 74;
     if (conf === "low") return 48;
     return 70;
   }
 
-  function aiRecommendationBarScore(ev) {
+  function aiRecommendationBarScore(ev, aiSig) {
     ev = safeObj(ev);
-    var queries = asInt(ev.ai_recommendation_queries_tested, 0);
+    if (ev.recommendation_score !== null && typeof ev.recommendation_score !== "undefined") {
+      var storedRec = clampAiBarScore(Number(ev.recommendation_score) * 2.5);
+      if (storedRec > 0) return storedRec;
+    }
+
+    var hits = aiEvidenceNum(ev, aiSig, "ai_recommendation_hits", "Recommendation Hits", null);
+    var queries = aiEvidenceNum(ev, aiSig, "ai_recommendation_queries_tested", "Ai Recommendation Queries Tested", null);
+
+    if (hits === null && queries === null) return null;
+    hits = hits || 0;
+    queries = queries || Math.max(4, hits || 1);
     if (queries <= 0) return null;
-    var hits = asInt(ev.ai_recommendation_hits, 0);
-    var raw = hits >= 3 ? 40 : hits >= 1 ? 20 : 0;
-    return clampAiBarScore(raw * 2.5);
+
+    if (hits >= 3) return 100;
+    if (hits >= 1) return clampAiBarScore(50 + Math.round((hits / queries) * 50));
+
+    // Prompts were tested but brand not surfaced — show low partial signal, not blank zero.
+    return 12;
   }
 
-  function aiMentionsBarScore(ev) {
+  function aiMentionsBarScore(ev, aiSig) {
     ev = safeObj(ev);
-    var count = asInt(ev.independent_web_mentions, 0);
+    if (ev.mention_score !== null && typeof ev.mention_score !== "undefined") {
+      var storedMention = clampAiBarScore(Number(ev.mention_score) * 2.5);
+      if (storedMention > 0) return storedMention;
+    }
+
+    var count = aiEvidenceNum(ev, aiSig, "independent_web_mentions", "Independent Mentions", 0);
     var kg = !!ev.knowledge_graph_present;
-    var raw = 0;
-    if (count >= 8) raw = 40;
-    else if (count >= 4) raw = 28;
-    else if (count >= 2) raw = 14;
-    if (kg) raw = Math.max(raw, 28);
-    return clampAiBarScore(raw * 2.5);
+    var authority = asInt(ev.authority_boost, 0);
+    var filtered = asInt(ev.independent_mentions_ambiguous_filtered, 0);
+
+    if (count >= 8) return 100;
+    if (count >= 4) return 70;
+    if (count >= 2) return 35;
+    if (count >= 1) return 25;
+    if (kg) return 70;
+
+    // Near-miss mentions filtered during disambiguation still indicate weak external signal.
+    if (filtered >= 2) return 22;
+    if (filtered >= 1) return 15;
+
+    // Residual brand-recognition context (name/schema clarity) when external mentions are sparse.
+    if (authority >= 28) return 25;
+    if (authority >= 16) return 18;
+    if (authority >= 8) return 12;
+
+    return 0;
   }
 
   function setAiMiniBar(barId, valId, score) {
@@ -3089,8 +3140,8 @@ section.style.display = "block";
 
     setAiMiniBar("ovAiBarEntity", "ovAiValEntity", aiEntityBarScore(ev));
     setAiMiniBar("ovAiBarCategory", "ovAiValCategory", aiCategoryBarScore(ev));
-    setAiMiniBar("ovAiBarRecommendation", "ovAiValRecommendation", aiRecommendationBarScore(ev));
-    setAiMiniBar("ovAiBarMentions", "ovAiValMentions", aiMentionsBarScore(ev));
+    setAiMiniBar("ovAiBarRecommendation", "ovAiValRecommendation", aiRecommendationBarScore(ev, aiSig));
+    setAiMiniBar("ovAiBarMentions", "ovAiValMentions", aiMentionsBarScore(ev, aiSig));
   }
 
   function renderOverviewInsights(data) {
