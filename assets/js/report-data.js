@@ -1255,6 +1255,18 @@ return {
     return Math.round(n);
   }
 
+  function isHeroVideoFromData(data) {
+    data = safeObj(data);
+    var basic = pickBasicChecks(data);
+    if (basic.hero_video_likely === true) return true;
+    if (num(basic.video_tag_count) > 0 && basic.video_in_early_viewport === true) return true;
+    var plat = String((data.platform && data.platform.key) || data.platform || "").toLowerCase();
+    if (plat === "webflow" && htmlKbFromData(data) !== null && htmlKbFromData(data) >= 200) {
+      if (basic.video_in_early_viewport === true || basic.hero_video_likely === true) return true;
+    }
+    return false;
+  }
+
   function firstMissingFromSignal(sig) {
     sig = safeObj(sig);
     var ev = safeObj(sig.evidence);
@@ -1280,7 +1292,13 @@ return {
     var platformManaged = String(data.platform_control || "").toLowerCase() === "limited" && domain === "security";
 
     if (domain === "performance" || domain === "mobile") {
-      if (lcp !== null && lcp > 2.5) return "Slow mobile Largest Contentful Paint (~" + lcp + "s)";
+      if (lcp !== null && lcp > 2.5) {
+        if (isHeroVideoFromData(data)) {
+          return "Hero video delays first paint (mobile LCP ~" + lcp + "s)";
+        }
+        return "Slow mobile Largest Contentful Paint (~" + lcp + "s)";
+      }
+      if (isHeroVideoFromData(data)) return "Hero video above the fold delays first paint";
       if (inlineScripts !== null && inlineScripts >= 6) return "Heavy initial render work (" + inlineScripts + " inline scripts)";
       if (htmlKb !== null && htmlKb >= 150) return "Large initial HTML payload (~" + htmlKb + "KB)";
       return (LABELS[domain] || domain) + " requires attention";
@@ -1477,7 +1495,13 @@ return {
     var inlineScripts = inlineScriptsFromData(data);
 
     if ((primary.key === "performance" || primary.key === "mobile") && lcp !== null && lcp > 2.5) {
-      impact = "Visible content is arriving later than expected on mobile. Largest Contentful Paint is around " + lcp + "s, which delays the point where the page feels ready to users.";
+      if (isHeroVideoFromData(data)) {
+        impact = "A full-viewport hero video is delaying first paint on mobile. Largest Contentful Paint is around " + lcp + "s, so visitors wait before the page feels ready.";
+      } else {
+        impact = "Visible content is arriving later than expected on mobile. Largest Contentful Paint is around " + lcp + "s, which delays the point where the page feels ready to users.";
+      }
+    } else if ((primary.key === "performance" || primary.key === "mobile") && isHeroVideoFromData(data)) {
+      impact = "A hero video loads above the fold and competes for bandwidth on first paint. Poster images, deferred loading, and compressed video files improve perceived speed.";
     } else if (primary.key === "seo") {
       if (pickBasicChecks(data).canonical_present === false) impact = "Search engines may be receiving weaker page ownership signals because a canonical link was not detected in this scan.";
       else if (pickBasicChecks(data).h1_present === false) impact = "The page is missing a clear primary heading, which weakens content clarity for both users and search engines.";
@@ -1497,7 +1521,11 @@ return {
     if (primary.key === "performance" || primary.key === "mobile") {
       var parts = [];
       if (lcp !== null && lcp > 2.5) parts.push("mobile LCP ~" + lcp + "s");
-      if (htmlKb !== null && htmlKb >= 50) parts.push("HTML payload ~" + htmlKb + "KB");
+      if (isHeroVideoFromData(data)) {
+        parts.push("optimize hero video (poster image, defer load, compress file)");
+      } else if (htmlKb !== null && htmlKb >= 50) {
+        parts.push("HTML payload ~" + htmlKb + "KB");
+      }
       if (inlineScripts !== null && inlineScripts >= 3) parts.push(inlineScripts + " inline scripts before render");
       if (parts.length) fixText += " Evidence observed: " + parts.join(", ") + ".";
     }

@@ -1346,6 +1346,32 @@ function basicHtmlSignals(html, pageUrl) {
 
   const htmlBytes = new TextEncoder().encode(html || "").length;
 
+  // Hero / background video detection (Webflow, native <video>, data-video attrs).
+  const bodyIdx = html.search(/<body\b/i);
+  const earlyHtml =
+    bodyIdx >= 0 ? html.slice(bodyIdx, Math.min(html.length, bodyIdx + 100000)) : html.slice(0, 100000);
+  const videoTags = Array.from(html.matchAll(/<video\b[^>]*>/gi)).map((m) => m[0]);
+  let videoAutoplayCount = 0;
+  let videoMutedCount = 0;
+  for (const tag of videoTags) {
+    if (/\bautoplay\b/i.test(tag)) videoAutoplayCount++;
+    if (/\bmuted\b/i.test(tag)) videoMutedCount++;
+  }
+  const videoWrapperPattern =
+    /w-background-video|background-video|hero-video|video-background|video-bg|banner-video|bg-video|has-background-video/i;
+  const hasVideoWrapper = videoWrapperPattern.test(earlyHtml);
+  const videoInEarly = /<video\b/i.test(earlyHtml);
+  const videoSrcInEarly =
+    /<(?:video|source)\b[^>]*(?:src|data-src|data-video-urls?)\s*=\s*["'][^"']*(?:\.mp4|\.webm|\.mov|\.m4v|\.m3u8|video)/i.test(
+      earlyHtml
+    );
+  const dataVideoAttrs = /data-video-urls?|data-wf-bg-video|background-video-url/i.test(earlyHtml);
+  const heroVideoLikely =
+    hasVideoWrapper ||
+    dataVideoAttrs ||
+    videoSrcInEarly ||
+    (videoInEarly && (videoAutoplayCount > 0 || videoMutedCount > 0));
+
   const years = Array.from(html.matchAll(/\b(19|20)\d{2}\b/g))
     .map((m) => Number(m[0]))
     .filter(Boolean);
@@ -1483,6 +1509,11 @@ function basicHtmlSignals(html, pageUrl) {
     html_bytes: htmlBytes,
     inline_script_count: inlineScriptCount,
     head_script_block_present: headScriptBlockPresent,
+
+    video_tag_count: videoTags.length,
+    video_autoplay_count: videoAutoplayCount,
+    video_in_early_viewport: videoInEarly || hasVideoWrapper || dataVideoAttrs,
+    hero_video_likely: heroVideoLikely,
 
     copyright_year_min: yearMin,
     copyright_year_max: yearMax,
@@ -2086,8 +2117,14 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
   // Fallback: HTML/basic only
   if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
 
-  if (basic.html_bytes > 250_000) { score -= 20; reasons.push("large HTML document"); }
-  if (basic.html_bytes > 500_000) { score -= 20; reasons.push("very large HTML document"); }
+  if (basic.html_bytes > 250_000) {
+    score -= 20;
+    reasons.push(basic.hero_video_likely ? "hero video delays first paint" : "large HTML document");
+  }
+  if (basic.html_bytes > 500_000) {
+    score -= 20;
+    reasons.push(basic.hero_video_likely ? "heavy hero video setup" : "very large HTML document");
+  }
   if (basic.inline_script_count >= 6) { score -= 10; reasons.push("many inline scripts"); }
   if (basic.head_script_block_present) { score -= 10; reasons.push("inline scripts in <head>"); }
 
@@ -2374,7 +2411,7 @@ if (categoryResult) {
 
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
   const perf = perfPack.score;
-  const perfVitals = mergeVitalsDeductions([], [], buildPerformanceVitalsPack(psi, basic, isHtml));
+  const perfVitals = mergeVitalsDeductions([], [], buildPerformanceVitalsPack(psi, basic, isHtml, platform));
 
   // ---------------------------------------------
   // Structure & Semantics scoring (credibility pass)
@@ -2404,7 +2441,7 @@ if (categoryResult) {
 
   const mobilePack = scoreMobileFromBasic(basic, isHtml, psi);
   const mobile = mobilePack.score;
-  const mobileVitals = mergeVitalsDeductions([], [], buildMobileVitalsPack(psi, basic, isHtml));
+  const mobileVitals = mergeVitalsDeductions([], [], buildMobileVitalsPack(psi, basic, isHtml, platform));
 
 const secPack = scoreSecurityFromHeaders(headers, platform);
   const security = secPack.score;
@@ -2509,6 +2546,8 @@ security:
         psi_mobile_TBT_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.TBT_ms : null,
         psi_desktop_LCP_ms: (psi && psi.desktop && psi.desktop.facts) ? psi.desktop.facts.LCP_ms : null,
         psi_desktop_TBT_ms: (psi && psi.desktop && psi.desktop.facts) ? psi.desktop.facts.TBT_ms : null,
+        hero_video_likely: basic.hero_video_likely ?? null,
+        video_tag_count: basic.video_tag_count ?? null,
       },
       deductions: !isHtml
         ? [{ points: 75, reason: "Required inputs missing (HTML not observable).", code: "perf_required_inputs_missing" }]

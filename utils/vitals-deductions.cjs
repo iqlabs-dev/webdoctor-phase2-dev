@@ -62,6 +62,60 @@ function pushFix(deductions, issues, { code, points, title, impact, severity, ev
   });
 }
 
+function isHeroVideoLikely(basic, platform) {
+  if (!basic || typeof basic !== "object") return false;
+  if (basic.hero_video_likely === true) return true;
+  if (Number(basic.video_tag_count) > 0 && basic.video_in_early_viewport === true) return true;
+  const plat = String((platform && platform.key) || platform || "").toLowerCase();
+  if (
+    plat === "webflow" &&
+    Number(basic.html_bytes) > 200000 &&
+    (basic.video_in_early_viewport === true || basic.hero_video_likely === true)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+const HERO_VIDEO_IMPACT =
+  "Autoplaying or full-viewport hero video is often the largest element on load. Use a lightweight poster image, defer video until after first paint, compress the file, and avoid autoplay on mobile.";
+
+function lcpTitleWithHero(sec, basic, platform) {
+  const base = `Slow mobile Largest Contentful Paint (~${sec}s)`;
+  if (isHeroVideoLikely(basic, platform)) {
+    return `${base} — hero video likely delaying first paint`;
+  }
+  return base;
+}
+
+function pushHeroVideoFix(deductions, issues, { signalLabel, points, basic, platform }) {
+  pushFix(deductions, issues, {
+    code: signalLabel === "Mobile Experience" ? "mobile_hero_video_delay" : "perf_hero_video_delay",
+    points: points || 20,
+    title: "Hero video above the fold delays first paint",
+    impact: HERO_VIDEO_IMPACT,
+    severity: "high",
+    signalLabel,
+    evidence: {
+      hero_video_likely: true,
+      video_tag_count: basic?.video_tag_count ?? null,
+      html_bytes: basic?.html_bytes ?? null,
+      platform: (platform && platform.key) || platform || null,
+    },
+  });
+}
+
+function pushHtmlWeightFix(deductions, issues, { signalLabel, basic, veryLarge }) {
+  const pts = veryLarge ? 20 : 20;
+  pushFix(deductions, issues, {
+    code: veryLarge ? "perf_html_very_large" : "perf_html_large",
+    points: pts,
+    title: veryLarge ? "Very large HTML document" : "Large HTML document",
+    signalLabel,
+    evidence: { html_bytes: basic?.html_bytes ?? null },
+  });
+}
+
 function psiMobileFacts(psi) {
   return psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
 }
@@ -70,7 +124,7 @@ function psiDesktopFacts(psi) {
   return psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
 }
 
-function buildMobileVitalsPack(psi, basic, isHtml) {
+function buildMobileVitalsPack(psi, basic, isHtml, platform) {
   const deductions = [];
   const issues = [];
   const label = "Mobile Experience";
@@ -84,11 +138,13 @@ function buildMobileVitalsPack(psi, basic, isHtml) {
       pushFix(deductions, issues, {
         code: "mobile_lcp_slow",
         points: pts,
-        title: `Slow mobile Largest Contentful Paint (~${sec}s)`,
+        title: lcpTitleWithHero(sec, basic, platform),
         impact:
-          "Visitors wait too long before meaningful content appears on phones — this directly hurts engagement and conversions.",
+          isHeroVideoLikely(basic, platform)
+            ? HERO_VIDEO_IMPACT
+            : "Visitors wait too long before meaningful content appears on phones — this directly hurts engagement and conversions.",
         signalLabel: label,
-        evidence: { LCP_ms: mLCP },
+        evidence: { LCP_ms: mLCP, hero_video_likely: isHeroVideoLikely(basic, platform) },
       });
     }
 
@@ -143,13 +199,17 @@ function buildMobileVitalsPack(psi, basic, isHtml) {
     });
   }
   if (basic && basic.html_bytes > 500_000) {
-    pushFix(deductions, issues, {
-      code: "mobile_html_large",
-      points: 15,
-      title: "Very large HTML document on mobile",
-      signalLabel: label,
-      evidence: { html_bytes: basic.html_bytes },
-    });
+    if (isHeroVideoLikely(basic, platform)) {
+      pushHeroVideoFix(deductions, issues, { signalLabel: label, points: 15, basic, platform });
+    } else {
+      pushFix(deductions, issues, {
+        code: "mobile_html_large",
+        points: 15,
+        title: "Very large HTML document on mobile",
+        signalLabel: label,
+        evidence: { html_bytes: basic.html_bytes },
+      });
+    }
   }
   if (basic && basic.inline_script_count >= 10) {
     pushFix(deductions, issues, {
@@ -164,7 +224,7 @@ function buildMobileVitalsPack(psi, basic, isHtml) {
   return { deductions, issues };
 }
 
-function buildPerformanceVitalsPack(psi, basic, isHtml) {
+function buildPerformanceVitalsPack(psi, basic, isHtml, platform) {
   const deductions = [];
   const issues = [];
   const label = "Performance";
@@ -183,11 +243,12 @@ function buildPerformanceVitalsPack(psi, basic, isHtml) {
       pushFix(deductions, issues, {
         code: "perf_mobile_lcp_slow",
         points: pts,
-        title: `Slow mobile Largest Contentful Paint (~${sec}s)`,
-        impact:
-          "Slow LCP delays first meaningful paint — visitors leave before the page feels ready.",
+        title: lcpTitleWithHero(sec, basic, platform),
+        impact: isHeroVideoLikely(basic, platform)
+          ? HERO_VIDEO_IMPACT
+          : "Slow LCP delays first meaningful paint — visitors leave before the page feels ready.",
         signalLabel: label,
-        evidence: { LCP_ms: mLCP },
+        evidence: { LCP_ms: mLCP, hero_video_likely: isHeroVideoLikely(basic, platform) },
       });
     }
 
@@ -231,22 +292,23 @@ function buildPerformanceVitalsPack(psi, basic, isHtml) {
 
   if (!isHtml) return { deductions, issues };
 
-  if (basic && basic.html_bytes > 500_000) {
-    pushFix(deductions, issues, {
-      code: "perf_html_very_large",
-      points: 20,
-      title: "Very large HTML document",
-      signalLabel: label,
-      evidence: { html_bytes: basic.html_bytes },
-    });
-  } else if (basic && basic.html_bytes > 250_000) {
-    pushFix(deductions, issues, {
-      code: "perf_html_large",
-      points: 20,
-      title: "Large HTML document",
-      signalLabel: label,
-      evidence: { html_bytes: basic.html_bytes },
-    });
+  const hasLcpFix = deductions.some((d) =>
+    /lcp_slow/.test(String(d.code || "").toLowerCase())
+  );
+  const skipHtmlBecauseLcp = hasLcpFix && isHeroVideoLikely(basic, platform);
+
+  if (!skipHtmlBecauseLcp && basic && Number(basic.html_bytes) > 500_000) {
+    if (isHeroVideoLikely(basic, platform)) {
+      pushHeroVideoFix(deductions, issues, { signalLabel: label, points: 22, basic, platform });
+    } else {
+      pushHtmlWeightFix(deductions, issues, { signalLabel: label, basic, veryLarge: true });
+    }
+  } else if (!skipHtmlBecauseLcp && basic && Number(basic.html_bytes) > 250_000) {
+    if (isHeroVideoLikely(basic, platform)) {
+      pushHeroVideoFix(deductions, issues, { signalLabel: label, points: 20, basic, platform });
+    } else {
+      pushHtmlWeightFix(deductions, issues, { signalLabel: label, basic, veryLarge: false });
+    }
   }
   if (basic && basic.inline_script_count >= 6) {
     pushFix(deductions, issues, {
@@ -284,6 +346,8 @@ const VITALS_CODES = new Set([
   "perf_html_large",
   "perf_inline_scripts",
   "perf_head_scripts",
+  "perf_hero_video_delay",
+  "mobile_hero_video_delay",
 ]);
 
 function mergeVitalsDeductions(existingDeductions, existingIssues, vitalsPack) {
@@ -311,7 +375,7 @@ function mergeVitalsDeductions(existingDeductions, existingIssues, vitalsPack) {
   return { deductions: deds, issues: iss };
 }
 
-function enrichSignalWithVitals(sig, psi, basic, isHtml) {
+function enrichSignalWithVitals(sig, psi, basic, isHtml, platform) {
   const id = String(sig?.id || "").toLowerCase();
   if (id !== "performance" && id !== "mobile") return sig;
 
@@ -322,8 +386,8 @@ function enrichSignalWithVitals(sig, psi, basic, isHtml) {
 
   const vitalsPack =
     id === "mobile"
-      ? buildMobileVitalsPack(psi, basic, isHtml)
-      : buildPerformanceVitalsPack(psi, basic, isHtml);
+      ? buildMobileVitalsPack(psi, basic, isHtml, platform)
+      : buildPerformanceVitalsPack(psi, basic, isHtml, platform);
 
   if (!vitalsPack.deductions.length) return sig;
 
@@ -348,5 +412,6 @@ module.exports = {
   mergeVitalsDeductions,
   enrichSignalWithVitals,
   isHtmlScan,
+  isHeroVideoLikely,
   VITALS_CODES,
 };

@@ -586,7 +586,7 @@ export async function handler(event) {
     const delivery_signals = asArray(rawSignals)
       .map(normaliseSignal)
       .map((sig) =>
-        enrichSignalWithVitals(sig, psi, basic_checks, isHtmlScan(basic_checks))
+        enrichSignalWithVitals(sig, psi, basic_checks, isHtmlScan(basic_checks), platform)
       );
 
     const rawScores = safeObj(reconciled.scores);

@@ -236,12 +236,12 @@ function reconcileMetricsWithPsi(metrics) {
   const perfVitals = mergeVitalsDeductions(
     prevPerf.deductions || [],
     prevPerf.issues || [],
-    buildPerformanceVitalsPack(psi, basic, isHtml)
+    buildPerformanceVitalsPack(psi, basic, isHtml, metrics.platform || null)
   );
   const mobileVitals = mergeVitalsDeductions(
     prevMobile.deductions || [],
     prevMobile.issues || [],
-    buildMobileVitalsPack(psi, basic, isHtml)
+    buildMobileVitalsPack(psi, basic, isHtml, metrics.platform || null)
   );
 
   patchSignal(signals, "performance", buildSimpleSignal({
