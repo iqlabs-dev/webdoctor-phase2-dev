@@ -19,6 +19,14 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY |
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const SERPER_API_KEY = process.env.SERPER_API_KEY || process.env.SERPER_APIKEY || "";
 
+// Use a realistic browser User-Agent for the page fetch. Some platforms (e.g.
+// Wix) serve a different, sometimes "noindex", variant to unknown bot agents,
+// which produced false SEO failures. A browser UA reflects what real users and
+// Google see. Overridable via SCAN_USER_AGENT if needed.
+const SCAN_USER_AGENT =
+  process.env.SCAN_USER_AGENT ||
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
 
  
 // ---------------------------------------------
@@ -414,8 +422,9 @@ async function fetchWithTimeout(url, ms = 12000) {
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "User-Agent": "iQWEB-SignalsBot/1.0 (+https://iqweb.ai)",
+        "User-Agent": SCAN_USER_AGENT,
         Accept: "text/html,application/xhtml+xml",
+        "Accept-Language": "en-US,en;q=0.9",
       },
     });
 
@@ -1487,8 +1496,13 @@ function buildSeoSignal(basic, pageUrl) {
   // -----------------------------
 
   if (basic.robots_meta_present && basic.robots_blocks_index) {
+    // noindex is the single most damaging SEO directive, so the score stays very
+    // low — but we avoid a literal 0 (a low floor reads as a critical, fixable
+    // issue rather than a "broken scanner"). The high-severity flag remains.
+    const SEO_NOINDEX_FLOOR = 15;
+
     deductions.push({
-      points: 100,
+      points: base_score - SEO_NOINDEX_FLOOR,
       reason: "Robots meta includes noindex.",
       code: "seo_noindex",
     });
@@ -1505,9 +1519,9 @@ function buildSeoSignal(basic, pageUrl) {
     return {
       id: "seo",
       label: "SEO Foundations",
-      score: 0,
+      score: SEO_NOINDEX_FLOOR,
       base_score,
-      penalty_points: 100,
+      penalty_points: base_score - SEO_NOINDEX_FLOOR,
       deductions,
       issues,
       evidence,
@@ -2392,7 +2406,7 @@ let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
     seo:
       seo >= 90
         ? "Core SEO foundations appear present and consistent."
-        : seo === 0 && seoSignal?.evidence?.robots_blocks_index
+        : seoSignal?.evidence?.robots_blocks_index
         ? "SEO is blocked (noindex detected)."
         : seo === 25 && !isHtml
         ? "SEO signals not observable (HTML not available). Missing inputs are penalised to preserve integrity."
