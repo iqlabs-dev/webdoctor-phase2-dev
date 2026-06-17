@@ -38,6 +38,37 @@ function buildSimpleSignal({ id, label, score, evidence = {}, deductions = [], i
   };
 }
 
+// A measured page should never read as a literal 0 (which implies "not
+// measured" / broken). Floor keeps very poor pages low but gradable.
+const PERF_MEASURED_FLOOR = 12;
+
+function lcpPenalty(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  if (ms <= 2500) return 0;
+  if (ms <= 4000) return 12;
+  if (ms <= 6000) return 25;
+  if (ms <= 10000) return 40;
+  return 55;
+}
+
+function tbtPenalty(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return 0;
+  if (ms <= 200) return 0;
+  if (ms <= 400) return 6;
+  if (ms <= 800) return 14;
+  if (ms <= 1500) return 24;
+  return 34;
+}
+
+// Per-device performance sub-score (0-100) from PSI field metrics.
+function devicePerfScore(facts) {
+  if (!facts) return null;
+  const lcp = Number(facts.LCP_ms);
+  const tbt = Number(facts.TBT_ms);
+  if (!Number.isFinite(lcp) && !Number.isFinite(tbt)) return null;
+  return clamp(100 - lcpPenalty(lcp) - tbtPenalty(tbt), 0, 100);
+}
+
 function scorePerformanceFromBasic(basic, isHtml, psi) {
   let score = 100;
   const reasons = [];
@@ -45,44 +76,32 @@ function scorePerformanceFromBasic(basic, isHtml, psi) {
   const mf = psi && psi.mobile && psi.mobile.facts ? psi.mobile.facts : null;
   const df = psi && psi.desktop && psi.desktop.facts ? psi.desktop.facts : null;
 
-  if (mf && df) {
-    const mLCP = Number(mf.LCP_ms);
-    const dLCP = Number(df.LCP_ms);
-    const mTBT = Number(mf.TBT_ms);
-    const dTBT = Number(df.TBT_ms);
+  if (mf || df) {
+    const mPerf = devicePerfScore(mf);
+    const dPerf = devicePerfScore(df);
 
-    function lcpPenalty(ms) {
-      if (!Number.isFinite(ms) || ms <= 0) return 0;
-      if (ms <= 2500) return 0;
-      if (ms <= 4000) return 12;
-      if (ms <= 6000) return 25;
-      if (ms <= 10000) return 40;
-      return 55;
+    // Blend mobile-weighted (mobile-first), but a strong desktop result keeps
+    // a slow-mobile page from collapsing to 0.
+    let blended;
+    if (mPerf !== null && dPerf !== null) {
+      blended = Math.round(mPerf * 0.6 + dPerf * 0.4);
+    } else {
+      blended = mPerf !== null ? mPerf : dPerf;
     }
 
-    function tbtPenalty(ms) {
-      if (!Number.isFinite(ms) || ms < 0) return 0;
-      if (ms <= 200) return 0;
-      if (ms <= 400) return 6;
-      if (ms <= 800) return 14;
-      if (ms <= 1500) return 24;
-      return 34;
-    }
+    score = clamp(blended, PERF_MEASURED_FLOOR, 100);
 
-    let p = 0;
-    p += lcpPenalty(mLCP);
-    p += Math.round(lcpPenalty(dLCP) * 0.6);
-    p += tbtPenalty(mTBT);
-    p += Math.round(tbtPenalty(dTBT) * 0.5);
-
-    score -= p;
+    const mLCP = mf ? Number(mf.LCP_ms) : NaN;
+    const dLCP = df ? Number(df.LCP_ms) : NaN;
+    const mTBT = mf ? Number(mf.TBT_ms) : NaN;
+    const dTBT = df ? Number(df.TBT_ms) : NaN;
 
     if (Number.isFinite(mLCP) && mLCP > 2500) reasons.push("slow mobile LCP");
     if (Number.isFinite(dLCP) && dLCP > 2500) reasons.push("slow desktop LCP");
     if (Number.isFinite(mTBT) && mTBT > 300) reasons.push("high mobile main-thread work (TBT)");
     if (Number.isFinite(dTBT) && dTBT > 300) reasons.push("high desktop main-thread work (TBT)");
 
-    return { score: clamp(score, 0, 100), reasons };
+    return { score, reasons };
   }
 
   if (!isHtml) return { score: 25, reasons: ["non-HTML response"] };
