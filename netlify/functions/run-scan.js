@@ -17,6 +17,7 @@ const PSI_STRATEGIES = String(process.env.PSI_STRATEGIES || "mobile,desktop")
 const PSI_TIMEOUT_MS = Number(process.env.PSI_TIMEOUT_MS || "120000");
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const SERPER_API_KEY = process.env.SERPER_API_KEY || process.env.SERPER_APIKEY || "";
 
 
  
@@ -791,6 +792,25 @@ function aiMatchKey(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+// Collapse a hostname to its registrable domain so that e.g. "help.xero.com"
+// and "www.xero.com" both resolve to "xero.com", and mentions are de-duplicated
+// per organisation rather than per subdomain. Handles common multi-part TLDs.
+const MULTI_PART_TLDS = {
+  "co.nz": 1, "net.nz": 1, "org.nz": 1, "govt.nz": 1, "ac.nz": 1,
+  "co.uk": 1, "org.uk": 1, "me.uk": 1, "gov.uk": 1, "ac.uk": 1,
+  "com.au": 1, "net.au": 1, "org.au": 1, "gov.au": 1,
+  "co.za": 1, "com.br": 1, "co.jp": 1, "co.in": 1, "co.kr": 1, "com.sg": 1
+};
+function registrableDomain(host) {
+  const h = String(host || "").replace(/^www\./i, "").toLowerCase().trim();
+  if (!h) return "";
+  const parts = h.split(".");
+  if (parts.length <= 2) return h;
+  const last2 = parts.slice(-2).join(".");
+  if (MULTI_PART_TLDS[last2]) return parts.slice(-3).join(".");
+  return last2;
+}
+
 async function evaluateAiRecommendationPresence(profile, pageUrl) {
   const queries = buildAiQueries(profile);
   const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
@@ -828,6 +848,43 @@ async function evaluateAiRecommendationPresence(profile, pageUrl) {
 
   const score = hits >= 3 ? 40 : hits >= 1 ? 20 : 0;
   return { score, hits, queries, results, available: true };
+}
+
+// Serper.dev Google Search API — reliable, structured results (organic +
+// Knowledge Graph). Returns null on any failure so callers can fall back.
+async function fetchSerperResults(query, opts = {}) {
+  if (!SERPER_API_KEY) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let resp;
+    try {
+      resp = await fetch("https://google.serper.dev/search", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": SERPER_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          q: query,
+          num: 10,
+          gl: opts.gl || "us",
+          hl: opts.hl || "en"
+        }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!resp.ok) {
+      console.warn("[run-scan] Serper non-OK status", resp.status);
+      return null;
+    }
+    return await resp.json();
+  } catch (e) {
+    console.warn("[run-scan] Serper fetch failed", e && e.message ? e.message : e);
+    return null;
+  }
 }
 
 async function fetchDuckDuckGoResults(query) {
@@ -868,6 +925,8 @@ async function evaluateIndependentMentions(profile, pageUrl) {
   pushKey(profile.brand_core);
   pushKey(profile.brand_name);
 
+  const primaryReg = registrableDomain(domain);
+
   // Query with the cleanest, most widely-used brand term available.
   const queryBrand = String(
     profile.brand_core || profile.brand_name || domainBase || hostnameLabelFromUrl(pageUrl) || ''
@@ -875,36 +934,94 @@ async function evaluateIndependentMentions(profile, pageUrl) {
 
   const queries = [
     '"' + queryBrand + '"',
-    'site:reddit.com "' + queryBrand + '"',
-    '"' + queryBrand + '" review'
+    '"' + queryBrand + '" reviews',
+    '"' + queryBrand + '" reddit'
   ];
+
+  // Prefer Serper (reliable, structured Google results). Fall back to the
+  // DuckDuckGo HTML scrape only when no SERPER_API_KEY is configured so the
+  // feature degrades gracefully instead of breaking.
+  const useSerper = !!SERPER_API_KEY;
+  const provider = useSerper ? 'serper' : 'duckduckgo';
+
   const sources = [];
   const domains = {};
+  let knowledgeGraph = null;
+  let available = false;
 
   for (const q of queries) {
-    const rows = await fetchDuckDuckGoResults(q);
+    let rows = [];
+
+    if (useSerper) {
+      const data = await fetchSerperResults(q);
+      if (data) {
+        available = true;
+        // A Google Knowledge Graph entity panel is the strongest possible
+        // signal that the brand is an established, recognised entity.
+        const kg = data.knowledgeGraph;
+        if (!knowledgeGraph && kg && (kg.title || kg.type)) {
+          knowledgeGraph = {
+            title: kg.title || '',
+            type: kg.type || '',
+            website: kg.website || ''
+          };
+        }
+        rows = (Array.isArray(data.organic) ? data.organic : []).map((o) => ({
+          title: o.title || '',
+          href: o.link || '',
+          snippet: o.snippet || ''
+        }));
+      }
+    } else {
+      rows = await fetchDuckDuckGoResults(q);
+      if (rows.length) available = true;
+    }
+
     for (const row of rows) {
       try {
         const u = tryParseUrl(row.href);
         const host = ((u && u.hostname) || '').replace(/^www\./i, '');
-        if (!host || host === domain) continue;
+        if (!host) continue;
+        const reg = registrableDomain(host);
+        if (!reg || reg === primaryReg) continue; // exclude the brand's own domain
         const answerKey = aiMatchKey(row.title + ' ' + row.snippet);
         const matched = candidateKeys.some((k) => answerKey.indexOf(k) !== -1);
         if (!matched) continue;
-        domains[host] = true;
-        sources.push({ query: q, host, title: row.title, snippet: row.snippet });
+        if (!domains[reg]) {
+          domains[reg] = true;
+          sources.push({
+            query: q,
+            domain: reg,
+            host,
+            title: row.title,
+            snippet: String(row.snippet || '').slice(0, 200)
+          });
+        }
       } catch {}
     }
   }
 
   const uniqueCount = Object.keys(domains).length;
+  const hasKnowledgeGraph = !!knowledgeGraph;
+
   let score = 0;
   if (uniqueCount >= 8) score = 40;
   else if (uniqueCount >= 4) score = 28;
   else if (uniqueCount >= 2) score = 14;
   else score = 0;
 
-  return { score, unique_count: uniqueCount, sources: sources.slice(0, 12) };
+  // An entity-grade Knowledge Graph presence guarantees meaningful authority.
+  if (hasKnowledgeGraph) score = Math.max(score, 28);
+
+  return {
+    score,
+    unique_count: uniqueCount,
+    knowledge_graph_present: hasKnowledgeGraph,
+    knowledge_graph: knowledgeGraph,
+    provider,
+    available,
+    sources: sources.slice(0, 12)
+  };
 }
 
 function buildAiDiscoverabilitySignal(aiData) {
@@ -926,6 +1043,7 @@ function buildAiDiscoverabilitySignal(aiData) {
   const recScore = Number(rec.score || 0);
   const mentionCount = Number(mentions.unique_count || 0);
   const recHits = Number(rec.hits || 0);
+  const knowledgeGraphPresent = !!mentions.knowledge_graph_present;
 
   const strongHosts = [
     "apple.com",
@@ -948,6 +1066,9 @@ function buildAiDiscoverabilitySignal(aiData) {
   if (profile.title_clarity) authorityBoost += 6;
   if (profile.h1_clarity) authorityBoost += 4;
   if (profile.meta_clarity) authorityBoost += 4;
+  // A Google Knowledge Graph entity panel is a strong, independent authority
+  // signal (Google recognises the brand as a distinct entity).
+  if (knowledgeGraphPresent) authorityBoost += 12;
 
   if (
     strongHosts.indexOf(host) !== -1 ||
@@ -998,7 +1119,7 @@ function buildAiDiscoverabilitySignal(aiData) {
     });
   }
 
-  if (mentionCount < 2) {
+  if (mentionCount < 2 && !knowledgeGraphPresent) {
     deductions.push({
       points: 10,
       reason: "Very limited independent mentions detected outside the primary domain.",
@@ -1022,6 +1143,8 @@ function buildAiDiscoverabilitySignal(aiData) {
       ai_recommendation_queries_tested: (rec.queries || []).length || 0,
       example_prompt_tested: profile.example_prompt_tested || null,
       independent_web_mentions: mentionCount,
+      knowledge_graph_present: knowledgeGraphPresent,
+      mentions_provider: mentions.provider || null,
       authority_boost: authorityBoost,
       entity_score: entityScore,
       hostname: host,
@@ -1039,6 +1162,7 @@ function buildAiDiscoverabilitySignal(aiData) {
       { label: "Location Term", value: profile.location_term || null, source: "ai" },
       { label: "Recommendation Hits", value: recHits, source: "ai" },
       { label: "Independent Mentions", value: mentionCount, source: "ai" },
+      { label: "Knowledge Graph Entity", value: knowledgeGraphPresent, source: "ai" },
       { label: "Authority Boost", value: authorityBoost, source: "ai" }
     ],
     deductions,
