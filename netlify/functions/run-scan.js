@@ -552,7 +552,7 @@ function parseJsonLdSignals(html) {
 
 function deriveAiProfile(basic, pageUrl, html) {
   const profile = {
-    brand_name: '', service_term: '', location_term: '', has_org_schema: false,
+    brand_name: '', brand_core: '', service_term: '', location_term: '', has_org_schema: false,
     entity_score: 0, title_clarity: false, h1_clarity: false, meta_clarity: false
   };
 
@@ -563,12 +563,43 @@ function deriveAiProfile(basic, pageUrl, html) {
   const h1 = normalizeName(basic.h1_text || '');
   const desc = normalizeName(basic.meta_description_text || '');
 
-  let brand = schema.organization_name || hostnameLabelFromUrl(pageUrl);
-  if (!schema.organization_name && title) {
-    const parts = title.split(/\s+[\-|–|—|•|:]\s+/);
-    if (parts.length > 1) brand = normalizeName(parts[parts.length - 1]);
+  // Brand extraction.
+  // IMPORTANT: split the RAW title (before normalizeName collapses "|" separators),
+  // then pick the segment that best matches the site hostname rather than blindly
+  // taking the last segment (which is often a tagline, e.g. "Your business supercharged").
+  const hostLabel = hostnameLabelFromUrl(pageUrl); // e.g. "Xero", "Wynyardgrill"
+  const hostKey = String(hostLabel || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  let brand = schema.organization_name || "";
+  if (!brand) {
+    const rawTitle = String(basic.title_text || "");
+    const segments = rawTitle
+      .split(/\s*[\|\-–—•:·]\s*/)
+      .map((p) => normalizeName(p))
+      .filter(Boolean);
+
+    if (segments.length) {
+      // Prefer a segment whose alphanumeric key overlaps the hostname (real brand).
+      let pick = null;
+      if (hostKey.length >= 3) {
+        pick = segments.find((p) => {
+          const k = p.toLowerCase().replace(/[^a-z0-9]+/g, "");
+          return k && (k.indexOf(hostKey) !== -1 || hostKey.indexOf(k) !== -1);
+        });
+      }
+      // Otherwise fall back to the shortest segment (brands are usually concise).
+      if (!pick) {
+        pick = segments.slice().sort((a, b) => a.length - b.length)[0];
+      }
+      brand = pick || "";
+    }
   }
+  if (!brand) brand = hostLabel;
   profile.brand_name = brand;
+
+  // Clean, matchable brand core derived from the hostname (e.g. "xero").
+  // Used for recommendation-hit matching where AI answers say "Xero", not "xero.com".
+  profile.brand_core = hostLabel;
 
   let service = schema.service_name || h1 || title;
   if (service && brand) {
@@ -612,27 +643,51 @@ function buildAiQueries(profile) {
   ];
 }
 
-async function openAiChat(messages, max_tokens = 450) {
+async function openAiChat(messages, max_tokens = 450, options = {}) {
   if (!OPENAI_API_KEY) return null;
   try {
+    const payload = {
+      model: OPENAI_MODEL,
+      temperature: typeof options.temperature === "number" ? options.temperature : 0.2,
+      max_tokens,
+      messages,
+    };
+    if (options.json) {
+      payload.response_format = { type: "json_object" };
+    }
+
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + OPENAI_API_KEY,
       },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        temperature: 0.2,
-        max_tokens,
-        messages,
-      })
+      body: JSON.stringify(payload)
     });
     if (!resp.ok) return null;
     const json = await resp.json().catch(() => null);
     return json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content ? json.choices[0].message.content : null;
   } catch (e) {
     console.warn('[run-scan] OpenAI request failed', e && e.message ? e.message : e);
+    return null;
+  }
+}
+
+// Tolerant JSON parse for model output (strips ```json fences if present).
+function parseModelJson(raw) {
+  if (!raw) return null;
+  let s = String(raw).trim();
+  if (s.indexOf("```") !== -1) {
+    s = s.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+  }
+  try {
+    return JSON.parse(s);
+  } catch (e) {
+    const a = s.indexOf("{");
+    const b = s.lastIndexOf("}");
+    if (a !== -1 && b !== -1 && b > a) {
+      try { return JSON.parse(s.slice(a, b + 1)); } catch (e2) { return null; }
+    }
     return null;
   }
 }
@@ -662,13 +717,11 @@ async function classifyBusinessCategory(pageSignals) {
         }
       ];
 
-      const resp = await openAiChat(prompt, 160);
+      const resp = await openAiChat(prompt, 220, { temperature: 0, json: true });
       if (!resp) return null;
 
-      let parsed;
-      try {
-        parsed = JSON.parse(resp);
-      } catch (e) {
+      const parsed = parseModelJson(resp);
+      if (!parsed) {
         console.warn("[run-scan] category JSON parse failed");
         return null;
       }
@@ -706,10 +759,27 @@ async function classifyBusinessCategory(pageSignals) {
   }
 }
 
+// Normalised alphanumeric key for fuzzy brand/domain matching
+// ("Flight Centre" -> "flightcentre", "xero.com" -> "xerocom", "Xero" -> "xero").
+function aiMatchKey(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 async function evaluateAiRecommendationPresence(profile, pageUrl) {
   const queries = buildAiQueries(profile);
   const domain = ((tryParseUrl(pageUrl) || {}).hostname || '').replace(/^www\./i, '');
-  const brand = String(profile.brand_name || '').toLowerCase();
+  const domainBase = domain.split('.')[0] || ''; // "xero" from "xero.com"
+
+  // Candidate tokens that count as "this business" if the AI answer contains them.
+  const candidateKeys = [];
+  const pushKey = (v) => {
+    const k = aiMatchKey(v);
+    if (k.length >= 3 && candidateKeys.indexOf(k) === -1) candidateKeys.push(k);
+  };
+  pushKey(domainBase);
+  pushKey(profile.brand_core);
+  pushKey(profile.brand_name);
+
   const results = [];
   let hits = 0;
 
@@ -724,8 +794,8 @@ async function evaluateAiRecommendationPresence(profile, pageUrl) {
     ], 180);
 
     const raw = String(content || '').trim();
-    const lower = raw.toLowerCase();
-    const mentioned = (!!domain && lower.indexOf(domain.toLowerCase()) !== -1) || (!!brand && lower.indexOf(brand) !== -1);
+    const answerKey = aiMatchKey(raw);
+    const mentioned = candidateKeys.some((k) => answerKey.indexOf(k) !== -1);
     if (mentioned) hits += 1;
     results.push({ query: q, mentioned, raw: raw.slice(0, 400) });
   }
