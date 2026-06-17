@@ -1,9 +1,6 @@
 // /.netlify/functins/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
-import { createRequire } from "module";
-
-const require = createRequire(import.meta.url);
-const { reconcileMetricsWithPsi } = require("../../utils/reconcile-psi-scores.js");
+import { reconcileMetricsWithPsi } from "../../utils/reconcile-psi-scores.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;

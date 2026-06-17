@@ -279,7 +279,7 @@ function reconcileMetricsWithPsi(metrics) {
   };
 }
 
-module.exports = {
+export {
   clamp,
   scorePerformanceFromBasic,
   scoreMobileFromBasic,
