@@ -5370,20 +5370,27 @@ body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection .section-body {
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid {
-  gap: 16px !important;
+  gap: 20px !important;
   align-items: stretch !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
-  min-height: 0 !important;
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card) {
+  min-height: 300px !important;
   height: 100% !important;
-  padding: 18px 20px !important;
+  padding: 22px 22px 26px !important;
   border: 1px solid var(--pro-border) !important;
   border-radius: var(--pro-radius-sm) !important;
   background: var(--pro-surface) !important;
   box-shadow: none !important;
   display: flex !important;
   flex-direction: column !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card {
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 18px 20px 24px !important;
+  display: block !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card h3 {
@@ -5407,19 +5414,21 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
   line-height: 1.55 !important;
   font-weight: 400 !important;
   margin-top: 10px !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 20px !important;
   flex: 1 1 auto !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact {
   margin-top: auto !important;
   flex-shrink: 0 !important;
-  padding: 10px 12px !important;
+  padding: 12px 14px !important;
   background: #eef2ff !important;
   border-left: 3px solid #6366f1 !important;
   border-radius: 8px !important;
   color: #334155 !important;
   font-size: 12.5px !important;
-  line-height: 1.5 !important;
+  line-height: 1.55 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact span {
@@ -5428,7 +5437,8 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact span {
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card .signal-impact {
-  margin: 16px 0 0 !important;
+  margin: 28px 0 6px !important;
+  padding: 12px 14px !important;
   background: #eef2ff !important;
   border-left: 3px solid #6366f1 !important;
   color: #334155 !important;
