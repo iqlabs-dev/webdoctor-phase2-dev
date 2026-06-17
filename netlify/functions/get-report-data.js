@@ -1,6 +1,10 @@
 // /.netlify/functins/get-report-data.js
+import { createRequire } from "node:module";
 import { createClient } from "@supabase/supabase-js";
 import { reconcileMetricsWithPsi } from "../../utils/reconcile-psi-scores.js";
+
+const require = createRequire(import.meta.url);
+const { enrichSignalWithVitals, isHtmlScan } = require("../../utils/vitals-deductions.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -257,9 +261,69 @@ function severityFromPoints(pts) {
   return "low";
 }
 
+const SCORE_WEIGHTS = {
+  performance: 0.30,
+  mobile: 0.20,
+  seo: 0.20,
+  security: 0.15,
+  structure: 0.10,
+  accessibility: 0.05,
+  ai_discoverability: 0.10,
+};
+
+function relatedPrimaryDomains(primaryKey) {
+  const k = String(primaryKey || "").toLowerCase();
+  if (k === "performance") return new Set(["performance", "mobile"]);
+  if (k === "mobile") return new Set(["mobile", "performance"]);
+  if (!k) return new Set();
+  return new Set([k]);
+}
+
+function computePrimaryConstraintKey(scores, platformControl) {
+  scores = safeObj(scores);
+  const domains =
+    platformControl === "limited"
+      ? ["performance", "mobile", "seo", "structure", "accessibility", "security", "ai_discoverability"]
+      : ["performance", "mobile", "seo", "security", "structure", "accessibility", "ai_discoverability"];
+
+  let nonSecurityMeasured = false;
+  if (platformControl === "limited") {
+    for (const dk of domains) {
+      if (dk === "security") continue;
+      const s = asInt(scores[dk], null);
+      if (s !== null) {
+        nonSecurityMeasured = true;
+        break;
+      }
+    }
+  }
+
+  let best = { key: "", pts: -1, score: 100 };
+
+  for (const dk of domains) {
+    if (platformControl === "limited" && dk === "security" && nonSecurityMeasured) continue;
+    const s = asInt(scores[dk], null);
+    if (s === null) continue;
+    const w = SCORE_WEIGHTS[dk] || 0;
+    const pts = (100 - s) * w;
+    if (pts >= 3 && pts > best.pts) {
+      best = { key: dk, pts, score: s };
+    }
+  }
+
+  return best.key || "";
+}
+
+function fixDedupeKey(code) {
+  const c = String(code || "").toLowerCase();
+  if (c === "mobile_lcp_slow" || c === "perf_mobile_lcp_slow") return "vitals:mobile_lcp";
+  return c || "";
+}
+
 // Build a flat, impact-ranked list of fixes from the normalised signals.
-function buildFixPlan(signals) {
-  const items = [];
+function buildFixPlan(signals, primaryKey) {
+  const deduped = new Map();
+
   for (const sig of asArray(signals)) {
     const signalId = sig.id || "";
     const signalLabel = sig.label || signalId || "Signal";
@@ -270,15 +334,16 @@ function buildFixPlan(signals) {
       const pts = Number(d.points) || 0;
       if (pts <= 0) continue;
       const code = d.code || signalId + "_fix";
+      const alias = fixDedupeKey(code);
       const match = issues.find(
         (i) => i && i.id && d.code && String(i.id) === String(d.code)
       );
       const cls = classifyFix(d.code, signalId);
-      items.push({
+      const item = {
         code,
         signal_id: signalId,
         signal_label: signalLabel,
-        title: (match && match.title) || actionTitle(d.code, d.reason),
+        title: actionTitle(d.code, d.reason),
         detail:
           (match && (match.impact || match.title)) ||
           actionTitle(d.code, d.reason),
@@ -288,16 +353,29 @@ function buildFixPlan(signals) {
         phase: cls.phase,
         phase_label: FIX_PHASES[cls.phase].label,
         phase_time: FIX_PHASES[cls.phase].time,
-      });
+      };
+
+      const prev = deduped.get(alias);
+      if (!prev || item.points > prev.points) {
+        deduped.set(alias, item);
+      }
     }
   }
 
-  // Rank by measured impact (deduction points) descending.
-  items.sort((a, b) => b.points - a.points);
+  const related = relatedPrimaryDomains(primaryKey);
+  const items = Array.from(deduped.values());
 
-  // Stamp 1-based priority after ranking.
+  items.sort((a, b) => {
+    const aPrimary = related.has(String(a.signal_id || "").toLowerCase());
+    const bPrimary = related.has(String(b.signal_id || "").toLowerCase());
+    if (aPrimary !== bPrimary) return aPrimary ? -1 : 1;
+    if (b.points !== a.points) return b.points - a.points;
+    return String(a.title || "").localeCompare(String(b.title || ""));
+  });
+
   items.forEach((it, idx) => {
     it.priority = idx + 1;
+    it.primary_boost = related.has(String(it.signal_id || "").toLowerCase());
   });
 
   return items;
@@ -506,7 +584,11 @@ export async function handler(event) {
       ? reconciled.delivery_signals
       : asArray(metrics?.metrics?.delivery_signals);
 
-    const delivery_signals = asArray(rawSignals).map(normaliseSignal);
+    const delivery_signals = asArray(rawSignals)
+      .map(normaliseSignal)
+      .map((sig) =>
+        enrichSignalWithVitals(sig, psi, basic_checks, isHtmlScan(basic_checks))
+      );
 
     const rawScores = safeObj(reconciled.scores);
     const scores = Object.keys(rawScores).length
@@ -558,8 +640,13 @@ export async function handler(event) {
 
     const findings = asArray(reconciled.findings);
 
+    const primary_constraint_key = computePrimaryConstraintKey(
+      scores,
+      platform_control
+    );
+
     // Build the full, impact-ranked prescription from the measured signals.
-    const fullFixPlan = buildFixPlan(delivery_signals);
+    const fullFixPlan = buildFixPlan(delivery_signals, primary_constraint_key);
 
     // Entitlement gate: fix-plan DEPTH is gated on the report OWNER's plan
     // (not the viewer's), so shared links unlock retroactively on upgrade.
@@ -643,6 +730,7 @@ export async function handler(event) {
       key_metrics,
       findings,
       fix_plan,
+      primary_constraint_key,
       entitlement,
       narrative,
 

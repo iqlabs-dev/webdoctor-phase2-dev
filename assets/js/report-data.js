@@ -2585,12 +2585,23 @@ execRoot.innerHTML = html;
 var all = [];
 var primaryOnly = [];
 
+function isRelatedPrimaryDomain(domain, primaryKey) {
+  if (!primaryKey) return false;
+  var d = String(domain || "").toLowerCase();
+  var p = String(primaryKey || "").toLowerCase();
+  if (d === p) return true;
+  if (p === "performance" && d === "mobile") return true;
+  if (p === "mobile" && d === "performance") return true;
+  return false;
+}
+
 for (var a = 0; a < signals.length; a++) {
   var sigA = safeObj(signals[a]);
+  var sigDomain = domainKeyFromSignal(sigA);
 
   collectFromSignal(sigA, all);
 
-  if (primary && primary.key && domainKeyFromSignal(sigA) === primary.key) {
+  if (primary && primary.key && isRelatedPrimaryDomain(sigDomain, primary.key)) {
     collectFromSignal(sigA, primaryOnly);
   }
 }

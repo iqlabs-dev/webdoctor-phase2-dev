@@ -5203,6 +5203,15 @@ body.iqweb-v2-shell .iq-overview-card h3 {
   letter-spacing: -0.02em !important;
 }
 
+body.iqweb-v2-shell .iq-overview-card-note {
+  margin: 6px 0 0 !important;
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  font-weight: 400 !important;
+  max-width: 36ch;
+}
+
 body.iqweb-v2-shell .iq-overview-card h3 small {
   color: var(--pro-text-muted) !important;
   font-weight: 500 !important;
@@ -5981,6 +5990,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
                     <div>
                       <div class="iq-overview-eyebrow">Top Issues</div>
                       <h3>Detected priorities</h3>
+                      <p class="iq-overview-card-note">Issues tied to your primary constraint — the weakest signal holding back the overall score.</p>
                     </div>
                     <span class="iq-overview-count danger" id="ovIssuesCount">—</span>
                   </div>
@@ -5994,6 +6004,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
                     <div>
                       <div class="iq-overview-eyebrow">Your Action Plan</div>
                       <h3>Prioritized fixes</h3>
+                      <p class="iq-overview-card-note">Highest-impact actions across all signals — primary constraint fixes are ranked first.</p>
                     </div>
                     <span class="iq-overview-pill" id="ovActionPlanPill">—</span>
                   </div>
@@ -6306,7 +6317,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js"></script>
-  <script src="/assets/js/report-data.js?v=20260617i"></script>
+  <script src="/assets/js/report-data.js?v=20260617j"></script>
 
   <script>
     (function () {

@@ -1,6 +1,15 @@
 // /utils/reconcile-psi-scores.js
 // Recompute Performance / Mobile / overall scores after PSI background worker completes.
 
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const {
+  buildMobileVitalsPack,
+  buildPerformanceVitalsPack,
+  mergeVitalsDeductions,
+} = require("./vitals-deductions.js");
+
 function clamp(n, min, max) {
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, n));
@@ -225,6 +234,17 @@ function reconcileMetricsWithPsi(metrics) {
   const prevPerf = signals.find((s) => s.id === "performance") || {};
   const prevMobile = signals.find((s) => s.id === "mobile") || {};
 
+  const perfVitals = mergeVitalsDeductions(
+    prevPerf.deductions || [],
+    prevPerf.issues || [],
+    buildPerformanceVitalsPack(psi, basic, isHtml)
+  );
+  const mobileVitals = mergeVitalsDeductions(
+    prevMobile.deductions || [],
+    prevMobile.issues || [],
+    buildMobileVitalsPack(psi, basic, isHtml)
+  );
+
   patchSignal(signals, "performance", buildSimpleSignal({
     id: "performance",
     label: "Performance",
@@ -240,8 +260,8 @@ function reconcileMetricsWithPsi(metrics) {
       psi_desktop_LCP_ms: psi.desktop && psi.desktop.facts ? psi.desktop.facts.LCP_ms : null,
       psi_desktop_TBT_ms: psi.desktop && psi.desktop.facts ? psi.desktop.facts.TBT_ms : null,
     },
-    deductions: prevPerf.deductions || [],
-    issues: prevPerf.issues || [],
+    deductions: perfVitals.deductions,
+    issues: perfVitals.issues,
   }));
 
   patchSignal(signals, "mobile", buildSimpleSignal({
@@ -261,8 +281,8 @@ function reconcileMetricsWithPsi(metrics) {
       psi_mobile_INP_ms: mf ? mf.INP_ms : null,
       psi_mobile_TBT_ms: mf ? mf.TBT_ms : null,
     },
-    deductions: prevMobile.deductions || [],
-    issues: prevMobile.issues || [],
+    deductions: mobileVitals.deductions,
+    issues: mobileVitals.issues,
   }));
 
   // Refresh structure signal PSI evidence for consistency in Evidence tab.

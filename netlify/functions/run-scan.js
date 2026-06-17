@@ -1,5 +1,11 @@
 const { detectPlatform } = require("../../utils/platform-detection");
 const { getPlatformPolicy } = require("../../utils/platform-policy");
+const {
+  buildMobileVitalsPack,
+  buildPerformanceVitalsPack,
+  mergeVitalsDeductions,
+  isHtmlScan: vitalsIsHtmlScan,
+} = require("../../utils/vitals-deductions");
 const cheerio = require("cheerio");
 
 // ---------------------------------------------
@@ -2368,6 +2374,7 @@ if (categoryResult) {
 
   const perfPack = scorePerformanceFromBasic(basic, isHtml, psi);
   const perf = perfPack.score;
+  const perfVitals = mergeVitalsDeductions([], [], buildPerformanceVitalsPack(psi, basic, isHtml));
 
   // ---------------------------------------------
   // Structure & Semantics scoring (credibility pass)
@@ -2397,6 +2404,7 @@ if (categoryResult) {
 
   const mobilePack = scoreMobileFromBasic(basic, isHtml, psi);
   const mobile = mobilePack.score;
+  const mobileVitals = mergeVitalsDeductions([], [], buildMobileVitalsPack(psi, basic, isHtml));
 
 const secPack = scoreSecurityFromHeaders(headers, platform);
   const security = secPack.score;
@@ -2497,10 +2505,14 @@ security:
         inline_script_count: basic.inline_script_count,
         head_script_block_present: basic.head_script_block_present,
         required_inputs_missing: !isHtml,
+        psi_mobile_LCP_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.LCP_ms : null,
+        psi_mobile_TBT_ms: (psi && psi.mobile && psi.mobile.facts) ? psi.mobile.facts.TBT_ms : null,
+        psi_desktop_LCP_ms: (psi && psi.desktop && psi.desktop.facts) ? psi.desktop.facts.LCP_ms : null,
+        psi_desktop_TBT_ms: (psi && psi.desktop && psi.desktop.facts) ? psi.desktop.facts.TBT_ms : null,
       },
       deductions: !isHtml
         ? [{ points: 75, reason: "Required inputs missing (HTML not observable).", code: "perf_required_inputs_missing" }]
-        : [],
+        : perfVitals.deductions,
       issues: !isHtml
         ? [{
             id: "perf_required_inputs_missing",
@@ -2509,7 +2521,7 @@ security:
             impact: "This scan could not observe HTML inputs required for performance build signals. Missing inputs are penalised to preserve integrity.",
             evidence: { is_html: false },
           }]
-        : [],
+        : perfVitals.issues,
     }),
 
     buildSimpleSignal({
@@ -2527,8 +2539,8 @@ security:
         viewport_maximum_scale: basic.viewport_maximum_scale,
         viewport_initial_scale: basic.viewport_initial_scale,
       },
-      deductions: mobilePack.deductions,
-      issues: mobilePack.issues,
+      deductions: mobileVitals.deductions,
+      issues: mobileVitals.issues,
     }),
 
     seoSignal,
