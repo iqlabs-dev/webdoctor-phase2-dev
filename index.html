@@ -636,14 +636,22 @@ Performance · SEO · Trust · AI Visibility
       const notes = Array.from(pricing.querySelectorAll(".pricing-note"));
       const footnote = pricing.querySelector(".pricing-footnote");
 
-      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (prefersReduced) {
+      const revealAllNow = () => {
         header && header.classList.add("is-revealed");
         intro && intro.classList.add("is-revealed");
         cards.forEach(c => c.classList.add("is-revealed"));
         includes && includes.classList.add("is-revealed");
         notes.forEach(n => n.classList.add("is-revealed"));
         footnote && footnote.classList.add("is-revealed");
+      };
+
+      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Arriving directly at pricing via hash (e.g. the report's "Unlock full
+      // plan" button) skips the scroll that would trigger the reveal, so show
+      // the content immediately. Normal visitors still get the scroll animation.
+      const arrivingAtPricing = window.location.hash === "#pricing";
+      if (prefersReduced || arrivingAtPricing) {
+        revealAllNow();
         return;
       }
 
