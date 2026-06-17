@@ -1,5 +1,9 @@
 // /.netlify/function/psi-worker-background.js
 import { createClient } from "@supabase/supabase-js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { reconcileMetricsWithPsi } = require("../../utils/reconcile-psi-scores.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -303,14 +307,24 @@ export async function handler(event) {
     ? (hasMobileFacts || hasDesktopFacts ? "partial" : "pending")
     : "ok";
 
-  const nextMetrics = {
+  let nextMetrics = {
     ...(row.metrics && typeof row.metrics === "object" ? row.metrics : {}),
     psi: mergedPsi,
   };
 
+  // Recompute Performance / Mobile / overall once PSI facts are available.
+  if (!mergedPsi.pending) {
+    nextMetrics = reconcileMetricsWithPsi(nextMetrics);
+  }
+
+  const updatePayload = { metrics: nextMetrics };
+  if (nextMetrics.scores && typeof nextMetrics.scores.overall === "number") {
+    updatePayload.score_overall = nextMetrics.scores.overall;
+  }
+
   const { error: updErr } = await supabase
     .from("scan_results")
-    .update({ metrics: nextMetrics })
+    .update(updatePayload)
     .eq("id", row.id);
 
   if (updErr) {

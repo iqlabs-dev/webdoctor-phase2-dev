@@ -6194,9 +6194,13 @@ function setEvidenceOpen(open) {
       function copyOverviewCards() {
         setText("ovAiScore", text("dashAiScore", "—"));
         setText("ovAiVerdict", text("dashAiVerdict", "Loading"));
- setText("ovInsight1", "Category identified successfully. Brand classification confidence is stable.");
-setText("ovInsight2", "Brand visibility remains limited across tested AI recommendation prompts.");
-setText("ovInsight3", "Strengthen category-brand association through clearer service and entity signals.");
+        if (window.IQWEB_renderOverviewInsights && window.__IQWEB_LAST_DATA) {
+          window.IQWEB_renderOverviewInsights(window.__IQWEB_LAST_DATA);
+        } else {
+          setText("ovInsight1", "Category insight loading…");
+          setText("ovInsight2", "AI visibility insight loading…");
+          setText("ovInsight3", "Recommendation insight loading…");
+        }
 
         var deltas = [
           ["ovDeltaOverall", "deltaOverall"],

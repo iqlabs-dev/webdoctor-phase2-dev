@@ -968,9 +968,9 @@ function basicHtmlSignals(html, pageUrl) {
 
   const canonicalHref = canonicalHrefs.length ? canonicalHrefs[0] : null;
 
-  const viewportMatch = html.match(
-    /<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i
-  );
+  const viewportMatch =
+    html.match(/<meta[^>]+name=["']viewport["'][^>]*content=["']([^"']*)["'][^>]*>/i) ||
+    html.match(/<meta[^>]+content=["']([^"']*)["'][^>]*name=["']viewport["'][^>]*>/i);
 
   const h1All = Array.from(html.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/gi)).map((m) =>
     cleanMetaText(m[1], 200)

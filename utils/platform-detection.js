@@ -22,6 +22,12 @@ function normaliseHeaders(headers) {
   return out;
 }
 
+function headerValue(headersObj, name) {
+  const target = String(name || "").toLowerCase();
+  const key = Object.keys(headersObj || {}).find((k) => k.toLowerCase() === target);
+  return key ? String(headersObj[key] || "") : "";
+}
+
 function detectWebflow(ctx) {
   const html = ctx.html;
   const url = ctx.url;
@@ -142,14 +148,13 @@ function detectWordPress(ctx) {
     "/wp-json/",
     "wp-embed.min.js",
     "wp-block-library",
-    "wpforms",
-    "woocommerce",
-    "elementor",
-    "rank-math",
-    "yoast",
-    "contact-form-7",
-    "revslider",
-    "wordpress"
+    "/wp-content/plugins/woocommerce",
+    "/plugins/woocommerce/",
+    "woocommerce.min.js",
+    "/wp-content/plugins/elementor",
+    "/wp-content/plugins/wordpress-seo",
+    "contact-form-7/wp-contact-form-7",
+    "revslider/public",
   ])) {
     matches.push("html:wp-core");
   }
@@ -164,14 +169,13 @@ function detectWordPress(ctx) {
     matches.push("meta:wordpress");
   }
 
-  if (hasAny(headers, [
-    "x-pingback",
-    "xmlrpc.php",
-    "wp-json",
-    "wordpress",
-    "link"
-  ])) {
-    matches.push("header:wordpress");
+  if (headerValue(ctx.headers, "x-pingback")) {
+    matches.push("header:x-pingback");
+  }
+
+  const linkHeader = headerValue(ctx.headers, "link");
+  if (/wp-json|xmlrpc\.php/i.test(linkHeader)) {
+    matches.push("header:link-wp");
   }
 
   if (hasAny(url, [

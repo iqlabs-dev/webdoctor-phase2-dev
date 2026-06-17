@@ -2843,6 +2843,60 @@ section.style.display = "block";
 
 
   // -----------------------------
+  // Overview AI insight cards (dynamic)
+  // -----------------------------
+  function findAiSignal(signals) {
+    signals = asArray(signals);
+    for (var i = 0; i < signals.length; i++) {
+      if (domainKeyFromSignal(signals[i]) === "ai_discoverability") return safeObj(signals[i]);
+    }
+    return null;
+  }
+
+  function renderOverviewInsights(data) {
+    data = safeObj(data);
+    var aiSig = findAiSignal(pickSignals(data));
+    var ev = aiSig ? safeObj(aiSig.evidence) : {};
+    var category = ev.detected_category || null;
+    var hits = ev.ai_recommendation_hits;
+    var queries = asInt(ev.ai_recommendation_queries_tested, 0);
+
+    var insight1 = category
+      ? "Category identified successfully. Brand classification confidence is stable."
+      : "Business category could not be confidently determined from page signals.";
+
+    var insight2;
+    if (typeof hits === "number" && queries > 0) {
+      if (hits >= queries) {
+        insight2 = "Brand surfaced in tested AI recommendation prompts for this category.";
+      } else if (hits > 0) {
+        insight2 = "Brand appeared in some tested AI recommendation prompts, but visibility remains inconsistent.";
+      } else {
+        insight2 = "Brand visibility remains limited across tested AI recommendation prompts.";
+      }
+    } else {
+      insight2 = "AI recommendation visibility could not be fully evaluated for this scan.";
+    }
+
+    var insight3;
+    if (!category) {
+      insight3 = "Clarify core service category language so AI systems can match the brand to relevant queries.";
+    } else if (typeof hits === "number" && hits > 0) {
+      insight3 = "Continue strengthening category-brand association through entity clarity and external references.";
+    } else {
+      insight3 = "Strengthen category-brand association through clearer service and entity signals.";
+    }
+
+    setText("ovInsight1", insight1);
+    setText("ovInsight2", insight2);
+    setText("ovInsight3", insight3);
+  }
+
+  try {
+    window.IQWEB_renderOverviewInsights = renderOverviewInsights;
+  } catch (e) {}
+
+  // -----------------------------
   // Main render
   // -----------------------------
   function renderAll(data) {
@@ -2865,6 +2919,7 @@ section.style.display = "block";
 
     safeRenderSection("renderExecutiveSummary", function () { renderExecutiveSummary(data, primary); });
     safeRenderSection("setExecutiveDashboardUI", function () { setExecutiveDashboardUI(data, header, scores, signals, primary); });
+    safeRenderSection("renderOverviewInsights", function () { renderOverviewInsights(data); });
     safeRenderSection("renderProgressSinceLastScan", function () { renderProgressSinceLastScan(data, scores); });
     safeRenderSection("renderSignalsGrid", function () { renderSignalsGrid(signals, scores, primary); });
     safeRenderSection("renderSignalEvidence", function () { renderSignalEvidence(signals); });

@@ -1,5 +1,9 @@
 // /.netlify/functins/get-report-data.js
 import { createClient } from "@supabase/supabase-js";
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const { reconcileMetricsWithPsi } = require("../../utils/reconcile-psi-scores.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -388,24 +392,25 @@ export async function handler(event) {
     }
 
     const metrics = safeObj(scan.metrics);
+    const reconciled = reconcileMetricsWithPsi(metrics);
 
-    const platform = safeObj(metrics.platform);
+    const platform = safeObj(reconciled.platform);
     const platform_control =
-      metrics.platform_control ||
+      reconciled.platform_control ||
       platform.controlLevel ||
       "full";
 
-    const basic_checks = safeObj(metrics.basic_checks);
-    const security_headers = safeObj(metrics.security_headers);
-    const psi = safeObj(metrics.psi);
+    const basic_checks = safeObj(reconciled.basic_checks);
+    const security_headers = safeObj(reconciled.security_headers);
+    const psi = safeObj(reconciled.psi);
 
-    const rawSignals = asArray(metrics.delivery_signals).length
-      ? metrics.delivery_signals
+    const rawSignals = asArray(reconciled.delivery_signals).length
+      ? reconciled.delivery_signals
       : asArray(metrics?.metrics?.delivery_signals);
 
     const delivery_signals = asArray(rawSignals).map(normaliseSignal);
 
-    const rawScores = safeObj(metrics.scores);
+    const rawScores = safeObj(reconciled.scores);
     const scores = Object.keys(rawScores).length
       ? rawScores
       : {
@@ -453,8 +458,8 @@ export async function handler(event) {
       },
     };
 
-    const findings = asArray(metrics.findings);
-    const fix_plan = asArray(metrics.fix_plan);
+    const findings = asArray(reconciled.findings);
+    const fix_plan = asArray(reconciled.fix_plan);
 
     let narrative = normaliseNarrativeForUI(scan.narrative);
 
