@@ -33,6 +33,11 @@
   // Helpers
   // -----------------------------
   function $(id) { return document.getElementById(id); }
+  function setText(id, value) {
+    var el = $(id);
+    if (!el) return;
+    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "—" : String(value);
+  }
   function safeObj(v) { return v && typeof v === "object" ? v : {}; }
   function asArray(v) { return Array.isArray(v) ? v : []; }
 
@@ -2902,10 +2907,10 @@ section.style.display = "block";
   function renderAll(data) {
     data = safeObj(data);
     window.__IQWEB_LAST_DATA = data;
-    window.__IQWEB_LAST_SCORES = scores;
 
     var header = pickHeader(data);
     var scores = pickScores(data);
+    window.__IQWEB_LAST_SCORES = scores;
     var signals = pickSignals(data);
     var branding = pickBranding(data);
     var overallSummary = pickOverallSummary(data, scores.overall);

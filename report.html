@@ -5955,7 +5955,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js"></script>
-  <script src="/assets/js/report-data.js"></script>
+  <script src="/assets/js/report-data.js?v=20260617c"></script>
 
   <script>
     (function () {
@@ -6196,7 +6196,7 @@ function setEvidenceOpen(open) {
         setText("ovAiVerdict", text("dashAiVerdict", "Loading"));
         if (window.IQWEB_renderOverviewInsights && window.__IQWEB_LAST_DATA) {
           window.IQWEB_renderOverviewInsights(window.__IQWEB_LAST_DATA);
-        } else {
+        } else if (!window.__IQWEB_REPORT_READY) {
           setText("ovInsight1", "Category insight loading…");
           setText("ovInsight2", "AI visibility insight loading…");
           setText("ovInsight3", "Recommendation insight loading…");
