@@ -881,8 +881,6 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
       (data.platform && data.platform.controlLevel) ||
       "full";
 
-    var model = window.IQWEB_SCORE_MODEL || null;
-
     function domainHasMeasuredSignal(domainKey) {
       for (var i = 0; i < signals.length; i++) {
         var sig = safeObj(signals[i]);
@@ -906,21 +904,6 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
         if (domainHasMeasuredSignal(testKey)) {
           nonSecurityMeasured = true;
           break;
-        }
-      }
-    }
-
-    if (model && typeof model.pickPrimarySignal === "function") {
-      var picked = model.pickPrimarySignal(signals);
-
-      if (picked && picked.key) {
-        if (!(platformControl === "limited" && picked.key === "security")) {
-          return {
-            key: picked.key,
-            score: picked.score,
-            idx: picked.index,
-            flagged: true
-          };
         }
       }
     }
@@ -3072,6 +3055,21 @@ section.style.display = "block";
     var branding = pickBranding(data);
     var overallSummary = pickOverallSummary(data, scores.overall);
     var primary = computePrimaryConstraint(scores, signals, data);
+
+    // Keep overview / fix-plan alignment with server-side ranking when available.
+    if (data.primary_constraint_key) {
+      var serverKey = String(data.primary_constraint_key || "").toLowerCase();
+      var serverScore = scoreFor(scores, serverKey);
+      if (serverKey && serverScore !== null) {
+        primary = {
+          key: serverKey,
+          score: serverScore,
+          idx: -1,
+          flagged: true,
+          pts: deficitWeightedPoints(serverScore, WEIGHTS[serverKey] || 0)
+        };
+      }
+    }
 
     safeRenderSection("applyBrandingUI", function () { applyBrandingUI(branding); });
     safeRenderSection("setHeaderUI", function () { setHeaderUI(header); });
