@@ -66,9 +66,15 @@ const PLATFORM_POLICIES = {
   }
 };
 
-function getPlatformPolicy(platformKey) {
+function getPlatformPolicy(platformKeyOrObj) {
+  // Accept either a string key ("webflow") or a platform object ({ key: "webflow" }).
+  const key =
+    platformKeyOrObj && typeof platformKeyOrObj === "object"
+      ? platformKeyOrObj.key
+      : platformKeyOrObj;
+
   return (
-    PLATFORM_POLICIES[String(platformKey || "").toLowerCase()] ||
+    PLATFORM_POLICIES[String(key || "").toLowerCase()] ||
     PLATFORM_POLICIES.unknown
   );
 }

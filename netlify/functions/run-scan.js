@@ -632,9 +632,35 @@ function deriveAiProfile(basic, pageUrl, html) {
 }
 
 function buildAiQueries(profile) {
-  const service = profile.service_term || 'website services';
   const location = profile.location_term || '';
   const suffix = location ? (' in ' + location) : '';
+  const category = String(profile.detected_category || '').trim();
+  const examplePrompt = String(profile.example_prompt_tested || '').trim();
+
+  // Prefer category-based prompts so the prompts we actually test match the
+  // "Example Prompt Tested" shown in the report. The displayed example prompt
+  // is included as the first tested query for full transparency.
+  if (category) {
+    const candidates = [
+      examplePrompt,
+      'best ' + category + suffix,
+      'top ' + category + suffix,
+      'recommended ' + category + suffix
+    ];
+    const seen = {};
+    const out = [];
+    for (const q of candidates) {
+      const key = String(q || '').toLowerCase().trim();
+      if (!key || seen[key]) continue;
+      seen[key] = true;
+      out.push(q.trim());
+      if (out.length >= 4) break;
+    }
+    if (out.length) return out;
+  }
+
+  // Fallback (no category detected): legacy service-term prompts.
+  const service = profile.service_term || 'website services';
   return [
     'best ' + service + suffix,
     'top ' + service + suffix,
@@ -1007,7 +1033,11 @@ function buildAiDiscoverabilitySignal(aiData) {
 // HTML Signals (expanded for SEO + Mobile + A11y evidence)
 // ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
-  const titleMatches = Array.from(html.matchAll(/<title[^>]*>([\s\S]*?)<\/title>/gi));
+  // Strip inline SVG before counting <title> tags. SVG <title> elements are
+  // accessibility labels for icons, not document titles — counting them
+  // inflated title_count (e.g. Xero showed 20 from inline icon SVGs).
+  const htmlForTitles = String(html || "").replace(/<svg\b[\s\S]*?<\/svg>/gi, "");
+  const titleMatches = Array.from(htmlForTitles.matchAll(/<title[^>]*>([\s\S]*?)<\/title>/gi));
   const titleText = titleMatches.length ? cleanMetaText(titleMatches[0][1], 120) : null;
 
   // Order-insensitive META description extraction
@@ -1331,6 +1361,19 @@ function buildSeoSignal(basic, pageUrl) {
       evidence: { title_present: false },
     });
   } else {
+    if (Number(basic.title_count) > 1) {
+      deductions.push({ points: 10, reason: "Multiple <title> tags detected.", code: "seo_title_multiple" });
+
+      issues.push({
+        id: "seo_title_multiple",
+        title: "SEO Foundations: Multiple page titles",
+        severity: "med",
+        impact:
+          "More than one document <title> was found. Search engines may display an unintended title, and duplicates usually indicate template or markup issues.",
+        evidence: { title_count: basic.title_count },
+      });
+    }
+
     if (basic.title_too_short)
       deductions.push({ points: 8, reason: "Title is very short.", code: "seo_title_short" });
 

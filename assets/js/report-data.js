@@ -642,7 +642,8 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
       (data.platform && data.platform.controlLevel) ||
       "full";
 
-    if (platformControl === "limited" && domainKey === "security") return 95;
+    // Platform-managed security is scored at the source (raw signal ~95 with an
+    // info note). Display the real signal score so the card matches the Evidence tab.
     return v;
   }
 
@@ -1714,8 +1715,9 @@ var score = unmeasured ? null : displayScore;
 
       var platformManaged = (platformControl === "limited" && key === "security");
 
+      // Security is scored at the source for platform-managed sites; just ensure
+      // it is never treated as "unmeasured" (display the real signal score).
       if (platformManaged) {
-        score = 95;
         unmeasured = false;
       }
 
@@ -1975,7 +1977,6 @@ var unmeasured = isUnmeasuredSignal(sig, displayScore);
 var score = unmeasured ? null : displayScore;
 
 if (platformManaged) {
-  score = 95;
   unmeasured = false;
 }
       var issues = asArray(sig.issues);
