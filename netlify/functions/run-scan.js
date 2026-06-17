@@ -845,6 +845,30 @@ const MULTI_PART_TLDS = {
   "com.au": 1, "net.au": 1, "org.au": 1, "gov.au": 1,
   "co.za": 1, "com.br": 1, "co.jp": 1, "co.in": 1, "co.kr": 1, "com.sg": 1
 };
+// Topical tokens that help confirm a web mention is about THIS specific business
+// (vs. a different org sharing the brand name). Derived from the detected
+// category, service term and location. Short/stopwords are dropped.
+const MENTION_STOPWORDS = {
+  your: 1, with: 1, this: 1, that: 1, from: 1, have: 1, will: 1, more: 1,
+  best: 1, free: 1, make: 1, makes: 1, page: 1, site: 1, here: 1, what: 1,
+  when: 1, where: 1, into: 1, about: 1
+};
+function distinguishingTokens(profile) {
+  const pool = [
+    profile && profile.detected_category,
+    profile && profile.service_term,
+    profile && profile.location_term
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const out = [];
+  pool.split(/[^a-z0-9]+/).forEach((w) => {
+    if (w.length >= 4 && !MENTION_STOPWORDS[w] && out.indexOf(w) === -1) out.push(w);
+  });
+  return out;
+}
+
 function registrableDomain(host) {
   const h = String(host || "").replace(/^www\./i, "").toLowerCase().trim();
   if (!h) return "";
@@ -970,6 +994,7 @@ async function evaluateIndependentMentions(profile, pageUrl) {
   pushKey(profile.brand_name);
 
   const primaryReg = registrableDomain(domain);
+  const distinguishTokens = distinguishingTokens(profile);
 
   // Query with the cleanest, most widely-used brand term available.
   const queryBrand = String(
@@ -992,6 +1017,7 @@ async function evaluateIndependentMentions(profile, pageUrl) {
   const domains = {};
   let knowledgeGraph = null;
   let available = false;
+  let ambiguousFiltered = 0;
 
   for (const q of queries) {
     let rows = [];
@@ -1001,14 +1027,20 @@ async function evaluateIndependentMentions(profile, pageUrl) {
       if (data) {
         available = true;
         // A Google Knowledge Graph entity panel is the strongest possible
-        // signal that the brand is an established, recognised entity.
+        // signal that the brand is an established, recognised entity. Only trust
+        // it when its website matches this brand's domain (or no website is
+        // given) so a different same-named entity's panel doesn't leak in.
         const kg = data.knowledgeGraph;
         if (!knowledgeGraph && kg && (kg.title || kg.type)) {
-          knowledgeGraph = {
-            title: kg.title || '',
-            type: kg.type || '',
-            website: kg.website || ''
-          };
+          const kgHost = ((tryParseUrl(kg.website) || {}).hostname || '').replace(/^www\./i, '');
+          const kgReg = registrableDomain(kgHost);
+          if (!kg.website || !kgReg || kgReg === primaryReg) {
+            knowledgeGraph = {
+              title: kg.title || '',
+              type: kg.type || '',
+              website: kg.website || ''
+            };
+          }
         }
         rows = (Array.isArray(data.organic) ? data.organic : []).map((o) => ({
           title: o.title || '',
@@ -1028,9 +1060,28 @@ async function evaluateIndependentMentions(profile, pageUrl) {
         if (!host) continue;
         const reg = registrableDomain(host);
         if (!reg || reg === primaryReg) continue; // exclude the brand's own domain
-        const answerKey = aiMatchKey(row.title + ' ' + row.snippet);
-        const matched = candidateKeys.some((k) => answerKey.indexOf(k) !== -1);
-        if (!matched) continue;
+
+        const text = (String(row.title || '') + ' ' + String(row.snippet || '')).toLowerCase();
+        const hay = text + ' ' + String(row.href || '').toLowerCase();
+        const answerKey = aiMatchKey(text);
+        const brandPresent = candidateKeys.some((k) => answerKey.indexOf(k) !== -1);
+        if (!brandPresent) continue;
+
+        // Disambiguation: a bare brand-name match can belong to a DIFFERENT
+        // business that happens to share the name (e.g. the small studio
+        // wildlabs.co vs. the global conservation-tech community wildlabs.net).
+        // Only count the mention if it also references the actual domain or a
+        // topical token tied to THIS business. If we have no topical tokens to
+        // check against, fall back to the lenient brand-name match.
+        const domainRef = !!primaryReg && hay.indexOf(primaryReg) !== -1;
+        const tokenRef = distinguishTokens.some((t) => text.indexOf(t) !== -1);
+        const confident =
+          distinguishTokens.length === 0 ? true : (domainRef || tokenRef);
+        if (!confident) {
+          ambiguousFiltered += 1;
+          continue;
+        }
+
         if (!domains[reg]) {
           domains[reg] = true;
           sources.push({
@@ -1038,7 +1089,8 @@ async function evaluateIndependentMentions(profile, pageUrl) {
             domain: reg,
             host,
             title: row.title,
-            snippet: String(row.snippet || '').slice(0, 200)
+            snippet: String(row.snippet || '').slice(0, 200),
+            match: domainRef ? 'domain' : 'topic'
           });
         }
       } catch {}
@@ -1060,6 +1112,7 @@ async function evaluateIndependentMentions(profile, pageUrl) {
   return {
     score,
     unique_count: uniqueCount,
+    ambiguous_filtered: ambiguousFiltered,
     knowledge_graph_present: hasKnowledgeGraph,
     knowledge_graph: knowledgeGraph,
     provider,
@@ -1187,6 +1240,7 @@ function buildAiDiscoverabilitySignal(aiData) {
       ai_recommendation_queries_tested: (rec.queries || []).length || 0,
       example_prompt_tested: profile.example_prompt_tested || null,
       independent_web_mentions: mentionCount,
+      independent_mentions_ambiguous_filtered: Number(mentions.ambiguous_filtered || 0),
       knowledge_graph_present: knowledgeGraphPresent,
       mentions_provider: mentions.provider || null,
       authority_boost: authorityBoost,
