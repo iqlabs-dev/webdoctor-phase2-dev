@@ -466,8 +466,8 @@ body {
     .signal-impact {
       margin-top: 12px;
       padding: 10px 12px;
-      border-left: 3px solid rgba(99, 102, 241, 0.55);
-      background: rgba(99, 102, 241, 0.06);
+      border-left: 3px solid rgba(99, 102, 241, 0.28);
+      background: rgba(99, 102, 241, 0.07);
       border-radius: 8px;
       color: rgba(226, 232, 240, 0.92);
       line-height: 1.5;
@@ -480,7 +480,7 @@ body {
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #a5b4fc;
+      color: rgba(165, 180, 252, 0.95);
       margin-bottom: 3px;
     }
 
@@ -5374,10 +5374,22 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid {
   align-items: stretch !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card) {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card).has-signal-impact {
   min-height: 300px !important;
   height: 100% !important;
   padding: 22px 22px 26px !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius-sm) !important;
+  background: var(--pro-surface) !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card):not(.has-signal-impact) {
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 22px !important;
   border: 1px solid var(--pro-border) !important;
   border-radius: var(--pro-radius-sm) !important;
   background: var(--pro-surface) !important;
@@ -5419,12 +5431,17 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
   flex: 1 1 auto !important;
 }
 
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.has-signal-impact) .summary {
+  padding-bottom: 0 !important;
+  flex: 0 1 auto !important;
+}
+
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact {
   margin-top: auto !important;
   flex-shrink: 0 !important;
   padding: 12px 14px !important;
-  background: #eef2ff !important;
-  border-left: 3px solid #6366f1 !important;
+  background: rgba(99, 102, 241, 0.06) !important;
+  border-left: 3px solid rgba(99, 102, 241, 0.22) !important;
   border-radius: 8px !important;
   color: #334155 !important;
   font-size: 12.5px !important;
@@ -5432,15 +5449,15 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact {
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact span {
-  color: #4338ca !important;
+  color: rgba(67, 56, 202, 0.82) !important;
   font-weight: 700 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card .signal-impact {
   margin: 28px 0 6px !important;
   padding: 12px 14px !important;
-  background: #eef2ff !important;
-  border-left: 3px solid #6366f1 !important;
+  background: rgba(99, 102, 241, 0.06) !important;
+  border-left: 3px solid rgba(99, 102, 241, 0.22) !important;
   color: #334155 !important;
 }
 
@@ -6289,7 +6306,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js"></script>
-  <script src="/assets/js/report-data.js?v=20260617h"></script>
+  <script src="/assets/js/report-data.js?v=20260617i"></script>
 
   <script>
     (function () {

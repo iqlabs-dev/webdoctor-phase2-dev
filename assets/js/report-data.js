@@ -1696,8 +1696,6 @@ return {
       return text;
     }
 
-    // Plain-language business consequence per signal, banded by score, so each
-    // card explains *why it matters* in commercial terms (not just the number).
     function businessImpactLine(key, score) {
       if (score === null || typeof score === "undefined") return "";
       var band = score < 50 ? "poor" : (score < 90 ? "fair" : "good");
@@ -1740,6 +1738,14 @@ return {
       };
       var entry = map[key];
       return entry ? (entry[band] || "") : "";
+    }
+
+    // Only surface "Why it matters" when it adds context — not on strong baselines.
+    function shouldShowBusinessImpact(key, score, isPrimary, platformManaged) {
+      if (platformManaged) return false;
+      if (score === null || typeof score === "undefined") return false;
+      if (isPrimary) return true;
+      return score < 90;
     }
 
     function signalImpactHtml(line) {
@@ -1932,6 +1938,10 @@ var aiTestMethod = aiCategoryEstablished
   }
 
   card.className = "card ai-discovery-card " + aiSeverity;
+  var aiImpactLine = shouldShowBusinessImpact("ai_discoverability", score, isPrimary, false)
+    ? businessImpactLine("ai_discoverability", score)
+    : "";
+  if (aiImpactLine) card.classList.add("has-signal-impact");
 
   card.innerHTML =
     (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
@@ -1968,11 +1978,14 @@ var aiTestMethod = aiCategoryEstablished
       '</div>' +
 
     '</div>' +
-    signalImpactHtml(businessImpactLine("ai_discoverability", score)) +
+    signalImpactHtml(aiImpactLine) +
     '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
 
 } else {
-  var impactLine = platformManaged ? "" : businessImpactLine(key, score);
+  var impactLine = shouldShowBusinessImpact(key, score, isPrimary, platformManaged)
+    ? businessImpactLine(key, score)
+    : "";
+  if (impactLine) card.classList.add("has-signal-impact");
   card.innerHTML =
     badgeHtml +
     '<div class="card-top">' +
