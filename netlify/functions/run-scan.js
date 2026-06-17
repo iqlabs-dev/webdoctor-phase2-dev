@@ -500,11 +500,25 @@ function safeJsonParse(v, fallback = null) {
 
 function decodeHtmlEntities(str) {
   return String(str || "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&mdash;/gi, "\u2014")
+    .replace(/&ndash;/gi, "\u2013")
+    .replace(/&hellip;/gi, "\u2026")
+    .replace(/&rsquo;/gi, "\u2019")
+    .replace(/&lsquo;/gi, "\u2018")
+    .replace(/&rdquo;/gi, "\u201D")
+    .replace(/&ldquo;/gi, "\u201C")
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, function (_, h) {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch (e) { return _; }
+    })
+    .replace(/&#(\d+);/g, function (_, d) {
+      try { return String.fromCodePoint(parseInt(d, 10)); } catch (e) { return _; }
+    })
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&");
 }
 
 function hostnameLabelFromUrl(pageUrl) {
@@ -569,31 +583,52 @@ function deriveAiProfile(basic, pageUrl, html) {
   // then pick the segment that best matches the site hostname rather than blindly
   // taking the last segment (which is often a tagline, e.g. "Your business supercharged").
   const hostLabel = hostnameLabelFromUrl(pageUrl); // e.g. "Xero", "Wynyardgrill"
-  const hostKey = String(hostLabel || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const hostKey = aiMatchKey(hostLabel);
 
-  let brand = schema.organization_name || "";
-  if (!brand) {
-    const rawTitle = String(basic.title_text || "");
-    const segments = rawTitle
-      .split(/\s*[\|\-–—•:·]\s*/)
-      .map((p) => normalizeName(p))
-      .filter(Boolean);
+  // Build decoded brand candidates from the schema org name + each title segment.
+  // Decoding first ensures entities like "&mdash;" become real characters so the
+  // title splits correctly and never surface in the displayed brand.
+  const brandCandidates = [];
+  const addCandidate = (v) => {
+    const c = normalizeName(decodeHtmlEntities(String(v || "")));
+    if (c && brandCandidates.indexOf(c) === -1) brandCandidates.push(c);
+  };
+  addCandidate(schema.organization_name);
+  decodeHtmlEntities(String(basic.title_text || ""))
+    .split(/\s*[\|\-–—•:·]\s*/)
+    .forEach(addCandidate);
 
-    if (segments.length) {
-      // Prefer a segment whose alphanumeric key overlaps the hostname (real brand).
-      let pick = null;
-      if (hostKey.length >= 3) {
-        pick = segments.find((p) => {
-          const k = p.toLowerCase().replace(/[^a-z0-9]+/g, "");
-          return k && (k.indexOf(hostKey) !== -1 || hostKey.indexOf(k) !== -1);
-        });
+  const wordCount = (s) => String(s || "").split(/\s+/).filter(Boolean).length;
+
+  // Score each candidate by how well it matches the hostname (exact > prefix >
+  // contains), preferring the most concise match so a tagline that merely ends
+  // in the brand name (e.g. "Easily Create Your Own Website — Squarespace")
+  // never beats the clean "Squarespace" segment.
+  let brand = "";
+  let best = null;
+  if (hostKey.length >= 3) {
+    for (const c of brandCandidates) {
+      const k = aiMatchKey(c);
+      if (!k) continue;
+      let score = 0;
+      if (k === hostKey) score = 3;
+      else if (k.indexOf(hostKey) === 0 || hostKey.indexOf(k) === 0) score = 2;
+      else if (k.indexOf(hostKey) !== -1 || hostKey.indexOf(k) !== -1) score = 1;
+      if (score === 0) continue;
+      const wc = wordCount(c);
+      if (!best || score > best.score || (score === best.score && wc < best.wc)) {
+        best = { c, score, wc };
       }
-      // Otherwise fall back to the shortest segment (brands are usually concise).
-      if (!pick) {
-        pick = segments.slice().sort((a, b) => a.length - b.length)[0];
-      }
-      brand = pick || "";
     }
+  }
+  if (best) brand = best.c;
+
+  // Fallbacks: shortest concise candidate, then the hostname label.
+  if (!brand) {
+    const concise = brandCandidates
+      .filter((c) => wordCount(c) <= 4)
+      .sort((a, b) => a.length - b.length)[0];
+    brand = concise || hostLabel;
   }
   if (!brand) brand = hostLabel;
   profile.brand_name = brand;
@@ -602,7 +637,7 @@ function deriveAiProfile(basic, pageUrl, html) {
   // Used for recommendation-hit matching where AI answers say "Xero", not "xero.com".
   profile.brand_core = hostLabel;
 
-  let service = schema.service_name || h1 || title;
+  let service = decodeHtmlEntities(schema.service_name || h1 || title);
   if (service && brand) {
     const brandRe = new RegExp(escapeRegex(brand), 'ig');
     service = service.replace(brandRe, ' ').replace(/\s+/g, ' ').trim();
@@ -1503,14 +1538,14 @@ function buildSeoSignal(basic, pageUrl) {
     });
   } else {
     if (Number(basic.title_count) > 1) {
-      deductions.push({ points: 10, reason: "Multiple <title> tags detected.", code: "seo_title_multiple" });
+      deductions.push({ points: 10, reason: "Multiple page title tags detected.", code: "seo_title_multiple" });
 
       issues.push({
         id: "seo_title_multiple",
         title: "SEO Foundations: Multiple page titles",
         severity: "med",
         impact:
-          "More than one document <title> was found. Search engines may display an unintended title, and duplicates usually indicate template or markup issues.",
+          "More than one page title element was found. Search engines may display an unintended title, and duplicates usually indicate template or markup issues.",
         evidence: { title_count: basic.title_count },
       });
     }
@@ -2130,11 +2165,25 @@ function scoreAccessibilityFromBasic(basic, isHtml) {
 }
 function decodeHtmlEntities(str) {
   return String(str || "")
-    .replace(/&amp;/gi, "&")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&mdash;/gi, "\u2014")
+    .replace(/&ndash;/gi, "\u2013")
+    .replace(/&hellip;/gi, "\u2026")
+    .replace(/&rsquo;/gi, "\u2019")
+    .replace(/&lsquo;/gi, "\u2018")
+    .replace(/&rdquo;/gi, "\u201D")
+    .replace(/&ldquo;/gi, "\u201C")
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, function (_, h) {
+      try { return String.fromCodePoint(parseInt(h, 16)); } catch (e) { return _; }
+    })
+    .replace(/&#(\d+);/g, function (_, d) {
+      try { return String.fromCodePoint(parseInt(d, 10)); } catch (e) { return _; }
+    })
     .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&");
 }
 
 function cleanMetaText(str, max) {
