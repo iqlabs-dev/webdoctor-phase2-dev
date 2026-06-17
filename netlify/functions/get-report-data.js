@@ -241,7 +241,8 @@ function classifyFix(code, signalId) {
 
 // Turn a raw deduction reason into an action-oriented title.
 function actionTitle(code, reason) {
-  const r = String(reason || "").trim();
+  // Drop any trailing period so titles read cleanly as labels.
+  const r = String(reason || "").trim().replace(/\.+$/, "");
   const c = String(code || "").toLowerCase();
   if (c.startsWith("sec_") && /^missing:/i.test(r)) {
     const header = r.replace(/^missing:\s*/i, "").trim();

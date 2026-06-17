@@ -1696,6 +1696,57 @@ return {
       return text;
     }
 
+    // Plain-language business consequence per signal, banded by score, so each
+    // card explains *why it matters* in commercial terms (not just the number).
+    function businessImpactLine(key, score) {
+      if (score === null || typeof score === "undefined") return "";
+      var band = score < 50 ? "poor" : (score < 90 ? "fair" : "good");
+      var map = {
+        performance: {
+          poor: "Slow pages frustrate visitors and push them toward competitors — speed directly affects conversions and ad costs.",
+          fair: "Pages are usable but not fast enough to be competitive; speed gains lift conversions and search ranking.",
+          good: "Fast load times help retain visitors and support search ranking."
+        },
+        mobile: {
+          poor: "Most visitors browse on phones — a weak mobile experience loses the majority of your traffic.",
+          fair: "Mobile works, but rough edges cost engagement on the screens most customers actually use.",
+          good: "A solid mobile experience keeps the majority of visitors engaged."
+        },
+        seo: {
+          poor: "Search engines may misread or skip the site, suppressing the organic traffic that drives leads.",
+          fair: "Foundational gaps limit how well the site can rank for the terms customers search.",
+          good: "Strong SEO foundations help the site rank and attract organic traffic."
+        },
+        security: {
+          poor: "Missing protections expose visitors to attacks like clickjacking and undermine trust at the point of conversion.",
+          fair: "Some hardening is missing; closing the gaps protects users and reinforces trust.",
+          good: "Trust signals are in place, reassuring visitors and partners."
+        },
+        structure: {
+          poor: "Unclear structure makes the site harder for search engines and assistive tech to interpret correctly.",
+          fair: "Structural gaps reduce how clearly the page communicates meaning to machines.",
+          good: "Clean structure helps search engines and assistive tech understand the page."
+        },
+        accessibility: {
+          poor: "Accessibility gaps exclude users with disabilities and create compliance and legal risk.",
+          fair: "Some users with disabilities may struggle; improvements widen reach and reduce risk.",
+          good: "Accessible design widens your audience and lowers compliance risk."
+        },
+        ai_discoverability: {
+          poor: "AI assistants are unlikely to recommend this business in its category — a fast-growing discovery channel is being missed.",
+          fair: "The brand is only partially recognized by AI systems; stronger signals improve recommendation odds.",
+          good: "The brand is recognized by AI systems and positioned to be recommended in its category."
+        }
+      };
+      var entry = map[key];
+      return entry ? (entry[band] || "") : "";
+    }
+
+    function signalImpactHtml(line) {
+      if (!line) return "";
+      return '<div class="signal-impact"><span>Why it matters</span>' + escapeHtml(line) + "</div>";
+    }
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
@@ -1917,9 +1968,11 @@ var aiTestMethod = aiCategoryEstablished
       '</div>' +
 
     '</div>' +
+    signalImpactHtml(businessImpactLine("ai_discoverability", score)) +
     '<div class="ai-discovery-footnote">' + escapeHtml(aiFootnote) + '</div>';
 
 } else {
+  var impactLine = platformManaged ? "" : businessImpactLine(key, score);
   card.innerHTML =
     badgeHtml +
     '<div class="card-top">' +
@@ -1927,7 +1980,8 @@ var aiTestMethod = aiCategoryEstablished
       '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
     '</div>' +
     '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-    '<div class="summary">' + summaryHtml + '</div>';
+    '<div class="summary">' + summaryHtml + '</div>' +
+    signalImpactHtml(impactLine);
 }
 
 grid.appendChild(card);
@@ -2323,22 +2377,28 @@ if (
       });
     }
 
-    for (var j = 0; j < deds.length; j++) {
-      var dd = safeObj(deds[j]);
-      var pts = num(dd.points);
-      var reason = String(dd.reason || dd.code || "").trim();
+    // AI Visibility issues above are already canonicalised to cover every AI
+    // deduction. Adding the raw deduction rows here produced duplicate entries
+    // (e.g. "Independent web mentions remain limited" + "Very limited
+    // independent mentions detected…"), so skip deductions for this signal.
+    if (key !== "ai_discoverability") {
+      for (var j = 0; j < deds.length; j++) {
+        var dd = safeObj(deds[j]);
+        var pts = num(dd.points);
+        var reason = String(dd.reason || dd.code || "").trim();
 
-      if (!reason) continue;
-      if (pts !== null && pts < 2) continue;
-      if (/required signal missing/i.test(reason)) continue;
+        if (!reason) continue;
+        if (pts !== null && pts < 2) continue;
+        if (/required signal missing/i.test(reason)) continue;
 
-      out.push({
-        domain: key,
-        title: label + ": " + reason,
-        sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
-        why: "A measured deduction was applied from scan evidence.",
-        _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
-      });
+        out.push({
+          domain: key,
+          title: label + ": " + reason,
+          sev: (pts !== null && pts >= 6) ? "HIGH" : ((pts !== null && pts >= 3) ? "MED" : "MONITOR"),
+          why: "A measured deduction was applied from scan evidence.",
+          _rank: (pts !== null && pts >= 6) ? 3 : ((pts !== null && pts >= 3) ? 2 : 1)
+        });
+      }
     }
   }
 
