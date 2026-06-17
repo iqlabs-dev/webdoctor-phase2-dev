@@ -322,7 +322,7 @@
 </section>
 
 <!-- PRICING -->
-<section class="section" id="pricing">
+<section class="section" id="pricing" style="scroll-margin-top:90px;">
   <div class="section-header">
     <div style="text-align:center; margin:0 auto;">
    
@@ -596,6 +596,32 @@ Performance · SEO · Trust · AI Visibility
       }, { threshold: 0.10 });
 
       io.observe(how);
+    })();
+
+    // Cross-page hash links (e.g. /#pricing from a report's "Unlock full plan"
+    // button) often land at the top because layout shifts after the browser's
+    // initial jump. Re-scroll to the target once the page has settled.
+    (function () {
+      if (!window.location.hash || window.location.hash.length < 2) return;
+
+      function scrollToHash() {
+        var el = document.getElementById(window.location.hash.slice(1));
+        if (el && typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ behavior: "auto", block: "start" });
+        }
+      }
+
+      // Run after first paint, then again once images/fonts finish loading.
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          requestAnimationFrame(scrollToHash);
+          setTimeout(scrollToHash, 300);
+        });
+      } else {
+        requestAnimationFrame(scrollToHash);
+        setTimeout(scrollToHash, 300);
+      }
+      window.addEventListener("load", function () { setTimeout(scrollToHash, 120); });
     })();
 
     (function () {
