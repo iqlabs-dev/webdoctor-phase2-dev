@@ -912,11 +912,14 @@ a:hover {
 
 .pricing-outcome {
   margin: 10px 0 12px;
-  max-width: 26ch;
+  width: 100%;
+  max-width: 30ch;
+  min-height: 4.5rem;
 }
 
 .pricing-outcome-headline {
   display: block;
+  min-height: 2.875rem;
   font-size: 1.0625rem;
   line-height: 1.35;
   font-weight: 600;
