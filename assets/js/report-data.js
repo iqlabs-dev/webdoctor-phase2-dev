@@ -338,6 +338,17 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
   };
 }
 
+  function hasCustomBranding(branding) {
+    branding = safeObj(branding);
+    return !!(
+      branding.agency_header_bg ||
+      branding.agency_header_text_color ||
+      branding.agency_text_color ||
+      branding.agency_accent_color ||
+      branding.agency_page_bg
+    );
+  }
+
   function applyBrandingUI(branding) {
     branding = safeObj(branding);
 
@@ -357,13 +368,47 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
     var footerAgencyPhone = $("footerAgencyPhone");
     var poweredBy = $("powered-by");
 
-var topCard = document.querySelector(".top-card");
+    var topCard = document.querySelector(".top-card");
+    var isBranded = hasCustomBranding(branding);
 
-var headerBg = branding.agency_header_bg || "";
-var headerText = branding.agency_header_text_color || "";
-var textColor = branding.agency_text_color || "";
-var accent = branding.agency_accent_color || "";
-var pageBg = branding.agency_page_bg || "";
+    if (document.body) {
+      document.body.classList.toggle("iqweb-branded", isBranded);
+    }
+
+    var headerBg = branding.agency_header_bg || "";
+    var headerText = branding.agency_header_text_color || "";
+    var textColor = branding.agency_text_color || "";
+    var accent = branding.agency_accent_color || "";
+    var pageBg = branding.agency_page_bg || "";
+
+    var brandVars = [
+      "--report-header-bg",
+      "--report-header-text",
+      "--report-page-bg",
+      "--text-main",
+      "--ink",
+      "--ink-soft",
+      "--muted",
+      "--accent",
+      "--pro-text",
+      "--v2-text",
+      "--pro-accent",
+      "--v2-teal",
+      "--v2-main-bg"
+    ];
+
+    if (!isBranded) {
+      brandVars.forEach(function (name) {
+        document.documentElement.style.removeProperty(name);
+      });
+      if (topCard) {
+        topCard.style.removeProperty("background");
+        topCard.style.removeProperty("color");
+      }
+      if (document.body) {
+        document.body.style.removeProperty("background");
+      }
+    }
 
     if (agencyName) {
       agencyName.textContent = branding.agency_name ? String(branding.agency_name) : "";
@@ -385,37 +430,39 @@ var pageBg = branding.agency_page_bg || "";
       }
     }
 
-if (headerBg) {
-  document.documentElement.style.setProperty("--report-header-bg", String(headerBg));
-  if (topCard) topCard.style.background = String(headerBg);
-}
+    if (headerBg) {
+      document.documentElement.style.setProperty("--report-header-bg", String(headerBg));
+      if (topCard) topCard.style.setProperty("background", String(headerBg), "important");
+    }
 
-if (headerText) {
-  document.documentElement.style.setProperty("--report-header-text", String(headerText));
+    if (headerText) {
+      document.documentElement.style.setProperty("--report-header-text", String(headerText));
+      if (topCard) topCard.style.setProperty("color", String(headerText), "important");
+      if (agencyName) agencyName.style.setProperty("color", String(headerText), "important");
+      if (agencyReportLabel) agencyReportLabel.style.setProperty("color", String(headerText), "important");
+      if (agencyContactBlock) agencyContactBlock.style.setProperty("color", String(headerText), "important");
+    }
 
-  if (topCard) {
-    topCard.style.color = String(headerText);
-  }
-  if (agencyName) agencyName.style.color = String(headerText);
-  if (agencyReportLabel) agencyReportLabel.style.color = String(headerText);
-  if (agencyContactBlock) agencyContactBlock.style.color = String(headerText);
-}
+    if (textColor) {
+      document.documentElement.style.setProperty("--text-main", String(textColor));
+      document.documentElement.style.setProperty("--ink", String(textColor));
+      document.documentElement.style.setProperty("--ink-soft", String(textColor));
+      document.documentElement.style.setProperty("--muted", String(textColor));
+      document.documentElement.style.setProperty("--pro-text", String(textColor));
+      document.documentElement.style.setProperty("--v2-text", String(textColor));
+    }
 
-if (textColor) {
-  document.documentElement.style.setProperty("--text-main", String(textColor));
-  document.documentElement.style.setProperty("--ink", String(textColor));
-  document.documentElement.style.setProperty("--ink-soft", String(textColor));
-  document.documentElement.style.setProperty("--muted", String(textColor));
-}
+    if (accent) {
+      document.documentElement.style.setProperty("--accent", String(accent));
+      document.documentElement.style.setProperty("--pro-accent", String(accent));
+      document.documentElement.style.setProperty("--v2-teal", String(accent));
+    }
 
-if (accent) {
-  document.documentElement.style.setProperty("--accent", String(accent));
-}
-
-if (pageBg) {
-  document.documentElement.style.setProperty("--report-page-bg", String(pageBg));
-  document.body.style.background = String(pageBg);
-}
+    if (pageBg) {
+      document.documentElement.style.setProperty("--report-page-bg", String(pageBg));
+      document.documentElement.style.setProperty("--v2-main-bg", String(pageBg));
+      document.body.style.setProperty("background", String(pageBg), "important");
+    }
 
     // HEADER CONTACT TOGGLE
     var hasHeaderContact = false;

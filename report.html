@@ -5160,6 +5160,59 @@ body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active) {
   color: var(--pro-text-secondary) !important;
 }
 
+/* Custom agency branding — overrides v2 shell defaults when profile colours are saved */
+body.iqweb-v2-shell.iqweb-branded .page-shell {
+  background: var(--report-page-bg, var(--v2-main-bg)) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .top-card {
+  background: var(--report-header-bg) !important;
+  color: var(--report-header-text) !important;
+  border-color: color-mix(in srgb, var(--report-header-text) 16%, var(--report-header-bg)) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .brand-copy .logo,
+body.iqweb-v2-shell.iqweb-branded #agencyReportLabel,
+body.iqweb-v2-shell.iqweb-branded #agencyContactBlock,
+body.iqweb-v2-shell.iqweb-branded #agencyWebsiteLine,
+body.iqweb-v2-shell.iqweb-branded #agencyEmailLine,
+body.iqweb-v2-shell.iqweb-branded #agencyPhoneLine {
+  color: var(--report-header-text) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .meta-cell {
+  background: color-mix(in srgb, var(--report-header-text) 7%, var(--report-header-bg)) !important;
+  border-color: color-mix(in srgb, var(--report-header-text) 14%, var(--report-header-bg)) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .meta-cell .k {
+  color: var(--report-header-text) !important;
+  opacity: 0.72 !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .meta-cell .v {
+  color: var(--report-header-text) !important;
+  opacity: 1 !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .meta-cell .v.linkish {
+  color: var(--report-header-text) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded .iq-report-tab.is-active {
+  border-bottom-color: var(--accent, var(--pro-accent)) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded.report-tab-signals #signalsGrid .bar > div,
+body.iqweb-v2-shell.iqweb-branded .iq-ai-mini-bar-cell > span {
+  background: var(--accent, var(--pro-accent)) !important;
+}
+
+body.iqweb-v2-shell.iqweb-branded #powered-by {
+  color: var(--text-main, var(--pro-text-muted)) !important;
+  opacity: 0.72;
+}
+
 /* Main report panel */
 body.iqweb-v2-shell .section,
 body.iqweb-v2-shell .executive-dashboard,
@@ -6631,7 +6684,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js?v=20260618g"></script>
-  <script src="/assets/js/report-data.js?v=20260618j"></script>
+  <script src="/assets/js/report-data.js?v=20260618k"></script>
 
   <script>
     (function () {
