@@ -391,13 +391,23 @@ body {
 }
 
     .card.severity-strong {
-      border-color: rgba(34, 197, 94, 0.35);
+      border-color: rgba(16, 185, 129, 0.45);
+      background: linear-gradient(180deg, rgba(16,185,129,0.08), rgba(0,0,0,0.18));
+    }
+
+    .card.severity-good {
+      border-color: rgba(34, 197, 94, 0.42);
       background: linear-gradient(180deg, rgba(34,197,94,0.08), rgba(0,0,0,0.18));
     }
 
     .card.severity-medium {
-      border-color: rgba(245, 158, 11, 0.45);
-      background: linear-gradient(180deg, rgba(245,158,11,0.08), rgba(0,0,0,0.18));
+      border-color: rgba(250, 204, 21, 0.48);
+      background: linear-gradient(180deg, rgba(250,204,21,0.08), rgba(0,0,0,0.18));
+    }
+
+    .card.severity-orange {
+      border-color: rgba(249, 115, 22, 0.42);
+      background: linear-gradient(180deg, rgba(249,115,22,0.08), rgba(0,0,0,0.18));
     }
 
     .card.severity-high {
@@ -1862,13 +1872,23 @@ border-color: #dbe7f3;
 }
 
 .card.ai-discovery-card.severity-medium {
-  border-color: rgba(245, 158, 11, 0.55);
-  background: linear-gradient(180deg, rgba(245,158,11,0.10), rgba(0,0,0,0.18));
+  border-color: rgba(250, 204, 21, 0.55);
+  background: linear-gradient(180deg, rgba(250,204,21,0.10), rgba(0,0,0,0.18));
+}
+
+.card.ai-discovery-card.severity-good {
+  border-color: rgba(34, 197, 94, 0.55);
+  background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18));
+}
+
+.card.ai-discovery-card.severity-orange {
+  border-color: rgba(249, 115, 22, 0.55);
+  background: linear-gradient(180deg, rgba(249,115,22,0.10), rgba(0,0,0,0.18));
 }
 
 .card.ai-discovery-card.severity-strong {
-  border-color: rgba(34, 197, 94, 0.55);
-  background: linear-gradient(180deg, rgba(34,197,94,0.10), rgba(0,0,0,0.18));
+  border-color: rgba(16, 185, 129, 0.55);
+  background: linear-gradient(180deg, rgba(16,185,129,0.10), rgba(0,0,0,0.18));
 }
 /* Category detected success state */
 
@@ -1896,15 +1916,23 @@ border-color: #dbe7f3;
 }
 
 .card.ai-discovery-card.severity-high .bar > div {
-  background: linear-gradient(90deg, #ef4444, #f87171);
+  background: #EF4444;
 }
 
 .card.ai-discovery-card.severity-medium .bar > div {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  background: #FACC15;
+}
+
+.card.ai-discovery-card.severity-good .bar > div {
+  background: #22C55E;
+}
+
+.card.ai-discovery-card.severity-orange .bar > div {
+  background: #F97316;
 }
 
 .card.ai-discovery-card.severity-strong .bar > div {
-  background: linear-gradient(90deg, #22c55e, #4ade80);
+  background: #10B981;
 }
 
 .card.ai-discovery-card.severity-na .bar > div {
@@ -3736,15 +3764,23 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card {
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong {
-  border-color: #bbf7d0 !important;
+  border-color: #6ee7b7 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good {
+  border-color: #86efac !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium {
-  border-color: #fde68a !important;
+  border-color: #fde047 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange {
+  border-color: #fdba74 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high {
-  border-color: #fecaca !important;
+  border-color: #fca5a5 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na {
@@ -5608,7 +5644,9 @@ body.iqweb-v2-shell.report-tab-signals .ai-status {
 
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-high,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-orange,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-medium,
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-good,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-strong,
 body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-na {
   background: var(--pro-surface) !important;
@@ -5616,15 +5654,23 @@ body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card.severity-na {
 
 /* AI Visibility inner boxes — score + category + brand */
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .ai-discovery-scorebox {
-  border-color: #bbf7d0 !important;
+  border-color: #6ee7b7 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-good .ai-discovery-scorebox {
+  border-color: #86efac !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .ai-discovery-scorebox {
-  border-color: #fde68a !important;
+  border-color: #fde047 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-orange .ai-discovery-scorebox {
+  border-color: #fdba74 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-discovery-scorebox {
-  border-color: #fecaca !important;
+  border-color: #fca5a5 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-na .ai-discovery-scorebox {
@@ -5642,26 +5688,44 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-panel:not(.category-success
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .ai-discovery-scorebox .ai-score {
-  color: #15803d !important;
+  color: #10B981 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-good .ai-discovery-scorebox .ai-score {
+  color: #22C55E !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .ai-discovery-scorebox .ai-score {
-  color: #b45309 !important;
+  color: #CA8A04 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-orange .ai-discovery-scorebox .ai-score {
+  color: #F97316 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-discovery-scorebox .ai-score {
-  color: #dc2626 !important;
+  color: #EF4444 !important;
 }
 
-/* Signal cards — severity borders + bar fills (must follow pro-border resets) */
+/* Signal cards — 5-tier borders + bar fills (Critical → Excellent) */
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card),
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card).has-signal-impact {
+  border-color: #6ee7b7 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card),
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card).has-signal-impact {
   border-color: #86efac !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card),
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card).has-signal-impact {
-  border-color: #fcd34d !important;
+  border-color: #fde047 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card),
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card).has-signal-impact {
+  border-color: #fdba74 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card),
@@ -5674,11 +5738,19 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na:not(.ai-di
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-strong {
+  border-color: #6ee7b7 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-good {
   border-color: #86efac !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-medium {
-  border-color: #fcd34d !important;
+  border-color: #fde047 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-orange {
+  border-color: #fdba74 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.severity-high {
@@ -5690,15 +5762,23 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.ai-discovery-card.seve
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card) .bar > div {
-  background: linear-gradient(90deg, #22c55e, #4ade80) !important;
+  background: #10B981 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card) .bar > div {
+  background: #22C55E !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card) .bar > div {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+  background: #FACC15 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card) .bar > div {
+  background: #F97316 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card) .bar > div {
-  background: linear-gradient(90deg, #ef4444, #f87171) !important;
+  background: #EF4444 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na:not(.ai-discovery-card) .bar > div {
@@ -5706,15 +5786,23 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-na:not(.ai-di
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-strong .bar > div {
-  background: linear-gradient(90deg, #22c55e, #4ade80) !important;
+  background: #10B981 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-good .bar > div {
+  background: #22C55E !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-medium .bar > div {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+  background: #FACC15 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-orange .bar > div {
+  background: #F97316 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .bar > div {
-  background: linear-gradient(90deg, #ef4444, #f87171) !important;
+  background: #EF4444 !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-na .bar > div {
@@ -6500,8 +6588,8 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
     </div>
   </div>
 
-  <script src="/assets/js/score-model.js"></script>
-  <script src="/assets/js/report-data.js?v=20260618d"></script>
+  <script src="/assets/js/score-model.js?v=20260618g"></script>
+  <script src="/assets/js/report-data.js?v=20260618g"></script>
 
   <script>
     (function () {

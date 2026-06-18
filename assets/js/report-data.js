@@ -136,8 +136,10 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
     }
 
     if (unmeasured) return "severity-na";
-    if (score < 35) return "severity-high";
-    if (score < 90) return "severity-medium";
+    if (score < 40) return "severity-high";
+    if (score < 60) return "severity-orange";
+    if (score < 75) return "severity-medium";
+    if (score < 90) return "severity-good";
     return "severity-strong";
   }
 
@@ -1861,10 +1863,14 @@ if (key === "ai_discoverability") {
   var aiSeverity = "";
   if (score === null) {
     aiSeverity = "severity-na";
-  } else if (score < 50) {
+  } else if (score < 40) {
     aiSeverity = "severity-high";
-  } else if (score < 70) {
+  } else if (score < 60) {
+    aiSeverity = "severity-orange";
+  } else if (score < 75) {
     aiSeverity = "severity-medium";
+  } else if (score < 90) {
+    aiSeverity = "severity-good";
   } else {
     aiSeverity = "severity-strong";
   }

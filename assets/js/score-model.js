@@ -77,10 +77,14 @@
       fair: 50
     },
     signal: {
+      excellent: 90,
+      good: 75,
+      fair: 60,
+      poor: 40,
       strong: 90,
-      stable: 70,
-      improvement: 50,
-      priority: 35
+      stable: 75,
+      improvement: 60,
+      priority: 40
     }
   };
 
@@ -121,9 +125,12 @@
     if (unmeasured) return "severity-na";
 
     var s = asInt(score, 0);
+    var t = THRESHOLDS.signal;
 
-    if (s < THRESHOLDS.signal.priority) return "severity-high";
-    if (s < THRESHOLDS.signal.strong) return "severity-medium";
+    if (s < t.poor) return "severity-high";
+    if (s < t.fair) return "severity-orange";
+    if (s < t.good) return "severity-medium";
+    if (s < t.excellent) return "severity-good";
     return "severity-strong";
   }
 
