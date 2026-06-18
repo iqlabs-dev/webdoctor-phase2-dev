@@ -20,11 +20,11 @@ const BRAND_DEFAULTS = {
   agency_phone: "",
 agency_report_title: "",
 
-  agency_header_bg: "#0B1730",
-  agency_header_text_color: "#FFFFFF",
-  agency_text_color: "#E5F0FF",
-  agency_accent_color: "#18D6C4",
-agency_page_bg: "#050814",
+  agency_header_bg: "#ffffff",
+  agency_header_text_color: "#0f172a",
+  agency_text_color: "#475569",
+  agency_accent_color: "#0f766e",
+  agency_page_bg: "#f5f7fb",
 
   show_header_contact: true,
   show_footer_contact: true,
@@ -189,7 +189,8 @@ function renderBrandingPreview() {
 
   if (card) {
     card.style.color = textColor;
-    card.style.borderColor = "rgba(255,255,255,0.08)";
+    card.style.borderColor = "rgba(148,163,184,0.18)";
+    card.style.background = "rgba(255,255,255,0.72)";
   }
   if (cardTitle) cardTitle.style.color = textColor;
   if (cardCopy) cardCopy.style.color = textColor;
