@@ -755,6 +755,234 @@ tbody td:nth-child(7) {
       gap:22px;
     }
 
+    .branding-layout--with-preview{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) minmax(280px, 320px);
+      gap:20px;
+      align-items:start;
+    }
+
+    .branding-form-col{
+      display:flex;
+      flex-direction:column;
+      gap:22px;
+      min-width:0;
+    }
+
+    .branding-preview-col{
+      position:sticky;
+      top:18px;
+    }
+
+    .branding-preview-panel{
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.03);
+      border-radius:16px;
+      padding:14px;
+    }
+
+    .branding-preview-panel .branding-preview-heading{
+      margin-bottom:12px;
+    }
+
+    .branding-preview-panel .branding-preview-heading h3{
+      margin:0;
+      font-size:14px;
+      font-weight:700;
+      color:rgba(255,255,255,.92);
+    }
+
+    .branding-preview-panel .branding-preview-heading .meta{
+      display:block;
+      margin-top:4px;
+      font-size:11px;
+      color:rgba(255,255,255,.48);
+      line-height:1.4;
+    }
+
+    .brand-report-preview{
+      border-radius:14px;
+      overflow:hidden;
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 10px 28px rgba(0,0,0,.22);
+    }
+
+    .brand-preview-top{
+      padding:14px 14px 10px;
+    }
+
+    .brand-preview-top-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .brand-preview-brand{
+      min-width:0;
+      flex:1;
+    }
+
+    .brand-preview-name{
+      font-size:15px;
+      font-weight:700;
+      line-height:1.25;
+      letter-spacing:-0.02em;
+      word-break:break-word;
+    }
+
+    .brand-preview-title{
+      margin-top:4px;
+      font-size:10px;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      opacity:.78;
+      line-height:1.35;
+    }
+
+    .brand-preview-contact{
+      margin-top:8px;
+      font-size:10px;
+      line-height:1.55;
+      opacity:.78;
+      word-break:break-word;
+    }
+
+    .brand-preview-contact div{
+      display:none;
+    }
+
+    .brand-preview-contact div.is-visible{
+      display:block;
+    }
+
+    .brand-preview-logo{
+      width:42px;
+      height:42px;
+      object-fit:contain;
+      border-radius:8px;
+      flex:0 0 auto;
+      background:rgba(255,255,255,.06);
+    }
+
+    .brand-preview-logo[hidden]{
+      display:none !important;
+    }
+
+    .brand-preview-meta{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:8px;
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid rgba(255,255,255,.10);
+    }
+
+    .brand-preview-meta .k{
+      display:block;
+      font-size:9px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      opacity:.62;
+    }
+
+    .brand-preview-meta .v{
+      display:block;
+      margin-top:2px;
+      font-size:10px;
+      font-weight:600;
+      opacity:.92;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brand-preview-page{
+      padding:12px;
+    }
+
+    .brand-preview-card{
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.03);
+      padding:12px;
+    }
+
+    .brand-preview-card-title{
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      opacity:.88;
+      margin-bottom:8px;
+    }
+
+    .brand-preview-score-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+    }
+
+    .brand-preview-score-row .score{
+      font-size:22px;
+      font-weight:700;
+      line-height:1;
+      letter-spacing:-0.03em;
+    }
+
+    .brand-preview-bar{
+      flex:1;
+      height:8px;
+      border-radius:999px;
+      background:rgba(255,255,255,.10);
+      overflow:hidden;
+    }
+
+    .brand-preview-bar span{
+      display:block;
+      height:100%;
+      width:72%;
+      border-radius:999px;
+    }
+
+    .brand-preview-card-copy{
+      font-size:10px;
+      line-height:1.55;
+      opacity:.78;
+    }
+
+    .brand-preview-footer{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 14px 12px;
+      border-top:1px solid rgba(255,255,255,.08);
+      font-size:10px;
+      line-height:1.45;
+      opacity:.72;
+    }
+
+    .brand-preview-footer-contact{
+      min-width:0;
+      word-break:break-word;
+    }
+
+    .brand-preview-footer-contact[hidden]{
+      display:none !important;
+    }
+
+    .brand-preview-powered{
+      white-space:nowrap;
+      font-size:9px;
+      opacity:.72;
+    }
+
+    .brand-preview-powered[hidden]{
+      display:none !important;
+    }
+
     .branding-section{
       border:1px solid rgba(255,255,255,.06);
       background: rgba(255,255,255,.02);
@@ -918,6 +1146,16 @@ tbody td:nth-child(7) {
       .wrap{ padding: 14px; }
       .brand-grid{ grid-template-columns: 1fr; }
       .color-grid{ grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 1100px){
+      .branding-layout--with-preview{
+        grid-template-columns:1fr;
+      }
+
+      .branding-preview-col{
+        position:static;
+      }
     }
 
     @media (max-width: 760px){
@@ -2353,6 +2591,37 @@ body.iqweb-v2-dashboard #view-account .wd-history-link:hover {
   border: 0 !important;
 }
 
+body.iqweb-v2-dashboard #view-branding .branding-layout--with-preview {
+  gap: 16px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-form-col {
+  gap: 16px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-preview-panel {
+  background: var(--pro-surface) !important;
+  border: 1px solid var(--pro-border) !important;
+  border-radius: var(--pro-radius) !important;
+  padding: 16px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-preview-panel .branding-preview-heading h3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--pro-text) !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .branding-preview-panel .branding-preview-heading .meta {
+  color: var(--pro-text-muted) !important;
+  font-size: 12px !important;
+}
+
+body.iqweb-v2-dashboard #view-branding .brand-report-preview {
+  border: 1px solid var(--pro-border) !important;
+  box-shadow: var(--pro-shadow-sm) !important;
+}
+
 body.iqweb-v2-dashboard #view-branding .branding-layout {
   gap: 16px !important;
 }
@@ -2736,7 +3005,9 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
 
         <div id="view-branding" class="view">
           <div class="card secondary">
-            <div class="branding-layout">
+            <div class="branding-layout branding-layout--with-preview">
+
+              <div class="branding-form-col">
 
               <div class="branding-section">
                 <div class="h">
@@ -2863,7 +3134,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                 </div>
 
                 <div class="branding-preview-note">
-                  Changes are saved to your account and applied to future live reports and PDF exports.
+                  Live preview updates as you edit. Save to apply branding to future reports and PDF exports.
                 </div>
               </div>
 
@@ -2879,6 +3150,65 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
                 </div>
               </div>
 
+              </div>
+
+              <aside class="branding-preview-col" aria-label="Report branding preview">
+                <div class="branding-preview-panel">
+                  <div class="branding-preview-heading">
+                    <h3>Live preview</h3>
+                    <span class="meta">Sample report layout — updates as you edit</span>
+                  </div>
+
+                  <div id="brand-report-preview" class="brand-report-preview">
+                    <div id="brand-preview-header" class="brand-preview-top">
+                      <div class="brand-preview-top-row">
+                        <div class="brand-preview-brand">
+                          <div id="brand-preview-name" class="brand-preview-name">Your Company</div>
+                          <div id="brand-preview-title" class="brand-preview-title">Website Health Report</div>
+                          <div id="brand-preview-contact" class="brand-preview-contact">
+                            <div id="brand-preview-website"></div>
+                            <div id="brand-preview-email"></div>
+                            <div id="brand-preview-phone"></div>
+                          </div>
+                        </div>
+                        <img id="brand-preview-logo" class="brand-preview-logo" alt="" hidden>
+                      </div>
+
+                      <div class="brand-preview-meta">
+                        <div>
+                          <span class="k">Website</span>
+                          <span class="v">example.com</span>
+                        </div>
+                        <div>
+                          <span class="k">Report ID</span>
+                          <span class="v">WEB-20260618</span>
+                        </div>
+                        <div>
+                          <span class="k">Report Date</span>
+                          <span class="v">18 Jun 2026</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div id="brand-preview-page" class="brand-preview-page">
+                      <div class="brand-preview-card">
+                        <div class="brand-preview-card-title">Overall Site Health</div>
+                        <div class="brand-preview-score-row">
+                          <span class="score">72</span>
+                          <div class="brand-preview-bar"><span id="brand-preview-bar"></span></div>
+                        </div>
+                        <div class="brand-preview-card-copy">Sample signal summary showing body text colour and readability on your report background.</div>
+                      </div>
+                    </div>
+
+                    <div id="brand-preview-footer" class="brand-preview-footer">
+                      <div id="brand-preview-footer-contact" class="brand-preview-footer-contact"></div>
+                      <div id="brand-preview-powered" class="brand-preview-powered">Powered by iQWEB</div>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
             </div>
           </div>
         </div>
@@ -2887,7 +3217,7 @@ body.iqweb-v2-dashboard #view-branding .branding-secondary-btn:active {
   </div>
 
   <script type="module" src="/assets/js/dashboard.js?v=48"></script>
-  <script type="module" src="/assets/js/dashboard-branding.js"></script>
+  <script type="module" src="/assets/js/dashboard-branding.js?v=20260618a"></script>
 
   <script type="module">
     const $ = (sel) => document.querySelector(sel);
