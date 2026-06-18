@@ -2754,7 +2754,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
             "<span>" + escapeHtml(sub) + "</span>" +
           "</span>" +
         "</div>" +
-        '<a class="iq-upgrade-btn" href="' + IQ_UPGRADE_URL + '">Unlock full plan →</a>' +
+        '<a class="iq-upgrade-btn" href="' + IQ_UPGRADE_URL + '">View pricing →</a>' +
       "</div>"
     );
   }
@@ -2806,7 +2806,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
       html += lockedCtaHtml(
         locked,
         locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " identified",
-        "Unlock the full ranked action plan with step-by-step priorities."
+        "Get the full ranked fix plan, white-label reports, and baseline tracking — from $39/mo."
       );
     }
 
@@ -2878,7 +2878,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
       html += lockedCtaHtml(
         locked,
         locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " in the full plan",
-        "Subscribe to unlock the complete ranked fix sequence.",
+        "Subscribe for the complete fix sequence, shareable client reports, and baselines.",
         "margin-top:14px;"
       );
     }
