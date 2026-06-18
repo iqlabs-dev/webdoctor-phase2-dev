@@ -3921,7 +3921,7 @@ background:#f8fafc !important;
 }
 
 </style>
-<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=4" />
+<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=5" />
 
 <style>
 /* =========================================
@@ -5163,7 +5163,9 @@ body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active) {
 }
 
 /* Custom agency branding — overrides v2 shell defaults when profile colours are saved */
-body.iqweb-v2-shell.iqweb-branded .page-shell {
+body.iqweb-v2-shell.iqweb-branded .page-shell,
+body.iqweb-v2-shell.iqweb-branded .app.report-app,
+body.iqweb-v2-shell.iqweb-branded .app.report-app .main {
   background: var(--report-page-bg, var(--v2-main-bg)) !important;
 }
 
@@ -6011,7 +6013,7 @@ body.iqweb-v2-shell #powered-by {
 }
 
 @media (max-width: 720px) {
-  body.iqweb-v2-shell .page-shell {
+  body.iqweb-v2-shell .app.report-app .wrap.report-wrap {
     padding: 12px 12px 24px !important;
   }
   body.iqweb-v2-shell .exec-score-grid.exec-score-circles,
@@ -6091,7 +6093,36 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   min-width: 0 !important;
 }
 
-/* Full-width report shell — header and body share the same edge on large screens */
+/* Full-width report shell — same stretch model as dashboard .main + .wrap */
+body.iqweb-v2-shell .app.report-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: row;
+  background: var(--pro-bg, #f6f9fc);
+}
+
+body.iqweb-v2-shell .app.report-app .main {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: inherit;
+}
+
+body.iqweb-v2-shell .app.report-app .wrap.report-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+}
+
 body.iqweb-v2-shell .page-shell {
   width: 100% !important;
   max-width: none !important;
@@ -6109,6 +6140,7 @@ body.iqweb-v2-shell .shell-inner {
 }
 
 body.iqweb-v2-shell .report-nav-bar,
+body.iqweb-v2-shell .app.report-app .wrap.report-wrap,
 body.iqweb-v2-shell .report-frame,
 body.iqweb-v2-shell .top-card,
 body.iqweb-v2-shell .iq-report-tabs,
@@ -6135,8 +6167,9 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
 <body class="iqweb-v2-shell report-tab-overview">
 
 
-  <div class="page-shell">
-    <div class="shell-inner">
+  <div class="app report-app">
+    <section class="main">
+      <div class="wrap report-wrap">
 
       <div class="report-nav-bar">
         <a id="backToDashboard" href="/dashboard.html">Back to Dashboard</a>
@@ -6729,8 +6762,9 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
         </div>
       </div>
 
-    </div>
-  </div>
+    </div><!-- /.report-wrap -->
+  </section><!-- /.main -->
+</div><!-- /.report-app -->
 
   <script src="/assets/js/score-model.js?v=20260618g"></script>
   <script src="/assets/js/report-data.js?v=20260618k"></script>

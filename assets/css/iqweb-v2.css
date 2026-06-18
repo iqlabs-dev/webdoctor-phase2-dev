@@ -251,13 +251,43 @@ body.iqweb-v2-shell .iqweb-app-sidebar{
     linear-gradient(180deg, var(--iqv2-sidebar), var(--iqv2-sidebar-2));
 }
 
+/* Match dashboard stretch — .main + .wrap fill available width */
+body.iqweb-v2-shell .app.report-app{
+  min-height:100vh;
+  display:flex;
+  flex-direction:row;
+  background:var(--iqv2-bg);
+}
+
+body.iqweb-v2-shell .app.report-app .main{
+  flex:1 1 auto;
+  min-width:0;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  background:var(--iqv2-bg);
+}
+
+body.iqweb-v2-shell .app.report-app .wrap.report-wrap{
+  flex:1 1 auto;
+  min-width:0;
+  width:100%;
+  max-width:none !important;
+  margin:0 !important;
+  padding:18px 22px 24px;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  box-sizing:border-box;
+}
+
 body.iqweb-v2-shell .page-shell{
   margin-left:0 !important;
   margin-right:0 !important;
   width:100% !important;
   max-width:none !important;
   min-height:100vh;
-  padding:18px 18px 28px !important;
+  padding:0 !important;
   background:var(--iqv2-bg) !important;
   align-items:stretch !important;
   box-sizing:border-box !important;
@@ -273,6 +303,7 @@ body.iqweb-v2-shell .shell-inner{
 
 /* Unified report chrome — header, tabs, and body share one edge */
 body.iqweb-v2-shell .report-frame,
+body.iqweb-v2-shell .app.report-app .wrap.report-wrap,
 body.iqweb-v2-shell .report-nav-bar,
 body.iqweb-v2-shell .top-card,
 body.iqweb-v2-shell .iq-report-tabs,
@@ -563,7 +594,8 @@ body.iqweb-v2-shell #powered-by{ color:var(--iqv2-muted) !important; }
 
 @media (max-width:760px){
   body.iqweb-v2-shell .iqweb-app-sidebar{ position:static !important; width:auto !important; min-height:auto !important; }
-  body.iqweb-v2-shell .page-shell{ margin-left:0 !important; padding:12px !important; }
+  body.iqweb-v2-shell .app.report-app .wrap.report-wrap{ padding:12px !important; }
+  body.iqweb-v2-shell .page-shell{ margin-left:0 !important; padding:0 !important; }
   body.iqweb-v2-dashboard .app{ display:block; }
   body.iqweb-v2-dashboard .sidebar{ width:auto; min-height:auto; }
   body.iqweb-v2-dashboard .main{ min-height:100vh; }
