@@ -9,8 +9,7 @@ let currentLogoUrl = null;
 let previewLogoObjectUrl = null;
 
 const PREVIEW_DEFAULTS = {
-  company: "Your Company",
-  reportTitle: "Website Health Report"
+  company: "Your Company"
 };
 
 const BRAND_DEFAULTS = {
@@ -142,7 +141,9 @@ function renderBrandingPreview() {
   }
 
   if (title) {
-    title.textContent = branding.agency_report_title || PREVIEW_DEFAULTS.reportTitle;
+    const reportTitle = branding.agency_report_title || "";
+    title.textContent = reportTitle;
+    title.hidden = !reportTitle;
     title.style.color = headerText;
   }
 
