@@ -1768,7 +1768,7 @@ return {
 
     function scoreDisplayHtml(score, unmeasured) {
       if (unmeasured) return escapeHtml("N/A");
-      return escapeHtml(String(score)) + '<span class="score-denom">/100</span>';
+      return escapeHtml(String(score));
     }
 
     for (var i = 0; i < signals.length; i++) {
