@@ -59,8 +59,9 @@ for (const file of files) {
 
   let content = fs.readFileSync(filePath, 'utf8');
 
-  // Remove inline styles
+  // Remove inline styles (including orphaned blocks after a prior partial migration)
   content = content.replace(/<style>[\s\S]*?<\/style>\s*/gi, '');
+  content = content.replace(/<!--STYLE_REMOVED-->[\s\S]*?<\/style>\s*/gi, '');
   content = content.replace(/<!--STYLE_REMOVED-->[\s\S]*?(?=\n<\/head>)/, '');
 
   content = content.replace(/<link[^>]*Montserrat[^>]*>\s*/gi, '');
