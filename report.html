@@ -83,14 +83,14 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
 }
 
 .shell-inner {
   width: 100%;
-  max-width: 1040px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0px; /* tightened from 28px */
@@ -2295,14 +2295,15 @@ body.iqweb-v2-shell {
 
 body.iqweb-v2-shell .page-shell {
   min-height: 100vh;
-  margin-left: 232px;
+  margin-left: 0;
   align-items: stretch;
   background: var(--v2-main-bg);
   padding: 18px 18px 28px;
 }
 
 body.iqweb-v2-shell .shell-inner {
-  max-width: 1720px;
+  max-width: none;
+  width: 100%;
   gap: 0;
 }
 
@@ -3299,7 +3300,8 @@ body.iqweb-v2-shell .page-shell {
 }
 
 body.iqweb-v2-shell .shell-inner {
-  max-width: 1660px;
+  max-width: none;
+  width: 100%;
 }
 
 body.iqweb-v2-shell .top-card {
@@ -4598,7 +4600,7 @@ body.iqweb-v2-shell .iqweb-side-account {
 }
 
 body.iqweb-v2-shell .page-shell {
-  margin-left: var(--sidebar-w) !important;
+  margin-left: 0 !important;
 }
 
 @media (max-width: 760px) {
@@ -4824,7 +4826,7 @@ body.iqweb-v2-shell .iqweb-side-account {
 }
 
 body.iqweb-v2-shell .page-shell {
-  margin-left: var(--sidebar-w) !important;
+  margin-left: 0 !important;
 }
 
 @media (max-width: 760px) {
@@ -4874,7 +4876,7 @@ body.iqweb-v2-shell .page-shell {
 }
 
 body.iqweb-v2-shell .shell-inner {
-  max-width: 1660px !important;
+  max-width: none !important;
   width: 100% !important;
 }
 
@@ -4934,7 +4936,7 @@ body.iqweb-v2-shell .page-shell {
 }
 
 body.iqweb-v2-shell .shell-inner {
-  max-width: 1660px !important;
+  max-width: none !important;
   width: 100% !important;
 }
 
@@ -6087,6 +6089,43 @@ body.iqweb-v2-shell.report-tab-overview .exec-overall-score,
 body.iqweb-v2-shell.report-tab-overview .exec-signal {
   width: 100% !important;
   min-width: 0 !important;
+}
+
+/* Full-width report shell — header and body share the same edge on large screens */
+body.iqweb-v2-shell .page-shell {
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  align-items: stretch !important;
+  box-sizing: border-box !important;
+}
+
+body.iqweb-v2-shell .shell-inner {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+body.iqweb-v2-shell .report-nav-bar,
+body.iqweb-v2-shell .top-card,
+body.iqweb-v2-shell .iq-report-tabs,
+body.iqweb-v2-shell #reportRoot,
+body.iqweb-v2-shell .executive-dashboard,
+body.iqweb-v2-shell .section,
+body.iqweb-v2-shell.report-tab-signals #deliverySignalsSection,
+body.iqweb-v2-shell.report-tab-evidence #signalEvidenceSection {
+  width: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+}
+
+body.iqweb-v2-shell .overview-trend-strip,
+body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 </style>
 
