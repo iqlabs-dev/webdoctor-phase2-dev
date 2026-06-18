@@ -1766,6 +1766,11 @@ return {
       return '<div class="signal-impact"><span>Why it matters</span>' + escapeHtml(line) + "</div>";
     }
 
+    function scoreDisplayHtml(score, unmeasured) {
+      if (unmeasured) return escapeHtml("N/A");
+      return escapeHtml(String(score)) + '<span class="score-denom">/100</span>';
+    }
+
     for (var i = 0; i < signals.length; i++) {
       var sig = safeObj(signals[i]);
 
@@ -1794,15 +1799,7 @@ var score = unmeasured ? null : displayScore;
       var flagged = hasFlags(sig);
       var isPrimary = !!(key && primary && primary.key && key === primary.key);
 
-      var headline;
-      if (platformManaged) {
-        headline = "Platform Managed";
-      } else {
-  headline = signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, key);
-      }
-
       var lines = [];
-      lines.push(headline);
 
       if (platformManaged) {
         lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
@@ -1860,21 +1857,6 @@ if (key === "ai_discoverability") {
   var aiFootnote =
     "AI Visibility is tested using recommendation-style prompts and external entity signals. It reflects whether the brand is being surfaced in tested AI visibility scenarios, not overall brand quality or general business value.";
 
-  var aiSeverity = "";
-  if (score === null) {
-    aiSeverity = "severity-na";
-  } else if (score < 40) {
-    aiSeverity = "severity-high";
-  } else if (score < 60) {
-    aiSeverity = "severity-orange";
-  } else if (score < 75) {
-    aiSeverity = "severity-medium";
-  } else if (score < 90) {
-    aiSeverity = "severity-good";
-  } else {
-    aiSeverity = "severity-strong";
-  }
-
   var aiCategory =
     (sig && sig.evidence && (
       sig.evidence.detected_category ||
@@ -1895,22 +1877,22 @@ if (key === "ai_discoverability") {
     )) ||
     "";
 
-var aiCategoryEstablished = !!aiCategory;
-var aiCategoryPanelClass = aiCategoryEstablished ? " category-success" : "";
+  var aiCategoryEstablished = !!aiCategory;
+  var aiCategoryPanelClass = aiCategoryEstablished ? " category-success" : "";
 
-var aiBrandSurfaced = score !== null && score >= 60;
-var aiRecommendationPanelClass = aiBrandSurfaced ? " category-success" : "";
+  var aiBrandSurfaced = score !== null && score >= 60;
+  var aiRecommendationPanelClass = aiBrandSurfaced ? " category-success" : "";
 
   var aiCategoryLabel = "Category Detected";
   var aiCategoryValue = aiCategoryEstablished ? aiCategory : "Category could not be determined";
 
-var aiTestMethod = aiCategoryEstablished
-  ? "AI recommendation prompts were tested for " +
-    (aiLocation
-      ? ("businesses in the " + aiCategory + " category in " + aiLocation)
-      : ("businesses in the " + aiCategory + " category")) +
-    " to determine whether the brand is surfaced as a recommendation."
-  : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
+  var aiTestMethod = aiCategoryEstablished
+    ? "AI recommendation prompts were tested for " +
+      (aiLocation
+        ? ("businesses in the " + aiCategory + " category in " + aiLocation)
+        : ("businesses in the " + aiCategory + " category")) +
+      " to determine whether the brand is surfaced as a recommendation."
+    : "The website's primary business category could not be confidently determined from page signals. Because category-based prompts are required for AI recommendation testing, this signal could not be evaluated.";
 
   var aiObserved = "";
   var aiFixList = "";
@@ -1954,7 +1936,7 @@ var aiTestMethod = aiCategoryEstablished
     }
   }
 
-  card.className = "card ai-discovery-card " + aiSeverity;
+  card.className = "card ai-discovery-card " + severityClass;
   var aiImpactLine = shouldShowBusinessImpact("ai_discoverability", score, isPrimary, false)
     ? businessImpactLine("ai_discoverability", score)
     : "";
@@ -1962,14 +1944,12 @@ var aiTestMethod = aiCategoryEstablished
 
   card.innerHTML =
     (isPrimary ? '<div class="primary-badge">Visibility Signal</div>' : "") +
+    '<div class="card-top">' +
+      '<h3>AI Visibility</h3>' +
+      '<div class="score-right">' + scoreDisplayHtml(score, unmeasured) + '</div>' +
+    '</div>' +
+    '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
     '<div class="ai-discovery-layout">' +
-
-      '<div class="ai-discovery-scorebox">' +
-        '<div class="ai-label">AI Visibility Score</div>' +
-        '<div class="ai-score">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
-        '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
-        '<div class="ai-status" style="margin-top:10px;">' + escapeHtml(headline) + '</div>' +
-      '</div>' +
 
       '<div class="ai-discovery-panel' + aiCategoryPanelClass + '">' +
         '<h4>' + escapeHtml(aiCategoryLabel) + '</h4>' +
@@ -2007,7 +1987,7 @@ var aiTestMethod = aiCategoryEstablished
     badgeHtml +
     '<div class="card-top">' +
       '<h3>' + escapeHtml(label) + '</h3>' +
-      '<div class="score-right">' + escapeHtml(String(unmeasured ? "N/A" : score)) + '</div>' +
+      '<div class="score-right">' + scoreDisplayHtml(score, unmeasured) + '</div>' +
     '</div>' +
     '<div class="bar"><div style="width:' + (unmeasured ? 0 : score) + '%;"></div></div>' +
     '<div class="summary">' + summaryHtml + '</div>' +

@@ -4378,9 +4378,9 @@ body.iqweb-v2-shell.report-tab-signals .signal-group-label {
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
-  grid-template-columns: 172px minmax(0, 1fr) minmax(0, 1fr) !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
   gap: 22px !important;
-  margin-top: 20px !important;
+  margin-top: 16px !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
@@ -5589,10 +5589,11 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar > div {
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-layout {
-  margin-top: 20px !important;
-  padding-top: 20px !important;
-  border-top: 1px solid var(--pro-border) !important;
+  margin-top: 16px !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
   gap: 16px !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-scorebox,
@@ -5807,6 +5808,54 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .bar > d
 
 body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-na .bar > div {
   background: linear-gradient(90deg, #94a3b8, #cbd5e1) !important;
+}
+
+/* Tier-colored scores */
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high .score-right {
+  color: #EF4444 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange .score-right {
+  color: #F97316 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium .score-right {
+  color: #CA8A04 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good .score-right {
+  color: #22C55E !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong .score-right {
+  color: #10B981 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .score-denom {
+  font-size: 0.72em;
+  font-weight: 600;
+  opacity: 0.58;
+  margin-left: 1px;
+}
+
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card .card-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin-bottom: 0 !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card .bar {
+  margin-top: 10px !important;
+  margin-bottom: 4px !important;
+}
+
+body.iqweb-v2-shell.report-tab-signals .card.ai-discovery-card .ai-discovery-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  margin-top: 16px !important;
+  padding-top: 0 !important;
+  border-top: 0 !important;
 }
 
 /* ── Evidence tab ── */
@@ -6589,7 +6638,7 @@ body.iqweb-v2-shell.report-tab-overview .exec-signal {
   </div>
 
   <script src="/assets/js/score-model.js?v=20260618g"></script>
-  <script src="/assets/js/report-data.js?v=20260618g"></script>
+  <script src="/assets/js/report-data.js?v=20260618h"></script>
 
   <script>
     (function () {
@@ -7087,6 +7136,10 @@ setFooter("trendAiFooter", "AI Visibility", prevAi, currentAi);
       if (!txt) return;
 
       txt = txt
+        .replace(/^Priority Fix\s*\n+/i, "")
+        .replace(/^Critical Fix\s*\n+/i, "")
+        .replace(/^Not Measured\s*\n+/i, "")
+        .replace(/^Stable\s*\n+/i, "")
         .replace(/Baseline stable\s*[—-]\s*no measurable blockers detected in this scan\./gi,
           "Baseline stable with no measurable blockers detected.")
         .replace(/^Strong\s*\n+/i, "")
