@@ -252,16 +252,42 @@ body.iqweb-v2-shell .iqweb-app-sidebar{
 }
 
 body.iqweb-v2-shell .page-shell{
-  margin-left:232px !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  width:100% !important;
+  max-width:none !important;
   min-height:100vh;
   padding:18px 18px 28px !important;
   background:var(--iqv2-bg) !important;
   align-items:stretch !important;
+  box-sizing:border-box !important;
 }
 
 body.iqweb-v2-shell .shell-inner{
-  max-width:1720px !important;
-  width:100%;
+  max-width:none !important;
+  width:100% !important;
+  margin:0 !important;
+  align-items:stretch !important;
+  box-sizing:border-box !important;
+}
+
+/* Unified report chrome — header, tabs, and body share one edge */
+body.iqweb-v2-shell .report-frame,
+body.iqweb-v2-shell .report-nav-bar,
+body.iqweb-v2-shell .top-card,
+body.iqweb-v2-shell .iq-report-tabs,
+body.iqweb-v2-shell #reportRoot,
+body.iqweb-v2-shell .executive-dashboard{
+  width:100% !important;
+  max-width:none !important;
+  box-sizing:border-box !important;
+}
+
+body.iqweb-v2-shell .report-frame{
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  gap:0 !important;
 }
 
 body.iqweb-v2-shell #backToDashboard{ display:none !important; }
@@ -332,14 +358,11 @@ body.iqweb-v2-shell .loader-wrap{
 }
 
 body.iqweb-v2-shell main#reportRoot:not([style*="display:none"]):not([style*="display: none"]){
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) 420px;
-  grid-template-areas:
-    "hero hero"
-    "baseline issues"
-    "signals signals"
-    "evidence evidence";
-  gap:16px;
+  display:block !important;
+  width:100% !important;
+  max-width:none !important;
+  padding:0 !important;
+  margin:0 !important;
   color:var(--iqv2-text) !important;
 }
 
@@ -525,10 +548,6 @@ body.iqweb-v2-shell #powered-by{ color:var(--iqv2-muted) !important; }
 }
 
 @media (max-width:1380px){
-  body.iqweb-v2-shell main#reportRoot:not([style*="display:none"]):not([style*="display: none"]){
-    grid-template-columns:1fr;
-    grid-template-areas:"hero" "baseline" "signals" "evidence";
-  }
   body.iqweb-v2-shell .exec-dashboard-body{ grid-template-columns:1fr !important; }
   body.iqweb-v2-shell #signalsGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }
@@ -536,7 +555,7 @@ body.iqweb-v2-shell #powered-by{ color:var(--iqv2-muted) !important; }
 @media (max-width:1050px){
   body.iqweb-v2-shell .iqweb-app-sidebar,
   body.iqweb-v2-dashboard .sidebar{ width:206px; flex-basis:206px; }
-  body.iqweb-v2-shell .page-shell{ margin-left:206px !important; }
+  body.iqweb-v2-shell .page-shell{ margin-left:0 !important; }
   body.iqweb-v2-shell .exec-score-grid.exec-score-circles{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
   body.iqweb-v2-shell .exec-overall-score{ grid-column:1/-1; }
   body.iqweb-v2-shell #progressGrid{ grid-template-columns:1fr !important; }
@@ -611,6 +630,8 @@ body.iqweb-v2-shell .meta-cell .v{
 
 /* Chrome-style report tabs */
 body.iqweb-v2-shell .iq-report-tabs{
+  width:100% !important;
+  max-width:none !important;
   height:42px !important;
   margin:0 !important;
   padding:0 16px !important;
@@ -937,10 +958,6 @@ html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab.is-active{ color:#e5f0f
 }
 
 @media (max-width:1380px){
-  body.iqweb-v2-shell.report-tab-overview main#reportRoot:not([style*="display:none"]):not([style*="display: none"]){
-    grid-template-columns:1fr !important;
-    grid-template-areas:"hero" "baseline" !important;
-  }
   body.iqweb-v2-shell.report-tab-overview .exec-dashboard-body{ grid-template-columns:1fr !important; }
   body.iqweb-v2-shell.report-tab-signals #signalsGrid{ grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
 }

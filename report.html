@@ -2585,7 +2585,7 @@ body.iqweb-v2-shell #powered-by { color: var(--v2-muted) !important; }
   }
 
   body.iqweb-v2-shell .page-shell {
-    margin-left: 206px;
+    margin-left: 0;
   }
 
   body.iqweb-v2-shell .exec-score-grid.exec-score-circles {
@@ -3921,7 +3921,7 @@ background:#f8fafc !important;
 }
 
 </style>
-<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=3" />
+<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=4" />
 
 <style>
 /* =========================================
@@ -5492,7 +5492,7 @@ body.iqweb-v2-shell .iq-overview-mini-issue b {
 
 /* Progress trend strip */
 body.iqweb-v2-shell .overview-trend-strip {
-  margin: 0 24px 24px !important;
+  margin: 0 !important;
   padding: 18px 20px !important;
   border: 1px solid var(--pro-border) !important;
   border-radius: var(--pro-radius-sm) !important;
@@ -6109,6 +6109,7 @@ body.iqweb-v2-shell .shell-inner {
 }
 
 body.iqweb-v2-shell .report-nav-bar,
+body.iqweb-v2-shell .report-frame,
 body.iqweb-v2-shell .top-card,
 body.iqweb-v2-shell .iq-report-tabs,
 body.iqweb-v2-shell #reportRoot,
@@ -6144,6 +6145,8 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
           <button type="button" id="printReport" class="report-action-btn">Print</button>
         </div>
       </div>
+
+      <div class="report-frame">
 
       <div class="top-card">
 <div class="top-row">
@@ -6706,6 +6709,8 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
       
 
       </main>
+
+      </div><!-- /.report-frame -->
 
       <div
         class="footer"
