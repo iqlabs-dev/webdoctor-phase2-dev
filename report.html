@@ -6160,6 +6160,27 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
+
+/* Overview layout: direct children of exec-dashboard-wrap must stretch full width */
+body.iqweb-v2-shell .exec-dash-head {
+  display: none !important;
+}
+
+body.iqweb-v2-shell .exec-dashboard-wrap {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 100% !important;
+}
+
+body.iqweb-v2-shell .exec-dashboard-wrap > .exec-score-grid,
+body.iqweb-v2-shell .exec-dashboard-wrap > .iq-overview-dashboard-grid,
+body.iqweb-v2-shell .exec-dashboard-wrap > .overview-trend-strip {
+  width: 100% !important;
+  max-width: none !important;
+  align-self: stretch !important;
+  box-sizing: border-box !important;
+}
 </style>
 
 </head>
@@ -6285,11 +6306,6 @@ body.iqweb-v2-shell.report-tab-overview .overview-trend-strip {
           </div>
           <div class="section-body">
             <div id="narrativeText" class="exec-dashboard-wrap">
-              <div class="exec-dash-head">
-                <div>
-          <div>
- 
-</div>
 
               <div class="exec-score-grid exec-score-circles">
                <div class="exec-score-card exec-overall-score" style="--sig:#22d3ee;">
