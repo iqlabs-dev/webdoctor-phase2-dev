@@ -473,31 +473,6 @@ body {
       white-space: pre-line;
     }
 
-    .signal-impact {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border-left: 3px solid rgba(99, 102, 241, 0.28);
-      background: rgba(99, 102, 241, 0.07);
-      border-radius: 8px;
-      color: rgba(226, 232, 240, 0.92);
-      line-height: 1.5;
-      font-size: 12.5px;
-    }
-
-    .signal-impact span {
-      display: block;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(165, 180, 252, 0.95);
-      margin-bottom: 3px;
-    }
-
-    .ai-discovery-card .signal-impact {
-      margin: 14px 18px 0;
-    }
-
     .muted { color: var(--muted); }
 
     .keyfindings {
@@ -5583,19 +5558,7 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid {
   align-items: stretch !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card).has-signal-impact {
-  min-height: 300px !important;
-  height: 100% !important;
-  padding: 22px 22px 26px !important;
-  border: 1px solid var(--pro-border) !important;
-  border-radius: var(--pro-radius-sm) !important;
-  background: var(--pro-surface) !important;
-  box-shadow: none !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card):not(.has-signal-impact) {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.ai-discovery-card) {
   min-height: 0 !important;
   height: 100% !important;
   padding: 22px !important;
@@ -5636,42 +5599,8 @@ body.iqweb-v2-shell.report-tab-signals #signalsGrid .summary {
   font-weight: 400 !important;
   margin-top: 10px !important;
   margin-bottom: 0 !important;
-  padding-bottom: 20px !important;
-  flex: 1 1 auto !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card:not(.has-signal-impact) .summary {
   padding-bottom: 0 !important;
   flex: 0 1 auto !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact {
-  margin-top: auto !important;
-  flex-shrink: 0 !important;
-  padding: 12px 14px !important;
-  background: rgba(99, 102, 241, 0.06) !important;
-  border-left: 3px solid rgba(99, 102, 241, 0.22) !important;
-  border-radius: 8px !important;
-  color: #334155 !important;
-  font-size: 12.5px !important;
-  line-height: 1.55 !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .signal-impact span {
-  color: rgba(67, 56, 202, 0.82) !important;
-  font-weight: 700 !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals .ai-discovery-card .signal-impact {
-  margin: 28px 0 6px !important;
-  padding: 12px 14px !important;
-  background: rgba(99, 102, 241, 0.06) !important;
-  border-left: 3px solid rgba(99, 102, 241, 0.22) !important;
-  color: #334155 !important;
-}
-
-body.iqweb-v2-shell.report-tab-signals .ai-discovery-card .signal-impact span {
-  color: #4338ca !important;
 }
 
 body.iqweb-v2-shell.report-tab-signals #signalsGrid .bar {
@@ -5808,28 +5737,23 @@ body.iqweb-v2-shell.report-tab-signals .ai-discovery-card.severity-high .ai-disc
 }
 
 /* Signal cards - 5-tier borders + bar fills (Critical → Excellent) */
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card),
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card).has-signal-impact {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-strong:not(.ai-discovery-card) {
   border-color: #6ee7b7 !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card),
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card).has-signal-impact {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-good:not(.ai-discovery-card) {
   border-color: #86efac !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card),
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card).has-signal-impact {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-medium:not(.ai-discovery-card) {
   border-color: #fde047 !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card),
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card).has-signal-impact {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-orange:not(.ai-discovery-card) {
   border-color: #fdba74 !important;
 }
 
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card),
-body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card).has-signal-impact {
+body.iqweb-v2-shell.report-tab-signals #signalsGrid .card.severity-high:not(.ai-discovery-card) {
   border-color: #fca5a5 !important;
 }
 
@@ -6820,7 +6744,7 @@ body.iqweb-v2-shell .exec-dashboard-wrap > .overview-trend-strip {
 </div><!-- /.report-app -->
 
   <script src="/assets/js/score-model.js?v=20260618g"></script>
-  <script src="/assets/js/report-data.js?v=20260618m"></script>
+  <script src="/assets/js/report-data.js?v=20260618n"></script>
 
   <script>
     (function () {
