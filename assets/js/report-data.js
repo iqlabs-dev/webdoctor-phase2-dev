@@ -2380,6 +2380,12 @@ function isUsefulIssue(issue) {
 
     var issues = asArray(sig.issues);
     var deds = asArray(sig.deductions);
+    var issueCodes = {};
+
+    for (var i = 0; i < issues.length; i++) {
+      var issueId = String(safeObj(issues[i]).id || safeObj(issues[i]).code || "").toLowerCase();
+      if (issueId) issueCodes[issueId] = true;
+    }
 
     for (var i = 0; i < issues.length; i++) {
       var it = safeObj(issues[i]);
@@ -2424,9 +2430,10 @@ if (
 
       out.push({
         domain: key,
-        title: label + ": " + title,
+        code: String(it.id || it.code || "").trim(),
+        title: String(it.client_title || cleanTitle(title)).trim(),
         sev: sev,
-        why: String(it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
+        why: String(it.client_impact || it.impact || it.detail || it.description || "").trim() || "Worth reviewing based on scan output.",
         _rank: sevRank(sev, {
           domain: key,
           title: title
@@ -2441,6 +2448,8 @@ if (
     if (key !== "ai_discoverability") {
       for (var j = 0; j < deds.length; j++) {
         var dd = safeObj(deds[j]);
+        var dedCode = String(dd.code || "").toLowerCase();
+        if (dedCode && issueCodes[dedCode]) continue;
         var pts = num(dd.points);
         var reason = String(dd.reason || dd.code || "").trim();
 
@@ -2459,13 +2468,22 @@ if (
     }
   }
 
+  function issueDedupeKey(item) {
+    item = safeObj(item);
+    var code = String(item.code || "").toLowerCase();
+    if (code === "mobile_lcp_slow" || code === "perf_mobile_lcp_slow") return "vitals:mobile_lcp";
+    if (code === "mobile_cls_unstable") return "vitals:mobile_cls";
+    if (code) return code;
+    return normIssueTitle(item.title);
+  }
+
   function dedupe(list) {
     var seen = {};
     var out = [];
 
     for (var i = 0; i < list.length; i++) {
       var item = safeObj(list[i]);
-      var key = normIssueTitle(item.title);
+      var key = issueDedupeKey(item);
       if (!key || seen[key]) continue;
       seen[key] = true;
       out.push(item);
@@ -2615,10 +2633,18 @@ for (var i = 0; i < items.length; i++) {
     icon = "◐";
   }
 
+  var displayTitle = String(it.title || "").trim();
+  var impactLine = String(it.why || "").trim();
+
   html +=
     '<div class="exec-mini-issue ' + escapeHtml(sevClass) + '">' +
       '<span class="exec-mini-icon ' + iconClass + '">' + icon + '</span>' +
-      '<span class="exec-mini-text">' + escapeHtml(cleanTitle(it.title)) + '</span>' +
+      '<span class="exec-mini-copy">' +
+        '<span class="exec-mini-text">' + escapeHtml(displayTitle) + '</span>' +
+        (impactLine
+          ? '<span class="exec-mini-impact">' + escapeHtml(impactLine) + '</span>'
+          : "") +
+      '</span>' +
       '<span class="exec-mini-sev">' + escapeHtml(sev) + '</span>' +
     '</div>';
 }
@@ -2834,11 +2860,16 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
       var rank = it.priority || i + 1;
       var impactCls = fixImpactClass(it.severity, it.points);
       var impactLbl = fixImpactLabel(it.severity, it.points);
+      var planTitle = String(it.client_title || it.title || "Improvement opportunity").trim();
+      var planImpact = String(it.client_impact || "").trim();
       html +=
         '<div class="iq-actionplan-item">' +
           '<span class="iq-actionplan-rank">' + escapeHtml(String(rank)) + "</span>" +
           '<div class="iq-actionplan-main">' +
-            '<p class="iq-actionplan-title">' + escapeHtml(it.title || "Improvement opportunity") + "</p>" +
+            '<p class="iq-actionplan-title">' + escapeHtml(planTitle) + "</p>" +
+            (planImpact
+              ? '<p class="iq-actionplan-impact">' + escapeHtml(planImpact) + "</p>"
+              : "") +
             '<p class="iq-actionplan-meta">' + escapeHtml(it.signal_label || "") + "</p>" +
           "</div>" +
           '<div class="iq-actionplan-chips">' +

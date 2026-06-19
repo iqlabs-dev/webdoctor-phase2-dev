@@ -2,8 +2,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { reconcileMetricsWithPsi } from "../../utils/reconcile-psi-scores.js";
 import vitalsDeductions from "../../utils/vitals-deductions.cjs";
+import clientCopy from "../../utils/client-copy.cjs";
 
 const { enrichSignalWithVitals, isHtmlScan } = vitalsDeductions;
+const { enrichSignalsWithClientCopy, applyClientCopyToFixItem } = clientCopy;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -354,6 +356,12 @@ function buildFixPlan(signals, primaryKey) {
         phase_time: FIX_PHASES[cls.phase].time,
       };
 
+      applyClientCopyToFixItem(
+        item,
+        (match && match.evidence) || {}
+      );
+      item.title = item.client_title || item.title;
+
       const prev = deduped.get(alias);
       if (!prev || item.points > prev.points) {
         deduped.set(alias, item);
@@ -583,11 +591,13 @@ export async function handler(event) {
       ? reconciled.delivery_signals
       : asArray(metrics?.metrics?.delivery_signals);
 
-    const delivery_signals = asArray(rawSignals)
-      .map(normaliseSignal)
-      .map((sig) =>
-        enrichSignalWithVitals(sig, psi, basic_checks, isHtmlScan(basic_checks), platform)
-      );
+    const delivery_signals = enrichSignalsWithClientCopy(
+      asArray(rawSignals)
+        .map(normaliseSignal)
+        .map((sig) =>
+          enrichSignalWithVitals(sig, psi, basic_checks, isHtmlScan(basic_checks), platform)
+        )
+    );
 
     const rawScores = safeObj(reconciled.scores);
     const scores = Object.keys(rawScores).length

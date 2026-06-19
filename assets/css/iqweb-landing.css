@@ -702,6 +702,34 @@ a:hover {
 
 .signal-metrics { white-space: nowrap; color: var(--muted); }
 
+/* Differentiation strip */
+.iq-diff-strip {
+  margin: 40px 0 8px;
+  padding: 28px 32px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(255, 255, 255, 0.9));
+  border: 1px solid var(--border);
+}
+
+.iq-diff-inner {
+  max-width: 62ch;
+}
+
+.iq-diff-title {
+  margin: 0 0 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.iq-diff-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  color: var(--body);
+}
+
 /* Platform strip */
 .iq-platform-strip {
   margin-top: 48px;
@@ -817,13 +845,28 @@ a:hover {
   color: var(--muted);
 }
 
-/* Pricing */
+/* Pricing — full-bleed band inside constrained shell */
 #pricing.section {
+  position: relative;
+  left: 50%;
+  right: 50%;
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: -50vw;
+  margin-right: -50vw;
   margin-top: 96px;
   margin-bottom: 80px;
-  padding: 64px 0;
+  padding: 64px 24px;
   background: var(--bg-soft);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
+  box-sizing: border-box;
+}
+
+#pricing .section-header,
+#pricing .pricing-shell {
+  max-width: var(--max-width);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 #pricing .section-header {
@@ -966,6 +1009,8 @@ a:hover {
   background: var(--bg);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pricing-includes-title {
