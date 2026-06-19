@@ -665,28 +665,59 @@ body.iqweb-v2-shell .meta-cell .v{
 body.iqweb-v2-shell .iq-report-tabs{
   width:100% !important;
   max-width:none !important;
-  height:42px !important;
+  height:auto !important;
+  min-height:52px !important;
   margin:0 !important;
-  padding:0 16px !important;
+  padding:8px 20px 0 !important;
+  gap:6px !important;
   border:1px solid var(--iqv2-border) !important;
   border-top:0 !important;
   border-radius:0 !important;
-  background:linear-gradient(180deg,#f8fafc 0%,#edf3f9 100%) !important;
-  box-shadow:none !important;
+  background:#eef2f7 !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.85) !important;
+  display:flex !important;
+  align-items:flex-end !important;
 }
 body.iqweb-v2-shell .iq-report-tab{
-  height:34px !important;
-  min-width:108px !important;
-  padding:0 18px !important;
-  margin-top:8px !important;
-  margin-bottom:-1px !important;
-  border-radius:11px 11px 0 0 !important;
-  font-size:10px !important;
+  appearance:none !important;
+  position:relative !important;
+  height:40px !important;
+  min-width:124px !important;
+  padding:0 22px !important;
+  margin:0 !important;
+  border:1px solid #cbd5e1 !important;
+  border-bottom:0 !important;
+  border-radius:10px 10px 0 0 !important;
+  background:rgba(255,255,255,0.55) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,0.04) !important;
+  color:#64748b !important;
+  font-size:13px !important;
+  font-weight:600 !important;
+  letter-spacing:-0.01em !important;
+  text-transform:none !important;
+  cursor:pointer !important;
+}
+body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active){
+  color:#0f172a !important;
+  background:rgba(255,255,255,0.92) !important;
+  border-color:#94a3b8 !important;
 }
 body.iqweb-v2-shell .iq-report-tab.is-active{
   border-color:var(--iqv2-border-2) !important;
   background:#fff !important;
   color:var(--iqv2-text) !important;
+  font-weight:700 !important;
+  box-shadow:0 -1px 0 #fff inset,0 2px 6px rgba(15,23,42,0.07) !important;
+  z-index:1 !important;
+}
+body.iqweb-v2-shell .iq-report-tab.is-active::after{
+  content:"" !important;
+  position:absolute !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:-1px !important;
+  height:2px !important;
+  background:#fff !important;
 }
 
 /* Overview density */
@@ -937,8 +968,27 @@ html.iqweb-theme-dark body.iqweb-v2-dashboard td,
 html.iqweb-theme-dark body.iqweb-v2-dashboard th{
   color:var(--iqv2-text) !important;
 }
-html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab{ color:#94a3b8 !important; }
-html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab.is-active{ color:#e5f0ff !important; }
+html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tabs{
+  background:#08101e !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab{
+  color:#94a3b8 !important;
+  background:rgba(15,23,42,0.55) !important;
+  border-color:#334155 !important;
+}
+html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active){
+  color:#e2e8f0 !important;
+  background:rgba(15,23,42,0.85) !important;
+}
+html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab.is-active{
+  color:#e5f0ff !important;
+  background:#0b1220 !important;
+  border-color:var(--iqv2-border) !important;
+}
+html.iqweb-theme-dark body.iqweb-v2-shell .iq-report-tab.is-active::after{
+  background:#0b1220 !important;
+}
 
 /* PDF/export: clean printable report, no application shell */
 @media print{

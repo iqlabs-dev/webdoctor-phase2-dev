@@ -3933,7 +3933,7 @@ background:#f8fafc !important;
 }
 
 </style>
-<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=5" />
+<link rel="stylesheet" href="/assets/css/iqweb-v2.css?v=6" />
 
 <style>
 /* =========================================
@@ -5128,50 +5128,73 @@ body.iqweb-v2-shell .meta-cell .v {
   letter-spacing: -0.01em !important;
 }
 
-/* Tabs - underline style, not browser chrome */
+/* Tabs - prominent clickable chrome */
 body.iqweb-v2-shell .iq-report-tabs {
   height: auto !important;
-  min-height: 44px !important;
-  padding: 0 24px !important;
+  min-height: 52px !important;
+  padding: 8px 20px 0 !important;
   margin: 0 !important;
-  gap: 0 !important;
+  gap: 6px !important;
   border: 1px solid var(--pro-border) !important;
   border-top: 0 !important;
   border-radius: 0 !important;
-  background: var(--pro-surface) !important;
-  box-shadow: none !important;
+  background: #eef2f7 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
   display: flex !important;
-  align-items: stretch !important;
+  align-items: flex-end !important;
 }
 
 body.iqweb-v2-shell .iq-report-tab {
   flex: 0 0 auto !important;
-  height: auto !important;
-  min-height: 44px !important;
+  appearance: none !important;
+  position: relative !important;
+  height: 40px !important;
+  min-width: 124px !important;
   margin: 0 !important;
-  padding: 12px 16px !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  border-bottom: 2px solid transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--pro-text-muted) !important;
+  padding: 0 22px !important;
+  border: 1px solid #cbd5e1 !important;
+  border-bottom: 0 !important;
+  border-radius: 10px 10px 0 0 !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  color: #64748b !important;
   font-size: 13px !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   letter-spacing: -0.01em !important;
   text-transform: none !important;
-}
-
-body.iqweb-v2-shell .iq-report-tab.is-active {
-  color: var(--pro-text) !important;
-  font-weight: 600 !important;
-  border-bottom-color: var(--pro-accent) !important;
-  background: transparent !important;
-  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 
 body.iqweb-v2-shell .iq-report-tab:hover:not(.is-active) {
-  color: var(--pro-text-secondary) !important;
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06) !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab.is-active {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  background: #ffffff !important;
+  border-color: var(--pro-border) !important;
+  box-shadow: 0 -1px 0 #fff inset, 0 2px 6px rgba(15, 23, 42, 0.07) !important;
+  z-index: 1 !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab.is-active::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: -1px !important;
+  height: 2px !important;
+  background: #ffffff !important;
+}
+
+body.iqweb-v2-shell .iq-report-tab:focus-visible {
+  outline: 2px solid var(--pro-accent) !important;
+  outline-offset: 2px !important;
 }
 
 /* Custom agency branding - overrides v2 shell defaults when profile colours are saved */
@@ -5216,7 +5239,8 @@ body.iqweb-v2-shell.iqweb-branded .meta-cell .v.linkish {
 }
 
 body.iqweb-v2-shell.iqweb-branded .iq-report-tab.is-active {
-  border-bottom-color: var(--accent, var(--pro-accent)) !important;
+  color: var(--accent, var(--pro-accent)) !important;
+  border-top: 2px solid var(--accent, var(--pro-accent)) !important;
 }
 
 body.iqweb-v2-shell.iqweb-branded.report-tab-signals #signalsGrid .bar > div,
