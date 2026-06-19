@@ -87,7 +87,7 @@ const reportTitle = branding.report_title || "Website Report";
 const logoUrl = branding.logo_url || "";
 const bannerUrl = branding.banner_url || "";
 
-/* Pro SaaS tokens — aligned with report.html iqweb-v2-shell */
+/* Pro SaaS tokens - aligned with report.html iqweb-v2-shell */
 const PRO_BG = "#f6f9fc";
 const PRO_SURFACE = "#ffffff";
 const PRO_BORDER = "#e6ebf1";
@@ -154,7 +154,7 @@ const footerContactBits = [
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(reportTitle)} — ${escapeHtml(rid)}</title>
+  <title>${escapeHtml(reportTitle)} - ${escapeHtml(rid)}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <style>
@@ -1252,7 +1252,7 @@ function clampScore(score) {
 function delta(current, previous) {
   const a = safeNumber(current);
   const b = safeNumber(previous);
-  if (a === null || b === null) return "—";
+  if (a === null || b === null) return "-";
   const d = a - b;
   return d > 0 ? `+${d}` : String(d);
 }
@@ -1415,14 +1415,14 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
 
   if (key === "performance") {
     if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
+      return "Baseline stable - no measurable blockers detected in this scan.";
     }
     return "Page loading performance can be improved by reducing document weight and render-blocking work.";
   }
 
   if (key === "mobile") {
     if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
+      return "Baseline stable - no measurable blockers detected in this scan.";
     }
     return "Mobile rendering stability and responsiveness can be improved.";
   }
@@ -1453,7 +1453,7 @@ function deriveSignalNarrative(sig, payload, basicChecks, securityHeaders) {
 
   if (key === "accessibility") {
     if (score >= 90) {
-      return "Baseline stable — no measurable blockers detected in this scan.";
+      return "Baseline stable - no measurable blockers detected in this scan.";
     }
     return "Accessibility foundations are incomplete and should be reviewed.";
   }
@@ -1477,7 +1477,7 @@ function fallbackSignalNarrative(sig, score) {
   const key = labelToKey(sig?.label || sig?.id || "");
 
   if (score !== null && score >= 90) {
-    return "Baseline stable — no measurable blockers detected in this scan.";
+    return "Baseline stable - no measurable blockers detected in this scan.";
   }
 
   if (key === "seo") {
@@ -1542,7 +1542,7 @@ const delta =
 return `
   <div class="signal-top">
     <div class="signal-name">Overall Delivery Score</div>
-    <div class="signal-score">${overall === null ? "—" : escapeHtml(String(overall))}</div>
+    <div class="signal-score">${overall === null ? "-" : escapeHtml(String(overall))}</div>
   </div>
 
   <div class="score-bar">
@@ -2068,7 +2068,7 @@ const extras = {
   return [
     {
       label: "Overall Delivery",
-      value: overall === null ? "Not Available" : `${overall}/100 — ${scoreLabel(overall)}`,
+      value: overall === null ? "Not Available" : `${overall}/100 - ${scoreLabel(overall)}`,
     },
     {
       label: "Primary Constraint",
@@ -2114,7 +2114,7 @@ const cards = orderedSignals(deliverySignals, scores)
         ${primaryBadge}
         <div class="signal-top">
           <div class="signal-name">${escapeHtml(label)}</div>
-          <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
+          <div class="signal-score">${score === null ? "-" : escapeHtml(String(score))}</div>
         </div>
         <div class="score-bar">
           <div class="score-fill" style="width:${clampScore(score)}%;"></div>
@@ -2207,7 +2207,7 @@ function renderScoreBox(label, score, color, isOverall) {
   return `
     <div class="${cls}" style="--ring-color:${escapeAttr(color)};--ring-deg:${deg}deg;">
       <div class="${ringCls}">
-        <div class="ring-num"><span>${s === null ? "—" : escapeHtml(String(s))}</span></div>
+        <div class="ring-num"><span>${s === null ? "-" : escapeHtml(String(s))}</span></div>
       </div>
       <div class="score-label">${escapeHtml(label)}</div>
       <div class="score-verdict">${escapeHtml(verdict)}</div>
@@ -2315,12 +2315,12 @@ function renderBaselineCard(title, id, s) {
       <div class="signal-card">
         <div class="signal-top">
           <div class="signal-name">${escapeHtml(title)}</div>
-          <div class="signal-score">${escapeHtml(String(id || "—"))}</div>
+          <div class="signal-score">${escapeHtml(String(id || "-"))}</div>
         </div>
-        <div class="finding-row"><div class="finding-label">Overall</div><div class="finding-value">${escapeHtml(String(s.overall ?? "—"))}</div></div>
-        <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(s.performance ?? "—"))}</div></div>
-        <div class="finding-row"><div class="finding-label">SEO</div><div class="finding-value">${escapeHtml(String(s.seo ?? "—"))}</div></div>
-        <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(s.ai_discoverability ?? s.ai_visibility ?? s.ai ?? "—"))}</div></div>
+        <div class="finding-row"><div class="finding-label">Overall</div><div class="finding-value">${escapeHtml(String(s.overall ?? "-"))}</div></div>
+        <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(s.performance ?? "-"))}</div></div>
+        <div class="finding-row"><div class="finding-label">SEO</div><div class="finding-value">${escapeHtml(String(s.seo ?? "-"))}</div></div>
+        <div class="finding-row"><div class="finding-label">AI Visibility</div><div class="finding-value">${escapeHtml(String(s.ai_discoverability ?? s.ai_visibility ?? s.ai ?? "-"))}</div></div>
       </div>
     </td>
   `;
@@ -2334,7 +2334,7 @@ function renderDeltaCard(title, id, current, previous) {
       <div class="signal-card">
         <div class="signal-top">
           <div class="signal-name">${escapeHtml(title)}</div>
-          <div class="signal-score">${escapeHtml(String(id || "—"))}</div>
+          <div class="signal-score">${escapeHtml(String(id || "-"))}</div>
         </div>
         <div class="finding-row"><div class="finding-label">Overall</div><div class="finding-value">${escapeHtml(String(delta(current.overall, previous.overall)))}</div></div>
         <div class="finding-row"><div class="finding-label">Performance</div><div class="finding-value">${escapeHtml(String(delta(current.performance, previous.performance)))}</div></div>
@@ -2510,7 +2510,7 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
 
       <div class="signal-top">
         <div class="signal-name">AI Visibility</div>
-        <div class="signal-score">${score === null ? "—" : escapeHtml(String(score))}</div>
+        <div class="signal-score">${score === null ? "-" : escapeHtml(String(score))}</div>
       </div>
 
       <div class="score-bar">
@@ -2523,7 +2523,7 @@ if (aiCategoryEstablished && aiBrandSurfaced) {
             <div class="ai-inner-panel">
               <div class="ai-inner-label">AI visibility score</div>
               <div class="ai-inner-value" style="font-size:28px;line-height:1;margin-bottom:8px;">
-                ${score === null ? "—" : escapeHtml(String(score))}
+                ${score === null ? "-" : escapeHtml(String(score))}
               </div>
               <div class="ai-inner-value" style="font-weight:500;">
                 ${escapeHtml(status)}

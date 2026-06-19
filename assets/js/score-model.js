@@ -1,7 +1,7 @@
 /* eslint-disable */
 /**
  * /assets/js/score-model.js
- * iQWEB Score Model — single source of truth
+ * iQWEB Score Model - single source of truth
  *
  * Controls:
  * - Overall verdit labels

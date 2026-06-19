@@ -1,7 +1,7 @@
 /* eslint-disable */
 /**
  * /assets/js/report-data.js
- * iQWEB Report Renderer — v5.2 (ES5, no modules)
+ * iQWEB Report Renderer - v5.2 (ES5, no modules)
  *
  * PATCH GOAL (coherence pass):
  * 1) One Primary Constraint selector used across: Key Findings, Cards badge, Key Insights, Top Issues, Fix Sequence.
@@ -36,7 +36,7 @@
   function setText(id, value) {
     var el = $(id);
     if (!el) return;
-    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "—" : String(value);
+    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "-" : String(value);
   }
   function safeObj(v) { return v && typeof v === "object" ? v : {}; }
   function asArray(v) { return Array.isArray(v) ? v : []; }
@@ -69,7 +69,7 @@
   }
 
   function formatDate(iso) {
-    if (!iso) return "—";
+    if (!iso) return "-";
     var d = new Date(iso);
     if (isNaN(d.getTime())) return String(iso);
 
@@ -602,14 +602,14 @@ function signalHeadlineFromModel(score, flagged, isPrimary, unmeasured, signalKe
     var created = header && (header.report_date || header.created_at || header.generated_at);
 
     if (site) {
-      site.textContent = website || "—";
+      site.textContent = website || "-";
       if (website) {
         site.href = website.indexOf("http") === 0 ? website : ("https://" + website);
       } else {
         site.removeAttribute("href");
       }
     }
-    if (reportId) reportId.textContent = rid || "—";
+    if (reportId) reportId.textContent = rid || "-";
     if (reportDate) reportDate.textContent = formatDate(created);
   }
 
@@ -640,7 +640,7 @@ function setOverallUI(scores, overallSummary) {
   }
 
   var base = overallSummary || "";
-  var stamp = "Scoring Model v1.0 — Deterministic weighted signals.";
+  var stamp = "Scoring Model v1.0 - Deterministic weighted signals.";
 
   if (base) {
     if (base.indexOf("Scoring Model") === -1) base = base + " " + stamp;
@@ -662,7 +662,7 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
   function setText(id, value) {
     var el = $(id);
     if (!el) return;
-    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "—" : String(value);
+    el.textContent = (value === null || typeof value === "undefined" || value === "") ? "-" : String(value);
   }
 
   function setRing(id, score) {
@@ -702,7 +702,7 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
   }
 
   function setScore(prefix, score) {
-    setText(prefix + "Score", score === null || typeof score === "undefined" ? "—" : score);
+    setText(prefix + "Score", score === null || typeof score === "undefined" ? "-" : score);
     setText(prefix + "Verdict", scoreLabel(score));
     setRing(prefix + "Ring", score);
   }
@@ -738,8 +738,8 @@ function setExecutiveDashboardUI(data, header, scores, signals, primary) {
   var rid = String(header.report_id || "").trim();
   var created = header.report_date || header.created_at || header.generated_at || "";
 
-  setText("dashWebsite", website || "—");
-  setText("dashReportId", rid || "—");
+  setText("dashWebsite", website || "-");
+  setText("dashReportId", rid || "-");
   setText("dashReportDate", formatDate(created));
 
   var subtitle = $("execSubtitle");
@@ -1514,10 +1514,10 @@ return {
 
     function setText(el, t) {
       if (!el) return;
-      el.textContent = (t == null || t === "") ? "—" : String(t);
+      el.textContent = (t == null || t === "") ? "-" : String(t);
     }
 
-    setText(oEl, overall + "/100 — " + verdict(overall));
+    setText(oEl, overall + "/100 - " + verdict(overall));
 
     if (!primary || !primary.key) {
       setText(cEl, "No clear primary constraint identified from this scan output.");
@@ -1752,7 +1752,7 @@ return {
 
     function getRecommendation(score, text) {
       var s = asInt(score, 0);
-      if (s >= 95) return "Monitoring recommended — no measurable blockers detected.";
+      if (s >= 95) return "Monitoring recommended - no measurable blockers detected.";
       return text;
     }
 
@@ -1761,12 +1761,12 @@ return {
       var band = score < 50 ? "poor" : (score < 90 ? "fair" : "good");
       var map = {
         performance: {
-          poor: "Slow pages frustrate visitors and push them toward competitors — speed directly affects conversions and ad costs.",
+          poor: "Slow pages frustrate visitors and push them toward competitors - speed directly affects conversions and ad costs.",
           fair: "Pages are usable but not fast enough to be competitive; speed gains lift conversions and search ranking.",
           good: "Fast load times help retain visitors and support search ranking."
         },
         mobile: {
-          poor: "Most visitors browse on phones — a weak mobile experience loses the majority of your traffic.",
+          poor: "Most visitors browse on phones - a weak mobile experience loses the majority of your traffic.",
           fair: "Mobile works, but rough edges cost engagement on the screens most customers actually use.",
           good: "A solid mobile experience keeps the majority of visitors engaged."
         },
@@ -1791,7 +1791,7 @@ return {
           good: "Accessible design widens your audience and lowers compliance risk."
         },
         ai_discoverability: {
-          poor: "AI assistants are unlikely to recommend this business in its category — a fast-growing discovery channel is being missed.",
+          poor: "AI assistants are unlikely to recommend this business in its category - a fast-growing discovery channel is being missed.",
           fair: "The brand is only partially recognized by AI systems; stronger signals improve recommendation odds.",
           good: "The brand is recognized by AI systems and positioned to be recommended in its category."
         }
@@ -1800,7 +1800,7 @@ return {
       return entry ? (entry[band] || "") : "";
     }
 
-    // Only surface "Why it matters" when it adds context — not on strong baselines.
+    // Only surface "Why it matters" when it adds context - not on strong baselines.
     function shouldShowBusinessImpact(key, score, isPrimary, platformManaged) {
       if (platformManaged) return false;
       if (score === null || typeof score === "undefined") return false;
@@ -1852,7 +1852,7 @@ var score = unmeasured ? null : displayScore;
         lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
         lines.push("These elements sit outside direct site-level control, so this signal is treated as platform-managed context rather than an actionable issue.");
       } else if (unmeasured && !flagged) {
-        lines.push("Not measured in this scan — no evidence returned for this signal.");
+        lines.push("Not measured in this scan - no evidence returned for this signal.");
       } else {
         var allowEvidence = (flagged || (score !== null && score < 90));
         var because = pickExplainLine(sig, allowEvidence);
@@ -2057,7 +2057,7 @@ grid.appendChild(card);
 
     function kvHtml(k, v) {
       var val = v;
-      if (val === null || typeof val === "undefined") val = "—";
+      if (val === null || typeof val === "undefined") val = "-";
       if (typeof val === "boolean") val = val ? "true" : "false";
       return (
         '<div class="kv">' +
@@ -2847,7 +2847,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
     if (!fixPlan.length) {
       if (pill) pill.textContent = "All clear";
       root.innerHTML =
-        '<p class="iq-actionplan-allclear">No measurable issues detected in this scan — nothing to prioritize right now.</p>';
+        '<p class="iq-actionplan-allclear">No measurable issues detected in this scan - nothing to prioritize right now.</p>';
       return;
     }
 
@@ -2884,7 +2884,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
       html += lockedCtaHtml(
         locked,
         locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " identified",
-        "Get the full ranked fix plan, white-label reports, and baseline tracking — from $39/mo."
+        "Get the full ranked fix plan, white-label reports, and baseline tracking - from $39/mo."
       );
     }
 
@@ -2892,7 +2892,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
   }
 
   // -----------------------------
-  // Recommended Fix Sequence (Signals tab) — phased, gated
+  // Recommended Fix Sequence (Signals tab) - phased, gated
   // -----------------------------
   function renderFixSequence(data) {
     var root = $("fixSequenceRoot");
@@ -2911,9 +2911,9 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
     }
 
     var phaseMeta = {
-      1: { label: "Phase 1 — Fast wins", time: "Today / This week" },
-      2: { label: "Phase 2 — Structural improvements", time: "1–3 weeks" },
-      3: { label: "Phase 3 — Hardening & trust", time: "Ongoing" },
+      1: { label: "Phase 1 - Fast wins", time: "Today / This week" },
+      2: { label: "Phase 2 - Structural improvements", time: "1–3 weeks" },
+      3: { label: "Phase 3 - Hardening & trust", time: "Ongoing" },
     };
 
     var groups = { 1: [], 2: [], 3: [] };
@@ -2935,7 +2935,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
         var impactLbl = fixImpactLabel(it.severity, it.points);
         lis +=
           "<li><strong>" + escapeHtml(it.title || "Improvement opportunity") + "</strong>" +
-          " — " + escapeHtml(it.signal_label || "") +
+          " - " + escapeHtml(it.signal_label || "") +
           " · " + escapeHtml(impactLbl) +
           " · " + escapeHtml((it.effort || "Medium") + " effort") +
           "</li>";
@@ -2996,7 +2996,7 @@ function renderProgressSinceLastScan(data, scores) {
   function setText(id, value) {
     var el = $(id);
     if (!el) return;
-    el.textContent = (value === null || typeof value === "undefined") ? "—" : String(value);
+    el.textContent = (value === null || typeof value === "undefined") ? "-" : String(value);
   }
 
   function setDelta(id, current, previous) {
@@ -3006,7 +3006,7 @@ function renderProgressSinceLastScan(data, scores) {
     el.className = "finding-value";
 
     if (current === null || previous === null || typeof current === "undefined" || typeof previous === "undefined") {
-      el.textContent = "—";
+      el.textContent = "-";
       return;
     }
 
@@ -3148,7 +3148,7 @@ section.style.display = "block";
     if (hits >= 3) return 100;
     if (hits >= 1) return clampAiBarScore(50 + Math.round((hits / queries) * 50));
 
-    // Prompts were tested but brand not surfaced — show low partial signal, not blank zero.
+    // Prompts were tested but brand not surfaced - show low partial signal, not blank zero.
     return 12;
   }
 
@@ -3189,7 +3189,7 @@ section.style.display = "block";
 
     if (score === null) {
       if (bar) bar.style.setProperty("--w", "0%");
-      if (val) val.textContent = "—";
+      if (val) val.textContent = "-";
       return;
     }
 
@@ -3334,10 +3334,10 @@ section.style.display = "block";
         var fEl = $("findingFix");
         var nEl = $("findingNext");
 
-        if (oEl) oEl.textContent = "—";
+        if (oEl) oEl.textContent = "-";
         if (cEl) cEl.textContent = "Report data could not be loaded for this scan.";
-        if (iEl) iEl.textContent = "—";
-        if (fEl) fEl.textContent = "—";
+        if (iEl) iEl.textContent = "-";
+        if (fEl) fEl.textContent = "-";
         if (nEl) nEl.textContent = "Refresh and try again.";
 
         var ff = $("fixFirstBlock");

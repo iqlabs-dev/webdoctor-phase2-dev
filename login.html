@@ -291,7 +291,7 @@ if (error) {
         }
 
         // IMPORTANT: no Enter handler here.
-        // We do NOT auto-submit on Enter — user must click the button.
+        // We do NOT auto-submit on Enter - user must click the button.
       });
 
       if (idx === 0) {
@@ -303,7 +303,7 @@ if (error) {
           digits.split("").forEach((d, i) => {
             if (pinInputs[i]) pinInputs[i].value = d;
           });
-          // No auto-verify after paste — user still must click the button
+          // No auto-verify after paste - user still must click the button
           if (pinInputs[digits.length - 1]) {
             pinInputs[digits.length - 1].focus();
           }

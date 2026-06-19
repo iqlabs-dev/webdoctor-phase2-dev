@@ -610,14 +610,14 @@ function deriveAiProfile(basic, pageUrl, html) {
   };
   addCandidate(schema.organization_name);
   decodeHtmlEntities(String(basic.title_text || ""))
-    .split(/\s*[\|\-–—•:·]\s*/)
+    .split(/\s*[\|\-–-•:·]\s*/)
     .forEach(addCandidate);
 
   const wordCount = (s) => String(s || "").split(/\s+/).filter(Boolean).length;
 
   // Score each candidate by how well it matches the hostname (exact > prefix >
   // contains), preferring the most concise match so a tagline that merely ends
-  // in the brand name (e.g. "Easily Create Your Own Website — Squarespace")
+  // in the brand name (e.g. "Easily Create Your Own Website - Squarespace")
   // never beats the clean "Squarespace" segment.
   let brand = "";
   let best = null;
@@ -924,7 +924,7 @@ async function evaluateAiRecommendationPresence(profile, pageUrl) {
   return { score, hits, queries, results, available: true };
 }
 
-// Serper.dev Google Search API — reliable, structured results (organic +
+// Serper.dev Google Search API - reliable, structured results (organic +
 // Knowledge Graph). Returns null on any failure so callers can fall back.
 async function fetchSerperResults(query, opts = {}) {
   if (!SERPER_API_KEY) return null;
@@ -1281,7 +1281,7 @@ function buildAiDiscoverabilitySignal(aiData) {
 // ---------------------------------------------
 function basicHtmlSignals(html, pageUrl) {
   // Strip inline SVG before counting <title> tags. SVG <title> elements are
-  // accessibility labels for icons, not document titles — counting them
+  // accessibility labels for icons, not document titles - counting them
   // inflated title_count (e.g. Xero showed 20 from inline icon SVGs).
   const htmlForTitles = String(html || "").replace(/<svg\b[\s\S]*?<\/svg>/gi, "");
   const titleMatches = Array.from(htmlForTitles.matchAll(/<title[^>]*>([\s\S]*?)<\/title>/gi));
@@ -1590,7 +1590,7 @@ function buildSeoSignal(basic, pageUrl) {
 
   if (basic.robots_meta_present && basic.robots_blocks_index) {
     // noindex is the single most damaging SEO directive, so the score stays very
-    // low — but we avoid a literal 0 (a low floor reads as a critical, fixable
+    // low - but we avoid a literal 0 (a low floor reads as a critical, fixable
     // issue rather than a "broken scanner"). The high-severity flag remains.
     const SEO_NOINDEX_FLOOR = 15;
 
@@ -2500,7 +2500,7 @@ let aiDiscoverabilitySignal = buildAiDiscoverabilitySignal(aiData);
   const notes = {
     performance:
       perf >= 90
-        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test — it reflects how well the page is built for speed."
+        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test - it reflects how well the page is built for speed."
         : perf === 25 && !isHtml
         ? "Performance signals not observable (HTML not available). Missing inputs are penalised to preserve integrity."
         : "Some build signals suggest avoidable performance overhead (HTML weight / blocking scripts).",
@@ -3408,7 +3408,7 @@ if (gate.ready) {
   const result = await tryGenerateNarrative(origin, finalReportId, user_id);
   narrative_ok = result.ok;
 } else {
-  // Don't block the request — report will be ready shortly, UI will poll
+  // Don't block the request - report will be ready shortly, UI will poll
   narrative_ok = null;
     
   }

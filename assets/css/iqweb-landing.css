@@ -845,7 +845,7 @@ a:hover {
   color: var(--muted);
 }
 
-/* Pricing — full-bleed band inside constrained shell */
+/* Pricing - full-bleed band inside constrained shell */
 #pricing.section {
   position: relative;
   left: 50%;

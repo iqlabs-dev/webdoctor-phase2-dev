@@ -225,9 +225,9 @@ function normaliseSignal(sig) {
 // Fix Plan (prioritized prescription)
 // -----------------------------
 const FIX_PHASES = {
-  1: { label: "Phase 1 — Fast wins", time: "Today / This week" },
-  2: { label: "Phase 2 — Structural improvements", time: "1–3 weeks" },
-  3: { label: "Phase 3 — Hardening & trust", time: "Ongoing" },
+  1: { label: "Phase 1 - Fast wins", time: "Today / This week" },
+  2: { label: "Phase 2 - Structural improvements", time: "1–3 weeks" },
+  3: { label: "Phase 3 - Hardening & trust", time: "Ongoing" },
 };
 
 // Effort + phase heuristics keyed off the deduction code / parent signal.

@@ -300,7 +300,7 @@ function reconcileMetricsWithPsi(metrics) {
     ...(metrics.explanations && typeof metrics.explanations === "object" ? metrics.explanations : {}),
     performance:
       scores.performance >= 90
-        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test — it reflects how well the page is built for speed."
+        ? "Strong build-quality indicators for performance readiness. This is not a “speed today” test - it reflects how well the page is built for speed."
         : "Some build signals suggest avoidable performance overhead (HTML weight / blocking scripts).",
     mobile:
       scores.mobile >= 90

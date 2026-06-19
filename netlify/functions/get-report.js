@@ -38,7 +38,7 @@ function formatNZDate(iso) {
   return `${day} ${month} ${year}`; // DD MMM YYYY
 }
 
-function safe(val, fallback = "—") {
+function safe(val, fallback = "-") {
   return val === null || val === undefined || val === ""
     ? fallback
     : String(val);

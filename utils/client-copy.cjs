@@ -12,7 +12,7 @@ function fillSlots(template, ctx) {
       return String(v);
     })
     .replace(/\s{2,}/g, " ")
-    .replace(/\s+([—–,.])/g, "$1")
+    .replace(/\s+([-–,.])/g, "$1")
     .trim();
 }
 
@@ -54,35 +54,35 @@ const COPY = {
   mobile_lcp_slow: {
     client_title: "Your main content takes too long to show on mobile",
     client_impact:
-      "Visitors wait ~{lcp}s before the page feels loaded — many leave before seeing your message.",
+      "Visitors wait ~{lcp}s before the page feels loaded - many leave before seeing your message.",
     tech_label: "Slow mobile Largest Contentful Paint (~{lcp}s)",
     hero: {
       client_title: "A large hero video is slowing down the first screen on mobile",
       client_impact:
-        "The main video loads before visitors see anything else — ~{lcp}s delay on phones.",
+        "The main video loads before visitors see anything else - ~{lcp}s delay on phones.",
     },
   },
   perf_mobile_lcp_slow: {
     client_title: "Your main content takes too long to show on mobile",
     client_impact:
-      "Visitors wait ~{lcp}s before the page feels loaded — many leave before seeing your message.",
+      "Visitors wait ~{lcp}s before the page feels loaded - many leave before seeing your message.",
     tech_label: "Slow mobile Largest Contentful Paint (~{lcp}s)",
     hero: {
       client_title: "A large hero video is slowing down the first screen on mobile",
       client_impact:
-        "The main video loads before visitors see anything else — ~{lcp}s delay on phones.",
+        "The main video loads before visitors see anything else - ~{lcp}s delay on phones.",
     },
   },
   perf_desktop_lcp_slow: {
     client_title: "Your main content takes too long to appear on desktop",
     client_impact:
-      "Visitors wait ~{lcp}s before the page feels ready — that hurts first impressions and conversions.",
+      "Visitors wait ~{lcp}s before the page feels ready - that hurts first impressions and conversions.",
     tech_label: "Slow desktop Largest Contentful Paint (~{lcp}s)",
   },
   mobile_cls_unstable: {
     client_title: "Content jumps around while the page loads on mobile",
     client_impact:
-      "Layout shifts while loading feel broken on phones — visitors lose trust before they read your message.",
+      "Layout shifts while loading feel broken on phones - visitors lose trust before they read your message.",
     tech_label: "Layout instability on mobile (CLS ~{cls})",
   },
   mobile_inp_slow: {
@@ -100,25 +100,25 @@ const COPY = {
   mobile_inline_scripts: {
     client_title: "Too much code runs before the page appears on mobile",
     client_impact:
-      "{count} inline scripts block early rendering — the site feels slow even on a good connection.",
+      "{count} inline scripts block early rendering - the site feels slow even on a good connection.",
     tech_label: "Many inline scripts increase mobile render work",
   },
   perf_inline_scripts: {
     client_title: "Too much code runs before the page can display",
     client_impact:
-      "{count} inline scripts add render work — visitors wait longer before seeing content.",
+      "{count} inline scripts add render work - visitors wait longer before seeing content.",
     tech_label: "Many inline scripts increase early render work",
   },
   perf_head_scripts: {
     client_title: "Scripts in the page header are blocking the first paint",
     client_impact:
-      "Code in the document head runs before anything shows — the site feels sluggish on first load.",
+      "Code in the document head runs before anything shows - the site feels sluggish on first load.",
     tech_label: "Inline scripts in document head block rendering",
   },
   mobile_html_large: {
     client_title: "The initial page download is heavier than it needs to be",
     client_impact:
-      "A large HTML payload (~{kb}KB) slows first load — especially on mobile networks.",
+      "A large HTML payload (~{kb}KB) slows first load - especially on mobile networks.",
     tech_label: "Very large HTML document on mobile",
   },
   perf_html_large: {
@@ -148,13 +148,13 @@ const COPY = {
   perf_mobile_tbt_high: {
     client_title: "The site feels slow to respond on mobile",
     client_impact:
-      "Heavy JavaScript keeps the page busy (~{tbt}ms blocking time) — taps and scrolls feel laggy.",
+      "Heavy JavaScript keeps the page busy (~{tbt}ms blocking time) - taps and scrolls feel laggy.",
     tech_label: "High mobile main-thread blocking time",
   },
   perf_desktop_tbt_high: {
     client_title: "The site feels slow to respond on desktop",
     client_impact:
-      "Heavy JavaScript keeps the page busy — interactions feel delayed after load.",
+      "Heavy JavaScript keeps the page busy - interactions feel delayed after load.",
     tech_label: "High desktop main-thread blocking time",
   },
   seo_title_missing: {
@@ -190,7 +190,7 @@ const COPY = {
   sec_https_not_confirmed: {
     client_title: "Secure HTTPS connection could not be confirmed",
     client_impact:
-      "Browsers may warn visitors that the connection is not fully secure — that erodes trust.",
+      "Browsers may warn visitors that the connection is not fully secure - that erodes trust.",
     tech_label: "HTTPS not confirmed",
   },
   ai_recommendation_not_detected: {

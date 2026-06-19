@@ -1,4 +1,4 @@
-// example using Resend-style or generic fetch — in phase 2 we just call provider
+// example using Resend-style or generic fetch - in phase 2 we just call provider
 export const handler = async (event) => {
   const { email, html } = JSON.parse(event.body || '{}');
 

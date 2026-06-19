@@ -83,7 +83,7 @@ const HERO_VIDEO_IMPACT =
 function lcpTitleWithHero(sec, basic, platform) {
   const base = `Slow mobile Largest Contentful Paint (~${sec}s)`;
   if (isHeroVideoLikely(basic, platform)) {
-    return `${base} — hero video likely delaying first paint`;
+    return `${base} - hero video likely delaying first paint`;
   }
   return base;
 }
@@ -142,7 +142,7 @@ function buildMobileVitalsPack(psi, basic, isHtml, platform) {
         impact:
           isHeroVideoLikely(basic, platform)
             ? HERO_VIDEO_IMPACT
-            : "Visitors wait too long before meaningful content appears on phones — this directly hurts engagement and conversions.",
+            : "Visitors wait too long before meaningful content appears on phones - this directly hurts engagement and conversions.",
         signalLabel: label,
         evidence: { LCP_ms: mLCP, hero_video_likely: isHeroVideoLikely(basic, platform) },
       });
@@ -246,7 +246,7 @@ function buildPerformanceVitalsPack(psi, basic, isHtml, platform) {
         title: lcpTitleWithHero(sec, basic, platform),
         impact: isHeroVideoLikely(basic, platform)
           ? HERO_VIDEO_IMPACT
-          : "Slow LCP delays first meaningful paint — visitors leave before the page feels ready.",
+          : "Slow LCP delays first meaningful paint - visitors leave before the page feels ready.",
         signalLabel: label,
         evidence: { LCP_ms: mLCP, hero_video_likely: isHeroVideoLikely(basic, platform) },
       });

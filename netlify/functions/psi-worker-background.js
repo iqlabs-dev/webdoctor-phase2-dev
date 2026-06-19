@@ -211,7 +211,7 @@ export async function handler(event) {
 
       const { facts, audits } = lhFactsFromPSI(r.data);
 
-      // HARD GUARD — require at least one real metric (non-null)
+      // HARD GUARD - require at least one real metric (non-null)
       const hasCore =
         facts &&
         (

@@ -1,5 +1,5 @@
 // /netlify/functions/generate-report.js
-// iQWEB v5.2 — READ-ONLY report fetch
+// iQWEB v5.2 - READ-ONLY report fetch
 // RULE: Never generate AI narrative here. Never write to DB here.
 // Narrative is created ONLY during scan (run-scan).
 

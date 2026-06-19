@@ -44,12 +44,12 @@ Author: IQWEB
 
 
 // /assts/js/dashboard.js
-console.log("🔥 DASHBOARD JS LOADED —", location.pathname);
+console.log("🔥 DASHBOARD JS LOADED -", location.pathname);
 
 import { normaliseUrl } from "./scan.js";
 import { supabase } from "./supabaseClient.js";
 
-console.log("DASHBOARD JS v4.6 — stable dashboard flow + scan history + billing portal + PDF download");
+console.log("DASHBOARD JS v4.6 - stable dashboard flow + scan history + billing portal + PDF download");
 
 let currentUserId = null;
 
@@ -179,8 +179,8 @@ function setUserUI(email) {
   const acctEl = $("acct-email");
   const initialEl = $("wd-user-initial");
 
-  if (emailEl) emailEl.textContent = email || "—";
-  if (acctEl) acctEl.textContent = email ? `Signed in as ${email}` : "—";
+  if (emailEl) emailEl.textContent = email || "-";
+  if (acctEl) acctEl.textContent = email ? `Signed in as ${email}` : "-";
 
   if (initialEl && email) {
     const ch = (email.trim()[0] || "U").toUpperCase();
@@ -242,9 +242,9 @@ function fmtScanTime(d) {
 function displayDomainFromUrl(rawUrl) {
   const domain = normalizeDomainFromUrl(rawUrl);
   if (domain) return domain;
-  return String(rawUrl || "—")
+  return String(rawUrl || "-")
     .replace(/^https?:\/\//i, "")
-    .replace(/\/+$/, "") || "—";
+    .replace(/\/+$/, "") || "-";
 }
 
 function wireRowMenus() {
@@ -635,18 +635,18 @@ function updateLatestScanCard(row, opts = {}) {
 
   if (!row) {
     if (elUrl) elUrl.textContent = "No scans yet.";
-    if (elReportId) elReportId.textContent = "—";
+    if (elReportId) elReportId.textContent = "-";
     if (elDate) elDate.textContent = "Run your first scan to see results here.";
     if (elScoreWrap) elScoreWrap.style.display = "none";
     if (elView) elView.onclick = null;
     return;
   }
 
-  const cleanUrl = (row.url || "—").replace(/^https?:\/\//i, "");
+  const cleanUrl = (row.url || "-").replace(/^https?:\/\//i, "");
   if (elUrl) elUrl.textContent = cleanUrl;
 
   if (elReportId) {
-    elReportId.textContent = row.report_id || "—";
+    elReportId.textContent = row.report_id || "-";
   }
 
   const d = row.created_at ? new Date(row.created_at) : null;
@@ -829,8 +829,8 @@ async function loadScanHistory() {
       const tr = document.createElement("tr");
 
       const d = row.created_at ? new Date(row.created_at) : null;
-      const dateStr = d ? fmtShortDate(d) : "—";
-      const timeStr = d ? fmtScanTime(d) : "—";
+      const dateStr = d ? fmtShortDate(d) : "-";
+      const timeStr = d ? fmtScanTime(d) : "-";
 
       tr.dataset.url = row.url || "";
       tr.dataset.reportid = row.report_id || "";
@@ -857,7 +857,7 @@ async function loadScanHistory() {
         tdScanned.appendChild(dateSpan);
         tdScanned.appendChild(timeSpan);
       } else {
-        tdScanned.textContent = "—";
+        tdScanned.textContent = "-";
       }
       tr.appendChild(tdScanned);
 
@@ -878,7 +878,7 @@ async function loadScanHistory() {
 
       const tdScore = document.createElement("td");
       tdScore.className = "col-score";
-      tdScore.textContent = typeof overallScore === "number" ? String(Math.round(overallScore)) : "—";
+      tdScore.textContent = typeof overallScore === "number" ? String(Math.round(overallScore)) : "-";
       tr.appendChild(tdScore);
 
       const tdStatus = document.createElement("td");
@@ -890,13 +890,13 @@ async function loadScanHistory() {
         pill.textContent = "Complete";
         tdStatus.appendChild(pill);
       } else {
-        tdStatus.textContent = row.status || "—";
+        tdStatus.textContent = row.status || "-";
       }
       tr.appendChild(tdStatus);
 
       const tdReportId = document.createElement("td");
       tdReportId.className = "col-report-id";
-      tdReportId.textContent = row.report_id || "—";
+      tdReportId.textContent = row.report_id || "-";
       tr.appendChild(tdReportId);
 
       const tdBaseline = document.createElement("td");

@@ -251,7 +251,7 @@ body.iqweb-v2-shell .iqweb-app-sidebar{
     linear-gradient(180deg, var(--iqv2-sidebar), var(--iqv2-sidebar-2));
 }
 
-/* Match dashboard stretch — .main + .wrap fill available width */
+/* Match dashboard stretch - .main + .wrap fill available width */
 body.iqweb-v2-shell .app.report-app{
   min-height:100vh;
   display:flex;
@@ -301,7 +301,7 @@ body.iqweb-v2-shell .shell-inner{
   box-sizing:border-box !important;
 }
 
-/* Unified report chrome — header, tabs, and body share one edge */
+/* Unified report chrome - header, tabs, and body share one edge */
 body.iqweb-v2-shell .report-frame,
 body.iqweb-v2-shell .app.report-app .wrap.report-wrap,
 body.iqweb-v2-shell .report-nav-bar,

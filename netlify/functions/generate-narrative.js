@@ -544,7 +544,7 @@ var limitedPlatform = platformControl === "limited";
     };
   }
 
-  // (C) Trust override — ONLY when severe
+  // (C) Trust override - ONLY when severe
   // Don’t let mild header gaps hijack the narrative, but do surface severe trust gaps.
   var missingHeaders = Number(e.missing_security_headers);
   var secScore = Number(sc.security);
