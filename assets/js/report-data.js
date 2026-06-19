@@ -640,7 +640,7 @@ function setOverallUI(scores, overallSummary) {
   }
 
   var base = overallSummary || "";
-  var stamp = "Scoring Model v1.0 - Deterministic weighted signals.";
+  var stamp = "Scoring Model v1.0. Deterministic weighted signals.";
 
   if (base) {
     if (base.indexOf("Scoring Model") === -1) base = base + " " + stamp;
@@ -1517,7 +1517,7 @@ return {
       el.textContent = (t == null || t === "") ? "-" : String(t);
     }
 
-    setText(oEl, overall + "/100 - " + verdict(overall));
+    setText(oEl, overall + "/100 · " + verdict(overall));
 
     if (!primary || !primary.key) {
       setText(cEl, "No clear primary constraint identified from this scan output.");
@@ -1752,7 +1752,7 @@ return {
 
     function getRecommendation(score, text) {
       var s = asInt(score, 0);
-      if (s >= 95) return "Monitoring recommended - no measurable blockers detected.";
+      if (s >= 95) return "Monitoring recommended. No measurable blockers detected.";
       return text;
     }
 
@@ -1795,7 +1795,7 @@ var score = unmeasured ? null : displayScore;
         lines.push("Security headers and infrastructure are primarily controlled by the hosting platform.");
         lines.push("These elements sit outside direct site-level control, so this signal is treated as platform-managed context rather than an actionable issue.");
       } else if (unmeasured && !flagged) {
-        lines.push("Not measured in this scan - no evidence returned for this signal.");
+        lines.push("Not measured in this scan. No evidence returned for this signal.");
       } else {
         var allowEvidence = (flagged || (score !== null && score < 90));
         var because = pickExplainLine(sig, allowEvidence);
@@ -2780,7 +2780,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
     if (!fixPlan.length) {
       if (pill) pill.textContent = "All clear";
       root.innerHTML =
-        '<p class="iq-actionplan-allclear">No measurable issues detected in this scan - nothing to prioritize right now.</p>';
+        '<p class="iq-actionplan-allclear">No measurable issues detected in this scan. Nothing to prioritize right now.</p>';
       return;
     }
 
@@ -2817,7 +2817,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
       html += lockedCtaHtml(
         locked,
         locked + " more prioritized " + (locked === 1 ? "fix" : "fixes") + " identified",
-        "Get the full ranked fix plan, white-label reports, and baseline tracking - from $39/mo."
+        "Get the full ranked fix plan, white-label reports, and baseline tracking from $39/mo."
       );
     }
 
@@ -2844,9 +2844,9 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
     }
 
     var phaseMeta = {
-      1: { label: "Phase 1 - Fast wins", time: "Today / This week" },
-      2: { label: "Phase 2 - Structural improvements", time: "1–3 weeks" },
-      3: { label: "Phase 3 - Hardening & trust", time: "Ongoing" },
+      1: { label: "Phase 1: Fast wins", time: "Today / This week" },
+      2: { label: "Phase 2: Structural improvements", time: "1–3 weeks" },
+      3: { label: "Phase 3: Hardening & trust", time: "Ongoing" },
     };
 
     var groups = { 1: [], 2: [], 3: [] };
@@ -2868,7 +2868,7 @@ renderExecutiveTopIssues(displayChosen.slice(0, cap));
         var impactLbl = fixImpactLabel(it.severity, it.points);
         lis +=
           "<li><strong>" + escapeHtml(it.title || "Improvement opportunity") + "</strong>" +
-          " - " + escapeHtml(it.signal_label || "") +
+          " (" + escapeHtml(it.signal_label || "") + ")" +
           " · " + escapeHtml(impactLbl) +
           " · " + escapeHtml((it.effort || "Medium") + " effort") +
           "</li>";
