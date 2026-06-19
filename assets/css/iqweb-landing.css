@@ -957,25 +957,16 @@ a:hover {
   margin: 10px 0 12px;
   width: 100%;
   max-width: 30ch;
-  min-height: 4.5rem;
+  min-height: 2.875rem;
 }
 
 .pricing-outcome-headline {
   display: block;
-  min-height: 2.875rem;
   font-size: 1.0625rem;
   line-height: 1.35;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--ink);
-}
-
-.pricing-outcome-pillars {
-  display: block;
-  margin-top: 6px;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--muted);
 }
 
 .pricing-plan-note {
