@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="assets/css/iqweb-landing.css" />
+  <link rel="stylesheet" href="assets/css/iqweb-landing.css?v=20260618f" />
 
   <!-- Fathom Analytics -->
   <script src="https://cdn.usefathom.com/script.js" data-site="MIQNNPNX" defer></script>
@@ -149,7 +149,7 @@
       </main>
 
           <section class="iq-diff-strip" aria-label="How iQWEB compares">
-            <div class="iq-diff-inner">
+            <div class="iq-diff-inner reveal-item reveal-from-left">
               <h2 class="iq-diff-title">One client-ready report, not another tool to assemble</h2>
               <p class="iq-diff-text">
                 PageSpeed and Lighthouse give raw metrics. Semrush excels at rank tracking and backlinks.
@@ -157,6 +157,56 @@
               </p>
             </div>
           </section>
+
+<!-- AGENCY USE CASES -->
+<section class="section reveal-group" id="workflows">
+  <div class="section-header reveal-item reveal-from-left">
+    <div>
+      <div class="section-title">How agencies use iQWEB</div>
+      <p class="usecase-intro">Where the report fits in real client work, not just what the scan measures.</p>
+    </div>
+  </div>
+
+  <div class="usecase-grid">
+
+    <article class="usecase-card">
+      <div class="usecase-meta">
+        <span class="usecase-when">Before the proposal</span>
+        <span class="usecase-who">Freelancers &amp; studios</span>
+      </div>
+      <h3>New client pitch</h3>
+      <p>Run a report on a prospect’s live site during discovery. Share a plain-English overview that shows what needs attention before you quote a redesign or rebuild.</p>
+    </article>
+
+    <article class="usecase-card">
+      <div class="usecase-meta">
+        <span class="usecase-when">Pre &amp; post launch</span>
+        <span class="usecase-who">Dev teams &amp; PMs</span>
+      </div>
+      <h3>Launch quality check</h3>
+      <p>Scan staging or production before go-live, then again after launch. Catch performance, SEO, and mobile issues before the client finds them.</p>
+    </article>
+
+    <article class="usecase-card">
+      <div class="usecase-meta">
+        <span class="usecase-when">Monthly</span>
+        <span class="usecase-who">Care &amp; maintenance retainers</span>
+      </div>
+      <h3>Client health reports</h3>
+      <p>Re-scan the same URL each month and compare against a baseline. Show clients what improved, what regressed, and what to fix next without rebuilding the deck from scratch.</p>
+    </article>
+
+    <article class="usecase-card">
+      <div class="usecase-meta">
+        <span class="usecase-when">Quarterly</span>
+        <span class="usecase-who">SEO &amp; visibility retainers</span>
+      </div>
+      <h3>Performance &amp; visibility review</h3>
+      <p>Bundle performance, SEO, trust, and AI visibility into one client update. Useful for check-ins where the client wants progress, not a wall of technical metrics.</p>
+    </article>
+
+  </div>
+</section>
 
           <section class="iq-diagnostic-zone">
 <!-- NINE SIGNALS -->
@@ -269,19 +319,29 @@
         </section>
       </main>
 
-      <div class="iq-platform-strip">
+          <div class="iq-platform-strip reveal-group">
+        <div class="iq-platform-layout">
+          <div class="iq-platform-copy reveal-item reveal-from-left">
         <h3 class="iq-platform-strip-title">Platform-Aware Scoring</h3>
 
         <p class="iq-platform-strip-text">
-          iQWEB detects managed platforms (Webflow, Shopify, Wix, Squarespace) and scores only what you can actually control.
+          iQWEB detects managed platforms and scores only what you can actually control.
           Hosting and server settings outside your reach are noted in context, not flagged as your fault.
         </p>
-
-  <div class="iq-platform-supported">Supported Platforms:&nbsp;&nbsp;Webflow · Shopify · Wix · Squarespace</div>
+          </div>
+          <div class="iq-platform-visual reveal-item reveal-from-right" aria-hidden="true">
+            <div class="iq-platform-grid">
+              <span class="iq-platform-tile">Webflow</span>
+              <span class="iq-platform-tile">Shopify</span>
+              <span class="iq-platform-tile">Wix</span>
+              <span class="iq-platform-tile">Squarespace</span>
+            </div>
+          </div>
+        </div>
   </div>
 
 <!-- HOW IT WORKS / WORKFLOW -->
-<section class="section" id="how">
+<section class="section reveal-group" id="how">
   <div class="section-header">
     <div>
       <div class="section-title">From URL to Client-Ready Diagnostic Report</div>
@@ -582,6 +642,41 @@
         window.location.href = `dashboard.html?buy=${encodeURIComponent(priceKey)}`;
       });
     });
+
+    (function () {
+      const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const revealItems = document.querySelectorAll(".reveal-item");
+      const revealGroups = document.querySelectorAll(".reveal-group");
+
+      if (prefersReduced) {
+        revealItems.forEach((el) => el.classList.add("is-visible"));
+        revealGroups.forEach((el) => el.classList.add("is-visible"));
+        return;
+      }
+
+      const itemObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          const delay = Number(el.dataset.revealDelay || 0);
+          window.setTimeout(() => el.classList.add("is-visible"), delay);
+          itemObserver.unobserve(el);
+        });
+      }, { threshold: 0.14, rootMargin: "0px 0px -6% 0px" });
+
+      revealItems.forEach((el) => itemObserver.observe(el));
+
+      const groupObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-visible");
+          groupObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+
+      revealGroups.forEach((el) => groupObserver.observe(el));
+    })();
 
     (function () {
       const how = document.getElementById("how");
