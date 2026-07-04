@@ -1,0 +1,23 @@
+{
+  "name": "iQWEB",
+  "short_name": "iQWEB",
+  "description": "Website audit reports for agencies — performance, SEO, and AI visibility.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
